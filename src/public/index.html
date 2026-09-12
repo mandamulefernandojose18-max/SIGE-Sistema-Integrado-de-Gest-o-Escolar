@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGE — Sistema Integrado de Gestão Escolar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --sidebar-width: 270px;
+      --primary-color: #1e3a8a;
+      --primary-hover: #172554;
+      --sidebar-bg: #0f172a;
+      --sidebar-color: #94a3b8;
+      --sidebar-active: #38bdf8;
+      --moz-gold: #f59e0b;
+    }
+    body {
+      background-color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+    }
+    
+    /* Layout */
+    #sidebar {
+      width: var(--sidebar-width);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      background: var(--sidebar-bg);
+      color: var(--sidebar-color);
+      transition: all 0.3s;
+      overflow-y: auto;
+    }
+    #sidebar .brand {
+      padding: 18px 20px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #sidebar .nav-link {
+      color: var(--sidebar-color);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 500;
+      font-size: 0.88rem;
+      border-radius: 8px;
+      margin: 3px 10px;
+      transition: all 0.2s;
+    }
+    #sidebar .nav-link:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.08);
+    }
+    #sidebar .nav-link.active {
+      background: var(--primary-color);
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    #sidebar .nav-category {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      padding: 12px 18px 4px;
+      font-weight: 700;
+    }
+
+    #main-wrapper {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      height: 68px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 90;
+    }
+    .content-area {
+      padding: 24px;
+      flex: 1;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      padding: 20px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    /* Cores de notas oficiais MINEDH Moçambique */
+    .nota-positiva {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .nota-negativa {
+      color: #dc2626;
+      font-weight: 700;
+    }
+    .badge-aprovado {
+      background-color: #059669;
+      color: white;
+    }
+    .badge-reprovado {
+      background-color: #dc2626;
+      color: white;
+    }
+
+    /* Print Preview Styles */
+    @media print {
+      #sidebar, .topbar, .no-print, .btn, .nav-tabs, #alertaExpiracaoBanner { display: none !important; }
+      #main-wrapper { margin-left: 0 !important; }
+      .content-area { padding: 0 !important; }
+      .printable-document {
+        border: none !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+    }
+
+    .badge-ativa { background-color: #10b981; color: white; }
+    .badge-expirada { background-color: #ef4444; color: white; }
+    .badge-pendente { background-color: #f59e0b; color: white; }
+    .badge-suspensa { background-color: #64748b; color: white; }
+
+    .emblema-nacional {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN (Sem selecção de escolas visíveis no login - Clean & Seguro) -->
+<div id="loginView" style="display: none; min-height: 100vh;" class="align-items-center justify-content-center bg-slate-100 p-4">
+  <div class="card shadow-lg p-4 p-md-5" style="max-width: 460px; width: 100%; border-radius: 16px;">
+    <div class="text-center mb-4">
+      <div class="d-inline-flex p-3 bg-primary bg-opacity-10 text-primary rounded-circle mb-3">
+        <i class="bi bi-mortarboard-fill fs-1"></i>
+      </div>
+      <h4 class="fw-bold text-dark mb-1">Sistema Integrado de Gestão Escolar</h4>
+      <p class="text-muted small mb-0">Sistema Integrado de Gestão Escolar</p>
+    </div>
+
+    <form id="loginForm">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">E-mail Corporativo</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+          <input type="email" id="loginEmail" class="form-control" required placeholder="seu.email@escola.edu.mz">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label small fw-semibold">Palavra-passe</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock"></i></span>
+          <input type="password" id="loginSenha" class="form-control" required placeholder="••••••••">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+        <i class="bi bi-box-arrow-in-right me-2"></i> Iniciar Sessão
+      </button>
+    </form>
+
+    <!-- Demonstração rápida discreta para testes locais -->
+    <div class="mt-4 pt-3 border-top text-center">
+      <button class="btn btn-link btn-sm text-decoration-none text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDemo">
+        <i class="bi bi-key me-1"></i> Contas de Demonstração (Desenvolvimento)
+      </button>
+      <div class="collapse mt-2" id="collapseDemo">
+        <div class="d-grid gap-1">
+          <button class="btn btn-outline-dark btn-sm text-start" onclick="preencherLogin('admin.master@sige.com', 'admin123')">
+            <i class="bi bi-shield-lock-fill text-warning me-1"></i> <strong>SuperAdmin Master</strong>
+          </button>
+          <button class="btn btn-outline-primary btn-sm text-start" onclick="preencherLogin('director@escola.edu.mz', 'admin123')">
+            <i class="bi bi-person-badge me-1"></i> <strong>Director da Escola</strong>
+          </button>
+          <button class="btn btn-outline-info btn-sm text-start" onclick="preencherLogin('professor@escola.edu.mz', 'admin123')">
+            <i class="bi bi-journal-text me-1"></i> <strong>Professor</strong>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm text-start" onclick="preencherLogin('aluno@escola.edu.mz', 'admin123')">
+            <i class="bi bi-person me-1"></i> <strong>Aluno (Portal Privado)</strong>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APLICAÇÃO PRINCIPAL (Autenticada) -->
+<div id="appView" style="display: flex;">
+
+  <!-- Sidebar Lateral -->
+  <aside id="sidebar">
+    <div class="brand">
+      <i class="bi bi-mortarboard-fill text-primary fs-3"></i>
+      <div style="line-height: 1.2;">
+        <span class="text-white d-block fw-bold" style="font-size: 0.95rem;">SIGE</span>
+        <small class="text-muted" style="font-size: 0.7rem;">Gestão Escolar Integrada</small>
+      </div>
+    </div>
+
+    <!-- Tenant Card / Escola Ativa -->
+    <div class="px-3 py-2">
+      <div id="sidebarTenantCard" class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 mb-2">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div id="sidebarEmblemaContainer">
+            <i class="bi bi-building text-warning fs-5"></i>
+          </div>
+          <div class="overflow-hidden">
+            <small class="text-muted d-block" style="font-size: 0.65rem; text-transform: uppercase;">Instituição</small>
+            <strong id="sidebarEscolaNome" class="text-white d-block text-truncate small">SIGE</strong>
+          </div>
+        </div>
+        <div class="d-flex align-items-center justify-content-between">
+          <span id="sidebarStatusBadge" class="badge badge-ativa" style="font-size: 0.65rem;">ATIVA</span>
+          <span id="sidebarProvinciaBadge" class="text-muted small" style="font-size: 0.7rem;">Maputo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navegação Dinâmica conforme Role -->
+    <nav class="nav flex-column pb-4" id="sidebarNavItems">
+      <!-- Secção Geral -->
+      <div class="nav-category">Geral</div>
+      <a class="nav-link active" href="#" onclick="navegarPara('dashboard')" id="nav-dashboard">
+        <i class="bi bi-grid-1x2-fill"></i> <span>Painel Principal</span>
+      </a>
+
+      <!-- Secção Exclusiva SuperAdmin -->
+      <div class="nav-category saas-only" style="display: none;">Administração Geral</div>
+      <a id="linkSaaSSuper" class="nav-link saas-only" href="#" onclick="navegarPara('saas')" style="display: none;">
+        <i class="bi bi-buildings-fill text-warning"></i> <span>Gestão de Escolas & Planos</span>
+      </a>
+
+      <!-- Secção Administrativa da Escola -->
+      <div class="nav-category escola-admin-only">Gestão Escolar</div>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('escola')" id="nav-escola">
+        <i class="bi bi-building-gear"></i> <span>Escola & Turmas</span>
+      </a>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('alunos')" id="nav-alunos">
+        <i class="bi bi-people-fill"></i> <span>Alunos & Matrículas</span>
+      </a>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('professores')" id="nav-professores">
+        <i class="bi bi-person-badge-fill"></i> <span>Corpo Docente</span>
+      </a>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('disciplinas')" id="nav-disciplinas">
+        <i class="bi bi-book-fill"></i> <span>Disciplinas</span>
+      </a>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('desbloqueio')" id="nav-desbloqueio">
+        <i class="bi bi-unlock-fill text-warning"></i> <span>Desbloqueio de Trimestre</span>
+      </a>
+
+      <!-- Secção Pedagógica & Avaliações -->
+      <div class="nav-category ped-only">Pedagógico</div>
+      <a class="nav-link ped-only" href="#" onclick="navegarPara('caderneta')" id="nav-caderneta">
+        <i class="bi bi-journal-bookmark-fill text-info"></i> <span>Caderneta do Professor</span>
+      </a>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('pautas')" id="nav-pautas">
+        <i class="bi bi-table"></i> <span>Pautas & Actas Oficiais</span>
+      </a>
+
+      <!-- Secção Financeira & Serviços -->
+      <div class="nav-category fin-only">Financeiro & Secretaria</div>
+      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('certificados')" id="nav-certificados">
+        <i class="bi bi-award-fill"></i> <span>Certificados (QR Code)</span>
+      </a>
+      <a class="nav-link fin-only" href="#" onclick="navegarPara('pagamentos')" id="nav-pagamentos">
+        <i class="bi bi-cash-coin"></i> <span>Mensalidades & Propinas</span>
+      </a>
+      <a class="nav-link" href="#" onclick="navegarPara('impressao')" id="nav-impressao">
+        <i class="bi bi-printer-fill"></i> <span>Central de Impressão</span>
+      </a>
+
+      <!-- Secção Privada do Aluno -->
+      <div class="nav-category aluno-only" style="display: none;">Espaço do Aluno</div>
+      <a class="nav-link aluno-only" href="#" onclick="navegarPara('aluno-perfil')" id="nav-aluno-perfil" style="display: none;">
+        <i class="bi bi-person-vcard-fill text-primary"></i> <span>O Meu Perfil & Filiação</span>
+      </a>
+      <a class="nav-link aluno-only" href="#" onclick="navegarPara('aluno-notas')" id="nav-aluno-notas" style="display: none;">
+        <i class="bi bi-card-checklist text-success"></i> <span>As Minhas Notas</span>
+      </a>
+
+      <!-- Auditoria -->
+      <div class="nav-category saas-only escola-admin-only">Segurança</div>
+      <a class="nav-link saas-only escola-admin-only" href="#" onclick="navegarPara('acessos')" id="nav-acessos">
+        <i class="bi bi-shield-check"></i> <span>Auditoria & Acessos</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Wrapper -->
+  <div id="main-wrapper">
+    <!-- Topbar Oficial -->
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <h5 id="pageTitle" class="mb-0 fw-bold text-dark">Sistema Integrado de Gestão Escolar</h5>
+          <small class="text-muted" id="subPageTitle">Gestão Escolar Integrada</small>
+        </div>
+        <span id="headerAnoLetivo" class="badge bg-light text-dark border ms-2">Ano Lectivo: 2026</span>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <!-- Botão Comprovativo de Contrato (para Escolas) -->
+        <button id="btnComprovativoEscola" class="btn btn-outline-primary btn-sm d-none" onclick="baixarComprovativoMinhaEscola()">
+          <i class="bi bi-file-earmark-check me-1"></i> Comprovativo de Contrato SIGE
+        </button>
+
+        <!-- SuperAdmin Tenant Selector -->
+        <div id="superAdminTenantSelectWrapper" style="display: none;">
+          <select id="superAdminTenantSelect" class="form-select form-select-sm" onchange="alternarEscolaSuperAdmin(this.value)">
+            <option value="">(Visão Master SaaS)</option>
+          </select>
+        </div>
+
+        <!-- Perfil do Usuário com Último Acesso -->
+        <div class="dropdown">
+          <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2 border px-3 py-2" type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle fs-5 text-primary"></i>
+            <div class="text-start" style="line-height: 1.1;">
+              <span id="topbarUserName" class="fw-bold small d-block">Utilizador</span>
+              <small id="topbarUltimoAcesso" class="text-muted" style="font-size: 0.68rem;">Último acesso: Hoje</small>
+            </div>
+            <span id="topbarUserRole" class="badge bg-secondary ms-1" style="font-size: 0.65rem;">ADMIN</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li class="px-3 py-2 border-bottom">
+              <small class="text-muted d-block">Sessão Activa</small>
+              <strong id="dropdownUserEmail" class="small text-truncate d-block"></strong>
+            </li>
+            <li>
+              <a class="dropdown-item small text-danger py-2" href="#" onclick="fazerLogout()">
+                <i class="bi bi-box-arrow-right me-2"></i> Terminar Sessão
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <!-- ALERTA DE ASSINATURA EXPIRADA (HTTP 402 BANNER) -->
+    <div id="alertaExpiracaoBanner" style="display: none;" class="alert alert-danger rounded-0 m-0 border-0 border-bottom border-danger d-flex align-items-center justify-content-between px-4 py-3">
+      <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
+        <div>
+          <strong class="d-block">Assinatura Expirada (HTTP 402 - Regularização de Contrato Necessária)</strong>
+          <span id="alertaExpiracaoMensagem">A assinatura desta instituição expirou. Regularize o contrato com o SuperAdmin SIGE.</span>
+        </div>
+      </div>
+      <div id="btnRenovarRapidoContainer" style="display: none;">
+        <button class="btn btn-danger btn-sm" onclick="navegarPara('saas')">Renovar no Painel SaaS</button>
+      </div>
+    </div>
+
+    <!-- Content Area Principal -->
+    <main class="content-area">
+
+      <!-- ==================== 1. DASHBOARD GERAL ==================== -->
+      <section id="view-dashboard" class="modulo-view">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total de Alunos</span>
+                <h3 id="statTotalAlunos" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-success fw-medium"><span id="statAlunosAtivos">0</span> matriculados</small>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-people-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Corpo Docente</span>
+                <h3 id="statTotalProfessores" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-muted">Professores activos</small>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-person-badge-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Receita Arrecadada</span>
+                <h3 id="statReceitaTotal" class="fw-bold mb-0 text-success">0 MZN</h3>
+                <small class="text-danger fw-medium"><span id="statReceitaPendente">0 MZN</span> pendente</small>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-cash-coin"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Validade do Contrato</span>
+                <h3 id="statDiasRestantes" class="fw-bold mb-0 text-primary">0 dias</h3>
+                <small id="statStatusAssinatura" class="badge badge-ativa">ATIVA</small>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-shield-lock-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-lg-8">
+            <div class="card p-3">
+              <h6 class="fw-bold mb-3"><i class="bi bi-graph-up me-2 text-primary"></i>Receitas Arrecadadas vs. Propinas Pendentes (MZN)</h6>
+              <canvas id="chartDashboardFaturamento" height="120"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card p-3">
+              <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Distribuição por Género</h6>
+              <canvas id="chartDashboardGenero" height="240"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 2. SUPERADMIN SAAS ==================== -->
+      <section id="view-saas" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">MRR (Mensal Recorrente)</span>
+                <h3 id="saasMRR" class="fw-bold mb-0 text-success">0 MZN</h3>
+                <small class="text-muted">Valor contratado mensal</small>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-stack"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">ARR (Anual Projetado)</span>
+                <h3 id="saasARR" class="fw-bold mb-0 text-primary">0 MZN</h3>
+                <small class="text-muted">Projeção anual de receita</small>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-graph-up-arrow"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Churn</span>
+                <h3 id="saasChurn" class="fw-bold mb-0 text-danger">0%</h3>
+                <small class="text-muted">Escolas suspensas/expiradas</small>
+              </div>
+              <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-person-x-fill"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Instituições de Ensino</span>
+                <h3 id="saasTotalEscolas" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-success"><span id="saasEscolasAtivas">0</span> ativas</small> | 
+                <small class="text-danger"><span id="saasEscolasExpiradas">0</span> expiradas</small>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-buildings"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela de Escolas Cadastradas -->
+        <div class="card p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-buildings me-2"></i>Gestão de Escolas (Tenants)</h5>
+              <small class="text-muted">Cadastre, edite prazos, active ou desactive instituições de ensino.</small>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm" onclick="modalCadastrarEscolaSuperAdmin()">
+                <i class="bi bi-plus-lg me-1"></i> Cadastrar Nova Escola
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="executarCronVerificacaoManual()">
+                <i class="bi bi-arrow-repeat me-1"></i> Rodar Verificação de Expiração
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Escola</th>
+                  <th>Província / Distrito</th>
+                  <th>NUIT</th>
+                  <th>Plano & Contrato</th>
+                  <th>Validade</th>
+                  <th>Estado</th>
+                  <th>Alunos/Profs</th>
+                  <th class="text-end">Acções</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaSaasEscolas">
+                <tr><td colspan="8" class="text-center py-4">A carregar escolas...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tabela de Gestão de Preços dos Planos de Assinatura -->
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-tags-fill me-2 text-warning"></i>Planos de Assinatura & Preços (MZN)</h5>
+              <small class="text-muted">Altere o valor do contrato para novos períodos de adesão (Mensal, Trimestral, Semestral e Anual).</small>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Plano</th>
+                  <th>Duração (Dias)</th>
+                  <th>Preço Vigente (MZN)</th>
+                  <th>Descrição Oficial</th>
+                  <th class="text-end">Editar Valor</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaSaasPlanos">
+                <tr><td colspan="5" class="text-center py-4">A carregar planos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 3. ESCOLA & TURMAS ==================== -->
+      <section id="view-escola" class="modulo-view" style="display: none;">
+        <div class="row g-4">
+          <div class="col-lg-5">
+            <div class="card p-4">
+              <h5 class="fw-bold mb-3"><i class="bi bi-sliders me-2"></i>Dados da Instituição de Ensino</h5>
+              <form id="formEscolaInfo">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Nome da Instituição</label>
+                  <input type="text" id="confEscolaNome" class="form-control" required>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <label class="form-label small fw-semibold">Ano Lectivo Activo</label>
+                    <input type="text" id="confEscolaAnoLetivo" class="form-control" value="2026" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-semibold">Trimestre Activo</label>
+                    <select id="confEscolaTrimestreAtivo" class="form-select">
+                      <option value="1_TRIMESTRE">1º Trimestre</option>
+                      <option value="2_TRIMESTRE">2º Trimestre</option>
+                      <option value="3_TRIMESTRE">3º Trimestre</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <label class="form-label small fw-semibold">Província</label>
+                    <select id="confEscolaProvincia" class="form-select" onchange="atualizarDistritosEscola(this.value)"></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-semibold">Distrito</label>
+                    <select id="confEscolaDistrito" class="form-select"></select>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
+                  <input type="text" id="confEscolaTelefone" class="form-control" placeholder="+258 84 000 0000">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">E-mail da Secretaria</label>
+                  <input type="email" id="confEscolaEmail" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Director da Escola</label>
+                  <input type="text" id="confEscolaDirector" class="form-control" placeholder="Nome completo do Director">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Director Adjunto Pedagógico (DAP)</label>
+                  <input type="text" id="confEscolaDAP" class="form-control" placeholder="Nome do DAP">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Chefe da Secretaria</label>
+                  <input type="text" id="confEscolaChefeSec" class="form-control" placeholder="Nome do Chefe da Secretaria">
+                </div>
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="confEscolaEmblema">
+                  <label class="form-check-label small fw-semibold" for="confEscolaEmblema">
+                    Usar Emblema Oficial nos cabeçalhos
+                  </label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm w-100">Salvar Alterações</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="card p-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="fw-bold mb-0"><i class="bi bi-diagram-3 me-2"></i>Turmas & Direcção de Classe</h5>
+                  <small class="text-muted">Defina a classe, turno, Director de Turma e Director de Classe.</small>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="modalCriarTurma()"><i class="bi bi-plus-lg me-1"></i> Nova Turma</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Turma</th>
+                      <th>Classe / Grau</th>
+                      <th>Turno</th>
+                      <th>Dir. Turma</th>
+                      <th>Dir. Classe</th>
+                      <th>Alunos</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaTurmas">
+                    <tr><td colspan="6" class="text-center py-4">A carregar turmas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 4. ALUNOS ==================== -->
+      <section id="view-alunos" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total de Alunos</span>
+                <h4 id="alunoTotalCard" class="fw-bold mb-0">0</h4>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Retenção</span>
+                <h4 id="alunoRetencaoCard" class="fw-bold mb-0 text-success">100%</h4>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-check2-all"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Evasão</span>
+                <h4 id="alunoEvasaoCard" class="fw-bold mb-0 text-danger">0%</h4>
+              </div>
+              <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-door-open-fill"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Masculino / Feminino</span>
+                <h4 id="alunoGeneroRatioCard" class="fw-bold mb-0 text-info">0 / 0</h4>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-gender-ambiguous"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-person-lines-fill me-2"></i>Alunos Matriculados</h5>
+            <button class="btn btn-primary btn-sm" onclick="modalNovoAluno()"><i class="bi bi-plus-lg me-1"></i> Matricular Aluno</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Matrícula</th>
+                  <th>Nome Completo & Apelido</th>
+                  <th>Turma</th>
+                  <th>Documento (BI/DIRE)</th>
+                  <th>Província / Distrito</th>
+                  <th>Filiação</th>
+                  <th>Estado</th>
+                  <th class="text-end">Acções</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaAlunos">
+                <tr><td colspan="8" class="text-center py-4">A carregar alunos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 5. PROFESSORES ==================== -->
+      <section id="view-professores" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total Professores</span>
+                <h4 id="profTotalCard" class="fw-bold mb-0">0</h4>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-person-workspace"></i></div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Relação Aluno / Docente</span>
+                <h4 id="profRatioCard" class="fw-bold mb-0 text-info">0 : 1</h4>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-arrows-angle-expand"></i></div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Aulas Ministradas / Mês</span>
+                <h4 id="profAulasMesCard" class="fw-bold mb-0 text-success">0</h4>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-calendar2-check-fill"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-mortarboard me-2"></i>Corpo Docente & Carreiras (MINEDH)</h5>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary btn-sm" onclick="modalAlocarProfessor()"><i class="bi bi-link-45deg me-1"></i> Alocar a Turma/Disciplina</button>
+              <button class="btn btn-primary btn-sm" onclick="modalNovoProfessor()"><i class="bi bi-plus-lg me-1"></i> Cadastrar Docente</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Docente</th>
+                  <th>Contacto & E-mail</th>
+                  <th>Carreira Docente</th>
+                  <th>Província / Distrito</th>
+                  <th>Carga Horária</th>
+                  <th>Turmas Alocadas</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaProfessores">
+                <tr><td colspan="6" class="text-center py-4">A carregar professores...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 6. DISCIPLINAS ==================== -->
+      <section id="view-disciplinas" class="modulo-view" style="display: none;">
+        <div class="row g-4 mb-4">
+          <div class="col-lg-8">
+            <div class="card p-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-book me-2"></i>Disciplinas do Plano Curricular Nacional</h5>
+                <button class="btn btn-primary btn-sm" onclick="modalNovaDisciplina()"><i class="bi bi-plus-lg me-1"></i> Nova Disciplina</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Código</th>
+                      <th>Disciplina</th>
+                      <th>Carga Horária</th>
+                      <th>Ano Lectivo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaDisciplinas">
+                    <tr><td colspan="4" class="text-center py-4">A carregar disciplinas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card p-3">
+              <h6 class="fw-bold mb-3"><i class="bi bi-exclamation-diamond text-danger me-2"></i>Ranking de Negativas (%)</h6>
+              <canvas id="chartDisciplinasReprovacao" height="240"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 7. CADERNETA DO PROFESSOR (6 AVALIAÇÕES) ==================== -->
+      <section id="view-caderneta" class="modulo-view" style="display: none;">
+        <div class="card p-4 mb-4">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Minha Turma & Disciplina Alocada</label>
+              <select id="cadernetaAlocacaoSelect" class="form-select" onchange="carregarCadernetaDocente()">
+                <option value="">A carregar alocações...</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Trimestre Lectivo</label>
+              <select id="cadernetaPeriodoSelect" class="form-select" onchange="carregarCadernetaDocente()">
+                <option value="1_TRIMESTRE">1º Trimestre</option>
+                <option value="2_TRIMESTRE">2º Trimestre</option>
+                <option value="3_TRIMESTRE">3º Trimestre</option>
+              </select>
+            </div>
+            <div class="col-md-5 text-end d-flex gap-2 justify-content-end">
+              <button class="btn btn-outline-success btn-sm" onclick="exportarCadernetaExcel()">
+                <i class="bi bi-file-earmark-excel me-1"></i> Descarregar Excel (.xlsx)
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="modalSalvarNotaCaderneta()">
+                <i class="bi bi-pencil-square me-1"></i> Lançar Notas do Aluno
+              </button>
+            </div>
+          </div>
+          <!-- Aviso de Bloqueio do Trimestre -->
+          <div id="avisoTrimestreBloqueado" class="alert alert-warning mt-3 mb-0 d-none" role="alert">
+            <i class="bi bi-lock-fill me-2"></i>
+            <strong>Trimestre Encerrado:</strong> Este trimestre lectivo encontra-se fechado para edição directa. Contacte o Director da Escola ou DAP para solicitar autorização de desbloqueio extraordinário.
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-journal-check me-2"></i>Caderneta de Avaliação Contínua (Sistema Oficial)</h5>
+              <small class="text-muted">6 Avaliações: Testes 1 e 2 (obrigatórios), Testes 3 e 4 (opcionais), Trabalho/ACS e Avaliação Trimestral (AT). Média inteira (0 a 20).</small>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle text-center small">
+              <thead class="table-light">
+                <tr>
+                  <th class="text-start">Nº / Aluno</th>
+                  <th>Teste 1</th>
+                  <th>Teste 2</th>
+                  <th>Teste 3</th>
+                  <th>Teste 4</th>
+                  <th>Trabalho / ACS</th>
+                  <th>AT (Trimestral)</th>
+                  <th class="bg-light fw-bold">Média Final</th>
+                  <th>Faltas</th>
+                  <th>Anotação</th>
+                  <th>Comportamento</th>
+                  <th>Situação</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaCadernetaCorpo">
+                <tr><td colspan="12" class="text-center py-4">Selecione uma turma e disciplina para visualizar a Caderneta Oficial.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 8. PAUTAS & ACTAS OFICIAIS ==================== -->
+      <section id="view-pautas" class="modulo-view" style="display: none;">
+        <div class="card p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-journal-text me-2"></i>Pautas Oficiais de Avaliação & Actas de Exames</h5>
+              <small class="text-muted">Critério Oficial: Excepto a 12ª classe, aprovação exige 100% de positivas (0 negativas). Na 12ª classe: Média ≥ 9.5, máx 2 negativas e nenhuma &lt; 8.</small>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="modalGerarPauta()"><i class="bi bi-file-earmark-plus me-1"></i> Consolidar Pauta Oficial</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Turma</th>
+                  <th>Ano Lectivo</th>
+                  <th>Período</th>
+                  <th>Estado</th>
+                  <th>Homologação</th>
+                  <th class="text-end">Descarregar Documentos</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaPautas">
+                <tr><td colspan="6" class="text-center py-4">A carregar pautas...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Visualizador de Pauta Oficial Consolidada -->
+        <div id="pautaDetalheView" class="card p-4 d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+            <div>
+              <h5 class="fw-bold mb-0" id="pautaDetalheTitulo">Pauta Oficial de Avaliação</h5>
+              <small class="text-muted" id="pautaDetalheSubtitulo"></small>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-success btn-sm" id="btnExportarPautaXlsx">
+                <i class="bi bi-file-earmark-excel me-1"></i> Descarregar Pauta (.xlsx)
+              </button>
+              <button class="btn btn-outline-primary btn-sm" id="btnExportarActaXlsx">
+                <i class="bi bi-file-text me-1"></i> Descarregar Acta Estatística (.xlsx)
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive" id="pautaDetalheTabelaContainer">
+            <!-- Pauta Matricial renderizada dinamicamente -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 9. CERTIFICADOS (QR CODE) ==================== -->
+      <section id="view-certificados" class="modulo-view" style="display: none;">
+        <div class="card p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-award me-2"></i>Emissão de Certificados com Autenticação Digital QR Code</h5>
+            <button class="btn btn-primary btn-sm" onclick="modalEmitirCertificado()"><i class="bi bi-patch-check me-1"></i> Emitir Novo Certificado</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Código de Autenticidade</th>
+                  <th>Aluno</th>
+                  <th>Tipo de Certificado</th>
+                  <th>Data de Emissão</th>
+                  <th>QR Code</th>
+                  <th class="text-end">Validação Pública</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaCertificados">
+                <tr><td colspan="6" class="text-center py-4">A carregar certificados...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 10. FINANCEIRO & MENSALIDADES ==================== -->
+      <section id="view-pagamentos" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Faturamento Total</span>
+                <h4 id="finFaturadoCard" class="fw-bold mb-0 text-success">0 MZN</h4>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-stack"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Em Atraso</span>
+                <h4 id="finAtrasadoCard" class="fw-bold mb-0 text-danger">0 MZN</h4>
+              </div>
+              <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-circle-fill"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Inadimplência</span>
+                <h4 id="finInadimplenciaCard" class="fw-bold mb-0 text-warning">0%</h4>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-pie-chart-fill"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Alunos em Dia</span>
+                <h4 id="finAdimplentesCard" class="fw-bold mb-0 text-primary">0%</h4>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-check-circle"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-wallet2 me-2"></i>Gestão de Propinas & Mensalidades (MZN)</h5>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary btn-sm" onclick="modalGerarMensalidadesTurma()"><i class="bi bi-calendar-plus me-1"></i> Gerar em Lote para Turma</button>
+              <button class="btn btn-primary btn-sm" onclick="modalNovoPagamento()"><i class="bi bi-plus-lg me-1"></i> Nova Cobrança</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Aluno</th>
+                  <th>Descrição</th>
+                  <th>Mês Ref.</th>
+                  <th>Valor (MZN)</th>
+                  <th>Vencimento</th>
+                  <th>Estado</th>
+                  <th class="text-end">Liquidação & Recibo</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaPagamentos">
+                <tr><td colspan="7" class="text-center py-4">A carregar pagamentos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 11. CENTRAL DE IMPRESSÃO (INDIVIDUAL E EM LOTE) ==================== -->
+      <section id="view-impressao" class="modulo-view" style="display: none;">
+        <div class="card p-4 no-print mb-4">
+          <h5 class="fw-bold mb-2"><i class="bi bi-printer me-2"></i>Central de Impressão de Documentos Oficiais</h5>
+          <p class="text-muted small mb-3">Emita Boletins, Declarações, Certificados, Recibos e Fichas com formato oficial A4. Seleccione a modalidade individual ou emissão em lote por Turma.</p>
+          
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Tipo de Documento</label>
+              <select id="printTipoDoc" class="form-select" onchange="alternarCamposImpressao(this.value)">
+                <option value="BOLETIM">Boletim Escolar</option>
+                <option value="DECLARACAO">Declaração Escolar</option>
+                <option value="CERTIFICADO">Certificado Escolar</option>
+                <option value="RECIBO">Recibo de Propina</option>
+                <option value="FICHA">Ficha do Aluno</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Modalidade de Emissão</label>
+              <select id="printModoEmissao" class="form-select" onchange="alternarModoImpressao(this.value)">
+                <option value="INDIVIDUAL">Aluno Individual</option>
+                <option value="LOTE">Em Lote por Turma (Todos os Alunos)</option>
+              </select>
+            </div>
+            <div class="col-md-4" id="printSelectAlunoContainer">
+              <label class="form-label small fw-semibold">Selecione o Aluno</label>
+              <select id="printSelectAluno" class="form-select">
+                <option value="">A carregar alunos...</option>
+              </select>
+            </div>
+            <div class="col-md-4 d-none" id="printSelectTurmaContainer">
+              <label class="form-label small fw-semibold">Selecione a Turma</label>
+              <select id="printSelectTurma" class="form-select">
+                <option value="">A carregar turmas...</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-primary w-100" onclick="carregarVisualizacaoImpressao()"><i class="bi bi-eye me-1"></i> Visualizar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Área de Impressão Renderizada Oficial -->
+        <div id="printAreaPreview" class="printable-document card p-5 bg-white mx-auto shadow-sm" style="max-width: 860px; display: none;">
+          <!-- Conteúdo dinâmico oficial renderizado via JavaScript -->
+        </div>
+      </section>
+
+      <!-- ==================== 12. DESBLOQUEIO DE TRIMESTRE (DIRECÇÃO) ==================== -->
+      <section id="view-desbloqueio" class="modulo-view" style="display: none;">
+        <div class="card p-4">
+          <h5 class="fw-bold mb-2"><i class="bi bi-unlock-fill text-warning me-2"></i>Autorização de Desbloqueio de Trimestre Lectivo</h5>
+          <p class="text-muted small">Funcionalidade reservada ao Director da Escola e DAP. Permite autorizar um docente a lançar ou rectificar avaliações num trimestre passado.</p>
+          
+          <form id="formAutorizarDesbloqueio" class="row g-3 mt-2" style="max-width: 600px;">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Turma</label>
+              <select id="desbloqueioTurma" class="form-select" required></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Docente Titular (Opcional - Em branco para toda a turma)</label>
+              <select id="desbloqueioProfessor" class="form-select">
+                <option value="">(Todos os Docentes da Turma)</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Trimestre a Desbloquear</label>
+              <select id="desbloqueioTrimestre" class="form-select">
+                <option value="1_TRIMESTRE">1º Trimestre</option>
+                <option value="2_TRIMESTRE">2º Trimestre</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Prazo de Validade (Horas)</label>
+              <input type="number" id="desbloqueioHoras" class="form-control" value="48" min="1" max="168" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Justificação Administrativa Oficial</label>
+              <textarea id="desbloqueioMotivo" class="form-control" rows="2" placeholder="Ex: Despacho da Direcção Pedagógica autorizando rectificação de notas..." required></textarea>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-warning fw-semibold"><i class="bi bi-check2-circle me-1"></i> Conceder Autorização de Desbloqueio</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ==================== 13. PORTAL PRIVADO DO ALUNO ==================== -->
+      <section id="view-aluno-perfil" class="modulo-view" style="display: none;">
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <div class="card p-4">
+              <h5 class="fw-bold mb-3"><i class="bi bi-person-vcard text-primary me-2"></i>Os Meus Dados Pessoais</h5>
+              <table class="table table-bordered table-sm mb-4">
+                <tr><th class="bg-light w-40">Nome Completo:</th><td id="alunoPerfilNome"></td></tr>
+                <tr><th class="bg-light">Apelido:</th><td id="alunoPerfilApelido"></td></tr>
+                <tr><th class="bg-light">Nº de Matrícula:</th><td id="alunoPerfilMatricula"></td></tr>
+                <tr><th class="bg-light">Turma & Grau:</th><td id="alunoPerfilTurma"></td></tr>
+                <tr><th class="bg-light">Documento (BI/DIRE):</th><td id="alunoPerfilDoc"></td></tr>
+                <tr><th class="bg-light">NUIT:</th><td id="alunoPerfilNUIT"></td></tr>
+                <tr><th class="bg-light">Província / Distrito:</th><td id="alunoPerfilLocal"></td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card p-4">
+              <h5 class="fw-bold mb-3"><i class="bi bi-people text-primary me-2"></i>Filiação & Encarregado de Educação</h5>
+              <table class="table table-bordered table-sm mb-3">
+                <tr><th class="bg-light w-40">Nome do Pai:</th><td id="alunoPerfilPai">-</td></tr>
+                <tr><th class="bg-light">Nome da Mãe:</th><td id="alunoPerfilMae">-</td></tr>
+                <tr><th class="bg-light">Encarregado de Educação:</th><td id="alunoPerfilResp">-</td></tr>
+                <tr><th class="bg-light">Contacto do Encarregado:</th><td id="alunoPerfilTelResp">-</td></tr>
+                <tr><th class="bg-light">E-mail do Encarregado:</th><td id="alunoPerfilEmailResp">-</td></tr>
+              </table>
+              <div class="alert alert-info py-2 px-3 small mb-0">
+                <i class="bi bi-info-circle me-1"></i> Visualização estritamente de consulta. Para qualquer actualização dos seus dados pessoais ou de filiação, dirija-se à Secretaria da Escola.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sub-view Notas do Aluno -->
+      <section id="view-aluno-notas" class="modulo-view" style="display: none;">
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-card-checklist text-success me-2"></i>O Meu Histórico de Notas & Avaliações</h5>
+              <small class="text-muted">Classificações: 0 a 9.4 a Vermelho (Negativa), 9.5 a 20 a Preto (Positiva).</small>
+            </div>
+            <div>
+              <span class="badge bg-light text-dark border p-2">Média Geral: <strong id="alunoMediaGeral" class="text-primary fs-6">--</strong></span>
+              <span id="alunoSituacaoBadge" class="badge bg-secondary p-2 ms-2">A Ponderar</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover text-center align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th class="text-start">Disciplina</th>
+                  <th>1º Trimestre</th>
+                  <th>2º Trimestre</th>
+                  <th>3º Trimestre</th>
+                  <th>Média Final</th>
+                  <th>Faltas</th>
+                  <th>Situação</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaAlunoNotasCorpo">
+                <tr><td colspan="7" class="text-center py-4">A carregar notas do aluno...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 14. AUDITORIA & ACESSOS ==================== -->
+      <section id="view-acessos" class="modulo-view" style="display: none;">
+        <div class="card p-4">
+          <h5 class="fw-bold mb-3"><i class="bi bi-shield-check me-2"></i>Auditoria de Acessos e Logs de Segurança</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Data/Hora</th>
+                  <th>Utilizador</th>
+                  <th>Endereço IP</th>
+                  <th>Navegador / Dispositivo</th>
+                  <th>Evento de Segurança</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaLogsAcesso">
+                <tr><td colspan="5" class="text-center py-4">A carregar logs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- MODAL GENÉRICO / FORMULÁRIOS -->
+<div class="modal fade" id="modalGenerico" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="modalGenericoTitulo">Acção</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="modalGenericoCorpo">
+        <!-- Dinâmico -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS DO FRONTEND SPA -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

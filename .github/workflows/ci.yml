@@ -1,0 +1,56 @@
+name: SIGE CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build, Lint & Automated Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sige_user
+          POSTGRES_PASSWORD: sige_secure_pass_2026
+          POSTGRES_DB: sige_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repositório
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Gerar Prisma Client
+        run: npx prisma generate
+
+      - name: Checagem de Tipos TypeScript (Typecheck)
+        run: npx tsc --noEmit
+
+      - name: Executar Testes Automatizados (Jest)
+        run: npm test
+        env:
+          DATABASE_URL: "file:./test.db"
+          JWT_SECRET: "test_secret_ci_key"
+          JWT_REFRESH_SECRET: "test_refresh_ci_key"
+
+      - name: Compilar Projeto (Build)
+        run: npm run build
