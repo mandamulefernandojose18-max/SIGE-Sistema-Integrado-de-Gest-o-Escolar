@@ -183,17 +183,17 @@
 
     <form id="loginForm">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">E-mail Corporativo</label>
+        <label class="form-label small fw-semibold">E-mail Corporativo ou Usuário</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-          <input type="email" id="loginEmail" class="form-control" required placeholder="seu.email@escola.edu.mz">
+          <input type="text" id="loginEmail" class="form-control" required placeholder="mandamulefj.@sige.com ou seu.email@escola.edu.mz" autocomplete="username">
         </div>
       </div>
       <div class="mb-4">
         <label class="form-label small fw-semibold">Palavra-passe</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-lock"></i></span>
-          <input type="password" id="loginSenha" class="form-control" required placeholder="••••••••">
+          <input type="password" id="loginSenha" class="form-control" required placeholder="••••••••" autocomplete="current-password">
         </div>
       </div>
       <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
@@ -201,24 +201,61 @@
       </button>
     </form>
 
-    <!-- Demonstração rápida discreta para testes locais -->
+    <!-- Demonstração rápida discreta com utilizadores nominais -->
     <div class="mt-4 pt-3 border-top text-center">
       <button class="btn btn-link btn-sm text-decoration-none text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDemo">
-        <i class="bi bi-key me-1"></i> Contas de Demonstração (Desenvolvimento)
+        <i class="bi bi-key me-1"></i> Utilizadores do Sistema (Acesso por Nome / Individual)
       </button>
       <div class="collapse mt-2" id="collapseDemo">
-        <div class="d-grid gap-1">
-          <button class="btn btn-outline-dark btn-sm text-start" onclick="preencherLogin('admin.master@sige.com', 'admin123')">
-            <i class="bi bi-shield-lock-fill text-warning me-1"></i> <strong>SuperAdmin Master</strong>
+        <div class="d-grid gap-2 text-start">
+          <button class="btn btn-outline-dark btn-sm p-2" onclick="preencherLogin('mandamulefj.@sige.com', 'Deusamo8')">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-shield-lock-fill text-warning me-1"></i> <strong>Eng. Fernando Mandamule</strong>
+                <div class="small text-muted">SuperAdmin • <code>mandamulefj.@sige.com</code></div>
+              </div>
+              <span class="badge bg-dark">Deusamo8</span>
+            </div>
           </button>
-          <button class="btn btn-outline-primary btn-sm text-start" onclick="preencherLogin('director@escola.edu.mz', 'admin123')">
-            <i class="bi bi-person-badge me-1"></i> <strong>Director da Escola</strong>
+
+          <button class="btn btn-outline-primary btn-sm p-2" onclick="preencherLogin('antonio.costa@escola.edu.mz', 'costa123')">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-person-badge text-primary me-1"></i> <strong>Prof. Dr. António Costa</strong>
+                <div class="small text-muted">Director da Escola • <code>antonio.costa@escola.edu.mz</code></div>
+              </div>
+              <span class="badge bg-primary">costa123</span>
+            </div>
           </button>
-          <button class="btn btn-outline-info btn-sm text-start" onclick="preencherLogin('professor@escola.edu.mz', 'admin123')">
-            <i class="bi bi-journal-text me-1"></i> <strong>Professor</strong>
+
+          <button class="btn btn-outline-success btn-sm p-2" onclick="preencherLogin('joao.baptista@escola.edu.mz', 'baptista123')">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-mortarboard text-success me-1"></i> <strong>Prof. João Baptista</strong>
+                <div class="small text-muted">DAP (Pedagógico) • <code>joao.baptista@escola.edu.mz</code></div>
+              </div>
+              <span class="badge bg-success">baptista123</span>
+            </div>
           </button>
-          <button class="btn btn-outline-secondary btn-sm text-start" onclick="preencherLogin('aluno@escola.edu.mz', 'admin123')">
-            <i class="bi bi-person me-1"></i> <strong>Aluno (Portal Privado)</strong>
+
+          <button class="btn btn-outline-info btn-sm p-2" onclick="preencherLogin('manuel.silva@escola.edu.mz', 'silva123')">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-journal-text text-info me-1"></i> <strong>Prof. Manuel Silva</strong>
+                <div class="small text-muted">Docente Titular • <code>manuel.silva@escola.edu.mz</code></div>
+              </div>
+              <span class="badge bg-info text-dark">silva123</span>
+            </div>
+          </button>
+
+          <button class="btn btn-outline-secondary btn-sm p-2" onclick="preencherLogin('carlos.mandamule@escola.edu.mz', 'mandamule123')">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-person text-secondary me-1"></i> <strong>Carlos Mandamule</strong>
+                <div class="small text-muted">Aluno • <code>carlos.mandamule@escola.edu.mz</code></div>
+              </div>
+              <span class="badge bg-secondary">mandamule123</span>
+            </div>
           </button>
         </div>
       </div>

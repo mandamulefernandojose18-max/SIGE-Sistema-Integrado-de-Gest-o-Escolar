@@ -4,8 +4,8 @@ import { authService } from './auth.service';
 import { sendSuccess, sendError } from '../../utils/response.util';
 
 const loginSchema = z.object({
-  email: z.string().email('E-mail com formato inválido'),
-  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres')
+  email: z.string().min(3, 'E-mail ou nome de utilizador inválido'),
+  senha: z.string().min(4, 'A senha deve ter pelo menos 4 caracteres')
 });
 
 const refreshSchema = z.object({

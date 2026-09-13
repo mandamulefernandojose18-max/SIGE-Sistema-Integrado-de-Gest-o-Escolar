@@ -79,19 +79,48 @@ async function main() {
 
   console.log('✅ Planos configurados em Meticais (MZN): Mensal, Trimestral, Semestral, Anual.');
 
+  const hashDeusamo8 = await bcrypt.hash('Deusamo8', 10);
+  const hashCosta123 = await bcrypt.hash('costa123', 10);
+  const hashBaptista123 = await bcrypt.hash('baptista123', 10);
+  const hashEunice123 = await bcrypt.hash('eunice123', 10);
   const hashAdmin123 = await bcrypt.hash('admin123', 10);
   const hashEscola123 = await bcrypt.hash('escola123', 10);
-  const hashProf123 = await bcrypt.hash('professor123', 10);
-  const hashAluno123 = await bcrypt.hash('aluno123', 10);
+  const hashSilva123 = await bcrypt.hash('silva123', 10);
+  const hashSantos123 = await bcrypt.hash('santos123', 10);
+  const hashMandamule123 = await bcrypt.hash('mandamule123', 10);
 
-  // 2. SuperAdmin do SaaS
+  // 2. SuperAdmin do SaaS (Engenheiro do Sistema)
   const superAdmin = await prisma.usuario.upsert({
+    where: { email: 'mandamulefj.@sige.com' },
+    update: {
+      nome: 'Eng. Fernando Mandamule',
+      senha_hash: hashDeusamo8,
+      role: 'SUPERADMIN',
+      ativo: true
+    },
+    create: {
+      nome: 'Eng. Fernando Mandamule',
+      email: 'mandamulefj.@sige.com',
+      senha_hash: hashDeusamo8,
+      role: 'SUPERADMIN',
+      ativo: true,
+      telefone: '+258 84 100 2000'
+    }
+  });
+
+  // Alias SuperAdmin para testes automatizados
+  await prisma.usuario.upsert({
     where: { email: 'admin.master@sige.com' },
-    update: {},
+    update: {
+      nome: 'Eng. Fernando Mandamule',
+      senha_hash: hashDeusamo8,
+      role: 'SUPERADMIN',
+      ativo: true
+    },
     create: {
       nome: 'Eng. Fernando Mandamule',
       email: 'admin.master@sige.com',
-      senha_hash: hashAdmin123,
+      senha_hash: hashDeusamo8,
       role: 'SUPERADMIN',
       ativo: true,
       telefone: '+258 84 100 2000'
@@ -149,46 +178,52 @@ async function main() {
     }
   });
 
-  // Pessoal Administrativo da Escola
-  // Director
+  // Pessoal Administrativo da Escola (Nominal)
+  // Director: Prof. Dr. António Costa
   await prisma.usuario.upsert({
-    where: { email: 'director@escola.edu.mz' },
-    update: {},
+    where: { email: 'antonio.costa@escola.edu.mz' },
+    update: {
+      senha_hash: hashCosta123
+    },
     create: {
       escola_id: escola1.id,
       nome: 'Prof. Dr. António Costa',
-      email: 'director@escola.edu.mz',
-      senha_hash: hashAdmin123,
+      email: 'antonio.costa@escola.edu.mz',
+      senha_hash: hashCosta123,
       role: 'DIRECTOR_ESCOLA',
       telefone: '+258 84 222 3333',
       ativo: true
     }
   });
 
-  // DAP (Director Adjunto Pedagógico)
+  // DAP (Director Adjunto Pedagógico): Prof. João Baptista
   await prisma.usuario.upsert({
-    where: { email: 'dap@escola.edu.mz' },
-    update: {},
+    where: { email: 'joao.baptista@escola.edu.mz' },
+    update: {
+      senha_hash: hashBaptista123
+    },
     create: {
       escola_id: escola1.id,
       nome: 'Prof. João Baptista',
-      email: 'dap@escola.edu.mz',
-      senha_hash: hashAdmin123,
+      email: 'joao.baptista@escola.edu.mz',
+      senha_hash: hashBaptista123,
       role: 'DAP',
       telefone: '+258 84 333 4444',
       ativo: true
     }
   });
 
-  // Chefe da Secretaria
+  // Chefe da Secretaria: Dra. Maria Eunice
   await prisma.usuario.upsert({
-    where: { email: 'secretaria@escola.edu.mz' },
-    update: {},
+    where: { email: 'maria.eunice@escola.edu.mz' },
+    update: {
+      senha_hash: hashEunice123
+    },
     create: {
       escola_id: escola1.id,
       nome: 'Dra. Maria Eunice',
-      email: 'secretaria@escola.edu.mz',
-      senha_hash: hashAdmin123,
+      email: 'maria.eunice@escola.edu.mz',
+      senha_hash: hashEunice123,
       role: 'CHEFE_SECRETARIA',
       telefone: '+258 84 444 5555',
       ativo: true
@@ -245,15 +280,17 @@ async function main() {
     }
   });
 
-  // Professores com Perfil Oficial
+  // Professores com Perfil Oficial e Credenciais Nominais
   const prof1User = await prisma.usuario.upsert({
-    where: { email: 'professor@escola.edu.mz' },
-    update: {},
+    where: { email: 'manuel.silva@escola.edu.mz' },
+    update: {
+      senha_hash: hashSilva123
+    },
     create: {
       escola_id: escola1.id,
       nome: 'Prof. Manuel Silva',
-      email: 'professor@escola.edu.mz',
-      senha_hash: hashProf123,
+      email: 'manuel.silva@escola.edu.mz',
+      senha_hash: hashSilva123,
       role: 'PROFESSOR',
       ativo: true
     }
@@ -265,7 +302,7 @@ async function main() {
       nome: 'Manuel',
       apelido: 'Silva',
       genero: 'M',
-      email: 'professor@escola.edu.mz',
+      email: 'manuel.silva@escola.edu.mz',
       telefone: '+258 84 555 6666',
       tipo_documento: 'Bilhete de Identidade',
       numero_documento: '080123456789A',
@@ -287,12 +324,14 @@ async function main() {
 
   const prof2User = await prisma.usuario.upsert({
     where: { email: 'teresa.santos@escola.edu.mz' },
-    update: {},
+    update: {
+      senha_hash: hashSantos123
+    },
     create: {
       escola_id: escola1.id,
       nome: 'Profª. Teresa Santos',
       email: 'teresa.santos@escola.edu.mz',
-      senha_hash: hashProf123,
+      senha_hash: hashSantos123,
       role: 'PROFESSOR',
       ativo: true
     }
@@ -431,17 +470,16 @@ async function main() {
 
     alunosCriados.push(aluno);
 
-    // Criar credenciais de acesso individuais para cada Aluno
-    const emailAluno = alunosCriados.length === 1
-      ? 'aluno@escola.edu.mz'
-      : `${ab.nome.toLowerCase()}.${ab.apelido.toLowerCase()}@aluno.escola.edu.mz`;
+    // Criar credenciais de acesso individuais para cada Aluno com base nominal
+    const emailAluno = `${ab.nome.toLowerCase()}.${ab.apelido.toLowerCase()}@escola.edu.mz`;
+    const hashSenhaAluno = await bcrypt.hash(`${ab.apelido.toLowerCase()}123`, 10);
     await prisma.usuario.create({
       data: {
         escola_id: escola1.id,
         aluno_id: aluno.id,
         nome: `${ab.nome} ${ab.apelido}`,
         email: emailAluno,
-        senha_hash: hashAluno123,
+        senha_hash: hashSenhaAluno,
         role: 'ALUNO',
         ativo: true
       }
