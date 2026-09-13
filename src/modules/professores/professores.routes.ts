@@ -10,6 +10,7 @@ router.use(authMiddleware, tenantMiddleware);
 
 router.get('/minhas-turmas', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.getMinhasTurmas(req, res, next));
 router.get('/caderneta/:alocacaoId', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.getCaderneta(req, res, next));
+router.get('/caderneta/:alocacaoId/completa', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.getCadernetaCompleta(req, res, next));
 router.get('/caderneta/:alocacaoId/xlsx', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.exportarCadernetaXlsx(req, res, next));
 
 router.get('/stats', (req, res, next) => professoresController.stats(req, res, next));

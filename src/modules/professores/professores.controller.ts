@@ -147,9 +147,19 @@ export class ProfessoresController {
     try {
       const escolaId = req.tenant!.id;
       const { alocacaoId } = req.params;
-      const trimestre = req.query.trimestre ? Number(req.query.trimestre) : undefined;
-      const data = await professoresService.getCadernetaData(escolaId, alocacaoId, trimestre);
+      const data = await professoresService.getCadernetaCompleta(escolaId, alocacaoId);
       return sendSuccess(res, data, 'Caderneta do professor carregada com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getCadernetaCompleta(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alocacaoId } = req.params;
+      const data = await professoresService.getCadernetaCompleta(escolaId, alocacaoId);
+      return sendSuccess(res, data, 'Caderneta completa do professor carregada com sucesso');
     } catch (error) {
       next(error);
     }
@@ -159,8 +169,7 @@ export class ProfessoresController {
     try {
       const escolaId = req.tenant!.id;
       const { alocacaoId } = req.params;
-      const trimestre = req.query.trimestre ? Number(req.query.trimestre) : undefined;
-      const { buffer, filename } = await professoresService.exportarCadernetaXlsx(escolaId, alocacaoId, trimestre);
+      const { buffer, filename } = await professoresService.exportarCadernetaXlsx(escolaId, alocacaoId);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

@@ -291,15 +291,217 @@ export class ProfessoresService {
     };
   }
 
-  async exportarCadernetaXlsx(escolaId: string, alocacaoId: string, trimestreFiltro?: number): Promise<{ buffer: Buffer; filename: string }> {
-    const dados = await this.getCadernetaData(escolaId, alocacaoId, trimestreFiltro);
+  async getCadernetaCompleta(escolaId: string, alocacaoId: string) {
+    const alocacao = await prisma.professorDisciplinaTurma.findFirst({
+      where: { id: alocacaoId, escola_id: escolaId },
+      include: {
+        professor: true,
+        disciplina: true,
+        turma: {
+          include: {
+            director_turma: true,
+            alunos: {
+              where: { status: 'ATIVO' },
+              orderBy: { nome: 'asc' }
+            }
+          }
+        },
+        escola: true
+      }
+    });
+
+    if (!alocacao) throw new Error('Alocação do professor não encontrada');
+
+    // Buscar todas as notas lançadas para esta turma e disciplina nos 3 trimestres
+    const todasNotas = await prisma.nota.findMany({
+      where: {
+        escola_id: escolaId,
+        turma_id: alocacao.turma_id,
+        disciplina_id: alocacao.disciplina_id
+      }
+    });
+
+    const notasMap = new Map<string, any>();
+    todasNotas.forEach(n => {
+      notasMap.set(`${n.aluno_id}_${n.periodo}`, n);
+    });
+
+    let totalHomens = 0;
+    let totalMulheres = 0;
+
+    const alunosData = alocacao.turma.alunos.map((aluno, index) => {
+      const isMasc = (aluno.genero || 'M').toUpperCase() === 'M';
+      if (isMasc) totalHomens++; else totalMulheres++;
+
+      const periodos = ['1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE'];
+      const trimestres = periodos.map(p => {
+        const n = notasMap.get(`${aluno.id}_${p}`);
+        const t1 = n?.teste1 ?? null;
+        const t2 = n?.teste2 ?? null;
+        const t3 = n?.teste3 ?? null;
+        const trabalho = n?.trabalho ?? null;
+        const at = n?.avaliacao_trimestral ?? null;
+        const faltas = n?.faltas ?? 0;
+        const anotacao = n?.anotacao ?? '';
+        const comportamento = n?.comportamento ?? 'S';
+
+        const testesValidos = [t1, t2, t3].filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0) as number[];
+        const map = testesValidos.length > 0
+          ? Number((testesValidos.reduce((a, b) => a + b, 0) / testesValidos.length).toFixed(1))
+          : (trabalho !== null && trabalho > 0 ? trabalho : null);
+
+        let mt = n?.media_final ?? null;
+        if ((mt === null || mt === 0) && (map !== null || at !== null)) {
+          const valMap = map ?? 0;
+          const valAt = at ?? 0;
+          if (valMap > 0 && valAt > 0) {
+            mt = Math.round((valMap + valAt) / 2);
+          } else if (valMap > 0) {
+            mt = Math.round(valMap);
+          } else if (valAt > 0) {
+            mt = Math.round(valAt);
+          }
+        }
+
+        return {
+          t1,
+          t2,
+          t3,
+          map,
+          mac3: trabalho,
+          at,
+          mt,
+          faltas,
+          anotacao,
+          comportamento
+        };
+      });
+
+      const mtsValidas = trimestres.map(t => t.mt).filter(m => m !== null && m !== undefined && m > 0) as number[];
+      const mfd = mtsValidas.length > 0
+        ? Math.round(mtsValidas.reduce((a, b) => a + b, 0) / mtsValidas.length)
+        : null;
+
+      return {
+        numero: index + 1,
+        alunoId: aluno.id,
+        matricula: aluno.matricula,
+        nome: aluno.nome,
+        apelido: aluno.apelido || '',
+        nomeCompleto: `${aluno.nome} ${aluno.apelido || ''}`.trim(),
+        genero: aluno.genero || 'M',
+        t1: trimestres[0],
+        t2: trimestres[1],
+        t3: trimestres[2],
+        mfd
+      };
+    });
+
+    // Calcular estatística por coluna no fim (conforme Imagem 2 oficial)
+    const chavesColunas = [
+      't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_at', 't1_mt',
+      't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_at', 't2_mt',
+      't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_at', 't3_mt',
+      'mfd'
+    ];
+
+    const colunasEstatisticas: Record<string, {
+      avaliados: { h: number; m: number; total: number };
+      positivas: { h: number; m: number; total: number; pct: number };
+      negativas: { h: number; m: number; total: number; pct: number };
+      media: number;
+    }> = {};
+
+    chavesColunas.forEach(colKey => {
+      let avH = 0, avM = 0;
+      let posH = 0, posM = 0;
+      let negH = 0, negM = 0;
+      let soma = 0;
+      let countValores = 0;
+
+      alunosData.forEach(al => {
+        const isMasc = al.genero.toUpperCase() === 'M';
+        let valor: number | null = null;
+
+        if (colKey === 'mfd') {
+          valor = al.mfd;
+        } else {
+          const [trim, campo] = colKey.split('_');
+          const tObj = trim === 't1' ? al.t1 : trim === 't2' ? al.t2 : al.t3;
+          valor = (tObj as any)[campo] ?? null;
+        }
+
+        if (valor !== null && valor !== undefined && !isNaN(valor) && valor > 0) {
+          if (isMasc) avH++; else avM++;
+          soma += valor;
+          countValores++;
+
+          if (valor >= 9.5) {
+            if (isMasc) posH++; else posM++;
+          } else {
+            if (isMasc) negH++; else negM++;
+          }
+        }
+      });
+
+      const totalAv = avH + avM;
+      const totalPos = posH + posM;
+      const totalNeg = negH + negM;
+      const pctPos = totalAv > 0 ? Number(((totalPos / totalAv) * 100).toFixed(1)) : 0;
+      const pctNeg = totalAv > 0 ? Number(((totalNeg / totalAv) * 100).toFixed(1)) : 0;
+      const mediaCol = countValores > 0 ? Number((soma / countValores).toFixed(1)) : 0;
+
+      colunasEstatisticas[colKey] = {
+        avaliados: { h: avH, m: avM, total: totalAv },
+        positivas: { h: posH, m: posM, total: totalPos, pct: pctPos },
+        negativas: { h: negH, m: negM, total: totalNeg, pct: pctNeg },
+        media: mediaCol
+      };
+    });
+
+    return {
+      escola: alocacao.escola,
+      professor: alocacao.professor,
+      disciplina: alocacao.disciplina,
+      turma: alocacao.turma,
+      directorTurma: alocacao.turma.director_turma,
+      efectivo: {
+        h: totalHomens,
+        m: totalMulheres,
+        total: totalHomens + totalMulheres
+      },
+      alunos: alunosData,
+      estatisticasColunas: colunasEstatisticas
+    };
+  }
+
+  async exportarCadernetaXlsx(escolaId: string, alocacaoId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.getCadernetaCompleta(escolaId, alocacaoId);
     const buffer = ExportExcelService.gerarCadernetaProfessorXlsx({
-      escola: { nome: dados.escola.nome },
-      professor: { nome: dados.professor.nome, especialidade: dados.professor.especialidade },
+      escola: {
+        nome: dados.escola.nome,
+        provincia: dados.escola.provincia,
+        distrito: dados.escola.distrito
+      },
+      professor: {
+        nome: dados.professor.nome,
+        especialidade: dados.professor.especialidade,
+        telefone: dados.professor.telefone
+      },
       disciplina: { nome: dados.disciplina.nome, codigo: dados.disciplina.codigo },
-      turma: { nome: dados.turma.nome, grau_ano: dados.turma.grau_ano, ano_letivo: dados.turma.ano_letivo },
-      periodo: `${dados.trimestre}º Trimestre`,
-      alunos: dados.alunos
+      turma: {
+        nome: dados.turma.nome,
+        grau_ano: dados.turma.grau_ano,
+        ano_letivo: dados.turma.ano_letivo,
+        turno: dados.turma.turno
+      },
+      directorTurma: dados.directorTurma ? {
+        nome: dados.directorTurma.nome,
+        telefone: dados.directorTurma.telefone
+      } : null,
+      efectivo: dados.efectivo,
+      alunos: dados.alunos,
+      estatisticasColunas: dados.estatisticasColunas
     });
 
     const filename = `Caderneta_${dados.professor.nome.replace(/\s+/g, '_')}_${dados.disciplina.codigo}_${dados.turma.nome.replace(/\s+/g, '_')}_${dados.turma.ano_letivo}.xlsx`;
@@ -308,3 +510,4 @@ export class ProfessoresService {
 }
 
 export const professoresService = new ProfessoresService();
+

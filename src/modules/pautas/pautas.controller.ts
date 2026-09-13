@@ -99,6 +99,60 @@ export class PautasController {
       next(error);
     }
   }
+
+  async getPautaTurmaCompleta(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const data = await pautasService.getPautaCompleta(escolaId, turmaId, anoLetivo);
+      return sendSuccess(res, data, 'Pauta geral completa da turma recuperada com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getActaTurma(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const data = await pautasService.getActaConselhoAvaliacao(escolaId, turmaId, anoLetivo);
+      return sendSuccess(res, data, 'Acta do conselho de avaliação recuperada com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarPautaTurmaXlsx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const { buffer, filename } = await pautasService.exportarPautaTurmaXlsx(escolaId, turmaId, anoLetivo);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarActaTurmaXlsx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const { buffer, filename } = await pautasService.exportarActaTurmaXlsx(escolaId, turmaId, anoLetivo);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const pautasController = new PautasController();

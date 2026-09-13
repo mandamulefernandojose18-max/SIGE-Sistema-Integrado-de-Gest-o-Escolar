@@ -833,9 +833,9 @@
         </div>
       </section>
 
-      <!-- ==================== 7. CADERNETA DO PROFESSOR (6 AVALIAÇÕES) ==================== -->
+      <!-- ==================== 7. CADERNETA DO PROFESSOR (COM TODOS OS TRIMESTRES E ESTATÍSTICA POR COLUNA) ==================== -->
       <section id="view-caderneta" class="modulo-view" style="display: none;">
-        <div class="card p-4 mb-4">
+        <div class="card p-4 mb-4 no-print">
           <div class="row g-3 align-items-end">
             <div class="col-md-4">
               <label class="form-label small fw-semibold">Minha Turma & Disciplina Alocada</label>
@@ -844,109 +844,217 @@
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label small fw-semibold">Trimestre Lectivo</label>
-              <select id="cadernetaPeriodoSelect" class="form-select" onchange="carregarCadernetaDocente()">
+              <label class="form-label small fw-semibold">Trimestre p/ Lançamento</label>
+              <select id="cadernetaPeriodoSelect" class="form-select">
                 <option value="1_TRIMESTRE">1º Trimestre</option>
                 <option value="2_TRIMESTRE">2º Trimestre</option>
                 <option value="3_TRIMESTRE">3º Trimestre</option>
               </select>
             </div>
             <div class="col-md-5 text-end d-flex gap-2 justify-content-end">
-              <button class="btn btn-outline-success btn-sm" onclick="exportarCadernetaExcel()">
-                <i class="bi bi-file-earmark-excel me-1"></i> Descarregar Excel (.xlsx)
-              </button>
               <button class="btn btn-primary btn-sm" onclick="modalSalvarNotaCaderneta()">
-                <i class="bi bi-pencil-square me-1"></i> Lançar Notas do Aluno
+                <i class="bi bi-pencil-square me-1"></i> Lançar Notas
+              </button>
+              <button class="btn btn-outline-success btn-sm" onclick="exportarCadernetaExcel()">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+              </button>
+              <button class="btn btn-outline-primary btn-sm" onclick="imprimirCadernetaOficial()">
+                <i class="bi bi-printer me-1"></i> Imprimir Caderneta
               </button>
             </div>
           </div>
           <!-- Aviso de Bloqueio do Trimestre -->
           <div id="avisoTrimestreBloqueado" class="alert alert-warning mt-3 mb-0 d-none" role="alert">
             <i class="bi bi-lock-fill me-2"></i>
-            <strong>Trimestre Encerrado:</strong> Este trimestre lectivo encontra-se fechado para edição directa. Contacte o Director da Escola ou DAP para solicitar autorização de desbloqueio extraordinário.
+            <strong>Trimestre Encerrado:</strong> Este trimestre lectivo encontra-se fechado para edição directa. Contacte a Direcção da Escola ou DAP para solicitar autorização de desbloqueio.
           </div>
         </div>
 
-        <div class="card p-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-              <h5 class="fw-bold mb-0"><i class="bi bi-journal-check me-2"></i>Caderneta de Avaliação Contínua (Sistema Oficial)</h5>
-              <small class="text-muted">6 Avaliações: Testes 1 e 2 (obrigatórios), Testes 3 e 4 (opcionais), Trabalho/ACS e Avaliação Trimestral (AT). Média inteira (0 a 20).</small>
+        <div class="card p-4 printable-document" id="cadernetaPrintContainer">
+          <!-- Cabeçalho Institucional Oficial (Imagem 2) -->
+          <div class="border p-3 rounded mb-3 bg-white" id="cadernetaCabecalhoOficial">
+            <div class="text-center mb-3">
+              <h6 class="fw-bold mb-0 text-uppercase" id="cadHeaderEscola">REPÚBLICA DE MOÇAMBIQUE</h6>
+              <small class="text-muted d-block" id="cadHeaderSub">PROVÍNCIA DE MAPUTO | DISTRITO DE CIDADE DE MAPUTO</small>
+              <h5 class="fw-bold text-primary mt-1 mb-0">Mapa de Registo de Avaliações — <span id="cadHeaderAno">2026</span></h5>
+            </div>
+            <div class="row g-2 text-center" style="font-size: 0.8rem;">
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Disciplina Lecionada</span>
+                  <strong id="cadBoxDisciplina" class="text-primary">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Nome do Professor</span>
+                  <strong id="cadBoxProfessor">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Contacto(s) do Prof.</span>
+                  <strong id="cadBoxContacto">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Área de Formação</span>
+                  <strong id="cadBoxArea">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Turma & Director de Turma</span>
+                  <strong id="cadBoxTurmaDirector">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Classe & Turno</span>
+                  <strong id="cadBoxClasseTurno">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Efectivo de Alunos</span>
+                  <strong id="cadBoxEfectivo" class="text-success">H: 0 | M: 0 | Total: 0</strong>
+                </div>
+              </div>
             </div>
           </div>
+
+          <!-- Tabela Completa da Caderneta com 3 Trimestres e Estatísticas por Coluna (Imagem 2) -->
           <div class="table-responsive">
-            <table class="table table-bordered table-hover align-middle text-center small">
+            <table class="table table-bordered table-hover align-middle text-center small caderneta-tabela" style="min-width: 1300px;">
               <thead class="table-light">
                 <tr>
-                  <th class="text-start">Nº / Aluno</th>
-                  <th>Teste 1</th>
-                  <th>Teste 2</th>
-                  <th>Teste 3</th>
-                  <th>Teste 4</th>
-                  <th>Trabalho / ACS</th>
-                  <th>AT (Trimestral)</th>
-                  <th class="bg-light fw-bold">Média Final</th>
-                  <th>Faltas</th>
-                  <th>Anotação</th>
-                  <th>Comportamento</th>
-                  <th>Situação</th>
+                  <th rowspan="2" class="align-middle" style="width: 35px;">Nº</th>
+                  <th rowspan="2" class="align-middle text-start" style="min-width: 140px;">Nome do Aluno</th>
+                  <th rowspan="2" class="align-middle text-start" style="min-width: 80px;">Apelido</th>
+                  <th rowspan="2" class="align-middle" style="width: 35px;">Gên</th>
+                  <th colspan="9" class="bg-primary bg-opacity-10 text-primary fw-bold">1º TRIMESTRE</th>
+                  <th colspan="9" class="bg-info bg-opacity-10 text-info fw-bold">2º TRIMESTRE</th>
+                  <th colspan="9" class="bg-warning bg-opacity-10 text-dark fw-bold">3º TRIMESTRE</th>
+                  <th rowspan="2" class="align-middle bg-success bg-opacity-10 text-success fw-bold" style="width: 55px;">MFD</th>
+                </tr>
+                <tr>
+                  <!-- 1º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAC3</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                  <!-- 2º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAC3</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                  <!-- 3º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAC3</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
                 </tr>
               </thead>
               <tbody id="tabelaCadernetaCorpo">
-                <tr><td colspan="12" class="text-center py-4">Selecione uma turma e disciplina para visualizar a Caderneta Oficial.</td></tr>
+                <tr><td colspan="32" class="text-center py-4">Selecione uma turma e disciplina para visualizar a Caderneta Oficial.</td></tr>
               </tbody>
+              <tfoot id="tabelaCadernetaRodape" class="table-light fw-semibold" style="font-size: 0.72rem;">
+                <!-- Linhas calculadas dinamicamente com estatística por coluna -->
+              </tfoot>
             </table>
           </div>
         </div>
       </section>
 
-      <!-- ==================== 8. PAUTAS & ACTAS OFICIAIS ==================== -->
+      <!-- ==================== 8. PAUTAS GERAIS & ACTAS DO CONSELHO OFICIAIS ==================== -->
       <section id="view-pautas" class="modulo-view" style="display: none;">
-        <div class="card p-4 mb-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-              <h5 class="fw-bold mb-0"><i class="bi bi-journal-text me-2"></i>Pautas Oficiais de Avaliação & Actas de Exames</h5>
-              <small class="text-muted">Critério Oficial: Excepto a 12ª classe, aprovação exige 100% de positivas (0 negativas). Na 12ª classe: Média ≥ 9.5, máx 2 negativas e nenhuma &lt; 8.</small>
+        <!-- Barra Superior de Controlo e Navegação entre Pauta e Acta -->
+        <div class="card p-4 mb-4 no-print">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+              <div>
+                <label class="form-label small fw-semibold mb-1">Selecione a Turma</label>
+                <select id="pautaTurmaSelect" class="form-select form-select-sm" style="min-width: 260px;" onchange="alternarVisualizacaoPautaTurma()">
+                  <option value="">A carregar turmas...</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">Ano Lectivo</label>
+                <select id="pautaAnoSelect" class="form-select form-select-sm">
+                  <option value="2026">2026</option>
+                </select>
+              </div>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="modalGerarPauta()"><i class="bi bi-file-earmark-plus me-1"></i> Consolidar Pauta Oficial</button>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th>Turma</th>
-                  <th>Ano Lectivo</th>
-                  <th>Período</th>
-                  <th>Estado</th>
-                  <th>Homologação</th>
-                  <th class="text-end">Descarregar Documentos</th>
-                </tr>
-              </thead>
-              <tbody id="tabelaPautas">
-                <tr><td colspan="6" class="text-center py-4">A carregar pautas...</td></tr>
-              </tbody>
-            </table>
+
+            <div class="d-flex gap-2">
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-primary active" id="btnAbaPauta" onclick="mudarSubAbaPauta('pauta')">
+                  <i class="bi bi-table me-1"></i> Pauta Geral da Turma
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnAbaActa" onclick="mudarSubAbaPauta('acta')">
+                  <i class="bi bi-journal-text me-1"></i> Acta do Conselho de Avaliação
+                </button>
+              </div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="modalGerarPauta()">
+                <i class="bi bi-plus-circle me-1"></i> Consolidar
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Visualizador de Pauta Oficial Consolidada -->
-        <div id="pautaDetalheView" class="card p-4 d-none">
+        <!-- SUB-ABA 1: PAUTA GERAL DA TURMA (TODAS AS DISCIPLINAS LADO A LADO) (Imagem 3) -->
+        <div id="subViewPautaGeral" class="card p-4 printable-document">
           <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
             <div>
-              <h5 class="fw-bold mb-0" id="pautaDetalheTitulo">Pauta Oficial de Avaliação</h5>
-              <small class="text-muted" id="pautaDetalheSubtitulo"></small>
+              <h5 class="fw-bold mb-0" id="pautaGeralTitulo">Pauta Oficial de Aproveitamento Pedagógico</h5>
+              <small class="text-muted" id="pautaGeralSubtitulo">Ano Lectivo: 2026 | Critério Oficial MINEDH Aplicado</small>
             </div>
-            <div class="d-flex gap-2">
-              <button class="btn btn-success btn-sm" id="btnExportarPautaXlsx">
-                <i class="bi bi-file-earmark-excel me-1"></i> Descarregar Pauta (.xlsx)
+            <div class="d-flex gap-2 no-print">
+              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
               </button>
-              <button class="btn btn-outline-primary btn-sm" id="btnExportarActaXlsx">
-                <i class="bi bi-file-text me-1"></i> Descarregar Acta Estatística (.xlsx)
+              <button class="btn btn-primary btn-sm" onclick="imprimirPautaGeralOficial()">
+                <i class="bi bi-printer me-1"></i> Imprimir Pauta
               </button>
             </div>
           </div>
-          <div class="table-responsive" id="pautaDetalheTabelaContainer">
-            <!-- Pauta Matricial renderizada dinamicamente -->
+
+          <!-- Grelha da Pauta Geral renderizada dinamicamente -->
+          <div class="table-responsive" id="containerTabelaPautaGeral">
+            <p class="text-center py-4 text-muted">Selecione uma turma acima para gerar a pauta geral.</p>
+          </div>
+        </div>
+
+        <!-- SUB-ABA 2: ACTA DO CONSELHO DE AVALIAÇÃO / ESTATÍSTICA DA TURMA (Imagem 1) -->
+        <div id="subViewActaConselho" class="card p-5 printable-document d-none" style="background: #fff;">
+          <div class="d-flex justify-content-end gap-2 mb-3 no-print">
+            <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()">
+              <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="imprimirActaConselhoOficial()">
+              <i class="bi bi-printer me-1"></i> Imprimir Acta
+            </button>
+          </div>
+
+          <!-- Conteúdo da Acta renderizado fielmente à Imagem 1 -->
+          <div id="containerActaConselhoCorpo">
+            <p class="text-center py-4 text-muted">Selecione uma turma acima para gerar a acta do conselho.</p>
           </div>
         </div>
       </section>
@@ -1063,6 +1171,8 @@
                 <option value="CERTIFICADO">Certificado Escolar</option>
                 <option value="RECIBO">Recibo de Propina</option>
                 <option value="FICHA">Ficha do Aluno</option>
+                <option value="PAUTA_TURMA">Pauta Geral da Turma</option>
+                <option value="ACTA_CONSELHO">Acta do Conselho de Avaliação</option>
               </select>
             </div>
             <div class="col-md-3">

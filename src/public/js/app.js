@@ -1497,10 +1497,12 @@ function modalNovaDisciplina() {
 }
 
 // ==================== 7. CADERNETA DO PROFESSOR (6 AVALIAÇÕES) ====================
+// ==================== 7. CADERNETA DO PROFESSOR (3 TRIMESTRES E ESTATÍSTICA POR COLUNA) ====================
 async function carregarCadernetaDocente() {
   try {
     const selectAloc = document.getElementById('cadernetaAlocacaoSelect');
-    
+    if (!selectAloc) return;
+
     // Se ainda não carregou alocações
     if (state.alocacoesDocente.length === 0) {
       const resTurmas = await apiFetch('/api/v1/professores/minhas-turmas');
@@ -1516,74 +1518,157 @@ async function carregarCadernetaDocente() {
     }
 
     const alocacaoId = selectAloc.value;
-    const periodo = document.getElementById('cadernetaPeriodoSelect').value;
     if (!alocacaoId) return;
     state.alocacaoAtualId = alocacaoId;
 
-    const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${alocacaoId}?periodo=${periodo}`);
-    if (resCaderneta.success) {
-      const data = resCaderneta.data;
+    const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${alocacaoId}/completa`);
+    if (!resCaderneta.success) return;
+    const d = resCaderneta.data;
 
-      // Alerta de Bloqueio de Trimestre
-      const avisoBloqueio = document.getElementById('avisoTrimestreBloqueado');
-      if (data.bloqueado) {
-        avisoBloqueio?.classList.remove('d-none');
-      } else {
-        avisoBloqueio?.classList.add('d-none');
-      }
+    // Preencher Caixas de Cabeçalho Institucional Oficial (Imagem 2)
+    if (document.getElementById('cadHeaderEscola')) {
+      document.getElementById('cadHeaderEscola').textContent = (d.escola?.nome || 'Escola Secundária').toUpperCase();
+      document.getElementById('cadHeaderSub').textContent = `PROVÍNCIA DE ${d.escola?.provincia || 'MAPUTO'} | DISTRITO DE ${d.escola?.distrito || 'CIDADE DE MAPUTO'}`.toUpperCase();
+      document.getElementById('cadHeaderAno').textContent = d.turma?.ano_letivo || '2026';
 
-      const tbody = document.getElementById('tabelaCadernetaCorpo');
-      if (!data.alunos || data.alunos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4">Nenhum aluno matriculado nesta turma.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = data.alunos.map((item, idx) => {
-        const notaFinalNum = item.notaFinal !== null ? Number(item.notaFinal) : null;
-        const notaFinalClass = notaFinalNum !== null ? (notaFinalNum >= 9.5 ? 'nota-positiva' : 'nota-negativa') : 'text-muted';
-        const situacaoBadge = notaFinalNum !== null 
-          ? (notaFinalNum >= 9.5 ? '<span class="badge badge-aprovado">Positiva</span>' : '<span class="badge badge-reprovado">Negativa</span>')
-          : '<span class="badge bg-secondary">Pendente</span>';
-
-        return `
-          <tr>
-            <td class="text-start"><strong>${idx + 1}. ${item.aluno.nome}</strong></td>
-            <td>${item.teste1 !== null ? item.teste1 : '-'}</td>
-            <td>${item.teste2 !== null ? item.teste2 : '-'}</td>
-            <td>${item.teste3 !== null ? item.teste3 : '-'}</td>
-            <td>${item.teste4 !== null ? item.teste4 : '-'}</td>
-            <td>${item.trabalho !== null ? item.trabalho : '-'}</td>
-            <td>${item.avaliacaoTrimestral !== null ? item.avaliacaoTrimestral : '-'}</td>
-            <td class="bg-light fs-6 ${notaFinalClass}">${notaFinalNum !== null ? Math.round(notaFinalNum) : '-'}</td>
-            <td>${item.faltas}</td>
-            <td><span class="badge bg-light text-dark border">${item.anotacao || '-'}</span></td>
-            <td><span class="badge bg-light text-dark border">${item.comportamento || 'B'}</span></td>
-            <td>${situacaoBadge}</td>
-          </tr>
-        `;
-      }).join('');
+      document.getElementById('cadBoxDisciplina').textContent = `${d.disciplina?.nome || '-'} (${d.disciplina?.codigo || '-'})`;
+      document.getElementById('cadBoxProfessor').textContent = `${d.professor?.nome || '-'} ${d.professor?.apelido || ''}`.trim();
+      document.getElementById('cadBoxContacto').textContent = d.professor?.telefone || '-';
+      document.getElementById('cadBoxArea').textContent = d.professor?.especialidade || 'Ensino Geral';
+      document.getElementById('cadBoxTurmaDirector').textContent = `${d.turma?.nome || '-'} | Dir: ${d.directorTurma ? d.directorTurma.nome : '-'}`;
+      document.getElementById('cadBoxClasseTurno').textContent = `${d.turma?.grau_ano || '-'} | ${d.turma?.turno || 'Diurno'}`;
+      document.getElementById('cadBoxEfectivo').textContent = `H: ${d.efectivo?.h || 0} | M: ${d.efectivo?.m || 0} | Total: ${d.efectivo?.total || 0}`;
     }
-  } catch (err) {}
+
+    // Preencher Tabela de Alunos com todos os 3 Trimestres (Imagem 2)
+    const tbody = document.getElementById('tabelaCadernetaCorpo');
+    if (!d.alunos || d.alunos.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="32" class="text-center py-4">Nenhum aluno matriculado nesta turma.</td></tr>';
+      return;
+    }
+
+    const formatVal = (val, isMedia = false) => {
+      if (val === null || val === undefined || isNaN(val) || val <= 0) return '<span class="text-muted">-</span>';
+      const num = Number(val);
+      const cls = num >= 9.5 ? 'nota-positiva' : 'nota-negativa';
+      const displayVal = isMedia ? Math.round(num) : (Number.isInteger(num) ? num : num.toFixed(1));
+      return `<span class="${cls}">${displayVal}</span>`;
+    };
+
+    tbody.innerHTML = d.alunos.map((a, idx) => {
+      return `
+        <tr>
+          <td><strong>${idx + 1}</strong></td>
+          <td class="text-start"><strong>${a.nome}</strong></td>
+          <td class="text-start">${a.apelido || '-'}</td>
+          <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
+          <!-- 1º Trimestre -->
+          <td>${formatVal(a.t1.t1)}</td>
+          <td>${formatVal(a.t1.t2)}</td>
+          <td>${formatVal(a.t1.t3)}</td>
+          <td class="bg-light">${formatVal(a.t1.map)}</td>
+          <td>${formatVal(a.t1.mac3)}</td>
+          <td>${formatVal(a.t1.at)}</td>
+          <td class="bg-light fw-bold fs-6">${formatVal(a.t1.mt, true)}</td>
+          <td><small>${a.t1.comportamento || 'S'}</small></td>
+          <td><span class="badge bg-light text-dark border">${a.t1.anotacao || '-'}</span></td>
+          <!-- 2º Trimestre -->
+          <td>${formatVal(a.t2.t1)}</td>
+          <td>${formatVal(a.t2.t2)}</td>
+          <td>${formatVal(a.t2.t3)}</td>
+          <td class="bg-light">${formatVal(a.t2.map)}</td>
+          <td>${formatVal(a.t2.mac3)}</td>
+          <td>${formatVal(a.t2.at)}</td>
+          <td class="bg-light fw-bold fs-6">${formatVal(a.t2.mt, true)}</td>
+          <td><small>${a.t2.comportamento || 'S'}</small></td>
+          <td><span class="badge bg-light text-dark border">${a.t2.anotacao || '-'}</span></td>
+          <!-- 3º Trimestre -->
+          <td>${formatVal(a.t3.t1)}</td>
+          <td>${formatVal(a.t3.t2)}</td>
+          <td>${formatVal(a.t3.t3)}</td>
+          <td class="bg-light">${formatVal(a.t3.map)}</td>
+          <td>${formatVal(a.t3.mac3)}</td>
+          <td>${formatVal(a.t3.at)}</td>
+          <td class="bg-light fw-bold fs-6">${formatVal(a.t3.mt, true)}</td>
+          <td><small>${a.t3.comportamento || 'S'}</small></td>
+          <td><span class="badge bg-light text-dark border">${a.t3.anotacao || '-'}</span></td>
+          <!-- MFD -->
+          <td class="bg-light fw-bold fs-6">${formatVal(a.mfd, true)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Preencher Linhas de Estatística por Coluna no Rodapé (Imagem 2)
+    const tfoot = document.getElementById('tabelaCadernetaRodape');
+    if (tfoot && d.estatisticasColunas) {
+      const stats = d.estatisticasColunas;
+      const chavesColunas = [
+        't1_t1', 't1_t2', 't1_t3', 't1_map', null, 't1_at', 't1_mt', null, null,
+        't2_t1', 't2_t2', 't2_t3', 't2_map', null, 't2_at', 't2_mt', null, null,
+        't3_t1', 't3_t2', 't3_t3', 't3_map', null, 't3_at', 't3_mt', null, null,
+        'mfd'
+      ];
+
+      const renderCelulasEstatistica = (extrator) => {
+        return chavesColunas.map(key => {
+          if (!key || !stats[key]) return '<td>-</td>';
+          return `<td>${extrator(stats[key])}</td>`;
+        }).join('');
+      };
+
+      tfoot.innerHTML = `
+        <tr class="table-secondary">
+          <td colspan="4" class="text-start ps-3 fw-bold">Alunos Avaliados</td>
+          ${renderCelulasEstatistica(s => s.avaliados.total > 0 ? `<strong>${s.avaliados.total}</strong>` : '-')}
+        </tr>
+        <tr>
+          <td colspan="4" class="text-start ps-3 text-success fw-semibold">Notas Positivas (>= 10)</td>
+          ${renderCelulasEstatistica(s => s.positivas.total > 0 ? `<span class="text-success fw-bold">${s.positivas.total}</span>` : '-')}
+        </tr>
+        <tr>
+          <td colspan="4" class="text-start ps-3 text-success fw-semibold">% Positivas</td>
+          ${renderCelulasEstatistica(s => s.avaliados.total > 0 ? `<span class="text-success">${s.positivas.pct}%</span>` : '-')}
+        </tr>
+        <tr>
+          <td colspan="4" class="text-start ps-3 text-danger fw-semibold">Notas Negativas (< 10)</td>
+          ${renderCelulasEstatistica(s => s.negativas.total > 0 ? `<span class="text-danger fw-bold">${s.negativas.total}</span>` : '-')}
+        </tr>
+        <tr>
+          <td colspan="4" class="text-start ps-3 text-danger fw-semibold">% Negativas</td>
+          ${renderCelulasEstatistica(s => s.avaliados.total > 0 ? `<span class="text-danger">${s.negativas.pct}%</span>` : '-')}
+        </tr>
+        <tr class="table-light">
+          <td colspan="4" class="text-start ps-3 fw-bold text-primary">Média da Coluna</td>
+          ${renderCelulasEstatistica(s => s.media > 0 ? `<strong class="text-primary">${s.media}</strong>` : '-')}
+        </tr>
+      `;
+    }
+  } catch (err) {
+    console.error('Erro ao carregar caderneta:', err);
+  }
 }
 
 function exportarCadernetaExcel() {
   if (!state.alocacaoAtualId) return alert('Selecione uma alocação de turma');
-  const periodo = document.getElementById('cadernetaPeriodoSelect').value;
-  const url = `/api/v1/professores/caderneta/${state.alocacaoAtualId}/xlsx?periodo=${periodo}`;
-  downloadFicheiroBinario(url, `Caderneta_Docente_${periodo}_2026.xlsx`);
+  const url = `/api/v1/professores/caderneta/${state.alocacaoAtualId}/xlsx`;
+  downloadFicheiroBinario(url, `Caderneta_Oficial_2026.xlsx`);
+}
+
+function imprimirCadernetaOficial() {
+  window.print();
 }
 
 async function modalSalvarNotaCaderneta() {
   if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina');
 
-  const periodo = document.getElementById('cadernetaPeriodoSelect').value;
-  const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${state.alocacaoAtualId}?periodo=${periodo}`);
+  const periodo = document.getElementById('cadernetaPeriodoSelect')?.value || '1_TRIMESTRE';
+  const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/completa`);
   if (!resCaderneta.success || !resCaderneta.data.alunos?.length) {
     return alert('Não há alunos nesta turma');
   }
 
   const optAlunos = resCaderneta.data.alunos.map(item => 
-    `<option value="${item.aluno.id}">${item.aluno.nome}</option>`
+    `<option value="${item.alunoId}">${item.nome} ${item.apelido || ''}</option>`
   ).join('');
 
   const optAnotacoes = (state.geografia.anotacoes || []).map(a => 
@@ -1594,7 +1679,7 @@ async function modalSalvarNotaCaderneta() {
     `<option value="${c.sigla}" ${c.sigla === 'B' ? 'selected' : ''}>${c.sigla} — ${c.descricao}</option>`
   ).join('');
 
-  abrirModal('Lançar Avaliações do Aluno (6 Avaliações Oficiais)', `
+  abrirModal('Lançar Avaliações do Aluno', `
     <form id="formModalLancamentoNota">
       <div class="mb-3">
         <label class="form-label small fw-semibold">Aluno Seleccionado</label>
@@ -1603,27 +1688,23 @@ async function modalSalvarNotaCaderneta() {
 
       <div class="row g-2 mb-3">
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Teste 1 (Obrigatório, 0-20)</label>
+          <label class="form-label small fw-semibold">1ª ACS (0-20)</label>
           <input type="number" step="0.5" min="0" max="20" id="mlnT1" class="form-control" value="12" required>
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Teste 2 (Obrigatório, 0-20)</label>
+          <label class="form-label small fw-semibold">2ª ACS (0-20)</label>
           <input type="number" step="0.5" min="0" max="20" id="mlnT2" class="form-control" value="13" required>
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Teste 3 (Opcional, 0-20)</label>
+          <label class="form-label small fw-semibold">3ª ACS (Opcional, 0-20)</label>
           <input type="number" step="0.5" min="0" max="20" id="mlnT3" class="form-control" placeholder="Opcional">
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Teste 4 (Opcional, 0-20)</label>
-          <input type="number" step="0.5" min="0" max="20" id="mlnT4" class="form-control" placeholder="Opcional">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label small fw-semibold">Trabalho / ACS (Obrigatório, 0-20)</label>
+          <label class="form-label small fw-semibold">Trabalho / MAC3 (0-20)</label>
           <input type="number" step="0.5" min="0" max="20" id="mlnTrabalho" class="form-control" value="14" required>
         </div>
-        <div class="col-md-6">
-          <label class="form-label small fw-semibold">Avaliação Trimestral - AT (Obrigatório, 0-20)</label>
+        <div class="col-md-12">
+          <label class="form-label small fw-semibold">Avaliação Trimestral - AT (0-20)</label>
           <input type="number" step="0.5" min="0" max="20" id="mlnAT" class="form-control" value="12" required>
         </div>
       </div>
@@ -1646,7 +1727,7 @@ async function modalSalvarNotaCaderneta() {
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary w-100">Gravar Avaliações na Caderneta</button>
+      <button type="submit" class="btn btn-primary w-100">Gravar Avaliação no Trimestre</button>
     </form>
   `);
 
@@ -1662,7 +1743,6 @@ async function modalSalvarNotaCaderneta() {
         teste1: Number(document.getElementById('mlnT1').value),
         teste2: Number(document.getElementById('mlnT2').value),
         teste3: document.getElementById('mlnT3').value ? Number(document.getElementById('mlnT3').value) : undefined,
-        teste4: document.getElementById('mlnT4').value ? Number(document.getElementById('mlnT4').value) : undefined,
         nota_trabalho: Number(document.getElementById('mlnTrabalho').value),
         avaliacao_trimestral: Number(document.getElementById('mlnAT').value),
         faltas: Number(document.getElementById('mlnFaltas').value) || 0,
@@ -1684,120 +1764,462 @@ async function modalSalvarNotaCaderneta() {
   });
 }
 
-// ==================== 8. PAUTAS & ACTAS OFICIAIS ====================
-async function carregarPautas() {
-  try {
-    const res = await apiFetch('/api/v1/pautas');
-    if (res.success) {
-      const tbody = document.getElementById('tabelaPautas');
-      tbody.innerHTML = res.data.map(p => `
-        <tr>
-          <td><strong>${p.turma.nome}</strong></td>
-          <td>${p.ano_letivo}</td>
-          <td><span class="badge bg-light text-dark border">${p.periodo}</span></td>
-          <td>
-            <span class="badge ${p.status === 'FECHADA' ? 'bg-success' : 'bg-warning text-dark'}">
-              ${p.status}
-            </span>
-          </td>
-          <td><small>${p.homologado_por || 'Pendente de homologação'}</small></td>
-          <td class="text-end">
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-primary" onclick="visualizarPautaOficial('${p.id}')">
-                <i class="bi bi-eye me-1"></i> Ver Pauta
-              </button>
-              <button class="btn btn-outline-success" onclick="exportarPautaExcel('${p.id}', '${p.turma.nome}', '${p.ano_letivo}')">
-                <i class="bi bi-file-earmark-excel"></i>
-              </button>
-              <button class="btn btn-outline-secondary" onclick="exportarActaExcel('${p.id}', '${p.turma.nome}', '${p.ano_letivo}')">
-                <i class="bi bi-file-text"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {}
+// ==================== 8. PAUTAS GERAIS & ACTAS OFICIAIS ====================
+let subAbaPautaAtiva = 'pauta';
+
+function mudarSubAbaPauta(aba) {
+  subAbaPautaAtiva = aba;
+  const btnPauta = document.getElementById('btnAbaPauta');
+  const btnActa = document.getElementById('btnAbaActa');
+  const viewPauta = document.getElementById('subViewPautaGeral');
+  const viewActa = document.getElementById('subViewActaConselho');
+
+  if (aba === 'pauta') {
+    btnPauta?.classList.add('active');
+    btnActa?.classList.remove('active');
+    viewPauta?.classList.remove('d-none');
+    viewActa?.classList.add('d-none');
+  } else {
+    btnActa?.classList.add('active');
+    btnPauta?.classList.remove('active');
+    viewActa?.classList.remove('d-none');
+    viewPauta?.classList.add('d-none');
+  }
+  alternarVisualizacaoPautaTurma();
 }
 
-async function visualizarPautaOficial(pautaId) {
+async function carregarPautas() {
   try {
-    const res = await apiFetch(`/api/v1/pautas/${pautaId}`);
+    const resTurmas = await apiFetch('/api/v1/escola-admin/turmas');
+    const selectTurma = document.getElementById('pautaTurmaSelect');
+    if (!selectTurma) return;
+
+    if (resTurmas.success && resTurmas.data.length > 0) {
+      selectTurma.innerHTML = resTurmas.data.map(t => 
+        `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`
+      ).join('');
+      alternarVisualizacaoPautaTurma();
+    } else {
+      selectTurma.innerHTML = '<option value="">Nenhuma turma cadastrada</option>';
+    }
+  } catch (err) {
+    console.error('Erro ao carregar turmas na pauta:', err);
+  }
+}
+
+async function alternarVisualizacaoPautaTurma() {
+  const turmaId = document.getElementById('pautaTurmaSelect')?.value;
+  if (!turmaId) return;
+
+  if (subAbaPautaAtiva === 'pauta') {
+    await carregarPautaGeral(turmaId);
+  } else {
+    await carregarActaConselho(turmaId);
+  }
+}
+
+async function carregarPautaGeral(turmaId) {
+  const container = document.getElementById('containerTabelaPautaGeral');
+  if (!container) return;
+  container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A carregar pauta geral da turma...</p></div>';
+
+  try {
+    const res = await apiFetch(`/api/v1/pautas/turma/${turmaId}/completa`);
     if (!res.success) return;
+    const d = res.data;
 
-    const pauta = res.data;
-    const container = document.getElementById('pautaDetalheView');
-    container.classList.remove('d-none');
+    document.getElementById('pautaGeralTitulo').textContent = `Pauta Oficial de Aproveitamento Pedagógico — ${d.turma.nome} (${d.turma.grau_ano})`;
+    document.getElementById('pautaGeralSubtitulo').textContent = `Ano Lectivo: ${d.turma.ano_letivo} | Turno: ${d.turma.turno || 'Diurno'} | Director de Turma: ${d.turma.director_turma} (${d.turma.director_turma_tel || ''})`;
 
-    document.getElementById('pautaDetalheTitulo').textContent = `Pauta Oficial — ${pauta.turma.nome} (${pauta.periodo})`;
-    document.getElementById('pautaDetalheSubtitulo').textContent = `Ano Lectivo: ${pauta.ano_letivo} | Estado: ${pauta.status} | Critério Oficial Aplicado`;
+    const formatNota = (val) => {
+      if (val === null || val === undefined || isNaN(val) || val <= 0) return '<span class="text-muted">-</span>';
+      const num = Number(val);
+      const cls = num >= 9.5 ? 'nota-positiva' : 'nota-negativa';
+      return `<span class="${cls}">${Number.isInteger(num) ? num : num.toFixed(1)}</span>`;
+    };
 
-    document.getElementById('btnExportarPautaXlsx').onclick = () => exportarPautaExcel(pauta.id, pauta.turma.nome, pauta.ano_letivo);
-    document.getElementById('btnExportarActaXlsx').onclick = () => exportarActaExcel(pauta.id, pauta.turma.nome, pauta.ano_letivo);
+    const thDisciplinas = d.disciplinas.map(disc => 
+      `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.72rem;">${disc.codigo || disc.nome}</th>`
+    ).join('');
 
-    // Renderização matricial
-    const dados = pauta.dados_processados || {};
-    const disciplinas = dados.disciplinas || [];
-    const alunos = dados.alunos || [];
+    const thSubDisciplinas = d.disciplinas.map(() => 
+      `<th style="font-size: 0.65rem;">1º</th><th style="font-size: 0.65rem;">2º</th><th style="font-size: 0.65rem;">3º</th><th style="font-size: 0.65rem;" class="bg-light fw-bold">MFD</th>`
+    ).join('');
 
-    const thDisc = disciplinas.map(d => `<th class="text-center">${d}</th>`).join('');
+    let trsAlunos = d.alunos.map(a => {
+      const tdDisciplinas = d.disciplinas.map(disc => {
+        const nd = a.notasDisciplinas[disc.codigo || disc.id] || a.notasDisciplinas[disc.id] || {};
+        return `
+          <td>${formatNota(nd.t1)}</td>
+          <td>${formatNota(nd.t2)}</td>
+          <td>${formatNota(nd.t3)}</td>
+          <td class="bg-light fw-bold">${formatNota(nd.mfd)}</td>
+        `;
+      }).join('');
 
-    const htmlTabela = `
-      <table class="table table-bordered table-sm align-middle text-center small">
+      let badgeResultado = '';
+      if (a.resultadoFinal === 'A') {
+        badgeResultado = '<span class="badge badge-aprovado px-2 py-1">A</span>';
+      } else if (a.resultadoFinal === 'R') {
+        badgeResultado = '<span class="badge badge-reprovado px-2 py-1">R</span>';
+      } else if (a.resultadoFinal === 'D') {
+        badgeResultado = '<span class="badge bg-warning text-dark px-2 py-1">D</span>';
+      } else {
+        badgeResultado = '<span class="badge bg-info text-dark px-2 py-1">T</span>';
+      }
+
+      return `
+        <tr>
+          <td><strong>${a.numero}</strong></td>
+          <td class="text-start"><strong>${a.nome}</strong></td>
+          <td class="text-start">${a.apelido || '-'}</td>
+          <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
+          ${tdDisciplinas}
+          <td class="bg-light">${formatNota(a.mediasTrimestrais.t1)}</td>
+          <td class="bg-light">${formatNota(a.mediasTrimestrais.t2)}</td>
+          <td class="bg-light">${formatNota(a.mediasTrimestrais.t3)}</td>
+          <td>${a.negativas.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
+          <td>${a.negativas.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
+          <td>${a.negativas.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
+          <td class="bg-light">${a.negativas.fimDoAno > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
+          <td class="bg-light fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
+          <td>${badgeResultado}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const est = d.estatistica;
+
+    container.innerHTML = `
+      <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: 1400px;">
         <thead class="table-light">
           <tr>
-            <th class="text-start">Nº / Nome do Aluno</th>
-            ${thDisc}
-            <th class="bg-light">Média Geral</th>
-            <th>Negativas</th>
-            <th>Situação Oficial</th>
+            <th rowspan="2" class="align-middle" style="width: 35px;">Nº</th>
+            <th rowspan="2" class="align-middle text-start" style="min-width: 130px;">NOME DO ALUNO</th>
+            <th rowspan="2" class="align-middle text-start" style="min-width: 80px;">Apelido</th>
+            <th rowspan="2" class="align-middle" style="width: 35px;">Gên</th>
+            ${thDisciplinas}
+            <th colspan="3" class="bg-secondary bg-opacity-10 fw-bold">MÉDIAS TRIMESTRAIS</th>
+            <th colspan="4" class="bg-danger bg-opacity-10 text-danger fw-bold">Nº DE NEGATIVAS</th>
+            <th rowspan="2" class="align-middle bg-primary bg-opacity-10 text-primary fw-bold" style="width: 60px;">MÉDIA FINAL</th>
+            <th rowspan="2" class="align-middle fw-bold" style="width: 50px;">RESULTADO</th>
+          </tr>
+          <tr>
+            ${thSubDisciplinas}
+            <th style="font-size: 0.68rem;">I</th>
+            <th style="font-size: 0.68rem;">II</th>
+            <th style="font-size: 0.68rem;">III</th>
+            <th style="font-size: 0.68rem;">1º</th>
+            <th style="font-size: 0.68rem;">2º</th>
+            <th style="font-size: 0.68rem;">3º</th>
+            <th style="font-size: 0.68rem;" class="bg-light fw-bold">Fim</th>
           </tr>
         </thead>
         <tbody>
-          ${alunos.map((a, idx) => {
-            const tdNotas = disciplinas.map(d => {
-              const nota = a.notas[d];
-              if (nota === undefined || nota === null) return '<td>-</td>';
-              const cls = nota >= 9.5 ? 'nota-positiva' : 'nota-negativa';
-              return `<td class="${cls}">${nota}</td>`;
-            }).join('');
-
-            const badgeSit = a.resultado === 'APROVADO' 
-              ? '<span class="badge badge-aprovado">Aprovado</span>' 
-              : '<span class="badge badge-reprovado">Reprovado</span>';
-
-            return `
-              <tr>
-                <td class="text-start"><strong>${idx + 1}. ${a.nome}</strong></td>
-                ${tdNotas}
-                <td class="bg-light fw-bold">${a.mediaGeral}</td>
-                <td>${a.totalNegativas}</td>
-                <td>${badgeSit}</td>
-              </tr>
-            `;
-          }).join('')}
+          ${trsAlunos}
         </tbody>
+        <tfoot class="table-light">
+          <tr class="table-secondary fw-bold text-start">
+            <td colspan="${4 + (d.disciplinas.length * 4) + 9}" class="ps-3 py-2">
+              <div class="d-flex flex-wrap gap-4 align-items-center">
+                <span>Total Inscritos: <strong>${est.inscritos.total}</strong> (H: ${est.inscritos.h} | M: ${est.inscritos.m})</span>
+                <span>Avaliados: <strong>${est.avaliados.total}</strong></span>
+                <span class="text-success">Aprovados: <strong>${est.aprovados.total}</strong> (${est.aprovados.pct}%)</span>
+                <span class="text-danger">Reprovados: <strong>${est.reprovados.total}</strong> (${est.reprovados.pct}%)</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     `;
-
-    document.getElementById('pautaDetalheTabelaContainer').innerHTML = htmlTabela;
-    container.scrollIntoView({ behavior: 'smooth' });
-  } catch (err) {}
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-danger">Erro ao carregar pauta geral da turma.</div>';
+  }
 }
 
-function exportarPautaExcel(id, turmaNome, ano) {
-  const safeName = (turmaNome || 'Turma').replace(/[^a-zA-Z0-9]/g, '_');
-  downloadFicheiroBinario(`/api/v1/pautas/${id}/export-xlsx`, `Pauta_Oficial_${safeName}_${ano}.xlsx`);
+async function carregarActaConselho(turmaId) {
+  const container = document.getElementById('containerActaConselhoCorpo');
+  if (!container) return;
+  container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A carregar acta do conselho de avaliação...</p></div>';
+
+  try {
+    const res = await apiFetch(`/api/v1/pautas/turma/${turmaId}/acta`);
+    if (!res.success) return;
+    const d = res.data;
+
+    const te = d.tabelaEfectivo;
+    const ta = d.tabelaAproveitamento;
+
+    container.innerHTML = `
+      <!-- Cabeçalho Oficial da Acta (Imagem 1) -->
+      <div class="row align-items-center mb-3">
+        <div class="col-8 text-start">
+          <h6 class="fw-bold mb-0 text-uppercase">REPÚBLICA DE MOÇAMBIQUE</h6>
+          <small class="text-muted d-block fw-semibold text-uppercase">GOVERNO DA PROVÍNCIA DE ${d.escola.provincia || 'MAPUTO'}</small>
+          <small class="text-muted d-block fw-semibold text-uppercase">GOVERNO DO DISTRITO DE ${d.escola.distrito || 'CIDADE DE MAPUTO'}</small>
+          <h5 class="fw-bold text-dark mt-1 mb-0">${(d.escola.nome || 'Escola Secundária').toUpperCase()}</h5>
+          <small class="fw-bold text-primary text-uppercase">SECTOR PEDAGÓGICO</small>
+        </div>
+        <div class="col-4 text-end">
+          <div class="d-inline-flex border p-2 bg-light rounded text-center small" style="font-size: 0.72rem;">
+            <div class="px-2 border-end"><strong>1º Trimestre</strong><br>${d.conselho.dataT1 || '__/__/2026'}</div>
+            <div class="px-2 border-end"><strong>2º Trimestre</strong><br>${d.conselho.dataT2 || '__/__/2026'}</div>
+            <div class="px-2"><strong>3º Trimestre</strong><br>${d.conselho.dataT3 || '__/__/2026'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center my-3">
+        <h4 class="fw-bold text-uppercase border-bottom border-top py-2 tracking-wide">ACTA DO CONSELHO DE AVALIAÇÃO</h4>
+      </div>
+
+      <!-- Texto Protocolar do Conselho de Avaliação (Imagem 1) -->
+      <div class="p-3 bg-light rounded border mb-4 small" style="line-height: 1.8; text-align: justify;">
+        Sob presidência do senhor professor <strong>${d.conselho.presidente}</strong> (Iº Trimestre); 
+        <strong>${d.conselho.presidente}</strong> (IIº Trimestre); 
+        director/substituto do director de turma <strong>${d.turma.nome}</strong> do grupo da <strong>${d.turma.grau_ano}</strong>, 
+        curso <strong>${d.turma.turno === 'NOITE' ? 'Nocturno' : 'Diurno'}</strong>, realizou-se o Conselho de Avaliação do Iº, IIº e IIIº Trimestres 
+        no dia <strong>${d.conselho.dataT1}</strong>, com início às <strong>${d.conselho.horaInicio}</strong> e com término às <strong>${d.conselho.horaFim}</strong>. 
+        No final deste conselho colheram-se os resultados que abaixo vão discriminados de todos os membros que participaram:
+      </div>
+
+      <div class="row g-3 mb-4">
+        <!-- TABELA 1: Aproveitamento Pedagógico por Trimestre e Fim do Ano (Efectivos e Movimento) -->
+        <div class="col-lg-6">
+          <div class="border rounded p-2 bg-white h-100 shadow-sm">
+            <h6 class="fw-bold text-center small text-uppercase mb-2 bg-primary bg-opacity-10 py-1 rounded">Aproveitamento por Trimestre e Fim do Ano</h6>
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm text-center mb-0" style="font-size: 0.68rem;">
+                <thead class="table-light">
+                  <tr>
+                    <th rowspan="2" class="align-middle text-start">CATEGORIA</th>
+                    <th colspan="3">Iº TRIMESTRE</th>
+                    <th colspan="3">IIº TRIMESTRE</th>
+                    <th colspan="3">IIIº TRIMESTRE</th>
+                    <th colspan="3">FIM DO ANO</th>
+                  </tr>
+                  <tr>
+                    <th>H</th><th>M</th><th>HM</th>
+                    <th>H</th><th>M</th><th>HM</th>
+                    <th>H</th><th>M</th><th>HM</th>
+                    <th>H</th><th>M</th><th>HM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="text-start fw-semibold">Efectivo Inicial</td>
+                    <td>${te.t1.inscritos.h}</td><td>${te.t1.inscritos.m}</td><td class="fw-bold">${te.t1.inscritos.hm}</td>
+                    <td>${te.t2.inscritos.h}</td><td>${te.t2.inscritos.m}</td><td class="fw-bold">${te.t2.inscritos.hm}</td>
+                    <td>${te.t3.inscritos.h}</td><td>${te.t3.inscritos.m}</td><td class="fw-bold">${te.t3.inscritos.hm}</td>
+                    <td>${te.fimAno.inscritos.h}</td><td>${te.fimAno.inscritos.m}</td><td class="fw-bold">${te.fimAno.inscritos.hm}</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Desistentes</td>
+                    <td>${te.t1.desistentes.h}</td><td>${te.t1.desistentes.m}</td><td>${te.t1.desistentes.hm}</td>
+                    <td>${te.t2.desistentes.h}</td><td>${te.t2.desistentes.m}</td><td>${te.t2.desistentes.hm}</td>
+                    <td>${te.t3.desistentes.h}</td><td>${te.t3.desistentes.m}</td><td>${te.t3.desistentes.hm}</td>
+                    <td>${te.fimAno.desistentes.h}</td><td>${te.fimAno.desistentes.m}</td><td>${te.fimAno.desistentes.hm}</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Transferidos</td>
+                    <td>${te.t1.transferidos.h}</td><td>${te.t1.transferidos.m}</td><td>${te.t1.transferidos.hm}</td>
+                    <td>${te.t2.transferidos.h}</td><td>${te.t2.transferidos.m}</td><td>${te.t2.transferidos.hm}</td>
+                    <td>${te.t3.transferidos.h}</td><td>${te.t3.transferidos.m}</td><td>${te.t3.transferidos.hm}</td>
+                    <td>${te.fimAno.transferidos.h}</td><td>${te.fimAno.transferidos.m}</td><td>${te.fimAno.transferidos.hm}</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Falecidos</td>
+                    <td>${te.t1.falecidos.h}</td><td>${te.t1.falecidos.m}</td><td>${te.t1.falecidos.hm}</td>
+                    <td>${te.t2.falecidos.h}</td><td>${te.t2.falecidos.m}</td><td>${te.t2.falecidos.hm}</td>
+                    <td>${te.t3.falecidos.h}</td><td>${te.t3.falecidos.m}</td><td>${te.t3.falecidos.hm}</td>
+                    <td>${te.fimAno.falecidos.h}</td><td>${te.fimAno.falecidos.m}</td><td>${te.fimAno.falecidos.hm}</td>
+                  </tr>
+                  <tr class="table-light fw-bold">
+                    <td class="text-start">Efectivo Final (Avaliados)</td>
+                    <td>${te.t1.avaliados.h}</td><td>${te.t1.avaliados.m}</td><td>${te.t1.avaliados.hm}</td>
+                    <td>${te.t2.avaliados.h}</td><td>${te.t2.avaliados.m}</td><td>${te.t2.avaliados.hm}</td>
+                    <td>${te.t3.avaliados.h}</td><td>${te.t3.avaliados.m}</td><td>${te.t3.avaliados.hm}</td>
+                    <td>${te.fimAno.avaliados.h}</td><td>${te.fimAno.avaliados.m}</td><td>${te.fimAno.avaliados.hm}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABELA 2: Classificação Pedagógica por Faixas de Notas -->
+        <div class="col-lg-6">
+          <div class="border rounded p-2 bg-white h-100 shadow-sm">
+            <h6 class="fw-bold text-center small text-uppercase mb-2 bg-info bg-opacity-10 py-1 rounded">Aproveitamento Pedagógico por Faixas</h6>
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm text-center mb-0" style="font-size: 0.68rem;">
+                <thead class="table-light">
+                  <tr>
+                    <th rowspan="2" class="align-middle text-start">CLASSIFICAÇÃO</th>
+                    <th colspan="2">Iº TRIMESTRE</th>
+                    <th colspan="2">IIº TRIMESTRE</th>
+                    <th colspan="2">IIIº TRIMESTRE</th>
+                    <th colspan="2">FIM DO ANO</th>
+                  </tr>
+                  <tr>
+                    <th>HM</th><th>%</th>
+                    <th>HM</th><th>%</th>
+                    <th>HM</th><th>%</th>
+                    <th>HM</th><th>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="table-secondary fw-bold">
+                    <td class="text-start">Alunos Avaliados</td>
+                    <td>${ta.t1.avaliados.hm}</td><td>100%</td>
+                    <td>${ta.t2.avaliados.hm}</td><td>100%</td>
+                    <td>${ta.t3.avaliados.hm}</td><td>100%</td>
+                    <td>${ta.fimAno.avaliados.hm}</td><td>100%</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start text-danger">Não Satisfatório (0 a 9)</td>
+                    <td>${ta.t1.naoSatisfatorio.hm}</td><td>${ta.t1.naoSatisfatorio.pct}%</td>
+                    <td>${ta.t2.naoSatisfatorio.hm}</td><td>${ta.t2.naoSatisfatorio.pct}%</td>
+                    <td>${ta.t3.naoSatisfatorio.hm}</td><td>${ta.t3.naoSatisfatorio.pct}%</td>
+                    <td>${ta.fimAno.naoSatisfatorio.hm}</td><td>${ta.fimAno.naoSatisfatorio.pct}%</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Satisfatório (10 a 13)</td>
+                    <td>${ta.t1.satisfatorio.hm}</td><td>${ta.t1.satisfatorio.pct}%</td>
+                    <td>${ta.t2.satisfatorio.hm}</td><td>${ta.t2.satisfatorio.pct}%</td>
+                    <td>${ta.t3.satisfatorio.hm}</td><td>${ta.t3.satisfatorio.pct}%</td>
+                    <td>${ta.fimAno.satisfatorio.hm}</td><td>${ta.fimAno.satisfatorio.pct}%</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Bom (14 a 16)</td>
+                    <td>${ta.t1.bom.hm}</td><td>${ta.t1.bom.pct}%</td>
+                    <td>${ta.t2.bom.hm}</td><td>${ta.t2.bom.pct}%</td>
+                    <td>${ta.t3.bom.hm}</td><td>${ta.t3.bom.pct}%</td>
+                    <td>${ta.fimAno.bom.hm}</td><td>${ta.fimAno.bom.pct}%</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Muito Bom (17 a 18)</td>
+                    <td>${ta.t1.muitoBom.hm}</td><td>${ta.t1.muitoBom.pct}%</td>
+                    <td>${ta.t2.muitoBom.hm}</td><td>${ta.t2.muitoBom.pct}%</td>
+                    <td>${ta.t3.muitoBom.hm}</td><td>${ta.t3.muitoBom.pct}%</td>
+                    <td>${ta.fimAno.muitoBom.hm}</td><td>${ta.fimAno.muitoBom.pct}%</td>
+                  </tr>
+                  <tr>
+                    <td class="text-start">Excelente (19 a 20)</td>
+                    <td>${ta.t1.excelente.hm}</td><td>${ta.t1.excelente.pct}%</td>
+                    <td>${ta.t2.excelente.hm}</td><td>${ta.t2.excelente.pct}%</td>
+                    <td>${ta.t3.excelente.hm}</td><td>${ta.t3.excelente.pct}%</td>
+                    <td>${ta.fimAno.excelente.hm}</td><td>${ta.fimAno.excelente.pct}%</td>
+                  </tr>
+                  <tr class="table-success fw-bold">
+                    <td class="text-start">Total Aprovados</td>
+                    <td>${ta.t1.aprovados.hm}</td><td>${ta.t1.aprovados.pct}%</td>
+                    <td>${ta.t2.aprovados.hm}</td><td>${ta.t2.aprovados.pct}%</td>
+                    <td>${ta.t3.aprovados.hm}</td><td>${ta.t3.aprovados.pct}%</td>
+                    <td>${ta.fimAno.aprovados.hm}</td><td>${ta.fimAno.aprovados.pct}%</td>
+                  </tr>
+                  <tr class="table-danger fw-bold">
+                    <td class="text-start">Total Reprovados</td>
+                    <td>${ta.t1.reprovados.hm}</td><td>${ta.t1.reprovados.pct}%</td>
+                    <td>${ta.t2.reprovados.hm}</td><td>${ta.t2.reprovados.pct}%</td>
+                    <td>${ta.t3.reprovados.hm}</td><td>${ta.t3.reprovados.pct}%</td>
+                    <td>${ta.fimAno.reprovados.hm}</td><td>${ta.fimAno.reprovados.pct}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABELA 3: Estatística por Disciplina (Imagem 1) -->
+      <div class="border rounded p-3 bg-white mb-4 shadow-sm">
+        <h6 class="fw-bold text-center small text-uppercase mb-2 bg-secondary bg-opacity-10 py-1 rounded">Estatística de Aproveitamento por Disciplina Curricular</h6>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm text-center mb-0" style="font-size: 0.7rem;">
+            <thead class="table-light">
+              <tr>
+                <th class="text-start">DISCIPLINA</th>
+                <th>[0 - 9]</th>
+                <th>[10 - 13]</th>
+                <th>[14 - 16]</th>
+                <th>[17 - 18]</th>
+                <th>[19 - 20]</th>
+                <th class="bg-light fw-bold">AVALIADOS</th>
+                <th class="text-success fw-bold">POSITIVAS</th>
+                <th class="text-success fw-bold">% POSITIVAS</th>
+                <th class="text-danger fw-bold">NEGATIVAS</th>
+                <th class="text-danger fw-bold">% NEGATIVAS</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${d.disciplinas.map(disc => `
+                <tr>
+                  <td class="text-start fw-bold">${disc.nome}</td>
+                  <td class="${disc.faixa0_9.hm > 0 ? 'text-danger fw-bold' : ''}">${disc.faixa0_9.hm}</td>
+                  <td>${disc.faixa10_13.hm}</td>
+                  <td>${disc.faixa14_16.hm}</td>
+                  <td>${disc.faixa17_18.hm}</td>
+                  <td>${disc.faixa19_20.hm}</td>
+                  <td class="bg-light fw-bold">${disc.avaliados.hm}</td>
+                  <td class="text-success fw-bold">${disc.positivas.hm}</td>
+                  <td class="text-success">${disc.positivas.pct}%</td>
+                  <td class="text-danger fw-bold">${disc.negativas.hm}</td>
+                  <td class="text-danger">${disc.negativas.pct}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Assinaturas Formais dos Membros do Conselho de Avaliação (Imagem 1) -->
+      <div class="row text-center pt-4 border-top mt-5 small">
+        <div class="col-4">
+          <p class="mb-0 border-top pt-2 mx-3 fw-semibold">O Director de Turma (Presidente)</p>
+          <small class="text-muted">${d.conselho.presidente}</small>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 border-top pt-2 mx-3 fw-semibold">O Secretário do Conselho</p>
+          <small class="text-muted">Docente Designado</small>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 border-top pt-2 mx-3 fw-semibold">O Director Adjunto Pedagógico (DAP)</p>
+          <small class="text-muted">Visto & Homologado</small>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-danger">Erro ao carregar acta do conselho de avaliação.</div>';
+  }
 }
 
-function exportarActaExcel(id, turmaNome, ano) {
-  const safeName = (turmaNome || 'Turma').replace(/[^a-zA-Z0-9]/g, '_');
-  downloadFicheiroBinario(`/api/v1/pautas/${id}/acta-xlsx`, `Acta_Estatistica_${safeName}_${ano}.xlsx`);
+function exportarPautaGeralExcel() {
+  const turmaId = document.getElementById('pautaTurmaSelect')?.value;
+  if (!turmaId) return alert('Selecione uma turma');
+  const ano = document.getElementById('pautaAnoSelect')?.value || '2026';
+  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.xlsx`);
+}
+
+function exportarActaConselhoExcel() {
+  const turmaId = document.getElementById('pautaTurmaSelect')?.value;
+  if (!turmaId) return alert('Selecione uma turma');
+  const ano = document.getElementById('pautaAnoSelect')?.value || '2026';
+  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-xlsx?anoLetivo=${ano}`, `Acta_Conselho_Turma_${ano}.xlsx`);
+}
+
+function imprimirPautaGeralOficial() {
+  window.print();
+}
+
+function imprimirActaConselhoOficial() {
+  window.print();
 }
 
 async function modalGerarPauta() {
   const turmasRes = await apiFetch('/api/v1/escola-admin/turmas');
-  const optTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+  const optTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`
+  ).join('');
 
   abrirModal('Consolidar Pauta Oficial de Turma', `
     <form id="formModalPauta">
@@ -1811,7 +2233,7 @@ async function modalGerarPauta() {
           <option value="1_TRIMESTRE">1º Trimestre</option>
           <option value="2_TRIMESTRE">2º Trimestre</option>
           <option value="3_TRIMESTRE">3º Trimestre</option>
-          <option value="ANUAL">Pauta Anual de Exames (Consolidada Final)</option>
+          <option value="ANUAL">Pauta Anual Consolidada Final</option>
         </select>
       </div>
       <button type="submit" class="btn btn-primary w-100">Gerar Pauta Oficial</button>
@@ -1831,7 +2253,7 @@ async function modalGerarPauta() {
       });
       if (res.success) {
         fecharModal();
-        carregarPautas();
+        alternarVisualizacaoPautaTurma();
       }
     } catch (err) {
       alert(err.message || 'Erro ao gerar pauta');

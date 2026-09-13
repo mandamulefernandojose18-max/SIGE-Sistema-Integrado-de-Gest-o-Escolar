@@ -8,6 +8,11 @@ const router = Router();
 
 router.use(authMiddleware, tenantMiddleware);
 
+router.get('/turma/:turmaId/completa', (req, res, next) => pautasController.getPautaTurmaCompleta(req, res, next));
+router.get('/turma/:turmaId/acta', (req, res, next) => pautasController.getActaTurma(req, res, next));
+router.get('/turma/:turmaId/export-xlsx', (req, res, next) => pautasController.exportarPautaTurmaXlsx(req, res, next));
+router.get('/turma/:turmaId/acta-xlsx', (req, res, next) => pautasController.exportarActaTurmaXlsx(req, res, next));
+
 router.get('/stats', (req, res, next) => pautasController.stats(req, res, next));
 router.get('/', (req, res, next) => pautasController.list(req, res, next));
 router.get('/:id', (req, res, next) => pautasController.getById(req, res, next));
