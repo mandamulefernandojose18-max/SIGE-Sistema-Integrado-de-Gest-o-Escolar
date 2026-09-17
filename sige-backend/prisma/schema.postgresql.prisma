@@ -93,6 +93,7 @@ model Escola {
   certificados     Certificado[]
   pagamentos       Pagamento[]
   logs_impressao   LogImpressao[]
+  documentos_salvos DocumentoSalvo[]
 }
 
 model AssinaturaEscola {
@@ -356,9 +357,31 @@ model LogImpressao {
   usuario_id     String?
   tipo_documento String
   descricao      String
+  conteudo_json  String?
   data_emissao   DateTime @default(now())
   createdAt      DateTime @default(now())
 
   @@index([escola_id])
   @@index([tipo_documento])
 }
+
+model DocumentoSalvo {
+  id             String   @id @default(uuid())
+  escola_id      String
+  escola         Escola   @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  usuario_id     String?
+  aluno_id       String?
+  turma_id       String?
+  tipo_documento String
+  titulo         String
+  ano_letivo     String   @default("2026")
+  dados_json     String
+  hash_md5       String?
+  criado_em      DateTime @default(now())
+
+  @@index([escola_id])
+  @@index([tipo_documento])
+  @@index([aluno_id])
+  @@index([turma_id])
+}
+
