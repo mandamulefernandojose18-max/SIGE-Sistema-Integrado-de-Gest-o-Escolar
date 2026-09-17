@@ -18,3 +18,10 @@ dev.db*
 *.gz
 *.node
 scratch/
+*.xlsx
+test_*.js
+sige-backend/node_modules/
+sige-backend/dist/
+sige-backend/.env
+sige-backend/prisma/*.db*
+sige-frontend/node_modules/

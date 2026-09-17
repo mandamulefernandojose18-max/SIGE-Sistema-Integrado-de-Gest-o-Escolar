@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlanoTipo {
+  MENSAL
+  TRIMESTRAL
+  ANUAL
+}
+
+enum AssinaturaStatus {
+  ATIVA
+  PENDENTE
+  EXPIRADA
+  SUSPENSA
+}
+
+enum UsuarioRole {
+  SUPERADMIN
+  ADMIN_ESCOLA
+  PROFESSOR
+  ALUNO
+  FINANCEIRO
+}
+
+enum AlunoStatus {
+  ATIVO
+  INATIVO
+  TRANSFERIDO
+  EVADIDO
+}
+
+enum PeriodoLetivo {
+  TRIMESTRE_1
+  TRIMESTRE_2
+  TRIMESTRE_3
+  ANUAL
+}
+
+enum PagamentoStatus {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
+}
+
+model Plano {
+  id              String             @id @default(uuid())
+  nome            PlanoTipo          @unique
+  descricao       String?
+  preco           Decimal            @db.Decimal(10, 2)
+  duracao_dias    Int
+  max_alunos      Int                @default(500)
+  max_professores Int                @default(50)
+  ativo           Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  escolas         Escola[]
+  assinaturas     AssinaturaEscola[]
+}
+
+model Escola {
+  id               String             @id @default(uuid())
+  nome             String
+  nif_cnpj         String             @unique
+  endereco         String?
+  telefone         String?
+  email            String             @unique
+  logo_url         String?
+  status           AssinaturaStatus   @default(ATIVA)
+  ano_letivo_ativo String             @default("2026")
+  plano_id         String?
+  plano            Plano?             @relation(fields: [plano_id], references: [id])
+  data_adesao      DateTime           @default(now())
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  assinaturas      AssinaturaEscola[]
+  usuarios         Usuario[]
+  logs_acesso      LogAcesso[]
+  turmas           Turma[]
+  alunos           Aluno[]
+  professores      Professor[]
+  disciplinas      Disciplina[]
+  alocacoes        ProfessorDisciplinaTurma[]
+  notas            Nota[]
+  pautas           Pauta[]
+  certificados     Certificado[]
+  pagamentos       Pagamento[]
+  logs_impressao   LogImpressao[]
+}
+
+model AssinaturaEscola {
+  id               String           @id @default(uuid())
+  escola_id        String
+  escola           Escola           @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  plano_id         String
+  plano            Plano            @relation(fields: [plano_id], references: [id])
+  data_inicio      DateTime         @default(now())
+  data_fim         DateTime
+  valor            Decimal          @db.Decimal(10, 2)
+  status           AssinaturaStatus @default(ATIVA)
+  metodo_pagamento String           @default("TRANSFERENCIA")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([escola_id])
+  @@index([status])
+}
+
+model Usuario {
+  id           String        @id @default(uuid())
+  escola_id    String?
+  escola       Escola?       @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  nome         String
+  email        String        @unique
+  senha_hash   String
+  role         UsuarioRole   @default(ADMIN_ESCOLA)
+  ativo        Boolean       @default(true)
+  telefone     String?
+  avatar_url   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  refresh_tokens RefreshToken[]
+  logs_acesso    LogAcesso[]
+  professor      Professor?
+
+  @@index([escola_id])
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  usuario_id String
+  usuario    Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  token      String   @unique
+  expires_at DateTime
+  revoked    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([usuario_id])
+}
+
+model LogAcesso {
+  id         String   @id @default(uuid())
+  escola_id  String?
+  escola     Escola?  @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  usuario_id String?
+  usuario    Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  ip         String   @default("127.0.0.1")
+  user_agent String?
+  tipo       String
+  createdAt  DateTime @default(now())
+
+  @@index([escola_id])
+  @@index([tipo])
+  @@index([createdAt])
+}
+
+model Turma {
+  id         String   @id @default(uuid())
+  escola_id  String
+  escola     Escola   @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  nome       String
+  grau_ano   String
+  turno      String   @default("MANHA")
+  sala       String?
+  ano_letivo String   @default("2026")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  alunos     Aluno[]
+  alocacoes  ProfessorDisciplinaTurma[]
+  notas      Nota[]
+  pautas     Pauta[]
+
+  @@index([escola_id])
+}
+
+model Aluno {
+  id                  String      @id @default(uuid())
+  escola_id           String
+  escola              Escola      @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  turma_id            String?
+  turma               Turma?      @relation(fields: [turma_id], references: [id], onDelete: SetNull)
+  matricula           String      @unique
+  nome                String
+  data_nascimento     DateTime
+  genero              String
+  nif_bi              String?
+  nome_responsavel    String?
+  contato_responsavel String?
+  email_responsavel   String?
+  status              AlunoStatus @default(ATIVO)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  notas               Nota[]
+  certificados        Certificado[]
+  pagamentos          Pagamento[]
+
+  @@index([escola_id])
+  @@index([turma_id])
+  @@index([status])
+}
+
+model Professor {
+  id                    String                     @id @default(uuid())
+  escola_id             String
+  escola                Escola                     @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  usuario_id            String?                    @unique
+  usuario               Usuario?                   @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  nome                  String
+  email                 String
+  telefone              String?
+  especialidade         String
+  carga_horaria_semanal Int                        @default(20)
+  ativo                 Boolean                    @default(true)
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  alocacoes             ProfessorDisciplinaTurma[]
+
+  @@index([escola_id])
+}
+
+model Disciplina {
+  id            String                     @id @default(uuid())
+  escola_id     String
+  escola        Escola                     @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  nome          String
+  codigo        String
+  carga_horaria Int                        @default(60)
+  ano_letivo    String                     @default("2026")
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  alocacoes     ProfessorDisciplinaTurma[]
+  notas         Nota[]
+
+  @@index([escola_id])
+}
+
+model ProfessorDisciplinaTurma {
+  id            String     @id @default(uuid())
+  escola_id     String
+  escola        Escola     @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  professor_id  String
+  professor     Professor  @relation(fields: [professor_id], references: [id], onDelete: Cascade)
+  disciplina_id String
+  disciplina    Disciplina @relation(fields: [disciplina_id], references: [id], onDelete: Cascade)
+  turma_id      String
+  turma         Turma      @relation(fields: [turma_id], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+
+  @@index([escola_id])
+  @@index([professor_id])
+  @@index([disciplina_id])
+  @@index([turma_id])
+}
+
+model Nota {
+  id            String   @id @default(uuid())
+  escola_id     String
+  escola        Escola   @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  aluno_id      String
+  aluno         Aluno    @relation(fields: [aluno_id], references: [id], onDelete: Cascade)
+  disciplina_id String
+  disciplina    Disciplina @relation(fields: [disciplina_id], references: [id], onDelete: Cascade)
+  turma_id      String
+  turma         Turma    @relation(fields: [turma_id], references: [id], onDelete: Cascade)
+  periodo       String
+  nota_trabalho Decimal  @default(0) @db.Decimal(5, 2)
+  nota_teste    Decimal  @default(0) @db.Decimal(5, 2)
+  nota_exame    Decimal  @default(0) @db.Decimal(5, 2)
+  nota_final    Decimal  @default(0) @db.Decimal(5, 2)
+  faltas        Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([escola_id])
+  @@index([aluno_id])
+  @@index([disciplina_id])
+  @@index([turma_id])
+}
+
+model Pauta {
+  id              String    @id @default(uuid())
+  escola_id       String
+  escola          Escola    @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  turma_id        String
+  turma           Turma     @relation(fields: [turma_id], references: [id], onDelete: Cascade)
+  ano_letivo      String    @default("2026")
+  periodo         String
+  status          String    @default("ABERTA")
+  data_fechamento DateTime?
+  homologado_por  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([escola_id])
+  @@index([turma_id])
+}
+
+model Certificado {
+  id                   String   @id @default(uuid())
+  escola_id            String
+  escola               Escola   @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  aluno_id             String
+  aluno                Aluno    @relation(fields: [aluno_id], references: [id], onDelete: Cascade)
+  tipo                 String
+  codigo_autenticidade String   @unique
+  qrcode_data          String
+  emitido_em           DateTime @default(now())
+  emitido_por          String?
+  createdAt            DateTime @default(now())
+
+  @@index([escola_id])
+  @@index([aluno_id])
+  @@index([codigo_autenticidade])
+}
+
+model Pagamento {
+  id               String          @id @default(uuid())
+  escola_id        String
+  escola           Escola          @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  aluno_id         String
+  aluno            Aluno           @relation(fields: [aluno_id], references: [id], onDelete: Cascade)
+  descricao        String
+  mes_referencia   String
+  valor            Decimal         @db.Decimal(10, 2)
+  valor_pago       Decimal         @default(0) @db.Decimal(10, 2)
+  status           PagamentoStatus @default(PENDENTE)
+  data_vencimento  DateTime
+  data_pagamento   DateTime?
+  metodo_pagamento String?
+  recibo_numero    String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([escola_id])
+  @@index([aluno_id])
+  @@index([status])
+}
+
+model LogImpressao {
+  id             String   @id @default(uuid())
+  escola_id      String
+  escola         Escola   @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  usuario_id     String?
+  tipo_documento String
+  descricao      String
+  data_emissao   DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([escola_id])
+  @@index([tipo_documento])
+}
