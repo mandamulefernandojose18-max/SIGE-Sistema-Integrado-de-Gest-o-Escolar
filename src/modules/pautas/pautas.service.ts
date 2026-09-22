@@ -1,6 +1,9 @@
 import prisma from '../../config/database';
 import { avaliarAprovacaoPauta } from '../../utils/avaliacoes-mocambique';
 import { ExportExcelService } from '../../services/export-excel.service';
+import { PdfKitDocumentosService } from '../../services/pdfkit-documentos.service';
+import { DocxDocumentosService } from '../../services/docx-documentos.service';
+import { SheetJsDocumentosService } from '../../services/sheetjs-documentos.service';
 import { impressaoService } from '../impressao/impressao.service';
 
 export class PautasService {
@@ -592,26 +595,30 @@ export class PautasService {
       };
     });
 
+    // Campos de prazo, data e director de turma são estritamente opcionais
     const conselhoDef = {
-      presidente: turma.director_turma || 'Fernando José Mandamule',
-      presidenteT1: 'Fernando José Mandamule',
-      presidenteT2: 'Fernando José Mandamule',
-      presidenteT3: 'Fernando José Mandamule',
-      dataT1: '26/05/2026',
-      dataT2: '01/09/2026',
-      dataT3: '15/11/2026',
-      horaInicioT1: '09',
-      minInicioT1: '30',
-      horaFimT1: '10',
-      minFimT1: '00',
-      horaInicioT2: '09',
-      minInicioT2: '30',
-      horaFimT2: '11',
-      minFimT2: '00',
-      horaInicioT3: '09',
-      minInicioT3: '30',
-      horaFimT3: '11',
-      minFimT3: '00'
+      presidente: turma.director_turma || '',
+      presidenteT1: turma.director_turma || '',
+      presidenteT2: turma.director_turma || '',
+      presidenteT3: turma.director_turma || '',
+      data: '',
+      prazo: '',
+      director_turma: turma.director_turma || '',
+      dataT1: '',
+      dataT2: '',
+      dataT3: '',
+      horaInicioT1: '',
+      minInicioT1: '',
+      horaFimT1: '',
+      minFimT1: '',
+      horaInicioT2: '',
+      minInicioT2: '',
+      horaFimT2: '',
+      minFimT2: '',
+      horaInicioT3: '',
+      minInicioT3: '',
+      horaFimT3: '',
+      minFimT3: ''
     };
 
     const conselho = { ...conselhoDef, ...(conselhoParams || {}) };
@@ -627,61 +634,77 @@ export class PautasService {
     };
   }
 
+  async exportarPautaPdf(escolaId: string, turmaId: string, anoLetivo = '2026'): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.getPautaCompleta(escolaId, turmaId, anoLetivo);
+    const buffer = await PdfKitDocumentosService.gerarPautaPdf({
+      escola: dados.escola,
+      turma: dados.turma,
+      disciplinas: dados.disciplinas,
+      alunos: dados.alunos
+    });
+    const filename = `Pauta_${dados.turma.nome.replace(/\s+/g, '_')}_${anoLetivo}.pdf`;
+    return { buffer, filename };
+  }
+
+  async exportarPautaDocx(escolaId: string, turmaId: string, anoLetivo = '2026'): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.getPautaCompleta(escolaId, turmaId, anoLetivo);
+    const buffer = await DocxDocumentosService.gerarPautaDocx({
+      escola: dados.escola,
+      turma: dados.turma,
+      disciplinas: dados.disciplinas,
+      alunos: dados.alunos
+    });
+    const filename = `Pauta_${dados.turma.nome.replace(/\s+/g, '_')}_${anoLetivo}.docx`;
+    return { buffer, filename };
+  }
+
   async exportarPautaTurmaXlsx(escolaId: string, turmaId: string, anoLetivo = '2026'): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.getPautaCompleta(escolaId, turmaId, anoLetivo);
-    const buffer = await ExportExcelService.gerarPautaXlsx({
-      escola: {
-        nome: dados.escola.nome,
-        provincia: dados.escola.provincia,
-        distrito: dados.escola.distrito
-      },
-      turma: {
-        nome: dados.turma.nome,
-        grau_ano: dados.turma.grau_ano,
-        ano_letivo: dados.turma.ano_letivo,
-        turno: dados.turma.turno,
-        director_turma: dados.turma.director_turma
-      },
+    const buffer = SheetJsDocumentosService.gerarPautaXlsx({
+      escola: dados.escola,
+      turma: dados.turma,
       disciplinas: dados.disciplinas,
-      alunos: dados.alunos.map(a => ({
-        numero: a.numero,
-        matricula: a.matricula,
-        nome: a.nome,
-        apelido: a.apelido,
-        genero: a.genero,
-        notasDisciplinas: a.notasDisciplinas,
-        mediasTrimestrais: a.mediasTrimestrais,
-        negativas: a.negativas,
-        mediaFinalGeral: a.mediaFinalGeral,
-        resultado: a.resultadoFinal
-      })),
-      estatistica: dados.estatistica
+      alunos: dados.alunos
     });
 
     const filename = `Pauta_${dados.turma.nome.replace(/\s+/g, '_')}_${dados.turma.ano_letivo}.xlsx`;
     return { buffer, filename };
   }
 
+  async exportarActaPdf(escolaId: string, turmaId: string, anoLetivo = '2026', conselhoParams?: any): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.getActaConselhoAvaliacao(escolaId, turmaId, anoLetivo, conselhoParams);
+    const buffer = await PdfKitDocumentosService.gerarActaPdf({
+      escola: dados.escola,
+      turma: dados.turma,
+      conselho: dados.conselho,
+      trimestresComNotas: dados.trimestresComNotas,
+      estatisticaAproveitamento: dados.tabelaAproveitamento
+    });
+    const filename = `Acta_${dados.turma.nome.replace(/\s+/g, '_')}_${anoLetivo}.pdf`;
+    return { buffer, filename };
+  }
+
+  async exportarActaDocx(escolaId: string, turmaId: string, anoLetivo = '2026', conselhoParams?: any): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.getActaConselhoAvaliacao(escolaId, turmaId, anoLetivo, conselhoParams);
+    const buffer = await DocxDocumentosService.gerarActaDocx({
+      escola: dados.escola,
+      turma: dados.turma,
+      conselho: dados.conselho,
+      trimestresComNotas: dados.trimestresComNotas,
+      estatisticaAproveitamento: dados.tabelaAproveitamento
+    });
+    const filename = `Acta_${dados.turma.nome.replace(/\s+/g, '_')}_${anoLetivo}.docx`;
+    return { buffer, filename };
+  }
+
   async exportarActaTurmaXlsx(escolaId: string, turmaId: string, anoLetivo = '2026', conselhoParams?: any): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.getActaConselhoAvaliacao(escolaId, turmaId, anoLetivo, conselhoParams);
-    const buffer = await ExportExcelService.gerarActaEstatisticaXlsx({
-      escola: {
-        nome: dados.escola.nome,
-        provincia: dados.escola.provincia,
-        distrito: dados.escola.distrito
-      },
-      turma: {
-        nome: dados.turma.nome,
-        grau_ano: dados.turma.grau_ano,
-        ano_letivo: dados.turma.ano_letivo,
-        turno: dados.turma.turno,
-        director_turma: dados.turma.director_turma
-      },
+    const buffer = SheetJsDocumentosService.gerarActaXlsx({
+      escola: dados.escola,
+      turma: dados.turma,
       conselho: dados.conselho,
-      tabelaEfectivo: dados.tabelaEfectivo,
-      tabelaAproveitamento: dados.tabelaAproveitamento,
-      disciplinas: dados.disciplinas,
-      trimestresComNotas: dados.trimestresComNotas
+      trimestresComNotas: dados.trimestresComNotas,
+      estatisticaAproveitamento: dados.tabelaAproveitamento
     });
 
     const filename = `Acta_${dados.turma.nome.replace(/\s+/g, '_')}_${dados.turma.ano_letivo}.xlsx`;

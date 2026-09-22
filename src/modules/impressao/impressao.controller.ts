@@ -222,6 +222,121 @@ export class ImpressaoController {
     }
   }
 
+  async exportarBoletimPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alunoId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || req.tenant!.ano_letivo_ativo;
+      const { buffer, filename } = await impressaoService.exportarBoletimPdf(escolaId, alunoId, anoLetivo);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarBoletimDocx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alunoId } = req.params;
+      const { buffer, filename } = await impressaoService.exportarBoletimDocx(escolaId, alunoId);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarDeclaracaoPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alunoId } = req.params;
+      const comNotas = req.query.comNotas !== 'false';
+      const { buffer, filename } = await impressaoService.exportarDeclaracaoPdf(escolaId, alunoId, comNotas);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarDeclaracaoDocx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alunoId } = req.params;
+      const comNotas = req.query.comNotas !== 'false';
+      const { buffer, filename } = await impressaoService.exportarDeclaracaoDocx(escolaId, alunoId, comNotas);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarCertificadoPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alunoId } = req.params;
+      const { buffer, filename } = await impressaoService.exportarCertificadoPdf(escolaId, alunoId);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarCertificadoDocx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alunoId } = req.params;
+      const { buffer, filename } = await impressaoService.exportarCertificadoDocx(escolaId, alunoId);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarReciboPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { pagamentoId } = req.params;
+      const { buffer, filename } = await impressaoService.exportarReciboPdf(escolaId, pagamentoId, req.user?.nome);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarReciboDocx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { pagamentoId } = req.params;
+      const { buffer, filename } = await impressaoService.exportarReciboDocx(escolaId, pagamentoId);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async listarDocumentosSalvos(req: Request, res: Response, next: NextFunction) {
     try {
       const escolaId = req.tenant!.id;

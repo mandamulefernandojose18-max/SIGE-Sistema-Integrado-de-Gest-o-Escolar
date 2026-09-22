@@ -11,17 +11,25 @@ router.get('/stats', (req, res, next) => impressaoController.stats(req, res, nex
 router.get('/documentos-salvos', (req, res, next) => impressaoController.listarDocumentosSalvos(req, res, next));
 
 router.get('/boletim/:alunoId', (req, res, next) => impressaoController.gerarBoletim(req, res, next));
+router.get('/boletim/:alunoId/pdf', (req, res, next) => impressaoController.exportarBoletimPdf(req, res, next));
+router.get('/boletim/:alunoId/docx', (req, res, next) => impressaoController.exportarBoletimDocx(req, res, next));
 router.get('/boletim/:alunoId/xlsx', (req, res, next) => impressaoController.exportarBoletimXlsx(req, res, next));
 router.get('/boletim/:alunoId/json', (req, res, next) => impressaoController.exportarBoletimJson(req, res, next));
 
 router.get('/recibo/:pagamentoId', (req, res, next) => impressaoController.gerarRecibo(req, res, next));
+router.get('/recibo/:pagamentoId/pdf', (req, res, next) => impressaoController.exportarReciboPdf(req, res, next));
+router.get('/recibo/:pagamentoId/docx', (req, res, next) => impressaoController.exportarReciboDocx(req, res, next));
 router.get('/ficha/:alunoId', (req, res, next) => impressaoController.gerarFichaAluno(req, res, next));
 
 router.get('/declaracao/:alunoId', (req, res, next) => impressaoController.gerarDeclaracao(req, res, next));
+router.get('/declaracao/:alunoId/pdf', (req, res, next) => impressaoController.exportarDeclaracaoPdf(req, res, next));
+router.get('/declaracao/:alunoId/docx', (req, res, next) => impressaoController.exportarDeclaracaoDocx(req, res, next));
 router.get('/declaracao/:alunoId/xlsx', (req, res, next) => impressaoController.exportarDeclaracaoXlsx(req, res, next));
 router.get('/declaracao/:alunoId/json', (req, res, next) => impressaoController.exportarDeclaracaoJson(req, res, next));
 
 router.get('/certificado/:alunoId', (req, res, next) => impressaoController.gerarCertificado(req, res, next));
+router.get('/certificado/:alunoId/pdf', (req, res, next) => impressaoController.exportarCertificadoPdf(req, res, next));
+router.get('/certificado/:alunoId/docx', (req, res, next) => impressaoController.exportarCertificadoDocx(req, res, next));
 router.get('/certificado/:alunoId/xlsx', (req, res, next) => impressaoController.exportarCertificadoXlsx(req, res, next));
 router.get('/certificado/:alunoId/json', (req, res, next) => impressaoController.exportarCertificadoJson(req, res, next));
 

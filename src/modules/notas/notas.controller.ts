@@ -124,6 +124,47 @@ export class NotasController {
     }
   }
 
+  async getPrazosTrimestrais(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const data = await notasService.getPrazosTrimestrais(escolaId);
+      return sendSuccess(res, data, 'Prazos oficiais dos trimestres recuperados com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async salvarPrazosTrimestrais(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const data = await notasService.salvarPrazosTrimestrais(escolaId, req.body);
+      return sendSuccess(res, data, 'Prazos oficiais dos trimestres configurados com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listarAutorizacoes(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const data = await notasService.listarAutorizacoesDesbloqueio(escolaId);
+      return sendSuccess(res, data, 'Autorizações de desbloqueio recuperadas com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async revogarAutorizacao(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { id } = req.params;
+      const data = await notasService.revogarAutorizacaoDesbloqueio(escolaId, id);
+      return sendSuccess(res, data, 'Autorização de desbloqueio revogada com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async stats(req: Request, res: Response, next: NextFunction) {
     try {
       const escolaId = req.tenant!.id;

@@ -8,16 +8,20 @@ function inicializarPatchHtml2Pdf() {
     if (proto && proto.toContainer) {
       const origToContainer = proto.toContainer;
       proto.toContainer = function() {
-        return origToContainer.call(this).then(function() {
-          if (this.prop && this.prop.overlay) {
-            this.prop.overlay.style.opacity = '1';
-            this.prop.overlay.style.left = '-99999px';
-            this.prop.overlay.style.visibility = 'visible';
+        const self = this;
+        return origToContainer.call(this).then(() => {
+          if (self.prop && self.prop.overlay) {
+            self.prop.overlay.style.opacity = '1';
+            self.prop.overlay.style.left = '0px';
+            self.prop.overlay.style.top = '0px';
+            self.prop.overlay.style.visibility = 'visible';
+            self.prop.overlay.style.backgroundColor = '#ffffff';
+            self.prop.overlay.style.zIndex = '999999';
           }
-          if (this.prop && this.prop.container) {
-            this.prop.container.style.opacity = '1';
-            this.prop.container.style.visibility = 'visible';
-            this.prop.container.style.backgroundColor = '#ffffff';
+          if (self.prop && self.prop.container) {
+            self.prop.container.style.opacity = '1';
+            self.prop.container.style.visibility = 'visible';
+            self.prop.container.style.backgroundColor = '#ffffff';
           }
         });
       };
@@ -61,6 +65,7 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
       margin: isPortrait ? [6, 8, 6, 8] : [5, 5, 5, 5],
       filename: safeFilename,
       image: { type: 'jpeg', quality: 0.98 },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
       html2canvas: {
         scale: 2,
         useCORS: true,
@@ -72,6 +77,8 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
           overlays.forEach(ov => {
             ov.style.opacity = '1';
             ov.style.visibility = 'visible';
+            ov.style.left = '0px';
+            ov.style.top = '0px';
           });
           const containers = clonedDoc.querySelectorAll('.html2pdf__container');
           containers.forEach(ct => {
@@ -79,11 +86,13 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
             ct.style.visibility = 'visible';
             ct.style.backgroundColor = '#ffffff';
           });
-          const docs = clonedDoc.querySelectorAll('.printable-document, .documento-a4-pagina-unica, table');
+          const docs = clonedDoc.querySelectorAll('.printable-document, .documento-a4-pagina-unica, table, .table-responsive');
           docs.forEach(doc => {
             doc.style.opacity = '1';
             doc.style.visibility = 'visible';
             doc.style.backgroundColor = '#ffffff';
+            doc.style.overflow = 'visible';
+            doc.style.maxWidth = 'none';
           });
         }
       },
@@ -117,9 +126,9 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
 }
 
 function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value;
+  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
   if (!turmaId) return alert('Selecione uma turma para exportar a pauta');
-  const ano = anoExplicit || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.xlsx`);
 }
 
@@ -128,7 +137,7 @@ function imprimirPautaGeralOficial() {
 }
 
 async function descarregarCadernetaPdf() {
-  const el = document.getElementById('cadernetaPrintContainer');
+  const el = document.getElementById('cadernetaPrintContainer') || document.getElementById('containerCadernetaGrelha');
   if (!el) return alert('Selecione uma alocação para visualizar a caderneta');
   await exportarElementoParaPdf(el, `Caderneta_Oficial_${state.alocacaoAtualId || '2026'}.pdf`, 'landscape');
 }
@@ -138,18 +147,50 @@ function descarregarCadernetaExcel() {
   downloadFicheiroBinario(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/xlsx`, `Caderneta_Oficial_2026.xlsx`);
 }
 
-async function descarregarPautaGeralPdf() {
-  const el = document.getElementById('subViewPautaGeral');
+async function descarregarPautaGeralPdf(turmaIdExplicit = null) {
+  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
+  const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  if (turmaId) {
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.pdf`);
+    return;
+  }
+  const el = document.getElementById('containerTabelaPautaGeral') || document.getElementById('subViewPautaGeral');
   if (!el) return alert('Selecione uma turma para visualizar a pauta');
-  const ano = document.getElementById('pautaAnoFiltro')?.value || '2026';
   await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, 'landscape');
 }
 
-async function descarregarActaConselhoPdf() {
-  const el = document.getElementById('subViewActaConselho');
+function descarregarPautaGeralDocx(turmaIdExplicit = null) {
+  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
+  if (!turmaId) return alert('Selecione uma turma para descarregar a pauta em Word');
+  const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.docx`);
+}
+
+async function descarregarActaConselhoPdf(turmaIdExplicit = null) {
+  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
+  const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  if (turmaId) {
+    const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
+    const params = new URLSearchParams({ anoLetivo: ano });
+    if (sessao.presidente) params.append('presidente', sessao.presidente);
+    if (sessao.data) params.append('data', sessao.data);
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_Turma_${ano}.pdf`);
+    return;
+  }
+  const el = document.getElementById('containerActaConselhoCorpo') || document.getElementById('subViewActaConselho');
   if (!el) return alert('Selecione uma turma para visualizar a acta');
-  const ano = document.getElementById('pautaAnoFiltro')?.value || '2026';
   await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, 'landscape');
+}
+
+function descarregarActaConselhoDocx(turmaIdExplicit = null) {
+  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
+  if (!turmaId) return alert('Selecione uma turma para descarregar a acta em Word');
+  const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
+  const params = new URLSearchParams({ anoLetivo: ano });
+  if (sessao.presidente) params.append('presidente', sessao.presidente);
+  if (sessao.data) params.append('data', sessao.data);
+  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_Turma_${ano}.docx`);
 }
 
 
@@ -283,10 +324,12 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     const arrayBuffer = await res.arrayBuffer();
     const isXlsx = filename.toLowerCase().endsWith('.xlsx') || url.toLowerCase().includes('xlsx');
     const isPdf = filename.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('pdf');
+    const isDocx = filename.toLowerCase().endsWith('.docx') || url.toLowerCase().includes('docx');
     const isJson = filename.toLowerCase().endsWith('.json') || url.toLowerCase().includes('json');
     let mimeType = 'application/octet-stream';
     if (isXlsx) mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     else if (isPdf) mimeType = 'application/pdf';
+    else if (isDocx) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     else if (isJson) mimeType = 'application/json';
     else if (res.headers.get('content-type')) mimeType = res.headers.get('content-type');
 
@@ -1312,8 +1355,9 @@ async function modalCriarTurma() {
 // ==================== 4. ALUNOS ====================
 async function carregarAlunos() {
   try {
-    const [resAlunos, resStats] = await Promise.all([
+    const [resAlunos, resTurmas, resStats] = await Promise.all([
       apiFetch('/api/v1/alunos'),
+      apiFetch('/api/v1/escola-admin/turmas'),
       apiFetch('/api/v1/alunos/stats')
     ]);
 
@@ -1325,26 +1369,243 @@ async function carregarAlunos() {
       document.getElementById('alunoGeneroRatioCard').textContent = `${s.genero.M} M / ${s.genero.F} F`;
     }
 
-    if (resAlunos.success) {
-      const tbody = document.getElementById('tabelaAlunos');
-      tbody.innerHTML = resAlunos.data.map(a => `
-        <tr>
-          <td><code>${a.matricula}</code></td>
-          <td><strong>${a.nome}</strong></td>
-          <td>${a.turma ? a.turma.nome : '<span class="text-muted">Sem Turma</span>'}</td>
-          <td><small>${a.tipo_documento || 'BI'}: ${a.numero_documento || '-'}</small></td>
-          <td><small>${a.distrito || '-'}<br><span class="text-muted">${a.provincia || '-'}</span></small></td>
-          <td><small>Pai: ${a.pai || '-'}<br>Mãe: ${a.mae || '-'}</small></td>
-          <td><span class="badge bg-success">${a.status}</span></td>
-          <td class="text-end">
-            <button class="btn btn-sm btn-outline-primary me-1" onclick="modalEditarAluno('${a.id}')" title="Editar Dados"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-outline-warning me-1" onclick="modalTransferirAluno('${a.id}')" title="Transferir de Turma"><i class="bi bi-arrow-left-right"></i></button>
-            <button class="btn btn-sm btn-outline-danger" onclick="excluirAluno('${a.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
-          </td>
-        </tr>
-      `).join('');
+    state.todosAlunos = resAlunos.success ? (resAlunos.data || []) : [];
+    state.todasTurmas = resTurmas.success ? (resTurmas.data || []) : [];
+
+    renderizarBotoesClassesAlunos();
+  } catch (err) {
+    console.error('Erro ao carregar alunos:', err);
+  }
+}
+
+function renderizarBotoesClassesAlunos() {
+  const container = document.getElementById('containerBotoesClasses');
+  if (!container) return;
+
+  // Extrair classes únicas das turmas e alunos
+  const classesSet = new Set();
+  (state.todasTurmas || []).forEach(t => {
+    if (t.grau_ano) classesSet.add(t.grau_ano.trim());
+  });
+  (state.todosAlunos || []).forEach(a => {
+    if (a.turma?.grau_ano) classesSet.add(a.turma.grau_ano.trim());
+  });
+
+  // Ordenar classes pelo número (ex: 7ª, 8ª, 9ª, 10ª, 11ª, 12ª)
+  const classesOrdenadas = Array.from(classesSet).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+
+  if (classesOrdenadas.length === 0) {
+    classesOrdenadas.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
+  }
+
+  // Se não houver classe selecionada, selecciona a primeira que tiver alunos ou a primeira da lista
+  if (!state.filtroAlunoClasse) {
+    state.filtroAlunoClasse = classesOrdenadas[0];
+  }
+
+  let html = `<button type="button" class="btn btn-sm ${state.filtroAlunoClasse === 'TODAS' ? 'btn-primary fw-bold' : 'btn-outline-primary'}" onclick="selecionarClasseAlunos('TODAS')">
+    <i class="bi bi-grid-fill me-1"></i> Todas as Classes (${state.todosAlunos?.length || 0})
+  </button>`;
+
+  classesOrdenadas.forEach(cls => {
+    const totalNaClasse = (state.todosAlunos || []).filter(a => (a.turma?.grau_ano || '').toLowerCase() === cls.toLowerCase()).length;
+    const isAtiva = state.filtroAlunoClasse === cls;
+    html += `
+      <button type="button" class="btn btn-sm ${isAtiva ? 'btn-primary fw-bold shadow-sm' : 'btn-outline-primary'}" onclick="selecionarClasseAlunos('${cls}')">
+        <i class="bi bi-mortarboard-fill me-1"></i> ${cls} <span class="badge ${isAtiva ? 'bg-white text-primary' : 'bg-primary text-white'} ms-1">${totalNaClasse}</span>
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+  selecionarClasseAlunos(state.filtroAlunoClasse, false);
+}
+
+function selecionarClasseAlunos(classe, reRenderBotoes = true) {
+  state.filtroAlunoClasse = classe;
+  const labelNome = document.getElementById('labelNomeClasseAtiva');
+  if (labelNome) labelNome.textContent = classe === 'TODAS' ? 'Todas as Classes' : classe;
+
+  if (reRenderBotoes) {
+    const botoes = document.querySelectorAll('#containerBotoesClasses button');
+    botoes.forEach(btn => {
+      if (btn.textContent.includes(classe) || (classe === 'TODAS' && btn.textContent.includes('Todas as Classes'))) {
+        btn.className = 'btn btn-sm btn-primary fw-bold shadow-sm';
+      } else {
+        btn.className = 'btn btn-sm btn-outline-primary';
+      }
+    });
+  }
+
+  // Filtrar turmas que pertencem a esta classe
+  const containerTurmas = document.getElementById('containerTurmasClasse');
+  const contagemTurmas = document.getElementById('contagemTurmasClasse');
+  if (!containerTurmas) return;
+
+  const turmasDaClasse = (state.todasTurmas || []).filter(t => {
+    if (classe === 'TODAS') return true;
+    return (t.grau_ano || '').toLowerCase() === classe.toLowerCase();
+  });
+
+  if (contagemTurmas) contagemTurmas.textContent = `${turmasDaClasse.length} turma(s) encontrada(s)`;
+
+  if (turmasDaClasse.length === 0) {
+    containerTurmas.innerHTML = `<span class="text-muted small py-2"><i class="bi bi-info-circle me-1"></i> Nenhuma turma cadastrada para ${classe}. Crie uma turma no menu Turmas.</span>`;
+    state.filtroAlunoTurma = 'TODAS';
+    aplicarFiltroHierarquicoAlunos();
+    return;
+  }
+
+  let htmlTurmas = `
+    <button type="button" class="btn btn-sm ${state.filtroAlunoTurma === 'TODAS' ? 'btn-success fw-bold shadow-sm' : 'btn-outline-success'}" onclick="selecionarTurmaAlunos('TODAS')">
+      <i class="bi bi-collection me-1"></i> Todas as Turmas da Classe
+    </button>
+  `;
+
+  turmasDaClasse.forEach(t => {
+    const totalAlunosTurma = (state.todosAlunos || []).filter(a => a.turma_id === t.id).length;
+    const isAtiva = state.filtroAlunoTurma === t.id;
+    htmlTurmas += `
+      <button type="button" class="btn btn-sm ${isAtiva ? 'btn-info text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="selecionarTurmaAlunos('${t.id}')">
+        <i class="bi bi-door-closed me-1"></i> ${t.nome} <span class="badge ${isAtiva ? 'bg-white text-dark' : 'bg-secondary'} ms-1">${totalAlunosTurma} alunos</span>
+      </button>
+    `;
+  });
+
+  containerTurmas.innerHTML = htmlTurmas;
+
+  // Se a turma selecionada anteriormente não pertence a esta classe, seleciona a primeira turma da classe
+  const pertence = turmasDaClasse.some(t => t.id === state.filtroAlunoTurma);
+  if (!pertence && state.filtroAlunoTurma !== 'TODAS') {
+    state.filtroAlunoTurma = turmasDaClasse[0].id;
+  }
+
+  selecionarTurmaAlunos(state.filtroAlunoTurma, false);
+}
+
+function selecionarTurmaAlunos(turmaId, reRenderBotoes = true) {
+  state.filtroAlunoTurma = turmaId;
+
+  if (reRenderBotoes) {
+    const botoes = document.querySelectorAll('#containerTurmasClasse button');
+    botoes.forEach(btn => {
+      if ((turmaId === 'TODAS' && btn.textContent.includes('Todas as Turmas')) ||
+          (turmaId !== 'TODAS' && btn.onclick?.toString().includes(turmaId))) {
+        btn.className = turmaId === 'TODAS' ? 'btn btn-sm btn-success fw-bold shadow-sm' : 'btn btn-sm btn-info text-white fw-bold shadow-sm';
+      } else {
+        btn.className = btn.textContent.includes('Todas as Turmas') ? 'btn btn-sm btn-outline-success' : 'btn btn-sm btn-outline-secondary';
+      }
+    });
+  }
+
+  aplicarFiltroHierarquicoAlunos();
+}
+
+function aplicarFiltroHierarquicoAlunos() {
+  const classe = state.filtroAlunoClasse;
+  const turmaId = state.filtroAlunoTurma;
+  const badge = document.getElementById('badgeCaminhoHierarquia');
+
+  let alunos = state.todosAlunos || [];
+
+  let nomeClasse = classe === 'TODAS' ? 'Todas as Classes' : classe;
+  let nomeTurma = 'Todas as Turmas';
+
+  if (classe && classe !== 'TODAS') {
+    alunos = alunos.filter(a => (a.turma?.grau_ano || '').toLowerCase() === classe.toLowerCase());
+  }
+
+  if (turmaId && turmaId !== 'TODAS') {
+    alunos = alunos.filter(a => a.turma_id === turmaId);
+    const objTurma = (state.todasTurmas || []).find(t => t.id === turmaId);
+    if (objTurma) nomeTurma = objTurma.nome;
+  }
+
+  if (badge) {
+    badge.innerHTML = `<i class="bi bi-diagram-3 me-1"></i> ${nomeClasse} &rarr; <span class="fw-bold">${nomeTurma}</span> (${alunos.length} Alunos)`;
+  }
+
+  const contagem = document.getElementById('contagemAlunosExibidos');
+  if (contagem) contagem.textContent = `${alunos.length} aluno(s) listado(s)`;
+
+  state.alunosFiltradosAtuais = alunos;
+  renderizarTabelaAlunos(alunos);
+}
+
+function filtrarAlunosHierarquia() {
+  const termo = (document.getElementById('pesquisaAlunosHierarquia')?.value || '').toLowerCase().trim();
+  let baseAlunos = state.alunosFiltradosAtuais || state.todosAlunos || [];
+
+  // Se a pesquisa estiver activa e não encontrar no subconjunto, busca no universo global de alunos
+  if (termo) {
+    let filtrados = baseAlunos.filter(a => 
+      (a.nome || '').toLowerCase().includes(termo) ||
+      (a.apelido || '').toLowerCase().includes(termo) ||
+      (a.matricula || '').toLowerCase().includes(termo) ||
+      (a.numero_documento || '').toLowerCase().includes(termo)
+    );
+
+    if (filtrados.length === 0) {
+      filtrados = (state.todosAlunos || []).filter(a => 
+        (a.nome || '').toLowerCase().includes(termo) ||
+        (a.apelido || '').toLowerCase().includes(termo) ||
+        (a.matricula || '').toLowerCase().includes(termo) ||
+        (a.numero_documento || '').toLowerCase().includes(termo)
+      );
     }
-  } catch (err) {}
+
+    renderizarTabelaAlunos(filtrados);
+    const contagem = document.getElementById('contagemAlunosExibidos');
+    if (contagem) contagem.textContent = `${filtrados.length} aluno(s) encontrado(s) para "${termo}"`;
+  } else {
+    renderizarTabelaAlunos(baseAlunos);
+    const contagem = document.getElementById('contagemAlunosExibidos');
+    if (contagem) contagem.textContent = `${baseAlunos.length} aluno(s) listado(s)`;
+  }
+}
+
+function renderizarTabelaAlunos(alunos) {
+  const tbody = document.getElementById('tabelaAlunos');
+  if (!tbody) return;
+
+  if (!alunos || alunos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum aluno encontrado para a selecção actual.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = alunos.map((a, idx) => {
+    const nomeCompleto = `${a.nome || ''} ${a.apelido && !a.nome.endsWith(a.apelido) ? a.apelido : ''}`.trim();
+    const classe = a.turma?.grau_ano || '-';
+    const turma = a.turma?.nome || '<span class="text-muted">Sem Turma</span>';
+    const doc = `${a.tipo_documento || 'BI'}: ${a.numero_documento || '-'}`;
+    const encarregado = a.contato_responsavel ? `${a.nome_responsavel || 'Enc.'} (${a.contato_responsavel})` : (a.nome_responsavel || '-');
+    const isAtivo = a.status === 'ATIVO';
+
+    return `
+      <tr>
+        <td class="text-center fw-bold text-muted">${idx + 1}</td>
+        <td><code>${a.matricula}</code></td>
+        <td><strong class="text-primary">${nomeCompleto}</strong></td>
+        <td><span class="badge bg-light text-dark border">${classe}</span></td>
+        <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary">${turma}</span></td>
+        <td><small class="text-muted">${doc}</small></td>
+        <td class="text-center"><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero || 'M'}</span></td>
+        <td><small>${encarregado}</small></td>
+        <td><span class="badge ${isAtivo ? 'bg-success' : 'bg-secondary'}">${a.status || 'ATIVO'}</span></td>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" onclick="modalEditarAluno('${a.id}')" title="Editar Dados Cadastrais"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-outline-warning" onclick="modalTransferirAluno('${a.id}')" title="Transferir de Turma"><i class="bi bi-arrow-left-right"></i></button>
+            <button class="btn btn-outline-danger" onclick="excluirAluno('${a.id}')" title="Eliminar Aluno"><i class="bi bi-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 async function modalEditarAluno(id) {
@@ -2732,30 +2993,31 @@ async function carregarActaConselho(turmaId) {
     const te = d.tabelaEfectivo;
     const ta = d.tabelaAproveitamento;
 
-    const p1 = cp.presidenteT1 || d.conselho?.presidenteT1 || 'Fernando José Mandamule';
-    const p2 = cp.presidenteT2 || d.conselho?.presidenteT2 || 'Fernando José Mandamule';
+    const dirTurma = cp.directorTurma || d.turma?.director_turma?.nome || '_________________';
+    const p1 = cp.presidenteT1 || d.conselho?.presidenteT1 || '_________________';
+    const p2 = cp.presidenteT2 || d.conselho?.presidenteT2 || '_________________';
     const p3 = cp.presidenteT3 || d.conselho?.presidenteT3 || '_________________';
 
-    const dt1 = cp.dataT1 || '26/05/2026';
-    const dt2 = cp.dataT2 || '01/09/2026';
+    const dt1 = cp.dataT1 || '____/____/2026';
+    const dt2 = cp.dataT2 || '____/____/2026';
     const dt3 = cp.dataT3 || '____/____/2026';
 
-    const hIni1 = cp.horaInicioT1 || '09';
-    const mIni1 = cp.minInicioT1 || '30';
-    const hFim1 = cp.horaFimT1 || '10';
-    const mFim1 = cp.minFimT1 || '00';
+    const hIni1 = cp.horaInicioT1 || '__';
+    const mIni1 = cp.minInicioT1 || '__';
+    const hFim1 = cp.horaFimT1 || '__';
+    const mFim1 = cp.minFimT1 || '__';
 
-    const hIni2 = cp.horaInicioT2 || '09';
-    const mIni2 = cp.minInicioT2 || '30';
-    const hFim2 = cp.horaFimT2 || '11';
-    const mFim2 = cp.minFimT2 || '00';
+    const hIni2 = cp.horaInicioT2 || '__';
+    const mIni2 = cp.minInicioT2 || '__';
+    const hFim2 = cp.horaFimT2 || '__';
+    const mFim2 = cp.minFimT2 || '__';
 
-    const hIni3 = cp.horaInicioT3 || '____';
-    const mIni3 = cp.minInicioT3 || '____';
-    const hFim3 = cp.horaFimT3 || '____';
-    const mFim3 = cp.minFimT3 || '____';
+    const hIni3 = cp.horaInicioT3 || '__';
+    const mIni3 = cp.minInicioT3 || '__';
+    const hFim3 = cp.horaFimT3 || '__';
+    const mFim3 = cp.minFimT3 || '__';
 
-    const textoProtocolar = `Sob presidência do senhor professor <strong>${p1}</strong> (Iº Trimestre); <strong>${p2}</strong> (IIº Trimestre); <strong>${p3}</strong> (IIIº Trimestre); director/substituto do director de turma <strong>${d.turma.nome}</strong> do grupo da <strong>${d.turma.grau_ano}</strong>, curso <strong>${d.turma.turno === 'NOITE' ? 'Nocturno' : 'Diurno'}</strong>, realizou-se o Conselho de Avaliação do Iº; IIº, IIIº, Trimestre no dia <strong>${dt1}</strong>; <strong>${dt2}</strong>; <strong>${dt3}</strong>, com início às <strong>${hIni1}</strong> horas e <strong>${mIni1}</strong> minutos e com término às <strong>${hFim1}</strong> horas e <strong>${mFim1}</strong> minutos (Iº Trim); <strong>${hIni2}</strong> horas e <strong>${mIni2}</strong> minutos e com término às <strong>${hFim2}</strong> horas e <strong>${mFim2}</strong> minutos (IIº Trim); <strong>${hIni3}</strong> horas e <strong>${mIni3}</strong> minutos e com término às <strong>${hFim3}</strong> horas e <strong>${mFim3}</strong> minutos (IIIº Trim). No final deste conselho colheram-se os resultados que abaixo vão discriminados de todos os membros que participaram:`;
+    const textoProtocolar = `Sob presidência do senhor professor <strong>${p1}</strong> (Iº Trimestre); <strong>${p2}</strong> (IIº Trimestre); <strong>${p3}</strong> (IIIº Trimestre); director/substituto do director de turma <strong>${dirTurma}</strong> da turma <strong>${d.turma.nome}</strong> do grupo da <strong>${d.turma.grau_ano}</strong>, curso <strong>${d.turma.turno === 'NOITE' ? 'Nocturno' : 'Diurno'}</strong>, realizou-se o Conselho de Avaliação do Iº; IIº, IIIº, Trimestre no dia <strong>${dt1}</strong>; <strong>${dt2}</strong>; <strong>${dt3}</strong>, com início às <strong>${hIni1}</strong> horas e <strong>${mIni1}</strong> minutos e com término às <strong>${hFim1}</strong> horas e <strong>${mFim1}</strong> minutos (Iº Trim); <strong>${hIni2}</strong> horas e <strong>${mIni2}</strong> minutos e com término às <strong>${hFim2}</strong> horas e <strong>${mFim2}</strong> minutos (IIº Trim); <strong>${hIni3}</strong> horas e <strong>${mIni3}</strong> minutos e com término às <strong>${hFim3}</strong> horas e <strong>${mFim3}</strong> minutos (IIIº Trim). No final deste conselho colheram-se os resultados que abaixo vão discriminados de todos os membros que participaram:`;
 
     const tc = d.trimestresComNotas || { t1: true, t2: false, t3: false, fimAno: false };
 
@@ -3014,111 +3276,123 @@ function modalConfigurarSessaoActa() {
 
   const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
   const cp = savedParamsRaw ? JSON.parse(savedParamsRaw) : {
-    presidenteT1: 'Fernando José Mandamule',
-    presidenteT2: 'Fernando José Mandamule',
-    presidenteT3: '_________________',
-    dataT1: '26/05/2026',
-    dataT2: '01/09/2026',
-    dataT3: '____/____/2026',
-    horaInicioT1: '09', minInicioT1: '30', horaFimT1: '10', minFimT1: '00',
-    horaInicioT2: '09', minInicioT2: '30', horaFimT2: '11', minFimT2: '00',
-    horaInicioT3: '____', minInicioT3: '____', horaFimT3: '____', minFimT3: '____'
+    directorTurma: '',
+    presidenteT1: '',
+    presidenteT2: '',
+    presidenteT3: '',
+    dataT1: '',
+    dataT2: '',
+    dataT3: '',
+    horaInicioT1: '', minInicioT1: '', horaFimT1: '', minFimT1: '',
+    horaInicioT2: '', minInicioT2: '', horaFimT2: '', minFimT2: '',
+    horaInicioT3: '', minInicioT3: '', horaFimT3: '', minFimT3: ''
   };
 
   abrirModal('Configurar Dados da Sessão do Conselho de Avaliação', `
     <form id="formConfigSessaoActa" onsubmit="salvarConfigSessaoActa(event, '${turmaId}')">
       <div class="alert alert-info py-2 small">
-        <i class="bi bi-info-circle me-1"></i> Preencha os nomes dos presidentes, datas e horários de cada trimestre. O restante dos dados biográficos, turmas e notas são calculados automaticamente pelo sistema.
+        <i class="bi bi-info-circle me-1"></i> Todos os campos abaixo são <strong>estritamente opcionais</strong>. Se deixados em branco, o sistema utilizará os valores padrão e linhas pontilhadas oficiais para preenchimento manual ou posterior.
+      </div>
+
+      <!-- Director de Turma / Secretário -->
+      <div class="card p-3 mb-3 bg-light border-0 shadow-sm">
+        <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-badge me-1"></i> Director de Turma / Secretário (Opcional)</h6>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label small text-muted">Nome do Director / Substituto (Opcional)</label>
+            <input type="text" id="cfgDirectorTurma" class="form-control form-control-sm" value="${cp.directorTurma || ''}" placeholder="Ex: Prof. Américo Silvestre (ou deixe em branco)">
+          </div>
+        </div>
       </div>
       
       <!-- 1º Trimestre -->
-      <div class="card p-3 mb-3 bg-light">
-        <h6 class="fw-bold text-primary mb-2">1º Trimestre Lectivo</h6>
+      <div class="card p-3 mb-3 bg-light border-0 shadow-sm">
+        <h6 class="fw-bold text-primary mb-2">1º Trimestre Lectivo (Opcional)</h6>
         <div class="row g-2">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Presidente da Sessão</label>
-            <input type="text" id="cfgPresT1" class="form-control form-control-sm" value="${cp.presidenteT1 || 'Fernando José Mandamule'}" required>
+            <label class="form-label small text-muted">Presidente da Sessão (Opcional)</label>
+            <input type="text" id="cfgPresT1" class="form-control form-control-sm" value="${cp.presidenteT1 || ''}" placeholder="Ex: Fernando José Mandamule">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Data da Realização</label>
-            <input type="text" id="cfgDataT1" class="form-control form-control-sm" value="${cp.dataT1 || '26/05/2026'}" required>
+            <label class="form-label small text-muted">Data da Realização (Opcional)</label>
+            <input type="text" id="cfgDataT1" class="form-control form-control-sm" value="${cp.dataT1 || ''}" placeholder="Ex: 26/05/2026">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Horário Início (Horas : Min)</label>
+            <label class="form-label small text-muted">Horário Início (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHIniT1" class="form-control text-center" value="${cp.horaInicioT1 || '09'}">
+              <input type="text" id="cfgHIniT1" class="form-control text-center" value="${cp.horaInicioT1 || ''}" placeholder="09">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMIniT1" class="form-control text-center" value="${cp.minInicioT1 || '30'}">
+              <input type="text" id="cfgMIniT1" class="form-control text-center" value="${cp.minInicioT1 || ''}" placeholder="30">
             </div>
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Horário Término (Horas : Min)</label>
+            <label class="form-label small text-muted">Horário Término (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHFimT1" class="form-control text-center" value="${cp.horaFimT1 || '10'}">
+              <input type="text" id="cfgHFimT1" class="form-control text-center" value="${cp.horaFimT1 || ''}" placeholder="10">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMFimT1" class="form-control text-center" value="${cp.minFimT1 || '00'}">
+              <input type="text" id="cfgMFimT1" class="form-control text-center" value="${cp.minFimT1 || ''}" placeholder="00">
             </div>
           </div>
         </div>
       </div>
 
       <!-- 2º Trimestre -->
-      <div class="card p-3 mb-3 bg-light">
-        <h6 class="fw-bold text-primary mb-2">2º Trimestre Lectivo</h6>
+      <div class="card p-3 mb-3 bg-light border-0 shadow-sm">
+        <h6 class="fw-bold text-info mb-2">2º Trimestre Lectivo (Opcional)</h6>
         <div class="row g-2">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Presidente da Sessão</label>
-            <input type="text" id="cfgPresT2" class="form-control form-control-sm" value="${cp.presidenteT2 || 'Fernando José Mandamule'}" required>
+            <label class="form-label small text-muted">Presidente da Sessão (Opcional)</label>
+            <input type="text" id="cfgPresT2" class="form-control form-control-sm" value="${cp.presidenteT2 || ''}" placeholder="Ex: Fernando José Mandamule">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Data da Realização</label>
-            <input type="text" id="cfgDataT2" class="form-control form-control-sm" value="${cp.dataT2 || '01/09/2026'}" required>
+            <label class="form-label small text-muted">Data da Realização (Opcional)</label>
+            <input type="text" id="cfgDataT2" class="form-control form-control-sm" value="${cp.dataT2 || ''}" placeholder="Ex: 01/09/2026">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Horário Início (Horas : Min)</label>
+            <label class="form-label small text-muted">Horário Início (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHIniT2" class="form-control text-center" value="${cp.horaInicioT2 || '09'}">
+              <input type="text" id="cfgHIniT2" class="form-control text-center" value="${cp.horaInicioT2 || ''}" placeholder="09">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMIniT2" class="form-control text-center" value="${cp.minInicioT2 || '30'}">
+              <input type="text" id="cfgMIniT2" class="form-control text-center" value="${cp.minInicioT2 || ''}" placeholder="30">
             </div>
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Horário Término (Horas : Min)</label>
+            <label class="form-label small text-muted">Horário Término (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHFimT2" class="form-control text-center" value="${cp.horaFimT2 || '11'}">
+              <input type="text" id="cfgHFimT2" class="form-control text-center" value="${cp.horaFimT2 || ''}" placeholder="11">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMFimT2" class="form-control text-center" value="${cp.minFimT2 || '00'}">
+              <input type="text" id="cfgMFimT2" class="form-control text-center" value="${cp.minFimT2 || ''}" placeholder="00">
             </div>
           </div>
         </div>
       </div>
 
       <!-- 3º Trimestre -->
-      <div class="card p-3 mb-3 bg-light">
-        <h6 class="fw-bold text-primary mb-2">3º Trimestre Lectivo</h6>
+      <div class="card p-3 mb-3 bg-light border-0 shadow-sm">
+        <h6 class="fw-bold text-secondary mb-2">3º Trimestre Lectivo (Opcional)</h6>
         <div class="row g-2">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Presidente da Sessão</label>
-            <input type="text" id="cfgPresT3" class="form-control form-control-sm" value="${cp.presidenteT3 || '_________________'}" required>
+            <label class="form-label small text-muted">Presidente da Sessão (Opcional)</label>
+            <input type="text" id="cfgPresT3" class="form-control form-control-sm" value="${cp.presidenteT3 || ''}" placeholder="Deixe em branco se ainda não realizado">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Data da Realização</label>
-            <input type="text" id="cfgDataT3" class="form-control form-control-sm" value="${cp.dataT3 || '____/____/2026'}" required>
+            <label class="form-label small text-muted">Data da Realização (Opcional)</label>
+            <input type="text" id="cfgDataT3" class="form-control form-control-sm" value="${cp.dataT3 || ''}" placeholder="____/____/2026">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Horário Início (Horas : Min)</label>
+            <label class="form-label small text-muted">Horário Início (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHIniT3" class="form-control text-center" value="${cp.horaInicioT3 || '____'}">
+              <input type="text" id="cfgHIniT3" class="form-control text-center" value="${cp.horaInicioT3 || ''}" placeholder="____">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMIniT3" class="form-control text-center" value="${cp.minInicioT3 || '____'}">
+              <input type="text" id="cfgMIniT3" class="form-control text-center" value="${cp.minInicioT3 || ''}" placeholder="____">
             </div>
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Horário Término (Horas : Min)</label>
+            <label class="form-label small text-muted">Horário Término (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHFimT3" class="form-control text-center" value="${cp.horaFimT3 || '____'}">
+              <input type="text" id="cfgHFimT3" class="form-control text-center" value="${cp.horaFimT3 || ''}" placeholder="____">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMFimT3" class="form-control text-center" value="${cp.minFimT3 || '____'}">
+              <input type="text" id="cfgMFimT3" class="form-control text-center" value="${cp.minFimT3 || ''}" placeholder="____">
             </div>
           </div>
         </div>
@@ -3135,26 +3409,28 @@ function modalConfigurarSessaoActa() {
 function salvarConfigSessaoActa(e, turmaId) {
   e.preventDefault();
   const params = {
-    presidenteT1: document.getElementById('cfgPresT1').value,
-    dataT1: document.getElementById('cfgDataT1').value,
-    horaInicioT1: document.getElementById('cfgHIniT1').value,
-    minInicioT1: document.getElementById('cfgMIniT1').value,
-    horaFimT1: document.getElementById('cfgHFimT1').value,
-    minFimT1: document.getElementById('cfgMFimT1').value,
+    directorTurma: document.getElementById('cfgDirectorTurma')?.value?.trim() || '',
 
-    presidenteT2: document.getElementById('cfgPresT2').value,
-    dataT2: document.getElementById('cfgDataT2').value,
-    horaInicioT2: document.getElementById('cfgHIniT2').value,
-    minInicioT2: document.getElementById('cfgMIniT2').value,
-    horaFimT2: document.getElementById('cfgHFimT2').value,
-    minFimT2: document.getElementById('cfgMFimT2').value,
+    presidenteT1: document.getElementById('cfgPresT1')?.value?.trim() || '',
+    dataT1: document.getElementById('cfgDataT1')?.value?.trim() || '',
+    horaInicioT1: document.getElementById('cfgHIniT1')?.value?.trim() || '',
+    minInicioT1: document.getElementById('cfgMIniT1')?.value?.trim() || '',
+    horaFimT1: document.getElementById('cfgHFimT1')?.value?.trim() || '',
+    minFimT1: document.getElementById('cfgMFimT1')?.value?.trim() || '',
 
-    presidenteT3: document.getElementById('cfgPresT3').value,
-    dataT3: document.getElementById('cfgDataT3').value,
-    horaInicioT3: document.getElementById('cfgHIniT3').value,
-    minInicioT3: document.getElementById('cfgMIniT3').value,
-    horaFimT3: document.getElementById('cfgHFimT3').value,
-    minFimT3: document.getElementById('cfgMFimT3').value
+    presidenteT2: document.getElementById('cfgPresT2')?.value?.trim() || '',
+    dataT2: document.getElementById('cfgDataT2')?.value?.trim() || '',
+    horaInicioT2: document.getElementById('cfgHIniT2')?.value?.trim() || '',
+    minInicioT2: document.getElementById('cfgMIniT2')?.value?.trim() || '',
+    horaFimT2: document.getElementById('cfgHFimT2')?.value?.trim() || '',
+    minFimT2: document.getElementById('cfgMFimT2')?.value?.trim() || '',
+
+    presidenteT3: document.getElementById('cfgPresT3')?.value?.trim() || '',
+    dataT3: document.getElementById('cfgDataT3')?.value?.trim() || '',
+    horaInicioT3: document.getElementById('cfgHIniT3')?.value?.trim() || '',
+    minInicioT3: document.getElementById('cfgMIniT3')?.value?.trim() || '',
+    horaFimT3: document.getElementById('cfgHFimT3')?.value?.trim() || '',
+    minFimT3: document.getElementById('cfgMFimT3')?.value?.trim() || ''
   };
 
   localStorage.setItem('sige_acta_params_' + turmaId, JSON.stringify(params));
@@ -3358,8 +3634,9 @@ async function liquidarPagamento(id, valor) {
       body: JSON.stringify({ valor_pago: Number(valor), metodo_pagamento: 'NUMERARIO_OU_POS' })
     });
     if (res.success) {
-      mostrarNotificacao('Pagamento liquidado com sucesso! Estado atualizado para PAGO.', 'success');
+      mostrarNotificacao('Pagamento liquidado com sucesso! A emitir recibo oficial...', 'success');
       await carregarPagamentos();
+      await abrirModalReciboPagamento(id);
     }
   } catch (err) {
     alert('Erro ao liquidar pagamento: ' + (err.message || ''));
@@ -3473,11 +3750,96 @@ async function modalGerarMensalidadesTurma() {
   });
 }
 
+async function abrirModalReciboPagamento(pagamentoId) {
+  try {
+    const res = await apiFetch(`/api/v1/impressao/recibo/${pagamentoId}`);
+    if (!res.success || !res.data) {
+      alert('Recibo de pagamento não encontrado.');
+      return;
+    }
+    const d = res.data;
+    const safeName = (d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
+    const carimboDataHora = d.carimboDataHora || (new Date().toLocaleDateString('pt-PT') + ' ' + new Date().toLocaleTimeString('pt-PT'));
+
+    abrirModal(`Recibo Oficial de Pagamento — ${d.pagamento.recibo_numero || 'REC-2026'}`, `
+      <div id="modalAreaRecibo" class="p-3 bg-white">
+        <div class="text-center border-bottom pb-3 mb-3">
+          <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 3px;" alt="Emblema Nacional">
+          <h6 class="fw-bold mb-1">${(d.escola?.nome || 'Escola Secundária').toUpperCase()}</h6>
+          <p class="text-muted small mb-0">NUIT: ${d.escola?.nif_cnpj || '-'} | Telefone: ${d.escola?.telefone || '-'}</p>
+          <h5 class="mt-2 fw-bold text-success text-uppercase">RECIBO DE PAGAMENTO DE PROPINAS</h5>
+          <span class="badge bg-light text-dark border fs-6">Recibo Nº: <strong>${d.pagamento.recibo_numero || 'REC-2026-001'}</strong></span>
+        </div>
+
+        <table class="table table-bordered table-sm small mb-3">
+          <tr><th class="bg-light w-35">Aluno:</th><td><strong>${d.aluno.nome}</strong> (Matrícula: ${d.aluno.matricula})</td></tr>
+          <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno.turma?.nome || '-'} (${d.aluno.turma?.grau_ano || '-'})</td></tr>
+          <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao}</td></tr>
+          <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia}</code></td></tr>
+          <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold text-success fs-5">${d.pagamento.valor.toLocaleString('pt-PT')} MZN</td></tr>
+          <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Numerário / POS'}</td></tr>
+          <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || d.pagamento.data_pagamento || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
+          <tr><th class="bg-light">Estado:</th><td><span class="badge bg-success">LIQUIDADO / PAGO</span></td></tr>
+        </table>
+
+        <div class="alert alert-light border small text-muted text-center py-2 mb-3">
+          <i class="bi bi-clock-history me-1 text-primary"></i>
+          Processado por Computador aos <strong>${carimboDataHora}</strong> | Autenticação Digital SIGE
+        </div>
+
+        <div class="row text-center pt-3 border-top small">
+          <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">A Secretaria / Tesouraria</p></div>
+          <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">O Aluno / Depositante</p></div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top no-print">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Fechar</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="imprimirElementoRecibo('modalAreaRecibo', 'Recibo_${safeName}_${d.pagamento.mes_referencia}')">
+          <i class="bi bi-printer me-1"></i> Imprimir Recibo Oficial
+        </button>
+      </div>
+    `);
+  } catch (err) {
+    alert('Erro ao carregar recibo de pagamento: ' + (err.message || ''));
+  }
+}
+
+function imprimirElementoRecibo(elementId, titulo) {
+  const el = document.getElementById(elementId);
+  if (!el) return window.print();
+  const originalTitle = document.title;
+  document.title = titulo;
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (printWindow) {
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${titulo}</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+          body { font-family: Arial, sans-serif; background: #fff; padding: 20px; }
+          @media print { .no-print { display: none !important; } }
+        </style>
+      </head>
+      <body>
+        ${el.innerHTML}
+        <script>
+          window.onload = function() { window.print(); };
+        <\/script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  } else {
+    window.print();
+  }
+  document.title = originalTitle;
+}
+
 function imprimirReciboPagamento(pagamentoId) {
-  alternarModoImpressao('INDIVIDUAL');
-  document.getElementById('printTipoDoc').value = 'RECIBO';
-  navegarPara('impressao');
-  carregarReciboIndividual(pagamentoId);
+  abrirModalReciboPagamento(pagamentoId);
 }
 
 // ==================== 11. CENTRAL DE IMPRESSÃO (INDIVIDUAL E LOTE) ====================
@@ -3603,21 +3965,96 @@ function imprimirDocumentoCentral() {
 }
 
 async function descarregarPdfCentral() {
-  const preview = document.getElementById('printAreaPreview');
-  const turmaId = document.getElementById('printSelectTurma')?.value;
-  if (!turmaId) return alert('Por favor, selecione uma turma antes de descarregar o documento');
-
-  if (!preview || preview.style.display === 'none' || !preview.innerHTML.trim() || preview.innerHTML.includes('spinner-border')) {
-    await carregarVisualizacaoImpressao();
-  }
-
-  if (!preview || preview.innerHTML.includes('spinner-border') || !preview.innerText.trim()) {
-    return alert('Aguarde o carregamento do documento oficial ou verifique a turma selecionada.');
-  }
-
   const tipo = document.getElementById('printTipoDoc')?.value || 'DOCUMENTO';
-  const isLandscape = tipo === 'PAUTA_TURMA' || tipo === 'ACTA_CONSELHO';
-  await exportarElementoParaPdf(preview, `${tipo}_Oficial_2026.pdf`, isLandscape ? 'landscape' : 'portrait');
+  const turmaId = document.getElementById('printSelectTurma')?.value;
+  const alunoId = document.getElementById('printSelectAluno')?.value;
+  if (!turmaId && tipo !== 'RECIBO') return alert('Por favor, selecione uma turma antes de descarregar o documento em PDF');
+
+  if (tipo === 'PAUTA_TURMA') {
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026`, `Pauta_Oficial_${turmaId}.pdf`);
+  } else if (tipo === 'ACTA_CONSELHO') {
+    const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
+    const params = new URLSearchParams({ anoLetivo: '2026' });
+    if (sessao.presidente) params.append('presidente', sessao.presidente);
+    if (sessao.data) params.append('data', sessao.data);
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_${turmaId}.pdf`);
+  } else if (tipo === 'BOLETIM') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf`, `Boletim_${alunoId}.pdf`);
+    } else {
+      const preview = document.getElementById('printAreaPreview');
+      if (preview && preview.style.display !== 'none') {
+        await exportarElementoParaPdf(preview, `Boletins_Turma_${turmaId}.pdf`, 'portrait');
+      } else {
+        alert('Selecione um aluno individual para emitir o Boletim oficial em PDF.');
+      }
+    }
+  } else if (tipo === 'DECLARACAO') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf`, `Declaracao_${alunoId}.pdf`);
+    } else {
+      alert('Selecione um aluno individual para emitir a Declaração em PDF.');
+    }
+  } else if (tipo === 'CERTIFICADO') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf`, `Certificado_${alunoId}.pdf`);
+    } else {
+      alert('Selecione um aluno individual para emitir o Certificado em PDF.');
+    }
+  } else if (tipo === 'RECIBO') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf`, `Recibo_${alunoId}.pdf`);
+    } else {
+      alert('Selecione o aluno/pagamento para emitir o Recibo em PDF.');
+    }
+  } else {
+    const preview = document.getElementById('printAreaPreview');
+    const isLandscape = tipo === 'PAUTA_TURMA' || tipo === 'ACTA_CONSELHO';
+    await exportarElementoParaPdf(preview, `${tipo}_Oficial_2026.pdf`, isLandscape ? 'landscape' : 'portrait');
+  }
+}
+
+function descarregarDocxCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value;
+  const turmaId = document.getElementById('printSelectTurma')?.value;
+  const alunoId = document.getElementById('printSelectAluno')?.value;
+  if (!turmaId && tipo !== 'RECIBO') return alert('Por favor, selecione uma turma antes de descarregar o documento Word (DOCX)');
+
+  if (tipo === 'PAUTA_TURMA') {
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026`, `Pauta_Oficial_${turmaId}.docx`);
+  } else if (tipo === 'ACTA_CONSELHO') {
+    const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
+    const params = new URLSearchParams({ anoLetivo: '2026' });
+    if (sessao.presidente) params.append('presidente', sessao.presidente);
+    if (sessao.data) params.append('data', sessao.data);
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_${turmaId}.docx`);
+  } else if (tipo === 'BOLETIM') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx`, `Boletim_${alunoId}.docx`);
+    } else {
+      alert('Selecione um aluno individual para descarregar o Boletim em Word (DOCX).');
+    }
+  } else if (tipo === 'DECLARACAO') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx`, `Declaracao_${alunoId}.docx`);
+    } else {
+      alert('Selecione um aluno individual para descarregar a Declaração em Word (DOCX).');
+    }
+  } else if (tipo === 'CERTIFICADO') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx`, `Certificado_${alunoId}.docx`);
+    } else {
+      alert('Selecione um aluno individual para descarregar o Certificado em Word (DOCX).');
+    }
+  } else if (tipo === 'RECIBO') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx`, `Recibo_${alunoId}.docx`);
+    } else {
+      alert('Selecione o aluno/pagamento para descarregar o Recibo em Word (DOCX).');
+    }
+  } else {
+    alert('Documento Word não disponível para este tipo.');
+  }
 }
 
 function descarregarXlsxCentral() {
@@ -4291,7 +4728,7 @@ function imprimirDocumentoComTitulo(titulo) {
   document.title = originalTitle;
 }
 
-// ==================== 12. DESBLOQUEIO DE TRIMESTRE ====================
+// ==================== 12. DESBLOQUEIO DE TRIMESTRE & CALENDÁRIO DE PRAZOS ====================
 async function prepararDesbloqueioTrimestre() {
   try {
     const [turmasRes, profsRes] = await Promise.all([
@@ -4300,12 +4737,138 @@ async function prepararDesbloqueioTrimestre() {
     ]);
 
     const selectTurma = document.getElementById('desbloqueioTurma');
-    selectTurma.innerHTML = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+    if (selectTurma) {
+      selectTurma.innerHTML = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+    }
 
     const selectProf = document.getElementById('desbloqueioProfessor');
-    selectProf.innerHTML = '<option value="">(Todos os Docentes da Turma)</option>' +
-      (profsRes.data || []).map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-  } catch (err) {}
+    if (selectProf) {
+      selectProf.innerHTML = '<option value="">(Todos os Docentes da Turma)</option>' +
+        (profsRes.data || []).map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    }
+
+    // Carregar calendário oficial de prazos e lista de autorizações activas
+    await Promise.all([
+      carregarPrazosTrimestrais(),
+      carregarAutorizacoesDesbloqueio()
+    ]);
+  } catch (err) {
+    console.warn('Erro ao preparar tela de desbloqueio:', err);
+  }
+}
+
+async function carregarPrazosTrimestrais() {
+  try {
+    const res = await apiFetch('/api/v1/notas/prazos-trimestres');
+    if (res.success && res.data) {
+      const p = res.data;
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val ? val.substring(0, 10) : '';
+      };
+      setVal('prazoT1Inicio', p.data_inicio_t1);
+      setVal('prazoT1Fim', p.data_fim_t1);
+      setVal('prazoT2Inicio', p.data_inicio_t2);
+      setVal('prazoT2Fim', p.data_fim_t2);
+      setVal('prazoT3Inicio', p.data_inicio_t3);
+      setVal('prazoT3Fim', p.data_fim_t3);
+    }
+  } catch (err) {
+    console.warn('Erro ao carregar prazos trimestrais:', err);
+  }
+}
+
+document.getElementById('formPrazosTrimestrais')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const body = {
+      data_inicio_t1: document.getElementById('prazoT1Inicio')?.value || null,
+      data_fim_t1: document.getElementById('prazoT1Fim')?.value || null,
+      data_inicio_t2: document.getElementById('prazoT2Inicio')?.value || null,
+      data_fim_t2: document.getElementById('prazoT2Fim')?.value || null,
+      data_inicio_t3: document.getElementById('prazoT3Inicio')?.value || null,
+      data_fim_t3: document.getElementById('prazoT3Fim')?.value || null
+    };
+
+    const res = await apiFetch('/api/v1/notas/prazos-trimestres', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+
+    if (res.success) {
+      alert('Calendário oficial de prazos de lançamento salvo com sucesso!');
+    } else {
+      alert(res.message || 'Erro ao salvar prazos trimestrais');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao salvar prazos trimestrais');
+  }
+});
+
+async function carregarAutorizacoesDesbloqueio() {
+  const tbody = document.getElementById('tabelaAutorizacoesDesbloqueio');
+  if (!tbody) return;
+  try {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>A carregar autorizações...</td></tr>';
+    const res = await apiFetch('/api/v1/notas/autorizacoes');
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+      tbody.innerHTML = res.data.map(a => {
+        const agora = new Date();
+        const expiraEm = a.data_expiracao ? new Date(a.data_expiracao) : null;
+        const expirada = a.expirada || (expiraEm && expiraEm < agora);
+
+        const statusBadge = expirada
+          ? '<span class="badge bg-secondary">Expirada</span>'
+          : '<span class="badge bg-success">Activa</span>';
+        
+        const dataCriacao = a.created_at ? new Date(a.created_at).toLocaleString('pt-MZ') : '-';
+        const dataExp = expiraEm ? expiraEm.toLocaleString('pt-MZ') : '-';
+        const profNome = a.professor ? (a.professor.usuario?.nome || a.professor.nome || 'Docente') : '<em class="text-muted">(Toda a Turma)</em>';
+        const autorNome = a.autorizado_por || a.autorizador?.nome || 'Direcção / DAP';
+        const turmaNome = a.turma?.nome ? `${a.turma.nome} (${a.turma.grau_ano || ''})` : 'Turma';
+        const trimLabel = a.periodo === '1_TRIMESTRE' ? '1º Trimestre' : (a.periodo === '2_TRIMESTRE' ? '2º Trimestre' : (a.periodo === '3_TRIMESTRE' ? '3º Trimestre' : a.periodo));
+
+        return `
+          <tr>
+            <td><strong class="text-primary">${turmaNome}</strong></td>
+            <td>${profNome}</td>
+            <td><span class="badge bg-light text-dark border">${trimLabel}</span></td>
+            <td>${autorNome}</td>
+            <td>${dataCriacao}</td>
+            <td>
+              <div>${a.motivo || 'Autorizado'}</div>
+              <small class="text-muted">Expira em: ${dataExp}</small>
+            </td>
+            <td>${statusBadge}</td>
+            <td class="text-end">
+              <button class="btn btn-outline-danger btn-sm" onclick="revogarAutorizacaoDesbloqueio('${a.id}')" title="Revogar autorização">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted">Nenhuma autorização de desbloqueio registada de momento.</td></tr>';
+    }
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-danger">Erro ao carregar autorizações de desbloqueio.</td></tr>';
+  }
+}
+
+async function revogarAutorizacaoDesbloqueio(id) {
+  if (!confirm('Deseja realmente revogar esta autorização de desbloqueio?')) return;
+  try {
+    const res = await apiFetch(`/api/v1/notas/autorizacoes/${id}`, { method: 'DELETE' });
+    if (res.success) {
+      alert('Autorização revogada com sucesso!');
+      carregarAutorizacoesDesbloqueio();
+    } else {
+      alert(res.message || 'Erro ao revogar autorização');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao revogar autorização');
+  }
 }
 
 document.getElementById('formAutorizarDesbloqueio')?.addEventListener('submit', async (e) => {
@@ -4327,6 +4890,7 @@ document.getElementById('formAutorizarDesbloqueio')?.addEventListener('submit', 
     if (res.success) {
       alert('Autorização de desbloqueio concedida com sucesso!');
       document.getElementById('desbloqueioMotivo').value = '';
+      carregarAutorizacoesDesbloqueio();
     }
   } catch (err) {
     alert(err.message || 'Erro ao autorizar desbloqueio');

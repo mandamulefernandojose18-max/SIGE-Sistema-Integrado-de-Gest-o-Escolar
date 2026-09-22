@@ -152,7 +152,7 @@ export class PagamentosService {
       } else if (p.status === 'PENDENTE') {
         if (new Date(p.data_vencimento) < agora) {
           totalAtrasado += p.valor;
-          alunosComPendencia.add(p.aluno_id);
+          if (p.aluno_id) alunosComPendencia.add(p.aluno_id);
         } else {
           totalPendente += p.valor;
         }

@@ -3,6 +3,9 @@ import prisma from '../../config/database';
 import { avaliarAprovacaoPauta } from '../../utils/avaliacoes-mocambique';
 import { generateQrCodeDataUrl } from '../../utils/qrcode.util';
 import { ExportExcelService } from '../../services/export-excel.service';
+import { PdfKitDocumentosService } from '../../services/pdfkit-documentos.service';
+import { DocxDocumentosService } from '../../services/docx-documentos.service';
+import { SheetJsDocumentosService } from '../../services/sheetjs-documentos.service';
 
 function formatarDataHoraCarimbo(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -134,10 +137,39 @@ export class ImpressaoService {
     if (!pagamento) throw new Error('Pagamento não encontrado');
 
     const agora = new Date();
-    const nomeProprietario = `${pagamento.aluno.nome}_${pagamento.aluno.apelido || ''}`.trim().replace(/\s+/g, '_');
+    const nomeProprietario = pagamento.aluno
+      ? `${pagamento.aluno.nome}_${pagamento.aluno.apelido || ''}`.trim().replace(/\s+/g, '_')
+      : `Candidato_${pagamento.id.slice(0, 8)}`;
     const ano = agora.getFullYear();
 
-    await this.registrarEmissao(escolaId, 'RECIBO', `Recibo ${pagamento.recibo_numero || pagamento.id} - ${pagamento.aluno.nome}`, usuarioId);
+    await this.registrarEmissao(
+      escolaId,
+      'RECIBO',
+      `Recibo ${pagamento.recibo_numero || pagamento.id} - ${pagamento.aluno?.nome || 'Inscrição'}`,
+      usuarioId
+    );
+
+    const alunoDados = pagamento.aluno
+      ? {
+          id: pagamento.aluno.id,
+          nome: pagamento.aluno.nome,
+          apelido: pagamento.aluno.apelido || '',
+          matricula: pagamento.aluno.matricula,
+          turma: pagamento.aluno.turma,
+          nuit: pagamento.aluno.nuit,
+          numero_documento: pagamento.aluno.numero_documento,
+          nomeCompleto: `${pagamento.aluno.nome} ${pagamento.aluno.apelido || ''}`.trim()
+        }
+      : {
+          id: '',
+          nome: 'Candidato / Inscrição',
+          apelido: '',
+          matricula: 'PENDENTE',
+          turma: null,
+          nuit: null,
+          numero_documento: null,
+          nomeCompleto: 'Candidato / Inscrição'
+        };
 
     // Requisito 7: Data e hora de impressão OBRIGATÓRIA no recibo (Ex.: 12/09/2026 08:45:25)
     return {
@@ -145,10 +177,7 @@ export class ImpressaoService {
       reciboNumero: pagamento.recibo_numero || `REC-${pagamento.id.slice(0, 8).toUpperCase()}`,
       filename: `Recibo_${nomeProprietario}_${ano}.pdf`,
       escola: pagamento.escola,
-      aluno: {
-        ...pagamento.aluno,
-        nomeCompleto: `${pagamento.aluno.nome} ${pagamento.aluno.apelido || ''}`.trim()
-      },
+      aluno: alunoDados,
       pagamento: {
         id: pagamento.id,
         descricao: pagamento.descricao,
@@ -410,13 +439,122 @@ export class ImpressaoService {
     };
   }
 
+  async exportarBoletimPdf(escolaId: string, alunoId: string, anoLetivo = '2026'): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarBoletimAluno(escolaId, alunoId, anoLetivo);
+    const buffer = await PdfKitDocumentosService.gerarBoletimPdf({
+      escola: dados.escola,
+      anoLetivo: dados.anoLetivo,
+      aluno: {
+        id: dados.aluno.id,
+        nome: dados.aluno.nome,
+        matricula: dados.aluno.matricula,
+        turma: { nome: dados.aluno.turma, grau_ano: dados.aluno.grau }
+      },
+      disciplinas: dados.disciplinas.map(d => ({
+        id: d.id,
+        nome: d.nome,
+        codigo: d.codigo,
+        t1: d.t1,
+        t2: d.t2,
+        t3: d.t3,
+        mfd: d.mediaFinal
+      })),
+      medias: {
+        mfd: dados.mediaGeral
+      },
+      resultadoFinal: dados.resultado,
+      observacao: `Resultado pedagógico do aluno: ${dados.resultado} com média global de ${dados.mediaGeral} valores.`
+    });
+    const nome = dados.aluno.nome.replace(/\s+/g, '_');
+    return {
+      buffer,
+      filename: `Boletim_${nome}_${dados.anoLetivo}.pdf`
+    };
+  }
+
+  async exportarBoletimDocx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarBoletimAluno(escolaId, alunoId);
+    const buffer = await DocxDocumentosService.gerarDeclaracaoDocx({
+      escola: dados.escola,
+      anoLectivo: dados.anoLetivo,
+      comNotas: true,
+      aluno: {
+        nome: dados.aluno.nome,
+        matricula: dados.aluno.matricula,
+        numero_documento: dados.aluno.numero_documento,
+        turma: { nome: dados.aluno.turma, grau_ano: dados.aluno.grau }
+      },
+      disciplinas: dados.disciplinas.map(d => ({ nome: d.nome, mfd: d.mediaFinal })),
+      mediaFinal: dados.mediaGeral,
+      resultadoFinal: dados.resultado
+    });
+    const nome = dados.aluno.nome.replace(/\s+/g, '_');
+    return {
+      buffer,
+      filename: `Boletim_${nome}_${dados.anoLetivo}.docx`
+    };
+  }
+
   async exportarBoletimXlsx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarBoletimAluno(escolaId, alunoId);
-    const buffer = await ExportExcelService.gerarBoletimXlsx(dados);
+    const buffer = SheetJsDocumentosService.gerarBoletimXlsx({
+      escola: dados.escola,
+      aluno: {
+        nome: dados.aluno.nome,
+        matricula: dados.aluno.matricula,
+        turma: { nome: dados.aluno.turma, grau_ano: dados.aluno.grau }
+      },
+      anoLetivo: dados.anoLetivo,
+      disciplinas: dados.disciplinas.map(d => ({
+        nome: d.nome,
+        t1: d.t1,
+        t2: d.t2,
+        t3: d.t3,
+        mfd: d.mediaFinal
+      })),
+      medias: { mfd: dados.mediaGeral },
+      resultadoFinal: dados.resultado
+    });
     const nome = dados.aluno.nome.replace(/\s+/g, '_');
     return {
       buffer,
       filename: `Boletim_${nome}_${dados.anoLetivo}.xlsx`
+    };
+  }
+
+  async exportarDeclaracaoPdf(escolaId: string, alunoId: string, comNotas = true): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarDeclaracaoAluno(escolaId, alunoId, comNotas);
+    const buffer = await PdfKitDocumentosService.gerarDeclaracaoPdf({
+      escola: dados.escola,
+      anoLectivo: dados.anoLectivo,
+      comNotas,
+      aluno: dados.aluno,
+      disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
+      mediaFinal: dados.mediaGlobal,
+      resultadoFinal: dados.resultadoOficial
+    });
+    const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
+    return {
+      buffer,
+      filename: `Declaracao_${nome}_${dados.anoLectivo}.pdf`
+    };
+  }
+
+  async exportarDeclaracaoDocx(escolaId: string, alunoId: string, comNotas = true): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarDeclaracaoAluno(escolaId, alunoId, comNotas);
+    const buffer = await DocxDocumentosService.gerarDeclaracaoDocx({
+      escola: dados.escola,
+      anoLectivo: dados.anoLectivo,
+      comNotas,
+      aluno: dados.aluno,
+      disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
+      mediaFinal: dados.mediaGlobal,
+      resultadoFinal: dados.resultadoOficial
+    });
+    const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
+    return {
+      buffer,
+      filename: `Declaracao_${nome}_${dados.anoLectivo}.docx`
     };
   }
 
@@ -430,6 +568,42 @@ export class ImpressaoService {
     };
   }
 
+  async exportarCertificadoPdf(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarCertificadoAluno(escolaId, alunoId);
+    const buffer = await PdfKitDocumentosService.gerarDeclaracaoPdf({
+      escola: dados.escola,
+      anoLectivo: dados.anoLectivo,
+      comNotas: true,
+      aluno: dados.aluno,
+      disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
+      mediaFinal: dados.mediaGlobal,
+      resultadoFinal: dados.resultadoOficial
+    });
+    const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
+    return {
+      buffer,
+      filename: `Certificado_${nome}_${dados.anoLectivo}.pdf`
+    };
+  }
+
+  async exportarCertificadoDocx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarCertificadoAluno(escolaId, alunoId);
+    const buffer = await DocxDocumentosService.gerarDeclaracaoDocx({
+      escola: dados.escola,
+      anoLectivo: dados.anoLectivo,
+      comNotas: true,
+      aluno: dados.aluno,
+      disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
+      mediaFinal: dados.mediaGlobal,
+      resultadoFinal: dados.resultadoOficial
+    });
+    const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
+    return {
+      buffer,
+      filename: `Certificado_${nome}_${dados.anoLectivo}.docx`
+    };
+  }
+
   async exportarCertificadoXlsx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarCertificadoAluno(escolaId, alunoId);
     const buffer = await ExportExcelService.gerarCertificadoXlsx(dados);
@@ -437,6 +611,65 @@ export class ImpressaoService {
     return {
       buffer,
       filename: `Certificado_${nome}_${dados.anoLectivo}.xlsx`
+    };
+  }
+
+  async exportarReciboPdf(escolaId: string, pagamentoId: string, operador?: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarReciboPagamento(escolaId, pagamentoId);
+    const buffer = await PdfKitDocumentosService.gerarReciboPdf({
+      escola: dados.escola,
+      pagamento: {
+        id: dados.pagamento.id,
+        recibo_numero: dados.reciboNumero,
+        descricao: dados.pagamento.descricao,
+        mes_referencia: dados.pagamento.mesReferencia,
+        valor: dados.pagamento.valor,
+        valor_pago: dados.pagamento.valorPago,
+        metodo_pagamento: dados.pagamento.metodo,
+        data_pagamento: dados.pagamento.dataPagamento,
+        status: dados.pagamento.status
+      },
+      aluno: {
+        id: dados.aluno.id || '',
+        nome: (dados.aluno.nomeCompleto || dados.aluno.nome) || 'Candidato',
+        matricula: dados.aluno.matricula,
+        turma: dados.aluno.turma,
+        nuit: dados.aluno.nuit,
+        numero_documento: dados.aluno.numero_documento
+      },
+      operador
+    });
+    return {
+      buffer,
+      filename: `Recibo_${dados.reciboNumero || dados.pagamento.id}.pdf`
+    };
+  }
+
+  async exportarReciboDocx(escolaId: string, pagamentoId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.gerarReciboPagamento(escolaId, pagamentoId);
+    const buffer = await DocxDocumentosService.gerarReciboDocx({
+      escola: dados.escola,
+      pagamento: {
+        id: dados.pagamento.id,
+        recibo_numero: dados.reciboNumero,
+        descricao: dados.pagamento.descricao,
+        mes_referencia: dados.pagamento.mesReferencia,
+        valor: dados.pagamento.valor,
+        valor_pago: dados.pagamento.valorPago,
+        metodo_pagamento: dados.pagamento.metodo,
+        data_pagamento: dados.pagamento.dataPagamento,
+        status: dados.pagamento.status
+      },
+      aluno: {
+        id: dados.aluno.id || '',
+        nome: (dados.aluno.nomeCompleto || dados.aluno.nome) || 'Candidato',
+        matricula: dados.aluno.matricula,
+        turma: dados.aluno.turma
+      }
+    });
+    return {
+      buffer,
+      filename: `Recibo_${dados.reciboNumero || dados.pagamento.id}.docx`
     };
   }
 

@@ -10,7 +10,11 @@ router.use(authMiddleware, tenantMiddleware);
 
 router.get('/turma/:turmaId/completa', (req, res, next) => pautasController.getPautaTurmaCompleta(req, res, next));
 router.get('/turma/:turmaId', (req, res, next) => pautasController.getPautaTurmaCompleta(req, res, next));
+router.get('/turma/:turmaId/pdf', (req, res, next) => pautasController.exportarPautaTurmaPdf(req, res, next));
+router.get('/turma/:turmaId/docx', (req, res, next) => pautasController.exportarPautaTurmaDocx(req, res, next));
 router.get('/turma/:turmaId/acta', (req, res, next) => pautasController.getActaTurma(req, res, next));
+router.get('/turma/:turmaId/acta-pdf', (req, res, next) => pautasController.exportarActaTurmaPdf(req, res, next));
+router.get('/turma/:turmaId/acta-docx', (req, res, next) => pautasController.exportarActaTurmaDocx(req, res, next));
 router.get('/turma/:turmaId/export-xlsx', (req, res, next) => pautasController.exportarPautaTurmaXlsx(req, res, next));
 router.get('/turma/:turmaId/export-json', (req, res, next) => pautasController.exportarPautaTurmaJson(req, res, next));
 router.get('/turma/:turmaId/acta-xlsx', (req, res, next) => pautasController.exportarActaTurmaXlsx(req, res, next));

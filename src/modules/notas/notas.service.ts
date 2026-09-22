@@ -120,17 +120,149 @@ export class NotasService {
     return resultados;
   }
 
+  async getPrazosTrimestrais(escolaId: string) {
+    const doc = await prisma.documentoSalvo.findFirst({
+      where: { escola_id: escolaId, tipo_documento: 'CONFIG_PRAZOS_NOTAS' }
+    });
+    let data: any = null;
+    if (doc && doc.dados_json) {
+      try {
+        data = JSON.parse(doc.dados_json);
+      } catch (_) {}
+    }
+
+    const t1_ini = data?.data_inicio_t1 || data?.t1_inicio || '2026-02-01';
+    const t1_fim = data?.data_fim_t1 || data?.t1_fim || '2026-05-15';
+    const t2_ini = data?.data_inicio_t2 || data?.t2_inicio || '2026-06-01';
+    const t2_fim = data?.data_fim_t2 || data?.t2_fim || '2026-08-31';
+    const t3_ini = data?.data_inicio_t3 || data?.t3_inicio || '2026-09-01';
+    const t3_fim = data?.data_fim_t3 || data?.t3_fim || '2026-11-30';
+
+    return {
+      t1_inicio: t1_ini,
+      t1_fim: t1_fim,
+      t2_inicio: t2_ini,
+      t2_fim: t2_fim,
+      t3_inicio: t3_ini,
+      t3_fim: t3_fim,
+      data_inicio_t1: t1_ini,
+      data_fim_t1: t1_fim,
+      data_inicio_t2: t2_ini,
+      data_fim_t2: t2_fim,
+      data_inicio_t3: t3_ini,
+      data_fim_t3: t3_fim
+    };
+  }
+
+  async salvarPrazosTrimestrais(escolaId: string, dados: any) {
+    const docExistente = await prisma.documentoSalvo.findFirst({
+      where: { escola_id: escolaId, tipo_documento: 'CONFIG_PRAZOS_NOTAS' }
+    });
+
+    const payload = {
+      data_inicio_t1: dados.data_inicio_t1 || dados.t1_inicio,
+      data_fim_t1: dados.data_fim_t1 || dados.t1_fim,
+      data_inicio_t2: dados.data_inicio_t2 || dados.t2_inicio,
+      data_fim_t2: dados.data_fim_t2 || dados.t2_fim,
+      data_inicio_t3: dados.data_inicio_t3 || dados.t3_inicio,
+      data_fim_t3: dados.data_fim_t3 || dados.t3_fim,
+      t1_inicio: dados.data_inicio_t1 || dados.t1_inicio,
+      t1_fim: dados.data_fim_t1 || dados.t1_fim,
+      t2_inicio: dados.data_inicio_t2 || dados.t2_inicio,
+      t2_fim: dados.data_fim_t2 || dados.t2_fim,
+      t3_inicio: dados.data_inicio_t3 || dados.t3_inicio,
+      t3_fim: dados.data_fim_t3 || dados.t3_fim
+    };
+    if (docExistente) {
+      return prisma.documentoSalvo.update({
+        where: { id: docExistente.id },
+        data: {
+          dados_json: JSON.stringify(payload),
+          criado_em: new Date()
+        }
+      });
+    } else {
+      return prisma.documentoSalvo.create({
+        data: {
+          escola_id: escolaId,
+          tipo_documento: 'CONFIG_PRAZOS_NOTAS',
+          titulo: 'Calendário e Prazos de Lançamento de Notas',
+          ano_letivo: '2026',
+          dados_json: JSON.stringify(payload)
+        }
+      });
+    }
+  }
+
+  async listarAutorizacoesDesbloqueio(escolaId: string) {
+    const perms = await prisma.permissaoEdicaoNotas.findMany({
+      where: { escola_id: escolaId, ativa: true },
+      include: {
+        professor: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const turmas = await prisma.turma.findMany({ where: { escola_id: escolaId } });
+    const turmasMap = new Map(turmas.map(t => [t.id, t.nome]));
+
+    return perms.map(p => ({
+      ...p,
+      turma_nome: turmasMap.get(p.turma_id) || p.turma_id
+    }));
+  }
+
+  async revogarAutorizacaoDesbloqueio(escolaId: string, permissaoId: string) {
+    return prisma.permissaoEdicaoNotas.update({
+      where: { id: permissaoId },
+      data: { ativa: false }
+    });
+  }
+
   async validarPermissaoTrimestre(escolaId: string, professorId: string, turmaId: string, disciplinaId: string, periodo: string) {
     const escola = await prisma.escola.findUnique({ where: { id: escolaId } });
     if (!escola) throw new Error('Escola não encontrada');
 
+    const prazos = await this.getPrazosTrimestrais(escolaId);
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const match = periodo.match(/(\d)/);
+    const trimestreNum = match ? parseInt(match[1], 10) : 1;
+
+    const dataInicioStr = prazos[`t${trimestreNum}_inicio`];
+    const dataFimStr = prazos[`t${trimestreNum}_fim`];
+
+    let foraDoPrazo = false;
+    let motivoBloqueio = '';
+
+    if (dataInicioStr && dataFimStr) {
+      const dtInicio = new Date(dataInicioStr);
+      dtInicio.setHours(0, 0, 0, 0);
+      const dtFim = new Date(dataFimStr);
+      dtFim.setHours(23, 59, 59, 999);
+
+      if (hoje < dtInicio) {
+        foraDoPrazo = true;
+        motivoBloqueio = `O período oficial de lançamento de notas para o ${trimestreNum}º Trimestre só abre em ${new Date(dataInicioStr).toLocaleDateString('pt-PT')}.`;
+      } else if (hoje > dtFim) {
+        foraDoPrazo = true;
+        motivoBloqueio = `O prazo oficial de lançamento para o ${trimestreNum}º Trimestre expirou em ${new Date(dataFimStr).toLocaleDateString('pt-PT')}. Lançamento bloqueado por atraso.`;
+      }
+    }
+
     const trimestreAtivo = typeof escola.trimestre_ativo === 'string'
       ? (parseInt(escola.trimestre_ativo.replace(/\D/g, '')) || 1)
       : (escola.trimestre_ativo || 1);
-    const match = periodo.match(/(\d)/);
-    const trimestreNota = match ? parseInt(match[1], 10) : 1;
 
-    if (trimestreNota < trimestreAtivo) {
+    if (trimestreNum < trimestreAtivo) {
+      foraDoPrazo = true;
+      if (!motivoBloqueio) {
+        motivoBloqueio = `Edição de notas bloqueada para o ${trimestreNum}º Trimestre (Trimestre activo actual: ${trimestreAtivo}º).`;
+      }
+    }
+
+    if (foraDoPrazo) {
       const permissao = await prisma.permissaoEdicaoNotas.findFirst({
         where: {
           escola_id: escolaId,
@@ -143,7 +275,20 @@ export class NotasService {
       });
 
       if (!permissao) {
-        throw new Error(`Edição de notas bloqueada para o ${trimestreNota}º Trimestre (Trimestre activo actual: ${trimestreAtivo}º). Solicite autorização de desbloqueio ao Director ou ao DAP.`);
+        throw new Error(`${motivoBloqueio} Solicite autorização de desbloqueio / prorrogação de prazo à Direcção Pedagógica (DAP).`);
+      }
+
+      // Validar prazo de validade da autorização excepcional em horas
+      const matchHoras = permissao.motivo?.match(/\[(\d+)\s*h\]/);
+      const horasValidade = matchHoras ? parseInt(matchHoras[1], 10) : 48;
+      const dataExpiracao = new Date(permissao.createdAt.getTime() + horasValidade * 3600 * 1000);
+
+      if (new Date() > dataExpiracao) {
+        await prisma.permissaoEdicaoNotas.update({
+          where: { id: permissao.id },
+          data: { ativa: false }
+        });
+        throw new Error(`A autorização de desbloqueio para o ${trimestreNum}º Trimestre expirou em ${dataExpiracao.toLocaleString('pt-PT')}. Solicite nova prorrogação à Direcção.`);
       }
     }
   }
@@ -153,9 +298,13 @@ export class NotasService {
     turma_id: string;
     disciplina_id?: string | null;
     periodo: string;
+    duracao_horas?: number;
     autorizado_por: string;
     motivo?: string;
   }) {
+    const horas = dados.duracao_horas || 48;
+    const motivoCompleto = `${dados.motivo || 'Autorizado pela Direcção'} [${horas}h]`;
+
     const alocacoes = await prisma.professorDisciplinaTurma.findMany({
       where: {
         escola_id: escolaId,
@@ -176,7 +325,7 @@ export class NotasService {
             disciplina_id: aloc.disciplina_id,
             periodo: dados.periodo,
             autorizado_por: dados.autorizado_por,
-            motivo: dados.motivo || 'Autorizado pela Direcção Pedagógica (DAP)',
+            motivo: motivoCompleto,
             ativa: true
           }
         });
@@ -195,7 +344,7 @@ export class NotasService {
             disciplina_id: discId,
             periodo: dados.periodo,
             autorizado_por: dados.autorizado_por,
-            motivo: dados.motivo || 'Autorizado pela Direcção Pedagógica (DAP)',
+            motivo: motivoCompleto,
             ativa: true
           }
         });

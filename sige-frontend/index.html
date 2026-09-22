@@ -896,27 +896,76 @@
           </div>
         </div>
 
-        <div class="card p-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold mb-0"><i class="bi bi-person-lines-fill me-2"></i>Alunos Matriculados</h5>
-            <button class="btn btn-primary btn-sm" onclick="modalNovoAluno()"><i class="bi bi-plus-lg me-1"></i> Matricular Aluno</button>
+        <div class="card p-4 mb-3 border-0 shadow-sm">
+          <!-- Cabeçalho com Título e Botão Novo Aluno -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold text-primary mb-1"><i class="bi bi-diagram-3-fill me-2"></i>Gestão Hierárquica de Alunos & Turmas</h5>
+              <p class="text-muted small mb-0">Navegue sequencialmente: <strong>Classe</strong> &rarr; <strong>Turma</strong> &rarr; <strong>Alunos</strong></p>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary btn-sm" onclick="carregarAlunos()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
+              <button class="btn btn-primary btn-sm" onclick="modalNovoAluno()"><i class="bi bi-plus-lg me-1"></i> Matricular Aluno</button>
+            </div>
           </div>
+
+          <!-- Nível 1: Selector de Classe -->
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-uppercase text-muted"><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Seleccione a Classe / Grau:</label>
+            <div id="containerBotoesClasses" class="d-flex flex-wrap gap-2">
+              <!-- Botões de Classes gerados dinamicamente via JS -->
+            </div>
+          </div>
+
+          <!-- Nível 2: Selector de Turmas da Classe Selecionada -->
+          <div class="mb-3 p-3 bg-light rounded border" id="seccaoTurmasClasse">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label small fw-bold text-uppercase text-muted mb-0"><i class="bi bi-collection-fill me-1 text-info"></i> 2. Turmas da Classe (<span id="labelNomeClasseAtiva">Todas</span>):</label>
+              <small id="contagemTurmasClasse" class="text-muted"></small>
+            </div>
+            <div id="containerTurmasClasse" class="d-flex flex-wrap gap-2">
+              <!-- Botões/Pills das turmas gerados via JS -->
+            </div>
+          </div>
+
+          <!-- Nível 3: Cabeçalho com Indicador de Hierarquia e Campo de Pesquisa -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2 pt-2 border-top">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary fs-6 px-3 py-2" id="badgeCaminhoHierarquia">
+                <i class="bi bi-people-fill me-1"></i> Todos os Alunos
+              </span>
+              <span id="contagemAlunosExibidos" class="text-muted small fw-semibold"></span>
+            </div>
+            <div class="col-md-5 col-12">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="search" id="pesquisaAlunosHierarquia" class="form-control" placeholder="Pesquisar por nome, apelido ou matrícula..." oninput="filtrarAlunosHierarquia()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('pesquisaAlunosHierarquia').value=''; filtrarAlunosHierarquia();" title="Limpar pesquisa">&times;</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela de Alunos da Turma Selecionada -->
+        <div class="card p-3 border-0 shadow-sm">
           <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
+                  <th style="width: 50px;">Nº</th>
                   <th>Matrícula</th>
                   <th>Nome Completo & Apelido</th>
+                  <th>Classe / Grau</th>
                   <th>Turma</th>
-                  <th>Documento (BI/DIRE)</th>
-                  <th>Província / Distrito</th>
-                  <th>Filiação</th>
+                  <th>Documento</th>
+                  <th>Género</th>
+                  <th>Contacto Encarregado</th>
                   <th>Estado</th>
                   <th class="text-end">Acções</th>
                 </tr>
               </thead>
               <tbody id="tabelaAlunos">
-                <tr><td colspan="8" class="text-center py-4">A carregar alunos...</td></tr>
+                <tr><td colspan="10" class="text-center py-4 text-muted">A carregar dados...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1283,11 +1332,14 @@
               <button class="btn btn-info btn-sm text-white" onclick="exportarPautaGeralJson()" title="Descarregar ficheiro JSON">
                 <i class="bi bi-filetype-json me-1"></i> JSON
               </button>
-              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()" title="Descarregar ficheiro XLSX">
+              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()" title="Descarregar ficheiro XLSX (SheetJS)">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
               </button>
-              <button class="btn btn-danger btn-sm" onclick="descarregarPautaGeralPdf()" title="Descarregar documento em PDF">
+              <button class="btn btn-danger btn-sm" onclick="descarregarPautaGeralPdf()" title="Descarregar documento em PDF (PDFKit)">
                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <button class="btn btn-outline-primary btn-sm" onclick="descarregarPautaGeralDocx()" title="Descarregar documento em Word (DOCX)">
+                <i class="bi bi-file-earmark-word me-1"></i> Word (.docx)
               </button>
               <button class="btn btn-primary btn-sm" onclick="imprimirPautaGeralOficial()" title="Imprimir em A4 horizontal">
                 <i class="bi bi-printer me-1"></i> Imprimir
@@ -1313,11 +1365,14 @@
               <button class="btn btn-info btn-sm text-white" onclick="exportarActaConselhoJson()" title="Descarregar ficheiro JSON">
                 <i class="bi bi-filetype-json me-1"></i> JSON
               </button>
-              <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()" title="Descarregar ficheiro XLSX">
+              <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()" title="Descarregar ficheiro XLSX (SheetJS)">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
               </button>
-              <button class="btn btn-danger btn-sm" onclick="descarregarActaConselhoPdf()" title="Descarregar documento em PDF">
+              <button class="btn btn-danger btn-sm" onclick="descarregarActaConselhoPdf()" title="Descarregar documento em PDF (PDFKit)">
                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <button class="btn btn-outline-primary btn-sm" onclick="descarregarActaConselhoDocx()" title="Descarregar documento em Word (DOCX)">
+                <i class="bi bi-file-earmark-word me-1"></i> Word (.docx)
               </button>
               <button class="btn btn-primary btn-sm" onclick="imprimirActaConselhoOficial()" title="Imprimir em A4 horizontal">
                 <i class="bi bi-printer me-1"></i> Imprimir
@@ -1692,8 +1747,9 @@
             <div class="col-12 d-flex gap-2 justify-content-end pt-2 border-top">
               <button class="btn btn-outline-primary btn-sm" onclick="carregarVisualizacaoImpressao()"><i class="bi bi-eye me-1"></i> Visualizar</button>
               <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoCentral()"><i class="bi bi-printer me-1"></i> Imprimir</button>
-              <button class="btn btn-outline-danger btn-sm" onclick="descarregarPdfCentral()"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF</button>
-              <button class="btn btn-outline-success btn-sm" onclick="descarregarXlsxCentral()"><i class="bi bi-file-earmark-excel me-1"></i> Descarregar XLSX</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="descarregarPdfCentral()"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (PDFKit)</button>
+              <button class="btn btn-outline-primary btn-sm" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Descarregar Word (DOCX)</button>
+              <button class="btn btn-outline-success btn-sm" onclick="descarregarXlsxCentral()"><i class="bi bi-file-earmark-excel me-1"></i> Descarregar Excel (XLSX)</button>
               <button class="btn btn-outline-info btn-sm" onclick="descarregarJsonCentral()"><i class="bi bi-filetype-json me-1"></i> Descarregar JSON</button>
             </div>
           </div>
@@ -1706,41 +1762,138 @@
       </section>
 
       <!-- ==================== 12. DESBLOQUEIO DE TRIMESTRE (DIRECÇÃO) ==================== -->
+      <!-- ==================== 12. DESBLOQUEIO DE TRIMESTRE & CALENDÁRIO DE NOTAS ==================== -->
       <section id="view-desbloqueio" class="modulo-view" style="display: none;">
-        <div class="card p-4">
-          <h5 class="fw-bold mb-2"><i class="bi bi-unlock-fill text-warning me-2"></i>Autorização de Desbloqueio de Trimestre Lectivo</h5>
-          <p class="text-muted small">Funcionalidade reservada ao Director da Escola e DAP. Permite autorizar um docente a lançar ou rectificar avaliações num trimestre passado.</p>
-          
-          <form id="formAutorizarDesbloqueio" class="row g-3 mt-2" style="max-width: 600px;">
-            <div class="col-12">
-              <label class="form-label small fw-semibold">Turma</label>
-              <select id="desbloqueioTurma" class="form-select" required></select>
+        <div class="row g-4">
+          <!-- CARD 1: CALENDÁRIO OFICIAL DE PRAZOS POR TRIMESTRE -->
+          <div class="col-lg-6">
+            <div class="card p-4 h-100 shadow-sm border-0">
+              <h5 class="fw-bold mb-2 text-primary"><i class="bi bi-calendar-week me-2"></i>Calendário Oficial de Prazos de Lançamento</h5>
+              <p class="text-muted small mb-3">Defina as datas limites de lançamento de notas para cada trimestre lectivo. Professores que tentarem lançar notas fora destas datas serão bloqueados por atraso.</p>
+
+              <form id="formPrazosTrimestrais" class="row g-3">
+                <!-- 1º Trimestre -->
+                <div class="col-12 p-3 bg-light rounded border">
+                  <span class="badge bg-primary mb-2">1º Trimestre Lectivo</span>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data de Início</label>
+                      <input type="date" id="prazoT1Inicio" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                      <input type="date" id="prazoT1Fim" class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 2º Trimestre -->
+                <div class="col-12 p-3 bg-light rounded border">
+                  <span class="badge bg-info text-dark mb-2">2º Trimestre Lectivo</span>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data de Início</label>
+                      <input type="date" id="prazoT2Inicio" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                      <input type="date" id="prazoT2Fim" class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3º Trimestre -->
+                <div class="col-12 p-3 bg-light rounded border">
+                  <span class="badge bg-secondary mb-2">3º Trimestre Lectivo</span>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data de Início</label>
+                      <input type="date" id="prazoT3Inicio" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                      <input type="date" id="prazoT3Fim" class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 text-end">
+                  <button type="submit" class="btn btn-primary fw-semibold btn-sm">
+                    <i class="bi bi-save me-1"></i> Guardar Calendário de Prazos
+                  </button>
+                </div>
+              </form>
             </div>
-            <div class="col-12">
-              <label class="form-label small fw-semibold">Docente Titular (Opcional - Em branco para toda a turma)</label>
-              <select id="desbloqueioProfessor" class="form-select">
-                <option value="">(Todos os Docentes da Turma)</option>
-              </select>
+          </div>
+
+          <!-- CARD 2: JANELA DE AUTORIZAÇÃO / REDEFINIÇÃO DE PRAZO POR ATRASO -->
+          <div class="col-lg-6">
+            <div class="card p-4 h-100 shadow-sm border-0">
+              <h5 class="fw-bold mb-2 text-warning"><i class="bi bi-unlock-fill me-2"></i>Autorização / Redefinição de Prazo por Atraso</h5>
+              <p class="text-muted small mb-3">Conceda uma janela de autorização temporária ou prorrogação de prazo para que docentes em atraso possam submeter avaliações.</p>
+              
+              <form id="formAutorizarDesbloqueio" class="row g-3">
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Turma Alvo</label>
+                  <select id="desbloqueioTurma" class="form-select" required></select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Docente Titular (Opcional - Em branco para toda a turma)</label>
+                  <select id="desbloqueioProfessor" class="form-select">
+                    <option value="">(Todos os Docentes da Turma)</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold">Trimestre a Desbloquear</label>
+                  <select id="desbloqueioTrimestre" class="form-select">
+                    <option value="1_TRIMESTRE">1º Trimestre</option>
+                    <option value="2_TRIMESTRE">2º Trimestre</option>
+                    <option value="3_TRIMESTRE">3º Trimestre</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold">Prazo de Validade (Horas)</label>
+                  <input type="number" id="desbloqueioHoras" class="form-control" value="48" min="1" max="720" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Justificação Administrativa Oficial</label>
+                  <textarea id="desbloqueioMotivo" class="form-control" rows="3" placeholder="Ex: Despacho da Direcção Pedagógica autorizando rectificação / lançamento com atraso fundamentado..." required></textarea>
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-warning fw-semibold w-100"><i class="bi bi-check2-circle me-1"></i> Conceder Autorização de Desbloqueio</button>
+                </div>
+              </form>
             </div>
-            <div class="col-6">
-              <label class="form-label small fw-semibold">Trimestre a Desbloquear</label>
-              <select id="desbloqueioTrimestre" class="form-select">
-                <option value="1_TRIMESTRE">1º Trimestre</option>
-                <option value="2_TRIMESTRE">2º Trimestre</option>
-              </select>
+          </div>
+
+          <!-- CARD 3: TABELA DE AUTORIZAÇÕES ACTIVAS -->
+          <div class="col-12">
+            <div class="card p-4 shadow-sm border-0">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-shield-check text-success me-2"></i>Autorizações de Desbloqueio em Vigor</h6>
+                <button class="btn btn-outline-secondary btn-sm" onclick="carregarAutorizacoesDesbloqueio()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle small mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Turma</th>
+                      <th>Docente Autorizado</th>
+                      <th>Trimestre</th>
+                      <th>Concedido Por</th>
+                      <th>Data de Concessão</th>
+                      <th>Motivo / Validade</th>
+                      <th>Estado</th>
+                      <th class="text-end">Acção</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaAutorizacoesDesbloqueio">
+                    <tr><td colspan="8" class="text-center py-3 text-muted">A carregar autorizações activas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div class="col-6">
-              <label class="form-label small fw-semibold">Prazo de Validade (Horas)</label>
-              <input type="number" id="desbloqueioHoras" class="form-control" value="48" min="1" max="168" required>
-            </div>
-            <div class="col-12">
-              <label class="form-label small fw-semibold">Justificação Administrativa Oficial</label>
-              <textarea id="desbloqueioMotivo" class="form-control" rows="2" placeholder="Ex: Despacho da Direcção Pedagógica autorizando rectificação de notas..." required></textarea>
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-warning fw-semibold"><i class="bi bi-check2-circle me-1"></i> Conceder Autorização de Desbloqueio</button>
-            </div>
-          </form>
+          </div>
         </div>
       </section>
 

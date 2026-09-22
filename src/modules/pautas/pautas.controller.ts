@@ -126,6 +126,36 @@ export class PautasController {
     }
   }
 
+  async exportarPautaTurmaPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const { buffer, filename } = await pautasService.exportarPautaPdf(escolaId, turmaId, anoLetivo);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarPautaTurmaDocx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const { buffer, filename } = await pautasService.exportarPautaDocx(escolaId, turmaId, anoLetivo);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async exportarPautaTurmaXlsx(req: Request, res: Response, next: NextFunction) {
     try {
       const escolaId = req.tenant!.id;
@@ -137,6 +167,36 @@ export class PautasController {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', buffer.length.toString());
       return res.end(Buffer.from(buffer));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarActaTurmaPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const { buffer, filename } = await pautasService.exportarActaPdf(escolaId, turmaId, anoLetivo, req.query);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarActaTurmaDocx(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { turmaId } = req.params;
+      const anoLetivo = (req.query.anoLetivo as string) || '2026';
+      const { buffer, filename } = await pautasService.exportarActaDocx(escolaId, turmaId, anoLetivo, req.query);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
     } catch (error) {
       next(error);
     }
