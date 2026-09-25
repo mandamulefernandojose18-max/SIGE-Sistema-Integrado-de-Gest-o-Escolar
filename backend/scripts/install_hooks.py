@@ -6,7 +6,7 @@ import os
 import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-GIT_DIR = BASE_DIR / '.git'
+GIT_DIR = BASE_DIR / '.git' if (BASE_DIR / '.git').exists() else (BASE_DIR.parent / '.git')
 HOOKS_DIR = GIT_DIR / 'hooks'
 
 HOOK_CONTENT = """#!/bin/sh

@@ -42,3 +42,9 @@ backend/db.sqlite3
 backend/.env
 backend/**/__pycache__/
 backend/tests/__pycache__/
+
+# Binários e arquivos temporários de rede
+cloudflared.exe
+*.pem
+*.key
+*.id_rsa

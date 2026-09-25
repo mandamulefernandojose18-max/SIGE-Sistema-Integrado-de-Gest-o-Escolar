@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FRONTEND_DIR = path.resolve(__dirname, '..');
-const GIT_DIR = path.join(FRONTEND_DIR, '.git');
+const GIT_DIR = fs.existsSync(path.join(FRONTEND_DIR, '.git')) ? path.join(FRONTEND_DIR, '.git') : path.join(FRONTEND_DIR, '..', '.git');
 const HOOKS_DIR = path.join(GIT_DIR, 'hooks');
 
 const HOOK_CONTENT = `#!/bin/sh

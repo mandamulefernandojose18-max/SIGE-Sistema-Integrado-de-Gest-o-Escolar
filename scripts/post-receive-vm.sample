@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# SIGE — Git Hook: post-receive para Servidor / VM
+# Localização recomendada na VM: /var/repo/sige.git/hooks/post-receive
+# ==============================================================================
+set -eo pipefail
+
+DEPLOY_DIR="/var/www/sige"
+TARGET_BRANCH="main"
+
+echo "================================================================"
+echo " [VM GATILHO] Recebido novo push no repositório bare do servidor!"
+echo " Atualizando arquivos em: $DEPLOY_DIR"
+echo "================================================================"
+
+while read oldrev newrev refname; do
+    BRANCH=$(git rev-parse --symbolic --abbrev-ref "$refname")
+    
+    if [ "$BRANCH" = "$TARGET_BRANCH" ]; then
+        echo "[INFO] Fazendo checkout da branch '$TARGET_BRANCH' em '$DEPLOY_DIR'..."
+        git --work-tree="$DEPLOY_DIR" --git-dir="$(pwd)" checkout -f "$TARGET_BRANCH"
+        
+        cd "$DEPLOY_DIR"
+        chmod +x scripts/deploy-vm.sh
+        bash scripts/deploy-vm.sh "$TARGET_BRANCH"
+    else
+        echo "[INFO] Push recebido na branch '$BRANCH' (não é $TARGET_BRANCH). Deploy ignorado."
+    fi
+done
+
+echo "================================================================"
+echo " [VM GATILHO] Finalizado processamento do post-receive!"
+echo "================================================================"
+exit 0

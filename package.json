@@ -10,7 +10,11 @@
     "migrate:backend": "cd backend && python manage.py migrate",
     "seed:backend": "cd backend && python manage.py seed",
     "docker:up": "docker-compose up --build -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "deploy": "powershell -ExecutionPolicy Bypass -File ./scripts/trigger_push_deploy.ps1",
+    "deploy:sh": "bash ./scripts/trigger_push_deploy.sh",
+    "deploy:hooks": "backend/venv/Scripts/python.exe scripts/install_deploy_hooks.py --all",
+    "deploy:vm": "bash ./scripts/deploy-vm.sh"
   },
   "keywords": [
     "sige",
