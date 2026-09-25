@@ -1,9 +1,9 @@
 services:
-  app:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: sige_app
+    container_name: sige_backend
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -13,10 +13,23 @@ services:
       - DATABASE_URL=postgresql://sige_user:sige_secure_pass_2026@postgres:5432/sige_db?schema=public
       - JWT_SECRET=sige_super_secret_jwt_key_enterprise_2026_xpto!
       - JWT_REFRESH_SECRET=sige_super_secret_refresh_token_enterprise_2026!
-      - APP_URL=http://localhost:3000
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://127.0.0.1:5173
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - sige_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sige_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
     networks:
       - sige_network
 

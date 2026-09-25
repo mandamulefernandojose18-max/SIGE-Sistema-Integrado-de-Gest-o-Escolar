@@ -1,0 +1,19 @@
+{
+  "name": "sige-frontend",
+  "version": "1.0.0",
+  "description": "SIGE — Interface Web SPA Autônoma (Moçambique)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "sige",
+    "frontend",
+    "spa",
+    "pwa",
+    "mocambique"
+  ],
+  "author": "SIGE Core Engineering Team",
+  "license": "MIT"
+}

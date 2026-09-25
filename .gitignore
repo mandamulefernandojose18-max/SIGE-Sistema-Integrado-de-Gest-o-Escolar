@@ -20,8 +20,8 @@ dev.db*
 scratch/
 *.xlsx
 test_*.js
-sige-backend/node_modules/
-sige-backend/dist/
-sige-backend/.env
-sige-backend/prisma/*.db*
-sige-frontend/node_modules/
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/prisma/*.db*
+frontend/node_modules/

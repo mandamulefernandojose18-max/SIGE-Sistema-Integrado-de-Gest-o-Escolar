@@ -2,14 +2,17 @@ name: SIGE CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "develop", "chore/**" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build-and-test:
-    name: Build, Lint & Automated Tests
+  backend-ci:
+    name: Backend Test, Lint & Build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
 
     services:
       postgres:
@@ -35,9 +38,10 @@ jobs:
         with:
           node-version: 20.x
           cache: 'npm'
+          cache-dependency-path: backend/package.json
 
-      - name: Instalar Dependências
-        run: npm ci
+      - name: Instalar Dependências do Backend
+        run: npm install
 
       - name: Gerar Prisma Client
         run: npx prisma generate
@@ -52,5 +56,27 @@ jobs:
           JWT_SECRET: "test_secret_ci_key"
           JWT_REFRESH_SECRET: "test_refresh_ci_key"
 
-      - name: Compilar Projeto (Build)
+      - name: Compilar Projeto Backend (Build)
         run: npm run build
+
+  frontend-ci:
+    name: Frontend Syntax & Integrity Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout Repositório
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Checar Sintaxe do Código JavaScript do Frontend
+        run: |
+          node -c server.js
+          node -c js/config.js
+          node -c js/app.js
