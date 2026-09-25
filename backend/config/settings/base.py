@@ -9,6 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / 'apps'))
 
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / '.env')
+
 SECRET_KEY = os.environ.get('SECRET_KEY', 'sige-django-secret-key-enterprise-2026-mz!')
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
