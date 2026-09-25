@@ -25,3 +25,20 @@ backend/dist/
 backend/.env
 backend/prisma/*.db*
 frontend/node_modules/
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+*.sqlite3-journal
+.pytest_cache/
+venv/
+.venv/
+env/
+backend/venv/
+backend/.pytest_cache/
+backend/db.sqlite3
+backend/.env
+backend/**/__pycache__/
+backend/tests/__pycache__/

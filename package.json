@@ -2,17 +2,13 @@
   "name": "sige-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "SIGE — Sistema Integrado de Gestão Escolar (Monorepo Backend & Frontend)",
+  "description": "SIGE — Sistema Integrado de Gestão Escolar (Django REST Framework + Vanilla Frontend SPA)",
   "scripts": {
-    "dev:backend": "npm --prefix backend run dev",
+    "dev:backend": "cd backend && python manage.py runserver 0.0.0.0:8000",
     "dev:frontend": "npm --prefix frontend start",
-    "build:backend": "npm --prefix backend run build",
-    "test:backend": "npm --prefix backend test",
-    "start:backend": "npm --prefix backend start",
-    "start:frontend": "npm --prefix frontend start",
-    "prisma:generate": "npm --prefix backend run prisma:generate",
-    "prisma:push": "npm --prefix backend run prisma:push",
-    "prisma:seed": "npm --prefix backend run prisma:seed",
+    "test:backend": "cd backend && pytest",
+    "migrate:backend": "cd backend && python manage.py migrate",
+    "seed:backend": "cd backend && python manage.py seed",
     "docker:up": "docker-compose up --build -d",
     "docker:down": "docker-compose down"
   },
@@ -22,9 +18,10 @@
     "multi-tenant",
     "escola",
     "gestao-escolar",
-    "prisma",
-    "express",
-    "typescript"
+    "django",
+    "django-rest-framework",
+    "postgresql",
+    "pwa"
   ],
   "author": "SIGE Core Engineering Team",
   "license": "MIT"

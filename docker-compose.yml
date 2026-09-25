@@ -6,14 +6,21 @@ services:
     container_name: sige_backend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8000:8000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DATABASE_URL=postgresql://sige_user:sige_secure_pass_2026@postgres:5432/sige_db?schema=public
-      - JWT_SECRET=sige_super_secret_jwt_key_enterprise_2026_xpto!
-      - JWT_REFRESH_SECRET=sige_super_secret_refresh_token_enterprise_2026!
-      - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://127.0.0.1:5173
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - SECRET_KEY=sige_django_super_secret_enterprise_2026_mz!
+      - ALLOWED_HOSTS=*
+      - DATABASE_URL=postgresql://sige_user:sige_secure_pass_2026@postgres:5432/sige_db
+      - POSTGRES_DB=sige_db
+      - POSTGRES_USER=sige_user
+      - POSTGRES_PASSWORD=sige_secure_pass_2026
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80,http://localhost
+      - JWT_SECRET_KEY=sige_super_secret_jwt_key_enterprise_2026_xpto!
+      - JWT_ACCESS_LIFETIME_MINUTES=120
+      - JWT_REFRESH_LIFETIME_DAYS=7
     depends_on:
       postgres:
         condition: service_healthy

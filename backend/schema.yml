@@ -1,0 +1,5491 @@
+openapi: 3.0.3
+info:
+  title: SIGE API — Sistema Integrado de Gestão Escolar (Moçambique)
+  version: 1.0.0
+  description: API RESTful corporativa SaaS Multi-Tenant conforme as normas do MINEDH
+    de Moçambique.
+paths:
+  /api/v1/alunos/:
+    get:
+      operationId: api_v1_alunos_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAlunoList'
+          description: ''
+    post:
+      operationId: api_v1_alunos_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Aluno'
+          description: ''
+  /api/v1/alunos/{id}/:
+    get:
+      operationId: api_v1_alunos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Aluno'
+          description: ''
+    put:
+      operationId: api_v1_alunos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Aluno'
+          description: ''
+    patch:
+      operationId: api_v1_alunos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAluno'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAluno'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAluno'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Aluno'
+          description: ''
+    delete:
+      operationId: api_v1_alunos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/alunos/{id}/transferir/:
+    post:
+      operationId: api_v1_alunos_transferir_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Aluno'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Aluno'
+          description: ''
+  /api/v1/alunos/me/notas:
+    get:
+      operationId: api_v1_alunos_me_notas_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/me/notas/:
+    get:
+      operationId: api_v1_alunos_me_notas_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/me/pagamentos:
+    get:
+      operationId: api_v1_alunos_me_pagamentos_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/me/pagamentos/:
+    get:
+      operationId: api_v1_alunos_me_pagamentos_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/perfil/me:
+    get:
+      operationId: api_v1_alunos_perfil_me_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/perfil/me/:
+    get:
+      operationId: api_v1_alunos_perfil_me_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/stats:
+    get:
+      operationId: api_v1_alunos_stats_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/alunos/stats/:
+    get:
+      operationId: api_v1_alunos_stats_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/login:
+    post:
+      operationId: api_v1_auth_login_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/login/:
+    post:
+      operationId: api_v1_auth_login_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/me:
+    get:
+      operationId: api_v1_auth_me_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: api_v1_auth_me_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/refresh:
+    post:
+      operationId: api_v1_auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: api_v1_auth_refresh_create_2
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/stats:
+    get:
+      operationId: api_v1_auth_stats_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/stats/:
+    get:
+      operationId: api_v1_auth_stats_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/usuarios/{user_id}/redefinir-senha:
+    post:
+      operationId: api_v1_auth_usuarios_redefinir_senha_create
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/usuarios/{user_id}/redefinir-senha/:
+    post:
+      operationId: api_v1_auth_usuarios_redefinir_senha_create_2
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/certificados/:
+    get:
+      operationId: api_v1_certificados_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCertificadoList'
+          description: ''
+    post:
+      operationId: api_v1_certificados_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Certificado'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Certificado'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Certificado'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificado'
+          description: ''
+  /api/v1/certificados/{id}/:
+    get:
+      operationId: api_v1_certificados_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificado'
+          description: ''
+    put:
+      operationId: api_v1_certificados_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Certificado'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Certificado'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Certificado'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificado'
+          description: ''
+    patch:
+      operationId: api_v1_certificados_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCertificado'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCertificado'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCertificado'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificado'
+          description: ''
+    delete:
+      operationId: api_v1_certificados_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/certificados/verificar/{codigo}:
+    get:
+      operationId: api_v1_certificados_verificar_retrieve
+      parameters:
+      - in: path
+        name: codigo
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/certificados/verificar/{codigo}/:
+    get:
+      operationId: api_v1_certificados_verificar_retrieve_2
+      parameters:
+      - in: path
+        name: codigo
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/dashboard/overview:
+    get:
+      operationId: api_v1_dashboard_overview_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/dashboard/overview/:
+    get:
+      operationId: api_v1_dashboard_overview_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/disciplinas/:
+    get:
+      operationId: api_v1_disciplinas_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDisciplinaList'
+          description: ''
+    post:
+      operationId: api_v1_disciplinas_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Disciplina'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Disciplina'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Disciplina'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disciplina'
+          description: ''
+  /api/v1/disciplinas/{id}/:
+    get:
+      operationId: api_v1_disciplinas_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disciplina'
+          description: ''
+    put:
+      operationId: api_v1_disciplinas_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Disciplina'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Disciplina'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Disciplina'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disciplina'
+          description: ''
+    patch:
+      operationId: api_v1_disciplinas_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDisciplina'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDisciplina'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDisciplina'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disciplina'
+          description: ''
+    delete:
+      operationId: api_v1_disciplinas_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/disciplinas/stats:
+    get:
+      operationId: api_v1_disciplinas_stats_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/disciplinas/stats/:
+    get:
+      operationId: api_v1_disciplinas_stats_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/escola-admin/info:
+    get:
+      operationId: api_v1_escola_admin_info_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: api_v1_escola_admin_info_update
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/escola-admin/info/:
+    get:
+      operationId: api_v1_escola_admin_info_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: api_v1_escola_admin_info_update_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/escola-admin/toggle-notas:
+    post:
+      operationId: api_v1_escola_admin_toggle_notas_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/escola-admin/toggle-notas/:
+    post:
+      operationId: api_v1_escola_admin_toggle_notas_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/escola-admin/turmas/:
+    get:
+      operationId: api_v1_escola_admin_turmas_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTurmaList'
+          description: ''
+    post:
+      operationId: api_v1_escola_admin_turmas_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Turma'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+  /api/v1/escola-admin/turmas/{id}/:
+    get:
+      operationId: api_v1_escola_admin_turmas_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+    put:
+      operationId: api_v1_escola_admin_turmas_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Turma'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+    patch:
+      operationId: api_v1_escola_admin_turmas_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTurma'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTurma'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTurma'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+    delete:
+      operationId: api_v1_escola_admin_turmas_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/escola-admin/usuarios-credenciais:
+    get:
+      operationId: api_v1_escola_admin_usuarios_credenciais_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/escola-admin/usuarios-credenciais/:
+    get:
+      operationId: api_v1_escola_admin_usuarios_credenciais_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/geografia:
+    get:
+      operationId: api_v1_geografia_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/geografia/:
+    get:
+      operationId: api_v1_geografia_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}:
+    get:
+      operationId: api_v1_impressao_boletim_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/:
+    get:
+      operationId: api_v1_impressao_boletim_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/docx:
+    get:
+      operationId: api_v1_impressao_boletim_docx_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/docx/:
+    get:
+      operationId: api_v1_impressao_boletim_docx_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/json:
+    get:
+      operationId: api_v1_impressao_boletim_json_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/json/:
+    get:
+      operationId: api_v1_impressao_boletim_json_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/pdf:
+    get:
+      operationId: api_v1_impressao_boletim_pdf_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/pdf/:
+    get:
+      operationId: api_v1_impressao_boletim_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/xlsx:
+    get:
+      operationId: api_v1_impressao_boletim_xlsx_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/boletim/{aluno_id}/xlsx/:
+    get:
+      operationId: api_v1_impressao_boletim_xlsx_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/certificado/{aluno_id}:
+    get:
+      operationId: api_v1_impressao_certificado_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/certificado/{aluno_id}/:
+    get:
+      operationId: api_v1_impressao_certificado_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/certificado/{aluno_id}/pdf:
+    get:
+      operationId: api_v1_impressao_certificado_pdf_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/certificado/{aluno_id}/pdf/:
+    get:
+      operationId: api_v1_impressao_certificado_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}:
+    get:
+      operationId: api_v1_impressao_declaracao_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/:
+    get:
+      operationId: api_v1_impressao_declaracao_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/docx:
+    get:
+      operationId: api_v1_impressao_declaracao_docx_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/docx/:
+    get:
+      operationId: api_v1_impressao_declaracao_docx_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/json:
+    get:
+      operationId: api_v1_impressao_declaracao_json_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/json/:
+    get:
+      operationId: api_v1_impressao_declaracao_json_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/pdf:
+    get:
+      operationId: api_v1_impressao_declaracao_pdf_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/pdf/:
+    get:
+      operationId: api_v1_impressao_declaracao_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/xlsx:
+    get:
+      operationId: api_v1_impressao_declaracao_xlsx_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/declaracao/{aluno_id}/xlsx/:
+    get:
+      operationId: api_v1_impressao_declaracao_xlsx_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/ficha/{aluno_id}:
+    get:
+      operationId: api_v1_impressao_ficha_retrieve
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/ficha/{aluno_id}/:
+    get:
+      operationId: api_v1_impressao_ficha_retrieve_2
+      parameters:
+      - in: path
+        name: aluno_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/recibo/{pagamento_id}:
+    get:
+      operationId: api_v1_impressao_recibo_retrieve
+      parameters:
+      - in: path
+        name: pagamento_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/recibo/{pagamento_id}/:
+    get:
+      operationId: api_v1_impressao_recibo_retrieve_2
+      parameters:
+      - in: path
+        name: pagamento_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/recibo/{pagamento_id}/pdf:
+    get:
+      operationId: api_v1_impressao_recibo_pdf_retrieve
+      parameters:
+      - in: path
+        name: pagamento_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/recibo/{pagamento_id}/pdf/:
+    get:
+      operationId: api_v1_impressao_recibo_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: pagamento_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/material-escolar/:
+    get:
+      operationId: api_v1_material_escolar_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMaterialEscolarList'
+          description: ''
+    post:
+      operationId: api_v1_material_escolar_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialEscolar'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MaterialEscolar'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MaterialEscolar'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialEscolar'
+          description: ''
+  /api/v1/material-escolar/{id}/:
+    get:
+      operationId: api_v1_material_escolar_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialEscolar'
+          description: ''
+    put:
+      operationId: api_v1_material_escolar_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialEscolar'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MaterialEscolar'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MaterialEscolar'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialEscolar'
+          description: ''
+    patch:
+      operationId: api_v1_material_escolar_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMaterialEscolar'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMaterialEscolar'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMaterialEscolar'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialEscolar'
+          description: ''
+    delete:
+      operationId: api_v1_material_escolar_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/material-escolar/{id}/download/:
+    get:
+      operationId: api_v1_material_escolar_download_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialEscolar'
+          description: ''
+  /api/v1/material-escolar/classes:
+    get:
+      operationId: api_v1_material_escolar_classes_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/material-escolar/classes/:
+    get:
+      operationId: api_v1_material_escolar_classes_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/notas/:
+    get:
+      operationId: api_v1_notas_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotaList'
+          description: ''
+    post:
+      operationId: api_v1_notas_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Nota'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Nota'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Nota'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Nota'
+          description: ''
+  /api/v1/notas/{id}/:
+    get:
+      operationId: api_v1_notas_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Nota'
+          description: ''
+    put:
+      operationId: api_v1_notas_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Nota'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Nota'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Nota'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Nota'
+          description: ''
+    patch:
+      operationId: api_v1_notas_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNota'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNota'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNota'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Nota'
+          description: ''
+    delete:
+      operationId: api_v1_notas_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/autorizacoes:
+    get:
+      operationId: api_v1_notas_autorizacoes_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_notas_autorizacoes_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_notas_autorizacoes_destroy
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/autorizacoes/:
+    get:
+      operationId: api_v1_notas_autorizacoes_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_notas_autorizacoes_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_notas_autorizacoes_destroy_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/autorizacoes/{perm_id}:
+    get:
+      operationId: api_v1_notas_autorizacoes_retrieve_3
+      parameters:
+      - in: path
+        name: perm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_notas_autorizacoes_create_3
+      parameters:
+      - in: path
+        name: perm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_notas_autorizacoes_destroy_3
+      parameters:
+      - in: path
+        name: perm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/autorizacoes/{perm_id}/:
+    get:
+      operationId: api_v1_notas_autorizacoes_retrieve_4
+      parameters:
+      - in: path
+        name: perm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_notas_autorizacoes_create_4
+      parameters:
+      - in: path
+        name: perm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_notas_autorizacoes_destroy_4
+      parameters:
+      - in: path
+        name: perm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/autorizar-desbloqueio:
+    get:
+      operationId: api_v1_notas_autorizar_desbloqueio_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_notas_autorizar_desbloqueio_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_notas_autorizar_desbloqueio_destroy
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/autorizar-desbloqueio/:
+    get:
+      operationId: api_v1_notas_autorizar_desbloqueio_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_notas_autorizar_desbloqueio_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_notas_autorizar_desbloqueio_destroy_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/notas/prazos-trimestres:
+    get:
+      operationId: api_v1_notas_prazos_trimestres_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/notas/prazos-trimestres/:
+    get:
+      operationId: api_v1_notas_prazos_trimestres_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pagamentos/:
+    get:
+      operationId: api_v1_pagamentos_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPagamentoList'
+          description: ''
+    post:
+      operationId: api_v1_pagamentos_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagamento'
+          description: ''
+  /api/v1/pagamentos/{id}/:
+    get:
+      operationId: api_v1_pagamentos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagamento'
+          description: ''
+    put:
+      operationId: api_v1_pagamentos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagamento'
+          description: ''
+    patch:
+      operationId: api_v1_pagamentos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPagamento'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPagamento'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPagamento'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagamento'
+          description: ''
+    delete:
+      operationId: api_v1_pagamentos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/pagamentos/{id}/liquidar/:
+    post:
+      operationId: api_v1_pagamentos_liquidar_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagamento'
+          description: ''
+  /api/v1/pagamentos/gerar-turma/:
+    post:
+      operationId: api_v1_pagamentos_gerar_turma_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Pagamento'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagamento'
+          description: ''
+  /api/v1/pagamentos/stats:
+    get:
+      operationId: api_v1_pagamentos_stats_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pagamentos/stats/:
+    get:
+      operationId: api_v1_pagamentos_stats_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/estatisticas-gerais:
+    get:
+      operationId: api_v1_pautas_estatisticas_gerais_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/estatisticas-gerais/:
+    get:
+      operationId: api_v1_pautas_estatisticas_gerais_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/estatisticas-gerais/xlsx:
+    get:
+      operationId: api_v1_pautas_estatisticas_gerais_xlsx_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/estatisticas-gerais/xlsx/:
+    get:
+      operationId: api_v1_pautas_estatisticas_gerais_xlsx_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/gerar:
+    post:
+      operationId: api_v1_pautas_gerar_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/gerar/:
+    post:
+      operationId: api_v1_pautas_gerar_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta:
+    get:
+      operationId: api_v1_pautas_turma_acta_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta/:
+    get:
+      operationId: api_v1_pautas_turma_acta_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-docx:
+    get:
+      operationId: api_v1_pautas_turma_acta_docx_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-docx/:
+    get:
+      operationId: api_v1_pautas_turma_acta_docx_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-json:
+    get:
+      operationId: api_v1_pautas_turma_acta_json_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-json/:
+    get:
+      operationId: api_v1_pautas_turma_acta_json_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-pdf:
+    get:
+      operationId: api_v1_pautas_turma_acta_pdf_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-pdf/:
+    get:
+      operationId: api_v1_pautas_turma_acta_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-xlsx:
+    get:
+      operationId: api_v1_pautas_turma_acta_xlsx_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/acta-xlsx/:
+    get:
+      operationId: api_v1_pautas_turma_acta_xlsx_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/completa:
+    get:
+      operationId: api_v1_pautas_turma_completa_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/completa/:
+    get:
+      operationId: api_v1_pautas_turma_completa_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/docx:
+    get:
+      operationId: api_v1_pautas_turma_docx_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/docx/:
+    get:
+      operationId: api_v1_pautas_turma_docx_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/export-json:
+    get:
+      operationId: api_v1_pautas_turma_export_json_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/export-json/:
+    get:
+      operationId: api_v1_pautas_turma_export_json_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/export-xlsx:
+    get:
+      operationId: api_v1_pautas_turma_export_xlsx_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/export-xlsx/:
+    get:
+      operationId: api_v1_pautas_turma_export_xlsx_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/pdf:
+    get:
+      operationId: api_v1_pautas_turma_pdf_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/turma/{turma_id}/pdf/:
+    get:
+      operationId: api_v1_pautas_turma_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/:
+    get:
+      operationId: api_v1_professores_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProfessorList'
+          description: ''
+    post:
+      operationId: api_v1_professores_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Professor'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Professor'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Professor'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professor'
+          description: ''
+  /api/v1/professores/{id}/:
+    get:
+      operationId: api_v1_professores_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professor'
+          description: ''
+    put:
+      operationId: api_v1_professores_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Professor'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Professor'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Professor'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professor'
+          description: ''
+    patch:
+      operationId: api_v1_professores_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProfessor'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProfessor'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProfessor'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professor'
+          description: ''
+    delete:
+      operationId: api_v1_professores_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/professores/alocar:
+    post:
+      operationId: api_v1_professores_alocar_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_professores_alocar_destroy
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/professores/alocar/:
+    post:
+      operationId: api_v1_professores_alocar_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_professores_alocar_destroy_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/professores/alocar/{alocacao_id}:
+    post:
+      operationId: api_v1_professores_alocar_create_3
+      parameters:
+      - in: path
+        name: alocacao_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_professores_alocar_destroy_3
+      parameters:
+      - in: path
+        name: alocacao_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/professores/alocar/{alocacao_id}/:
+    post:
+      operationId: api_v1_professores_alocar_create_4
+      parameters:
+      - in: path
+        name: alocacao_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_professores_alocar_destroy_4
+      parameters:
+      - in: path
+        name: alocacao_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/professores/caderneta/{alocacao_id}/completa:
+    get:
+      operationId: api_v1_professores_caderneta_completa_retrieve
+      parameters:
+      - in: path
+        name: alocacao_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/caderneta/{alocacao_id}/completa/:
+    get:
+      operationId: api_v1_professores_caderneta_completa_retrieve_2
+      parameters:
+      - in: path
+        name: alocacao_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/meu-perfil:
+    get:
+      operationId: api_v1_professores_meu_perfil_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/meu-perfil/:
+    get:
+      operationId: api_v1_professores_meu_perfil_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/minhas-turmas:
+    get:
+      operationId: api_v1_professores_minhas_turmas_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/minhas-turmas/:
+    get:
+      operationId: api_v1_professores_minhas_turmas_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/stats:
+    get:
+      operationId: api_v1_professores_stats_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/professores/stats/:
+    get:
+      operationId: api_v1_professores_stats_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/saas-admin/escolas/:
+    get:
+      operationId: api_v1_saas_admin_escolas_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEscolaList'
+          description: ''
+    post:
+      operationId: api_v1_saas_admin_escolas_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Escola'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Escola'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Escola'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escola'
+          description: ''
+  /api/v1/saas-admin/escolas/{id}/:
+    get:
+      operationId: api_v1_saas_admin_escolas_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Escola (Tenant).
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escola'
+          description: ''
+    put:
+      operationId: api_v1_saas_admin_escolas_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Escola (Tenant).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Escola'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Escola'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Escola'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escola'
+          description: ''
+    patch:
+      operationId: api_v1_saas_admin_escolas_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Escola (Tenant).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEscola'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEscola'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEscola'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escola'
+          description: ''
+    delete:
+      operationId: api_v1_saas_admin_escolas_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Escola (Tenant).
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/saas-admin/escolas/{id}/toggle-status/:
+    post:
+      operationId: api_v1_saas_admin_escolas_toggle_status_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Escola (Tenant).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Escola'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Escola'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Escola'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escola'
+          description: ''
+  /api/v1/saas-admin/metrics:
+    get:
+      operationId: api_v1_saas_admin_metrics_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/saas-admin/metrics/:
+    get:
+      operationId: api_v1_saas_admin_metrics_retrieve_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/saas-admin/planos/:
+    get:
+      operationId: api_v1_saas_admin_planos_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPlanoList'
+          description: ''
+    post:
+      operationId: api_v1_saas_admin_planos_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plano'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Plano'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Plano'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plano'
+          description: ''
+  /api/v1/saas-admin/planos/{id}/:
+    get:
+      operationId: api_v1_saas_admin_planos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Plano.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plano'
+          description: ''
+    put:
+      operationId: api_v1_saas_admin_planos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Plano.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plano'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Plano'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Plano'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plano'
+          description: ''
+    patch:
+      operationId: api_v1_saas_admin_planos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Plano.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlano'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlano'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlano'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plano'
+          description: ''
+    delete:
+      operationId: api_v1_saas_admin_planos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Plano.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/saas-admin/planos/{id}/preco/:
+    put:
+      operationId: api_v1_saas_admin_planos_preco_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Plano.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plano'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Plano'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Plano'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plano'
+          description: ''
+    patch:
+      operationId: api_v1_saas_admin_planos_preco_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Plano.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlano'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlano'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlano'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plano'
+          description: ''
+  /api/v1/saas-admin/verificar-expiracoes:
+    post:
+      operationId: api_v1_saas_admin_verificar_expiracoes_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/saas-admin/verificar-expiracoes/:
+    post:
+      operationId: api_v1_saas_admin_verificar_expiracoes_create_2
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/turmas/:
+    get:
+      operationId: api_v1_turmas_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTurmaList'
+          description: ''
+    post:
+      operationId: api_v1_turmas_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Turma'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+  /api/v1/turmas/{id}/:
+    get:
+      operationId: api_v1_turmas_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+    put:
+      operationId: api_v1_turmas_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Turma'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Turma'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+    patch:
+      operationId: api_v1_turmas_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTurma'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTurma'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTurma'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+          description: ''
+    delete:
+      operationId: api_v1_turmas_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    AlocacaoDocente:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        professor:
+          type: string
+          format: uuid
+        professor_nome:
+          type: string
+          readOnly: true
+        disciplina:
+          type: string
+          format: uuid
+        disciplina_nome:
+          type: string
+          readOnly: true
+        disciplina_codigo:
+          type: string
+          readOnly: true
+        turma:
+          type: string
+          format: uuid
+        turma_nome:
+          type: string
+          readOnly: true
+        turma_grau:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - disciplina
+      - disciplina_codigo
+      - disciplina_nome
+      - id
+      - professor
+      - professor_nome
+      - turma
+      - turma_grau
+      - turma_nome
+    Aluno:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        matricula:
+          type: string
+          maxLength: 50
+        nome:
+          type: string
+          maxLength: 255
+        apelido:
+          type: string
+          nullable: true
+          maxLength: 100
+        turma:
+          type: string
+          format: uuid
+          nullable: true
+        turma_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        turma_grau:
+          type: string
+          readOnly: true
+          nullable: true
+        data_nascimento:
+          type: string
+          format: date
+        genero:
+          type: string
+          maxLength: 10
+        tipo_documento:
+          type: string
+          maxLength: 100
+        numero_documento:
+          type: string
+          nullable: true
+          maxLength: 100
+        nuit:
+          type: string
+          nullable: true
+          maxLength: 50
+        nacionalidade:
+          type: string
+          maxLength: 100
+        provincia:
+          type: string
+          maxLength: 100
+        distrito:
+          type: string
+          maxLength: 100
+        pai:
+          type: string
+          nullable: true
+          maxLength: 255
+        mae:
+          type: string
+          nullable: true
+          maxLength: 255
+        nome_responsavel:
+          type: string
+          nullable: true
+          maxLength: 255
+        contato_responsavel:
+          type: string
+          nullable: true
+          maxLength: 50
+        email_responsavel:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        status:
+          type: string
+          maxLength: 20
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - data_nascimento
+      - genero
+      - id
+      - matricula
+      - nome
+      - turma_grau
+      - turma_nome
+      - updated_at
+    Certificado:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno_nome:
+          type: string
+          readOnly: true
+        aluno_matricula:
+          type: string
+          readOnly: true
+        escola_nome:
+          type: string
+          readOnly: true
+        tipo:
+          type: string
+          maxLength: 50
+        codigo_autenticidade:
+          type: string
+          maxLength: 100
+        qrcode_data:
+          type: string
+        emitido_em:
+          type: string
+          format: date-time
+          readOnly: true
+        emitido_por:
+          type: string
+          nullable: true
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        escola:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno:
+          type: string
+          format: uuid
+      required:
+      - aluno
+      - aluno_matricula
+      - aluno_nome
+      - codigo_autenticidade
+      - created_at
+      - emitido_em
+      - escola
+      - escola_nome
+      - id
+      - qrcode_data
+      - tipo
+    Disciplina:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 100
+        codigo:
+          type: string
+          maxLength: 50
+        classe:
+          type: string
+          maxLength: 50
+        area:
+          type: string
+          maxLength: 50
+        carga_horaria:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        ano_letivo:
+          type: string
+          maxLength: 10
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        escola:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+      - codigo
+      - created_at
+      - escola
+      - id
+      - nome
+      - updated_at
+    Escola:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        plano_nome:
+          type: string
+          readOnly: true
+        assinatura_ativa:
+          type: string
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 255
+        nif_cnpj:
+          type: string
+          maxLength: 50
+        endereco:
+          type: string
+          nullable: true
+        telefone:
+          type: string
+          nullable: true
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        status:
+          type: string
+          maxLength: 20
+        ano_letivo_ativo:
+          type: string
+          maxLength: 10
+        trimestre_ativo:
+          type: string
+          maxLength: 20
+        data_adesao:
+          type: string
+          format: date-time
+        provincia:
+          type: string
+          maxLength: 100
+        distrito:
+          type: string
+          maxLength: 100
+        director_nome:
+          type: string
+          maxLength: 255
+        director_carreira:
+          type: string
+          maxLength: 100
+        dap_nome:
+          type: string
+          maxLength: 255
+        chefe_secretaria_nome:
+          type: string
+          maxLength: 255
+        usar_emblema_nacional:
+          type: boolean
+        codigo_escola:
+          type: string
+          nullable: true
+          maxLength: 50
+        logo_base64:
+          type: string
+          nullable: true
+        bloqueada_manualmente:
+          type: boolean
+        permitir_visualizacao_notas:
+          type: boolean
+        inscricoes_abertas:
+          type: boolean
+        inscricoes_inicio:
+          type: string
+          format: date-time
+          nullable: true
+        inscricoes_fim:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        plano:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - assinatura_ativa
+      - created_at
+      - email
+      - id
+      - nif_cnpj
+      - nome
+      - plano_nome
+      - updated_at
+    MaterialEscolar:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        titulo:
+          type: string
+          maxLength: 255
+        descricao:
+          type: string
+          nullable: true
+        classe:
+          type: string
+          maxLength: 50
+        disciplina:
+          type: string
+          format: uuid
+          nullable: true
+        disciplina_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        nome_arquivo:
+          type: string
+          maxLength: 255
+        extensao:
+          type: string
+          maxLength: 20
+        tamanho_bytes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        tipo_mime:
+          type: string
+          maxLength: 100
+        conteudo_base64:
+          type: string
+          nullable: true
+        arquivo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        publicado_por:
+          type: string
+          nullable: true
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - classe
+      - created_at
+      - disciplina_nome
+      - id
+      - titulo
+      - updated_at
+    Nota:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno_nome:
+          type: string
+          readOnly: true
+        aluno_matricula:
+          type: string
+          readOnly: true
+        disciplina_nome:
+          type: string
+          readOnly: true
+        periodo:
+          type: string
+          maxLength: 20
+        teste1:
+          type: number
+          format: double
+          nullable: true
+        teste2:
+          type: number
+          format: double
+          nullable: true
+        teste3:
+          type: number
+          format: double
+          nullable: true
+        teste4:
+          type: number
+          format: double
+          nullable: true
+        trabalho:
+          type: number
+          format: double
+          nullable: true
+        avaliacao_trimestral:
+          type: number
+          format: double
+          nullable: true
+        media_final:
+          type: number
+          format: double
+        faltas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        anotacao:
+          type: string
+          nullable: true
+          maxLength: 10
+        comportamento:
+          type: string
+          maxLength: 5
+        resultado:
+          type: string
+          maxLength: 20
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        escola:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno:
+          type: string
+          format: uuid
+        disciplina:
+          type: string
+          format: uuid
+        turma:
+          type: string
+          format: uuid
+      required:
+      - aluno
+      - aluno_matricula
+      - aluno_nome
+      - created_at
+      - disciplina
+      - disciplina_nome
+      - escola
+      - id
+      - periodo
+      - turma
+      - updated_at
+    Pagamento:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno:
+          type: string
+          format: uuid
+        aluno_nome:
+          type: string
+          readOnly: true
+        aluno_matricula:
+          type: string
+          readOnly: true
+        turma_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        descricao:
+          type: string
+          maxLength: 255
+        mes_referencia:
+          type: string
+          maxLength: 20
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        valor_pago:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        status:
+          type: string
+          maxLength: 20
+        data_vencimento:
+          type: string
+          format: date-time
+        data_pagamento:
+          type: string
+          format: date-time
+          nullable: true
+        metodo_pagamento:
+          type: string
+          nullable: true
+          maxLength: 50
+        recibo_numero:
+          type: string
+          nullable: true
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - aluno
+      - aluno_matricula
+      - aluno_nome
+      - created_at
+      - data_vencimento
+      - descricao
+      - id
+      - mes_referencia
+      - turma_nome
+      - updated_at
+      - valor
+    PaginatedAlunoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Aluno'
+    PaginatedCertificadoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Certificado'
+    PaginatedDisciplinaList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Disciplina'
+    PaginatedEscolaList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Escola'
+    PaginatedMaterialEscolarList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialEscolar'
+    PaginatedNotaList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Nota'
+    PaginatedPagamentoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pagamento'
+    PaginatedPlanoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plano'
+    PaginatedProfessorList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Professor'
+    PaginatedTurmaList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Turma'
+    PatchedAluno:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        matricula:
+          type: string
+          maxLength: 50
+        nome:
+          type: string
+          maxLength: 255
+        apelido:
+          type: string
+          nullable: true
+          maxLength: 100
+        turma:
+          type: string
+          format: uuid
+          nullable: true
+        turma_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        turma_grau:
+          type: string
+          readOnly: true
+          nullable: true
+        data_nascimento:
+          type: string
+          format: date
+        genero:
+          type: string
+          maxLength: 10
+        tipo_documento:
+          type: string
+          maxLength: 100
+        numero_documento:
+          type: string
+          nullable: true
+          maxLength: 100
+        nuit:
+          type: string
+          nullable: true
+          maxLength: 50
+        nacionalidade:
+          type: string
+          maxLength: 100
+        provincia:
+          type: string
+          maxLength: 100
+        distrito:
+          type: string
+          maxLength: 100
+        pai:
+          type: string
+          nullable: true
+          maxLength: 255
+        mae:
+          type: string
+          nullable: true
+          maxLength: 255
+        nome_responsavel:
+          type: string
+          nullable: true
+          maxLength: 255
+        contato_responsavel:
+          type: string
+          nullable: true
+          maxLength: 50
+        email_responsavel:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        status:
+          type: string
+          maxLength: 20
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedCertificado:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno_nome:
+          type: string
+          readOnly: true
+        aluno_matricula:
+          type: string
+          readOnly: true
+        escola_nome:
+          type: string
+          readOnly: true
+        tipo:
+          type: string
+          maxLength: 50
+        codigo_autenticidade:
+          type: string
+          maxLength: 100
+        qrcode_data:
+          type: string
+        emitido_em:
+          type: string
+          format: date-time
+          readOnly: true
+        emitido_por:
+          type: string
+          nullable: true
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        escola:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno:
+          type: string
+          format: uuid
+    PatchedDisciplina:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 100
+        codigo:
+          type: string
+          maxLength: 50
+        classe:
+          type: string
+          maxLength: 50
+        area:
+          type: string
+          maxLength: 50
+        carga_horaria:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        ano_letivo:
+          type: string
+          maxLength: 10
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        escola:
+          type: string
+          format: uuid
+          readOnly: true
+    PatchedEscola:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        plano_nome:
+          type: string
+          readOnly: true
+        assinatura_ativa:
+          type: string
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 255
+        nif_cnpj:
+          type: string
+          maxLength: 50
+        endereco:
+          type: string
+          nullable: true
+        telefone:
+          type: string
+          nullable: true
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        status:
+          type: string
+          maxLength: 20
+        ano_letivo_ativo:
+          type: string
+          maxLength: 10
+        trimestre_ativo:
+          type: string
+          maxLength: 20
+        data_adesao:
+          type: string
+          format: date-time
+        provincia:
+          type: string
+          maxLength: 100
+        distrito:
+          type: string
+          maxLength: 100
+        director_nome:
+          type: string
+          maxLength: 255
+        director_carreira:
+          type: string
+          maxLength: 100
+        dap_nome:
+          type: string
+          maxLength: 255
+        chefe_secretaria_nome:
+          type: string
+          maxLength: 255
+        usar_emblema_nacional:
+          type: boolean
+        codigo_escola:
+          type: string
+          nullable: true
+          maxLength: 50
+        logo_base64:
+          type: string
+          nullable: true
+        bloqueada_manualmente:
+          type: boolean
+        permitir_visualizacao_notas:
+          type: boolean
+        inscricoes_abertas:
+          type: boolean
+        inscricoes_inicio:
+          type: string
+          format: date-time
+          nullable: true
+        inscricoes_fim:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        plano:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedMaterialEscolar:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        titulo:
+          type: string
+          maxLength: 255
+        descricao:
+          type: string
+          nullable: true
+        classe:
+          type: string
+          maxLength: 50
+        disciplina:
+          type: string
+          format: uuid
+          nullable: true
+        disciplina_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        nome_arquivo:
+          type: string
+          maxLength: 255
+        extensao:
+          type: string
+          maxLength: 20
+        tamanho_bytes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        tipo_mime:
+          type: string
+          maxLength: 100
+        conteudo_base64:
+          type: string
+          nullable: true
+        arquivo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        publicado_por:
+          type: string
+          nullable: true
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedNota:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno_nome:
+          type: string
+          readOnly: true
+        aluno_matricula:
+          type: string
+          readOnly: true
+        disciplina_nome:
+          type: string
+          readOnly: true
+        periodo:
+          type: string
+          maxLength: 20
+        teste1:
+          type: number
+          format: double
+          nullable: true
+        teste2:
+          type: number
+          format: double
+          nullable: true
+        teste3:
+          type: number
+          format: double
+          nullable: true
+        teste4:
+          type: number
+          format: double
+          nullable: true
+        trabalho:
+          type: number
+          format: double
+          nullable: true
+        avaliacao_trimestral:
+          type: number
+          format: double
+          nullable: true
+        media_final:
+          type: number
+          format: double
+        faltas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        anotacao:
+          type: string
+          nullable: true
+          maxLength: 10
+        comportamento:
+          type: string
+          maxLength: 5
+        resultado:
+          type: string
+          maxLength: 20
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        escola:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno:
+          type: string
+          format: uuid
+        disciplina:
+          type: string
+          format: uuid
+        turma:
+          type: string
+          format: uuid
+    PatchedPagamento:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        aluno:
+          type: string
+          format: uuid
+        aluno_nome:
+          type: string
+          readOnly: true
+        aluno_matricula:
+          type: string
+          readOnly: true
+        turma_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        descricao:
+          type: string
+          maxLength: 255
+        mes_referencia:
+          type: string
+          maxLength: 20
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        valor_pago:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        status:
+          type: string
+          maxLength: 20
+        data_vencimento:
+          type: string
+          format: date-time
+        data_pagamento:
+          type: string
+          format: date-time
+          nullable: true
+        metodo_pagamento:
+          type: string
+          nullable: true
+          maxLength: 50
+        recibo_numero:
+          type: string
+          nullable: true
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedPlano:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 50
+        descricao:
+          type: string
+          nullable: true
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        duracao_dias:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        max_alunos:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        max_professores:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        ativo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedProfessor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 255
+        apelido:
+          type: string
+          nullable: true
+          maxLength: 100
+        genero:
+          type: string
+          maxLength: 10
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        telefone:
+          type: string
+          nullable: true
+          maxLength: 50
+        tipo_documento:
+          type: string
+          maxLength: 100
+        numero_documento:
+          type: string
+          nullable: true
+          maxLength: 100
+        nuit:
+          type: string
+          nullable: true
+          maxLength: 50
+        nacionalidade:
+          type: string
+          maxLength: 100
+        provincia:
+          type: string
+          maxLength: 100
+        distrito:
+          type: string
+          maxLength: 100
+        carreira:
+          type: string
+          maxLength: 100
+        especialidade:
+          type: string
+          maxLength: 100
+        carga_horaria_semanal:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        ativo:
+          type: boolean
+        alocacoes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlocacaoDocente'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedTurma:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 100
+        grau_ano:
+          type: string
+          maxLength: 50
+        turno:
+          type: string
+          maxLength: 20
+        sala:
+          type: string
+          nullable: true
+          maxLength: 50
+        ano_letivo:
+          type: string
+          maxLength: 10
+        area:
+          type: string
+          maxLength: 50
+        director_turma:
+          type: string
+          format: uuid
+          nullable: true
+        director_turma_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        director_classe:
+          type: string
+          format: uuid
+          nullable: true
+        director_classe_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        total_alunos:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    Plano:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 50
+        descricao:
+          type: string
+          nullable: true
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        duracao_dias:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        max_alunos:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        max_professores:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        ativo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - nome
+      - preco
+      - updated_at
+    Professor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 255
+        apelido:
+          type: string
+          nullable: true
+          maxLength: 100
+        genero:
+          type: string
+          maxLength: 10
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        telefone:
+          type: string
+          nullable: true
+          maxLength: 50
+        tipo_documento:
+          type: string
+          maxLength: 100
+        numero_documento:
+          type: string
+          nullable: true
+          maxLength: 100
+        nuit:
+          type: string
+          nullable: true
+          maxLength: 50
+        nacionalidade:
+          type: string
+          maxLength: 100
+        provincia:
+          type: string
+          maxLength: 100
+        distrito:
+          type: string
+          maxLength: 100
+        carreira:
+          type: string
+          maxLength: 100
+        especialidade:
+          type: string
+          maxLength: 100
+        carga_horaria_semanal:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        ativo:
+          type: boolean
+        alocacoes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlocacaoDocente'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - alocacoes
+      - created_at
+      - email
+      - especialidade
+      - id
+      - nome
+      - updated_at
+    TipoEnum:
+      enum:
+      - MANUAL
+      - FICHA
+      - LIVRO
+      - EXERCICIOS
+      - GUIA
+      - OUTRO
+      type: string
+      description: |-
+        * `MANUAL` - Manual Escolar
+        * `FICHA` - Ficha de Exercícios
+        * `LIVRO` - Livro Didático
+        * `EXERCICIOS` - Caderno de Exercícios
+        * `GUIA` - Guia do Professor
+        * `OUTRO` - Outro Recurso
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    Turma:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 100
+        grau_ano:
+          type: string
+          maxLength: 50
+        turno:
+          type: string
+          maxLength: 20
+        sala:
+          type: string
+          nullable: true
+          maxLength: 50
+        ano_letivo:
+          type: string
+          maxLength: 10
+        area:
+          type: string
+          maxLength: 50
+        director_turma:
+          type: string
+          format: uuid
+          nullable: true
+        director_turma_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        director_classe:
+          type: string
+          format: uuid
+          nullable: true
+        director_classe_nome:
+          type: string
+          readOnly: true
+          nullable: true
+        total_alunos:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - director_classe_nome
+      - director_turma_nome
+      - grau_ano
+      - id
+      - nome
+      - total_alunos
+      - updated_at
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

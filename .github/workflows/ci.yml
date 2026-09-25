@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-ci:
-    name: Backend Test, Lint & Build
+    name: Django REST Framework Test, Check & Verify
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,31 +33,40 @@ jobs:
       - name: Checkout Repositório
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20.x
-        uses: actions/setup-node@v4
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
         with:
-          node-version: 20.x
-          cache: 'npm'
-          cache-dependency-path: backend/package.json
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
 
-      - name: Instalar Dependências do Backend
-        run: npm install
+      - name: Instalar Dependências do Sistema (ReportLab / Pillow / LibPQ)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev libjpeg-dev zlib1g-dev libfreetype6-dev
 
-      - name: Gerar Prisma Client
-        run: npx prisma generate
+      - name: Instalar Dependências Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Checagem de Tipos TypeScript (Typecheck)
-        run: npx tsc --noEmit
-
-      - name: Executar Testes Automatizados (Jest)
-        run: npm test
+      - name: Checagem de Sistema Django
+        run: python manage.py check
         env:
-          DATABASE_URL: "file:./test.db"
-          JWT_SECRET: "test_secret_ci_key"
-          JWT_REFRESH_SECRET: "test_refresh_ci_key"
+          DJANGO_SETTINGS_MODULE: config.settings.development
+          SECRET_KEY: test_secret_ci_key_sige_2026
 
-      - name: Compilar Projeto Backend (Build)
-        run: npm run build
+      - name: Executar Migrações do Banco de Dados
+        run: python manage.py migrate
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.development
+          SECRET_KEY: test_secret_ci_key_sige_2026
+
+      - name: Executar Suite de Testes com Pytest
+        run: pytest -v
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.development
+          SECRET_KEY: test_secret_ci_key_sige_2026
 
   frontend-ci:
     name: Frontend Syntax & Integrity Check
