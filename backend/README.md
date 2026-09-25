@@ -35,9 +35,30 @@ backend/
 ├── tests/                 # Suite de testes automatizados com Pytest
 ├── requirements.txt       # Dependências de produção
 ├── requirements-dev.txt   # Dependências de teste e desenvolvimento
-├── Dockerfile             # Container para produção com Gunicorn
-└── manage.py              # Utilitário Django CLI
 ```
+
+---
+
+## Documentação Técnica Completa
+
+A documentação detalhada e gerada automaticamente está organizada no diretório `docs/`:
+
+- 📐 **[Arquitetura do Sistema](docs/ARCHITECTURE.md):** Padrões de design, fluxo de requisições, middlewares e isolamento multi-tenant.
+- 📡 **[Referência Oficial de Endpoints da API](docs/API_REFERENCE.md):** Lista completa de rotas, métodos HTTP, permissões e requisitos de autenticação.
+- 🗄️ **[Catálogo de Modelos de Dados](docs/DATABASE_MODELS.md):** Dicionário de dados, tipos de campos, chaves estrangeiras e relações do Django ORM.
+- 🇲🇿 **[Regras Oficiais do MINEDH](docs/MINEDH_RULES.md):** Fórmulas de cálculo de médias, critérios de aprovação, regra da 12ª classe e anotações administrativas.
+- 📑 **[OpenAPI 3.0 Schema](schema.yml):** Especificação OpenAPI em formato YAML para importação no Swagger, Postman ou Insomnia.
+
+### Atualização Automática da Documentação (Gatilho)
+Sempre que uma nova funcionalidade, modelo ou rota for adicionada, a documentação pode ser atualizada automaticamente:
+```bash
+# Via comando Django:
+python manage.py update_docs
+
+# Ou diretamente pelo script:
+python scripts/update_docs.py
+```
+*O repositório já inclui um **Git Pre-Commit Hook** (`scripts/install_hooks.py`) e uma **GitHub Action** (`.github/workflows/docs-update.yml`) que sincronizam os ficheiros de documentação automaticamente em cada alteração.*
 
 ---
 

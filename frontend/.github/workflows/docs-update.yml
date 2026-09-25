@@ -1,0 +1,41 @@
+name: Auto Update Frontend Documentation
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'index.html'
+      - 'js/**'
+  workflow_dispatch:
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repositório
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Gerar Documentação de Telas e Módulos
+        run: node scripts/update_docs.js
+
+      - name: Commit e Push das Atualizações de Documentação
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          if ! git diff --staged --quiet; then
+            git commit -m "docs: auto-update frontend pages and modules documentation [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          else
+            echo "Nenhuma alteração na documentação detectada."
+          fi

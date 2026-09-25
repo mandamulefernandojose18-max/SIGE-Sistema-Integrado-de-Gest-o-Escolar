@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "docs": "node scripts/update_docs.js"
   },
   "keywords": [
     "sige",
