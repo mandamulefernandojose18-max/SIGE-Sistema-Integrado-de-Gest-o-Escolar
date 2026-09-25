@@ -38,5 +38,14 @@ class MaterialEscolar(models.Model):
             models.Index(fields=['tipo']),
         ]
 
+    def clean(self):
+        from common.integrity import validar_integridade_tenant
+        if self.disciplina:
+            validar_integridade_tenant(self, disciplina=self.disciplina)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.titulo} - {self.classe} ({self.tipo})"

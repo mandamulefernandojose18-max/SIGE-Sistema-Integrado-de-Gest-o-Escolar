@@ -1,5 +1,26 @@
 import uuid
+import datetime
 from django.db import models
+
+def gerar_proxima_matricula(escola=None):
+    ano = datetime.date.today().year
+    prefixo = str(ano)
+    qs = Aluno.objects.filter(matricula__startswith=prefixo)
+    ultimo = qs.order_by('-matricula').first()
+    if ultimo and ultimo.matricula and ultimo.matricula.isdigit():
+        try:
+            proximo = int(ultimo.matricula) + 1
+            cand = str(proximo)
+            if not Aluno.objects.filter(matricula=cand).exists():
+                return cand
+        except (ValueError, TypeError):
+            pass
+    count = qs.count() + 1
+    cand = f"{ano}{count:03d}"
+    while Aluno.objects.filter(matricula=cand).exists():
+        count += 1
+        cand = f"{ano}{count:03d}"
+    return cand
 
 class Aluno(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -35,6 +56,17 @@ class Aluno(models.Model):
             models.Index(fields=['matricula']),
             models.Index(fields=['status']),
         ]
+
+    def clean(self):
+        from common.integrity import validar_integridade_tenant
+        if self.turma:
+            validar_integridade_tenant(self, turma=self.turma)
+
+    def save(self, *args, **kwargs):
+        if not self.matricula:
+            self.matricula = gerar_proxima_matricula(self.escola)
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nome} ({self.matricula})"

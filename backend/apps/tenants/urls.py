@@ -1,5 +1,5 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path, re_path, include
+from common.routers import OptionalSlashRouter
 from .views import (
     GeografiaView,
     SaaSMetricsView,
@@ -8,10 +8,11 @@ from .views import (
     VerificarExpiracoesView,
     EscolaAdminInfoView,
     ToggleNotasView,
-    UsuariosCredenciaisView
+    UsuariosCredenciaisView,
+    MinhaEscolaComprovativoView
 )
 
-router = DefaultRouter()
+router = OptionalSlashRouter()
 router.register(r'escolas', EscolaViewSet, basename='saas_escola')
 router.register(r'planos', PlanoViewSet, basename='saas_plano')
 
@@ -20,6 +21,8 @@ saas_admin_urls = [
     path('metrics/', SaaSMetricsView.as_view(), name='saas_metrics'),
     path('verificar-expiracoes', VerificarExpiracoesView.as_view(), name='saas_verificar_expiracoes_no_slash'),
     path('verificar-expiracoes/', VerificarExpiracoesView.as_view(), name='saas_verificar_expiracoes'),
+    path('minha-escola/comprovativo-contrato', MinhaEscolaComprovativoView.as_view(), name='saas_minha_escola_comprovativo_no_slash'),
+    path('minha-escola/comprovativo-contrato/', MinhaEscolaComprovativoView.as_view(), name='saas_minha_escola_comprovativo'),
     path('', include(router.urls)),
 ]
 
@@ -35,6 +38,7 @@ escola_admin_urls = [
 urlpatterns = [
     path('geografia', GeografiaView.as_view(), name='geografia_no_slash'),
     path('geografia/', GeografiaView.as_view(), name='geografia'),
-    path('saas-admin/', include(saas_admin_urls)),
-    path('escola-admin/', include(escola_admin_urls)),
+    re_path(r'^saas-admin/?', include(saas_admin_urls)),
+    re_path(r'^escola-admin/?', include(escola_admin_urls)),
 ]
+

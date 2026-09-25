@@ -23,6 +23,21 @@ class Pauta(models.Model):
             models.Index(fields=['periodo']),
             models.Index(fields=['status']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'turma', 'ano_letivo', 'periodo'],
+                name='unique_pauta_turma_ano_periodo'
+            ),
+        ]
+
+    def clean(self):
+        from common.integrity import validar_integridade_tenant, validar_periodo_academico
+        validar_integridade_tenant(self, turma=self.turma)
+        validar_periodo_academico(self.periodo)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Pauta {self.turma.nome} - {self.periodo} ({self.ano_letivo})"

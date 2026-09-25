@@ -3,7 +3,7 @@
 > Documento gerado automaticamente via introspecção do `index.html` e `js/app.js`.
 
 **Total de Telas / Visões Detectadas:** 21
-**Total de Chamadas a Endpoints:** 65
+**Total de Chamadas a Endpoints:** 66
 
 ---
 
@@ -104,6 +104,7 @@
 | `/api/v1/saas-admin/planos` | **Administração SaaS** |
 | `/api/v1/saas-admin/planos/${planoId}/preco` | **Administração SaaS** |
 | `/api/v1/saas-admin/verificar-expiracoes` | **Administração SaaS** |
+| `/api/v1/turmas?escola_id=${escolaId}` | **Turmas** |
 
 ---
 

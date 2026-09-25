@@ -16,6 +16,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'sige-django-secret-key-enterprise-202
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', '*').split(',') if host.strip()]
+APPEND_SLASH = False
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',

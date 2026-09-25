@@ -238,17 +238,55 @@ const state = {
   filtroDisciplinaClasse: ''
 };
 
+// ==================== NOTIFICAÇÕES TOAST ====================
+function mostrarNotificacao(mensagem, tipo = 'info') {
+  let container = document.getElementById('sigeToastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'sigeToastContainer';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+  }
+
+  const bgClass = tipo === 'success' ? 'bg-success text-white' : (tipo === 'danger' ? 'bg-danger text-white' : (tipo === 'warning' ? 'bg-warning text-dark' : 'bg-primary text-white'));
+  const icon = tipo === 'success' ? 'bi-check-circle-fill' : (tipo === 'danger' ? 'bi-x-circle-fill' : (tipo === 'warning' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill'));
+
+  const toastEl = document.createElement('div');
+  toastEl.className = `toast align-items-center ${bgClass} border-0 shadow show mb-2`;
+  toastEl.setAttribute('role', 'alert');
+  toastEl.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body d-flex align-items-center gap-2">
+        <i class="bi ${icon} fs-5"></i>
+        <span>${mensagem}</span>
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" onclick="this.closest('.toast').remove()"></button>
+    </div>
+  `;
+  container.appendChild(toastEl);
+  setTimeout(() => {
+    if (toastEl.parentNode) toastEl.remove();
+  }, 4000);
+}
+
 // ==================== API FETCH & INTERCEPTADORES ====================
 function formatarUrlApi(url) {
   if (!url || typeof url !== 'string') return url;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const baseUrl = (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL)
-    || (window.location.port === '5173' || window.location.port === '8080' || window.location.port === '3001' ? 'http://localhost:3000/api/v1' : '/api/v1');
-  if (url.startsWith('/api/v1')) {
-    return baseUrl.replace(/\/api\/v1\/?$/, '') + url;
+  let cleanUrl = url;
+  // Se não tem query param (?) e não tem extensão de ficheiro (.pdf, .xlsx, .json) e não termina em /
+  if (!cleanUrl.includes('?') && !cleanUrl.includes('#') && !/\.[a-zA-Z0-9]+$/.test(cleanUrl) && !cleanUrl.endsWith('/')) {
+    cleanUrl = cleanUrl + '/';
   }
-  return baseUrl.replace(/\/+$/, '') + '/' + url.replace(/^\/+/, '');
+  if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl;
+  const baseUrl = (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL)
+    || (window.location.port === '5173' || window.location.port === '8080' || window.location.port === '3001' ? 'http://localhost:8000/api/v1' : '/api/v1');
+  if (cleanUrl.startsWith('/api/v1')) {
+    return baseUrl.replace(/\/api\/v1\/?$/, '') + cleanUrl;
+  }
+  return baseUrl.replace(/\/+$/, '') + '/' + cleanUrl.replace(/^\/+/, '');
 }
+
 
 async function apiFetch(endpoint, options = {}) {
   const headers = {
@@ -286,10 +324,24 @@ async function apiFetch(endpoint, options = {}) {
       if (res.status === 401) {
         fazerLogout();
       }
-      let msg = json.message || 'Erro no processamento da requisição';
+      let msg = json.message || json.detail || json.error;
+      if (!msg && json.non_field_errors) {
+        msg = Array.isArray(json.non_field_errors) ? json.non_field_errors.join(', ') : String(json.non_field_errors);
+      }
+      if (!msg && typeof json === 'object' && json !== null) {
+        const fieldErrors = Object.entries(json)
+          .filter(([k]) => !['message', 'detail', 'error', 'success', 'statusCode'].includes(k))
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`);
+        if (fieldErrors.length > 0) {
+          msg = fieldErrors.join(' | ');
+        }
+      }
       if (json.errors && Array.isArray(json.errors) && json.errors.length > 0) {
         const detalhes = json.errors.map(e => `${e.path?.join('.') || 'Campo'}: ${e.message}`).join(', ');
-        msg += ` (${detalhes})`;
+        msg = (msg ? `${msg} ` : '') + `(${detalhes})`;
+      }
+      if (!msg) {
+        msg = `Erro no processamento da requisição (HTTP ${res.status})`;
       }
       throw new Error(msg);
     }
@@ -388,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function carregarDadosGeografia() {
   try {
-    const res = await fetch('/api/v1/geografia');
+    const res = await fetch(formatarUrlApi('/api/v1/geografia'));
     const json = await res.json();
     if (json.success) {
       state.geografia = json.data;
@@ -409,7 +461,7 @@ async function realizarLogin(e) {
   const senha = document.getElementById('loginSenha').value;
 
   try {
-    const res = await fetch('/api/v1/auth/login', {
+    const res = await fetch(formatarUrlApi('/api/v1/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, senha })
@@ -576,18 +628,97 @@ async function carregarEscolasSuperAdminSelect() {
   } catch (err) {}
 }
 
-function alternarEscolaSuperAdmin(escolaId) {
-  if (escolaId) {
-    localStorage.setItem('sige_selected_tenant', escolaId);
-  } else {
-    localStorage.removeItem('sige_selected_tenant');
+async function alternarEscolaSuperAdmin(escolaId) {
+  if (!escolaId) {
+    sairModoInspecaoSuperAdmin();
+    return;
   }
-  window.location.reload();
+
+  try {
+    localStorage.setItem('sige_selected_tenant', escolaId);
+
+    // Obter dados completos da escola seleccionada
+    const res = await apiFetch('/api/v1/escola-admin/info');
+    if (res && res.success && res.data) {
+      state.tenant = res.data;
+    } else {
+      const resEscolas = await apiFetch('/api/v1/saas-admin/escolas');
+      if (resEscolas && resEscolas.success && Array.isArray(resEscolas.data)) {
+        state.tenant = resEscolas.data.find(e => e.id === escolaId) || { id: escolaId, nome: 'Escola Seleccionada', status: 'ATIVA' };
+      }
+    }
+
+    // Sincronizar o selector de tenants no topo
+    const select = document.getElementById('superAdminTenantSelect');
+    if (select) select.value = escolaId;
+
+    // Actualizar badges da escola activa na barra lateral
+    if (state.tenant) {
+      atualizarBadgeTenant(state.tenant);
+      if (typeof atualizarBotaoToggleNotasDap === 'function') {
+        atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
+      }
+    }
+
+    // Habilitar todos os menus administrativos, pedagógicos e financeiros da escola
+    document.querySelectorAll('.escola-admin-only').forEach(el => {
+      el.style.display = el.classList.contains('nav-category') ? 'block' : 'flex';
+    });
+    document.querySelectorAll('.ped-only').forEach(el => {
+      el.style.display = el.classList.contains('nav-category') ? 'block' : 'flex';
+    });
+    document.querySelectorAll('.fin-only').forEach(el => {
+      el.style.display = el.classList.contains('nav-category') ? 'block' : 'flex';
+    });
+
+    // Activar o banner de inspeção no topo
+    const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
+    if (bannerInspecao) {
+      bannerInspecao.style.setProperty('display', 'flex', 'important');
+      const nomeEscola = state.tenant?.nome || 'Escola Seleccionada';
+      const elNome = document.getElementById('superAdminInspecaoNome');
+      if (elNome) elNome.textContent = `A Inspecionar: ${nomeEscola}`;
+      const elStatus = document.getElementById('superAdminInspecaoStatus');
+      if (elStatus) elStatus.textContent = state.tenant?.status || 'ATIVA';
+    }
+
+    mostrarNotificacao(`Acesso directo concedido à instituição [${state.tenant?.nome || 'Escola'}] como SuperAdmin. Sem necessidade de credenciais.`, 'success');
+
+    // Navegar imediatamente para o Painel Principal da escola selecionada
+    navegarPara('dashboard');
+  } catch (err) {
+    console.error('Erro ao alternar para a escola:', err);
+    window.location.reload();
+  }
 }
 
 function sairModoInspecaoSuperAdmin() {
   localStorage.removeItem('sige_selected_tenant');
-  window.location.reload();
+  state.tenant = null;
+
+  const select = document.getElementById('superAdminTenantSelect');
+  if (select) select.value = '';
+
+  const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
+  if (bannerInspecao) bannerInspecao.style.setProperty('display', 'none', 'important');
+
+  // Ocultar menus da escola
+  document.querySelectorAll('.escola-admin-only').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.ped-only').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.fin-only').forEach(el => el.style.display = 'none');
+
+  // Restaurar badge da sidebar para SIGE Master
+  const elNome = document.getElementById('sidebarEscolaNome');
+  if (elNome) elNome.textContent = 'SIGE';
+  const elStatus = document.getElementById('sidebarStatusBadge');
+  if (elStatus) elStatus.textContent = 'ATIVA';
+  const elProv = document.getElementById('sidebarProvinciaBadge');
+  if (elProv) elProv.textContent = 'SaaS Master';
+  const elAno = document.getElementById('headerAnoLetivo');
+  if (elAno) elAno.textContent = 'Ano Lectivo: 2026';
+
+  mostrarNotificacao('Modo de inspeção encerrado. Retornou à Gestão Master SaaS.', 'info');
+  navegarPara('saas');
 }
 
 // ==================== NAVEGAÇÃO ENTRE MÓDULOS ====================
@@ -661,31 +792,55 @@ function navegarPara(viewId) {
 async function carregarDashboardGeral() {
   try {
     const res = await apiFetch('/api/v1/dashboard/overview');
-    if (!res.success) return;
+    if (!res.success || !res.data) return;
 
-    const { escola, indicadores } = res.data;
-    document.getElementById('statTotalAlunos').textContent = indicadores.totalAlunos;
-    document.getElementById('statAlunosAtivos').textContent = indicadores.alunosAtivos;
-    document.getElementById('statTotalProfessores').textContent = indicadores.totalProfessores;
-    document.getElementById('statReceitaTotal').textContent = indicadores.totalRecebido.toLocaleString('pt-PT') + ' MZN';
-    document.getElementById('statReceitaPendente').textContent = indicadores.totalPendente.toLocaleString('pt-PT') + ' MZN';
-    document.getElementById('statDiasRestantes').textContent = escola.diasRestantesAssinatura + ' dias';
+    const data = res.data;
+    const ind = data.indicadores || {
+      totalAlunos: data.totalAlunos || 0,
+      alunosAtivos: data.alunosAtivos || 0,
+      totalProfessores: data.totalProfessores || 0,
+      totalRecebido: data.propinasRecebidas || 0,
+      totalPendente: data.propinasPendentes || 0,
+    };
+    const esc = data.escola || { nome: 'SIGE', status: 'ATIVA', diasRestantesAssinatura: 365 };
+
+    const elTotalAlunos = document.getElementById('statTotalAlunos');
+    if (elTotalAlunos) elTotalAlunos.textContent = ind.totalAlunos ?? 0;
+
+    const elAlunosAtivos = document.getElementById('statAlunosAtivos');
+    if (elAlunosAtivos) elAlunosAtivos.textContent = ind.alunosAtivos ?? 0;
+
+    const elTotalProfs = document.getElementById('statTotalProfessores');
+    if (elTotalProfs) elTotalProfs.textContent = ind.totalProfessores ?? 0;
+
+    const elReceitaTotal = document.getElementById('statReceitaTotal');
+    if (elReceitaTotal) elReceitaTotal.textContent = Number(ind.totalRecebido || 0).toLocaleString('pt-PT') + ' MZN';
+
+    const elReceitaPendente = document.getElementById('statReceitaPendente');
+    if (elReceitaPendente) elReceitaPendente.textContent = Number(ind.totalPendente || 0).toLocaleString('pt-PT') + ' MZN';
+
+    const elDiasRestantes = document.getElementById('statDiasRestantes');
+    if (elDiasRestantes) elDiasRestantes.textContent = (esc.diasRestantesAssinatura ?? 0) + ' dias';
 
     const stBadge = document.getElementById('statStatusAssinatura');
-    stBadge.textContent = escola.status;
-    stBadge.className = `badge badge-${escola.status.toLowerCase()}`;
+    if (stBadge) {
+      stBadge.textContent = esc.status || 'ATIVA';
+      stBadge.className = `badge badge-${(esc.status || 'ativa').toLowerCase()}`;
+    }
 
     // Gráficos
     const resFin = await apiFetch('/api/v1/pagamentos/stats');
-    if (resFin.success) {
+    if (resFin && resFin.success && resFin.data) {
       renderizarGraficoDashboardFaturamento(resFin.data.historicoMeses || []);
     }
 
     const resAlunos = await apiFetch('/api/v1/alunos/stats');
-    if (resAlunos.success) {
-      renderizarGraficoDashboardGenero(resAlunos.data.genero || { M: 0, F: 0 });
+    if (resAlunos && resAlunos.success && resAlunos.data) {
+      renderizarGraficoDashboardGenero(resAlunos.data.genero || resAlunos.data.porGenero || { M: 0, F: 0 });
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Erro ao carregar Dashboard Geral:', err);
+  }
 }
 
 function renderizarGraficoDashboardFaturamento(historico) {
@@ -732,100 +887,141 @@ function renderizarGraficoDashboardGenero(genero) {
 async function carregarPainelSaaS() {
   try {
     const res = await apiFetch('/api/v1/saas-admin/metrics');
-    if (res.success) {
-      const d = res.data;
-      document.getElementById('saasMRR').textContent = d.mrr.toLocaleString('pt-PT') + ' MZN';
-      document.getElementById('saasARR').textContent = d.arr.toLocaleString('pt-PT') + ' MZN';
-      document.getElementById('saasChurn').textContent = d.churn + '%';
-      document.getElementById('saasTotalEscolas').textContent = d.escolas.total;
-      document.getElementById('saasEscolasAtivas').textContent = d.escolas.ativas;
-      document.getElementById('saasEscolasExpiradas').textContent = d.escolas.expiradas;
+    if (res && res.success) {
+      const d = res.data || res.metrics || {};
+      const mrr = Number(d.mrr ?? d.receitaMensalEstimada ?? 0);
+      const arr = Number(d.arr ?? (mrr * 12));
+      const churn = Number(d.churn ?? 0);
+      const totalEscolas = d.escolas?.total ?? d.totalEscolas ?? 0;
+      const ativas = d.escolas?.ativas ?? d.escolasAtivas ?? 0;
+      const expiradas = d.escolas?.expiradas ?? d.escolasExpiradas ?? 0;
+
+      const elMRR = document.getElementById('saasMRR');
+      if (elMRR) elMRR.textContent = mrr.toLocaleString('pt-PT') + ' MZN';
+
+      const elARR = document.getElementById('saasARR');
+      if (elARR) elARR.textContent = arr.toLocaleString('pt-PT') + ' MZN';
+
+      const elChurn = document.getElementById('saasChurn');
+      if (elChurn) elChurn.textContent = churn + '%';
+
+      const elTotal = document.getElementById('saasTotalEscolas');
+      if (elTotal) elTotal.textContent = totalEscolas;
+
+      const elAtivas = document.getElementById('saasEscolasAtivas');
+      if (elAtivas) elAtivas.textContent = ativas;
+
+      const elExpiradas = document.getElementById('saasEscolasExpiradas');
+      if (elExpiradas) elExpiradas.textContent = expiradas;
     }
 
     // Tabela de Escolas
     const resEscolas = await apiFetch('/api/v1/saas-admin/escolas');
-    if (resEscolas.success) {
+    if (resEscolas && resEscolas.success && Array.isArray(resEscolas.data)) {
       const tbody = document.getElementById('tabelaSaasEscolas');
-      tbody.innerHTML = resEscolas.data.map(e => {
-        const ass = e.assinaturas[0];
-        const dataFim = ass ? new Date(ass.data_fim).toLocaleDateString('pt-PT') : '-';
-        const isAtiva = e.status === 'ATIVA';
-        const emblemaIcon = e.usar_emblema_nacional 
-          ? '<span class="badge bg-warning text-dark me-1" title="Emblema Nacional">🇲🇿 Emblema</span>' 
-          : '';
-        const valorContrato = ass?.valor_pago ? `${ass.valor_pago.toLocaleString('pt-PT')} MZN` : `${(e.plano?.preco || 0).toLocaleString('pt-PT')} MZN`;
+      if (tbody) {
+        if (resEscolas.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma escola cadastrada no momento.</td></tr>';
+        } else {
+          tbody.innerHTML = resEscolas.data.map(e => {
+            const ass = (e.assinaturas && e.assinaturas[0]) || e.assinatura_ativa || null;
+            const dataFim = ass?.data_fim ? new Date(ass.data_fim).toLocaleDateString('pt-PT') : '-';
+            const isAtiva = e.status === 'ATIVA';
+            const emblemaIcon = e.usar_emblema_nacional 
+              ? '<span class="badge bg-warning text-dark me-1" title="Emblema Nacional">🇲🇿 Emblema</span>' 
+              : '';
+            const valorContratoNum = Number(ass?.valor_pago ?? ass?.valor ?? e.plano?.preco ?? 0);
+            const valorContrato = `${valorContratoNum.toLocaleString('pt-PT')} MZN`;
+            const planoNome = e.plano?.nome || e.plano_nome || 'MENSAL';
+            const totalAlunos = e._count?.alunos ?? e.total_alunos ?? 0;
+            const totalProfs = e._count?.professores ?? e.total_professores ?? 0;
+            const nomeEscapado = (e.nome || '').replace(/'/g, "\\'");
 
-        return `
-          <tr>
-            <td>
-              <div class="d-flex align-items-center gap-2">
-                <div>
-                  <strong>${e.nome}</strong> ${emblemaIcon}
-                  <br><small class="text-muted">${e.email} | ${e.telefone || '-'}</small>
-                </div>
-              </div>
-            </td>
-            <td><small>${e.provincia || '-'}<br><span class="text-muted">${e.distrito || '-'}</span></small></td>
-            <td><code>${e.nif_cnpj}</code></td>
-            <td>
-              <span class="badge bg-light text-dark border">${e.plano?.nome || 'MENSAL'}</span>
-              <br><strong class="small text-success">${valorContrato}</strong>
-            </td>
-            <td><small>${dataFim}</small></td>
-            <td><span class="badge badge-${e.status.toLowerCase()}">${e.status}</span></td>
-            <td><small>${e._count.alunos} alunos<br>${e._count.professores} profs</small></td>
-            <td class="text-end">
-              <div class="btn-group btn-group-sm">
-                <!-- Botão Entrar como Escola -->
-                <button class="btn btn-outline-dark" title="Entrar como Escola (Mudar de Tenant)" onclick="alternarEscolaSuperAdmin('${e.id}')">
-                  <i class="bi bi-box-arrow-in-right"></i> Entrar
-                </button>
-                <!-- Botão Toggle Ativar / Desativar -->
-                <button class="btn ${isAtiva ? 'btn-outline-danger' : 'btn-outline-success'}" 
-                        title="${isAtiva ? 'Desactivar Escola' : 'Activar Escola'}"
-                        onclick="toggleStatusEscola('${e.id}', '${e.nome}', '${e.status}')">
-                  <i class="bi ${isAtiva ? 'bi-toggle-on text-success' : 'bi-toggle-off text-danger'}"></i>
-                  ${isAtiva ? 'Activa' : 'Inactiva'}
-                </button>
-                <!-- Botão Editar Dados e Prazo -->
-                <button class="btn btn-outline-primary" title="Editar Dados & Prazo" onclick="modalEditarEscolaSuperAdmin('${e.id}')">
-                  <i class="bi bi-pencil"></i>
-                </button>
-                <!-- Botão Descarregar Extrato / Contrato -->
-                <button class="btn btn-outline-info" title="Descarregar Extrato / Contrato da Escola" onclick="descarregarExtratoEscolaSuperAdmin('${e.id}')">
-                  <i class="bi bi-file-earmark-pdf"></i>
-                </button>
-                <!-- Botão Eliminar Escola (Exclusivo SuperAdmin) -->
-                <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${e.nome}')">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
+            return `
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div>
+                      <strong>${e.nome}</strong> ${emblemaIcon}
+                      <br><small class="text-muted">${e.email} | ${e.telefone || '-'}</small>
+                    </div>
+                  </div>
+                </td>
+                <td><small>${e.provincia || '-'}<br><span class="text-muted">${e.distrito || '-'}</span></small></td>
+                <td><code>${e.nif_cnpj}</code></td>
+                <td>
+                  <span class="badge bg-light text-dark border">${planoNome}</span>
+                  <br><strong class="small text-success">${valorContrato}</strong>
+                </td>
+                <td><small>${dataFim}</small></td>
+                <td><span class="badge badge-${(e.status || 'ativa').toLowerCase()}">${e.status}</span></td>
+                <td><small>${totalAlunos} alunos<br>${totalProfs} profs</small></td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <!-- Botão Entrar como Escola -->
+                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin (Acesso Imediato sem Credenciais)" onclick="alternarEscolaSuperAdmin('${e.id}')">
+                      <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                    </button>
+                    <!-- Botão Toggle Ativar / Desativar -->
+                    <button class="btn ${isAtiva ? 'btn-outline-danger' : 'btn-outline-success'}" 
+                            title="${isAtiva ? 'Desactivar Escola' : 'Activar Escola'}"
+                            onclick="toggleStatusEscola('${e.id}', '${nomeEscapado}', '${e.status}')">
+                      <i class="bi ${isAtiva ? 'bi-toggle-on text-success' : 'bi-toggle-off text-danger'}"></i>
+                      ${isAtiva ? 'Activa' : 'Inactiva'}
+                    </button>
+                    <!-- Botão Editar Dados e Prazo -->
+                    <button class="btn btn-outline-primary" title="Editar Dados & Prazo" onclick="modalEditarEscolaSuperAdmin('${e.id}')">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <!-- Botão Descarregar Extrato / Contrato -->
+                    <button class="btn btn-outline-info" title="Descarregar Extrato / Contrato da Escola" onclick="descarregarExtratoEscolaSuperAdmin('${e.id}')">
+                      <i class="bi bi-file-earmark-pdf"></i>
+                    </button>
+                    <!-- Botão Eliminar Escola (Exclusivo SuperAdmin) -->
+                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${nomeEscapado}')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
     }
 
     // Tabela de Preços dos Planos
     const resPlanos = await apiFetch('/api/v1/saas-admin/planos');
-    if (resPlanos.success) {
+    if (resPlanos && resPlanos.success && Array.isArray(resPlanos.data)) {
       const tbodyPlanos = document.getElementById('tabelaSaasPlanos');
-      tbodyPlanos.innerHTML = resPlanos.data.map(p => `
-        <tr>
-          <td><strong>${p.nome}</strong></td>
-          <td>${p.duracao_dias} dias</td>
-          <td><strong class="text-primary fs-6">${p.preco.toLocaleString('pt-PT')} MZN</strong></td>
-          <td><small class="text-muted">${p.descricao || 'Plano de subscrição SIGE'}</small></td>
-          <td class="text-end">
-            <button class="btn btn-outline-primary btn-sm" onclick="modalEditarPrecoPlano('${p.id}', '${p.nome}', ${p.preco})">
-              <i class="bi bi-currency-exchange me-1"></i> Alterar Preço
-            </button>
-          </td>
-        </tr>
-      `).join('');
+      if (tbodyPlanos) {
+        if (resPlanos.data.length === 0) {
+          tbodyPlanos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum plano cadastrado.</td></tr>';
+        } else {
+          tbodyPlanos.innerHTML = resPlanos.data.map(p => {
+            const precoNum = Number(p.preco || 0);
+            return `
+              <tr>
+                <td><strong>${p.nome}</strong></td>
+                <td>${p.duracao_dias} dias</td>
+                <td><strong class="text-primary fs-6">${precoNum.toLocaleString('pt-PT')} MZN</strong></td>
+                <td><small class="text-muted">${p.descricao || 'Plano de subscrição SIGE'}</small></td>
+                <td class="text-end">
+                  <button class="btn btn-outline-primary btn-sm" onclick="modalEditarPrecoPlano('${p.id}', '${p.nome}', ${precoNum})">
+                    <i class="bi bi-currency-exchange me-1"></i> Alterar Preço
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Erro ao carregar Painel SaaS:', err);
+  }
 }
+
 
 async function toggleStatusEscola(escolaId, nome, statusAtual) {
   const proximo = statusAtual === 'ATIVA' ? 'SUSPENSA' : 'ATIVA';
@@ -1205,7 +1401,7 @@ function exibirComprovativoContratoModal(c) {
             <td><strong>${c.plano.nome}</strong></td>
             <td>${new Date(c.assinatura.data_inicio).toLocaleDateString('pt-PT')}</td>
             <td><strong>${new Date(c.assinatura.data_fim).toLocaleDateString('pt-PT')}</strong></td>
-            <td class="text-success fw-bold">${(c.assinatura.valor_pago || c.plano.preco).toLocaleString('pt-PT')} MZN</td>
+            <td class="text-success fw-bold">${Number(c.assinatura?.valor_pago ?? c.assinatura?.valor ?? c.plano?.preco ?? 0).toLocaleString('pt-PT')} MZN</td>
             <td><span class="badge badge-ativa">${c.escola.status}</span></td>
           </tr>
         </tbody>
@@ -1284,9 +1480,9 @@ async function carregarEscolaETurmas() {
           <td><strong>${t.nome}</strong></td>
           <td><span class="badge bg-light text-dark border">${t.grau_ano}</span></td>
           <td>${t.turno}</td>
-          <td><small>${t.director_turma?.nome || '<span class="text-muted">Não definido</span>'}</small></td>
-          <td><small>${t.director_classe?.nome || '<span class="text-muted">Não definido</span>'}</small></td>
-          <td><span class="badge bg-primary">${t._count.alunos} alunos</span></td>
+          <td><small>${t.director_turma?.nome || t.director_turma_nome || '<span class="text-muted">Não definido</span>'}</small></td>
+          <td><small>${t.director_classe?.nome || t.director_classe_nome || '<span class="text-muted">Não definido</span>'}</small></td>
+          <td><span class="badge bg-primary">${t._count?.alunos ?? t.total_alunos ?? 0} alunos</span></td>
           <td class="text-end">
             <div class="d-inline-flex gap-1">
               <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Director de Turma e Director de Classe">
@@ -1904,8 +2100,8 @@ async function modalEditarAluno(id) {
             <input type="text" id="meNumDoc" class="form-control" value="${a.numero_documento || ''}">
           </div>
           <div class="col-md-4">
-            <label class="form-label small fw-semibold">NUIT</label>
-            <input type="text" id="meNUIT" class="form-control" value="${a.nuit || ''}">
+            <label class="form-label small fw-semibold">NUIT (Opcional)</label>
+            <input type="text" id="meNUIT" class="form-control" value="${a.nuit || ''}" placeholder="Ex: 109876543 (Opcional)">
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Província</label>
@@ -2030,7 +2226,7 @@ async function modalTransferirAluno(id) {
         const novaTurmaId = document.getElementById('mtNovaTurma').value;
         const resTr = await apiFetch(`/api/v1/alunos/${id}/transferir`, {
           method: 'PUT',
-          body: JSON.stringify({ novaTurmaId })
+          body: JSON.stringify({ novaTurmaId, turma_destino_id: novaTurmaId })
         });
         if (resTr.success) {
           alert('Aluno transferido com sucesso para a nova turma!');
@@ -2056,14 +2252,65 @@ async function excluirAluno(id) {
   }
 }
 
+window.atualizarTurmasModalAluno = async function(escolaId) {
+  const selectTurma = document.getElementById('maTurma');
+  if (!selectTurma) return;
+  if (!escolaId) {
+    selectTurma.innerHTML = '<option value="">Selecione primeiro a escola</option>';
+    return;
+  }
+  try {
+    const res = await apiFetch(`/api/v1/turmas?escola_id=${escolaId}`);
+    const turmas = res.data || [];
+    if (turmas.length === 0) {
+      selectTurma.innerHTML = '<option value="">Sem turmas nesta escola (Ingresso Pendente)</option>';
+    } else {
+      selectTurma.innerHTML = '<option value="">Selecione a turma (Opcional)</option>' +
+        turmas.map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+    }
+  } catch (e) {
+    selectTurma.innerHTML = '<option value="">Sem turmas disponíveis</option>';
+  }
+};
+
 async function modalNovoAluno() {
-  const turmasRes = await apiFetch('/api/v1/escola-admin/turmas');
-  const opcoesTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+  let seletorEscolaHtml = '';
+  let escolaSelecionadaId = localStorage.getItem('sige_selected_tenant') || (state.tenant ? state.tenant.id : '');
+
+  if (state.user?.role === 'SUPERADMIN') {
+    let escolas = [];
+    try {
+      const resEscolas = await apiFetch('/api/v1/saas-admin/escolas');
+      escolas = resEscolas.data || [];
+    } catch (e) {}
+
+    seletorEscolaHtml = `
+      <div class="col-md-12">
+        <label class="form-label small fw-bold text-primary"><i class="bi bi-building me-1"></i> Escola de Destino (SuperAdmin)</label>
+        <select id="maEscola" class="form-select border-primary" onchange="atualizarTurmasModalAluno(this.value)">
+          <option value="">Selecione a Escola para Matricular</option>
+          ${escolas.map(e => `<option value="${e.id}" ${e.id === escolaSelecionadaId ? 'selected' : ''}>${e.nome} [${e.status}]</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+
+  let turmas = [];
+  try {
+    const urlTurmas = escolaSelecionadaId 
+      ? `/api/v1/turmas?escola_id=${escolaSelecionadaId}`
+      : '/api/v1/escola-admin/turmas';
+    const turmasRes = await apiFetch(urlTurmas);
+    turmas = turmasRes.data || [];
+  } catch (e) {}
+
+  const opcoesTurmas = turmas.map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
   const optProvincias = (state.geografia.provincias || []).map(p => `<option value="${p}">${p}</option>`).join('');
 
   abrirModal('Matricular Novo Aluno', `
     <form id="formModalAluno">
       <div class="row g-3">
+        ${seletorEscolaHtml}
         <div class="col-md-8">
           <label class="form-label small fw-semibold">Nome Completo</label>
           <input type="text" id="maNome" class="form-control" required placeholder="Nome próprio e do meio">
@@ -2087,7 +2334,7 @@ async function modalNovoAluno() {
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Turma de Ingresso</label>
           <select id="maTurma" class="form-select">
-            <option value="">Selecione a turma</option>
+            <option value="">Selecione a turma (Opcional)</option>
             ${opcoesTurmas}
           </select>
         </div>
@@ -2106,8 +2353,8 @@ async function modalNovoAluno() {
           <input type="text" id="maNumDoc" class="form-control" placeholder="Ex: 110100234567M">
         </div>
         <div class="col-md-4">
-          <label class="form-label small fw-semibold">NUIT</label>
-          <input type="text" id="maNUIT" class="form-control" placeholder="Ex: 109876543">
+          <label class="form-label small fw-semibold">NUIT (Opcional)</label>
+          <input type="text" id="maNUIT" class="form-control" placeholder="Ex: 109876543 (Opcional)">
         </div>
 
         <div class="col-md-6">
@@ -2142,14 +2389,21 @@ async function modalNovoAluno() {
           <input type="text" id="maTel" class="form-control" value="+258 ">
         </div>
       </div>
-      <button type="submit" class="btn btn-primary w-100 mt-4">Confirmar Matrícula Oficial</button>
+      <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-person-plus-fill me-1"></i> Confirmar Matrícula Oficial</button>
     </form>
   `);
 
   document.getElementById('formModalAluno').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const escolaSelect = document.getElementById('maEscola');
+      const escola_id = escolaSelect ? escolaSelect.value : (localStorage.getItem('sige_selected_tenant') || undefined);
+      if (state.user?.role === 'SUPERADMIN' && !escola_id) {
+        return alert('Por favor, seleccione a escola onde o aluno será matriculado.');
+      }
+
       const body = {
+        escola_id: escola_id || undefined,
         nome: document.getElementById('maNome').value,
         apelido: document.getElementById('maApelido').value || undefined,
         data_nascimento: document.getElementById('maNasc').value,
@@ -2170,6 +2424,7 @@ async function modalNovoAluno() {
         body: JSON.stringify(body)
       });
       if (res.success) {
+        alert('Aluno matriculado com sucesso!');
         fecharModal();
         carregarAlunos();
       }

@@ -44,6 +44,7 @@ backend/
 A documentação detalhada e gerada automaticamente está organizada no diretório `docs/`:
 
 - 📐 **[Arquitetura do Sistema](docs/ARCHITECTURE.md):** Padrões de design, fluxo de requisições, middlewares e isolamento multi-tenant.
+- 🛡️ **[Regras de Integridade do Sistema](docs/REGRAS_DE_INTEGRIDADE.md):** Os 6 Pilares de Integridade, isolamento multi-tenant hermético, constraints de banco, imutabilidade de pautas e conformidade MINEDH.
 - 📡 **[Referência Oficial de Endpoints da API](docs/API_REFERENCE.md):** Lista completa de rotas, métodos HTTP, permissões e requisitos de autenticação.
 - 🗄️ **[Catálogo de Modelos de Dados](docs/DATABASE_MODELS.md):** Dicionário de dados, tipos de campos, chaves estrangeiras e relações do Django ORM.
 - 🇲🇿 **[Regras Oficiais do MINEDH](docs/MINEDH_RULES.md):** Fórmulas de cálculo de médias, critérios de aprovação, regra da 12ª classe e anotações administrativas.

@@ -1,8 +1,8 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from common.routers import OptionalSlashRouter
 from .views import NotaViewSet, PrazosTrimestresView, AutorizacaoEdicaoView
 
-router = DefaultRouter()
+router = OptionalSlashRouter()
 router.register(r'', NotaViewSet, basename='notas')
 
 urlpatterns = [

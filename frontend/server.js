@@ -1,12 +1,13 @@
 /**
- * SIGE Front-End - Servidor de Desenvolvimento e Produ��o SPA
- * Servidor HTTP nativo e aut�nomo (Zero Depend�ncias Externas)
+ * SIGE Front-End - Servidor de Desenvolvimento e Produção SPA
+ * Servidor HTTP nativo e autônomo com Proxy Reverso para API Backend
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 5173;
+const BACKEND_PORT = process.env.BACKEND_PORT || 8000;
 const PUBLIC_DIR = __dirname;
 
 const MIME_TYPES = {
@@ -29,14 +30,45 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
   let pathname = decodeURIComponent(parsedUrl.pathname);
 
-  // Normaliza��o de rota
+  // Proxy reverso transparente para chamadas de API (/api/ e /health/)
+  if (pathname.startsWith('/api/') || pathname.startsWith('/health/')) {
+    const proxyHeaders = {
+      ...req.headers,
+      host: `127.0.0.1:${BACKEND_PORT}`
+    };
+
+    const backendReq = http.request({
+      hostname: '127.0.0.1',
+      port: BACKEND_PORT,
+      path: req.url,
+      method: req.method,
+      headers: proxyHeaders
+    }, (backendRes) => {
+      res.writeHead(backendRes.statusCode, backendRes.headers);
+      backendRes.pipe(res);
+    });
+
+    backendReq.on('error', (err) => {
+      console.error('[PROXY ERROR]', err.message);
+      res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        success: false, 
+        message: 'Erro ao conectar ao servidor do SIGE (Backend Django na porta ' + BACKEND_PORT + ').' 
+      }));
+    });
+
+    req.pipe(backendReq);
+    return;
+  }
+
+  // Normalização de rota SPA
   if (pathname === '/') {
     pathname = '/index.html';
   }
 
   let filePath = path.join(PUBLIC_DIR, pathname);
 
-  // Seguran�a contra Directory Traversal
+  // Segurança contra Directory Traversal
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Acesso negado');
@@ -69,6 +101,6 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log('====================================================');
   console.log(`  SIGE Frontend SPA rodando em: http://localhost:${PORT}`);
-  console.log(`  Conectando � API Backend em: http://localhost:3000/api/v1`);
+  console.log(`  Proxy Reverso API ativado -> http://127.0.0.1:${BACKEND_PORT}`);
   console.log('====================================================');
 });

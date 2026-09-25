@@ -150,6 +150,13 @@ http://localhost:3000/verificar-certificado.html?codigo={UUID}
 ```
 A página pública valida os dados diretamente no banco de dados e exibe o carimbo de fé pública sem exigir autenticação.
 
+## 📚 Documentação Técnica & Regras de Integridade
+A documentação detalhada de engenharia e conformidade normativa está disponível em:
+- 🛡️ **[Regras de Integridade do Sistema](backend/docs/REGRAS_DE_INTEGRIDADE.md):** Os 6 Pilares de Integridade (Isolamento Multi-Tenant, Domínio MINEDH, Unicidade, Imutabilidade de Pautas, Finanças e Auditoria).
+- 📐 **[Arquitetura do Backend](backend/docs/ARCHITECTURE.md):** Padrões arquiteturais, fluxo de requisições e middlewares.
+- 🇲🇿 **[Regras Oficiais do MINEDH](backend/docs/MINEDH_RULES.md):** Critérios de aprovação e fórmulas pedagógicas de Moçambique.
+- 🗄️ **[Modelos de Dados do Backend](backend/docs/DATABASE_MODELS.md):** Catálogo de tabelas, campos e relacionamentos ORM.
+
 ---
 
 ## 📄 Licença

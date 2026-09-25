@@ -31,6 +31,8 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
     elif 'supabase' in hostname or hostname not in ('localhost', '127.0.0.1', 'postgres'):
         options['sslmode'] = 'require'
 
+    options['connect_timeout'] = 15
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -39,6 +41,7 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
             'PASSWORD': password,
             'HOST': hostname,
             'PORT': port,
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', 600)),
             'OPTIONS': options,
         }
     }

@@ -32,12 +32,30 @@ class LoginView(APIView):
             tipo='LOGIN_SUCESSO'
         )
 
+        user_data = UsuarioSerializer(user).data
+        escola_data = None
+        if user.escola_id:
+            from apps.tenants.models import Escola
+            from apps.tenants.serializers import EscolaSerializer
+            escola = Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').filter(id=user.escola_id).first()
+            if escola:
+                escola_data = EscolaSerializer(escola).data
+
         return Response({
             'success': True,
+            'message': 'Autenticação realizada com sucesso',
+            'data': {
+                'user': user_data,
+                'escola': escola_data,
+                'tokens': {
+                    'accessToken': data['access'],
+                    'refreshToken': data['refresh'],
+                }
+            },
             'token': data['access'],
             'access': data['access'],
             'refresh': data['refresh'],
-            'user': UsuarioSerializer(user).data
+            'user': user_data
         }, status=status.HTTP_200_OK)
 
 class CurrentUserView(APIView):

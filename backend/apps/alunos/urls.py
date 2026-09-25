@@ -1,5 +1,5 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from common.routers import OptionalSlashRouter
 from .views import (
     AlunoViewSet,
     AlunoStatsView,
@@ -8,7 +8,7 @@ from .views import (
     AlunoMePagamentosView
 )
 
-router = DefaultRouter()
+router = OptionalSlashRouter()
 router.register(r'', AlunoViewSet, basename='alunos')
 
 urlpatterns = [

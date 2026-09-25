@@ -16,10 +16,15 @@ class AlunoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or self.request.user.escola
-        qs = Aluno.objects.filter(escola=escola)
+        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
+        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
+            qs = Aluno.objects.all()
+        elif escola:
+            qs = Aluno.objects.filter(escola=escola)
+        else:
+            qs = Aluno.objects.none()
 
-        turma_id = self.request.query_params.get('turma_id')
+        turma_id = self.request.query_params.get('turma_id') or self.request.query_params.get('turmaId')
         if turma_id:
             qs = qs.filter(turma_id=turma_id)
 
@@ -39,8 +44,36 @@ class AlunoViewSet(viewsets.ModelViewSet):
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
-        escola = self.request.tenant or self.request.user.escola
-        serializer.save(escola=escola)
+        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
+        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
+            escola_id = (
+                self.request.data.get('escola_id') or
+                self.request.data.get('escola') or
+                self.request.query_params.get('escola_id') or
+                self.request.headers.get('X-Tenant-ID')
+            )
+            if escola_id:
+                from apps.tenants.models import Escola
+                escola = Escola.objects.filter(id=escola_id).first()
+            if not escola and serializer.validated_data.get('turma'):
+                escola = serializer.validated_data['turma'].escola
+            if not escola:
+                from apps.tenants.models import Escola
+                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+
+        if not escola:
+            from rest_framework import serializers as drf_serializers
+            raise drf_serializers.ValidationError({
+                'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de matricular o aluno.'
+            })
+
+        matricula = serializer.validated_data.get('matricula')
+        if not matricula:
+            from .models import gerar_proxima_matricula
+            matricula = gerar_proxima_matricula(escola=escola)
+            serializer.save(escola=escola, matricula=matricula)
+        else:
+            serializer.save(escola=escola)
 
     def list(self, request, *args, **kwargs):
         # Suporte a paginação e resposta compatível
@@ -58,6 +91,7 @@ class AlunoViewSet(viewsets.ModelViewSet):
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
         response = super().update(request, *args, **kwargs)
         return Response({'success': True, 'data': response.data})
 
@@ -65,7 +99,7 @@ class AlunoViewSet(viewsets.ModelViewSet):
         super().destroy(request, *args, **kwargs)
         return Response({'success': True, 'message': 'Aluno excluído com sucesso.'})
 
-    @action(detail=True, methods=['post'], url_path='transferir')
+    @action(detail=True, methods=['post', 'put'], url_path='transferir')
     def transferir(self, request, pk=None):
         aluno = self.get_object()
         serializer = TransferirAlunoSerializer(data=request.data)
@@ -92,20 +126,34 @@ class AlunoStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = request.tenant or request.user.escola
-        qs = Aluno.objects.filter(escola=escola)
+        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        if not escola and getattr(request.user, 'role', '') == 'SUPERADMIN':
+            qs = Aluno.objects.all()
+        elif escola:
+            qs = Aluno.objects.filter(escola=escola)
+        else:
+            qs = Aluno.objects.none()
+
         total = qs.count()
         ativos = qs.filter(status='ATIVO').count()
-        genero = dict(qs.values_list('genero').annotate(total=Count('id')))
+        genero_counts = dict(qs.values_list('genero').annotate(total=Count('id')))
+        genero_m = genero_counts.get('M', 0)
+        genero_f = genero_counts.get('F', 0)
+        genero_dict = {'M': genero_m, 'F': genero_f}
 
         return Response({
             'success': True,
             'data': {
                 'totalAlunos': total,
+                'totalGeral': total,
                 'alunosAtivos': ativos,
-                'porGenero': genero
+                'taxaRetencao': 0.0,
+                'taxaEvasao': 0.0,
+                'porGenero': genero_dict,
+                'genero': genero_dict
             }
         })
+
 
 class AlunoPerfilMeView(APIView):
     permission_classes = [IsAuthenticated]

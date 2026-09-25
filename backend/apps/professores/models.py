@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.core.validators import MinValueValidator
 
 class Professor(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -17,7 +18,7 @@ class Professor(models.Model):
     distrito = models.CharField(max_length=100, default='Cidade de Maputo')
     carreira = models.CharField(max_length=100, default='DN1')
     especialidade = models.CharField(max_length=100)
-    carga_horaria_semanal = models.IntegerField(default=20)
+    carga_horaria_semanal = models.IntegerField(default=20, validators=[MinValueValidator(1)])
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -52,3 +53,17 @@ class AlocacaoDocente(models.Model):
             models.Index(fields=['disciplina']),
             models.Index(fields=['turma']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'professor', 'disciplina', 'turma'],
+                name='unique_alocacao_docente_disciplina_turma'
+            ),
+        ]
+
+    def clean(self):
+        from common.integrity import validar_integridade_tenant
+        validar_integridade_tenant(self, professor=self.professor, disciplina=self.disciplina, turma=self.turma)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

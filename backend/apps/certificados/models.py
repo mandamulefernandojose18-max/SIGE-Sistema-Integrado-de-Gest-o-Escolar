@@ -22,5 +22,13 @@ class Certificado(models.Model):
             models.Index(fields=['codigo_autenticidade']),
         ]
 
+    def clean(self):
+        from common.integrity import validar_integridade_tenant
+        validar_integridade_tenant(self, aluno=self.aluno)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.tipo} - {self.aluno.nome} ({self.codigo_autenticidade})"

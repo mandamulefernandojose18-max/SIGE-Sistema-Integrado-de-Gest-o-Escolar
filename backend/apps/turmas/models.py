@@ -37,6 +37,20 @@ class Turma(models.Model):
             models.Index(fields=['ano_letivo']),
             models.Index(fields=['grau_ano']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'nome', 'ano_letivo'],
+                name='unique_turma_escola_nome_ano_letivo'
+            ),
+        ]
+
+    def clean(self):
+        from common.integrity import validar_integridade_tenant
+        validar_integridade_tenant(self, director_turma=self.director_turma, director_classe=self.director_classe)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nome} ({self.ano_letivo})"

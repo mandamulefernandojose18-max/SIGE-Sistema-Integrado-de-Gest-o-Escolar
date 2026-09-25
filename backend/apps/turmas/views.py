@@ -11,15 +11,40 @@ class TurmaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or self.request.user.escola
-        qs = Turma.objects.filter(escola=escola)
+        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
+        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
+            qs = Turma.objects.all()
+        elif escola:
+            qs = Turma.objects.filter(escola=escola)
+        else:
+            qs = Turma.objects.none()
+
         ano = self.request.query_params.get('ano_letivo')
         if ano:
             qs = qs.filter(ano_letivo=ano)
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
-        escola = self.request.tenant or self.request.user.escola
+        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
+        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
+            escola_id = (
+                self.request.data.get('escola_id') or
+                self.request.data.get('escola') or
+                self.request.headers.get('X-Tenant-ID')
+            )
+            if escola_id:
+                from apps.tenants.models import Escola
+                escola = Escola.objects.filter(id=escola_id).first()
+            if not escola:
+                from apps.tenants.models import Escola
+                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+
+        if not escola:
+            from rest_framework import serializers as drf_serializers
+            raise drf_serializers.ValidationError({
+                'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de criar a turma.'
+            })
+
         serializer.save(escola=escola)
 
     def list(self, request, *args, **kwargs):
@@ -33,6 +58,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
         response = super().update(request, *args, **kwargs)
         return Response({'success': True, 'data': response.data})
 

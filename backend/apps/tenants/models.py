@@ -1,15 +1,18 @@
 import uuid
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator
+
+from decimal import Decimal
 
 class Plano(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nome = models.CharField(max_length=50, unique=True)
     descricao = models.TextField(blank=True, null=True)
-    preco = models.DecimalField(max_digits=12, decimal_places=2)
-    duracao_dias = models.IntegerField(default=30)
-    max_alunos = models.IntegerField(default=500)
-    max_professores = models.IntegerField(default=50)
+    preco = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0'))])
+    duracao_dias = models.IntegerField(default=30, validators=[MinValueValidator(1)])
+    max_alunos = models.IntegerField(default=500, validators=[MinValueValidator(1)])
+    max_professores = models.IntegerField(default=50, validators=[MinValueValidator(1)])
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -18,6 +21,24 @@ class Plano(models.Model):
         db_table = 'sige_planos'
         verbose_name = 'Plano'
         verbose_name_plural = 'Planos'
+        constraints = [
+            models.CheckConstraint(check=models.Q(preco__gte=0), name='check_plano_preco_positivo'),
+            models.CheckConstraint(check=models.Q(max_alunos__gte=1), name='check_plano_max_alunos_positivo'),
+            models.CheckConstraint(check=models.Q(max_professores__gte=1), name='check_plano_max_professores_positivo'),
+        ]
+
+    def clean(self):
+        from common.integrity import IntegrityRuleViolation
+        if self.preco is not None and self.preco < 0:
+            raise IntegrityRuleViolation("O preço do plano não pode ser negativo.")
+        if self.max_alunos is not None and self.max_alunos < 1:
+            raise IntegrityRuleViolation("A quota máxima de alunos deve ser de pelo menos 1.")
+        if self.max_professores is not None and self.max_professores < 1:
+            raise IntegrityRuleViolation("A quota máxima de professores deve ser de pelo menos 1.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nome} ({self.preco} MZN)"
@@ -75,7 +96,7 @@ class AssinaturaEscola(models.Model):
     plano = models.ForeignKey(Plano, on_delete=models.CASCADE, related_name='assinaturas')
     data_inicio = models.DateTimeField(default=timezone.now)
     data_fim = models.DateTimeField()
-    valor = models.DecimalField(max_digits=12, decimal_places=2)
+    valor = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     status = models.CharField(max_length=20, default='ATIVA')  # ATIVA, PENDENTE, EXPIRADA, SUSPENSA
     metodo_pagamento = models.CharField(max_length=50, default='TRANSFERENCIA')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -88,6 +109,27 @@ class AssinaturaEscola(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['data_fim']),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(data_fim__gte=models.F('data_inicio')),
+                name='check_assinatura_datas_coerentes'
+            ),
+            models.CheckConstraint(
+                check=models.Q(valor__gte=0),
+                name='check_assinatura_valor_positivo'
+            ),
+        ]
+
+    def clean(self):
+        from common.integrity import IntegrityRuleViolation
+        if self.data_fim and self.data_inicio and self.data_fim < self.data_inicio:
+            raise IntegrityRuleViolation("A data de término da assinatura não pode ser anterior à data de início.")
+        if self.valor is not None and self.valor < 0:
+            raise IntegrityRuleViolation("O valor da assinatura não pode ser negativo.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.escola.nome} - {self.plano.nome} ({self.status})"
