@@ -59,6 +59,13 @@ export class DisciplinasService {
   }
 
   async delete(escolaId: string, id: string) {
+    // Remover alocações e notas dependentes antes de eliminar a disciplina
+    await prisma.professorDisciplinaTurma.deleteMany({
+      where: { escola_id: escolaId, disciplina_id: id }
+    });
+    await prisma.nota.deleteMany({
+      where: { escola_id: escolaId, disciplina_id: id }
+    });
     return prisma.disciplina.delete({
       where: { id, escola_id: escolaId }
     });

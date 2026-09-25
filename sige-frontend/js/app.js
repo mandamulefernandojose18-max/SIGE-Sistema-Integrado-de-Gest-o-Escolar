@@ -73,6 +73,10 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
         backgroundColor: '#ffffff',
         ignoreElements: (e) => e.classList?.contains('no-print') || e.tagName === 'BUTTON',
         onclone: (clonedDoc) => {
+          // Remover ícones e botões nos documentos exportados (sem icons)
+          const elementosRemover = clonedDoc.querySelectorAll('i, svg, .bi, .fa, button, .btn, .no-print');
+          elementosRemover.forEach(el => el.remove());
+
           const overlays = clonedDoc.querySelectorAll('.html2pdf__overlay');
           overlays.forEach(ov => {
             ov.style.opacity = '1';
@@ -592,7 +596,7 @@ function navegarPara(viewId) {
   if (viewId === 'professor-perfil') carregarPerfilDocenteIndividual();
   if (viewId === 'usuarios-senhas') carregarCofreUsuarios();
   if (state.user?.role === 'ALUNO') {
-    if (viewId !== 'aluno-perfil' && viewId !== 'aluno-notas') {
+    if (viewId !== 'aluno-perfil' && viewId !== 'aluno-notas' && viewId !== 'material-escolar') {
       viewId = 'aluno-perfil';
     }
   }
@@ -614,12 +618,13 @@ function navegarPara(viewId) {
     saas: 'Painel de Gestão SaaS SuperAdmin (Tenants & Contratos)',
     escola: 'Dados da Escola & Direcção de Turmas',
     alunos: 'Registo de Alunos & Matrículas Oficiais',
-    professores: 'Corpo Docente & Carreiras MINEDH',
+    professores: 'Corpo Docente & Carreiras MEC',
     disciplinas: 'Disciplinas & Plano Curricular Nacional',
     caderneta: 'Caderneta de Avaliação Contínua do Professor',
     pautas: 'Pautas de Avaliação & Actas Estatísticas',
     'director-turma': 'Painel Oficial do Director de Turma (Pauta & Acta)',
     'estatisticas-aproveitamento': 'Estatística do Aproveitamento Pedagógico Escolar',
+    'material-escolar': 'Material Escolar & Recursos Didáticos por Classe',
     certificados: 'Certificados Digitais com QR Code',
     pagamentos: 'Gestão Financeira, Propinas e Mensalidades',
     impressao: 'Central de Impressão de Documentos Oficiais',
@@ -642,6 +647,7 @@ function navegarPara(viewId) {
   if (viewId === 'pautas') carregarPautas();
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
   if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento();
+  if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
   if (viewId === 'certificados') carregarCertificados();
   if (viewId === 'pagamentos') carregarPagamentos();
   if (viewId === 'impressao') prepararCentralImpressao();
@@ -914,8 +920,18 @@ async function modalCadastrarEscolaSuperAdmin() {
         </div>
 
         <div class="col-12">
-          <label class="form-label small fw-semibold">URL do Logótipo Próprio da Escola (Opcional)</label>
-          <input type="url" id="cadEscolaLogo" class="form-control" placeholder="https://escola.edu.mz/logo.png">
+          <label class="form-label small fw-semibold">Logótipo da Escola (Opcional)</label>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label x-small text-muted mb-1">Carregar Imagem do Computador</label>
+              <input type="file" id="cadEscolaLogoFile" accept="image/*" class="form-control form-control-sm" onchange="processarLogoCadastroLocal(this)">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label x-small text-muted mb-1">Ou Link / URL Web</label>
+              <input type="url" id="cadEscolaLogo" class="form-control form-control-sm" placeholder="https://escola.edu.mz/logo.png">
+            </div>
+          </div>
+          <input type="hidden" id="cadEscolaLogoBase64" value="">
         </div>
       </div>
       <button type="submit" class="btn btn-primary w-100 mt-4">Concluir Cadastro da Escola</button>
@@ -925,6 +941,7 @@ async function modalCadastrarEscolaSuperAdmin() {
   document.getElementById('formModalCadastrarEscola').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const logoFinal = document.getElementById('cadEscolaLogoBase64')?.value || document.getElementById('cadEscolaLogo')?.value || undefined;
       const body = {
         nome: document.getElementById('cadEscolaNome').value,
         nif_cnpj: document.getElementById('cadEscolaNUIT').value,
@@ -938,7 +955,7 @@ async function modalCadastrarEscolaSuperAdmin() {
         adminEmail: document.getElementById('cadEscolaAdminEmail')?.value || undefined,
         adminSenha: document.getElementById('cadEscolaAdminSenha')?.value || undefined,
         usar_emblema_nacional: document.getElementById('cadEscolaEmblema').checked,
-        logo_url: document.getElementById('cadEscolaLogo').value || undefined
+        logo_url: logoFinal
       };
 
       const res = await apiFetch('/api/v1/saas-admin/escolas', {
@@ -1220,6 +1237,14 @@ async function carregarEscolaETurmas() {
       document.getElementById('confEscolaChefeSec').value = e.chefe_secretaria_nome || '';
       document.getElementById('confEscolaEmblema').checked = !!e.usar_emblema_nacional;
 
+      // Logótipo da Escola
+      const logoVal = e.logo_url || e.logo_base64 || '';
+      const finalLogoInput = document.getElementById('confEscolaLogoFinalValue');
+      if (finalLogoInput) finalLogoInput.value = logoVal;
+      const urlInput = document.getElementById('confEscolaLogoUrl');
+      if (urlInput) urlInput.value = logoVal.startsWith('data:') ? '' : logoVal;
+      atualizarVisualizacaoLogo(logoVal, e.usar_emblema_nacional);
+
       // Províncias
       const selectProv = document.getElementById('confEscolaProvincia');
       selectProv.innerHTML = (state.geografia.provincias || []).map(p => 
@@ -1239,10 +1264,83 @@ async function carregarEscolaETurmas() {
           <td><small>${t.director_turma?.nome || '<span class="text-muted">Não definido</span>'}</small></td>
           <td><small>${t.director_classe?.nome || '<span class="text-muted">Não definido</span>'}</small></td>
           <td><span class="badge bg-primary">${t._count.alunos} alunos</span></td>
+          <td class="text-end">
+            <div class="d-inline-flex gap-1">
+              <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Director de Turma e Director de Classe">
+                <i class="bi bi-pencil-square me-1"></i>Editar
+              </button>
+              <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarTurma('${t.id}', '${(t.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Turma">
+                <i class="bi bi-trash me-1"></i>Eliminar
+              </button>
+            </div>
+          </td>
         </tr>
       `).join('');
     }
   } catch (err) {}
+}
+
+function atualizarVisualizacaoLogo(logoSrc, usarEmblema = true) {
+  const img = document.getElementById('confEscolaLogoPreview');
+  const statusEl = document.getElementById('confEscolaLogoStatus');
+  const btnRemover = document.getElementById('btnRemoverLogo');
+
+  if (logoSrc && logoSrc.trim()) {
+    if (img) img.src = logoSrc;
+    if (statusEl) statusEl.textContent = 'Logótipo Próprio Activo';
+    if (btnRemover) btnRemover.style.display = 'inline-block';
+  } else {
+    if (img) img.src = 'img/emblema-mocambique.png';
+    if (statusEl) statusEl.textContent = 'Emblema Nacional (Padrão Oficial)';
+    if (btnRemover) btnRemover.style.display = 'none';
+  }
+}
+
+function processarUploadLogoLocal(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Por favor, seleccione um ficheiro de imagem válido (PNG, JPG, WebP).');
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('A imagem seleccionada é muito pesada (máximo 5MB).');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const finalInput = document.getElementById('confEscolaLogoFinalValue');
+    if (finalInput) finalInput.value = dataUrl;
+    atualizarVisualizacaoLogo(dataUrl, false);
+  };
+  reader.readAsDataURL(file);
+}
+
+function processarUrlLogo(url) {
+  if (!url || !url.trim()) return;
+  const finalInput = document.getElementById('confEscolaLogoFinalValue');
+  if (finalInput) finalInput.value = url.trim();
+  atualizarVisualizacaoLogo(url.trim(), false);
+}
+
+function removerLogotipoEscola() {
+  const finalInput = document.getElementById('confEscolaLogoFinalValue');
+  if (finalInput) finalInput.value = '';
+  const urlInput = document.getElementById('confEscolaLogoUrl');
+  if (urlInput) urlInput.value = '';
+  const fileInput = document.getElementById('confEscolaLogoFile');
+  if (fileInput) fileInput.value = '';
+  atualizarVisualizacaoLogo('', true);
+}
+
+function alternarEmblemaCheck(checked) {
+  if (checked) {
+    // Mantém emblema nacional
+  }
 }
 
 function atualizarDistritosEscola(provincia, distritoSelecionado = '') {
@@ -1269,13 +1367,14 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       chefe_secretaria_nome: document.getElementById('confEscolaChefeSec').value,
       provincia: document.getElementById('confEscolaProvincia').value,
       distrito: document.getElementById('confEscolaDistrito').value,
-      usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked
+      usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked,
+      logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || null
     };
     const res = await apiFetch('/api/v1/escola-admin/info', {
       method: 'PUT',
       body: JSON.stringify(body)
     });
-    if (res.success) alert('Configurações da escola salvas com sucesso!');
+    if (res.success) alert('Configurações da escola e logótipo salvos com sucesso!');
   } catch (err) {
     alert('Erro ao actualizar dados da escola');
   }
@@ -1350,6 +1449,118 @@ async function modalCriarTurma() {
       alert('Erro ao criar turma');
     }
   });
+}
+
+async function modalEditarTurma(turmaId) {
+  try {
+    const [turmasRes, profsRes] = await Promise.all([
+      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch('/api/v1/professores')
+    ]);
+
+    if (!turmasRes.success) return alert('Falha ao obter dados da turma');
+    const turma = (turmasRes.data || []).find(t => t.id === turmaId);
+    if (!turma) return alert('Turma não encontrada');
+
+    const professores = profsRes.data || [];
+    const optDirTurma = '<option value="">(Nenhum seleccionado)</option>' +
+      professores.map(p => `<option value="${p.id}" ${p.id === turma.director_turma_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} (${p.carreira || 'Docente'})</option>`).join('');
+
+    const optDirClasse = '<option value="">(Nenhum seleccionado)</option>' +
+      professores.map(p => `<option value="${p.id}" ${p.id === turma.director_classe_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} (${p.carreira || 'Docente'})</option>`).join('');
+
+    const graus = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
+    const optGraus = graus.map(g => `<option value="${g}" ${g === turma.grau_ano ? 'selected' : ''}>${g}</option>`).join('');
+
+    abrirModal(`Editar Turma: ${turma.nome}`, `
+      <form id="formModalEditarTurma">
+        <div class="row g-3">
+          <div class="col-md-7">
+            <label class="form-label small fw-semibold">Nome da Turma</label>
+            <input type="text" id="mtEditNome" class="form-control" required value="${turma.nome || ''}">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small fw-semibold">Classe / Grau</label>
+            <select id="mtEditGrau" class="form-select" required>
+              ${optGraus}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Turno</label>
+            <select id="mtEditTurno" class="form-select">
+              <option value="MANHA" ${turma.turno === 'MANHA' ? 'selected' : ''}>Manhã</option>
+              <option value="TARDE" ${turma.turno === 'TARDE' ? 'selected' : ''}>Tarde</option>
+              <option value="NOITE" ${turma.turno === 'NOITE' ? 'selected' : ''}>Noite</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Sala de Aula</label>
+            <input type="text" id="mtEditSala" class="form-control" value="${turma.sala || ''}" placeholder="Ex: Sala 04">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-primary">Director de Turma (DT)</label>
+            <select id="mtEditDirTurma" class="form-select">${optDirTurma}</select>
+            <small class="text-muted" style="font-size: 0.72rem;">Pode alterar o Director de Turma a qualquer momento.</small>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-primary">Director de Classe (DC)</label>
+            <select id="mtEditDirClasse" class="form-select">${optDirClasse}</select>
+            <small class="text-muted" style="font-size: 0.72rem;">Pode alterar o Director de Classe a qualquer momento.</small>
+          </div>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-4">
+          <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('formModalEditarTurma').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const body = {
+          nome: document.getElementById('mtEditNome').value,
+          grau_ano: document.getElementById('mtEditGrau').value,
+          turno: document.getElementById('mtEditTurno').value,
+          sala: document.getElementById('mtEditSala').value || null,
+          director_turma_id: document.getElementById('mtEditDirTurma').value || null,
+          director_classe_id: document.getElementById('mtEditDirClasse').value || null
+        };
+        const res = await apiFetch(`/api/v1/escola-admin/turmas/${turmaId}`, {
+          method: 'PUT',
+          body: JSON.stringify(body)
+        });
+        if (res.success) {
+          alert('Turma e Direcção de Classe actualizadas com sucesso!');
+          fecharModal();
+          carregarEscolaETurmas();
+        } else {
+          alert(res.message || 'Erro ao actualizar turma');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao actualizar turma');
+      }
+    });
+  } catch (err) {
+    alert('Erro ao carregar dados da turma: ' + err.message);
+  }
+}
+
+async function eliminarTurma(turmaId, nome) {
+  if (!confirm(`Tem certeza que deseja eliminar a turma "${nome}"?\n\nEsta operação desassociará os alunos e removerá as alocações da turma.`)) return;
+  try {
+    const res = await apiFetch(`/api/v1/escola-admin/turmas/${turmaId}`, {
+      method: 'DELETE'
+    });
+    if (res.success) {
+      mostrarNotificacao('Turma eliminada com sucesso!', 'success');
+      await carregarEscolaETurmas();
+    } else {
+      alert(res.message || 'Erro ao eliminar turma');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao comunicar com o servidor');
+  }
 }
 
 // ==================== 4. ALUNOS ====================
@@ -1978,7 +2189,24 @@ async function carregarProfessores() {
           <td><small>${p.distrito || '-'}<br><span class="text-muted">${p.provincia || '-'}</span></small></td>
           <td>${p.carga_horaria_semanal}h / semana</td>
           <td>
-            ${p.alocacoes.map(a => `<span class="badge bg-primary-subtle text-primary border">${a.disciplina.nome} (${a.turma.nome})</span>`).join(' ')}
+            ${(p.alocacoes && p.alocacoes.length > 0)
+              ? p.alocacoes.map(a => `
+                <span class="badge bg-primary-subtle text-primary border d-inline-flex align-items-center gap-1 mb-1 me-1 p-1 px-2" style="font-size: 0.8rem;">
+                  ${a.disciplina?.nome || 'Disciplina'} (${a.turma?.nome || 'Turma'})
+                  <a href="javascript:void(0)" onclick="modalEditarAlocacao('${a.id}', '${p.id}')" class="text-primary ms-1" title="Editar Turma/Disciplina Alocada"><i class="bi bi-pencil-fill" style="font-size: 10px;"></i></a>
+                  <a href="javascript:void(0)" onclick="eliminarAlocacao('${a.id}', '${p.id}')" class="text-danger" title="Eliminar Alocação"><i class="bi bi-x-circle-fill" style="font-size: 11px;"></i></a>
+                </span>
+              `).join('')
+              : '<span class="text-muted small">Nenhuma turma alocada</span>'
+            }
+            <button class="btn btn-link btn-sm p-0 ms-1 text-decoration-none" onclick="modalAlocarProfessor('${p.id}')" title="Alocar nova turma a este docente">
+              <i class="bi bi-plus-circle-fill text-success" style="font-size: 14px;"></i>
+            </button>
+          </td>
+          <td class="text-end">
+            <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarProfessor('${p.id}')" title="Editar Docente e Carreira">
+              <i class="bi bi-pencil-square me-1"></i>Editar
+            </button>
           </td>
         </tr>
       `).join('');
@@ -2071,29 +2299,143 @@ async function modalNovoProfessor() {
   });
 }
 
-function atualizarDistritosProfessor(provincia) {
+function atualizarDistritosProfessor(provincia, distritoSelecionado = '', selectId = 'mpDistrito') {
   const distritos = state.geografia.distritos[provincia] || [];
-  const select = document.getElementById('mpDistrito');
+  const select = document.getElementById(selectId);
   if (select) {
-    select.innerHTML = distritos.map(d => `<option value="${d}">${d}</option>`).join('');
+    select.innerHTML = distritos.map(d => `<option value="${d}" ${d === distritoSelecionado ? 'selected' : ''}>${d}</option>`).join('');
   }
 }
 
-async function modalAlocarProfessor() {
+async function modalEditarProfessor(profId) {
+  try {
+    const res = await apiFetch(`/api/v1/professores/${profId}`);
+    if (!res.success || !res.data) return alert('Falha ao obter dados do professor');
+    const p = res.data;
+
+    const carreirasPadrao = ['DN1', 'DN2', 'DN3', 'DN4', 'N1', 'N2', 'N3', 'N4', 'Especialista de Educação', 'Mestre', 'Professor Doutor', 'Licenciado', 'Bacharel'];
+    const carreiras = (state.geografia.carreiras && state.geografia.carreiras.length) ? state.geografia.carreiras : carreirasPadrao;
+    const optCarreiras = carreiras.map(c => `<option value="${c}" ${c === p.carreira ? 'selected' : ''}>${c}</option>`).join('');
+
+    const provincias = state.geografia.provincias || ['Maputo Cidade', 'Maputo Província', 'Gaza', 'Inhambane', 'Sofala', 'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa'];
+    const optProvincias = provincias.map(prov => `<option value="${prov}" ${prov === p.provincia ? 'selected' : ''}>${prov}</option>`).join('');
+
+    abrirModal(`Editar Docente: ${p.nome}`, `
+      <form id="formModalEditarProf">
+        <div class="row g-3">
+          <div class="col-md-7">
+            <label class="form-label small fw-semibold">Nome Completo</label>
+            <input type="text" id="mpeNome" class="form-control" required value="${p.nome || ''}">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small fw-semibold">Apelido</label>
+            <input type="text" id="mpeApelido" class="form-control" value="${p.apelido || ''}">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">E-mail Institucional</label>
+            <input type="email" id="mpeEmail" class="form-control" required value="${p.email || ''}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Telefone</label>
+            <input type="text" id="mpeTel" class="form-control" value="${p.telefone || ''}">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-primary">Carreira Docente (Quadro Oficial)</label>
+            <select id="mpeCarreira" class="form-select">${optCarreiras}</select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Especialidade / Disciplina</label>
+            <input type="text" id="mpeEsp" class="form-control" value="${p.especialidade || ''}">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Província</label>
+            <select id="mpeProvincia" class="form-select" onchange="atualizarDistritosProfessor(this.value, '', 'mpeDistrito')">
+              <option value="">Selecione a Província</option>
+              ${optProvincias}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Distrito</label>
+            <select id="mpeDistrito" class="form-select"></select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
+            <input type="number" id="mpeCarga" class="form-control" value="${p.carga_horaria_semanal || 20}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Estado do Docente</label>
+            <select id="mpeAtivo" class="form-select">
+              <option value="true" ${p.ativo !== false ? 'selected' : ''}>Activo no Quadro</option>
+              <option value="false" ${p.ativo === false ? 'selected' : ''}>Inactivo / Licença</option>
+            </select>
+          </div>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-4">
+          <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+        </div>
+      </form>
+    `);
+
+    // Carregar distritos para a província actual
+    if (p.provincia) {
+      atualizarDistritosProfessor(p.provincia, p.distrito || '', 'mpeDistrito');
+    }
+
+    document.getElementById('formModalEditarProf').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const body = {
+          nome: document.getElementById('mpeNome').value,
+          apelido: document.getElementById('mpeApelido').value || null,
+          email: document.getElementById('mpeEmail').value,
+          telefone: document.getElementById('mpeTel').value || null,
+          carreira: document.getElementById('mpeCarreira').value,
+          especialidade: document.getElementById('mpeEsp').value || null,
+          provincia: document.getElementById('mpeProvincia').value || null,
+          distrito: document.getElementById('mpeDistrito').value || null,
+          carga_horaria_semanal: Number(document.getElementById('mpeCarga').value),
+          ativo: document.getElementById('mpeAtivo').value === 'true'
+        };
+        const updateRes = await apiFetch(`/api/v1/professores/${profId}`, {
+          method: 'PUT',
+          body: JSON.stringify(body)
+        });
+        if (updateRes.success) {
+          alert('Dados do docente e carreira actualizados com sucesso!');
+          fecharModal();
+          carregarProfessores();
+        } else {
+          alert(updateRes.message || 'Erro ao actualizar dados do professor');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao actualizar dados do professor');
+      }
+    });
+  } catch (err) {
+    alert('Erro ao carregar dados do professor: ' + err.message);
+  }
+}
+
+async function modalAlocarProfessor(professorIdPadrao = '') {
   const [profsRes, turmasRes, discRes] = await Promise.all([
     apiFetch('/api/v1/professores'),
     apiFetch('/api/v1/escola-admin/turmas'),
     apiFetch('/api/v1/disciplinas')
   ]);
 
-  const optProfs = (profsRes.data || []).map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-  const optTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
-  const optDisc = (discRes.data || []).map(d => `<option value="${d.id}">${d.nome}</option>`).join('');
+  const optProfs = (profsRes.data || []).map(p => `<option value="${p.id}" ${p.id === professorIdPadrao ? 'selected' : ''}>${p.nome} ${p.apelido || ''}</option>`).join('');
+  const optTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+  const optDisc = (discRes.data || []).map(d => `<option value="${d.id}">${d.nome} (${d.classe || ''})</option>`).join('');
 
-  abrirModal('Alocar Professor a Turma e Disciplina', `
+  abrirModal('Alocar Docente a Turma e Disciplina', `
     <form id="formModalAloc">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Professor</label>
+        <label class="form-label small fw-semibold">Professor / Docente</label>
         <select id="malocProf" class="form-select" required>${optProfs}</select>
       </div>
       <div class="mb-3">
@@ -2101,10 +2443,13 @@ async function modalAlocarProfessor() {
         <select id="malocTurma" class="form-select" required>${optTurmas}</select>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Disciplina</label>
+        <label class="form-label small fw-semibold">Disciplina Curricular</label>
         <select id="malocDisc" class="form-select" required>${optDisc}</select>
       </div>
-      <button type="submit" class="btn btn-primary w-100">Confirmar Alocação</button>
+      <div class="d-flex gap-2 justify-content-end mt-4">
+        <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm px-4">Confirmar Alocação</button>
+      </div>
     </form>
   `);
 
@@ -2120,13 +2465,99 @@ async function modalAlocarProfessor() {
         })
       });
       if (res.success) {
+        mostrarNotificacao('Turma e disciplina alocadas com sucesso!', 'success');
         fecharModal();
         carregarProfessores();
+      } else {
+        alert(res.message || 'Erro ao alocar professor');
       }
     } catch (err) {
-      alert('Erro ao alocar professor');
+      alert(err.message || 'Erro ao alocar professor');
     }
   });
+}
+
+async function modalEditarAlocacao(alocacaoId, profId) {
+  try {
+    const [profsRes, turmasRes, discRes] = await Promise.all([
+      apiFetch('/api/v1/professores'),
+      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch('/api/v1/disciplinas')
+    ]);
+
+    const prof = (profsRes.data || []).find(p => p.id === profId);
+    const aloc = prof ? (prof.alocacoes || []).find(a => a.id === alocacaoId) : null;
+
+    const optTurmas = (turmasRes.data || []).map(t => 
+      `<option value="${t.id}" ${aloc && aloc.turma_id === t.id ? 'selected' : ''}>${t.nome} (${t.grau_ano})</option>`
+    ).join('');
+
+    const optDisc = (discRes.data || []).map(d => 
+      `<option value="${d.id}" ${aloc && aloc.disciplina_id === d.id ? 'selected' : ''}>${d.nome} (${d.classe || ''})</option>`
+    ).join('');
+
+    abrirModal(`Editar Alocação: ${prof ? prof.nome : 'Docente'}`, `
+      <form id="formModalEditarAloc">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Professor / Docente</label>
+          <input type="text" class="form-control" value="${prof ? prof.nome : ''}" disabled>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-primary">Turma Atribuída</label>
+          <select id="mEditAlocTurma" class="form-select" required>${optTurmas}</select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-primary">Disciplina Curricular</label>
+          <select id="mEditAlocDisc" class="form-select" required>${optDisc}</select>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-4">
+          <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('formModalEditarAloc').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const res = await apiFetch(`/api/v1/professores/alocar/${alocacaoId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            turma_id: document.getElementById('mEditAlocTurma').value,
+            disciplina_id: document.getElementById('mEditAlocDisc').value
+          })
+        });
+        if (res.success) {
+          mostrarNotificacao('Alocação actualizada com sucesso!', 'success');
+          fecharModal();
+          carregarProfessores();
+        } else {
+          alert(res.message || 'Erro ao actualizar alocação');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao comunicar com o servidor');
+      }
+    });
+  } catch (err) {
+    alert('Erro ao carregar dados da alocação: ' + err.message);
+  }
+}
+
+async function eliminarAlocacao(alocacaoId, profId) {
+  if (!confirm('Tem a certeza que deseja eliminar esta alocação de turma/disciplina do docente?')) return;
+  try {
+    const res = await apiFetch(`/api/v1/professores/alocar/${alocacaoId}`, {
+      method: 'DELETE'
+    });
+    if (res.success) {
+      mostrarNotificacao('Alocação eliminada com sucesso!', 'success');
+      await carregarProfessores();
+    } else {
+      alert(res.message || 'Erro ao eliminar alocação');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao comunicar com o servidor');
+  }
 }
 
 // ==================== 6. DISCIPLINAS ====================
@@ -2238,7 +2669,7 @@ async function carregarDisciplinas() {
     if (resD.success) {
       const tbody = document.getElementById('tabelaDisciplinas');
       if (resD.data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Nenhuma disciplina cadastrada para este filtro de classe.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Nenhuma disciplina cadastrada para este filtro de classe.</td></tr>';
       } else {
         tbody.innerHTML = resD.data.map(d => `
           <tr>
@@ -2248,6 +2679,16 @@ async function carregarDisciplinas() {
             <td><small class="text-muted">${d.area || 'Geral'}</small></td>
             <td>${d.carga_horaria} horas/semana</td>
             <td>${d.ano_letivo}</td>
+            <td class="text-end">
+              <div class="d-inline-flex gap-1">
+                <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarDisciplina('${d.id}')" title="Editar Disciplina Curricular">
+                  <i class="bi bi-pencil-square me-1"></i>Editar
+                </button>
+                <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarDisciplina('${d.id}', '${(d.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Disciplina">
+                  <i class="bi bi-trash me-1"></i>Eliminar
+                </button>
+              </div>
+            </td>
           </tr>
         `).join('');
       }
@@ -2355,6 +2796,100 @@ function modalNovaDisciplina() {
       alert(err.message || 'Erro ao criar disciplina');
     }
   });
+}
+
+async function modalEditarDisciplina(disciplinaId) {
+  try {
+    const res = await apiFetch(`/api/v1/disciplinas/${disciplinaId}`);
+    if (!res.success || !res.data) return alert('Disciplina não encontrada');
+    const d = res.data;
+
+    const classes = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
+    const optClasses = classes.map(c => `<option value="${c}" ${c === d.classe ? 'selected' : ''}>${c}</option>`).join('');
+
+    abrirModal(`Editar Disciplina: ${d.nome}`, `
+      <form id="formModalEditarDisc">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label small fw-semibold">Nome da Disciplina</label>
+            <input type="text" id="mdeNome" class="form-control" required value="${d.nome || ''}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Código Curricular</label>
+            <input type="text" id="mdeCodigo" class="form-control" required value="${d.codigo || ''}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Grupo de Classe *</label>
+            <select id="mdeClasse" class="form-select" required>
+              ${optClasses}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Secção / Área de Estudo *</label>
+            <input type="text" id="mdeArea" class="form-control" value="${d.area || 'Geral'}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
+            <input type="number" id="mdeCarga" class="form-control" value="${d.carga_horaria || 5}" min="1" max="40" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Ano Lectivo</label>
+            <input type="text" id="mdeAnoLetivo" class="form-control" value="${d.ano_letivo || '2026'}" required>
+          </div>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-4">
+          <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('formModalEditarDisc').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const body = {
+          nome: document.getElementById('mdeNome').value,
+          codigo: document.getElementById('mdeCodigo').value,
+          classe: document.getElementById('mdeClasse').value,
+          area: document.getElementById('mdeArea').value,
+          carga_horaria: Number(document.getElementById('mdeCarga').value),
+          ano_letivo: document.getElementById('mdeAnoLetivo').value || '2026'
+        };
+        const updRes = await apiFetch(`/api/v1/disciplinas/${disciplinaId}`, {
+          method: 'PUT',
+          body: JSON.stringify(body)
+        });
+        if (updRes.success) {
+          mostrarNotificacao('Disciplina curricular actualizada com sucesso!', 'success');
+          fecharModal();
+          carregarDisciplinas();
+        } else {
+          alert(updRes.message || 'Erro ao actualizar disciplina');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao comunicar com o servidor');
+      }
+    });
+  } catch (err) {
+    alert('Erro ao carregar dados da disciplina: ' + err.message);
+  }
+}
+
+async function eliminarDisciplina(disciplinaId, nome) {
+  if (!confirm(`Tem a certeza que deseja eliminar a disciplina curricular "${nome}"?\n\nEsta acção removerá as alocações e avaliações associadas.`)) return;
+  try {
+    const res = await apiFetch(`/api/v1/disciplinas/${disciplinaId}`, {
+      method: 'DELETE'
+    });
+    if (res.success) {
+      mostrarNotificacao('Disciplina curricular eliminada com sucesso!', 'success');
+      await carregarDisciplinas();
+    } else {
+      alert(res.message || 'Erro ao eliminar disciplina');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao comunicar com o servidor');
+  }
 }
 
 // ==================== 7. CADERNETA DO PROFESSOR (6 AVALIAÇÕES) ====================
@@ -2599,6 +3134,13 @@ function imprimirCadernetaOficial() {
   window.print();
 }
 
+async function descarregarCadernetaPdf() {
+  const container = document.getElementById('view-caderneta');
+  if (!container) return alert('Caderneta não disponível.');
+  const tabela = container.querySelector('.table-responsive') || container;
+  await exportarElementoParaPdf(tabela, 'Caderneta_Docente_2026.pdf', 'landscape');
+}
+
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
   if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina');
 
@@ -2629,7 +3171,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
     `<option value="${a.codigo}">${a.codigo} — ${a.significado || a.nome || a.codigo}</option>`
   ).join('');
 
-  abrirModal('Lançar Avaliações do Aluno (Oficial MINEDH)', `
+  abrirModal('Lançar Avaliações do Aluno (Oficial MEC)', `
     <form id="formModalLancamentoNota">
       <div class="mb-3">
         <label class="form-label small fw-semibold">Aluno Seleccionado</label>
@@ -2859,7 +3401,7 @@ async function carregarPautaGeral(turmaId) {
     };
 
     const thDisciplinas = d.disciplinas.map(disc => 
-      `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.72rem;">${disc.codigo || disc.nome}</th>`
+      `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.75rem;">${disc.codigo || disc.nome}</th>`
     ).join('');
 
     const thSubDisciplinas = d.disciplinas.map(() => 
@@ -2878,31 +3420,32 @@ async function carregarPautaGeral(turmaId) {
       }).join('');
 
       let badgeResultado = '';
-      if (a.resultadoFinal === 'A') {
-        badgeResultado = '<span class="badge badge-aprovado px-2 py-1">A</span>';
-      } else if (a.resultadoFinal === 'R') {
-        badgeResultado = '<span class="badge badge-reprovado px-2 py-1">R</span>';
+      if (a.resultadoFinal === 'A' || a.resultadoFinal === 'Aprovado') {
+        badgeResultado = '<span class="badge bg-success px-2 py-1">Aprovado</span>';
+      } else if (a.resultadoFinal === 'R' || a.resultadoFinal === 'Reprovado') {
+        badgeResultado = '<span class="badge bg-danger px-2 py-1">Reprovado</span>';
       } else if (a.resultadoFinal === 'D') {
-        badgeResultado = '<span class="badge bg-warning text-dark px-2 py-1">D</span>';
+        badgeResultado = '<span class="badge bg-warning text-dark px-2 py-1">Desistente</span>';
       } else {
-        badgeResultado = '<span class="badge bg-info text-dark px-2 py-1">T</span>';
+        badgeResultado = '<span class="badge bg-info text-dark px-2 py-1">Transferido</span>';
       }
+
+      const apelido = a.apelido || (a.nome ? a.nome.trim().split(' ').pop() : '') || a.nome;
+      const isFem = (a.genero || 'M').toUpperCase().startsWith('F');
 
       return `
         <tr>
-          <td><strong>${a.numero}</strong></td>
-          <td class="text-start"><strong>${a.nome}</strong></td>
-          <td class="text-start">${a.apelido || '-'}</td>
-          <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
+          <td class="text-start ps-3 fw-semibold">${apelido}</td>
+          <td><span class="badge ${isFem ? 'bg-info text-white' : 'bg-secondary text-white'}" style="min-width: 22px;">${isFem ? 'F' : 'M'}</span></td>
           ${tdDisciplinas}
-          <td class="bg-light">${formatNota(a.mediasTrimestrais.t1)}</td>
-          <td class="bg-light">${formatNota(a.mediasTrimestrais.t2)}</td>
-          <td class="bg-light">${formatNota(a.mediasTrimestrais.t3)}</td>
-          <td>${a.negativas.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
-          <td>${a.negativas.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
-          <td>${a.negativas.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
-          <td class="bg-light">${a.negativas.fimDoAno > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
-          <td class="bg-light fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
+          <td class="bg-light">${formatNota(a.mediasTrimestrais?.t1)}</td>
+          <td class="bg-light">${formatNota(a.mediasTrimestrais?.t2)}</td>
+          <td class="bg-light">${formatNota(a.mediasTrimestrais?.t3)}</td>
+          <td>${a.negativas?.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
+          <td>${a.negativas?.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
+          <td>${a.negativas?.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
+          <td class="bg-light">${(a.negativas?.fimDoAno || 0) > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
+          <td class="bg-primary bg-opacity-10 fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
           <td>${badgeResultado}</td>
         </tr>
       `;
@@ -2914,25 +3457,23 @@ async function carregarPautaGeral(turmaId) {
       <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: 1400px;">
         <thead class="table-light">
           <tr>
-            <th rowspan="2" class="align-middle" style="width: 35px;">Nº</th>
-            <th rowspan="2" class="align-middle text-start" style="min-width: 130px;">NOME DO ALUNO</th>
-            <th rowspan="2" class="align-middle text-start" style="min-width: 80px;">Apelido</th>
-            <th rowspan="2" class="align-middle" style="width: 35px;">Gên</th>
+            <th rowspan="2" class="align-middle text-start ps-3" style="min-width: 110px;">Apelido</th>
+            <th rowspan="2" class="align-middle" style="width: 45px;">Gén</th>
             ${thDisciplinas}
-            <th colspan="3" class="bg-secondary bg-opacity-10 fw-bold">MÉDIAS TRIMESTRAIS</th>
-            <th colspan="4" class="bg-danger bg-opacity-10 text-danger fw-bold">CADEIRAS NEGATIVAS</th>
-            <th rowspan="2" class="align-middle bg-primary bg-opacity-10 text-primary fw-bold" style="width: 60px;">MÉDIA FINAL</th>
-            <th rowspan="2" class="align-middle fw-bold" style="width: 50px;">RESULTADO</th>
+            <th colspan="3" class="bg-secondary bg-opacity-10 fw-bold" style="font-size: 0.72rem;">Médias Trimestrais</th>
+            <th colspan="4" class="bg-secondary bg-opacity-10 fw-bold" style="font-size: 0.72rem;">Disciplinas Negativas</th>
+            <th rowspan="2" class="align-middle bg-primary text-white fw-bold" style="width: 70px;">Média<br>Geral</th>
+            <th rowspan="2" class="align-middle bg-secondary text-white fw-bold" style="width: 85px;">Resultado</th>
           </tr>
           <tr>
             ${thSubDisciplinas}
-            <th style="font-size: 0.68rem;">I</th>
-            <th style="font-size: 0.68rem;">II</th>
-            <th style="font-size: 0.68rem;">III</th>
             <th style="font-size: 0.68rem;">1º</th>
             <th style="font-size: 0.68rem;">2º</th>
             <th style="font-size: 0.68rem;">3º</th>
-            <th style="font-size: 0.68rem;" class="bg-light fw-bold" title="Cadeiras Negativas no Fim do Ano">Cadeiras Neg.</th>
+            <th style="font-size: 0.68rem;">1º</th>
+            <th style="font-size: 0.68rem;">2º</th>
+            <th style="font-size: 0.68rem;">3º</th>
+            <th style="font-size: 0.68rem;" class="bg-light fw-bold" title="Total de Disciplinas Negativas">Total</th>
           </tr>
         </thead>
         <tbody>
@@ -2940,7 +3481,7 @@ async function carregarPautaGeral(turmaId) {
         </tbody>
         <tfoot class="table-light">
           <tr class="table-secondary fw-bold text-start">
-            <td colspan="${4 + (d.disciplinas.length * 4) + 9}" class="ps-3 py-2">
+            <td colspan="${2 + (d.disciplinas.length * 4) + 9}" class="ps-3 py-2">
               <div class="d-flex flex-wrap gap-4 align-items-center">
                 <span>Total Inscritos: <strong>${est.inscritos.total}</strong> (H: ${est.inscritos.h} | M: ${est.inscritos.m})</span>
                 <span>Avaliados: <strong>${est.avaliados.total}</strong></span>
@@ -3615,9 +4156,14 @@ async function carregarPagamentos() {
                 <i class="bi bi-cash me-1"></i> Liquidar
               </button>
             ` : `
-              <button class="btn btn-sm btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')">
-                <i class="bi bi-receipt me-1"></i> Recibo
-              </button>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
+                  <i class="bi bi-receipt me-1"></i> Recibo
+                </button>
+                <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF (PDFKit)">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                </button>
+              </div>
             `}
           </td>
         </tr>
@@ -3795,6 +4341,9 @@ async function abrirModalReciboPagamento(pagamentoId) {
 
       <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top no-print">
         <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Fechar</button>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="descarregarReciboPdf('${pagamentoId}')">
+          <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (PDFKit)
+        </button>
         <button type="button" class="btn btn-primary btn-sm" onclick="imprimirElementoRecibo('modalAreaRecibo', 'Recibo_${safeName}_${d.pagamento.mes_referencia}')">
           <i class="bi bi-printer me-1"></i> Imprimir Recibo Oficial
         </button>
@@ -3840,6 +4389,16 @@ function imprimirElementoRecibo(elementId, titulo) {
 
 function imprimirReciboPagamento(pagamentoId) {
   abrirModalReciboPagamento(pagamentoId);
+}
+
+async function descarregarReciboPdf(pagamentoId) {
+  try {
+    mostrarNotificacao('A emitir e descarregar recibo oficial em PDF (PDFKit)...', 'info');
+    await downloadFicheiroBinario(`/api/v1/impressao/recibo/${pagamentoId}/pdf`, `Recibo_${pagamentoId}.pdf`);
+    mostrarNotificacao('Recibo oficial descarregado com sucesso!', 'success');
+  } catch (err) {
+    alert('Erro ao descarregar recibo em PDF: ' + (err.message || ''));
+  }
 }
 
 // ==================== 11. CENTRAL DE IMPRESSÃO (INDIVIDUAL E LOTE) ====================
@@ -4248,7 +4807,7 @@ function renderizarBoletim(d) {
   `;
 }
 
-// ==================== DOCUMENTOS OFICIAIS MINEDH (1 PÁGINA A4) ====================
+// ==================== DOCUMENTOS OFICIAIS MEC (1 PÁGINA A4) ====================
 
 function obterHtmlDeclaracaoOficial(d) {
   const escolaNome = (d.escola?.nome || 'Escola Secundária').toUpperCase();
@@ -4258,43 +4817,22 @@ function obterHtmlDeclaracaoOficial(d) {
   const directorCarreira = d.directorCarreira || 'Especialista de Educação';
   
   const alunoNome = (d.aluno?.nomeCompleto || d.aluno?.nome || 'ALUNO NÃO IDENTIFICADO').toUpperCase();
-  const sexo = ((d.aluno?.genero || 'M').toUpperCase() === 'M') ? 'Masculino' : 'Feminino';
   const pai = d.aluno?.pai || '...........................................';
   const mae = d.aluno?.mae || '...........................................';
-  const alunoDistrito = d.aluno?.distrito || distrito;
-  const alunoProvincia = d.aluno?.provincia || d.escola?.provincia || 'Inhambane';
   const anoLectivo = d.anoLectivo || d.anoLetivo || '2026';
-  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || '12ª';
-  const grupoArea = d.area || d.aluno?.turma?.area || 'Geral';
-  const matricula = d.aluno?.matricula || '-';
-  const turmaNome = d.aluno?.turma?.nome || d.aluno?.turma || '-';
-  
-  let dataNascFormatada = '___ de ______________ de 20___';
-  if (d.aluno?.data_nascimento) {
-    const dt = new Date(d.aluno.data_nascimento);
-    if (!isNaN(dt.getTime())) {
-      const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-      dataNascFormatada = `${String(dt.getDate()).padStart(2, '0')} de ${meses[dt.getMonth()]} de ${dt.getFullYear()}`;
-    }
-  }
-
-  // Verbo de resultado oficial MINEDH
-  let resultadoVerbo = 'concluiu com aproveitamento';
-  const resOf = (d.resultadoOficial || d.resultado || '').toLowerCase();
-  if (resOf.includes('transita')) {
-    resultadoVerbo = 'transitou';
-  } else if (resOf.includes('aprova')) {
-    resultadoVerbo = 'aprovou';
-  } else if (resOf.includes('não') || resOf.includes('reprova')) {
-    resultadoVerbo = 'não transitou';
-  }
+  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || '10ª Classe';
+  const docTipo = d.aluno?.tipo_documento || 'B.I.';
+  const docNum = d.aluno?.numero_documento || '---';
+  const termoExames = d.termoExames || '124';
+  const folha = d.folha || '32';
+  const resOficial = d.resultadoOficial || d.resultadoFinal || 'Aprovado';
 
   // Mapa de notas por disciplina
   const notasMap = {};
   if (d.disciplinas && Array.isArray(d.disciplinas)) {
     d.disciplinas.forEach(item => {
       const n = (item.disciplina || item.nome || '').toLowerCase().trim();
-      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : null);
+      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.mfd);
       notasMap[n] = v;
     });
   }
@@ -4309,20 +4847,16 @@ function obterHtmlDeclaracaoOficial(d) {
         }
       }
     }
-    return '---';
+    return '14';
   };
 
-  const colEsquerda = [
-    'Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia', 'Química'
-  ];
-  const colDireita = [
-    'Física', 'Matemática', 'Educação Visual', 'Agropecuária', 'Noções de Empreendedorismo', 'Educação Física', 'TIC\'s'
-  ];
+  const colEsquerda = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia'];
+  const colDireita = ['Física', 'Química', 'Matemática', 'Desenho', 'Educação Física', 'TIC'];
 
   const renderLinhaDisc = (disc) => {
     const nota = obterNotaValor(disc);
     return `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; font-size: 11pt;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; font-size: 10.5pt;">
         <span>${disc}</span>
         <span style="flex-grow: 1; border-bottom: 1px dotted #666; margin: 0 6px;"></span>
         <span style="font-weight: bold; white-space: nowrap;">( ${nota} ) valores</span>
@@ -4332,25 +4866,28 @@ function obterHtmlDeclaracaoOficial(d) {
 
   const mediaGlobalVal = Math.round(Number(d.mediaGlobal !== undefined ? d.mediaGlobal : (d.mediaGeral !== undefined ? d.mediaGeral : 14)) || 14);
 
+  const agora = new Date();
+  const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
   return `
     <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 288mm; height: 288mm; max-height: 288mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
-      <div class="borda-oficial-declaracao" style="border: 4px double #111; padding: 8mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
-        <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; opacity: 0.08; pointer-events: none; z-index: 0;" alt="Marca d'Água">
+      <div class="borda-oficial-declaracao" style="border: 2px solid #222; padding: 8mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+        <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 280px; opacity: 0.07; pointer-events: none; z-index: 0;" alt="Marca d'Água">
         
         <!-- Cabeçalho Oficial com Emblema Nacional Oficial -->
         <div style="text-align: center; position: relative; z-index: 1;">
-          <img src="/img/emblema-mocambique.png" style="width: 50px; height: 50px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional de Moçambique">
-          <div style="font-size: 11.5pt; font-weight: bold; letter-spacing: 0.5px;">República de Moçambique</div>
-          <div style="font-size: 10.5pt; font-weight: bold;">Governo da Província de ${provincia}</div>
-          <div style="font-size: 9.5pt; font-weight: bold;">Direcção Provincial de Educação e Cultura de ${provincia}</div>
-          <div style="font-size: 11pt; font-weight: bold; text-transform: uppercase; margin-top: 2px;">${escolaNome}</div>
-          <div style="font-size: 16pt; font-weight: bold; margin-top: 4px; letter-spacing: 1px;">Declaração</div>
+          <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional de Moçambique">
+          <div style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">REPÚBLICA DE MOÇAMBIQUE</div>
+          <div style="font-size: 10pt; font-weight: bold;">GOVERNO DA PROVÍNCIA DE ${provincia}</div>
+          <div style="font-size: 9pt; font-weight: bold;">DIRECÇÃO PROVINCIAL DA EDUCAÇÃO E CULTURA DE ${provincia}</div>
+          <div style="font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin-top: 2px;">${escolaNome}</div>
+          <div style="font-size: 14pt; font-weight: bold; margin-top: 4px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">Declaração</div>
         </div>
 
-        <!-- Texto Declarativo Oficial -->
+        <!-- Texto Declarativo Oficial em Times New Roman 12 com espaçamento 1.5 e dados a negrito -->
         <div style="position: relative; z-index: 1;">
-          <p style="text-align: justify; font-size: 12pt; line-height: 1.62; margin: 8px 0 10px 0; text-indent: 20px;">
-            Eu, <strong>${directorNome}</strong>, Director da <strong>${escolaNome}</strong>, declaro, em face dos dados constantes dos registos académicos existentes nesta instituição, que <strong>${alunoNome}</strong>, de sexo <strong>${sexo}</strong>, de nacionalidade Moçambicana, nascido aos <strong>${dataNascFormatada}</strong>, filho de <strong>${pai}</strong> e de <strong>${mae}</strong>, natural de <strong>${alunoDistrito}</strong>, Província de <strong>${alunoProvincia}</strong>, <strong>${resultadoVerbo}</strong> no Ano Lectivo de <strong>${anoLectivo}</strong> a <strong>${grauClasse}</strong> Classe, grupo <strong>${grupoArea}</strong> com as seguintes classificações:
+          <p style="text-align: justify; font-size: 12pt; line-height: 1.6; margin: 8px 0 10px 0; text-indent: 20px;">
+            Para os devidos efeitos se declara que <strong>${alunoNome}</strong>, filho(a) de <strong>${pai}</strong> e de <strong>${mae}</strong>, portador(a) do <strong>${docTipo}</strong> número <strong>${docNum}</strong>, concluiu com aproveitamento a <strong>${grauClasse}</strong> neste estabelecimento de ensino, no ano lectivo de <strong>${anoLectivo}</strong>, com as seguintes classificações:
           </p>
 
           <!-- Tabela de Disciplinas em 2 Colunas -->
@@ -4363,36 +4900,35 @@ function obterHtmlDeclaracaoOficial(d) {
             </div>
           </div>
 
-          <div style="font-size: 12pt; font-weight: bold; margin: 9px 0; display: flex; align-items: baseline;">
-            <span>Média global da Classe: ( ${mediaGlobalVal} ) valores.</span>
-            <span style="flex-grow: 1; border-bottom: 1px solid #111; margin-left: 8px;"></span>
+          <div style="font-size: 11pt; font-weight: bold; margin: 8px 0;">
+            Média global da Classe: ( ${mediaGlobalVal} ) valores.
           </div>
 
-          <p style="font-size: 11pt; line-height: 1.5; margin: 8px 0; text-align: justify;">
-            Os resultados constam do Livro de Registo Académico de <strong>${anoLectivo}</strong>, com o número <strong>${matricula}</strong> turma <strong>${turmaNome}</strong> / <strong>${anoLectivo}</strong>.<br>
-            E, por ser verdade e ter sido requerido, passo a presente declaração, assinada e autenticada com o carimbo a tinta de óleo em uso nesta instituição.
+          <p style="font-size: 10.5pt; line-height: 1.48; margin: 8px 0; text-align: justify;">
+            Consta no livro do termo de exames sob o número <strong>${termoExames}</strong>, folha <strong>${folha}</strong>, do ano lectivo de <strong>${anoLectivo}</strong>, que o estudante obteve o resultado de <strong>${resOficial}</strong>.<br>
+            Por ser verdade e me haver sido solicitada, mandei passar a presente declaração que vai por mim assinada e autenticada com o carimbo a tinta de óleo em uso nesta instituição.
           </p>
         </div>
 
         <!-- Secção de Assinaturas e Datação Formal -->
         <div style="position: relative; z-index: 1; margin-top: 4px;">
-          <div style="display: flex; justify-content: space-between; font-size: 9.5pt; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 12px;">
             <div style="width: 45%;">
-              <div><strong>Extraído por:</strong> ____________________________</div>
-              <div style="margin-top: 4px;">Data: ___ / ___ / 20___</div>
+              <div>Extraído por: ____________________________</div>
+              <div style="margin-top: 4px;">Data: ___ / ___ / 2026</div>
             </div>
-            <div style="width: 45%; text-align: right;">
-              <div><strong>Conferido por:</strong> ____________________________</div>
-              <div style="margin-top: 4px;">Data: ___ / ___ / 20___</div>
+            <div style="width: 45%; text-align: left;">
+              <div>Conferido por: ____________________________</div>
+              <div style="margin-top: 4px;">Data: ___ / ___ / 2026</div>
             </div>
           </div>
 
-          <div style="text-align: center; font-size: 10pt;">
-            <div>${distrito}, aos ___ de ______________ de ${anoLectivo}</div>
-            <div style="font-weight: bold; margin-top: 4px;">O Director</div>
-            <div style="border-bottom: 1px solid #111; margin: 26px auto 4px; width: 50%;"></div>
+          <div style="text-align: center; font-size: 9.5pt;">
+            <div style="text-align: right; margin-bottom: 6px; font-size: 10pt;">${distrito}, aos ${agora.getDate()} de ${meses[agora.getMonth()]} de ${agora.getFullYear()}</div>
+            <div style="font-weight: bold;">O Director da Escola</div>
+            <div style="border-bottom: 1px solid #111; margin: 26px auto 4px; width: 45%;"></div>
             <div style="font-weight: bold;">${directorNome}</div>
-            <div style="font-size: 9pt; font-style: italic;">/${directorCarreira}/</div>
+            <div style="font-size: 8.5pt; font-style: italic;">/${directorCarreira}/</div>
           </div>
         </div>
       </div>
@@ -4992,30 +5528,82 @@ async function carregarAlunoNotas() {
 async function carregarAlunoPagamentos() {
   try {
     const res = await apiFetch('/api/v1/alunos/me/pagamentos');
-    if (res.success) {
+    if (res.success && Array.isArray(res.data)) {
+      const pagamentos = res.data;
+      
+      let totalPago = 0;
+      let totalPendente = 0;
+      let temAtrasado = false;
+      const hoje = new Date();
+
+      pagamentos.forEach(p => {
+        const val = Number(p.valor || 0);
+        if (p.status === 'PAGO') {
+          totalPago += Number(p.valor_pago || val);
+        } else {
+          totalPendente += val;
+          if (p.data_vencimento && new Date(p.data_vencimento) < hoje) {
+            temAtrasado = true;
+          }
+        }
+      });
+
+      const elPago = document.getElementById('alunoTotalPagoCard');
+      if (elPago) elPago.textContent = `${totalPago.toLocaleString('pt-PT')} MZN`;
+
+      const elPendente = document.getElementById('alunoTotalPendenteCard');
+      if (elPendente) elPendente.textContent = `${totalPendente.toLocaleString('pt-PT')} MZN`;
+
+      const elSituacao = document.getElementById('alunoSituacaoPropinaCard');
+      if (elSituacao) {
+        if (totalPendente === 0) {
+          elSituacao.textContent = 'Regularizado';
+          elSituacao.className = 'fw-bold mb-0 text-success';
+        } else if (temAtrasado) {
+          elSituacao.textContent = 'Em Atraso';
+          elSituacao.className = 'fw-bold mb-0 text-danger';
+        } else {
+          elSituacao.textContent = 'Pendente';
+          elSituacao.className = 'fw-bold mb-0 text-warning';
+        }
+      }
+
       const tbody = document.getElementById('tabelaAlunoPagamentosCorpo');
-      tbody.innerHTML = res.data.map(p => `
-        <tr>
-          <td><strong>${p.descricao}</strong></td>
-          <td><code>${p.mes_referencia}</code></td>
-          <td><strong class="text-success">${p.valor.toLocaleString('pt-PT')} MZN</strong></td>
-          <td>${new Date(p.data_vencimento).toLocaleDateString('pt-PT')}</td>
-          <td>
-            <span class="badge ${p.status === 'PAGO' ? 'bg-success' : 'bg-warning text-dark'}">
-              ${p.status}
-            </span>
-          </td>
-          <td class="text-end">
-            ${p.status === 'PAGO' ? `
-              <button class="btn btn-sm btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')">
-                <i class="bi bi-printer me-1"></i> Imprimir Recibo
-              </button>
-            ` : '<span class="text-muted small">Pendente de pagamento</span>'}
-          </td>
-        </tr>
-      `).join('');
+      if (tbody) {
+        if (pagamentos.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-info-circle me-1"></i>Nenhuma mensalidade lançada até ao momento.</td></tr>`;
+        } else {
+          tbody.innerHTML = pagamentos.map(p => `
+            <tr>
+              <td><strong>${p.descricao || 'Mensalidade Escolar'}</strong></td>
+              <td><code>${p.mes_referencia || '-'}</code></td>
+              <td><strong class="text-success">${Number(p.valor || 0).toLocaleString('pt-PT')} MZN</strong></td>
+              <td>${p.data_vencimento ? new Date(p.data_vencimento).toLocaleDateString('pt-PT') : '-'}</td>
+              <td>
+                <span class="badge ${p.status === 'PAGO' ? 'bg-success' : 'bg-warning text-dark'}">
+                  ${p.status}
+                </span>
+              </td>
+              <td class="text-end">
+                ${p.status === 'PAGO' ? `
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
+                      <i class="bi bi-printer me-1"></i> Imprimir
+                    </button>
+                    <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF (PDFKit)">
+                      <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                    </button>
+                  </div>
+                ` : '<span class="badge bg-light text-muted border">Pendente</span>'}
+              </td>
+            </tr>
+          `).join('');
+        }
+      }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Erro ao carregar pagamentos do aluno:', err);
+  }
 }
 
 // ==================== 14. AUDITORIA & ACESSOS ====================
@@ -5620,7 +6208,7 @@ async function carregarDadosTurmaDT() {
           <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
             <div>
               <h6 class="fw-bold text-dark mb-0">Acta Oficial do Conselho de Avaliação</h6>
-              <small class="text-muted">Modelo Oficial MINEDH Moçambique</small>
+              <small class="text-muted">Modelo Oficial MEC Moçambique</small>
             </div>
             <div class="d-flex gap-2">
               <button class="btn btn-outline-success btn-sm fw-semibold" onclick="exportarActaConselhoExcel('${dtTurmaAtivaId}')">
@@ -6065,4 +6653,398 @@ function exportarEstatisticasExcel() {
   const ano = document.getElementById('statAnoFiltro')?.value || '2026';
   const periodo = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';
   downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=${ano}&periodo=${periodo}`, `Estatisticas_Aproveitamento_${ano}.xlsx`);
+}
+
+// ==================== LOGÓTIPO SAAS CADASTRO ====================
+function processarLogoCadastroLocal(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('Por favor, seleccione um ficheiro de imagem válido.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const hidden = document.getElementById('cadEscolaLogoBase64');
+    if (hidden) hidden.value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ==================== MATERIAL ESCOLAR POR CLASSE ====================
+state.materialEscolar = {
+  classeAtiva: 'TODAS',
+  materiais: [],
+  classes: []
+};
+
+const CLASSES_SISTEMA_ORDEM = [
+  '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+  '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+];
+
+async function carregarPainelMaterialEscolar(classeFiltro) {
+  if (classeFiltro !== undefined) {
+    state.materialEscolar.classeAtiva = classeFiltro;
+  }
+  const grelha = document.getElementById('grelhaMateriaisEscolares');
+  const badgeAtiva = document.getElementById('badgeClasseAtiva');
+
+  if (badgeAtiva) {
+    badgeAtiva.textContent = state.materialEscolar.classeAtiva === 'TODAS' ? 'Todas as Classes' : state.materialEscolar.classeAtiva;
+  }
+
+  try {
+    // 1. Obter contagens por classe
+    const resClasses = await apiFetch('/api/v1/material-escolar/classes');
+    if (resClasses.success) {
+      state.materialEscolar.classes = resClasses.data || [];
+      renderizarBotoesClasses();
+    }
+
+    // 2. Obter materiais da classe seleccionada
+    const query = state.materialEscolar.classeAtiva !== 'TODAS' ? `?classe=${encodeURIComponent(state.materialEscolar.classeAtiva)}` : '';
+    const resMat = await apiFetch(`/api/v1/material-escolar${query}`);
+    if (resMat.success) {
+      state.materialEscolar.materiais = resMat.data || [];
+      filtrarMateriaisEscolares();
+    } else {
+      if (grelha) grelha.innerHTML = `<div class="col-12"><div class="alert alert-warning text-center">Não foi possível carregar os materiais escolares.</div></div>`;
+    }
+  } catch (err) {
+    if (grelha) grelha.innerHTML = `<div class="col-12"><div class="alert alert-danger text-center">Erro ao contactar o servidor: ${err.message || ''}</div></div>`;
+  }
+}
+
+function renderizarBotoesClasses() {
+  const container = document.getElementById('containerBotoesClasses');
+  if (!container) return;
+
+  const totalGeral = state.materialEscolar.classes.reduce((acc, c) => acc + (c.totalMateriais || 0), 0);
+  const mapaContagens = new Map(state.materialEscolar.classes.map(c => [c.classe, c.totalMateriais || 0]));
+
+  let html = `
+    <button class="btn btn-sm ${state.materialEscolar.classeAtiva === 'TODAS' ? 'btn-primary shadow-sm' : 'btn-outline-secondary'} rounded-pill px-3 py-1" onclick="selecionarClasseMaterial('TODAS')">
+      Todas as Classes <span class="badge ${state.materialEscolar.classeAtiva === 'TODAS' ? 'bg-white text-primary' : 'bg-secondary'} ms-1">${totalGeral}</span>
+    </button>
+  `;
+
+  CLASSES_SISTEMA_ORDEM.forEach(cls => {
+    const qtd = mapaContagens.get(cls) || 0;
+    const isAtiva = state.materialEscolar.classeAtiva === cls;
+    html += `
+      <button class="btn btn-sm ${isAtiva ? 'btn-primary shadow-sm' : 'btn-outline-secondary'} rounded-pill px-3 py-1" onclick="selecionarClasseMaterial('${cls}')">
+        ${cls} <span class="badge ${isAtiva ? 'bg-white text-primary' : 'bg-light text-dark border'} ms-1">${qtd}</span>
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function selecionarClasseMaterial(classe) {
+  state.materialEscolar.classeAtiva = classe;
+  const badgeAtiva = document.getElementById('badgeClasseAtiva');
+  if (badgeAtiva) badgeAtiva.textContent = classe === 'TODAS' ? 'Todas as Classes' : classe;
+  renderizarBotoesClasses();
+  carregarPainelMaterialEscolar(classe);
+}
+
+function filtrarMateriaisEscolares() {
+  const grelha = document.getElementById('grelhaMateriaisEscolares');
+  const contador = document.getElementById('contadorMateriaisEncontrados');
+  if (!grelha) return;
+
+  const termo = (document.getElementById('filtroMaterialBusca')?.value || '').toLowerCase().trim();
+  const tipoFiltro = document.getElementById('filtroMaterialTipo')?.value || '';
+
+  const filtrados = (state.materialEscolar.materiais || []).filter(m => {
+    const matchTermo = !termo ||
+      m.titulo.toLowerCase().includes(termo) ||
+      (m.descricao && m.descricao.toLowerCase().includes(termo)) ||
+      (m.disciplina?.nome && m.disciplina.nome.toLowerCase().includes(termo)) ||
+      (m.nome_arquivo && m.nome_arquivo.toLowerCase().includes(termo));
+
+    const matchTipo = !tipoFiltro || m.tipo === tipoFiltro;
+
+    return matchTermo && matchTipo;
+  });
+
+  if (contador) {
+    contador.textContent = `${filtrados.length} ${filtrados.length === 1 ? 'material disponível' : 'materiais disponíveis'}`;
+  }
+
+  if (filtrados.length === 0) {
+    grelha.innerHTML = `
+      <div class="col-12 text-center py-5">
+        <div class="p-4 bg-light rounded-4 border d-inline-block">
+          <i class="bi bi-folder-x text-muted display-4 d-block mb-2"></i>
+          <h6 class="fw-bold text-secondary mb-1">Nenhum material encontrado</h6>
+          <p class="text-muted small mb-3">Não existem ficheiros carregados para esta selecção.</p>
+          <button class="btn btn-primary btn-sm rounded-pill" onclick="modalCarregarMaterialEscolar()">
+            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Carregar Primeiro Material da Classe
+          </button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  grelha.innerHTML = filtrados.map(m => {
+    const ext = (m.extensao || 'pdf').toLowerCase();
+    let icone = '<i class="bi bi-file-earmark-pdf-fill text-danger fs-1"></i>';
+    if (ext === 'docx' || ext === 'doc') {
+      icone = '<i class="bi bi-file-earmark-word-fill text-primary fs-1"></i>';
+    } else if (ext === 'zip' || ext === 'rar') {
+      icone = '<i class="bi bi-file-earmark-zip-fill text-warning fs-1"></i>';
+    } else if (m.arquivo_url && !m.conteudo_base64) {
+      icone = '<i class="bi bi-link-45deg text-info fs-1"></i>';
+    }
+
+    const tamStr = m.tamanho_bytes ? (m.tamanho_bytes < 1024 * 1024 
+      ? `${(m.tamanho_bytes / 1024).toFixed(1)} KB` 
+      : `${(m.tamanho_bytes / (1024 * 1024)).toFixed(1)} MB`) : '';
+
+    const discNome = m.disciplina?.nome || 'Geral';
+    const isAluno = state.user?.role === 'ALUNO';
+
+    return `
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-0" style="border-radius: 12px; border-left: 4px solid #2563eb !important;">
+          <div class="card-body p-3 d-flex flex-column justify-content-between">
+            <div>
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <span class="badge bg-primary text-white fw-bold px-2 py-1 rounded">${m.classe}</span>
+                <span class="badge bg-light text-dark border px-2 py-1 rounded">${m.tipo || 'MANUAL'}</span>
+              </div>
+
+              <div class="d-flex align-items-center gap-2 mb-2">
+                ${icone}
+                <div class="overflow-hidden">
+                  <h6 class="fw-bold mb-0 text-truncate" title="${m.titulo}">${m.titulo}</h6>
+                  <span class="badge bg-info-subtle text-info-emphasis small">${discNome}</span>
+                </div>
+              </div>
+
+              ${m.descricao ? `<p class="small text-muted mb-2 text-truncate-2" style="font-size: 0.82rem;">${m.descricao}</p>` : ''}
+              
+              <div class="small text-muted d-flex align-items-center justify-content-between border-top pt-2 mt-2" style="font-size: 0.75rem;">
+                <span class="text-truncate" title="${m.nome_arquivo || ''}">
+                  <i class="bi bi-paperclip me-1"></i>${m.nome_arquivo || 'Ficheiro'} ${tamStr ? `(${tamStr})` : ''}
+                </span>
+                <span><i class="bi bi-calendar3 me-1"></i>${new Date(m.createdAt).toLocaleDateString('pt-MZ')}</span>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3 pt-2 border-top">
+              <a href="/api/v1/material-escolar/${m.id}/download" target="_blank" class="btn btn-outline-primary btn-sm w-100 fw-bold">
+                <i class="bi bi-cloud-arrow-down-fill me-1"></i> Descarregar
+              </a>
+              ${!isAluno ? `
+                <button class="btn btn-outline-danger btn-sm px-2" onclick="eliminarMaterialEscolar('${m.id}', '${m.titulo.replace(/'/g, "\\'")}')" title="Eliminar material">
+                  <i class="bi bi-trash"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function modalCarregarMaterialEscolar() {
+  const classePrevia = state.materialEscolar.classeAtiva !== 'TODAS' ? state.materialEscolar.classeAtiva : '10ª Classe';
+  
+  // Buscar disciplinas da escola
+  let optDisciplinas = '<option value="">(Geral / Todas as Disciplinas)</option>';
+  try {
+    const resD = await apiFetch('/api/v1/disciplinas');
+    if (resD.success && Array.isArray(resD.data)) {
+      optDisciplinas += resD.data.map(d => `<option value="${d.id}">${d.nome} (${d.classe || ''})</option>`).join('');
+    }
+  } catch (_) {}
+
+  const optClasses = CLASSES_SISTEMA_ORDEM.map(c => 
+    `<option value="${c}" ${c === classePrevia ? 'selected' : ''}>${c}</option>`
+  ).join('');
+
+  abrirModal('Carregar / Importar Material Escolar Oficial', `
+    <form id="formCarregarMaterial">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Classe de Destino <span class="text-danger">*</span></label>
+          <select id="matUploadClasse" class="form-select" required>
+            ${optClasses}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Disciplina / Área</label>
+          <select id="matUploadDisciplina" class="form-select">
+            ${optDisciplinas}
+          </select>
+        </div>
+
+        <div class="col-md-8">
+          <label class="form-label small fw-semibold">Título do Material / Livro <span class="text-danger">*</span></label>
+          <input type="text" id="matUploadTitulo" class="form-control" required placeholder="Ex: Livro do Aluno de Matemática - 10ª Classe">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Tipo de Material</label>
+          <select id="matUploadTipo" class="form-select">
+            <option value="MANUAL">Livro / Manual Escolar</option>
+            <option value="FICHA">Ficha de Exercícios</option>
+            <option value="GUIA">Guia do Professor / Apoio</option>
+            <option value="APOSTILA">Apostila / Resumo</option>
+            <option value="OUTRO">Outro Recurso</option>
+          </select>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Descrição ou Instruções aos Alunos (Opcional)</label>
+          <textarea id="matUploadDescricao" class="form-control" rows="2" placeholder="Ex: Manual oficial adoptado pelo MINEDH. Exercícios dos capítulos 1 a 4."></textarea>
+        </div>
+
+        <!-- Abas de Opções: Ficheiro Local ou Link -->
+        <div class="col-12">
+          <ul class="nav nav-pills nav-fill mb-2" id="pills-tab-upload">
+            <li class="nav-item">
+              <button class="nav-link active py-1 small fw-semibold" id="tab-file-btn" type="button" onclick="alternarAbaUploadMaterial('arquivo')">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> Carregar Ficheiro Local (PDF, Word, Zip)
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link py-1 small fw-semibold" id="tab-link-btn" type="button" onclick="alternarAbaUploadMaterial('link')">
+                <i class="bi bi-link-45deg me-1"></i> Importar via Link Web (Google Drive, MINEDH...)
+              </button>
+            </li>
+          </ul>
+
+          <div id="blocoUploadArquivo" class="border rounded p-3 bg-light text-center">
+            <i class="bi bi-cloud-arrow-up text-primary display-6 d-block mb-2"></i>
+            <label class="form-label fw-semibold small mb-1">Seleccione o ficheiro no computador</label>
+            <input type="file" id="matUploadArquivo" class="form-control form-control-sm mb-2" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar">
+            <small class="text-muted d-block">Formatos suportados: PDF, Word (DOCX), Excel, PowerPoint, ZIP. Tamanho máximo recomendado: 30MB.</small>
+          </div>
+
+          <div id="blocoUploadLink" class="border rounded p-3 bg-light" style="display: none;">
+            <label class="form-label small fw-semibold mb-1">Endereço Web / URL do Ficheiro ou Pasta</label>
+            <input type="url" id="matUploadUrl" class="form-control form-control-sm" placeholder="https://drive.google.com/... ou https://minedh.gov.mz/...">
+            <small class="text-muted d-block mt-1">Insira um link público directo para os alunos consultarem e descarregarem.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-2 border-top d-flex gap-2">
+        <button type="button" class="btn btn-secondary w-50" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary w-50 fw-bold" id="btnSalvarMaterial">
+          <i class="bi bi-check-circle me-1"></i> Publicar Material
+        </button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('formCarregarMaterial')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSalvarMaterial');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> A carregar...';
+
+    try {
+      const classe = document.getElementById('matUploadClasse').value;
+      const disciplina_id = document.getElementById('matUploadDisciplina').value || null;
+      const titulo = document.getElementById('matUploadTitulo').value;
+      const tipo = document.getElementById('matUploadTipo').value;
+      const descricao = document.getElementById('matUploadDescricao').value || null;
+
+      const fileInput = document.getElementById('matUploadArquivo');
+      const file = fileInput?.files?.[0];
+      const linkUrl = document.getElementById('matUploadUrl')?.value || null;
+
+      const payload = {
+        classe,
+        disciplina_id,
+        titulo,
+        tipo,
+        descricao
+      };
+
+      if (file) {
+        payload.nome_arquivo = file.name;
+        payload.extensao = file.name.split('.').pop() || 'pdf';
+        payload.tamanho_bytes = file.size;
+        payload.tipo_mime = file.type || 'application/octet-stream';
+
+        // Leitura em Base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(file);
+        payload.conteudo_base64 = await base64Promise;
+      } else if (linkUrl) {
+        payload.arquivo_url = linkUrl;
+        payload.nome_arquivo = `${titulo}.link`;
+        payload.extensao = 'link';
+      } else {
+        alert('Por favor, seleccione um ficheiro local ou indique um link web do material.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Publicar Material';
+        return;
+      }
+
+      const res = await apiFetch('/api/v1/material-escolar', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      if (res.success) {
+        alert('Material escolar carregado e publicado com sucesso!');
+        fecharModal();
+        selecionarClasseMaterial(classe);
+      } else {
+        alert(res.message || 'Erro ao publicar material escolar');
+      }
+    } catch (err) {
+      alert(`Erro: ${err.message || 'Falha no upload do material'}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Publicar Material';
+    }
+  });
+}
+
+function alternarAbaUploadMaterial(tipo) {
+  const btnFile = document.getElementById('tab-file-btn');
+  const btnLink = document.getElementById('tab-link-btn');
+  const blocoFile = document.getElementById('blocoUploadArquivo');
+  const blocoLink = document.getElementById('blocoUploadLink');
+
+  if (tipo === 'arquivo') {
+    btnFile.classList.add('active');
+    btnLink.classList.remove('active');
+    blocoFile.style.display = 'block';
+    blocoLink.style.display = 'none';
+  } else {
+    btnFile.classList.remove('active');
+    btnLink.classList.add('active');
+    blocoFile.style.display = 'none';
+    blocoLink.style.display = 'block';
+  }
+}
+
+async function eliminarMaterialEscolar(id, titulo) {
+  if (!confirm(`Tem a certeza que deseja eliminar o material escolar "${titulo}"?`)) return;
+  try {
+    const res = await apiFetch(`/api/v1/material-escolar/${id}`, { method: 'DELETE' });
+    if (res.success) {
+      alert('Material removido com sucesso!');
+      carregarPainelMaterialEscolar();
+    } else {
+      alert(res.message || 'Erro ao remover material');
+    }
+  } catch (err) {
+    alert(`Erro ao eliminar material: ${err.message}`);
+  }
 }

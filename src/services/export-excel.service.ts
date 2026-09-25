@@ -83,7 +83,7 @@ export class ExportExcelService {
       right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
     };
 
-    const header1: string[] = ['Nº', 'Nome Completo', 'Apelido', 'Gén'];
+    const header1: string[] = ['Nº', 'Nome Completo', 'Gén'];
     dados.disciplinas.forEach(d => {
       const code = d.codigo || d.nome;
       header1.push(`${code} (1º)`, `${code} (2º)`, `${code} (3º)`, `${code} (MFD)`);
@@ -110,10 +110,14 @@ export class ExportExcelService {
       this.estilizarTituloMesclado(sheet, rowNum, totalCols, rowNum === 3, rowNum === 3 ? 12 : 9.5);
     });
 
-    sheet.addRow([]); // Espaçador
+    // Espaçamento entre cabeçalho institucional e conteúdo da tabela (~2 cm)
+    const spacer1 = sheet.addRow([]);
+    spacer1.height = 20;
+    const spacer2 = sheet.addRow([]);
+    spacer2.height = 20;
 
     const rowH1 = sheet.addRow(header1);
-    rowH1.height = 25;
+    rowH1.height = 26;
     rowH1.eachCell((cell) => {
       cell.fill = headerFill;
       cell.font = headerFont;
@@ -122,10 +126,10 @@ export class ExportExcelService {
     });
 
     dados.alunos.forEach((a, idx) => {
+      const nomeCompleto = [a.nome, a.apelido].filter(Boolean).join(' ').trim();
       const rowData: any[] = [
         a.numero || (idx + 1),
-        a.nome,
-        a.apelido || '',
+        nomeCompleto,
         a.genero
       ];
 
@@ -158,7 +162,7 @@ export class ExportExcelService {
         cell.font = { name: 'Arial', size: 9 };
         cell.border = borderThin;
 
-        if (colNum === 2 || colNum === 3) {
+        if (colNum === 2) {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
         } else {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -169,11 +173,21 @@ export class ExportExcelService {
           cell.font = { name: 'Arial', size: 9, color: { argb: 'FFDC2626' }, bold: true };
         }
         if (colNum === totalCols) {
+          const valStr = String(val || '');
+          const isAprovado = valStr === 'A' || valStr === 'Aprovado' || valStr.toUpperCase().includes('APROV');
+          const cor = isAprovado ? 'FF000000' : 'FFDC2626'; // Aprovado a preto, Reprovado a vermelho
+          cell.fill = { type: 'pattern', pattern: 'none' }; // Sem pintar o quadradinho de fundo
           cell.font = {
             name: 'Arial',
             size: 9,
             bold: true,
-            color: { argb: val === 'A' || val === 'Aprovado' ? 'FF15803D' : 'FFB91C1C' }
+            color: { argb: cor }
+          };
+          cell.border = {
+            top: { style: 'medium', color: { argb: cor } },
+            bottom: { style: 'medium', color: { argb: cor } },
+            left: { style: 'medium', color: { argb: cor } },
+            right: { style: 'medium', color: { argb: cor } }
           };
         }
       });
@@ -181,9 +195,8 @@ export class ExportExcelService {
 
     sheet.columns.forEach((col, idx) => {
       if (idx === 0) col.width = 6;
-      else if (idx === 1) col.width = 28;
-      else if (idx === 2) col.width = 14;
-      else if (idx === 3) col.width = 6;
+      else if (idx === 1) col.width = 34; // Nome Completo
+      else if (idx === 2) col.width = 6;  // Gén
       else col.width = 9;
     });
 
@@ -236,13 +249,13 @@ export class ExportExcelService {
     };
 
     const colunas = [
-      'Nº', 'Nome Completo', 'Apelido', 'Gén',
+      'Nº', 'Nome Completo', 'Gén',
       '1º 1ªACS', '1º 2ªACS', '1º 3ªACS', '1º MAP', '1º MAS', '1º AT', '1º MT', '1º COM', '1º Obs',
       '2º 1ªACS', '2º 2ªACS', '2º 3ªACS', '2º MAP', '2º MAS', '2º AT', '2º MT', '2º COM', '2º Obs',
       '3º 1ªACS', '3º 2ªACS', '3º 3ªACS', '3º MAP', '3º MAS', '3º AT', '3º MT', '3º COM', '3º Obs',
       'MFD'
     ];
-    const totalCols = colunas.length; // 32 colunas
+    const totalCols = colunas.length; // 31 colunas
 
     // Cabeçalho Oficial Bordado e Centralizado
     const titulos = [
@@ -259,15 +272,19 @@ export class ExportExcelService {
       this.estilizarTituloMesclado(sheet, rowNum, totalCols, rowNum === 3, rowNum === 3 ? 12 : 9.5);
     });
 
-    sheet.addRow([]); // Espaçador
+    // Espaçador (~2 cm)
+    const spc1 = sheet.addRow([]);
+    spc1.height = 18;
+    const spc2 = sheet.addRow([]);
+    spc2.height = 18;
 
     const hRow = sheet.addRow(colunas);
     hRow.height = 24;
     hRow.eachCell((cell, colNum) => {
-      if (colNum <= 4) cell.fill = headerFill;
-      else if (colNum <= 13) cell.fill = tHeadFill1;
-      else if (colNum <= 22) cell.fill = tHeadFill2;
-      else if (colNum <= 31) cell.fill = tHeadFill3;
+      if (colNum <= 3) cell.fill = headerFill;
+      else if (colNum <= 12) cell.fill = tHeadFill1;
+      else if (colNum <= 21) cell.fill = tHeadFill2;
+      else if (colNum <= 30) cell.fill = tHeadFill3;
       else cell.fill = headerFill;
 
       cell.font = headerFont;
@@ -280,10 +297,10 @@ export class ExportExcelService {
       const valMas2 = a.t2.mas ?? a.t2.mac3 ?? '-';
       const valMas3 = a.t3.mas ?? a.t3.mac3 ?? '-';
 
+      const nomeCompleto = [a.nome, a.apelido].filter(Boolean).join(' ').trim();
       const rVals: any[] = [
         a.numero || (idx + 1),
-        a.nome,
-        a.apelido || '',
+        nomeCompleto,
         a.genero,
         a.t1.t1 ?? '-', a.t1.t2 ?? '-', a.t1.t3 ?? '-', a.t1.map ?? '-', valMas1, a.t1.at ?? '-', a.t1.mt ?? '-', a.t1.comportamento ?? 'S', a.t1.anotacao || '-',
         a.t2.t1 ?? '-', a.t2.t2 ?? '-', a.t2.t3 ?? '-', a.t2.map ?? '-', valMas2, a.t2.at ?? '-', a.t2.mt ?? '-', a.t2.comportamento ?? 'S', a.t2.anotacao || '-',
@@ -297,7 +314,7 @@ export class ExportExcelService {
         cell.font = { name: 'Arial', size: 9 };
         cell.border = borderThin;
 
-        if (colNum === 2 || colNum === 3) {
+        if (colNum === 2) {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
         } else {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -322,9 +339,9 @@ export class ExportExcelService {
         'mfd'
       ];
 
-      // Função que adiciona uma linha estatística por género (evitando duplicação de texto em células mescladas)
+      // Função que adiciona uma linha estatística por género
       const addStatRow = (categoriaTexto: string, genero: string, extrator: (s: any) => string | number, isBold = false) => {
-        const rowVals: any[] = [categoriaTexto, '', '', genero];
+        const rowVals: any[] = [categoriaTexto, '', genero];
         colunasMapeadas.forEach(key => {
           if (!key) {
             rowVals.push('-');
@@ -345,7 +362,7 @@ export class ExportExcelService {
         for (let col = 1; col <= totalCols; col++) {
           const c = sheet.getCell(rowNum, col);
           c.border = borderThin;
-          c.alignment = { horizontal: col <= 3 ? 'left' : 'center', vertical: 'middle' };
+          c.alignment = { horizontal: col <= 2 ? 'left' : 'center', vertical: 'middle' };
           c.font = { name: 'Arial', size: 8.5, bold: isBold };
           if (isBold) {
             c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
@@ -358,39 +375,39 @@ export class ExportExcelService {
       addStatRow('Avaliados', 'M', s => s.avaliados ? (s.avaliados.h ?? 0) : '-');
       addStatRow('', 'F', s => s.avaliados ? (s.avaliados.f ?? s.avaliados.m ?? 0) : '-');
       addStatRow('', 'M+F', s => s.avaliados ? s.avaliados.total : '-', true);
-      sheet.mergeCells(startAv, 1, startAv + 2, 3);
+      sheet.mergeCells(startAv, 1, startAv + 2, 2);
 
       // 2. Positivos: M, F, M+F
       const startPos = sheet.rowCount + 1;
       addStatRow('Positivos (>= 9.5)', 'M', s => s.positivas ? (s.positivas.h ?? 0) : '-');
       addStatRow('', 'F', s => s.positivas ? (s.positivas.m ?? 0) : '-');
       addStatRow('', 'M+F', s => s.positivas ? s.positivas.total : '-', true);
-      sheet.mergeCells(startPos, 1, startPos + 2, 3);
+      sheet.mergeCells(startPos, 1, startPos + 2, 2);
 
       // 3. % Positivos: M, F, M+F
       const startPctPos = sheet.rowCount + 1;
       addStatRow('% Positivos', 'M', s => s.positivas ? (s.positivas.pctH !== undefined ? `${s.positivas.pctH}%` : '-') : '-');
       addStatRow('', 'F', s => s.positivas ? (s.positivas.pctM !== undefined ? `${s.positivas.pctM}%` : '-') : '-');
       addStatRow('', 'M+F', s => s.positivas ? `${s.positivas.pct}%` : '-', true);
-      sheet.mergeCells(startPctPos, 1, startPctPos + 2, 3);
+      sheet.mergeCells(startPctPos, 1, startPctPos + 2, 2);
 
       // 4. Negativos: M, F, M+F
       const startNeg = sheet.rowCount + 1;
       addStatRow('Negativos (< 9.5)', 'M', s => s.negativas ? (s.negativas.h ?? 0) : '-');
       addStatRow('', 'F', s => s.negativas ? (s.negativas.m ?? 0) : '-');
       addStatRow('', 'M+F', s => s.negativas ? s.negativas.total : '-', true);
-      sheet.mergeCells(startNeg, 1, startNeg + 2, 3);
+      sheet.mergeCells(startNeg, 1, startNeg + 2, 2);
 
       // 5. % Negativos: M, F, M+F
       const startPctNeg = sheet.rowCount + 1;
       addStatRow('% Negativos', 'M', s => s.negativas ? (s.negativas.pctH !== undefined ? `${s.negativas.pctH}%` : '-') : '-');
       addStatRow('', 'F', s => s.negativas ? (s.negativas.pctM !== undefined ? `${s.negativas.pctM}%` : '-') : '-');
       addStatRow('', 'M+F', s => s.negativas ? `${s.negativas.pct}%` : '-', true);
-      sheet.mergeCells(startPctNeg, 1, startPctNeg + 2, 3);
+      sheet.mergeCells(startPctNeg, 1, startPctNeg + 2, 2);
 
       // 6. Faixas de Notas Oficiais (0 a 9,4 | 9,5 a 13,4 | 13,5 a 16,4 | 16,5 a 18,4 | 18,5 a 20)
       const addFaixaRow = (faixaLabel: string, keyFaixa: string) => {
-        const rowVals: any[] = [faixaLabel, '', '', ''];
+        const rowVals: any[] = [faixaLabel, '', ''];
         colunasMapeadas.forEach(key => {
           if (!key) {
             rowVals.push('-');
@@ -406,11 +423,11 @@ export class ExportExcelService {
         const r = sheet.addRow(rowVals);
         r.height = 18;
         const rowNum = r.number;
-        sheet.mergeCells(rowNum, 1, rowNum, 4);
+        sheet.mergeCells(rowNum, 1, rowNum, 3);
         for (let col = 1; col <= totalCols; col++) {
           const c = sheet.getCell(rowNum, col);
           c.border = borderThin;
-          c.alignment = { horizontal: col <= 4 ? 'left' : 'center', vertical: 'middle' };
+          c.alignment = { horizontal: col <= 3 ? 'left' : 'center', vertical: 'middle' };
           c.font = { name: 'Arial', size: 8.5 };
         }
       };
@@ -422,7 +439,7 @@ export class ExportExcelService {
       addFaixaRow('Notas de 18,5 a 20', 'f185_20');
 
       // 7. Média da Coluna
-      const rowMediaVals: any[] = ['Média da Coluna', '', '', ''];
+      const rowMediaVals: any[] = ['Média da Coluna', '', ''];
       colunasMapeadas.forEach(key => {
         if (!key) {
           rowMediaVals.push('-');
@@ -438,11 +455,11 @@ export class ExportExcelService {
       const rMedia = sheet.addRow(rowMediaVals);
       rMedia.height = 20;
       const mediaRowNum = rMedia.number;
-      sheet.mergeCells(mediaRowNum, 1, mediaRowNum, 4);
+      sheet.mergeCells(mediaRowNum, 1, mediaRowNum, 3);
       for (let col = 1; col <= totalCols; col++) {
         const c = sheet.getCell(mediaRowNum, col);
         c.border = borderThin;
-        c.alignment = { horizontal: col <= 4 ? 'left' : 'center', vertical: 'middle' };
+        c.alignment = { horizontal: col <= 3 ? 'left' : 'center', vertical: 'middle' };
         c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
       }
@@ -450,8 +467,7 @@ export class ExportExcelService {
 
     sheet.columns = [
       { width: 6 },   // Nº
-      { width: 28 },  // Nome Completo
-      { width: 14 },  // Apelido
+      { width: 34 },  // Nome Completo
       { width: 6 },   // Gén
       { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 8 },
       { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 7 }, { width: 8 },
@@ -1109,45 +1125,41 @@ export class ExportExcelService {
     const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
     const headerFont: Partial<ExcelJS.Font> = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
 
-    // Cabeçalho Institucional
-    sheet.mergeCells('A1:F1');
-    sheet.getCell('A1').value = 'REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO';
-    sheet.getCell('A1').font = { name: 'Arial', size: 10, bold: true };
-    sheet.getCell('A1').alignment = { horizontal: 'center' };
+    // Cabeçalho Institucional Oficial Bordado e Centralizado
+    const titulos = [
+      'REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO',
+      dados.escola.nome.toUpperCase(),
+      `NUIT: ${dados.escola.nif_cnpj || '-'} | ${dados.escola.distrito || '-'}, ${dados.escola.provincia || 'Maputo'}`,
+      `BOLETIM OFICIAL DE AVALIAÇÃO TRIMESTRAL — ANO LECTIVO ${dados.anoLetivo}`
+    ];
+    titulos.forEach((texto, idx) => {
+      const rowNum = idx + 1;
+      sheet.addRow([texto]);
+      this.estilizarTituloMesclado(sheet, rowNum, 6, rowNum === 2, rowNum === 2 ? 12 : (rowNum === 4 ? 11 : 9.5));
+    });
 
-    sheet.mergeCells('A2:F2');
-    sheet.getCell('A2').value = dados.escola.nome.toUpperCase();
-    sheet.getCell('A2').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF1E3A8A' } };
-    sheet.getCell('A2').alignment = { horizontal: 'center' };
+    // Espaçamento de ~2 cm entre cabeçalho institucional e conteúdo
+    const sp1 = sheet.addRow([]);
+    sp1.height = 18;
+    const sp2 = sheet.addRow([]);
+    sp2.height = 18;
 
-    sheet.mergeCells('A3:F3');
-    sheet.getCell('A3').value = `NUIT: ${dados.escola.nif_cnpj || '-'} | ${dados.escola.distrito || '-'}, ${dados.escola.provincia || 'Maputo'}`;
-    sheet.getCell('A3').font = { name: 'Arial', size: 9, italic: true };
-    sheet.getCell('A3').alignment = { horizontal: 'center' };
+    // Dados do Aluno em bloco bordado
+    const rInfo1 = sheet.addRow([`Aluno: ${dados.aluno.nome}`, '', '', `Nº Matrícula: ${dados.aluno.matricula}`, '', '']);
+    sheet.mergeCells(`A${rInfo1.number}:C${rInfo1.number}`);
+    sheet.mergeCells(`D${rInfo1.number}:F${rInfo1.number}`);
+    const rInfo2 = sheet.addRow([`Turma: ${dados.aluno.turma}`, '', '', `Grau / Classe: ${dados.aluno.grau}`, '', '']);
+    sheet.mergeCells(`A${rInfo2.number}:C${rInfo2.number}`);
+    sheet.mergeCells(`D${rInfo2.number}:F${rInfo2.number}`);
 
-    sheet.mergeCells('A4:F4');
-    sheet.getCell('A4').value = `BOLETIM OFICIAL DE AVALIAÇÃO TRIMESTRAL — ANO LECTIVO ${dados.anoLetivo}`;
-    sheet.getCell('A4').font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1D4ED8' } };
-    sheet.getCell('A4').alignment = { horizontal: 'center' };
-
-    sheet.addRow([]);
-
-    // Dados do Aluno
-    sheet.mergeCells('A6:C6');
-    sheet.getCell('A6').value = `Aluno: ${dados.aluno.nome}`;
-    sheet.getCell('A6').font = { name: 'Arial', size: 9, bold: true };
-
-    sheet.mergeCells('D6:F6');
-    sheet.getCell('D6').value = `Nº Matrícula: ${dados.aluno.matricula}`;
-    sheet.getCell('D6').font = { name: 'Arial', size: 9, bold: true };
-
-    sheet.mergeCells('A7:C7');
-    sheet.getCell('A7').value = `Turma: ${dados.aluno.turma}`;
-    sheet.getCell('A7').font = { name: 'Arial', size: 9 };
-
-    sheet.mergeCells('D7:F7');
-    sheet.getCell('D7').value = `Grau / Classe: ${dados.aluno.grau}`;
-    sheet.getCell('D7').font = { name: 'Arial', size: 9 };
+    [rInfo1, rInfo2].forEach(r => {
+      r.height = 20;
+      r.eachCell((cell, colNum) => {
+        cell.border = borderThin;
+        cell.font = { name: 'Arial', size: 9, bold: colNum === 1 || colNum === 4 };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      });
+    });
 
     sheet.addRow([]);
 
@@ -1250,28 +1262,24 @@ export class ExportExcelService {
     const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
     const headerFont: Partial<ExcelJS.Font> = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
 
-    // Cabeçalho
-    sheet.mergeCells('A1:D1');
-    sheet.getCell('A1').value = 'REPÚBLICA DE MOÇAMBIQUE';
-    sheet.getCell('A1').font = { name: 'Arial', size: 10, bold: true };
-    sheet.getCell('A1').alignment = { horizontal: 'center' };
+    // Cabeçalho Oficial Bordado e Centralizado
+    const titulos = [
+      'REPÚBLICA DE MOÇAMBIQUE',
+      `GOVERNO DA PROVÍNCIA DE ${(dados.escola.provincia || 'Maputo').toUpperCase()}`,
+      dados.escola.nome.toUpperCase(),
+      'DECLARAÇÃO OFICIAL COM NOTAS'
+    ];
+    titulos.forEach((texto, idx) => {
+      const rowNum = idx + 1;
+      sheet.addRow([texto]);
+      this.estilizarTituloMesclado(sheet, rowNum, 4, rowNum === 3, rowNum === 3 ? 12 : (rowNum === 4 ? 13 : 9.5));
+    });
 
-    sheet.mergeCells('A2:D2');
-    sheet.getCell('A2').value = `GOVERNO DA PROVÍNCIA DE ${(dados.escola.provincia || 'Maputo').toUpperCase()}`;
-    sheet.getCell('A2').font = { name: 'Arial', size: 9, bold: true };
-    sheet.getCell('A2').alignment = { horizontal: 'center' };
-
-    sheet.mergeCells('A3:D3');
-    sheet.getCell('A3').value = dados.escola.nome.toUpperCase();
-    sheet.getCell('A3').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF1E3A8A' } };
-    sheet.getCell('A3').alignment = { horizontal: 'center' };
-
-    sheet.mergeCells('A4:D4');
-    sheet.getCell('A4').value = 'DECLARAÇÃO OFICIAL COM NOTAS';
-    sheet.getCell('A4').font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF1D4ED8' } };
-    sheet.getCell('A4').alignment = { horizontal: 'center' };
-
-    sheet.addRow([]);
+    // Espaçamento de ~2 cm entre cabeçalho e conteúdo
+    const sp1 = sheet.addRow([]);
+    sp1.height = 18;
+    const sp2 = sheet.addRow([]);
+    sp2.height = 18;
 
     const alunoNome = (dados.aluno.nomeCompleto || dados.aluno.nome || 'ALUNO').toUpperCase();
     const directorNome = dados.directorNome || 'Director da Escola';
@@ -1377,28 +1385,24 @@ export class ExportExcelService {
     const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
     const headerFont: Partial<ExcelJS.Font> = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
 
-    // Cabeçalho Oficial
-    sheet.mergeCells('A1:C1');
-    sheet.getCell('A1').value = 'REPÚBLICA DE MOÇAMBIQUE';
-    sheet.getCell('A1').font = { name: 'Arial', size: 10, bold: true };
-    sheet.getCell('A1').alignment = { horizontal: 'center' };
+    // Cabeçalho Oficial Bordado e Centralizado
+    const titulos = [
+      'REPÚBLICA DE MOÇAMBIQUE',
+      'MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO',
+      dados.escola.nome.toUpperCase(),
+      'CERTIFICADO DE HABILITAÇÕES LITERÁRIAS'
+    ];
+    titulos.forEach((texto, idx) => {
+      const rowNum = idx + 1;
+      sheet.addRow([texto]);
+      this.estilizarTituloMesclado(sheet, rowNum, 3, rowNum === 3, rowNum === 3 ? 12 : (rowNum === 4 ? 13 : 9.5));
+    });
 
-    sheet.mergeCells('A2:C2');
-    sheet.getCell('A2').value = `MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO`;
-    sheet.getCell('A2').font = { name: 'Arial', size: 9, bold: true };
-    sheet.getCell('A2').alignment = { horizontal: 'center' };
-
-    sheet.mergeCells('A3:C3');
-    sheet.getCell('A3').value = dados.escola.nome.toUpperCase();
-    sheet.getCell('A3').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF1E3A8A' } };
-    sheet.getCell('A3').alignment = { horizontal: 'center' };
-
-    sheet.mergeCells('A4:C4');
-    sheet.getCell('A4').value = 'CERTIFICADO DE HABILITAÇÕES LITERÁRIAS';
-    sheet.getCell('A4').font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFB45309' } };
-    sheet.getCell('A4').alignment = { horizontal: 'center' };
-
-    sheet.addRow([]);
+    // Espaçamento de ~2 cm entre cabeçalho institucional e conteúdo
+    const sp1 = sheet.addRow([]);
+    sp1.height = 18;
+    const sp2 = sheet.addRow([]);
+    sp2.height = 18;
 
     const alunoNome = (dados.aluno.nomeCompleto || dados.aluno.nome || 'ALUNO').toUpperCase();
     const mediaGlobalInt = Math.round(dados.mediaGlobal || 14);

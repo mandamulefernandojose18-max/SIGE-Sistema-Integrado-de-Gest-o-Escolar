@@ -47,8 +47,19 @@ model Escola {
   dap_nome             String?            @default("Prof. João Baptista")
   chefe_secretaria_nome String?           @default("Dra. Maria Eunice")
   usar_emblema_nacional Boolean           @default(true)
+  codigo_escola        String?
+  logo_base64          String?
   bloqueada_manualmente Boolean           @default(false)
   permitir_visualizacao_notas Boolean       @default(true)
+
+  // Inscrições e Matrículas Online
+  inscricoes_abertas   Boolean?           @default(false)
+  inscricoes_inicio    DateTime?
+  inscricoes_fim       DateTime?
+  inscricoes_fase2_fim DateTime?
+  inscricoes_fase2_multa_pct Float?       @default(0)
+  inscricoes_fase3_fim DateTime?
+  inscricoes_fase3_multa_pct Float?       @default(0)
 
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -68,6 +79,7 @@ model Escola {
   logs_impressao       LogImpressao[]
   permissoes_edicao    PermissaoEdicaoNotas[]
   documentos_salvos    DocumentoSalvo[]
+  materiais_escolares  MaterialEscolar[]
 }
 
 // Histórico e Vigência de Assinaturas das Escolas
@@ -156,6 +168,7 @@ model Turma {
   turno              String   @default("MANHA") // MANHA, TARDE, NOITE
   sala               String?
   ano_letivo         String   @default("2026")
+  area               String?  @default("Geral")
   
   director_turma_id  String?
   director_turma     Professor? @relation("TurmasDirectorTurma", fields: [director_turma_id], references: [id], onDelete: SetNull)
@@ -258,6 +271,7 @@ model Disciplina {
 
   alocacoes     ProfessorDisciplinaTurma[]
   notas         Nota[]
+  materiais     MaterialEscolar[]
 
   @@index([escola_id])
 }
@@ -433,5 +447,30 @@ model DocumentoSalvo {
   @@index([tipo_documento])
   @@index([aluno_id])
   @@index([turma_id])
+}
+
+// Material Escolar e Recursos Didáticos por Classe (Livros, Manuais, Fichas de Exercícios)
+model MaterialEscolar {
+  id              String      @id @default(uuid())
+  escola_id       String
+  escola          Escola      @relation(fields: [escola_id], references: [id], onDelete: Cascade)
+  disciplina_id   String?
+  disciplina      Disciplina? @relation(fields: [disciplina_id], references: [id], onDelete: SetNull)
+  classe          String      // ex: "1ª Classe", "2ª Classe", ..., "10ª Classe", "12ª Classe"
+  titulo          String
+  descricao       String?
+  nome_arquivo    String      @default("material.pdf")
+  extensao        String      @default("pdf")
+  tamanho_bytes   Int         @default(0)
+  conteudo_base64 String?     // Armazenamento em Base64 Data URL para download e visualização direta
+  tipo_mime       String?     // application/pdf, etc.
+  arquivo_url     String?     // Ou link externo
+  tipo            String?     @default("MANUAL") // MANUAL, FICHA, LIVRO, EXERCICIOS, GUIA, OUTRO
+  publicado_por   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([escola_id])
+  @@index([classe])
 }
 

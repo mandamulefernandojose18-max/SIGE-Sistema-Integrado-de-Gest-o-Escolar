@@ -111,6 +111,23 @@ export class EscolaAdminService {
   }
 
   async deleteTurma(escolaId: string, turmaId: string) {
+    // Desassociar alunos da turma com segurança
+    await prisma.aluno.updateMany({
+      where: { escola_id: escolaId, turma_id: turmaId },
+      data: { turma_id: null }
+    });
+
+    // Remover alocações e notas associadas à turma
+    await prisma.professorDisciplinaTurma.deleteMany({
+      where: { escola_id: escolaId, turma_id: turmaId }
+    });
+    await prisma.nota.deleteMany({
+      where: { escola_id: escolaId, turma_id: turmaId }
+    });
+    await prisma.pauta.deleteMany({
+      where: { escola_id: escolaId, turma_id: turmaId }
+    });
+
     return prisma.turma.delete({
       where: { id: turmaId, escola_id: escolaId }
     });

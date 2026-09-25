@@ -1,6 +1,7 @@
 import prisma from '../../config/database';
 import bcrypt from 'bcryptjs';
 import { ExportExcelService } from '../../services/export-excel.service';
+import { PdfKitDocumentosService } from '../../services/pdfkit-documentos.service';
 
 export class ProfessoresService {
   async list(escolaId: string, filtros?: { especialidade?: string; busca?: string; professorId?: string }) {
@@ -162,6 +163,18 @@ export class ProfessoresService {
   async desalocar(escolaId: string, alocacaoId: string) {
     return prisma.professorDisciplinaTurma.delete({
       where: { id: alocacaoId, escola_id: escolaId }
+    });
+  }
+
+  async atualizarAlocacao(escolaId: string, alocacaoId: string, dados: { professor_id?: string; disciplina_id?: string; turma_id?: string }) {
+    return prisma.professorDisciplinaTurma.update({
+      where: { id: alocacaoId, escola_id: escolaId },
+      data: dados,
+      include: {
+        professor: true,
+        disciplina: true,
+        turma: true
+      }
     });
   }
 
@@ -557,6 +570,13 @@ export class ProfessoresService {
     });
 
     const filename = `Caderneta_${dados.professor.nome.replace(/\s+/g, '_')}_${dados.disciplina.codigo}_${dados.turma.nome.replace(/\s+/g, '_')}_${dados.turma.ano_letivo}.xlsx`;
+    return { buffer, filename };
+  }
+
+  async exportarCadernetaPdf(escolaId: string, alocacaoId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const dados = await this.getCadernetaCompleta(escolaId, alocacaoId);
+    const buffer = await PdfKitDocumentosService.gerarCadernetaPdf(dados);
+    const filename = `Caderneta_${dados.disciplina.codigo}_${dados.turma.nome.replace(/\s+/g, '_')}_${dados.turma.ano_letivo}.pdf`;
     return { buffer, filename };
   }
 

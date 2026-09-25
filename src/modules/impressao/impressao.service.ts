@@ -6,6 +6,7 @@ import { ExportExcelService } from '../../services/export-excel.service';
 import { PdfKitDocumentosService } from '../../services/pdfkit-documentos.service';
 import { DocxDocumentosService } from '../../services/docx-documentos.service';
 import { SheetJsDocumentosService } from '../../services/sheetjs-documentos.service';
+import { pautasService } from '../pautas/pautas.service';
 
 function formatarDataHoraCarimbo(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -54,8 +55,8 @@ export class ImpressaoService {
 
     const nomeProprietario = `${aluno.nome}_${aluno.apelido || ''}`.trim().replace(/\s+/g, '_');
 
-    // Agrupar notas por disciplina
-    const disciplinasMap: Record<string, {
+    // Se o aluno tiver turma, consolidar a partir da Pauta Oficial para garantir zero divergência
+    let disciplinasArray: Array<{
       id: string;
       nome: string;
       codigo: string;
@@ -63,48 +64,117 @@ export class ImpressaoService {
       t2: number;
       t3: number;
       mediaFinal: number;
+      mfd: number;
       faltas: number;
-    }> = {};
+      anotacao?: string | null;
+    }> = [];
+    let mediaGeralAluno = 0;
+    let resultado = 'Em Avaliação';
+    let mediasTrimestrais: { t1?: number | null; t2?: number | null; t3?: number | null; mfd?: number | null } = {};
 
-    aluno.notas.forEach(n => {
-      if (!disciplinasMap[n.disciplina_id]) {
-        disciplinasMap[n.disciplina_id] = {
-          id: n.disciplina_id,
-          nome: n.disciplina.nome,
-          codigo: n.disciplina.codigo,
-          t1: 0,
-          t2: 0,
-          t3: 0,
-          mediaFinal: 0,
-          faltas: 0
-        };
+    if (aluno.turma_id) {
+      try {
+        const pautaCompleta = await pautasService.getPautaCompleta(escolaId, aluno.turma_id, anoLetivo);
+        const alunoPauta = pautaCompleta.alunos.find(a => a.alunoId === aluno.id);
+
+        if (alunoPauta && pautaCompleta.disciplinas.length > 0) {
+          disciplinasArray = pautaCompleta.disciplinas.map(d => {
+            const nd = alunoPauta.notasDisciplinas?.[d.codigo] || alunoPauta.notasDisciplinas?.[d.id] || {};
+            const t1 = nd.t1 !== null && nd.t1 !== undefined && nd.t1 > 0 ? nd.t1 : 0;
+            const t2 = nd.t2 !== null && nd.t2 !== undefined && nd.t2 > 0 ? nd.t2 : 0;
+            const t3 = nd.t3 !== null && nd.t3 !== undefined && nd.t3 > 0 ? nd.t3 : 0;
+            const mfd = nd.mfd !== null && nd.mfd !== undefined && nd.mfd > 0 ? nd.mfd : 0;
+            const sit = mfd > 0 ? (mfd >= 9.5 ? 'Aprovado' : 'Reprovado') : '---';
+
+            return {
+              id: d.id,
+              nome: d.nome,
+              codigo: d.codigo,
+              t1,
+              t2,
+              t3,
+              mediaFinal: mfd,
+              mfd,
+              faltas: 0,
+              anotacao: sit
+            };
+          });
+
+          mediaGeralAluno = alunoPauta.mediaFinalGeral || 0;
+          resultado = alunoPauta.resultadoFinal === 'A' || alunoPauta.resultadoFinal === 'Aprovado'
+            ? 'Aprovado'
+            : (alunoPauta.resultadoFinal === 'R' || alunoPauta.resultadoFinal === 'Reprovado' ? 'Reprovado' : (alunoPauta.resultadoFinal || 'Aprovado'));
+          mediasTrimestrais = {
+            t1: alunoPauta.mediasTrimestrais?.t1,
+            t2: alunoPauta.mediasTrimestrais?.t2,
+            t3: alunoPauta.mediasTrimestrais?.t3,
+            mfd: mediaGeralAluno
+          };
+        }
+      } catch (err) {
+        console.warn('Aviso: Não foi possível obter Pauta completa para o boletim:', err);
       }
+    }
 
-      if (n.periodo === '1_TRIMESTRE') disciplinasMap[n.disciplina_id].t1 = n.media_final;
-      else if (n.periodo === '2_TRIMESTRE') disciplinasMap[n.disciplina_id].t2 = n.media_final;
-      else if (n.periodo === '3_TRIMESTRE') disciplinasMap[n.disciplina_id].t3 = n.media_final;
+    // Fallback: se não estiver em turma ou sem disciplinas na pauta, calcula com a regra oficial MFD = (T1+T2+T3)/3
+    if (disciplinasArray.length === 0) {
+      const disciplinasMap: Record<string, {
+        id: string;
+        nome: string;
+        codigo: string;
+        t1: number;
+        t2: number;
+        t3: number;
+        mediaFinal: number;
+        mfd: number;
+        faltas: number;
+        anotacao?: string | null;
+      }> = {};
 
-      disciplinasMap[n.disciplina_id].faltas += n.faltas;
-    });
+      aluno.notas.forEach(n => {
+        if (!disciplinasMap[n.disciplina_id]) {
+          disciplinasMap[n.disciplina_id] = {
+            id: n.disciplina_id,
+            nome: n.disciplina.nome,
+            codigo: n.disciplina.codigo,
+            t1: 0,
+            t2: 0,
+            t3: 0,
+            mediaFinal: 0,
+            mfd: 0,
+            faltas: 0
+          };
+        }
 
-    let somaMedias = 0;
-    const disciplinasArray = Object.values(disciplinasMap).map(d => {
-      const notasValidas = [d.t1, d.t2, d.t3].filter(v => v > 0);
-      const media = notasValidas.length > 0 ? Number((notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length).toFixed(1)) : 0;
-      d.mediaFinal = media;
-      somaMedias += media;
-      return d;
-    });
+        if (n.periodo === '1_TRIMESTRE') disciplinasMap[n.disciplina_id].t1 = n.media_final;
+        else if (n.periodo === '2_TRIMESTRE') disciplinasMap[n.disciplina_id].t2 = n.media_final;
+        else if (n.periodo === '3_TRIMESTRE') disciplinasMap[n.disciplina_id].t3 = n.media_final;
 
-    const totalD = disciplinasArray.length;
-    const mediaGeralAluno = totalD > 0 ? Math.round(somaMedias / totalD) : 0;
-    const resultado = mediaGeralAluno >= 9.5 ? 'Aprovado' : 'Reprovado';
+        disciplinasMap[n.disciplina_id].faltas += n.faltas;
+      });
+
+      let somaMedias = 0;
+      disciplinasArray = Object.values(disciplinasMap).map(d => {
+        const temAlgumaNota = d.t1 > 0 || d.t2 > 0 || d.t3 > 0;
+        // MFD oficial obrigatório: soma dos 3 trimestres dividida por 3 (ex.: 1 trimestre divide por 3)
+        const mfd = temAlgumaNota ? Math.round(((d.t1 || 0) + (d.t2 || 0) + (d.t3 || 0)) / 3) : 0;
+        d.mediaFinal = mfd;
+        d.mfd = mfd;
+        d.anotacao = mfd > 0 ? (mfd >= 9.5 ? 'Aprovado' : 'Reprovado') : '---';
+        somaMedias += mfd;
+        return d;
+      });
+
+      const totalD = disciplinasArray.length;
+      mediaGeralAluno = totalD > 0 ? Math.round(somaMedias / totalD) : 0;
+      resultado = mediaGeralAluno >= 9.5 ? 'Aprovado' : 'Reprovado';
+      mediasTrimestrais = { mfd: mediaGeralAluno };
+    }
 
     await this.registrarEmissao(escolaId, 'BOLETIM', `Boletim Escolar - ${aluno.nome} (${aluno.matricula})`, usuarioId);
 
-    // Requisito 7: Sem carimbo de horas no boletim
     return {
-      titulo: 'BOLETIM OFICIAL DE AVALIAÇÃO TRIMESTRAL',
+      titulo: 'BOLETIM DE APROVEITAMENTO ESCOLAR',
       anoLetivo,
       filename: `Boletim_${nomeProprietario}_${anoLetivo}.pdf`,
       escola: aluno.escola,
@@ -120,7 +190,9 @@ export class ImpressaoService {
       },
       disciplinas: disciplinasArray,
       mediaGeral: mediaGeralAluno,
+      medias: mediasTrimestrais,
       resultado,
+      situacao: resultado,
       dataExtenso: formatarDataExtenso(new Date(), aluno.escola.distrito || aluno.escola.provincia || 'Maputo')
     };
   }
@@ -258,18 +330,59 @@ export class ImpressaoService {
       prisma.usuario.findFirst({ where: { escola_id: escolaId, role: 'CHEFE_SECRETARIA' }, select: { nome: true } })
     ]);
 
-    // Consolidar notas por disciplina
-    const notasPorDisciplina = new Map<string, number>();
-    aluno.notas.forEach(n => {
-      notasPorDisciplina.set(n.disciplina.nome, n.media_final);
-    });
+    // Consolidar notas com base na Pauta Oficial da turma para garantir zero divergência
+    let disciplinasAvaliadas: Array<{ disciplina: string; nome: string; notaFinal: number; mediaFinal: number; mfd: number }> = [];
+    let mediaGlobal = 0;
+    let resultadoOficial = 'Aprovado';
+    let siglaResultado = 'A';
 
-    const disciplinasAvaliadas: Array<{ disciplina: string; notaFinal: number }> = [];
-    notasPorDisciplina.forEach((notaFinal, disciplina) => {
-      disciplinasAvaliadas.push({ disciplina, notaFinal });
-    });
+    if (aluno.turma_id) {
+      try {
+        const pautaCompleta = await pautasService.getPautaCompleta(escolaId, aluno.turma_id, ano);
+        const alunoPauta = pautaCompleta.alunos.find(a => a.alunoId === aluno.id);
 
-    const avaliacao = avaliarAprovacaoPauta(disciplinasAvaliadas, aluno.turma?.grau_ano);
+        if (alunoPauta && pautaCompleta.disciplinas.length > 0) {
+          disciplinasAvaliadas = pautaCompleta.disciplinas.map(d => {
+            const nd = alunoPauta.notasDisciplinas?.[d.codigo] || alunoPauta.notasDisciplinas?.[d.id] || {};
+            const nota = nd.mfd !== null && nd.mfd !== undefined && nd.mfd > 0 ? nd.mfd : 0;
+            return {
+              disciplina: d.nome,
+              nome: d.nome,
+              notaFinal: nota,
+              mediaFinal: nota,
+              mfd: nota
+            };
+          });
+
+          mediaGlobal = alunoPauta.mediaFinalGeral || 0;
+          resultadoOficial = alunoPauta.resultadoFinal === 'A' || alunoPauta.resultadoFinal === 'Aprovado' ? 'Aprovado' : (alunoPauta.resultadoFinal === 'R' || alunoPauta.resultadoFinal === 'Reprovado' ? 'Reprovado' : alunoPauta.resultadoFinal);
+          siglaResultado = resultadoOficial === 'Aprovado' ? 'A' : 'R';
+        }
+      } catch (err) {
+        console.warn('Aviso: Não foi possível obter Pauta para declaração:', err);
+      }
+    }
+
+    if (disciplinasAvaliadas.length === 0) {
+      const notasMap: Record<string, { t1: number; t2: number; t3: number }> = {};
+      aluno.notas.forEach(n => {
+        if (!notasMap[n.disciplina.nome]) notasMap[n.disciplina.nome] = { t1: 0, t2: 0, t3: 0 };
+        if (n.periodo === '1_TRIMESTRE') notasMap[n.disciplina.nome].t1 = n.media_final;
+        else if (n.periodo === '2_TRIMESTRE') notasMap[n.disciplina.nome].t2 = n.media_final;
+        else if (n.periodo === '3_TRIMESTRE') notasMap[n.disciplina.nome].t3 = n.media_final;
+      });
+
+      Object.entries(notasMap).forEach(([nome, trim]) => {
+        const temAlgumaNota = trim.t1 > 0 || trim.t2 > 0 || trim.t3 > 0;
+        const mfd = temAlgumaNota ? Math.round(((trim.t1 || 0) + (trim.t2 || 0) + (trim.t3 || 0)) / 3) : 0;
+        disciplinasAvaliadas.push({ disciplina: nome, nome, notaFinal: mfd, mediaFinal: mfd, mfd });
+      });
+
+      const avaliacao = avaliarAprovacaoPauta(disciplinasAvaliadas, aluno.turma?.grau_ano);
+      mediaGlobal = avaliacao.mediaGeral;
+      resultadoOficial = avaliacao.resultado;
+      siglaResultado = avaliacao.siglaResultado;
+    }
 
     await this.registrarEmissao(escolaId, 'DECLARACAO', `Declaração Escolar - ${aluno.nome}`, usuarioId);
 
@@ -287,9 +400,9 @@ export class ImpressaoService {
       directorCarreira: 'Especialista de Educação',
       chefeSecretariaNome: chefe?.nome || 'Técnica Profissional',
       disciplinas: disciplinasAvaliadas,
-      mediaGlobal: avaliacao.mediaGeral,
-      resultadoOficial: avaliacao.resultado,
-      siglaResultado: avaliacao.siglaResultado,
+      mediaGlobal,
+      resultadoOficial,
+      siglaResultado,
       livroRegisto: '01',
       termoExames: '124',
       folha: '32',
@@ -322,21 +435,63 @@ export class ImpressaoService {
       prisma.usuario.findFirst({ where: { escola_id: escolaId, role: 'CHEFE_SECRETARIA' }, select: { nome: true } })
     ]);
 
-    const notasPorDisciplina = new Map<string, number>();
-    aluno.notas.forEach(n => {
-      notasPorDisciplina.set(n.disciplina.nome, n.media_final);
-    });
+    // Consolidar notas com base na Pauta Oficial da turma para garantir zero divergência
+    let disciplinasAvaliadasCert: Array<{ disciplina: string; nome: string; notaFinal: number; mediaFinal: number; mfd: number }> = [];
+    let mediaGlobalCert = 0;
+    let resultadoOficialCert = 'Aprovado';
+    let siglaResultadoCert = 'A';
 
-    const disciplinasAvaliadas: Array<{ disciplina: string; notaFinal: number }> = [];
-    notasPorDisciplina.forEach((notaFinal, disciplina) => {
-      disciplinasAvaliadas.push({ disciplina, notaFinal });
-    });
+    if (aluno.turma_id) {
+      try {
+        const pautaCompleta = await pautasService.getPautaCompleta(escolaId, aluno.turma_id, ano);
+        const alunoPauta = pautaCompleta.alunos.find(a => a.alunoId === aluno.id);
 
-    const avaliacao = avaliarAprovacaoPauta(disciplinasAvaliadas, aluno.turma?.grau_ano);
+        if (alunoPauta && pautaCompleta.disciplinas.length > 0) {
+          disciplinasAvaliadasCert = pautaCompleta.disciplinas.map(d => {
+            const nd = alunoPauta.notasDisciplinas?.[d.codigo] || alunoPauta.notasDisciplinas?.[d.id] || {};
+            const nota = nd.mfd !== null && nd.mfd !== undefined && nd.mfd > 0 ? nd.mfd : 0;
+            return {
+              disciplina: d.nome,
+              nome: d.nome,
+              notaFinal: nota,
+              mediaFinal: nota,
+              mfd: nota
+            };
+          });
+
+          mediaGlobalCert = alunoPauta.mediaFinalGeral || 0;
+          resultadoOficialCert = alunoPauta.resultadoFinal === 'A' || alunoPauta.resultadoFinal === 'Aprovado' ? 'Aprovado' : (alunoPauta.resultadoFinal === 'R' || alunoPauta.resultadoFinal === 'Reprovado' ? 'Reprovado' : alunoPauta.resultadoFinal);
+          siglaResultadoCert = resultadoOficialCert === 'Aprovado' ? 'A' : 'R';
+        }
+      } catch (err) {
+        console.warn('Aviso: Não foi possível obter Pauta para certificado:', err);
+      }
+    }
+
+    if (disciplinasAvaliadasCert.length === 0) {
+      const notasMap: Record<string, { t1: number; t2: number; t3: number }> = {};
+      aluno.notas.forEach(n => {
+        if (!notasMap[n.disciplina.nome]) notasMap[n.disciplina.nome] = { t1: 0, t2: 0, t3: 0 };
+        if (n.periodo === '1_TRIMESTRE') notasMap[n.disciplina.nome].t1 = n.media_final;
+        else if (n.periodo === '2_TRIMESTRE') notasMap[n.disciplina.nome].t2 = n.media_final;
+        else if (n.periodo === '3_TRIMESTRE') notasMap[n.disciplina.nome].t3 = n.media_final;
+      });
+
+      Object.entries(notasMap).forEach(([nome, trim]) => {
+        const temAlgumaNota = trim.t1 > 0 || trim.t2 > 0 || trim.t3 > 0;
+        const mfd = temAlgumaNota ? Math.round(((trim.t1 || 0) + (trim.t2 || 0) + (trim.t3 || 0)) / 3) : 0;
+        disciplinasAvaliadasCert.push({ disciplina: nome, nome, notaFinal: mfd, mediaFinal: mfd, mfd });
+      });
+
+      const avaliacao = avaliarAprovacaoPauta(disciplinasAvaliadasCert, aluno.turma?.grau_ano);
+      mediaGlobalCert = avaliacao.mediaGeral;
+      resultadoOficialCert = avaliacao.resultado;
+      siglaResultadoCert = avaliacao.siglaResultado;
+    }
 
     await this.registrarEmissao(escolaId, 'CERTIFICADO', `Certificado de Habilitações - ${aluno.nome}`, usuarioId);
 
-    const codigoAutenticidade = `CERT-MZ-${aluno.escola.nif_cnpj || 'MINEDH'}-${aluno.matricula}-${ano}`;
+    const codigoAutenticidade = `CERT-MZ-${aluno.escola.nif_cnpj || 'MEC'}-${aluno.matricula}-${ano}`;
     const qrcodeData = await generateQrCodeDataUrl(codigoAutenticidade).catch(() => '');
 
     return {
@@ -355,13 +510,13 @@ export class ImpressaoService {
       directorCarreira: 'Especialista de Educação',
       chefeSecretariaNome: chefe?.nome || 'Glória João Zunguze',
       chefeSecretariaCarreira: 'Técnica Profissional',
-      mediaGlobal: avaliacao.mediaGeral,
-      resultadoOficial: avaliacao.resultado,
-      siglaResultado: avaliacao.siglaResultado,
+      mediaGlobal: mediaGlobalCert,
+      resultadoOficial: resultadoOficialCert,
+      siglaResultado: siglaResultadoCert,
       livroRegisto: '01',
       termoExames: '124',
       pautaNumero: '01',
-      disciplinas: disciplinasAvaliadas,
+      disciplinas: disciplinasAvaliadasCert,
       dataExtenso: formatarDataExtenso(agora, aluno.escola.distrito || aluno.escola.provincia || 'Massinga')
     };
   }
@@ -474,19 +629,18 @@ export class ImpressaoService {
 
   async exportarBoletimDocx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarBoletimAluno(escolaId, alunoId);
-    const buffer = await DocxDocumentosService.gerarDeclaracaoDocx({
+    const buffer = await DocxDocumentosService.gerarBoletimDocx({
       escola: dados.escola,
-      anoLectivo: dados.anoLetivo,
-      comNotas: true,
+      anoLetivo: dados.anoLetivo,
       aluno: {
         nome: dados.aluno.nome,
         matricula: dados.aluno.matricula,
-        numero_documento: dados.aluno.numero_documento,
         turma: { nome: dados.aluno.turma, grau_ano: dados.aluno.grau }
       },
-      disciplinas: dados.disciplinas.map(d => ({ nome: d.nome, mfd: d.mediaFinal })),
-      mediaFinal: dados.mediaGeral,
-      resultadoFinal: dados.resultado
+      disciplinas: dados.disciplinas,
+      mediaGeral: dados.mediaGeral,
+      resultado: dados.resultado,
+      dataExtenso: dados.dataExtenso
     });
     const nome = dados.aluno.nome.replace(/\s+/g, '_');
     return {
@@ -531,7 +685,15 @@ export class ImpressaoService {
       aluno: dados.aluno,
       disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
       mediaFinal: dados.mediaGlobal,
-      resultadoFinal: dados.resultadoOficial
+      mediaGlobal: dados.mediaGlobal,
+      resultadoFinal: dados.resultadoOficial,
+      resultadoOficial: dados.resultadoOficial,
+      directorNome: dados.directorNome,
+      directorCarreira: dados.directorCarreira,
+      chefeSecretariaNome: dados.chefeSecretariaNome,
+      livroRegisto: dados.livroRegisto,
+      termoExames: dados.termoExames,
+      folha: dados.folha
     });
     const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
     return {
@@ -560,7 +722,15 @@ export class ImpressaoService {
 
   async exportarDeclaracaoXlsx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarDeclaracaoAluno(escolaId, alunoId, true);
-    const buffer = await ExportExcelService.gerarDeclaracaoXlsx(dados);
+    const buffer = SheetJsDocumentosService.gerarDeclaracaoXlsx({
+      escola: dados.escola,
+      aluno: dados.aluno,
+      anoLectivo: dados.anoLectivo,
+      directorNome: dados.directorNome,
+      mediaGlobal: dados.mediaGlobal,
+      resultadoOficial: dados.resultadoOficial,
+      disciplinas: dados.disciplinas.map(d => ({ disciplina: d.disciplina, notaFinal: d.notaFinal }))
+    });
     const nome = (dados.aluno.nomeCompleto || dados.aluno.nome || 'Aluno').replace(/\s+/g, '_');
     return {
       buffer,
@@ -570,15 +740,7 @@ export class ImpressaoService {
 
   async exportarCertificadoPdf(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarCertificadoAluno(escolaId, alunoId);
-    const buffer = await PdfKitDocumentosService.gerarDeclaracaoPdf({
-      escola: dados.escola,
-      anoLectivo: dados.anoLectivo,
-      comNotas: true,
-      aluno: dados.aluno,
-      disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
-      mediaFinal: dados.mediaGlobal,
-      resultadoFinal: dados.resultadoOficial
-    });
+    const buffer = await PdfKitDocumentosService.gerarCertificadoPdf(dados);
     const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
     return {
       buffer,
@@ -588,15 +750,7 @@ export class ImpressaoService {
 
   async exportarCertificadoDocx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarCertificadoAluno(escolaId, alunoId);
-    const buffer = await DocxDocumentosService.gerarDeclaracaoDocx({
-      escola: dados.escola,
-      anoLectivo: dados.anoLectivo,
-      comNotas: true,
-      aluno: dados.aluno,
-      disciplinas: dados.disciplinas.map(d => ({ nome: d.disciplina, mfd: d.notaFinal })),
-      mediaFinal: dados.mediaGlobal,
-      resultadoFinal: dados.resultadoOficial
-    });
+    const buffer = await DocxDocumentosService.gerarCertificadoDocx(dados);
     const nome = (dados.aluno.nomeCompleto || dados.aluno.nome).replace(/\s+/g, '_');
     return {
       buffer,
@@ -606,7 +760,7 @@ export class ImpressaoService {
 
   async exportarCertificadoXlsx(escolaId: string, alunoId: string): Promise<{ buffer: Buffer; filename: string }> {
     const dados = await this.gerarCertificadoAluno(escolaId, alunoId);
-    const buffer = await ExportExcelService.gerarCertificadoXlsx(dados);
+    const buffer = SheetJsDocumentosService.gerarCertificadoXlsx(dados);
     const nome = (dados.aluno.nomeCompleto || dados.aluno.nome || 'Aluno').replace(/\s+/g, '_');
     return {
       buffer,

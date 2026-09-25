@@ -19,6 +19,7 @@ const professorSchema = z.object({
   telefone: z.string().optional().nullable().or(z.literal('')).transform(v => v || null),
   especialidade: z.string().optional().default('Geral').or(z.literal('')).transform(v => v || 'Geral'),
   carga_horaria_semanal: z.union([z.number(), z.string()]).optional().transform(v => v ? Number(v) : 20),
+  ativo: z.boolean().optional(),
   criarUsuario: z.boolean().optional(),
   senha: z.string().optional().nullable().or(z.literal('')).transform(v => v || '123456')
 });
@@ -120,6 +121,18 @@ export class ProfessoresController {
     }
   }
 
+  async atualizarAlocacao(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { id } = req.params;
+      const body = alocacaoSchema.partial().parse(req.body);
+      const data = await professoresService.atualizarAlocacao(escolaId, id, body);
+      return sendSuccess(res, data, 'Alocação actualizada com sucesso');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async stats(req: Request, res: Response, next: NextFunction) {
     try {
       const escolaId = req.tenant!.id;
@@ -184,6 +197,21 @@ export class ProfessoresController {
       const { buffer, filename } = await professoresService.exportarCadernetaXlsx(escolaId, alocacaoId);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', buffer.length.toString());
+      return res.send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportarCadernetaPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const escolaId = req.tenant!.id;
+      const { alocacaoId } = req.params;
+      const { buffer, filename } = await professoresService.exportarCadernetaPdf(escolaId, alocacaoId);
+
+      res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', buffer.length.toString());
       return res.send(buffer);

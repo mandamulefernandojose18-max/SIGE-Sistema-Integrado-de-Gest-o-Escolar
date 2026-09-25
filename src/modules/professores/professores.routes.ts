@@ -13,6 +13,7 @@ router.get('/minhas-turmas', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ES
 router.get('/caderneta/:alocacaoId', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.getCaderneta(req, res, next));
 router.get('/caderneta/:alocacaoId/completa', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.getCadernetaCompleta(req, res, next));
 router.get('/caderneta/:alocacaoId/xlsx', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.exportarCadernetaXlsx(req, res, next));
+router.get('/caderneta/:alocacaoId/pdf', authorizeRoles('PROFESSOR', 'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.exportarCadernetaPdf(req, res, next));
 
 router.get('/stats', (req, res, next) => professoresController.stats(req, res, next));
 router.get('/', (req, res, next) => professoresController.list(req, res, next));
@@ -22,6 +23,7 @@ router.put('/:id', authorizeRoles('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA
 router.delete('/:id', authorizeRoles('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'), (req, res, next) => professoresController.delete(req, res, next));
 
 router.post('/alocar', authorizeRoles('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.alocar(req, res, next));
+router.put('/alocar/:id', authorizeRoles('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.atualizarAlocacao(req, res, next));
 router.delete('/alocar/:id', authorizeRoles('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'), (req, res, next) => professoresController.desalocar(req, res, next));
 
 export default router;

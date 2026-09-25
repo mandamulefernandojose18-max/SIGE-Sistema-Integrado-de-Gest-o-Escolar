@@ -1,11 +1,18 @@
 import request from 'supertest';
 import app from '../src/app';
+import prisma from '../src/config/database';
 
 describe('2. Módulo Multi-Tenant e Bloqueio Automático por Expiração (HTTP 402)', () => {
   let tokenEscolaAtiva: string;
   let tokenEscolaExpirada: string;
 
   beforeAll(async () => {
+    // Garante que a escola expirada (Instituto Educacional Progresso) está com status EXPIRADA
+    await prisma.escola.updateMany({
+      where: { nif_cnpj: '5009876543' },
+      data: { status: 'EXPIRADA' }
+    });
+
     // Login na Escola Ativa (Colégio São Francisco)
     const resAtiva = await request(app)
       .post('/api/v1/auth/login')

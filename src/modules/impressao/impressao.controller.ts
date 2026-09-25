@@ -313,6 +313,14 @@ export class ImpressaoController {
     try {
       const escolaId = req.tenant!.id;
       const { pagamentoId } = req.params;
+
+      if (req.user?.role === 'ALUNO') {
+        const dadosRecibo = await impressaoService.gerarReciboPagamento(escolaId, pagamentoId);
+        if (req.user.aluno_id && req.user.aluno_id !== dadosRecibo.aluno.id) {
+          return res.status(403).json({ success: false, message: 'Acesso restrito aos próprios recibos de pagamento' });
+        }
+      }
+
       const { buffer, filename } = await impressaoService.exportarReciboPdf(escolaId, pagamentoId, req.user?.nome);
 
       res.setHeader('Content-Type', 'application/pdf');
@@ -327,6 +335,14 @@ export class ImpressaoController {
     try {
       const escolaId = req.tenant!.id;
       const { pagamentoId } = req.params;
+
+      if (req.user?.role === 'ALUNO') {
+        const dadosRecibo = await impressaoService.gerarReciboPagamento(escolaId, pagamentoId);
+        if (req.user.aluno_id && req.user.aluno_id !== dadosRecibo.aluno.id) {
+          return res.status(403).json({ success: false, message: 'Acesso restrito aos próprios recibos de pagamento' });
+        }
+      }
+
       const { buffer, filename } = await impressaoService.exportarReciboDocx(escolaId, pagamentoId);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

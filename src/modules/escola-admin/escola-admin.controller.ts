@@ -27,8 +27,8 @@ const createTurmaSchema = z.object({
   turno: z.enum(['MANHA', 'TARDE', 'NOITE']).default('MANHA'),
   sala: z.string().optional().nullable().or(z.literal('')).transform(v => v || undefined),
   ano_letivo: z.string().optional().nullable().or(z.literal('')).transform(v => v || '2026'),
-  director_turma_id: z.string().uuid().optional().nullable().or(z.literal('')).transform(v => v || null),
-  director_classe_id: z.string().uuid().optional().nullable().or(z.literal('')).transform(v => v || null)
+  director_turma_id: z.string().optional().nullable().or(z.literal('')).transform(v => v || null),
+  director_classe_id: z.string().optional().nullable().or(z.literal('')).transform(v => v || null)
 });
 
 const createAdminUserSchema = z.object({

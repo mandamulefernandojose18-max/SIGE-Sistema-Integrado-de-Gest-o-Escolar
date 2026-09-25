@@ -7,12 +7,19 @@ import { AuthUser } from '../types/express';
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
+    let token: string | undefined;
+
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query?.token && typeof req.query.token === 'string') {
+      token = req.query.token;
+    }
+
+    if (!token) {
       return sendError(res, 'Token de autenticação não fornecido ou inválido', 401, 'UNAUTHORIZED');
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, env.JWT_SECRET) as {
       id: string;
       email: string;

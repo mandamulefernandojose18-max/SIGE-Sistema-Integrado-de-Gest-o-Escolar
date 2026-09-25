@@ -303,7 +303,8 @@ export class PautasService {
         }
 
         const validas = [v1, v2, v3].filter(v => v !== null && v !== undefined && v > 0) as number[];
-        const mfd = validas.length > 0 ? Math.round(validas.reduce((a, b) => a + b, 0) / validas.length) : null;
+        // MFD oficial obrigatório: soma dos 3 trimestres dividida por 3 (ex.: 1 trimestre divide por 3)
+        const mfd = validas.length > 0 ? Math.round(((Number(v1) || 0) + (Number(v2) || 0) + (Number(v3) || 0)) / 3) : null;
 
         if (mfd !== null) {
           somaMfd += mfd;
