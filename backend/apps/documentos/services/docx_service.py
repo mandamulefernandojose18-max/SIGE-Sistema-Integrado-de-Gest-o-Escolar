@@ -336,7 +336,7 @@ def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
             if c_idx > 0:
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             r = p.add_run(val)
-            aplicar_fonte_times(r, pt_size=10.5, bold=(c_idx == 4))
+            aplicar_fonte_times(r, pt_size=12, bold=(c_idx == 4))
 
     doc.add_paragraph().paragraph_format.space_after = Pt(10)
 
@@ -453,12 +453,12 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     p_h1 = t_notas.rows[0].cells[0].paragraphs[0]
     p_h1.alignment = WD_ALIGN_PARAGRAPH.LEFT
     r = p_h1.add_run("Disciplina Curricular")
-    aplicar_fonte_times(r, pt_size=11, bold=True)
+    aplicar_fonte_times(r, pt_size=12, bold=True)
 
     p_h2 = t_notas.rows[0].cells[1].paragraphs[0]
     p_h2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = p_h2.add_run("Classificação Final (Valores)")
-    aplicar_fonte_times(r, pt_size=11, bold=True)
+    aplicar_fonte_times(r, pt_size=12, bold=True)
 
     for disc in notas_disciplinas:
         row = t_notas.add_row()
@@ -467,12 +467,12 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         
         p_d = row.cells[0].paragraphs[0]
         r_d = p_d.add_run(str(nome_d))
-        aplicar_fonte_times(r_d, pt_size=11)
+        aplicar_fonte_times(r_d, pt_size=12)
 
         p_n = row.cells[1].paragraphs[0]
         p_n.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r_n = p_n.add_run(str(nota if nota is not None else '-'))
-        aplicar_fonte_times(r_n, pt_size=11, bold=True)
+        aplicar_fonte_times(r_n, pt_size=12, bold=True)
 
     doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
@@ -574,7 +574,7 @@ def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_g
         for cell in row.cells:
             for p in cell.paragraphs:
                 for r in p.runs:
-                    aplicar_fonte_times(r, pt_size=11)
+                    aplicar_fonte_times(r, pt_size=12)
 
     doc.add_paragraph().paragraph_format.space_after = Pt(10)
 

@@ -427,99 +427,111 @@ PLANO_CURRICULAR_NACIONAL_MINEDH: Dict[str, Any] = {
 
 def obter_disciplinas_plano_curricular(aluno: Any, escola: Any = None) -> List[Dict[str, Any]]:
     """
-    Retorna as disciplinas que o aluno estuda ou do plano curricular oficial correspondente à sua classe e área/secção.
+    Retorna estritamente as disciplinas do plano curricular oficial correspondente à classe e área/secção que o aluno estuda.
     Retorna: [{'numero': 1, 'codigo': 'LP-10', 'nome': 'Língua Portuguesa', 'carga': '5h'}, ...]
     """
-    classe = getattr(aluno, 'classe', None) or ''
-    if not classe and getattr(aluno, 'turma', None):
-        classe = getattr(aluno.turma, 'grau_ano', '') or ''
-    classe = str(classe or '10ª Classe').strip()
+    turma_obj = getattr(aluno, 'turma', None)
 
-    area = getattr(aluno, 'area', None) or ''
-    if not area and getattr(aluno, 'turma', None):
-        area = getattr(aluno.turma, 'area', '') or ''
-    area = str(area or 'Geral').strip()
+    classe = getattr(aluno, 'classe', None) or ''
+    if not classe and turma_obj:
+        classe = getattr(turma_obj, 'grau_ano', '') or ''
+    classe = str(classe or '10ª Classe').strip()
 
     # Normalizar classe (ex: '10' -> '10ª Classe')
     m_cls = re.search(r'(\d+)', classe)
     num_classe = m_cls.group(1) if m_cls else '10'
     chave_classe = f"{num_classe}ª Classe"
 
-    lista_resultado: List[Dict[str, Any]] = []
-    nomes_vistos = set()
+    # Determinar a área/secção do aluno com prioridade para área específica
+    def _is_especifica(val: Any) -> bool:
+        if not val:
+            return False
+        v = str(val).strip().lower()
+        return v not in ('', 'geral', 'ensino geral', 'tronco comum', 'none', 'null', 'ciências e letras')
 
-    # 1. Tentar buscar disciplinas no banco de dados da escola
-    esc = escola or getattr(aluno, 'escola', None)
-    if esc and hasattr(esc, 'id'):
+    area_aluno = getattr(aluno, 'area', None) or ''
+    area_turma = getattr(turma_obj, 'area', None) or '' if turma_obj else ''
+    if _is_especifica(area_aluno):
+        area = str(area_aluno).strip()
+    elif _is_especifica(area_turma):
+        area = str(area_turma).strip()
+    else:
+        area = str(area_aluno or area_turma or 'Geral').strip()
+
+    # Se for 11ª ou 12ª classe e a área ainda estiver genérica, inferir pela turma ou pelas notas do aluno
+    if num_classe in ('11', '12') and not _is_especifica(area):
         try:
-            from apps.disciplinas.models import Disciplina
-            qs = Disciplina.objects.filter(escola=esc, classe__icontains=num_classe)
-            
-            # Se for 2º Ciclo (11ª ou 12ª) e área definida, filtrar pela área
-            if num_classe in ('11', '12') and area.lower() not in ('geral', 'ensino geral'):
-                # Procurar correspondência exata ou por termo-chave da área
-                qs_area = qs.filter(area__icontains=area)
-                if not qs_area.exists():
-                    for termo in ['Biologia', 'Desenho', 'Geografia', 'História', 'Letras', 'Ciências']:
-                        if termo.lower() in area.lower():
-                            qs_cand = qs.filter(area__icontains=termo)
-                            if qs_cand.exists():
-                                qs_area = qs_cand
-                                break
-                if qs_area.exists():
-                    qs = qs_area
-
-            for d in qs.order_by('nome'):
-                nome_c = d.nome.strip()
-                if nome_c.lower() not in nomes_vistos:
-                    nomes_vistos.add(nome_c.lower())
-                    carga_val = f"{d.carga_horaria}h" if d.carga_horaria else '3h'
-                    lista_resultado.append({
-                        'numero': len(lista_resultado) + 1,
-                        'codigo': d.codigo,
-                        'nome': nome_c,
-                        'disciplina': nome_c,
-                        'carga': carga_val,
-                        'carga_horaria': carga_val
-                    })
+            from apps.pautas.services import categorizar_area, CURRICULO_REGRAS_AREAS
+            if turma_obj:
+                _, sub_t = categorizar_area(area_turma, getattr(turma_obj, 'nome', ''))
+                if sub_t in CURRICULO_REGRAS_AREAS and sub_t != 'GERAL':
+                    area = CURRICULO_REGRAS_AREAS[sub_t]['nome_oficial']
         except Exception:
             pass
+        if not _is_especifica(area):
+            area = 'Ciências com Biologia'
 
-    # 2. Se o banco retornou uma lista completa de pelo menos 6 disciplinas, retornar
-    if len(lista_resultado) >= 6:
-        return lista_resultado
-
-    # 3. Fallback: Usar Plano Curricular Oficial Nacional MINEDH
+    # Obter o plano curricular oficial do MINEDH para esta Classe e Área/Secção
     plano_bloco = PLANO_CURRICULAR_NACIONAL_MINEDH.get(chave_classe, PLANO_CURRICULAR_NACIONAL_MINEDH.get('10ª Classe', []))
     lista_padrao = []
 
     if isinstance(plano_bloco, dict):
-        # Mapear área correspondente
         sub_lista = None
+        area_low = area.lower()
+        # 1. Correspondência exata ou inclusão direta
         for k_area, dis_items in plano_bloco.items():
-            if k_area != '_default' and (k_area.lower() in area.lower() or area.lower() in k_area.lower()):
+            if k_area != '_default' and (k_area.lower() in area_low or area_low in k_area.lower()):
                 sub_lista = dis_items
                 break
+        # 2. Correspondência por combinação de ramo + especialidade
         if not sub_lista:
-            # Tentar por palavra-chave
-            for termo in ['Biologia', 'Desenho', 'Geografia', 'História']:
-                if termo.lower() in area.lower():
-                    for k_area, dis_items in plano_bloco.items():
-                        if termo.lower() in k_area.lower():
-                            sub_lista = dis_items
-                            break
-                    if sub_lista:
-                        break
+            if 'letr' in area_low and ('hist' in area_low or 'lh' in area_low):
+                sub_lista = plano_bloco.get('Letras com História')
+            elif 'letr' in area_low:
+                sub_lista = plano_bloco.get('Letras com Geografia')
+            elif 'desenh' in area_low or 'dgd' in area_low or 'cd' in area_low:
+                sub_lista = plano_bloco.get('Ciências com Desenho')
+            elif 'geo' in area_low or 'cg' in area_low:
+                sub_lista = plano_bloco.get('Ciências com Geografia')
+            elif 'bio' in area_low or 'cb' in area_low or 'cienc' in area_low or 'ciênc' in area_low:
+                sub_lista = plano_bloco.get('Ciências com Biologia')
         if not sub_lista:
-            sub_lista = plano_bloco.get('_default', [])
+            sub_lista = plano_bloco.get('Ciências com Biologia') or plano_bloco.get('_default', [])
         lista_padrao = sub_lista
     elif isinstance(plano_bloco, list):
         lista_padrao = plano_bloco
 
+    # Mapear disciplinas cadastradas na escola (para preservar códigos/cargas customizadas que pertençam estritamente ao plano da área)
+    esc = escola or getattr(aluno, 'escola', None)
+    db_por_materia = {}
+    if esc and hasattr(esc, 'id'):
+        try:
+            from apps.disciplinas.models import Disciplina
+            from apps.pautas.services import identificar_materia_canonica
+            qs = Disciplina.objects.filter(escola=esc, classe__icontains=num_classe)
+            for d in qs:
+                mat_key = identificar_materia_canonica(d)
+                if mat_key and mat_key not in db_por_materia:
+                    db_por_materia[mat_key] = d
+        except Exception:
+            pass
+
     lista_final: List[Dict[str, Any]] = []
-    nomes_vistos.clear()
+    nomes_vistos = set()
+    try:
+        from apps.pautas.services import identificar_materia_canonica as _id_mat, MATERIA_NOMES_OFICIAIS
+    except Exception:
+        _id_mat = None
+        MATERIA_NOMES_OFICIAIS = {}
+
     for item in lista_padrao:
         nome_d, cod_d, carga_d = item
+        # Nome oficial completo (ex: TIC's -> Tecnologias de Informação e Comunicação)
+        if nome_d in ("TIC's", "TIC"):
+            nome_d = "Tecnologias de Informação e Comunicação"
+        elif nome_d == "Filosofia":
+            nome_d = "Introdução à Filosofia"
+
         if nome_d.lower() not in nomes_vistos:
             nomes_vistos.add(nome_d.lower())
             lista_final.append({
@@ -532,4 +544,5 @@ def obter_disciplinas_plano_curricular(aluno: Any, escola: Any = None) -> List[D
             })
 
     return lista_final
+
 

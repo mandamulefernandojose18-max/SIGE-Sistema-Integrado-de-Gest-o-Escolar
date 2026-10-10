@@ -8966,6 +8966,92 @@ function obterNomeCompletoDisciplina(str) {
   return mapa[id] || String(str).trim();
 }
 
+const PLANO_CURRICULAR_MINEDH_FRONTEND = {
+  '7': {
+    'Geral': ['Português', 'Inglês', 'História', 'Geografia', 'Ciências Naturais', 'Matemática', 'Educação Visual', 'Educação Física', 'Tecnologias de Informação e Comunicação']
+  },
+  '8': {
+    'Geral': ['Português', 'Inglês', 'História', 'Geografia', 'Biologia', 'Física', 'Química', 'Matemática', 'Educação Visual', 'Educação Física', 'Tecnologias de Informação e Comunicação', 'Agropecuária']
+  },
+  '9': {
+    'Geral': ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia', 'Física', 'Química', 'Matemática', 'Educação Visual', 'Educação Física', 'Tecnologias de Informação e Comunicação', 'Noções de Empreendedorismo']
+  },
+  '10': {
+    'Geral': ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia', 'Física', 'Química', 'Matemática', 'Educação Visual', 'Educação Física', 'Tecnologias de Informação e Comunicação', 'Noções de Empreendedorismo']
+  },
+  '11': {
+    'Letras com Geografia': ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia', 'Matemática Aplicada', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Letras com História': ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia', 'Matemática Aplicada', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Ciências com Biologia': ['Português', 'Inglês', 'Introdução à Filosofia', 'Matemática', 'Física', 'Química', 'Biologia', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Ciências com Desenho': ['Português', 'Inglês', 'Introdução à Filosofia', 'Matemática', 'Física', 'Química', 'Desenho e Geometria Descritiva', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Ciências com Geografia': ['Português', 'Inglês', 'Introdução à Filosofia', 'Matemática', 'Física', 'Química', 'Geografia', 'Educação Física', 'Tecnologias de Informação e Comunicação']
+  },
+  '12': {
+    'Letras com Geografia': ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia', 'Matemática Aplicada', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Letras com História': ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia', 'Matemática Aplicada', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Ciências com Biologia': ['Português', 'Inglês', 'Introdução à Filosofia', 'Matemática', 'Física', 'Química', 'Biologia', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Ciências com Desenho': ['Português', 'Inglês', 'Introdução à Filosofia', 'Matemática', 'Física', 'Química', 'Desenho e Geometria Descritiva', 'Educação Física', 'Tecnologias de Informação e Comunicação'],
+    'Ciências com Geografia': ['Português', 'Inglês', 'Introdução à Filosofia', 'Matemática', 'Física', 'Química', 'Geografia', 'Educação Física', 'Tecnologias de Informação e Comunicação']
+  }
+};
+
+function obterDisciplinasPlanoCurricularAlunoDoc(d) {
+  d = d || {};
+  const alunoObj = d.aluno || {};
+  const turmaObj = typeof alunoObj.turma === 'object' && alunoObj.turma ? alunoObj.turma : {};
+  const classeRaw = String(d.grauAno || alunoObj.classe || alunoObj.grau || turmaObj.grau_ano || turmaObj.nome || '10');
+  let numClasse = '10';
+  for (const n of ['12', '11', '10', '9', '8', '7']) {
+    if (classeRaw.includes(n)) {
+      numClasse = n;
+      break;
+    }
+  }
+
+  const areaRaw = String(d.area || alunoObj.area || turmaObj.area || turmaObj.nome || '').toLowerCase();
+  const opcoesClasse = PLANO_CURRICULAR_MINEDH_FRONTEND[numClasse] || PLANO_CURRICULAR_MINEDH_FRONTEND['10'];
+  let nomesPlano = null;
+
+  if (['7', '8', '9', '10'].includes(numClasse)) {
+    nomesPlano = opcoesClasse['Geral'];
+  } else {
+    if (areaRaw.includes('desenho') || areaRaw.includes('dgd')) {
+      nomesPlano = opcoesClasse['Ciências com Desenho'];
+    } else if (areaRaw.includes('biologia')) {
+      nomesPlano = opcoesClasse['Ciências com Biologia'];
+    } else if ((areaRaw.includes('ciencia') || areaRaw.includes('ciência')) && areaRaw.includes('geografia')) {
+      nomesPlano = opcoesClasse['Ciências com Geografia'];
+    } else if (areaRaw.includes('letra') && (areaRaw.includes('historia') || areaRaw.includes('história'))) {
+      nomesPlano = opcoesClasse['Letras com História'];
+    } else if (areaRaw.includes('letra')) {
+      nomesPlano = opcoesClasse['Letras com Geografia'];
+    } else {
+      nomesPlano = opcoesClasse['Ciências com Biologia'];
+    }
+  }
+
+  const recebidas = Array.isArray(d.disciplinas) ? d.disciplinas : (Array.isArray(alunoObj.disciplinas) ? alunoObj.disciplinas : []);
+  // Se o backend já enviou a lista filtrada pela secção ou se queremos casar as notas com o plano oficial da classe/secção:
+  return (nomesPlano || []).map((nomeOficial, idx) => {
+    const existente = recebidas.find(item => matchDisciplinaDocumento(nomeOficial, item.nome || item.disciplina || ''));
+    if (existente) {
+      return { ...existente, nome: nomeOficial, disciplina: nomeOficial };
+    }
+    return {
+      numero: idx + 1,
+      nome: nomeOficial,
+      disciplina: nomeOficial,
+      t1: '---',
+      t2: '---',
+      t3: '---',
+      media_anual: null,
+      mediaFinal: null,
+      notaFinal: null,
+      situacao: '---'
+    };
+  });
+}
+
 function obterHtmlBoletimOficial(d) {
   const escolaObj = d.escola || state.tenant || {};
   const escolaNome = escolaObj.nome || 'Escola Secundária de Cambine';
@@ -8995,9 +9081,9 @@ function obterHtmlBoletimOficial(d) {
   else if (turno.toUpperCase() === 'NOITE') turno = 'Noite';
 
   let listaDisciplinas = [];
-  if (Array.isArray(d.disciplinas) && d.disciplinas.length > 0) {
-    listaDisciplinas = d.disciplinas.map(item => {
-      // Disciplinas sem abreviar
+  const disciplinasCurricularesAluno = obterDisciplinasPlanoCurricularAlunoDoc(d);
+  if (disciplinasCurricularesAluno.length > 0) {
+    listaDisciplinas = disciplinasCurricularesAluno.map(item => {
       const nome = obterNomeCompletoDisciplina(item.nome || item.disciplina || 'Disciplina');
       
       const formatarNota = (val) => {
@@ -9053,12 +9139,12 @@ function obterHtmlBoletimOficial(d) {
   const corpoTabelaBoletim = listaDisciplinas.length > 0
     ? listaDisciplinas.map(item => `
         <tr>
-          <td style="border: 1px solid #777777; padding: 5px 10px; font-size: 10.5pt; font-weight: 500; text-align: left;">${item.nome}</td>
-          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10pt; text-align: center; color: ${item.t1 === '---' ? '#777777' : '#111111'};">${item.t1}</td>
-          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10pt; text-align: center; color: ${item.t2 === '---' ? '#777777' : '#111111'};">${item.t2}</td>
-          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10pt; text-align: center; color: ${item.t3 === '---' ? '#777777' : '#111111'};">${item.t3}</td>
-          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10.5pt; font-weight: bold; text-align: center;">${item.medAnual}</td>
-          <td style="border: 1px solid #777777; padding: 5px 8px; font-size: 10pt; font-weight: 600; text-align: center; color: ${item.situacao === 'Reprovado' ? '#dc2626' : '#111827'};">${item.situacao}</td>
+          <td style="border: 1px solid #777777; padding: 6px 10px; font-size: 11.5pt; font-weight: 600; text-align: left;">${item.nome}</td>
+          <td style="border: 1px solid #777777; padding: 6px 6px; font-size: 11pt; text-align: center; color: ${item.t1 === '---' ? '#777777' : '#111111'};">${item.t1}</td>
+          <td style="border: 1px solid #777777; padding: 6px 6px; font-size: 11pt; text-align: center; color: ${item.t2 === '---' ? '#777777' : '#111111'};">${item.t2}</td>
+          <td style="border: 1px solid #777777; padding: 6px 6px; font-size: 11pt; text-align: center; color: ${item.t3 === '---' ? '#777777' : '#111111'};">${item.t3}</td>
+          <td style="border: 1px solid #777777; padding: 6px 6px; font-size: 11.5pt; font-weight: bold; text-align: center;">${item.medAnual}</td>
+          <td style="border: 1px solid #777777; padding: 6px 8px; font-size: 10.5pt; font-weight: 600; text-align: center; color: ${item.situacao === 'Reprovado' ? '#dc2626' : '#111827'};">${item.situacao}</td>
         </tr>
       `).join('')
     : `
@@ -9137,7 +9223,7 @@ function obterHtmlBoletimOficial(d) {
         <table style="width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 10px; font-family: 'Times New Roman', Times, Georgia, serif; border: 1.5px solid #444444; box-sizing: border-box;">
           <thead>
             <tr style="background-color: #e9ecf2; border-bottom: 1.5px solid #444444;">
-              <th style="border: 1px solid #666666; padding: 5px 8px; font-size: 10pt; font-weight: bold; text-align: left; width: 38%;">DISCIPLINA</th>
+              <th style="border: 1px solid #666666; padding: 5px 8px; font-size: 10.5pt; font-weight: bold; text-align: left; width: 38%;">DISCIPLINA</th>
               <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 12%;">1º TRIM</th>
               <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 12%;">2º TRIM</th>
               <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 12%;">3º TRIM</th>
@@ -9150,12 +9236,12 @@ function obterHtmlBoletimOficial(d) {
 
             <!-- LINHA DA MÉDIA GLOBAL DO PERÍODO -->
             <tr style="background-color: #e9ecf2; font-weight: bold; border-top: 1.5px solid #444444;">
-              <td style="border: 1px solid #666666; padding: 5px 8px; font-size: 9.5pt; text-align: left;">MÉDIA GLOBAL DO PERÍODO</td>
+              <td style="border: 1px solid #666666; padding: 5px 8px; font-size: 10pt; text-align: left;">MÉDIA GLOBAL DO PERÍODO</td>
               <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; text-align: center; color: #777777;">---</td>
               <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; text-align: center; color: #777777;">---</td>
               <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; text-align: center; color: #777777;">---</td>
-              <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 10pt; text-align: center;">${mediaGlobalInt}</td>
-              <td style="border: 1px solid #666666; padding: 5px 6px; font-size: 9.5pt; text-align: center;">${situacaoGlobal}</td>
+              <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 10.5pt; text-align: center;">${mediaGlobalInt}</td>
+              <td style="border: 1px solid #666666; padding: 5px 6px; font-size: 10pt; text-align: center;">${situacaoGlobal}</td>
             </tr>
           </tbody>
         </table>
@@ -9223,22 +9309,22 @@ function obterHtmlDeclaracaoOficial(d) {
   const pai = d.aluno?.pai || '...........................................';
   const mae = d.aluno?.mae || '...........................................';
   const anoLectivo = d.anoLectivo || d.anoLetivo || '2026';
-  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || '10ª Classe';
+  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || d.aluno?.classe || '10ª Classe';
   const docTipo = d.aluno?.tipo_documento || 'B.I.';
   const docNum = d.aluno?.numero_documento || '---';
   const termoExames = d.termoExames || '124';
   const folha = d.folha || '32';
-  // Mapa de notas por disciplina
+
+  // Disciplinas do plano curricular da classe e secção do aluno
+  const disciplinasDoPlano = obterDisciplinasPlanoCurricularAlunoDoc(d);
   const notasMap = {};
-  if (d.disciplinas && Array.isArray(d.disciplinas)) {
-    d.disciplinas.forEach(item => {
-      const n = (item.disciplina || item.nome || '').trim();
-      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.media_anual);
-      if (n) {
-        notasMap[n] = v;
-      }
-    });
-  }
+  disciplinasDoPlano.forEach(item => {
+    const n = (item.disciplina || item.nome || '').trim();
+    const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.media_anual);
+    if (n) {
+      notasMap[n] = v;
+    }
+  });
 
   const obterNotaValor = (nomeDisc) => {
     for (const [ch, vl] of Object.entries(notasMap)) {
@@ -9254,16 +9340,18 @@ function obterHtmlDeclaracaoOficial(d) {
     return null;
   };
 
-  const colEsquerda = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia'];
-  const colDireita = ['Física', 'Química', 'Matemática', 'Desenho e Geometria Descritiva', 'Educação Física', 'Tecnologias de Informação e Comunicação'];
+  const nomesCurriculares = disciplinasDoPlano.map(item => obterNomeCompletoDisciplina(item.nome || item.disciplina || '')).filter(Boolean);
+  const meioDecl = Math.ceil(nomesCurriculares.length / 2);
+  const colEsquerda = nomesCurriculares.slice(0, meioDecl);
+  const colDireita = nomesCurriculares.slice(meioDecl);
 
   const renderLinhaDisc = (disc) => {
     const nota = obterNotaValor(disc);
     const notaTexto = nota !== null ? `( ${nota} ) valores` : `( --- )`;
     return `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; font-size: 9.5pt; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+      <div style="display: flex; justify-content: flex-start; align-items: baseline; margin-bottom: 6px; font-size: 11.5pt; line-height: 1.35; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
         <span style="min-width: 0; overflow-wrap: break-word;">${disc}</span>
-        <span style="flex: 1 1 8px; min-width: 6px; border-bottom: 1px dotted #666; margin: 0 4px;"></span>
+        <span style="display: inline-block; width: 22px; min-width: 10px; border-bottom: 1px dotted #555; margin: 0 6px; flex-shrink: 1;"></span>
         <span style="font-weight: bold; white-space: nowrap; flex-shrink: 0;">${notaTexto}</span>
       </div>
     `;
@@ -9398,8 +9486,8 @@ function obterHtmlCertificadoOficial(d) {
   const alunoDistrito = d.aluno?.distrito || 'Cidade de Maputo';
   const alunoProvincia = d.aluno?.provincia || 'Maputo';
   const anoLectivo = d.anoLectivo || d.anoLetivo || '2026';
-  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || '10ª Classe';
-  const area = d.area || d.aluno?.turma?.area || 'Geral';
+  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || d.aluno?.classe || '10ª Classe';
+  const area = d.area || d.aluno?.turma?.area || d.aluno?.area || 'Geral';
   const matricula = d.aluno?.matricula || 'MAT-2026-1006';
 
   let diaNasc = '09', mesNasc = 'Julho', anoNasc = '2008';
@@ -9413,17 +9501,16 @@ function obterHtmlCertificadoOficial(d) {
     }
   }
 
-  // Mapa de notas por disciplina
+  // Disciplinas do plano curricular da classe e secção do aluno
+  const disciplinasDoPlano = obterDisciplinasPlanoCurricularAlunoDoc(d);
   const notasMap = {};
-  if (d.disciplinas && Array.isArray(d.disciplinas)) {
-    d.disciplinas.forEach(item => {
-      const n = (item.disciplina || item.nome || '').trim();
-      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.media_anual);
-      if (n) {
-        notasMap[n] = v;
-      }
-    });
-  }
+  disciplinasDoPlano.forEach(item => {
+    const n = (item.disciplina || item.nome || '').trim();
+    const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.media_anual);
+    if (n) {
+      notasMap[n] = v;
+    }
+  });
 
   const obterNotaValor = (nomeDisc) => {
     for (const [ch, vl] of Object.entries(notasMap)) {
@@ -9439,24 +9526,18 @@ function obterHtmlCertificadoOficial(d) {
     return null;
   };
 
-  // Distribuição equilibrada em 2 colunas para caber integralmente dentro das bordas duplas sem transgredir margens
-  const colEsquerda = [
-    'Português', 'Inglês', 'Francês', 'História', 'Geografia',
-    'Introdução à Filosofia', 'Matemática', 'Química', 'Física'
-  ];
-  const colDireita = [
-    'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual',
-    'Educação Física', 'Tecnologias de Informação e Comunicação',
-    'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'
-  ];
+  const nomesCurricularesCert = disciplinasDoPlano.map(item => obterNomeCompletoDisciplina(item.nome || item.disciplina || '')).filter(Boolean);
+  const meioCert = Math.ceil(nomesCurricularesCert.length / 2);
+  const colEsquerda = nomesCurricularesCert.slice(0, meioCert);
+  const colDireita = nomesCurricularesCert.slice(meioCert);
 
   const renderLinhaCert = (disc) => {
     const nota = obterNotaValor(disc);
     const notaTexto = nota !== null ? `( ${nota} ) valores` : `( --- )`;
     return `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; font-size: 9.2pt; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+      <div style="display: flex; justify-content: flex-start; align-items: baseline; margin-bottom: 5px; font-size: 11.5pt; line-height: 1.35; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
         <span style="min-width: 0; overflow-wrap: break-word;">${disc}</span>
-        <span style="flex: 1 1 8px; min-width: 6px; border-bottom: 1px dotted #777; margin: 0 4px;"></span>
+        <span style="display: inline-block; width: 22px; min-width: 10px; border-bottom: 1px dotted #555; margin: 0 6px; flex-shrink: 1;"></span>
         <span style="font-weight: bold; white-space: nowrap; flex-shrink: 0;">${notaTexto}</span>
       </div>
     `;

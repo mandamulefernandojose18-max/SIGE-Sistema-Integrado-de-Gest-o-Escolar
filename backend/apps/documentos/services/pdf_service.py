@@ -590,9 +590,9 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     ]
     tabela_data = [headers]
 
-    style_td_disc = ParagraphStyle('TDisc', fontName='Times-Roman', fontSize=9.5, leading=12, alignment=0)
-    style_td_nota = ParagraphStyle('TNota', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1)
-    style_td_med = ParagraphStyle('TMed', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1)
+    style_td_disc = ParagraphStyle('TDisc', fontName='Times-Roman', fontSize=10.5, leading=13, alignment=0)
+    style_td_nota = ParagraphStyle('TNota', fontName='Times-Roman', fontSize=10, leading=12.5, alignment=1)
+    style_td_med = ParagraphStyle('TMed', fontName='Times-Bold', fontSize=10.5, leading=13, alignment=1)
 
     total_media = 0
     count_disciplinas = 0
@@ -616,7 +616,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
                 pass
 
         sit_color = colors.HexColor('#dc2626') if (sit in ('Reprovado', 'R')) else colors.HexColor('#111827')
-        style_sit = ParagraphStyle('Sit', fontName='Times-Bold', fontSize=9, leading=11, alignment=1, textColor=sit_color)
+        style_sit = ParagraphStyle('Sit', fontName='Times-Bold', fontSize=10, leading=12.5, alignment=1, textColor=sit_color)
 
         tabela_data.append([
             Paragraph(nome_d, style_td_disc),
@@ -635,9 +635,9 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         media_global_num = '---'
         sit_global_txt = '---'
 
-    style_foot_lbl = ParagraphStyle('FLbl', fontName='Times-Bold', fontSize=9, leading=11, alignment=0)
-    style_foot_val = ParagraphStyle('FVal', fontName='Times-Bold', fontSize=9.5, leading=11, alignment=1)
-    style_foot_sit = ParagraphStyle('FSit', fontName='Times-Bold', fontSize=9, leading=11, alignment=1, textColor=colors.HexColor('#111827') if sit_global_txt == 'Aprovado' else colors.HexColor('#dc2626'))
+    style_foot_lbl = ParagraphStyle('FLbl', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=0)
+    style_foot_val = ParagraphStyle('FVal', fontName='Times-Bold', fontSize=10, leading=12, alignment=1)
+    style_foot_sit = ParagraphStyle('FSit', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1, textColor=colors.HexColor('#111827') if sit_global_txt == 'Aprovado' else colors.HexColor('#dc2626'))
 
     tabela_data.append([
         Paragraph('MÉDIA GLOBAL DO PERÍODO', style_foot_lbl),
@@ -755,10 +755,13 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     elements.append(Paragraph(corpo_texto, style_body))
     elements.append(Spacer(1, 0.25 * cm))
 
-    # Tabela com as disciplinas em 2 Colunas estritamente dentro de 18.0 cm
+    # Tabela com as disciplinas do plano curricular da classe/secção do aluno em 2 Colunas estritamente dentro de 18.0 cm
     notas_map = {}
-    for d in notas_disciplinas:
+    lista_disc_nomes = []
+    for d in (notas_disciplinas or []):
         n = (d.get('disciplina') or d.get('nome') or '').strip()
+        if n and n not in lista_disc_nomes:
+            lista_disc_nomes.append(n)
         v = d.get('media_anual') if d.get('media_anual') is not None else (d.get('mediaFinal') if d.get('mediaFinal') is not None else d.get('notaFinal'))
         if n and v not in (None, '-', '---'):
             try:
@@ -766,36 +769,41 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
             except Exception:
                 pass
 
+    if not lista_disc_nomes:
+        plano = obter_disciplinas_plano_curricular(aluno, escola)
+        lista_disc_nomes = [p.get('nome') for p in plano if p.get('nome')]
+
     def obter_nota_decl(alvo):
         for ch, vl in notas_map.items():
             if match_disciplina(alvo, ch):
                 return vl
         return '---'
 
-    col_esq = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia']
-    col_dir = ['Física', 'Química', 'Matemática', 'Desenho e Geometria Descritiva', 'Educação Física', 'Tecnologias de Informação e Comunicação']
+    meio_decl = (len(lista_disc_nomes) + 1) // 2
+    col_esq = lista_disc_nomes[:meio_decl]
+    col_dir = lista_disc_nomes[meio_decl:]
 
-    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=9.5, leading=11.5)
-    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#666666'))
-    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=2)
+    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=11, leading=13.5)
+    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=10.5, leading=13.5, alignment=1, textColor=colors.HexColor('#666666'))
+    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=11, leading=13.5, alignment=2)
 
     def criar_subitem_2col(disc, w_col=8.7 * cm):
         nota = obter_nota_decl(disc)
         nota_str = f'( {nota} ) valores' if nota != '---' else '( --- )'
-        w1 = 5.3 * cm
-        w3 = 2.2 * cm
+        w1 = 5.6 * cm
+        w3 = 2.4 * cm
         w2 = w_col - w1 - w3
         t = Table([[
             Paragraph(disc, s_name),
-            Paragraph('.........', s_dots),
+            Paragraph('....', s_dots),
             Paragraph(nota_str, s_val)
         ]], colWidths=[w1, w2, w3])
         t.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 1.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
         ]))
         return t
 
@@ -965,16 +973,23 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     elements.append(Paragraph(corpo, style_body))
     elements.append(Spacer(1, 0.2 * cm))
 
-    # Tabela de disciplinas em 2 Colunas equilibradas (18.0 cm total) estritamente dentro da moldura dupla
+    # Tabela de disciplinas do plano curricular da classe/secção do aluno em 2 Colunas equilibradas (18.0 cm total)
     notas_map = {}
-    for d in notas_disciplinas:
-        nome_d = d.get('nome') or d.get('disciplina') or ''
+    lista_disc_cert = []
+    for d in (notas_disciplinas or []):
+        nome_d = (d.get('nome') or d.get('disciplina') or '').strip()
+        if nome_d and nome_d not in lista_disc_cert:
+            lista_disc_cert.append(nome_d)
         v = d.get('media_anual') if d.get('media_anual') is not None else (d.get('mediaFinal') if d.get('mediaFinal') is not None else d.get('notaFinal'))
-        if v not in (None, '-', '---'):
+        if nome_d and v not in (None, '-', '---'):
             try:
-                notas_map[nome_d.strip()] = str(round(float(v)))
+                notas_map[nome_d] = str(round(float(v)))
             except Exception:
                 pass
+
+    if not lista_disc_cert:
+        plano = obter_disciplinas_plano_curricular(aluno, escola)
+        lista_disc_cert = [p.get('nome') for p in plano if p.get('nome')]
 
     def obter_nota_cert(nome):
         for ch, vl in notas_map.items():
@@ -982,37 +997,31 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
                 return vl
         return '---'
 
-    col_esq = [
-        'Português', 'Inglês', 'Francês', 'História', 'Geografia',
-        'Introdução à Filosofia', 'Matemática', 'Química', 'Física'
-    ]
-    col_dir = [
-        'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual',
-        'Educação Física', 'Tecnologias de Informação e Comunicação',
-        'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'
-    ]
+    meio_cert = (len(lista_disc_cert) + 1) // 2
+    col_esq = lista_disc_cert[:meio_cert]
+    col_dir = lista_disc_cert[meio_cert:]
 
-    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=9.2, leading=11)
-    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=9.2, leading=11, alignment=1, textColor=colors.HexColor('#666666'))
-    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=9.2, leading=11, alignment=2)
+    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=11, leading=13.5)
+    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=10.5, leading=13.5, alignment=1, textColor=colors.HexColor('#666666'))
+    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=11, leading=13.5, alignment=2)
 
     def criar_subitem_cert(disc, w_col=8.7 * cm):
         nota = obter_nota_cert(disc)
         nota_str = f'( {nota} ) valores' if nota != '---' else '( --- )'
-        w1 = 5.3 * cm
-        w3 = 2.2 * cm
+        w1 = 5.6 * cm
+        w3 = 2.4 * cm
         w2 = w_col - w1 - w3
         t = Table([[
             Paragraph(disc, s_name),
-            Paragraph('.........', s_dots),
+            Paragraph('....', s_dots),
             Paragraph(nota_str, s_val)
         ]], colWidths=[w1, w2, w3])
         t.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0.5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.5),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ]))
         return t
 
@@ -1032,8 +1041,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 1),
         ('RIGHTPADDING', (0, 0), (-1, -1), 1),
-        ('TOPPADDING', (0, 0), (-1, -1), 0.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     elements.append(t_grid)
     elements.append(Spacer(1, 0.2 * cm))

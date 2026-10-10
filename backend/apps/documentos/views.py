@@ -111,45 +111,51 @@ def _obter_pagamento_e_escola(request, pagamento_id):
 
 
 def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_prefetched=None):
+    from apps.pautas.services import identificar_materia_canonica
+    from .services.pdf_service import match_disciplina
+
     if notas_prefetched is not None:
         notas = notas_prefetched
     else:
         notas = list(Nota.objects.filter(aluno=aluno).select_related('disciplina'))
 
-    if disciplinas_prefetched is not None:
-        disciplinas = disciplinas_prefetched
-    elif aluno.turma:
-        disciplinas = obter_disciplinas_pauta_turma(aluno.turma)
-    else:
-        classe_aluno = aluno.classe or ''
-        qs = Disciplina.objects.filter(escola=escola)
-        qs_classe = qs.filter(classe__iexact=classe_aluno) if classe_aluno else qs.none()
+    # Carregar estritamente as disciplinas do plano curricular da classe e secção/área que o aluno estuda
+    plano_curricular = obter_disciplinas_plano_curricular(aluno, escola)
 
-        disc_ids_com_notas = list(set(n.disciplina_id for n in notas if n.disciplina_id))
-        qs_notas = qs.filter(id__in=disc_ids_com_notas) if disc_ids_com_notas else qs.none()
-
-        disciplinas_raw = list(qs_classe) + list(qs_notas)
-        if not disciplinas_raw:
-            disciplinas_raw = list(qs.order_by('nome'))
-
-        # Deduplicar estritamente por nome normalizado
-        nomes_vistos = set()
-        disciplinas = []
-        for d in sorted(disciplinas_raw, key=lambda x: (x.codigo or '', x.nome or '')):
-            chave = d.nome.strip().lower()
-            if chave not in nomes_vistos:
-                nomes_vistos.add(chave)
-                disciplinas.append(d)
+    # Se existirem disciplinas pré-carregadas da turma, usar apenas para enriquecer IDs sem sair do plano curricular da área do aluno
+    disc_db_map = {}
+    if disciplinas_prefetched:
+        for d_obj in disciplinas_prefetched:
+            mk = identificar_materia_canonica(d_obj)
+            if mk:
+                disc_db_map[mk] = d_obj
 
     dados_disc = []
-    for d in disciplinas:
-        chave_d = d.nome.strip().lower()
+    for item_plano in plano_curricular:
+        nome_disc = item_plano['nome']
+        cod_disc = item_plano.get('codigo', '')
 
-        # Buscar nota por id ou por nome da disciplina
+        class _DummyDisc:
+            def __init__(self, nome, codigo):
+                self.nome = nome
+                self.codigo = codigo
+
+        mat_canon = identificar_materia_canonica(_DummyDisc(nome_disc, cod_disc))
+        d_db = disc_db_map.get(mat_canon) if mat_canon else None
+
         def extrair_nota(per):
             for n in notas:
-                if n.periodo == per:
-                    if n.disciplina_id == d.id or (n.disciplina and n.disciplina.nome.strip().lower() == chave_d):
+                if n.periodo == per and n.disciplina:
+                    n_mat = identificar_materia_canonica(n.disciplina)
+                    bate = False
+                    if d_db and n.disciplina_id == d_db.id:
+                        bate = True
+                    elif mat_canon and n_mat and (mat_canon == n_mat or {mat_canon, n_mat} == {'MAT', 'MATA'}):
+                        bate = True
+                    elif match_disciplina(nome_disc, n.disciplina.nome):
+                        bate = True
+
+                    if bate:
                         tem_avaliacoes = any(
                             getattr(n, c, None) is not None and getattr(n, c, 0) > 0
                             for c in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral']
@@ -172,9 +178,9 @@ def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_
             situacao = 'Pendente'
 
         dados_disc.append({
-            'nome': d.nome,
-            'disciplina': d.nome,
-            'codigo': d.codigo or '',
+            'nome': nome_disc,
+            'disciplina': nome_disc,
+            'codigo': cod_disc,
             't1': n1,
             't2': n2,
             't3': n3,
