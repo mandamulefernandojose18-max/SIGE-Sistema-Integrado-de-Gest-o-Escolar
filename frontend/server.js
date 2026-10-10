@@ -44,17 +44,38 @@ const server = http.createServer((req, res) => {
       method: req.method,
       headers: proxyHeaders
     }, (backendRes) => {
-      res.writeHead(backendRes.statusCode, backendRes.headers);
+      backendRes.on('error', (err) => {
+        console.error('[PROXY BACKEND RES ERROR]', err.message);
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, message: 'Erro na resposta do backend SIGE.' }));
+        } else {
+          res.destroy();
+        }
+      });
+
+      if (!res.headersSent) {
+        res.writeHead(backendRes.statusCode, backendRes.headers);
+      }
       backendRes.pipe(res);
+    });
+
+    req.on('error', (err) => {
+      console.error('[PROXY CLIENT REQ ERROR]', err.message);
+      backendReq.destroy();
     });
 
     backendReq.on('error', (err) => {
       console.error('[PROXY ERROR]', err.message);
-      res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        success: false, 
-        message: 'Erro ao conectar ao servidor do SIGE (Backend Django na porta ' + BACKEND_PORT + ').' 
-      }));
+      if (!res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ 
+          success: false, 
+          message: 'Erro ao conectar ao servidor do SIGE (Backend Django na porta ' + BACKEND_PORT + ').' 
+        }));
+      } else {
+        res.destroy();
+      }
     });
 
     req.pipe(backendReq);
@@ -91,16 +112,28 @@ const server = http.createServer((req, res) => {
 
       res.writeHead(200, {
         'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       });
       res.end(content);
     });
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log('====================================================');
   console.log(`  SIGE Frontend SPA rodando em: http://localhost:${PORT}`);
   console.log(`  Proxy Reverso API ativado -> http://127.0.0.1:${BACKEND_PORT}`);
   console.log('====================================================');
 });
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+

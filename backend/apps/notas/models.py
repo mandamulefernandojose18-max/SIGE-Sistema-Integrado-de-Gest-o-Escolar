@@ -41,7 +41,7 @@ class Nota(models.Model):
     
     faltas = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     anotacao = models.CharField(max_length=10, blank=True, null=True)  # D, T, VT, F, AM, PPF, PDF
-    comportamento = models.CharField(max_length=5, default='S')  # NS, S, B, MB, E
+    comportamento = models.CharField(max_length=5, blank=True, null=True, default='')  # NS, S, B, MB, E
     resultado = models.CharField(max_length=20, default='Aprovado')  # Aprovado, Reprovado
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -93,7 +93,32 @@ class Nota(models.Model):
             if val is not None:
                 validar_escala_nota(val)
 
-        # 3. Integridade de Estado / Imutabilidade de Pauta Fechada
+        # 3. Cálculo rigoroso e sincronização automática da média e resultado conforme regras oficiais do MINEDH
+        from common.utils.avaliacoes_mocambique import calcular_media_trimestral
+        tem_avaliacoes = any(
+            getattr(self, campo, None) is not None and getattr(self, campo, 0) > 0
+            for campo in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral']
+        )
+        if tem_avaliacoes:
+            calc = calcular_media_trimestral({
+                'teste1': self.teste1,
+                'teste2': self.teste2,
+                'teste3': self.teste3,
+                'teste4': self.teste4,
+                'trabalho': self.trabalho,
+                'avaliacao_trimestral': self.avaliacao_trimestral
+            })
+            self.media_final = float(calc['mediaFinal'])
+            self.resultado = calc['resultado']
+            if not self.comportamento:
+                self.comportamento = calc['comportamento']
+        elif self.media_final is not None and self.media_final > 0:
+            self.resultado = 'Aprovado' if self.media_final >= 9.5 else 'Reprovado'
+        else:
+            if not self.comportamento or self.comportamento == 'S':
+                self.comportamento = ''
+
+        # 4. Integridade de Estado / Imutabilidade de Pauta Fechada
         verificar_pauta_permite_edicao_nota(self.escola, self.turma, self.disciplina, self.periodo)
 
     def save(self, *args, **kwargs):

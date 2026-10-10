@@ -23,7 +23,7 @@ class TurmaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Turma
         fields = [
-            'id', 'nome', 'grau_ano', 'turno', 'sala', 'ano_letivo', 'area',
+            'id', 'nome', 'grau_ano', 'turno', 'sala', 'capacidade_maxima', 'ano_letivo', 'area',
             'director_turma', 'director_turma_id', 'director_turma_nome',
             'director_classe', 'director_classe_id', 'director_classe_nome',
             'total_alunos', '_count', 'created_at', 'updated_at'
@@ -37,6 +37,39 @@ class TurmaSerializer(serializers.ModelSerializer):
         return {
             'alunos': obj.alunos.filter(status='ATIVO').count()
         }
+
+    def validate(self, attrs):
+        nome = attrs.get('nome') or (self.instance.nome if self.instance else None)
+        grau_ano = attrs.get('grau_ano') or (self.instance.grau_ano if self.instance else None)
+        ano_letivo = attrs.get('ano_letivo') or (self.instance.ano_letivo if self.instance else '2026')
+
+        request = self.context.get('request')
+        escola = None
+        if request:
+            escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+            if not escola and getattr(request.user, 'role', '') == 'SUPERADMIN':
+                escola_id = request.data.get('escola_id') or request.headers.get('X-Tenant-ID')
+                if escola_id:
+                    from apps.tenants.models import Escola
+                    escola = Escola.objects.filter(id=escola_id).first()
+        if not escola and self.instance:
+            escola = self.instance.escola
+
+        if escola and grau_ano and nome:
+            from .utils import validar_unicidade_turma_na_classe
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                validar_unicidade_turma_na_classe(
+                    escola=escola,
+                    grau_ano=grau_ano,
+                    nome=nome,
+                    ano_letivo=ano_letivo,
+                    exclude_id=self.instance.id if self.instance else None
+                )
+            except DjangoValidationError as e:
+                raise serializers.ValidationError({'nome': str(e.message)})
+
+        return attrs
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

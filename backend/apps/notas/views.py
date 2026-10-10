@@ -79,7 +79,7 @@ class NotaViewSet(viewsets.ModelViewSet):
                         'avaliacao_trimestral': item.get('avaliacao_trimestral') if item.get('avaliacao_trimestral') != '' else 0,
                         'media_final': calc['mediaFinal'],
                         'resultado': calc['resultado'],
-                        'comportamento': item.get('comportamento') or calc['comportamento'],
+                        'comportamento': item.get('comportamento') or calc.get('comportamento') or '',
                         'anotacao': item.get('anotacao') or None,
                         'faltas': int(item.get('faltas') or 0),
                     }
@@ -92,7 +92,71 @@ class NotaViewSet(viewsets.ModelViewSet):
                 'totalSalvos': salvos
             }, status=status.HTTP_200_OK)
 
-        return super().create(request, *args, **kwargs)
+        # Lançamento individual (modal caderneta)
+        aluno_id = request.data.get('aluno_id')
+        turma_id = request.data.get('turma_id')
+        disciplina_id = request.data.get('disciplina_id')
+        periodo = request.data.get('periodo')
+
+        if periodo in ('TODOS', '', None) or periodo not in ('1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE', 'ANUAL'):
+            return Response({
+                'success': False,
+                'message': 'Selecione um trimestre válido (1º, 2º ou 3º Trimestre) para gravar a avaliação.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if aluno_id and turma_id and disciplina_id and periodo:
+            escola = request.tenant or request.user.escola
+            turma = get_object_or_404(Turma, id=turma_id, escola=escola)
+            disciplina = get_object_or_404(Disciplina, id=disciplina_id, escola=escola)
+            aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+
+            calc = calcular_media_trimestral(request.data)
+
+            def parse_num(val):
+                if val is None or val == '':
+                    return None
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return None
+
+            try:
+                nota_obj, created = Nota.objects.update_or_create(
+                    escola=escola,
+                    aluno=aluno,
+                    disciplina=disciplina,
+                    turma=turma,
+                    periodo=periodo,
+                    defaults={
+                        'teste1': parse_num(request.data.get('teste1')),
+                        'teste2': parse_num(request.data.get('teste2')),
+                        'teste3': parse_num(request.data.get('teste3')),
+                        'teste4': parse_num(request.data.get('teste4')),
+                        'trabalho': parse_num(request.data.get('trabalho')),
+                        'avaliacao_trimestral': parse_num(request.data.get('avaliacao_trimestral')),
+                        'media_final': calc['mediaFinal'],
+                        'resultado': calc['resultado'],
+                        'comportamento': request.data.get('comportamento') or calc.get('comportamento') or '',
+                        'anotacao': request.data.get('anotacao') or None,
+                        'faltas': int(request.data.get('faltas') or 0),
+                    }
+                )
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'message': f'Erro de integridade ao gravar avaliação: {str(e)}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({
+                'success': True,
+                'message': 'Avaliação gravada com sucesso.',
+                'data': NotaSerializer(nota_obj).data
+            }, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+
+        return Response({
+            'success': False,
+            'message': 'Campos obrigatórios em falta: aluno_id, turma_id, disciplina_id e periodo são todos necessários.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 class PrazosTrimestresView(APIView):
     permission_classes = [IsAuthenticated]

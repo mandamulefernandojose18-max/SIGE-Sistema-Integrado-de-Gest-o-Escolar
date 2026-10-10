@@ -4,6 +4,8 @@
   "private": true,
   "description": "SIGE — Sistema Integrado de Gestão Escolar (Django REST Framework + Vanilla Frontend SPA)",
   "scripts": {
+    "prod:backend": "cd backend && python run_production.py",
+    "prod:frontend": "npm --prefix frontend start",
     "dev:backend": "cd backend && python manage.py runserver 0.0.0.0:8000",
     "dev:frontend": "npm --prefix frontend start",
     "test:backend": "cd backend && pytest",

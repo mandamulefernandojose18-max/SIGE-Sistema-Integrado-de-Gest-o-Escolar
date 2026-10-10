@@ -32,6 +32,10 @@ class LoginView(APIView):
             tipo='LOGIN_SUCESSO'
         )
 
+        from django.utils import timezone
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+
         user_data = UsuarioSerializer(user).data
         escola_data = None
         if user.escola_id:
@@ -62,9 +66,23 @@ class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user_data = UsuarioSerializer(request.user).data
+        escola_data = None
+        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        if escola:
+            from apps.tenants.serializers import EscolaSerializer
+            escola_data = EscolaSerializer(escola).data
+
         return Response({
             'success': True,
-            'user': UsuarioSerializer(request.user).data
+            'user': user_data,
+            'tenant': escola_data,
+            'escola': escola_data,
+            'data': {
+                'user': user_data,
+                'tenant': escola_data,
+                'escola': escola_data
+            }
         })
 
 class UserStatsView(APIView):

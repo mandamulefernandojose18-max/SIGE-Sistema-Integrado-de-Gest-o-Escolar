@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIGE — Sistema Integrado de Gestão Escolar</title>
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/img/logo-sige.png">
+  <link rel="apple-touch-icon" href="/img/logo-sige.png">
   <meta name="theme-color" content="#1e3a8a">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -23,6 +25,22 @@
       background-color: #f8fafc;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #1e293b;
+    }
+    
+    /* Campos de Data com calendário e cursor acessível */
+    input[type="date"] {
+      cursor: pointer;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      padding: 3px 5px;
+      border-radius: 4px;
+      opacity: 0.8;
+      transition: opacity 0.15s, background-color 0.15s;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+      background-color: rgba(0, 0, 0, 0.08);
     }
     
     /* Layout */
@@ -99,6 +117,39 @@
     .content-area {
       padding: 24px;
       flex: 1;
+      position: relative;
+    }
+    /* Marca de Água Oficial SIGE no Sistema (Visível e Não Invasiva) */
+    .marca-dagua-sistema {
+      position: fixed;
+      top: 50%;
+      left: calc(50% + (var(--sidebar-width) / 2));
+      transform: translate(-50%, -50%);
+      width: 500px;
+      max-width: 65vw;
+      height: 500px;
+      max-height: 65vh;
+      background-image: url('/img/logo-sige.png');
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: contain;
+      opacity: 0.16;
+      mix-blend-mode: multiply;
+      pointer-events: none !important;
+      z-index: 1020;
+    }
+    @media (max-width: 991px) {
+      .marca-dagua-sistema {
+        left: 50%;
+        width: 340px;
+        height: 340px;
+        opacity: 0.14;
+      }
+    }
+    @media print {
+      .marca-dagua-sistema {
+        display: none !important;
+      }
     }
     .card {
       border: 1px solid #e2e8f0;
@@ -124,6 +175,74 @@
       align-items: center;
       justify-content: center;
       font-size: 1.4rem;
+    }
+
+    /* Moeda com tamanho normal e proporcional */
+    /* Moeda com tamanho normal e proporcional */
+    .moeda-sufixo {
+      font-size: 0.85rem;
+      font-weight: 500;
+      opacity: 0.8;
+      margin-left: 0.3rem;
+      display: inline-block;
+      vertical-align: baseline;
+      letter-spacing: normal;
+      text-transform: uppercase;
+    }
+    h1 .moeda-sufixo,
+    h2 .moeda-sufixo,
+    h3 .moeda-sufixo,
+    h4 .moeda-sufixo,
+    .stat-card .moeda-sufixo {
+      font-size: 0.95rem !important;
+      font-weight: 500 !important;
+      opacity: 0.75;
+      margin-left: 0.35rem;
+      vertical-align: 1px;
+    }
+
+    /* Botões temáticos para Secções e Áreas de Estudo */
+    .btn-purple {
+      background-color: #7c3aed;
+      color: #fff;
+      border-color: #7c3aed;
+    }
+    .btn-purple:hover, .btn-purple:focus {
+      background-color: #6d28d9;
+      color: #fff;
+      border-color: #6d28d9;
+    }
+    .btn-outline-purple {
+      background-color: transparent;
+      color: #7c3aed;
+      border-color: #7c3aed;
+    }
+    .btn-outline-purple:hover, .btn-outline-purple:focus {
+      background-color: #7c3aed;
+      color: #fff;
+      border-color: #7c3aed;
+    }
+
+    /* Responsividade universal e refinamento de tabelas */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 0.5rem;
+    }
+    .table-responsive::-webkit-scrollbar {
+      height: 6px;
+    }
+    .table-responsive::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
     }
 
     /* Cores de notas oficiais MEC Moçambique */
@@ -173,7 +292,7 @@
     }
 
     .borda-oficial-declaracao {
-      border: 4px double #111;
+      border: 2px solid #111;
       padding: 6mm 8mm;
       height: 100%;
       min-height: 270mm;
@@ -207,16 +326,73 @@
       border: none;
     }
 
-    /* Estilos de Impressão Profissional A4 Oficial - Supressão total de URLs e cabeçalhos do navegador */
+    /* Estilos de Impressão Profissional A4 Oficial - Tipografia Rigorosa Times New Roman & Sem Cortes */
+    .printable-document,
+    #printAreaPreview,
+    #containerTabelaPautaGeral,
+    #containerActaConselhoCorpo,
+    .documento-a4-pagina-unica,
+    .documento-boletim-oficial,
+    .documento-declaracao-oficial,
+    .documento-certificado-oficial,
+    .documento-recibo-oficial,
+    .documento-ficha-oficial,
+    .tabela-pauta-oficial {
+      font-family: 'Times New Roman', Times, Georgia, serif !important;
+    }
+
+    /* Modos de Visualização em Tela: Portrait vs Landscape */
+    .preview-portrait,
+    .documento-orientacao-portrait {
+      max-width: 210mm !important;
+      min-height: 290mm !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+    }
+
+    .preview-landscape,
+    .documento-orientacao-landscape {
+      max-width: 297mm !important;
+      min-height: 200mm !important;
+      width: 100% !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Regras de Impressão de Alta Precisão (Sem corte de margens ou tabelas) */
     @page {
       size: auto;
-      margin: 0 !important;
+      margin: 6mm 8mm !important;
     }
+
+    @page page-landscape {
+      size: landscape;
+      margin: 5mm 6mm !important;
+    }
+
+    @page page-portrait {
+      size: portrait;
+      margin: 7mm 8mm !important;
+    }
+
+    body.print-orientacao-landscape {
+      page: page-landscape !important;
+    }
+
+    body.print-orientacao-portrait {
+      page: page-portrait !important;
+    }
+
     @media print {
-      @page {
-        size: auto;
-        margin: 0 !important;
+      body.print-orientacao-landscape @page {
+        size: landscape !important;
+        margin: 5mm 6mm !important;
       }
+      body.print-orientacao-portrait @page {
+        size: portrait !important;
+        margin: 7mm 8mm !important;
+      }
+
       html, body {
         margin: 0 !important;
         padding: 0 !important;
@@ -224,26 +400,75 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
+
       #sidebar, .topbar, .no-print, .btn, .nav-tabs, #alertaExpiracaoBanner, .app-footer, .breadcrumb, header, aside, .sidebar {
         display: none !important;
       }
+
+      /* Supressão total de ícones para documentos oficiais e relatórios impressos */
+      i, svg, .bi, [class^="bi-"], [class*=" bi-"], .fa, [class^="fa-"], [class*=" fa-"] {
+        display: none !important;
+      }
+
       #main-wrapper { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
       .content-area { padding: 0 !important; margin: 0 !important; }
       .card { border: none !important; box-shadow: none !important; margin: 0 !important; }
+
       .printable-document {
         border: none !important;
         box-shadow: none !important;
         width: 100% !important;
-        max-width: 100% !important;
         padding: 0 !important;
         margin: 0 !important;
         background: #ffffff !important;
+        overflow: visible !important;
       }
+
+      /* Formato Paisagem na Impressão (Pauta Geral e Actas) */
+      body.print-orientacao-landscape .printable-document,
+      body.print-orientacao-landscape #printAreaPreview,
+      body.print-orientacao-landscape #containerTabelaPautaGeral,
+      body.print-orientacao-landscape #subViewPautaGeral,
+      body.print-orientacao-landscape #subViewActaConselho,
+      body.print-orientacao-landscape #containerActaConselhoCorpo {
+        width: 285mm !important;
+        max-width: 285mm !important;
+        min-height: auto !important;
+        box-sizing: border-box !important;
+        page-break-inside: auto !important;
+        overflow: visible !important;
+      }
+
+      /* Fluxo contínuo oficial da Acta do Conselho: Tabelas seguem imediatamente após a informação sem quebra */
+      .acta-texto-protocolar {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .acta-tabelas-lado-a-lado {
+        page-break-before: avoid !important;
+        break-before: avoid !important;
+      }
+
+      /* Formato Retrato na Impressão (Boletins, Declarações, Certificados, Recibos) */
+      body.print-orientacao-portrait .printable-document,
+      body.print-orientacao-portrait #printAreaPreview,
+      body.print-orientacao-portrait .documento-a4-pagina-unica,
+      body.print-orientacao-portrait .documento-boletim-oficial {
+        width: 196mm !important;
+        max-width: 196mm !important;
+        min-height: 282mm !important;
+        max-height: 290mm !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+
       .documento-a4-pagina-unica {
-        width: 210mm !important;
-        min-height: 292mm !important;
-        max-height: 294mm !important;
-        padding: 7mm 9mm !important;
+        width: 196mm !important;
+        min-height: 282mm !important;
+        max-height: 290mm !important;
+        padding: 6mm 8mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         page-break-after: always !important;
@@ -252,11 +477,29 @@
         overflow: hidden !important;
         background: #ffffff !important;
       }
+
       .page-break-doc {
         page-break-after: always !important;
         break-after: page !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+      }
+
+      /* Prevenir corte em tabelas impressas */
+      table {
+        page-break-inside: auto;
+        border-collapse: collapse !important;
+        width: 100% !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        page-break-after: auto;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tfoot {
+        display: table-footer-group !important;
       }
     }
 
@@ -264,6 +507,37 @@
     .badge-expirada { background-color: #ef4444; color: white; }
     .badge-pendente { background-color: #f59e0b; color: white; }
     .badge-suspensa { background-color: #64748b; color: white; }
+
+    .documento-boletim-oficial {
+      background: #ffffff !important;
+      border: 1.5px solid #222222 !important;
+      font-family: 'Times New Roman', Times, Georgia, serif !important;
+      color: #111111 !important;
+      box-sizing: border-box !important;
+      width: 100% !important;
+      max-width: 210mm !important;
+      min-height: 290mm !important;
+      margin: 0 auto !important;
+      padding: 22px 30px !important;
+      position: relative !important;
+    }
+    @media print {
+      .documento-boletim-oficial {
+        border: 1.5px solid #222222 !important;
+        box-sizing: border-box !important;
+        width: 210mm !important;
+        min-height: 290mm !important;
+        max-height: 295mm !important;
+        padding: 12mm 14mm !important;
+        margin: 0 auto !important;
+        page-break-inside: avoid !important;
+        page-break-after: always !important;
+        break-inside: avoid !important;
+        break-after: page !important;
+        overflow: hidden !important;
+        background: #ffffff !important;
+      }
+    }
 
     .emblema-nacional {
       width: 48px;
@@ -275,96 +549,69 @@
 </head>
 <body>
 
-<!-- TELA DE LOGIN (Sem selecção de escolas visíveis no login - Clean & Seguro) -->
-<div id="loginView" style="display: none; min-height: 100vh;" class="align-items-center justify-content-center bg-slate-100 p-4">
-  <div class="card shadow-lg p-4 p-md-5" style="max-width: 460px; width: 100%; border-radius: 16px;">
-    <div class="text-center mb-4">
-      <div class="d-inline-flex p-3 bg-primary bg-opacity-10 text-primary rounded-circle mb-3">
-        <i class="bi bi-mortarboard-fill fs-1"></i>
+<!-- TELA DE LOGIN (Modelo Oficial Inspirado na Universidade Save - Clean, Escuro e Seguro) -->
+<div id="loginView" style="display: none; min-height: 100vh; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 25%, #18114f 0%, #0c092e 60%, #06041a 100%);" class="align-items-center justify-content-center p-3 p-md-4">
+  <!-- Marca de água sutil de fundo no login -->
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 560px; height: 560px; background: url('/img/logo-sige.png') no-repeat center center; background-size: contain; opacity: 0.03; pointer-events: none; z-index: 0;"></div>
+
+  <div class="card shadow-2xl p-4 p-sm-5 position-relative" style="max-width: 440px; width: 100%; border-radius: 28px; background: #0e0a36; border: 1.5px solid rgba(139, 92, 246, 0.25); box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75); z-index: 1;">
+    <div class="text-center mb-3">
+      <!-- Logótipo de Tamanho Aumentado com moldura arredondada suave (conforme modelo) -->
+      <div class="d-inline-flex align-items-center justify-content-center p-2 mb-3 shadow" style="width: 120px; height: 120px; background: #c6cbe6; border-radius: 24px;">
+        <img src="/img/logo-sige.png" alt="Logótipo SIGE" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;">
       </div>
-      <h4 class="fw-bold text-dark mb-1">Sistema Integrado de Gestão Escolar</h4>
-      <p class="text-muted small mb-0">Sistema Integrado de Gestão Escolar</p>
+      
+      <div class="text-uppercase fw-bold" style="font-size: 0.78rem; letter-spacing: 3px; color: #a5b4fc; margin-bottom: 4px;">
+        SIGE
+      </div>
+      <h3 class="fw-bold text-white mb-1" style="font-size: 1.42rem; letter-spacing: -0.3px;">
+        Sistema Integrado de Gestão Escolar
+      </h3>
+      <p style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 0;">
+        Introduza as suas credenciais para aceder
+      </p>
     </div>
+
+    <div style="border-top: 1px solid rgba(255, 255, 255, 0.12); margin: 20px 0 24px 0;"></div>
 
     <form id="loginForm">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">E-mail Corporativo ou Usuário</label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-          <input type="text" id="loginEmail" class="form-control" required placeholder="mandamulefj.@sige.com ou seu.email@escola.edu.mz" autocomplete="username">
+        <label class="form-label text-uppercase fw-bold text-start d-block" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
+          UTILIZADOR
+        </label>
+        <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden; transition: all 0.2s;" onfocusin="this.style.borderColor='#df8704'; this.style.boxShadow='0 0 0 3px rgba(223, 135, 4, 0.25)'" onfocusout="this.style.borderColor='transparent'; this.style.boxShadow='none'">
+          <span class="input-group-text bg-transparent border-0 pe-1 text-warning">
+            <i class="bi bi-person fs-5"></i>
+          </span>
+          <input type="text" id="loginEmail" class="form-control bg-transparent border-0 shadow-none ps-2" required placeholder="030372.2023 ou e-mail" autocomplete="username" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 10px;">
         </div>
       </div>
+
       <div class="mb-4">
-        <label class="form-label small fw-semibold">Palavra-passe</label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-lock"></i></span>
-          <input type="password" id="loginSenha" class="form-control" required placeholder="••••••••" autocomplete="current-password">
+        <label class="form-label text-uppercase fw-bold text-start d-block" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
+          SENHA
+        </label>
+        <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden; transition: all 0.2s;" onfocusin="this.style.borderColor='#df8704'; this.style.boxShadow='0 0 0 3px rgba(223, 135, 4, 0.25)'" onfocusout="this.style.borderColor='transparent'; this.style.boxShadow='none'">
+          <input type="password" id="loginSenha" class="form-control bg-transparent border-0 shadow-none px-3" required placeholder="••••••••" autocomplete="current-password" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 14px;">
         </div>
       </div>
-      <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-        <i class="bi bi-box-arrow-in-right me-2"></i> Iniciar Sessão
+
+      <button type="submit" class="btn w-100 fw-bold shadow-sm" style="background: #df8704; color: #ffffff; padding: 12px; border-radius: 10px; border: none; font-size: 0.98rem; letter-spacing: 0.3px; transition: background 0.2s;" onmouseover="this.style.background='#c97702'" onmouseout="this.style.background='#df8704'">
+        Autenticar
       </button>
+
+      <div class="text-center mt-3">
+        <a href="javascript:void(0)" onclick="modalEsqueciSenha()" class="small text-decoration-none fw-semibold" style="color: #38bdf8;">
+          Esqueci a senha
+        </a>
+      </div>
+
+      <div class="text-center mt-4 pt-2">
+        <small style="color: #64748b; font-size: 0.76rem;">
+          &copy; 2026 SIGE &bull; Sistema Integrado de Gest&atilde;o Escolar
+        </small>
+      </div>
     </form>
-
-    <!-- Demonstração rápida discreta com utilizadores nominais -->
-    <div class="mt-4 pt-3 border-top text-center">
-      <button class="btn btn-link btn-sm text-decoration-none text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDemo">
-        <i class="bi bi-key me-1"></i> Utilizadores do Sistema (Acesso por Nome / Individual)
-      </button>
-      <div class="collapse mt-2" id="collapseDemo">
-        <div class="d-grid gap-2 text-start">
-          <button class="btn btn-outline-dark btn-sm p-2" onclick="preencherLogin('mandamulefj.@sige.com', 'Deusamo8')">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <i class="bi bi-shield-lock-fill text-warning me-1"></i> <strong>Eng. Fernando Mandamule</strong>
-                <div class="small text-muted">SuperAdmin • <code>mandamulefj.@sige.com</code></div>
-              </div>
-              <span class="badge bg-dark">Deusamo8</span>
-            </div>
-          </button>
-
-          <button class="btn btn-outline-primary btn-sm p-2" onclick="preencherLogin('antonio.costa@escola.edu.mz', 'costa123')">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <i class="bi bi-person-badge text-primary me-1"></i> <strong>Prof. Dr. António Costa</strong>
-                <div class="small text-muted">Director da Escola • <code>antonio.costa@escola.edu.mz</code></div>
-              </div>
-              <span class="badge bg-primary">costa123</span>
-            </div>
-          </button>
-
-          <button class="btn btn-outline-success btn-sm p-2" onclick="preencherLogin('joao.baptista@escola.edu.mz', 'baptista123')">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <i class="bi bi-mortarboard text-success me-1"></i> <strong>Prof. João Baptista</strong>
-                <div class="small text-muted">DAP (Pedagógico) • <code>joao.baptista@escola.edu.mz</code></div>
-              </div>
-              <span class="badge bg-success">baptista123</span>
-            </div>
-          </button>
-
-          <button class="btn btn-outline-info btn-sm p-2" onclick="preencherLogin('manuel.silva@escola.edu.mz', 'silva123')">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <i class="bi bi-journal-text text-info me-1"></i> <strong>Prof. Manuel Silva</strong>
-                <div class="small text-muted">Docente Titular • <code>manuel.silva@escola.edu.mz</code></div>
-              </div>
-              <span class="badge bg-info text-dark">silva123</span>
-            </div>
-          </button>
-
-          <button class="btn btn-outline-secondary btn-sm p-2" onclick="preencherLogin('carlos.mandamule@escola.edu.mz', 'mandamule123')">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <i class="bi bi-person text-secondary me-1"></i> <strong>Carlos Mandamule</strong>
-                <div class="small text-muted">Aluno • <code>carlos.mandamule@escola.edu.mz</code></div>
-              </div>
-              <span class="badge bg-secondary">mandamule123</span>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -374,7 +621,7 @@
   <!-- Sidebar Lateral -->
   <aside id="sidebar">
     <div class="brand">
-      <i class="bi bi-mortarboard-fill text-primary fs-3"></i>
+      <img src="/img/logo-sige.png" alt="SIGE" class="rounded shadow-sm" style="width: 36px; height: 36px; object-fit: contain;">
       <div style="line-height: 1.2;">
         <span class="text-white d-block fw-bold" style="font-size: 0.95rem;">SIGE</span>
         <small class="text-muted" style="font-size: 0.7rem;">Gestão Escolar Integrada</small>
@@ -418,6 +665,9 @@
       <div class="nav-category escola-admin-only">Gestão Escolar</div>
       <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('escola')" id="nav-escola">
         <i class="bi bi-building-gear"></i> <span>Definições & Logótipo da Escola</span>
+      </a>
+      <a class="nav-link escola-admin-only ped-only" href="#" onclick="navegarPara('turmas')" id="nav-turmas">
+        <i class="bi bi-diagram-3-fill text-warning"></i> <span>Turmas & Capacidade</span>
       </a>
       <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('alunos')" id="nav-alunos">
         <i class="bi bi-people-fill"></i> <span>Alunos & Matrículas</span>
@@ -502,6 +752,7 @@
     <!-- Topbar Oficial -->
     <header class="topbar">
       <div class="d-flex align-items-center gap-3">
+        <img src="/img/logo-sige.png" alt="SIGE" class="d-none d-sm-block shadow-sm" style="width: 38px; height: 38px; object-fit: contain; border-radius: 8px;">
         <div>
           <h5 id="pageTitle" class="mb-0 fw-bold text-dark">Sistema Integrado de Gestão Escolar</h5>
           <small class="text-muted" id="subPageTitle">Gestão Escolar Integrada</small>
@@ -587,7 +838,9 @@
     </div>
 
     <!-- Content Area Principal -->
-    <main class="content-area">
+    <main class="content-area position-relative">
+      <!-- Marca de Água Global do Sistema -->
+      <div class="marca-dagua-sistema" aria-hidden="true"></div>
 
       <!-- ==================== 1. DASHBOARD GERAL ==================== -->
       <section id="view-dashboard" class="modulo-view">
@@ -620,8 +873,8 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">Receita Arrecadada</span>
-                <h3 id="statReceitaTotal" class="fw-bold mb-0 text-success">0 MZN</h3>
-                <small class="text-danger fw-medium"><span id="statReceitaPendente">0 MZN</span> pendente</small>
+                <h3 id="statReceitaTotal" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h3>
+                <small class="text-danger fw-medium"><span id="statReceitaPendente">0 <span class="moeda-sufixo">MZN</span></span> pendente</small>
               </div>
               <div class="stat-icon bg-success bg-opacity-10 text-success">
                 <i class="bi bi-cash-coin"></i>
@@ -685,7 +938,7 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">MRR (Mensal Recorrente)</span>
-                <h3 id="saasMRR" class="fw-bold mb-0 text-success">0 MZN</h3>
+                <h3 id="saasMRR" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h3>
                 <small class="text-muted">Valor contratado mensal</small>
               </div>
               <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-stack"></i></div>
@@ -695,7 +948,7 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">ARR (Anual Projetado)</span>
-                <h3 id="saasARR" class="fw-bold mb-0 text-primary">0 MZN</h3>
+                <h3 id="saasARR" class="fw-bold mb-0 text-primary">0 <span class="moeda-sufixo">MZN</span></h3>
                 <small class="text-muted">Projeção anual de receita</small>
               </div>
               <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-graph-up-arrow"></i></div>
@@ -903,9 +1156,15 @@
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                   <h5 class="fw-bold mb-0"><i class="bi bi-diagram-3 me-2"></i>Turmas & Direcção de Classe</h5>
-                  <small class="text-muted">Defina a classe, turno, Director de Turma e Director de Classe.</small>
+                  <small class="text-muted">Defina a classe, turmas (1, 2, 3...), capacidade máxima e distribuição de alunos.</small>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="modalCriarTurma()"><i class="bi bi-plus-lg me-1"></i> Nova Turma</button>
+                <div class="d-flex flex-wrap gap-2">
+                  <button class="btn btn-dark btn-sm shadow-sm" onclick="navegarPara('turmas')"><i class="bi bi-box-arrow-up-right me-1"></i> Painel Dedicado</button>
+                  <button class="btn btn-outline-primary btn-sm" onclick="modalCriarTurmasEmLote()"><i class="bi bi-layers-fill me-1"></i> Gerar Turmas (1, 2, 3...)</button>
+                  <button class="btn btn-success btn-sm shadow-sm" onclick="modalDistribuirAlunosAutomatico()"><i class="bi bi-magic me-1"></i> Formação Automática</button>
+                  <button class="btn btn-primary btn-sm" onclick="modalCriarTurma()"><i class="bi bi-plus-lg me-1"></i> Nova Turma</button>
+                  <button class="btn btn-outline-warning btn-sm" onclick="corrigirNumeracaoTurmas()" title="Renumera turmas de forma contínua por classe, eliminando sobreposições"><i class="bi bi-sort-numeric-up me-1"></i> Corrigir Numeração</button>
+                </div>
               </div>
               <div class="table-responsive">
                 <table class="table table-hover align-middle">
@@ -914,9 +1173,9 @@
                       <th>Turma</th>
                       <th>Classe / Grau</th>
                       <th>Turno</th>
+                      <th>Ocupação / Máx</th>
                       <th>Dir. Turma</th>
                       <th>Dir. Classe</th>
-                      <th>Alunos</th>
                       <th class="text-end">Ações</th>
                     </tr>
                   </thead>
@@ -926,6 +1185,158 @@
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 3.1 PAINEL DE TURMAS & CAPACIDADE MÁXIMA ==================== -->
+      <section id="view-turmas" class="modulo-view" style="display: none;">
+        <!-- Cabeçalho Principal com Botões de Ação -->
+        <div class="card p-4 mb-4 border-0 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-diagram-3-fill me-1"></i> Gestão de Turmas & Pedagógico</span>
+                <span class="badge bg-light text-muted border">Capacidade Padrão: 50 Alunos</span>
+              </div>
+              <h4 class="fw-bold text-dark mb-1">Painel de Turmas & Capacidade Máxima</h4>
+              <p class="text-muted small mb-0">Controle de ocupação, criação em lote (Turmas 1, 2, 3...) e formação automática com critérios pedagógicos.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="modalFormacaoAutomaticaTurmas()">
+                <i class="bi bi-magic me-1"></i> Formação Automática de Turmas (1, 2, 3...)
+              </button>
+              <button class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" onclick="modalCriarTurmasEmLote()">
+                <i class="bi bi-layers-fill me-1"></i> Gerar Turmas em Lote
+              </button>
+              <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" onclick="modalCriarTurma()">
+                <i class="bi bi-plus-lg me-1"></i> Cadastrar Turma
+              </button>
+              <button class="btn btn-outline-warning btn-sm fw-semibold shadow-sm" onclick="corrigirNumeracaoTurmas()" title="Renumera turmas de forma contínua por classe, eliminando sobreposições e nomes como 'Turma 1 (1)'">
+                <i class="bi bi-sort-numeric-up me-1"></i> Corrigir Numeração
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicadores & Métricas de Ocupação -->
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total de Turmas</span>
+                <h3 id="statTurmasTotal" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-muted">Turmas ativas no ano lectivo</small>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-diagram-3-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Capacidade Total</span>
+                <h3 id="statTurmasCapacidade" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-muted">Vagas máximas autorizadas</small>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-person-workspace"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Alunos Enturmados</span>
+                <h3 id="statTurmasAlunos" class="fw-bold mb-0 text-success">0</h3>
+                <small class="text-success fw-medium"><span id="statTurmasVagasLivres">0</span> vagas livres</small>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-people-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Ocupação</span>
+                <h3 id="statTurmasTaxa" class="fw-bold mb-0 text-primary">0%</h3>
+                <small id="statTurmasStatus" class="badge bg-light text-dark border">Normal</small>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-speedometer2"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtros & Tabela de Turmas -->
+        <div class="card p-4 border-0 shadow-sm">
+          <div class="row g-2 align-items-center mb-3">
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-funnel me-1"></i> Filtrar por Classe</label>
+              <select id="filtroTurmasClasse" class="form-select form-select-sm" onchange="atualizarFiltroAreasTurmas(); aplicarFiltrosTurmas();">
+                <option value="TODAS">Todas as Classes (7ª à 12ª)</option>
+                <option value="7ª Classe">7ª Classe</option>
+                <option value="8ª Classe">8ª Classe</option>
+                <option value="9ª Classe">9ª Classe</option>
+                <option value="10ª Classe">10ª Classe</option>
+                <option value="11ª Classe">11ª Classe</option>
+                <option value="12ª Classe">12ª Classe</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-tag me-1"></i> Secção / Área</label>
+              <select id="filtroTurmasArea" class="form-select form-select-sm" onchange="aplicarFiltrosTurmas()">
+                <option value="TODAS">Todas as Secções / Áreas</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-sun me-1"></i> Turno</label>
+              <select id="filtroTurmasTurno" class="form-select form-select-sm" onchange="aplicarFiltrosTurmas()">
+                <option value="TODOS">Todos os Turnos</option>
+                <option value="MANHA">Manhã</option>
+                <option value="TARDE">Tarde</option>
+                <option value="NOITE">Noite</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i> Pesquisar</label>
+              <div class="input-group input-group-sm">
+                <input type="search" id="filtroTurmasBusca" class="form-control" placeholder="Buscar por turma, director ou sala..." oninput="aplicarFiltrosTurmas()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('filtroTurmasBusca').value=''; aplicarFiltrosTurmas();">&times;</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Legenda de Cores de Ocupação -->
+          <div class="d-flex flex-wrap align-items-center gap-3 p-2 mb-3 bg-light rounded border small">
+            <strong class="text-secondary"><i class="bi bi-info-circle me-1"></i> Legenda da Ocupação / Máx:</strong>
+            <span class="d-inline-flex align-items-center gap-1"><span class="badge bg-success">&bull;</span> <strong>Verde:</strong> com vagas disponíveis (&lt; 80%)</span>
+            <span class="d-inline-flex align-items-center gap-1"><span class="badge bg-warning text-dark">&bull;</span> <strong>Amarelo:</strong> próxima do limite (&ge; 80%)</span>
+            <span class="d-inline-flex align-items-center gap-1"><span class="badge bg-danger">&bull;</span> <strong>Vermelho:</strong> capacidade atingida (100% ou lotada)</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Turma</th>
+                  <th>Classe / Grau</th>
+                  <th>Secção / Área</th>
+                  <th>Turno</th>
+                  <th>Sala</th>
+                  <th style="min-width: 170px;">Ocupação / Máx</th>
+                  <th>Director de Turma</th>
+                  <th>Director de Classe</th>
+                  <th class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaTurmasView">
+                <tr><td colspan="9" class="text-center py-4">A carregar turmas...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -975,48 +1386,81 @@
           <!-- Cabeçalho com Título e Botão Novo Aluno -->
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
-              <h5 class="fw-bold text-primary mb-1"><i class="bi bi-diagram-3-fill me-2"></i>Gestão Hierárquica de Alunos & Turmas</h5>
-              <p class="text-muted small mb-0">Navegue sequencialmente: <strong>Classe</strong> &rarr; <strong>Turma</strong> &rarr; <strong>Alunos</strong></p>
+              <h5 class="fw-bold text-primary mb-1"><i class="bi bi-diagram-3-fill me-2"></i>Gestão de Alunos & Matrículas Oficiais</h5>
+              <p class="text-muted small mb-0">Selecione os filtros: <strong>Classe</strong> &rarr; <strong>Secção / Área</strong> &rarr; <strong>Turma</strong> para listar os alunos</p>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <div class="input-group input-group-sm" style="width: auto;" title="Filtrar dados pelo Ano de Ingresso / Lectivo">
+                <span class="input-group-text bg-light text-primary fw-semibold"><i class="bi bi-calendar-event me-1"></i> Ano Lectivo:</span>
+                <select id="filtroAnoAlunos" class="form-select form-select-sm fw-semibold" onchange="aoMudarFiltroAnoAlunos(this.value)">
+                  <option value="TODOS">Todos os Anos</option>
+                  <option value="2026" selected>2026 (Ano Activo)</option>
+                </select>
+              </div>
               <button class="btn btn-outline-primary btn-sm" onclick="carregarAlunos()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
               <button class="btn btn-primary btn-sm" onclick="modalNovoAluno()"><i class="bi bi-plus-lg me-1"></i> Matricular Aluno</button>
             </div>
           </div>
 
-          <!-- Nível 1: Selector de Classe -->
-          <div class="mb-3">
-            <label class="form-label small fw-bold text-uppercase text-muted"><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Seleccione a Classe / Grau:</label>
-            <div id="containerBotoesClasses" class="d-flex flex-wrap gap-2">
-              <!-- Botões de Classes gerados dinamicamente via JS -->
+          <!-- Barra de Filtros Hierárquicos Compacta, Moderna e Sem Excesso de Botões -->
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="row g-2 align-items-end">
+              <!-- Filtro 1: Classe -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:</span>
+                  <span id="contagemClassesAlunos" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroAlunoClasse" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectClasseAlunos(this.value)">
+                  <option value="TODAS">Todas as Classes</option>
+                </select>
+              </div>
+
+              <!-- Filtro 2: Secção / Área -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-diagram-2-fill me-1" style="color: #7c3aed;"></i> 2. Secção / Área:</span>
+                  <span id="contagemAreasClasse" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroAlunoArea" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAreaAlunos(this.value)">
+                  <option value="TODAS">Todas as Secções / Áreas</option>
+                </select>
+              </div>
+
+              <!-- Filtro 3: Turma da Secção -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-collection-fill me-1 text-info"></i> 3. Turma da Secção:</span>
+                  <span id="contagemTurmasClasse" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroAlunoTurma" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectTurmaAlunos(this.value)">
+                  <option value="TODAS">Todas as Turmas da Área</option>
+                </select>
+              </div>
+
+              <!-- Filtro 4: Pesquisa Rápida -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1">
+                  <i class="bi bi-search me-1 text-secondary"></i> Pesquisa Rápida:
+                </label>
+                <div class="input-group input-group-sm">
+                  <input type="search" id="pesquisaAlunosHierarquia" class="form-control form-control-sm bg-white" placeholder="Nome, apelido ou matrícula..." oninput="filtrarAlunosHierarquia()">
+                  <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('pesquisaAlunosHierarquia').value=''; filtrarAlunosHierarquia();" title="Limpar pesquisa">&times;</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Nível 2: Selector de Turmas da Classe Selecionada -->
-          <div class="mb-3 p-3 bg-light rounded border" id="seccaoTurmasClasse">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <label class="form-label small fw-bold text-uppercase text-muted mb-0"><i class="bi bi-collection-fill me-1 text-info"></i> 2. Turmas da Classe (<span id="labelNomeClasseAtiva">Todas</span>):</label>
-              <small id="contagemTurmasClasse" class="text-muted"></small>
-            </div>
-            <div id="containerTurmasClasse" class="d-flex flex-wrap gap-2">
-              <!-- Botões/Pills das turmas gerados via JS -->
-            </div>
-          </div>
-
-          <!-- Nível 3: Cabeçalho com Indicador de Hierarquia e Campo de Pesquisa -->
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2 pt-2 border-top">
-            <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-primary fs-6 px-3 py-2" id="badgeCaminhoHierarquia">
+          <!-- Barra de Informação da Selecção Activa -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-2 border-top">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm" id="badgeCaminhoHierarquia">
                 <i class="bi bi-people-fill me-1"></i> Todos os Alunos
               </span>
               <span id="contagemAlunosExibidos" class="text-muted small fw-semibold"></span>
             </div>
-            <div class="col-md-5 col-12">
-              <div class="input-group input-group-sm">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input type="search" id="pesquisaAlunosHierarquia" class="form-control" placeholder="Pesquisar por nome, apelido ou matrícula..." oninput="filtrarAlunosHierarquia()">
-                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('pesquisaAlunosHierarquia').value=''; filtrarAlunosHierarquia();" title="Limpar pesquisa">&times;</button>
-              </div>
+            <div class="small text-muted d-flex align-items-center gap-2">
+              <button class="btn btn-link btn-sm text-decoration-none text-muted p-0" onclick="limparFiltrosAlunos()"><i class="bi bi-x-circle me-1"></i> Repor Filtros</button>
             </div>
           </div>
         </div>
@@ -1031,6 +1475,7 @@
                   <th>Matrícula</th>
                   <th>Nome Completo & Apelido</th>
                   <th>Classe / Grau</th>
+                  <th>Secção / Área</th>
                   <th>Turma</th>
                   <th>Documento</th>
                   <th>Género</th>
@@ -1040,7 +1485,7 @@
                 </tr>
               </thead>
               <tbody id="tabelaAlunos">
-                <tr><td colspan="10" class="text-center py-4 text-muted">A carregar dados...</td></tr>
+                <tr><td colspan="11" class="text-center py-4 text-muted">A carregar dados...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1079,16 +1524,66 @@
           </div>
         </div>
 
-        <div class="card p-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold mb-0"><i class="bi bi-mortarboard me-2"></i>Corpo Docente & Carreiras (MEC)</h5>
-            <div class="d-flex gap-2">
+        <div class="card p-4 mb-3 border-0 shadow-sm">
+          <!-- Cabeçalho de Docentes -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold text-primary mb-1"><i class="bi bi-mortarboard-fill me-2"></i>Corpo Docente & Carreiras (MEC)</h5>
+              <p class="text-muted small mb-0">Gestão e alocação sequencial: <strong>Classe</strong> &rarr; <strong>Turmas / Disciplinas</strong></p>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" onclick="carregarProfessores()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
               <button class="btn btn-outline-primary btn-sm" onclick="modalAlocarProfessor()"><i class="bi bi-link-45deg me-1"></i> Alocar a Turma/Disciplina</button>
               <button class="btn btn-primary btn-sm" onclick="modalNovoProfessor()"><i class="bi bi-plus-lg me-1"></i> Cadastrar Docente</button>
             </div>
           </div>
+
+          <!-- Barra Unificada de Filtros do Corpo Docente (Sem excesso de botões) -->
+          <div class="p-3 bg-light rounded-3 border mb-3">
+            <div class="row g-2 align-items-end">
+              <!-- Filtro 1: Classe -->
+              <div class="col-md-4 col-sm-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:</span>
+                  <span id="contagemClassesProfessores" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroProfessorClasse" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="selecionarClasseProfessores(this.value)">
+                  <!-- Opções geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 2: Pesquisa Docente -->
+              <div class="col-md-8 col-sm-6">
+                <label class="form-label small fw-bold text-muted mb-1">
+                  <i class="bi bi-search me-1 text-secondary"></i> 2. Pesquisar Docente:
+                </label>
+                <div class="input-group input-group-sm">
+                  <input type="search" id="pesquisaProfessores" class="form-control form-control-sm bg-white" placeholder="Nome, especialidade, e-mail, contacto..." oninput="filtrarProfessoresTabela()">
+                  <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('pesquisaProfessores').value=''; filtrarProfessoresTabela();" title="Limpar pesquisa">&times;</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Indicador de Selecção e Resumo -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm" id="badgeCaminhoProfessores">
+                <i class="bi bi-people-fill me-1"></i> Todos os Professores
+              </span>
+              <span id="contagemProfessoresExibidos" class="text-muted small fw-semibold"></span>
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-2">
+              <!-- Container oculto para retrocompatibilidade -->
+              <div id="containerBotoesClassesProfessores" style="display: none;"></div>
+              <button class="btn btn-link btn-sm text-decoration-none text-muted p-0" onclick="limparFiltrosProfessores()"><i class="bi bi-x-circle me-1"></i> Repor Filtro</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-3 border-0 shadow-sm">
           <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th>Docente</th>
@@ -1096,12 +1591,12 @@
                   <th>Carreira Docente</th>
                   <th>Província / Distrito</th>
                   <th>Carga Horária</th>
-                  <th>Turmas Alocadas</th>
-                  <th class="text-end">Ações</th>
+                  <th>Classes & Turmas Alocadas</th>
+                  <th class="text-end" style="min-width: 220px;">Ações</th>
                 </tr>
               </thead>
               <tbody id="tabelaProfessores">
-                <tr><td colspan="7" class="text-center py-4">A carregar professores...</td></tr>
+                <tr><td colspan="7" class="text-center py-4 text-muted">A carregar professores...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1118,35 +1613,43 @@
                 <button class="btn btn-primary btn-sm" onclick="modalNovaDisciplina()"><i class="bi bi-plus-lg me-1"></i> Nova Disciplina</button>
               </div>
 
-              <!-- Passo 1: Selecção da Classe do Plano Curricular (7ª a 12ª) -->
-              <div class="mb-2">
-                <small class="text-muted fw-bold text-uppercase d-block mb-1">1. Grupo de Classe:</small>
-                <ul class="nav nav-pills nav-fill mb-2 bg-light p-1 rounded border" id="pillsDisciplinasClasses">
-                  <li class="nav-item"><button class="nav-link active py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('')">Todas</button></li>
-                  <li class="nav-item"><button class="nav-link py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('7ª Classe')">7ª Classe</button></li>
-                  <li class="nav-item"><button class="nav-link py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('8ª Classe')">8ª Classe</button></li>
-                  <li class="nav-item"><button class="nav-link py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('9ª Classe')">9ª Classe</button></li>
-                  <li class="nav-item"><button class="nav-link py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('10ª Classe')">10ª Classe</button></li>
-                  <li class="nav-item"><button class="nav-link py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('11ª Classe')">11ª Classe</button></li>
-                  <li class="nav-item"><button class="nav-link py-1 px-2 small fw-semibold" onclick="filtrarDisciplinasClasse('12ª Classe')">12ª Classe</button></li>
-                </ul>
-              </div>
-
-              <!-- Passo 2: Secção ou Área de Estudo da Classe (Obrigatório antes das disciplinas) -->
-              <div class="p-2 mb-3 bg-light rounded border">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <small class="text-primary fw-bold text-uppercase"><i class="bi bi-diagram-3 me-1"></i>2. Secção ou Área de Estudo:</small>
-                  <button class="btn btn-outline-primary btn-sm py-0 px-2 small" onclick="modalNovaSeccaoArea()">
-                    <i class="bi bi-plus-circle me-1"></i> Nova Secção / Área
-                  </button>
-                </div>
-                <div id="pillsDisciplinasAreas" class="d-flex gap-1 flex-wrap">
-                  <button class="btn btn-sm btn-primary py-1 px-2 small" onclick="filtrarDisciplinasArea('')">Todas as Áreas</button>
-                  <button class="btn btn-sm btn-outline-secondary py-1 px-2 small" onclick="filtrarDisciplinasArea('Ensino Geral')">Ensino Geral</button>
-                  <button class="btn btn-sm btn-outline-secondary py-1 px-2 small" onclick="filtrarDisciplinasArea('Ciências com Biologia')">Ciências com Biologia</button>
-                  <button class="btn btn-sm btn-outline-secondary py-1 px-2 small" onclick="filtrarDisciplinasArea('Ciências com Desenho')">Ciências com Desenho</button>
-                  <button class="btn btn-sm btn-outline-secondary py-1 px-2 small" onclick="filtrarDisciplinasArea('Letras com Geografia')">Letras com Geografia</button>
-                  <button class="btn btn-sm btn-outline-secondary py-1 px-2 small" onclick="filtrarDisciplinasArea('Letras com História')">Letras com História</button>
+              <!-- Barra de Filtros Inteligente: Classe, Secção/Área de Estudo e Pesquisa -->
+              <div class="card bg-light border p-3 mb-3 shadow-none">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+                      <i class="bi bi-mortarboard me-1 text-primary"></i> 1. Classe / Plano Curricular:
+                    </label>
+                    <select id="filtroDisciplinasClasseSelect" class="form-select form-select-sm fw-semibold" onchange="filtrarDisciplinasClasse(this.value)">
+                      <option value="">Todas as Classes (7ª à 12ª)</option>
+                      <option value="7ª Classe">7ª Classe</option>
+                      <option value="8ª Classe">8ª Classe</option>
+                      <option value="9ª Classe">9ª Classe</option>
+                      <option value="10ª Classe">10ª Classe</option>
+                      <option value="11ª Classe">11ª Classe</option>
+                      <option value="12ª Classe">12ª Classe</option>
+                    </select>
+                  </div>
+                  <div class="col-md-5">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label class="form-label small fw-bold text-uppercase text-secondary mb-0">
+                        <i class="bi bi-diagram-3 me-1 text-primary"></i> 2. Secção ou Área de Estudo:
+                      </label>
+                      <button class="btn btn-link btn-sm p-0 text-primary fw-semibold small text-decoration-none" onclick="modalNovaSeccaoArea()" title="Cadastrar nova secção ou área para a classe selecionada">
+                        <i class="bi bi-plus-circle me-1"></i> + Nova Secção / Área
+                      </button>
+                    </div>
+                    <select id="filtroDisciplinasAreaSelect" class="form-select form-select-sm fw-semibold" onchange="filtrarDisciplinasArea(this.value)">
+                      <option value="">Todas as Áreas / Secções</option>
+                      <!-- Povoado automaticamente a cada cadastro de secção/área -->
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+                      <i class="bi bi-search me-1 text-primary"></i> Pesquisar Disciplina:
+                    </label>
+                    <input type="search" id="filtroDisciplinasBusca" class="form-control form-control-sm" placeholder="Nome ou código..." oninput="filtrarDisciplinasTabelaTexto()" onsearch="filtrarDisciplinasTabelaTexto()">
+                  </div>
                 </div>
               </div>
 
@@ -1198,29 +1701,35 @@
           </div>
         </div>
 
-        <!-- Barra de Selecção Rápida de Classes (1ª à 12ª) -->
+        <!-- Barra Unificada de Filtros de Materiais Escolares (Sem excesso de botões) -->
         <div class="card p-3 mb-4 shadow-sm border-0">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="small fw-bold text-uppercase text-muted"><i class="bi bi-diagram-3-fill me-1 text-primary"></i> Seleccione a Classe</span>
-            <span class="badge bg-primary-subtle text-primary fw-semibold" id="badgeClasseAtiva">Todas as Classes</span>
-          </div>
-          <div class="d-flex flex-wrap gap-2" id="containerBotoesClasses">
-            <!-- Gerado dinamicamente: Todos, 1ª à 12ª Classe -->
-          </div>
-        </div>
-
-        <!-- Filtros e Barra de Pesquisa de Materiais -->
-        <div class="card p-3 mb-4 shadow-sm border-0">
-          <div class="row g-3 align-items-center">
-            <div class="col-md-5">
-              <div class="input-group">
-                <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                <input type="text" id="filtroMaterialBusca" class="form-control" placeholder="Pesquisar por título, disciplina ou descrição..." oninput="filtrarMateriaisEscolares()">
-              </div>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3 col-sm-6">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:
+              </label>
+              <select id="filtroMaterialClasseSelect" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="selecionarClasseMaterial(this.value)">
+                <option value="TODAS">Todas as Classes</option>
+                <option value="1ª Classe">1ª Classe</option>
+                <option value="2ª Classe">2ª Classe</option>
+                <option value="3ª Classe">3ª Classe</option>
+                <option value="4ª Classe">4ª Classe</option>
+                <option value="5ª Classe">5ª Classe</option>
+                <option value="6ª Classe">6ª Classe</option>
+                <option value="7ª Classe">7ª Classe</option>
+                <option value="8ª Classe">8ª Classe</option>
+                <option value="9ª Classe">9ª Classe</option>
+                <option value="10ª Classe">10ª Classe</option>
+                <option value="11ª Classe">11ª Classe</option>
+                <option value="12ª Classe">12ª Classe</option>
+              </select>
             </div>
-            <div class="col-md-4">
-              <select id="filtroMaterialTipo" class="form-select" onchange="filtrarMateriaisEscolares()">
-                <option value="">Todos os Tipos (Manuais, Fichas, Guias...)</option>
+            <div class="col-md-3 col-sm-6">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-tag me-1 text-info"></i> 2. Tipo de Material:
+              </label>
+              <select id="filtroMaterialTipo" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="filtrarMateriaisEscolares()">
+                <option value="">Todos os Tipos (Manuais, Fichas...)</option>
                 <option value="MANUAL">Livros / Manuais Oficiais</option>
                 <option value="FICHA">Fichas de Exercícios / Avaliação</option>
                 <option value="GUIA">Guias de Correcção / Apoio</option>
@@ -1228,8 +1737,20 @@
                 <option value="OUTRO">Outros Materiais</option>
               </select>
             </div>
-            <div class="col-md-3 text-end">
-              <span class="small text-muted" id="contadorMateriaisEncontrados">0 materiais disponíveis</span>
+            <div class="col-md-4 col-sm-8">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-search me-1 text-secondary"></i> 3. Pesquisa:
+              </label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" id="filtroMaterialBusca" class="form-control form-control-sm bg-white" placeholder="Título, disciplina ou descrição..." oninput="filtrarMateriaisEscolares()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('filtroMaterialBusca').value=''; filtrarMateriaisEscolares();" title="Limpar pesquisa">&times;</button>
+              </div>
+            </div>
+            <div class="col-md-2 col-sm-4 text-end">
+              <div id="containerBotoesClassesMateriais" style="display: none;"></div>
+              <span class="badge bg-primary-subtle text-primary fw-semibold d-block text-truncate mb-1" id="badgeClasseAtiva">Todas as Classes</span>
+              <small class="text-muted d-block" id="contadorMateriaisEncontrados">0 materiais</small>
             </div>
           </div>
         </div>
@@ -1245,44 +1766,30 @@
 
       <!-- ==================== 7. CADERNETA DO PROFESSOR (COM TODOS OS TRIMESTRES E ESTATÍSTICA POR COLUNA) ==================== -->
       <section id="view-caderneta" class="modulo-view" style="display: none;">
-        <div class="card p-4 mb-4 no-print">
-          <div class="row g-3 align-items-end">
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold">Classe</label>
-              <select id="cadernetaClasseFilter" class="form-select" onchange="filtrarAlocacoesCadernetaPorClasse()">
-                <option value="">Todas</option>
-                <option value="7ª">7ª Classe</option>
-                <option value="8ª">8ª Classe</option>
-                <option value="9ª">9ª Classe</option>
-                <option value="10ª">10ª Classe</option>
-                <option value="11ª">11ª Classe</option>
-                <option value="12ª">12ª Classe</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label small fw-semibold">Turma & Disciplina Alocada</label>
-              <select id="cadernetaAlocacaoSelect" class="form-select" onchange="carregarCadernetaDocente()">
-                <option value="">A carregar alocações...</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold">Trimestre</label>
-              <select id="cadernetaPeriodoSelect" class="form-select">
-                <option value="1_TRIMESTRE">1º Trimestre</option>
-                <option value="2_TRIMESTRE">2º Trimestre</option>
-                <option value="3_TRIMESTRE">3º Trimestre</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold">Pesquisar Aluno</label>
-              <div class="input-group">
-                <span class="input-group-text py-1 px-2"><i class="bi bi-search"></i></span>
-                <input type="search" id="cadernetaPesquisaAluno" class="form-control" placeholder="Nome ou Nº..." oninput="filtrarAlunosCaderneta()">
+        <!-- Card de Navegação Sequencial: Classe -> Secção/Área -> Caderneta -->
+        <div class="card p-4 mb-3 no-print border-0 shadow-sm">
+          <!-- Cabeçalho com Título, Seletor de Professor (para Admins) e Botões de Exportação -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-journal-bookmark-fill me-1"></i> Registo de Avaliações Oficiais</span>
+                <span id="cadernetaBadgePerfil" class="badge bg-light text-dark border">Caderneta Oficial MINEDH</span>
               </div>
+              <h5 class="fw-bold text-dark mb-0"><i class="bi bi-book-half me-2 text-primary"></i>Caderneta Escolar & Mapa de Avaliação Contínua</h5>
+              <p class="text-muted small mb-0">Navegue sequencialmente: <strong>Classe</strong> &rarr; <strong>Secção / Área</strong> &rarr; <strong>Turma da Secção</strong></p>
             </div>
-            <div class="col-md-3 text-end d-flex gap-1 justify-content-end">
-              <button class="btn btn-primary btn-sm" onclick="modalSalvarNotaCaderneta()" title="Lançar notas de alunos">
-                <i class="bi bi-pencil-square me-1"></i> Lançar
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <!-- Filtro de Professor visível APENAS para Admins / Direcção -->
+              <div id="wrapperFiltroProfessorCaderneta" style="display: none;">
+                <div class="input-group input-group-sm" style="width: 250px;">
+                  <span class="input-group-text bg-light text-muted small"><i class="bi bi-person-badge"></i></span>
+                  <select id="cadernetaFiltroProfessor" class="form-select form-select-sm" onchange="aoMudarFiltroProfessorCaderneta(this.value)">
+                    <option value="TODOS">Todos os Professores</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="modalSalvarNotaCaderneta()" title="Lançar notas de alunos">
+                <i class="bi bi-pencil-square me-1"></i> Lançar Avaliações
               </button>
               <button class="btn btn-outline-success btn-sm" onclick="exportarCadernetaExcel()" title="Descarregar ficheiro XLSX">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel
@@ -1295,6 +1802,84 @@
               </button>
             </div>
           </div>
+
+          <!-- Barra Unificada de Filtros Inteligentes da Caderneta (Sem excesso de botões) -->
+          <div class="p-3 bg-light rounded-3 border mb-3">
+            <div class="row g-2 align-items-end">
+              <!-- Filtro 1: Classe -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:</span>
+                  <span id="contagemClassesCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaClasse" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectClasseCaderneta(this.value)">
+                  <!-- Opções de Classes geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 2: Secção / Área -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-diagram-2-fill me-1" style="color: #7c3aed;"></i> 2. Secção / Área:</span>
+                  <span id="contagemAreasCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaArea" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAreaCaderneta(this.value)">
+                  <!-- Opções de Áreas geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 3: Turma da Secção (Caderneta) -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-collection-fill me-1 text-success"></i> 3. Turma da Secção:</span>
+                  <span id="contagemTurmasCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaAlocacao" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAlocacaoCaderneta(this.value)">
+                  <!-- Opções de Turmas / Cadernetas geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 4: Trimestre -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1">
+                  <i class="bi bi-calendar3 me-1 text-secondary"></i> 4. Trimestre:
+                </label>
+                <select id="cadernetaPeriodoSelect" class="form-select form-select-sm bg-white fw-semibold shadow-sm" onchange="destacarTrimestreTabelaCaderneta(this.value)">
+                  <option value="TODOS">Todos os 3 Trimestres</option>
+                  <option value="1_TRIMESTRE">1º Trimestre</option>
+                  <option value="2_TRIMESTRE">2º Trimestre</option>
+                  <option value="3_TRIMESTRE">3º Trimestre</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Lista Visual de Turmas da Secção: turma por turma para abrir ou visualizar a caderneta ao clicar -->
+            <div id="containerBotoesTurmasCadernetaWrapper" class="mt-2 pt-2 border-top d-flex align-items-center flex-wrap gap-2" style="display: none !important;">
+              <span class="small fw-bold text-muted me-1"><i class="bi bi-collection-play me-1 text-primary"></i>Turmas da Secção:</span>
+              <div id="containerBotoesTurmasCaderneta" class="d-inline-flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <!-- Barra de Pesquisa Rápida na Caderneta Aberta -->
+          <div class="row g-2 align-items-center pt-1 border-top">
+            <div class="col-md-7">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text py-1 px-2 bg-white"><i class="bi bi-search"></i></span>
+                <input type="search" id="cadernetaPesquisaAluno" class="form-control" placeholder="Pesquisar aluno por nome ou número nesta caderneta..." oninput="filtrarAlunosCaderneta()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('cadernetaPesquisaAluno').value=''; filtrarAlunosCaderneta();">&times;</button>
+              </div>
+            </div>
+            <div class="col-md-5 text-end">
+              <!-- Selectors e containers ocultos para retrocompatibilidade com scripts legados -->
+              <div id="containerCadernetaClasses" style="display: none;"></div>
+              <div id="seccaoAreasCaderneta" style="display: none;"><div id="containerCadernetaAreas"></div><span id="cadernetaNomeClasseSelecionada"></span></div>
+              <div id="seccaoCadernetasDisponiveis" style="display: none;"><div id="containerCadernetasBotoes"></div><span id="cadernetaNomeAreaSelecionada"></span></div>
+              <select id="cadernetaAlocacaoSelect" style="display: none;"></select>
+              <select id="cadernetaClasseFilter" style="display: none;"></select>
+              <small class="text-muted fw-semibold" id="cadernetaInfoResumo"></small>
+            </div>
+          </div>
+
           <!-- Aviso de Bloqueio do Trimestre -->
           <div id="avisoTrimestreBloqueado" class="alert alert-warning mt-3 mb-0 d-none" role="alert">
             <i class="bi bi-lock-fill me-2"></i>
@@ -1444,6 +2029,15 @@
                   <option value="2026">2026</option>
                 </select>
               </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">Orientação da Página</label>
+                <div class="input-group input-group-sm">
+                  <select id="pautaOrientacaoSelect" class="form-select form-select-sm" style="min-width: 145px;" onchange="aoMudarOrientacaoPauta(this.value)">
+                    <option value="landscape" selected>Horizontal (Oficial Pauta)</option>
+                    <option value="portrait">Vertical (Retrato A4)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div class="d-flex gap-2">
@@ -1470,14 +2064,11 @@
               <small class="text-muted" id="pautaGeralSubtitulo">Ano Lectivo: 2026 | Critério Oficial MEC Aplicado</small>
             </div>
             <div class="d-flex gap-2 no-print">
-              <button class="btn btn-info btn-sm text-white" onclick="exportarPautaGeralJson()" title="Descarregar ficheiro JSON">
-                <i class="bi bi-filetype-json me-1"></i> JSON
-              </button>
-              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()" title="Descarregar ficheiro XLSX (SheetJS)">
+              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()" title="Descarregar ficheiro XLSX (Excel)">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
               </button>
-              <button class="btn btn-danger btn-sm" onclick="descarregarPautaGeralPdf()" title="Descarregar documento em PDF (PDFKit)">
-                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              <button class="btn btn-danger btn-sm" onclick="descarregarPautaGeralPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
               </button>
               <button class="btn btn-outline-primary btn-sm" onclick="descarregarPautaGeralDocx()" title="Descarregar documento em Word (DOCX)">
                 <i class="bi bi-file-earmark-word me-1"></i> Word (.docx)
@@ -1503,14 +2094,11 @@
               </button>
             </div>
             <div class="d-flex gap-2">
-              <button class="btn btn-info btn-sm text-white" onclick="exportarActaConselhoJson()" title="Descarregar ficheiro JSON">
-                <i class="bi bi-filetype-json me-1"></i> JSON
-              </button>
-              <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()" title="Descarregar ficheiro XLSX (SheetJS)">
+              <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()" title="Descarregar ficheiro XLSX (Excel)">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
               </button>
-              <button class="btn btn-danger btn-sm" onclick="descarregarActaConselhoPdf()" title="Descarregar documento em PDF (PDFKit)">
-                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              <button class="btn btn-danger btn-sm" onclick="descarregarActaConselhoPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
               </button>
               <button class="btn btn-outline-primary btn-sm" onclick="descarregarActaConselhoDocx()" title="Descarregar documento em Word (DOCX)">
                 <i class="bi bi-file-earmark-word me-1"></i> Word (.docx)
@@ -1586,25 +2174,25 @@
                         <div class="fw-bold text-primary small mb-2"><i class="bi bi-1-circle me-1"></i> Iº Trimestre</div>
                         <div class="mb-2">
                           <label class="form-label very-small text-muted mb-0">Presidente do Conselho</label>
-                          <input type="text" id="dtPresidenteT1" class="form-control form-control-sm" value="Fernando José Mandamule" required>
+                          <input type="text" id="dtPresidenteT1" class="form-control form-control-sm" value="" placeholder="Deixe em branco até à realização">
                         </div>
                         <div class="mb-2">
                           <label class="form-label very-small text-muted mb-0">Data da Realização</label>
-                          <input type="text" id="dtDataT1" class="form-control form-control-sm" value="26/05/2026" placeholder="DD/MM/AAAA" required>
+                          <input type="date" id="dtDataT1" class="form-control form-control-sm" value="">
                         </div>
                         <div class="row g-1">
                           <div class="col-6">
                             <label class="form-label very-small text-muted mb-0">Início (HH:MM)</label>
                             <div class="d-flex gap-1">
-                              <input type="text" id="dtHIni1" class="form-control form-control-sm text-center" value="09" maxlength="2">
-                              <input type="text" id="dtMIni1" class="form-control form-control-sm text-center" value="30" maxlength="2">
+                              <input type="text" id="dtHIni1" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMIni1" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
                             </div>
                           </div>
                           <div class="col-6">
                             <label class="form-label very-small text-muted mb-0">Término (HH:MM)</label>
                             <div class="d-flex gap-1">
-                              <input type="text" id="dtHFim1" class="form-control form-control-sm text-center" value="10" maxlength="2">
-                              <input type="text" id="dtMFim1" class="form-control form-control-sm text-center" value="00" maxlength="2">
+                              <input type="text" id="dtHFim1" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMFim1" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
                             </div>
                           </div>
                         </div>
@@ -1615,25 +2203,25 @@
                         <div class="fw-bold text-primary small mb-2"><i class="bi bi-2-circle me-1"></i> IIº Trimestre</div>
                         <div class="mb-2">
                           <label class="form-label very-small text-muted mb-0">Presidente do Conselho</label>
-                          <input type="text" id="dtPresidenteT2" class="form-control form-control-sm" value="Fernando José Mandamule" required>
+                          <input type="text" id="dtPresidenteT2" class="form-control form-control-sm" value="" placeholder="Deixe em branco até à realização">
                         </div>
                         <div class="mb-2">
                           <label class="form-label very-small text-muted mb-0">Data da Realização</label>
-                          <input type="text" id="dtDataT2" class="form-control form-control-sm" value="01/09/2026" placeholder="DD/MM/AAAA" required>
+                          <input type="date" id="dtDataT2" class="form-control form-control-sm" value="">
                         </div>
                         <div class="row g-1">
                           <div class="col-6">
                             <label class="form-label very-small text-muted mb-0">Início (HH:MM)</label>
                             <div class="d-flex gap-1">
-                              <input type="text" id="dtHIni2" class="form-control form-control-sm text-center" value="09" maxlength="2">
-                              <input type="text" id="dtMIni2" class="form-control form-control-sm text-center" value="30" maxlength="2">
+                              <input type="text" id="dtHIni2" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMIni2" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
                             </div>
                           </div>
                           <div class="col-6">
                             <label class="form-label very-small text-muted mb-0">Término (HH:MM)</label>
                             <div class="d-flex gap-1">
-                              <input type="text" id="dtHFim2" class="form-control form-control-sm text-center" value="11" maxlength="2">
-                              <input type="text" id="dtMFim2" class="form-control form-control-sm text-center" value="00" maxlength="2">
+                              <input type="text" id="dtHFim2" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMFim2" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
                             </div>
                           </div>
                         </div>
@@ -1644,31 +2232,34 @@
                         <div class="fw-bold text-primary small mb-2"><i class="bi bi-3-circle me-1"></i> IIIº Trimestre</div>
                         <div class="mb-2">
                           <label class="form-label very-small text-muted mb-0">Presidente do Conselho</label>
-                          <input type="text" id="dtPresidenteT3" class="form-control form-control-sm" value="Fernando José Mandamule" required>
+                          <input type="text" id="dtPresidenteT3" class="form-control form-control-sm" value="" placeholder="Deixe em branco até à realização">
                         </div>
                         <div class="mb-2">
                           <label class="form-label very-small text-muted mb-0">Data da Realização</label>
-                          <input type="text" id="dtDataT3" class="form-control form-control-sm" value="15/11/2026" placeholder="DD/MM/AAAA" required>
+                          <input type="date" id="dtDataT3" class="form-control form-control-sm" value="">
                         </div>
                         <div class="row g-1">
                           <div class="col-6">
                             <label class="form-label very-small text-muted mb-0">Início (HH:MM)</label>
                             <div class="d-flex gap-1">
-                              <input type="text" id="dtHIni3" class="form-control form-control-sm text-center" value="09" maxlength="2">
-                              <input type="text" id="dtMIni3" class="form-control form-control-sm text-center" value="30" maxlength="2">
+                              <input type="text" id="dtHIni3" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMIni3" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
                             </div>
                           </div>
                           <div class="col-6">
                             <label class="form-label very-small text-muted mb-0">Término (HH:MM)</label>
                             <div class="d-flex gap-1">
-                              <input type="text" id="dtHFim3" class="form-control form-control-sm text-center" value="11" maxlength="2">
-                              <input type="text" id="dtMFim3" class="form-control form-control-sm text-center" value="00" maxlength="2">
+                              <input type="text" id="dtHFim3" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMFim3" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
                     <div class="text-end mt-3">
+                      <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="limparParametrosSessaoDT()">
+                        <i class="bi bi-eraser me-1"></i> Limpar / Deixar em Branco
+                      </button>
                       <button type="submit" class="btn btn-sm btn-primary">
                         <i class="bi bi-save me-1"></i> Gravar Parâmetros do Conselho
                       </button>
@@ -1791,7 +2382,7 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">Faturamento Total</span>
-                <h4 id="finFaturadoCard" class="fw-bold mb-0 text-success">0 MZN</h4>
+                <h4 id="finFaturadoCard" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h4>
               </div>
               <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-stack"></i></div>
             </div>
@@ -1800,7 +2391,7 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">Em Atraso</span>
-                <h4 id="finAtrasadoCard" class="fw-bold mb-0 text-danger">0 MZN</h4>
+                <h4 id="finAtrasadoCard" class="fw-bold mb-0 text-danger">0 <span class="moeda-sufixo">MZN</span></h4>
               </div>
               <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-circle-fill"></i></div>
             </div>
@@ -1873,25 +2464,48 @@
                 <option value="ACTA_CONSELHO">Acta do Conselho de Avaliação</option>
               </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label class="form-label small fw-semibold">Turma</label>
               <select id="printSelectTurma" class="form-select" onchange="aoSelecionarTurmaImpressao()">
                 <option value="">Selecione uma turma...</option>
               </select>
             </div>
-            <div class="col-md-5">
-              <label class="form-label small fw-semibold">Destinatário (Todos ou Aluno Individual)</label>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Destinatário (Todos / Individual)</label>
               <select id="printSelectAluno" class="form-select">
-                <option value="TODOS">-- Todos os Alunos da Turma (Emissão em Lote) --</option>
+                <option value="TODOS">-- Todos os Alunos (Lote) --</option>
               </select>
             </div>
-            <div class="col-12 d-flex gap-2 justify-content-end pt-2 border-top">
-              <button class="btn btn-outline-primary btn-sm" onclick="carregarVisualizacaoImpressao()"><i class="bi bi-eye me-1"></i> Visualizar</button>
-              <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoCentral()"><i class="bi bi-printer me-1"></i> Imprimir</button>
-              <button class="btn btn-outline-danger btn-sm" onclick="descarregarPdfCentral()"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (PDFKit)</button>
-              <button class="btn btn-outline-primary btn-sm" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Descarregar Word (DOCX)</button>
-              <button class="btn btn-outline-success btn-sm" onclick="descarregarXlsxCentral()"><i class="bi bi-file-earmark-excel me-1"></i> Descarregar Excel (XLSX)</button>
-              <button class="btn btn-outline-info btn-sm" onclick="descarregarJsonCentral()"><i class="bi bi-filetype-json me-1"></i> Descarregar JSON</button>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Orientação da Página</label>
+              <select id="printOrientacaoSelect" class="form-select" onchange="atualizarOrientacaoDocumentoCentral(this.value)">
+                <option value="auto" selected>Automática (Pauta: Horizontal | Outros: Vertical)</option>
+                <option value="portrait">Vertical (Retrato / Portrait)</option>
+                <option value="landscape">Horizontal (Paisagem / Landscape)</option>
+              </select>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2 justify-content-between align-items-center pt-2 border-top">
+              <div class="d-flex align-items-center gap-2">
+                <span class="small text-muted fw-semibold me-1">Orientação Rápida:</span>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Orientação">
+                  <button type="button" class="btn btn-primary" id="btnOrientacaoAuto" onclick="definirOrientacaoDocumentoCentral('auto')" title="Automática: Pauta Horizontal, Restantes Vertical">
+                    <i class="bi bi-magic me-1"></i> Auto
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnOrientacaoPortrait" onclick="definirOrientacaoDocumentoCentral('portrait')" title="Forçar Orientação Vertical">
+                    <i class="bi bi-file-earmark me-1"></i> Vertical
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnOrientacaoLandscape" onclick="definirOrientacaoDocumentoCentral('landscape')" title="Forçar Orientação Horizontal">
+                    <i class="bi bi-file-earmark-landscape me-1"></i> Horizontal
+                  </button>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-2 justify-content-end">
+                <button class="btn btn-outline-primary btn-sm" onclick="carregarVisualizacaoImpressao()"><i class="bi bi-eye me-1"></i> Visualizar</button>
+                <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoCentral()"><i class="bi bi-printer me-1"></i> Imprimir</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="descarregarPdfCentral()"><i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)</button>
+                <button class="btn btn-outline-primary btn-sm" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Word (.docx)</button>
+                <button class="btn btn-outline-success btn-sm" onclick="descarregarXlsxCentral()"><i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2049,28 +2663,32 @@
                   <i class="bi bi-box-arrow-right me-1"></i> Sair do Sistema
                 </button>
               </div>
-              <table class="table table-bordered table-sm mb-4">
-                <tr><th class="bg-light w-40">Nome Completo:</th><td id="alunoPerfilNome"></td></tr>
-                <tr><th class="bg-light">Apelido:</th><td id="alunoPerfilApelido"></td></tr>
-                <tr><th class="bg-light">Data de Nascimento:</th><td id="alunoPerfilDataNasc">-</td></tr>
-                <tr><th class="bg-light">Nº de Matrícula:</th><td id="alunoPerfilMatricula"></td></tr>
-                <tr><th class="bg-light">Turma & Grau:</th><td id="alunoPerfilTurma"></td></tr>
-                <tr><th class="bg-light">Documento (BI/DIRE):</th><td id="alunoPerfilDoc"></td></tr>
-                <tr><th class="bg-light">NUIT:</th><td id="alunoPerfilNUIT"></td></tr>
-                <tr><th class="bg-light">Província / Distrito:</th><td id="alunoPerfilLocal"></td></tr>
-              </table>
+              <div class="table-responsive">
+                <table class="table table-bordered table-sm mb-4">
+                  <tr><th class="bg-light w-40">Nome Completo:</th><td id="alunoPerfilNome"></td></tr>
+                  <tr><th class="bg-light">Apelido:</th><td id="alunoPerfilApelido"></td></tr>
+                  <tr><th class="bg-light">Data de Nascimento:</th><td id="alunoPerfilDataNasc">-</td></tr>
+                  <tr><th class="bg-light">Nº de Matrícula:</th><td id="alunoPerfilMatricula"></td></tr>
+                  <tr><th class="bg-light">Turma & Grau:</th><td id="alunoPerfilTurma"></td></tr>
+                  <tr><th class="bg-light">Documento (BI/DIRE):</th><td id="alunoPerfilDoc"></td></tr>
+                  <tr><th class="bg-light">NUIT:</th><td id="alunoPerfilNUIT"></td></tr>
+                  <tr><th class="bg-light">Província / Distrito:</th><td id="alunoPerfilLocal"></td></tr>
+                </table>
+              </div>
             </div>
           </div>
           <div class="col-lg-6">
             <div class="card p-4">
               <h5 class="fw-bold mb-3"><i class="bi bi-people text-primary me-2"></i>Filiação & Encarregado de Educação</h5>
-              <table class="table table-bordered table-sm mb-3">
-                <tr><th class="bg-light w-40">Nome do Pai:</th><td id="alunoPerfilPai">-</td></tr>
-                <tr><th class="bg-light">Nome da Mãe:</th><td id="alunoPerfilMae">-</td></tr>
-                <tr><th class="bg-light">Encarregado de Educação:</th><td id="alunoPerfilResp">-</td></tr>
-                <tr><th class="bg-light">Contacto do Encarregado:</th><td id="alunoPerfilTelResp">-</td></tr>
-                <tr><th class="bg-light">E-mail do Encarregado:</th><td id="alunoPerfilEmailResp">-</td></tr>
-              </table>
+              <div class="table-responsive">
+                <table class="table table-bordered table-sm mb-3">
+                  <tr><th class="bg-light w-40">Nome do Pai:</th><td id="alunoPerfilPai">-</td></tr>
+                  <tr><th class="bg-light">Nome da Mãe:</th><td id="alunoPerfilMae">-</td></tr>
+                  <tr><th class="bg-light">Encarregado de Educação:</th><td id="alunoPerfilResp">-</td></tr>
+                  <tr><th class="bg-light">Contacto do Encarregado:</th><td id="alunoPerfilTelResp">-</td></tr>
+                  <tr><th class="bg-light">E-mail do Encarregado:</th><td id="alunoPerfilEmailResp">-</td></tr>
+                </table>
+              </div>
               <div class="alert alert-info py-2 px-3 small mb-0">
                 <i class="bi bi-info-circle me-1"></i> Visualização estritamente de consulta. Para qualquer actualização dos seus dados pessoais ou de filiação, dirija-se à Secretaria da Escola.
               </div>
@@ -2127,7 +2745,7 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">Total Liquidado</span>
-                <h4 id="alunoTotalPagoCard" class="fw-bold mb-0 text-success">0 MZN</h4>
+                <h4 id="alunoTotalPagoCard" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h4>
               </div>
               <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-check-circle-fill"></i></div>
             </div>
@@ -2136,7 +2754,7 @@
             <div class="stat-card">
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">Propinas Pendentes</span>
-                <h4 id="alunoTotalPendenteCard" class="fw-bold mb-0 text-warning">0 MZN</h4>
+                <h4 id="alunoTotalPendenteCard" class="fw-bold mb-0 text-warning">0 <span class="moeda-sufixo">MZN</span></h4>
               </div>
               <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-clock-history"></i></div>
             </div>
@@ -2302,8 +2920,8 @@
 
 <!-- SCRIPTS DO FRONTEND SPA -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/config.js"></script>
+<script src="/js/config.js?v=20261010_0938"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
-<script src="/js/app.js"></script>
+<script src="/js/app.js?v=20261010_0938"></script>
 </body>
 </html>

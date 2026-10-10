@@ -65,9 +65,11 @@ class TestMultiTenancy:
 
     def test_rota_publica_certificados_funciona_mesmo_escola_expirada(self):
         # Certificados públicos não sofrem bloqueio 402
+        turma_exp = Turma.objects.create(escola=self.escola_expirada, nome='10ª Exp', grau_ano='10ª Classe')
+        aluno_exp = Aluno.objects.create(escola=self.escola_expirada, turma=turma_exp, matricula='MAT_EXP_001', nome='Aluno Exp', data_nascimento='2009-03-03', genero='M')
         cert = Certificado.objects.create(
             escola=self.escola_expirada,
-            aluno=self.aluno_a,
+            aluno=aluno_exp,
             tipo='CONCLUSAO',
             codigo_autenticidade='AUTENTICIDADE_123',
             qrcode_data='https://sige.co.mz/verificar'

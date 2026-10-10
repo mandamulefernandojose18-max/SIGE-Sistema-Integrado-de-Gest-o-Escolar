@@ -1,20 +1,20 @@
-// SIGE - Service Worker para PWA e Cache Offline Básico
-const CACHE_NAME = 'sige-cache-v2.4.0';
+// SIGE - Service Worker com Estratégia Network-First (Garante Atualizações Imediatas)
+const CACHE_NAME = 'sige-cache-v2.6.0-20261010_0938';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/css/styles.css',
-  '/js/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/img/logo-sige.png',
+  '/img/logo-sige.jpg'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -23,27 +23,46 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[SW SIGE] Limpando cache antigo:', key);
             return caches.delete(key);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignora requisições de API para que sejam sempre directas
-  if (event.request.url.includes('/api/')) {
+  // Ignora requisições de API e métodos que não sejam GET
+  if (event.request.method !== 'GET' || 
+      event.request.url.includes('/api/') || 
+      event.request.url.includes('/health/')) {
     return;
   }
+
+  // Network-First: Sempre tenta buscar a versão mais recente do servidor
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+    fetch(event.request)
+      .then((networkResponse) => {
+        // Se obteve sucesso na rede, atualiza o cache e devolve a resposta mais recente
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        // Se a rede falhar (offline), busca no cache como contingência
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+        });
+      })
   );
 });

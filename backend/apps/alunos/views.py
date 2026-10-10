@@ -32,6 +32,21 @@ class AlunoViewSet(viewsets.ModelViewSet):
         if status_param:
             qs = qs.filter(status=status_param)
 
+        classe_param = self.request.query_params.get('classe')
+        if classe_param:
+            if classe_param == 'SEM_TURMA':
+                qs = qs.filter(turma__isnull=True)
+            elif classe_param != 'TODAS':
+                qs = qs.filter(Q(classe__iexact=classe_param) | Q(turma__grau_ano__iexact=classe_param))
+
+        ano_param = (
+            self.request.query_params.get('ano_ingresso') or 
+            self.request.query_params.get('ano') or 
+            self.request.query_params.get('ano_letivo')
+        )
+        if ano_param and str(ano_param).upper() != 'TODOS':
+            qs = qs.filter(Q(ano_ingresso=ano_param) | Q(turma__ano_letivo=ano_param))
+
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
@@ -67,13 +82,20 @@ class AlunoViewSet(viewsets.ModelViewSet):
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de matricular o aluno.'
             })
 
+        ano_ingresso = (
+            serializer.validated_data.get('ano_ingresso') or 
+            self.request.data.get('ano_ingresso') or 
+            (escola.ano_letivo_ativo if escola else None) or 
+            '2026'
+        )
+
         matricula = serializer.validated_data.get('matricula')
         if not matricula:
             from .models import gerar_proxima_matricula
-            matricula = gerar_proxima_matricula(escola=escola)
-            serializer.save(escola=escola, matricula=matricula)
+            matricula = gerar_proxima_matricula(escola=escola, ano_ingresso=ano_ingresso)
+            serializer.save(escola=escola, matricula=matricula, ano_ingresso=ano_ingresso)
         else:
-            serializer.save(escola=escola)
+            serializer.save(escola=escola, ano_ingresso=ano_ingresso)
 
     def list(self, request, *args, **kwargs):
         # Suporte a paginação e resposta compatível
@@ -82,6 +104,11 @@ class AlunoViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(self.get_queryset(), many=True)
+        return Response({'success': True, 'data': serializer.data})
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
         return Response({'success': True, 'data': serializer.data})
 
     def create(self, request, *args, **kwargs):
@@ -183,7 +210,7 @@ class AlunoMeNotasView(APIView):
             'avaliacao_trimestral': n.avaliacao_trimestral,
             'media_final': n.media_final,
             'resultado': n.resultado,
-            'comportamento': n.comportamento
+            'comportamento': n.comportamento if ((n.media_final is not None and n.media_final > 0) or any(x is not None and x > 0 for x in [n.teste1, n.teste2, n.teste3, n.trabalho, n.avaliacao_trimestral])) else ''
         } for n in notas]
         return Response({'success': True, 'data': data})
 

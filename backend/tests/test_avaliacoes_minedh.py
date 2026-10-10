@@ -44,6 +44,39 @@ def test_reprovacao_media_negativa():
     assert res['cor'] == 'vermelho'
     assert res['comportamento'] == 'NS'
 
+def test_sem_notas_nao_preenche_comportamento():
+    res = calcular_media_trimestral({})
+    assert res['comportamento'] == ''
+    assert res['mediaFinal'] == 0
+    assert res['mt'] is None
+    assert res['mtValida'] is False
+    assert res['resultado'] == ''
+
+def test_mt_so_mostra_com_minimo_2_acs_e_at():
+    # Apenas 1ª ACS -> MT deve estar vazia (None / False)
+    res1 = calcular_media_trimestral({'teste1': 14})
+    assert res1['mt'] is None
+    assert res1['mtValida'] is False
+    assert res1['comportamento'] == ''
+
+    # 1ª ACS e 2ª ACS sem AT -> MT deve estar vazia
+    res2 = calcular_media_trimestral({'teste1': 14, 'teste2': 16})
+    assert res2['mt'] is None
+    assert res2['mtValida'] is False
+    assert res2['comportamento'] == ''
+
+    # 1ª ACS e AT sem 2ª ACS -> MT deve estar vazia
+    res3 = calcular_media_trimestral({'teste1': 14, 'avaliacao_trimestral': 15})
+    assert res3['mt'] is None
+    assert res3['mtValida'] is False
+    assert res3['comportamento'] == ''
+
+    # 1ª ACS, 2ª ACS e AT -> MT calculada com sucesso
+    res4 = calcular_media_trimestral({'teste1': 14, 'teste2': 16, 'avaliacao_trimestral': 15})
+    assert res4['mtValida'] is True
+    assert res4['mt'] == 15
+    assert res4['comportamento'] == 'B'
+
 def test_regra_geral_aprovacao_pauta_requer_zero_negativas():
     # 10ª Classe com 1 negativa -> REPROVADO
     notas = [

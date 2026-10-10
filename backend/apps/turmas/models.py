@@ -8,6 +8,7 @@ class Turma(models.Model):
     grau_ano = models.CharField(max_length=50)  # ex: 10ª Classe
     turno = models.CharField(max_length=20, default='MANHA')  # MANHA, TARDE, NOITE
     sala = models.CharField(max_length=50, blank=True, null=True)
+    capacidade_maxima = models.PositiveIntegerField(default=50)
     ano_letivo = models.CharField(max_length=10, default='2026')
     area = models.CharField(max_length=50, default='Geral')
     
@@ -39,14 +40,22 @@ class Turma(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['escola', 'nome', 'ano_letivo'],
-                name='unique_turma_escola_nome_ano_letivo'
+                fields=['escola', 'grau_ano', 'nome', 'ano_letivo'],
+                name='unique_turma_escola_grau_nome_ano_letivo'
             ),
         ]
 
     def clean(self):
         from common.integrity import validar_integridade_tenant
         validar_integridade_tenant(self, director_turma=self.director_turma, director_classe=self.director_classe)
+        from .utils import validar_unicidade_turma_na_classe
+        validar_unicidade_turma_na_classe(
+            escola=self.escola,
+            grau_ano=self.grau_ano,
+            nome=self.nome,
+            ano_letivo=self.ano_letivo,
+            exclude_id=self.id
+        )
 
     def save(self, *args, **kwargs):
         self.full_clean()

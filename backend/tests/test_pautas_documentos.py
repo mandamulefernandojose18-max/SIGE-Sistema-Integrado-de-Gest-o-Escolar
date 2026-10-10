@@ -81,3 +81,314 @@ class TestPautasEDocumentos:
         res_down = self.client.get(f'/api/v1/material-escolar/{mat_id}/download/')
         assert res_down.status_code == 200
         assert b"sample content" in res_down.content
+
+    def test_conexao_automatica_caderneta_boletim_declaracao_certificado(self):
+        # 1. Testar Boletim Escolar com notas vindas da Caderneta
+        res_bol = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/')
+        assert res_bol.status_code == 200
+        data_bol = res_bol.data
+        assert data_bol['success'] is True
+        assert len(data_bol['disciplinas']) >= 2
+        # Verificar se as notas 16 e 15 estão presentes
+        disc_mat = next((d for d in data_bol['disciplinas'] if d['nome'] == 'Matemática'), None)
+        assert disc_mat is not None
+        assert disc_mat['t1'] == 16.0
+        assert disc_mat['situacao'] == 'Aprovado'
+
+        # 2. Testar Declaração Escolar com notas automáticas
+        res_dec = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/')
+        assert res_dec.status_code == 200
+        data_dec = res_dec.data
+        assert data_dec['success'] is True
+        assert len(data_dec['disciplinas']) >= 2
+        assert data_dec['resultadoOficial'] == 'Aprovado'
+
+        # 3. Testar Certificado de Habilitações com código de autenticidade e notas
+        res_cert = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/')
+        assert res_cert.status_code == 200
+        data_cert = res_cert.data
+        assert data_cert['success'] is True
+        assert len(data_cert['disciplinas']) >= 2
+        assert data_cert['codigo_autenticidade'].startswith('CERT-')
+
+        # 4. Testar Lote de Impressão da Turma
+        res_lote = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/?tipo=BOLETIM')
+        assert res_lote.status_code == 200
+        assert res_lote.data['success'] is True
+        assert len(res_lote.data['documentos']) == 1
+        assert res_lote.data['documentos'][0]['aluno']['matricula'] == '2026999'
+
+        # 5. Testar PDFs de Boletim, Declaração e Certificado
+        res_b_pdf = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/pdf/')
+        assert res_b_pdf.status_code == 200
+        assert res_b_pdf['Content-Type'] == 'application/pdf'
+        assert len(res_b_pdf.content) > 500
+
+        res_d_pdf = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/pdf/')
+        assert res_d_pdf.status_code == 200
+        assert res_d_pdf['Content-Type'] == 'application/pdf'
+        assert len(res_d_pdf.content) > 500
+
+        res_c_pdf = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/pdf/')
+        assert res_c_pdf.status_code == 200
+        assert res_c_pdf['Content-Type'] == 'application/pdf'
+        assert len(res_c_pdf.content) > 500
+
+    def test_calculo_automatico_rigoroso_nota_caderneta(self):
+        # Criar nota com testes e trabalho:
+        # teste1=14, teste2=16 -> MAC = 15.0
+        # avaliacao_trimestral=15 -> MT = (2*15 + 15)/3 = 15
+        nota_teste = Nota(
+            escola=self.escola,
+            aluno=self.aluno,
+            turma=self.turma,
+            disciplina=self.disc1,
+            periodo='2_TRIMESTRE',
+            teste1=14,
+            teste2=16,
+            avaliacao_trimestral=15
+        )
+        nota_teste.save()
+        assert nota_teste.media_final == 15.0
+        assert nota_teste.resultado == 'Aprovado'
+
+    def test_aluno_sem_notas_na_caderneta_nao_tem_dados_ficticios(self):
+        # Criar aluno sem notas em nenhuma disciplina
+        aluno_sem_notas = Aluno.objects.create(
+            escola=self.escola,
+            turma=self.turma,
+            matricula='2026888',
+            nome='Aluno Sem Avaliacao',
+            data_nascimento='2009-05-20',
+            genero='F'
+        )
+
+        # 1. Pauta da Turma: o aluno sem notas deve ter '-' nas notas e não reprovar por zero fictício
+        res_pauta = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/completa/?periodo=1_TRIMESTRE')
+        assert res_pauta.status_code == 200
+        pauta_aluno = next(a for a in res_pauta.data['alunos'] if a['id'] == str(aluno_sem_notas.id))
+        assert pauta_aluno['notas'][str(self.disc1.id)]['media_final'] == '-'
+        assert pauta_aluno['notas'][str(self.disc2.id)]['media_final'] == '-'
+        assert pauta_aluno['media_geral'] == '-'
+        assert pauta_aluno['resultado'] == 'Pendente'
+
+        # 2. Boletim Escolar: disciplinas não avaliadas devem ter '-' e média global '-' (sem 13 ou 14 fictício)
+        res_bol = self.client.get(f'/api/v1/impressao/boletim/{aluno_sem_notas.id}/')
+        assert res_bol.status_code == 200
+        bol_data = res_bol.data
+        for d in bol_data['disciplinas']:
+            assert d['t1'] == '-'
+            assert d['t2'] == '-'
+            assert d['t3'] == '-'
+            assert d['media_anual'] == '-'
+            assert d['situacao'] == 'Pendente'
+        assert bol_data['mediaGlobal'] == '-'
+        assert bol_data['situacaoGlobal'] == 'Pendente'
+
+        # 3. Certificado: disciplinas não avaliadas devem ter '-' (sem 14 fictício)
+        res_cert = self.client.get(f'/api/v1/impressao/certificado/{aluno_sem_notas.id}/')
+        assert res_cert.status_code == 200
+        cert_data = res_cert.data
+        for d in cert_data['disciplinas']:
+            assert d['notaFinal'] == '-'
+            assert d['mediaFinal'] == '-'
+        assert cert_data['mediaGlobal'] == '-'
+
+    def test_pauta_so_e_so_tem_disciplinas_daquela_area_ou_seccao(self):
+        # 1. Criar turma de Ciências com Biologia (11ª Classe)
+        turma_ciencias_bio = Turma.objects.create(
+            escola=self.escola,
+            nome='11ª A',
+            grau_ano='11ª Classe',
+            area='Ciências com Biologia',
+            ano_letivo='2026'
+        )
+
+        # 2. Criar turma de Letras com Geografia (11ª Classe)
+        turma_letras_geo = Turma.objects.create(
+            escola=self.escola,
+            nome='11ª B',
+            grau_ano='11ª Classe',
+            area='Letras com Geografia',
+            ano_letivo='2026'
+        )
+
+        # 3. Criar disciplinas de Ciências com Biologia
+        d_lp_cb = Disciplina.objects.create(escola=self.escola, nome='Língua Portuguesa', codigo='LP-11CB', classe='11ª Classe', area='Ciências com Biologia', ano_letivo='2026')
+        d_mat_cb = Disciplina.objects.create(escola=self.escola, nome='Matemática', codigo='MAT-11CB', classe='11ª Classe', area='Ciências com Biologia', ano_letivo='2026')
+        d_bio_cb = Disciplina.objects.create(escola=self.escola, nome='Biologia', codigo='BIO-11CB', classe='11ª Classe', area='Ciências com Biologia', ano_letivo='2026')
+        d_qui_cb = Disciplina.objects.create(escola=self.escola, nome='Química', codigo='QUI-11CB', classe='11ª Classe', area='Ciências com Biologia', ano_letivo='2026')
+        d_fis_cb = Disciplina.objects.create(escola=self.escola, nome='Física', codigo='FIS-11CB', classe='11ª Classe', area='Ciências com Biologia', ano_letivo='2026')
+
+        # 4. Criar disciplinas de Ciências com Desenho
+        d_dgd = Disciplina.objects.create(escola=self.escola, nome='Desenho e Geometria Descritiva', codigo='DGD-11CD', classe='11ª Classe', area='Ciências com Desenho', ano_letivo='2026')
+
+        # 5. Criar disciplinas de Letras com Geografia
+        d_fran = Disciplina.objects.create(escola=self.escola, nome='Língua Francesa', codigo='FRAN-11LG', classe='11ª Classe', area='Letras com Geografia', ano_letivo='2026')
+        d_his_lg = Disciplina.objects.create(escola=self.escola, nome='História', codigo='HIS-11LG', classe='11ª Classe', area='Letras com Geografia', ano_letivo='2026')
+        d_geo_lg = Disciplina.objects.create(escola=self.escola, nome='Geografia', codigo='GEO-11LG', classe='11ª Classe', area='Letras com Geografia', ano_letivo='2026')
+
+        # 6. Criar disciplina de Letras com História
+        d_lit = Disciplina.objects.create(escola=self.escola, nome='Introdução à Literatura', codigo='LIT-11LH', classe='11ª Classe', area='Letras com História', ano_letivo='2026')
+
+        # Matricular alunos em cada turma
+        aluno_cb = Aluno.objects.create(escola=self.escola, turma=turma_ciencias_bio, matricula='2026111', nome='Estudante de Ciencias', data_nascimento='2008-01-01', genero='M')
+        aluno_lg = Aluno.objects.create(escola=self.escola, turma=turma_letras_geo, matricula='2026222', nome='Estudante de Letras', data_nascimento='2008-02-02', genero='F')
+
+        Nota.objects.create(escola=self.escola, aluno=aluno_cb, turma=turma_ciencias_bio, disciplina=d_bio_cb, periodo='1_TRIMESTRE', media_final=15, resultado='Aprovado')
+        Nota.objects.create(escola=self.escola, aluno=aluno_lg, turma=turma_letras_geo, disciplina=d_fran, periodo='1_TRIMESTRE', media_final=16, resultado='Aprovado')
+
+        # TESTE 1: Pauta da Turma de Ciências com Biologia
+        res_cb = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/completa/?periodo=1_TRIMESTRE')
+        assert res_cb.status_code == 200
+        discs_cb = res_cb.data['disciplinas']
+        codigos_cb = [d['codigo'] for d in discs_cb]
+        nomes_cb = [d['nome'] for d in discs_cb]
+
+        # DEVE conter as disciplinas da área de Ciências com Biologia
+        assert 'BIO-11CB' in codigos_cb
+        assert 'MAT-11CB' in codigos_cb
+        assert 'QUI-11CB' in codigos_cb
+        assert 'FIS-11CB' in codigos_cb
+        assert 'LP-11CB' in codigos_cb
+
+        # NÃO PODE DE JEITO NENHUM conter disciplinas de outras áreas/secções
+        assert 'DGD-11CD' not in codigos_cb, "Pauta de Ciências com Biologia não deve ter Desenho/DGD"
+        assert 'FRAN-11LG' not in codigos_cb, "Pauta de Ciências com Biologia não deve ter Língua Francesa"
+        assert 'HIS-11LG' not in codigos_cb, "Pauta de Ciências com Biologia não deve ter História"
+        assert 'GEO-11LG' not in codigos_cb, "Pauta de Ciências com Biologia não deve ter Geografia"
+        assert 'LIT-11LH' not in codigos_cb, "Pauta de Ciências com Biologia não deve ter Literatura"
+        assert 'Desenho e Geometria Descritiva' not in nomes_cb
+        assert 'Língua Francesa' not in nomes_cb
+
+        # TESTE 2: Pauta da Turma de Letras com Geografia
+        res_lg = self.client.get(f'/api/v1/pautas/turma/{turma_letras_geo.id}/completa/?periodo=1_TRIMESTRE')
+        assert res_lg.status_code == 200
+        discs_lg = res_lg.data['disciplinas']
+        codigos_lg = [d['codigo'] for d in discs_lg]
+        nomes_lg = [d['nome'] for d in discs_lg]
+
+        # DEVE conter as disciplinas de Letras com Geografia
+        assert 'FRAN-11LG' in codigos_lg
+        assert 'HIS-11LG' in codigos_lg
+        assert 'GEO-11LG' in codigos_lg
+
+        # NÃO PODE conter disciplinas de Ciências nem Literatura
+        assert 'BIO-11CB' not in codigos_lg, "Pauta de Letras não deve ter Biologia"
+        assert 'FIS-11CB' not in codigos_lg, "Pauta de Letras não deve ter Física"
+        assert 'QUI-11CB' not in codigos_lg, "Pauta de Letras não deve ter Química"
+        assert 'DGD-11CD' not in codigos_lg, "Pauta de Letras não deve ter Desenho/DGD"
+        assert 'LIT-11LH' not in codigos_lg, "Pauta de Letras com Geografia não deve ter Literatura (que é de Letras com História)"
+        assert 'Biologia' not in nomes_lg
+        assert 'Física' not in nomes_lg
+        assert 'Química' not in nomes_lg
+
+        # TESTE 3: Exportação de PDF, XLSX e DOCX para Ciências com Biologia
+        res_pdf = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/pdf/?periodo=1_TRIMESTRE')
+        assert res_pdf.status_code == 200
+        assert res_pdf['Content-Type'] == 'application/pdf'
+
+        res_xlsx = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/export-xlsx/?periodo=1_TRIMESTRE')
+        assert res_xlsx.status_code == 200
+
+        res_docx = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/docx/?periodo=1_TRIMESTRE')
+        assert res_docx.status_code == 200
+
+        # TESTE 4: Pauta da Turma de Ciências com Geografia (Regra expressa do usuário)
+        # "Por exemplo Ciencias com Geografia, nao tem Historia, Frances, Biologia, Desenho e Geometria Descritiva"
+        turma_cg = Turma.objects.create(
+            escola=self.escola,
+            nome='11ª Classe CG',
+            grau_ano='11ª Classe',
+            area='Ciências com Geografia',
+            turno='MANHA',
+            ano_letivo='2026'
+        )
+        d_geo_cg = Disciplina.objects.create(escola=self.escola, nome='Geografia', codigo='GEO-11CG', classe='11ª Classe', area='Ciências com Geografia', ano_letivo='2026')
+        d_mat_cg = Disciplina.objects.create(escola=self.escola, nome='Matemática', codigo='MAT-11CG', classe='11ª Classe', area='Ciências com Geografia', ano_letivo='2026')
+        d_qui_cg = Disciplina.objects.create(escola=self.escola, nome='Química', codigo='QUI-11CG', classe='11ª Classe', area='Ciências com Geografia', ano_letivo='2026')
+
+        res_cg = self.client.get(f'/api/v1/pautas/turma/{turma_cg.id}/completa/?periodo=1_TRIMESTRE')
+        assert res_cg.status_code == 200
+        discs_cg = res_cg.data['disciplinas']
+        codigos_cg = [d['codigo'] for d in discs_cg]
+        nomes_cg = [d['nome'] for d in discs_cg]
+
+        # DEVE conter Geografia e disciplinas da área de Ciências com Geografia
+        assert 'GEO-11CG' in codigos_cg
+        assert 'Geografia' in nomes_cg
+
+        # NÃO PODE conter: História, Francês, Biologia, Desenho/DGD, Literatura
+        assert 'História' not in nomes_cg, "Ciências com Geografia não pode ter História"
+        assert 'Língua Francesa' not in nomes_cg, "Ciências com Geografia não pode ter Língua Francesa"
+        assert 'Biologia' not in nomes_cg, "Ciências com Geografia não pode ter Biologia"
+        assert 'Desenho e Geometria Descritiva' not in nomes_cg, "Ciências com Geografia não pode ter Desenho e Geometria Descritiva"
+        assert 'Introdução à Literatura' not in nomes_cg, "Ciências com Geografia não pode ter Literatura"
+
+        # Nomes das disciplinas não devem estar abreviados
+        for n in nomes_cg:
+            assert '-' not in n, f"Nome da disciplina não deve ser código abreviado: {n}"
+
+    def test_mfd_somente_quando_3_trimestres_disponiveis(self):
+        from apps.professores.models import Professor, AlocacaoDocente
+        prof = Professor.objects.create(escola=self.escola, nome='Prof', apelido='Docente', especialidade='Matemática')
+        aloc = AlocacaoDocente.objects.create(escola=self.escola, professor=prof, turma=self.turma, disciplina=self.disc1)
+
+        # 1. Aluno apenas com 1º trimestre lançado: MFD deve ser None na caderneta e '-' na pauta
+        res_cad = self.client.get(f'/api/v1/professores/caderneta/{aloc.id}/completa')
+        assert res_cad.status_code == 200
+        aluno_cad = next(a for a in res_cad.data['data']['alunos'] if a['alunoId'] == str(self.aluno.id))
+        assert aluno_cad['numero'] == 1
+        assert aluno_cad['t1']['mt'] == 16.0
+        assert aluno_cad['t2']['mt'] is None
+        assert aluno_cad['t3']['mt'] is None
+        assert aluno_cad['mfd'] is None, "MFD não pode ser calculado se falta o 2º e 3º trimestre"
+
+        res_pauta = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/completa/?periodo=ANUAL')
+        assert res_pauta.status_code == 200
+        aluno_pauta = next(a for a in res_pauta.data['alunos'] if a['id'] == str(self.aluno.id))
+        assert aluno_pauta['numero'] == 1
+        assert aluno_pauta['notas'][str(self.disc1.id)]['mfd'] == '-', "Na pauta anual, MFD deve ser '-' se faltam trimestres"
+
+        # Validar Acta: apenas trimestres com notas lançadas devem ser marcados como disponíveis e avaliados
+        tc1 = res_pauta.data['trimestresComNotas']
+        assert tc1['t1'] is True
+        assert tc1['t2'] is False, "T2 sem notas não pode estar disponível na acta"
+        assert tc1['t3'] is False, "T3 sem notas não pode estar disponível na acta"
+        assert tc1['fimAno'] is False, "Fim do ano não pode estar disponível se faltam trimestres"
+        ta1 = res_pauta.data['tabelaAproveitamento']
+        assert ta1['t1']['avaliados']['hm'] == 1
+        assert ta1['t2']['avaliados']['hm'] == 0, "T2 sem notas deve ter 0 avaliados na acta"
+        assert ta1['t3']['avaliados']['hm'] == 0, "T3 sem notas deve ter 0 avaliados na acta"
+        assert ta1['fimAno']['avaliados']['hm'] == 0, "Fim do ano sem 3 trimestres deve ter 0 avaliados na acta"
+
+        # 2. Lançar 2º trimestre: ainda assim MFD deve ser None / '-'
+        Nota.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma, disciplina=self.disc1, periodo='2_TRIMESTRE', media_final=14, resultado='Aprovado')
+        res_cad2 = self.client.get(f'/api/v1/professores/caderneta/{aloc.id}/completa')
+        aluno_cad2 = next(a for a in res_cad2.data['data']['alunos'] if a['alunoId'] == str(self.aluno.id))
+        assert aluno_cad2['mfd'] is None, "MFD não pode ser calculado se falta o 3º trimestre"
+
+        # 3. Lançar 3º trimestre: agora sim MFD deve ser calculado como a média dos 3 trimestres
+        # (16 + 14 + 18) / 3 = 48 / 3 = 16.0
+        Nota.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma, disciplina=self.disc1, periodo='3_TRIMESTRE', media_final=18, resultado='Aprovado')
+        res_cad3 = self.client.get(f'/api/v1/professores/caderneta/{aloc.id}/completa')
+        aluno_cad3 = next(a for a in res_cad3.data['data']['alunos'] if a['alunoId'] == str(self.aluno.id))
+        assert aluno_cad3['mfd'] == 16.0, "MFD deve ser 16.0 quando os 3 trimestres estiverem disponíveis"
+
+        res_pauta3 = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/completa/?periodo=ANUAL')
+        aluno_pauta3 = next(a for a in res_pauta3.data['alunos'] if a['id'] == str(self.aluno.id))
+        assert aluno_pauta3['notas'][str(self.disc1.id)]['mfd'] == 16
+
+        tc3 = res_pauta3.data['trimestresComNotas']
+        assert tc3['t1'] is True
+        assert tc3['t2'] is True
+        assert tc3['t3'] is True
+        assert tc3['fimAno'] is True
+        ta3 = res_pauta3.data['tabelaAproveitamento']
+        assert ta3['t1']['avaliados']['hm'] == 1
+        assert ta3['t2']['avaliados']['hm'] == 1
+        assert ta3['t3']['avaliados']['hm'] == 1
+        assert ta3['fimAno']['avaliados']['hm'] == 1
+
+
+

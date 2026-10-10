@@ -6,7 +6,11 @@ from .views import (
     PautaXLSXView,
     PautaDOCXView,
     PautaExportJSONView,
-    PautasEstatisticasGeraisView
+    ActaPDFView,
+    ActaDOCXView,
+    ActaXLSXView,
+    PautasEstatisticasGeraisView,
+    PautasEstatisticasGeraisXLSXView
 )
 
 urlpatterns = [
@@ -22,19 +26,19 @@ urlpatterns = [
     path('turma/<uuid:turma_id>/docx/', PautaDOCXView.as_view(), name='pauta_docx'),
     path('turma/<uuid:turma_id>/export-json', PautaExportJSONView.as_view(), name='pauta_json_no_slash'),
     path('turma/<uuid:turma_id>/export-json/', PautaExportJSONView.as_view(), name='pauta_json'),
-    # Acta de Conselho aliases
+    # Acta de Conselho dedicada
     path('turma/<uuid:turma_id>/acta', PautaCompletaView.as_view(), name='acta_data_no_slash'),
     path('turma/<uuid:turma_id>/acta/', PautaCompletaView.as_view(), name='acta_data'),
-    path('turma/<uuid:turma_id>/acta-pdf', PautaPDFView.as_view(), name='acta_pdf_no_slash'),
-    path('turma/<uuid:turma_id>/acta-pdf/', PautaPDFView.as_view(), name='acta_pdf'),
-    path('turma/<uuid:turma_id>/acta-docx', PautaDOCXView.as_view(), name='acta_docx_no_slash'),
-    path('turma/<uuid:turma_id>/acta-docx/', PautaDOCXView.as_view(), name='acta_docx'),
-    path('turma/<uuid:turma_id>/acta-xlsx', PautaXLSXView.as_view(), name='acta_xlsx_no_slash'),
-    path('turma/<uuid:turma_id>/acta-xlsx/', PautaXLSXView.as_view(), name='acta_xlsx'),
+    path('turma/<uuid:turma_id>/acta-pdf', ActaPDFView.as_view(), name='acta_pdf_no_slash'),
+    path('turma/<uuid:turma_id>/acta-pdf/', ActaPDFView.as_view(), name='acta_pdf'),
+    path('turma/<uuid:turma_id>/acta-docx', ActaDOCXView.as_view(), name='acta_docx_no_slash'),
+    path('turma/<uuid:turma_id>/acta-docx/', ActaDOCXView.as_view(), name='acta_docx'),
+    path('turma/<uuid:turma_id>/acta-xlsx', ActaXLSXView.as_view(), name='acta_xlsx_no_slash'),
+    path('turma/<uuid:turma_id>/acta-xlsx/', ActaXLSXView.as_view(), name='acta_xlsx'),
     path('turma/<uuid:turma_id>/acta-json', PautaExportJSONView.as_view(), name='acta_json_no_slash'),
     path('turma/<uuid:turma_id>/acta-json/', PautaExportJSONView.as_view(), name='acta_json'),
     path('estatisticas-gerais', PautasEstatisticasGeraisView.as_view(), name='pautas_estatisticas_no_slash'),
     path('estatisticas-gerais/', PautasEstatisticasGeraisView.as_view(), name='pautas_estatisticas'),
-    path('estatisticas-gerais/xlsx', PautaXLSXView.as_view(), name='pautas_estatisticas_xlsx_no_slash'),
-    path('estatisticas-gerais/xlsx/', PautaXLSXView.as_view(), name='pautas_estatisticas_xlsx'),
+    path('estatisticas-gerais/xlsx', PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx_no_slash'),
+    path('estatisticas-gerais/xlsx/', PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx'),
 ]

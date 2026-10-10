@@ -19,6 +19,7 @@ class Professor(models.Model):
     carreira = models.CharField(max_length=100, default='DN1')
     especialidade = models.CharField(max_length=100)
     carga_horaria_semanal = models.IntegerField(default=20, validators=[MinValueValidator(1)])
+    carga_maxima_por_classe = models.JSONField(default=dict, blank=True, null=True)
     ativo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

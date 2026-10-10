@@ -6,14 +6,26 @@ from .models import Usuario, LogAcesso
 class UsuarioSerializer(serializers.ModelSerializer):
     escola_id = serializers.UUIDField(source='escola.id', read_only=True, allow_null=True)
     escola_nome = serializers.CharField(source='escola.nome', read_only=True, allow_null=True)
+    ultimo_acesso = serializers.SerializerMethodField()
+    ultimo_acesso_quem = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
         fields = [
             'id', 'nome', 'email', 'role', 'escola_id', 'escola_nome',
-            'ativo', 'telefone', 'avatar_url', 'aluno_id', 'professor_id', 'date_joined'
+            'ativo', 'telefone', 'avatar_url', 'aluno_id', 'professor_id', 'date_joined',
+            'last_login', 'ultimo_acesso', 'ultimo_acesso_quem'
         ]
         read_only_fields = ['id', 'date_joined']
+
+    def get_ultimo_acesso(self, obj):
+        if obj.last_login:
+            return obj.last_login.isoformat()
+        log = LogAcesso.objects.filter(usuario=obj, tipo='LOGIN_SUCESSO').order_by('-created_at').first()
+        return log.created_at.isoformat() if log else None
+
+    def get_ultimo_acesso_quem(self, obj):
+        return obj.nome or obj.username or obj.email
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=False)

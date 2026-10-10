@@ -40,5 +40,6 @@ urlpatterns = [
     path('geografia/', GeografiaView.as_view(), name='geografia'),
     re_path(r'^saas-admin/?', include(saas_admin_urls)),
     re_path(r'^escola-admin/?', include(escola_admin_urls)),
+    path('', include(router.urls)),
 ]
 

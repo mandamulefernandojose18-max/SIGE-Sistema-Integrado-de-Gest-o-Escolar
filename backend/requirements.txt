@@ -12,3 +12,5 @@ qrcode[pil]>=7.4,<7.5
 Pillow>=10.4,<10.5
 python-dotenv>=1.0,<1.1
 gunicorn>=23.0,<23.1
+waitress>=3.0,<3.1
+whitenoise>=6.8,<6.13

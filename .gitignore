@@ -39,6 +39,7 @@ env/
 backend/venv/
 backend/.pytest_cache/
 backend/db.sqlite3
+backend/staticfiles/
 backend/.env
 backend/**/__pycache__/
 backend/tests/__pycache__/

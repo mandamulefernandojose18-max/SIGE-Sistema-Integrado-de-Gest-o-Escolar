@@ -73,8 +73,29 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
         backgroundColor: '#ffffff',
         ignoreElements: (e) => e.classList?.contains('no-print') || e.tagName === 'BUTTON',
         onclone: (clonedDoc) => {
+          // Forçar estritamente Times New Roman e proporções oficiais sem cortes
+          const styleClone = clonedDoc.createElement('style');
+          styleClone.textContent = `
+            * {
+              font-family: 'Times New Roman', Times, Georgia, serif !important;
+            }
+            body, .printable-document, .documento-a4-pagina-unica, .documento-boletim-oficial {
+              font-family: 'Times New Roman', Times, Georgia, serif !important;
+              color: #000000 !important;
+              background-color: #ffffff !important;
+            }
+            table {
+              border-collapse: collapse !important;
+              width: 100% !important;
+            }
+            th, td {
+              font-family: 'Times New Roman', Times, Georgia, serif !important;
+            }
+          `;
+          clonedDoc.head.appendChild(styleClone);
+
           // Remover ícones e botões nos documentos exportados (sem icons)
-          const elementosRemover = clonedDoc.querySelectorAll('i, svg, .bi, .fa, button, .btn, .no-print');
+          const elementosRemover = clonedDoc.querySelectorAll('i, svg, .bi, [class*="bi-"], [class^="bi-"], .fa, [class*="fa-"], [class^="fa-"], button, .btn, .no-print');
           elementosRemover.forEach(el => el.remove());
 
           const overlays = clonedDoc.querySelectorAll('.html2pdf__overlay');
@@ -129,14 +150,18 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
   }
 }
 
-function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null) {
+function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
   const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
   if (!turmaId) return alert('Selecione uma turma para exportar a pauta');
   const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.xlsx`);
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.xlsx`);
 }
 
 function imprimirPautaGeralOficial() {
+  const orientacao = document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  document.body.classList.remove('print-orientacao-landscape', 'print-orientacao-portrait');
+  document.body.classList.add(orientacao === 'landscape' ? 'print-orientacao-landscape' : 'print-orientacao-portrait');
   window.print();
 }
 
@@ -150,50 +175,82 @@ function descarregarCadernetaExcel() {
   downloadFicheiroBinario(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/xlsx`, `Caderneta_Oficial_2026.xlsx`);
 }
 
-async function descarregarPautaGeralPdf(turmaIdExplicit = null) {
+async function descarregarPautaGeralPdf(turmaIdExplicit = null, orientacaoExplicit = null) {
   const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   if (turmaId) {
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.pdf`);
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.pdf`);
     return;
   }
   const el = document.getElementById('containerTabelaPautaGeral') || document.getElementById('subViewPautaGeral');
   if (!el) return alert('Selecione uma turma para visualizar a pauta');
-  await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, 'landscape');
+  await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, orientacao);
 }
 
-function descarregarPautaGeralDocx(turmaIdExplicit = null) {
+function descarregarPautaGeralDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
   const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
   if (!turmaId) return alert('Selecione uma turma para descarregar a pauta em Word');
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=${ano}`, `Pauta_Geral_Turma_${ano}.docx`);
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.docx`);
 }
 
-async function descarregarActaConselhoPdf(turmaIdExplicit = null) {
+async function descarregarActaConselhoPdf(turmaIdExplicit = null, orientacaoExplicit = null) {
   const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   if (turmaId) {
-    const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
-    const params = new URLSearchParams({ anoLetivo: ano });
-    if (sessao.presidente) params.append('presidente', sessao.presidente);
-    if (sessao.data) params.append('data', sessao.data);
+    const rawSessao = localStorage.getItem('sige_acta_params_' + turmaId) || localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}';
+    let sessao = {};
+    try { sessao = JSON.parse(rawSessao) || {}; } catch (e) { sessao = {}; }
+    const params = new URLSearchParams({ anoLetivo: ano, orientacao: orientacao });
+    Object.entries(sessao).forEach(([k, v]) => {
+      if (v) params.append(k, v);
+    });
+    if (sessao.presidente && !params.has('presidente')) params.append('presidente', sessao.presidente);
+    if (sessao.data && !params.has('data')) params.append('data', sessao.data);
     downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_Turma_${ano}.pdf`);
     return;
   }
   const el = document.getElementById('containerActaConselhoCorpo') || document.getElementById('subViewActaConselho');
   if (!el) return alert('Selecione uma turma para visualizar a acta');
-  await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, 'landscape');
+  await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, orientacao);
 }
 
-function descarregarActaConselhoDocx(turmaIdExplicit = null) {
+function descarregarActaConselhoDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
   const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
   if (!turmaId) return alert('Selecione uma turma para descarregar a acta em Word');
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
-  const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
-  const params = new URLSearchParams({ anoLetivo: ano });
-  if (sessao.presidente) params.append('presidente', sessao.presidente);
-  if (sessao.data) params.append('data', sessao.data);
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  const rawSessao = localStorage.getItem('sige_acta_params_' + turmaId) || localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}';
+  let sessao = {};
+  try { sessao = JSON.parse(rawSessao) || {}; } catch (e) { sessao = {}; }
+  const params = new URLSearchParams({ anoLetivo: ano, orientacao: orientacao });
+  Object.entries(sessao).forEach(([k, v]) => {
+    if (v) params.append(k, v);
+  });
+  if (sessao.presidente && !params.has('presidente')) params.append('presidente', sessao.presidente);
+  if (sessao.data && !params.has('data')) params.append('data', sessao.data);
   downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_Turma_${ano}.docx`);
+}
+
+async function descarregarDocumentoOficialPdf(tipo, alunoOuTurmaId) {
+  if (!alunoOuTurmaId) return alert('Identificador do documento não fornecido.');
+  const t = String(tipo).toUpperCase();
+  if (t === 'BOLETIM') {
+    await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoOuTurmaId}/pdf`, `Boletim_${alunoOuTurmaId}.pdf`);
+  } else if (t === 'DECLARACAO') {
+    await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoOuTurmaId}/pdf`, `Declaracao_${alunoOuTurmaId}.pdf`);
+  } else if (t === 'CERTIFICADO') {
+    await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoOuTurmaId}/pdf`, `Certificado_${alunoOuTurmaId}.pdf`);
+  } else if (t === 'FICHA') {
+    await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoOuTurmaId}/pdf`, `Ficha_${alunoOuTurmaId}.pdf`);
+  } else if (t === 'RECIBO') {
+    await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoOuTurmaId}/pdf`, `Recibo_${alunoOuTurmaId}.pdf`);
+  } else if (t === 'PAUTA_TURMA' || t === 'PAUTA') {
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${alunoOuTurmaId}/pdf`, `Pauta_${alunoOuTurmaId}.pdf`);
+  }
 }
 
 
@@ -215,7 +272,9 @@ function filtrarAlunosCaderneta() {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    navigator.serviceWorker.register('/service-worker.js?v=20261005_07').then((reg) => {
+      reg.update().catch(() => {});
+    }).catch(() => {});
   });
 }
 
@@ -235,8 +294,44 @@ const state = {
   },
   alocacoesDocente: [],
   alocacaoAtualId: null,
-  filtroDisciplinaClasse: ''
+  filtroDisciplinaClasse: '',
+  cadernetaClasseSelecionada: null,
+  cadernetaAreaSelecionada: null,
+  cadernetaAlocacaoSelecionadaId: null,
+  cadernetaProfessorFiltroId: 'TODOS'
 };
+
+// ==================== FORMATAÇÃO DE MOEDA (MZN) & RESPONSIVIDADE DE TABELAS ====================
+function formatarMoeda(valor) {
+  const num = Number(valor || 0);
+  return `${num.toLocaleString('pt-PT')} <span class="moeda-sufixo">MZN</span>`;
+}
+
+function formatarMoedaTexto(valor) {
+  const num = Number(valor || 0);
+  return `${num.toLocaleString('pt-PT')} MZN`;
+}
+
+function aplicarResponsividadeUniversalTabelas(root = document) {
+  try {
+    const elRoot = root || document;
+    const tabelas = elRoot.querySelectorAll('table.table');
+    tabelas.forEach(tbl => {
+      if (!tbl.closest('.table-responsive') && !tbl.closest('.printable-document') && !tbl.closest('.documento-a4-pagina-unica')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        tbl.parentNode.insertBefore(wrapper, tbl);
+        wrapper.appendChild(tbl);
+      }
+    });
+  } catch (e) {
+    console.warn('Erro ao aplicar responsividade universal a tabelas:', e);
+  }
+}
+
+window.formatarMoeda = formatarMoeda;
+window.formatarMoedaTexto = formatarMoedaTexto;
+window.aplicarResponsividadeUniversalTabelas = aplicarResponsividadeUniversalTabelas;
 
 // ==================== NOTIFICAÇÕES TOAST ====================
 function mostrarNotificacao(mensagem, tipo = 'info') {
@@ -279,8 +374,7 @@ function formatarUrlApi(url) {
     cleanUrl = cleanUrl + '/';
   }
   if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl;
-  const baseUrl = (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL)
-    || (window.location.port === '5173' || window.location.port === '8080' || window.location.port === '3001' ? 'http://localhost:8000/api/v1' : '/api/v1');
+  const baseUrl = (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL) || '/api/v1';
   if (cleanUrl.startsWith('/api/v1')) {
     return baseUrl.replace(/\/api\/v1\/?$/, '') + cleanUrl;
   }
@@ -321,8 +415,32 @@ async function apiFetch(endpoint, options = {}) {
     }
 
     if (!res.ok) {
-      if (res.status === 401) {
-        fazerLogout();
+      if (res.status === 401 && !options._isRetry) {
+        const storedRefresh = localStorage.getItem('sige_refresh_token');
+        if (storedRefresh) {
+          try {
+            const refreshResp = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh: storedRefresh })
+            });
+            if (refreshResp.ok) {
+              const refreshJson = await refreshResp.json();
+              const newAccessToken = refreshJson.access || refreshJson.accessToken || refreshJson.data?.tokens?.accessToken;
+              if (newAccessToken) {
+                localStorage.setItem('sige_token', newAccessToken);
+                state.token = newAccessToken;
+                const retryHeaders = { ...headers, Authorization: `Bearer ${newAccessToken}` };
+                return apiFetch(endpoint, { ...options, headers: retryHeaders, _isRetry: true });
+              }
+            }
+          } catch (refreshErr) {
+            console.warn('Falha silenciosa ao renovar token de acesso:', refreshErr);
+          }
+        }
+        if (!options.ignoreAuthRedirect && state.user?.role !== 'SUPERADMIN') {
+          fazerLogout();
+        }
       }
       let msg = json.message || json.detail || json.error;
       if (!msg && json.non_field_errors) {
@@ -402,6 +520,76 @@ async function downloadFicheiroBinario(url, defaultFilename) {
   }
 }
 
+// ==================== UTILITÁRIOS DE DATA E CALENDÁRIO ====================
+function formatarParaInputDate(val) {
+  if (!val) return '';
+  val = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+    const [d, m, y] = val.split('/');
+    return `${y}-${m}-${d}`;
+  }
+  return '';
+}
+
+function formatarDataParaExibicao(val, anoFallback = '2026') {
+  if (!val || !val.trim()) return `___/___/${anoFallback}`;
+  val = val.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    const [y, m, d] = val.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  return val;
+}
+
+// Abrir automaticamente o calendário nativo ao clicar em qualquer campo de data do sistema
+document.addEventListener('click', (e) => {
+  const target = e.target;
+  if (!target) return;
+
+  // 1. Clicou directamente num input[type="date"] ou elemento filho
+  const dateInput = target.matches('input[type="date"]') ? target : target.closest('input[type="date"]');
+  if (dateInput && typeof dateInput.showPicker === 'function') {
+    try {
+      dateInput.showPicker();
+    } catch (err) {
+      // Ignora se o calendário já estiver aberto ou bloqueado pelo navegador
+    }
+    return;
+  }
+
+  // 2. Clicou num label associado a um input type="date"
+  if (target.tagName === 'LABEL' && target.htmlFor) {
+    const associatedInput = document.getElementById(target.htmlFor);
+    if (associatedInput && associatedInput.type === 'date' && typeof associatedInput.showPicker === 'function') {
+      try {
+        associatedInput.showPicker();
+      } catch (err) {}
+      return;
+    }
+  }
+
+  // 3. Clicou num ícone ou container de um input-group que contém um input date
+  const group = target.closest('.input-group');
+  if (group) {
+    const groupDateInput = group.querySelector('input[type="date"]');
+    if (groupDateInput && target !== groupDateInput && typeof groupDateInput.showPicker === 'function') {
+      try {
+        groupDateInput.showPicker();
+      } catch (err) {}
+    }
+  }
+}, true);
+
+// Suporte adicional ao receber foco por ponteiro
+document.addEventListener('focusin', (e) => {
+  if (e.target && e.target.matches('input[type="date"]') && typeof e.target.showPicker === 'function') {
+    try {
+      e.target.showPicker();
+    } catch (err) {}
+  }
+});
+
 // ==================== INICIALIZAÇÃO DA APLICAÇÃO ====================
 document.addEventListener('DOMContentLoaded', async () => {
   await carregarDadosGeografia();
@@ -411,31 +599,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     try {
       const res = await apiFetch('/api/v1/auth/me');
-      if (res.success) {
-        state.user = res.data.user;
-        state.tenant = res.data.tenant;
+      const userData = res?.data?.user || res?.user || res?.data;
+      if (res && (res.success || userData)) {
+        state.user = userData;
+        state.tenant = res?.data?.tenant || res?.tenant || res?.data?.escola || res?.escola || null;
 
         // Se for SuperAdmin e tiver uma escola seleccionada, carregar os dados daquela escola
         const savedTenantId = localStorage.getItem('sige_selected_tenant');
         if (state.user?.role === 'SUPERADMIN' && savedTenantId) {
           try {
             const escolaRes = await apiFetch('/api/v1/escola-admin/info');
-            if (escolaRes.success && escolaRes.data) {
+            if (escolaRes && escolaRes.success && escolaRes.data) {
               state.tenant = escolaRes.data;
             }
-          } catch(e) {}
+          } catch(e) {
+            console.warn('Tenant selecionado não pôde ser carregado na inicialização:', e);
+          }
         }
 
         iniciarApp();
       } else {
         mostrarTelaLogin();
       }
-    } catch {
+    } catch (err) {
+      console.warn('Sessão expirada ou inválida:', err);
       mostrarTelaLogin();
     }
   }
 
   document.getElementById('loginForm')?.addEventListener('submit', realizarLogin);
+  aplicarResponsividadeUniversalTabelas();
 });
 
 async function carregarDadosGeografia() {
@@ -450,14 +643,31 @@ async function carregarDadosGeografia() {
   }
 }
 
+function modalEsqueciSenha() {
+  abrirModal('Recuperação de Acesso', `
+    <div class="text-center p-3">
+      <div class="mb-3 text-warning fs-1"><i class="bi bi-shield-lock"></i></div>
+      <h6 class="fw-bold mb-2">Esqueceu a sua senha?</h6>
+      <p class="text-muted small mb-3">
+        Por razões de segurança e integridade institucional, o pedido de redefinição de credenciais deve ser solicitado diretamente ao Administrador do Sistema ou à Direção Pedagógica da sua instituição.
+      </p>
+      <div class="p-3 bg-light rounded text-start small border mb-3">
+        <div class="mb-1"><i class="bi bi-envelope me-1 text-primary"></i> <strong>Apoio Técnico:</strong> suporte@sige.edu.mz</div>
+        <div><i class="bi bi-shield-check me-1 text-success"></i> <strong>Administrador:</strong> Eng. Fernando Mandamule</div>
+      </div>
+      <button class="btn btn-primary w-100" onclick="fecharModal()">Compreendido</button>
+    </div>
+  `);
+}
+
 function preencherLogin(email, senha) {
-  document.getElementById('loginEmail').value = email;
-  document.getElementById('loginSenha').value = senha;
+  if (document.getElementById('loginEmail')) document.getElementById('loginEmail').value = email;
+  if (document.getElementById('loginSenha')) document.getElementById('loginSenha').value = senha;
 }
 
 async function realizarLogin(e) {
   e.preventDefault();
-  const email = document.getElementById('loginEmail').value;
+  const email = (document.getElementById('loginEmail').value || '').trim();
   const senha = document.getElementById('loginSenha').value;
 
   try {
@@ -466,9 +676,14 @@ async function realizarLogin(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, senha })
     });
-    const json = await res.json();
+    let json = null;
+    try {
+      json = await res.json();
+    } catch (e) {
+      console.warn('Resposta não pôde ser convertida para JSON:', res.status);
+    }
 
-    if (json.success) {
+    if (json && json.success) {
       localStorage.setItem('sige_token', json.data.tokens.accessToken);
       localStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
       if (json.data.user.role !== 'SUPERADMIN') {
@@ -478,11 +693,14 @@ async function realizarLogin(e) {
       state.user = json.data.user;
       state.tenant = json.data.escola;
       iniciarApp();
+    } else if (json && (json.message || json.detail)) {
+      alert(json.message || json.detail || 'Falha na autenticação. Verifique o e-mail e a palavra-passe.');
     } else {
-      alert(json.message || 'Falha na autenticação. Verifique o e-mail e a palavra-passe.');
+      alert(`Erro ao conectar ao servidor do SIGE (HTTP ${res.status}). Verifique o estado do servidor.`);
     }
   } catch (err) {
-    alert('Erro ao conectar ao servidor do SIGE.');
+    console.error('Erro de conexão no login:', err);
+    alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.'));
   }
 }
 
@@ -510,17 +728,38 @@ async function iniciarApp() {
   document.getElementById('topbarUserRole').textContent = state.user.role;
   document.getElementById('dropdownUserEmail').textContent = state.user.email;
 
-  // Formatação do Último Acesso
-  if (state.user.ultimo_acesso) {
-    const dtAcesso = new Date(state.user.ultimo_acesso);
-    const dataFormatada = dtAcesso.toLocaleDateString('pt-PT') + ' às ' + dtAcesso.toLocaleTimeString('pt-PT');
-    document.getElementById('topbarUltimoAcesso').textContent = `Último acesso: ${dataFormatada}`;
+  // Formatação do Último Acesso e Quem Acessou
+  const elUltimoAcesso = document.getElementById('topbarUltimoAcesso');
+  const elDropdownDetalhe = document.getElementById('dropdownUltimoAcessoDetalhe');
+  const rawData = state.user.ultimo_acesso || state.user.last_login;
+  const quemAcessou = state.user.ultimo_acesso_quem || state.user.nome || state.user.email || 'Utilizador';
+
+  if (rawData) {
+    const dtAcesso = new Date(rawData);
+    const dataFormatada = dtAcesso.toLocaleDateString('pt-PT') + ' às ' + dtAcesso.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    if (elUltimoAcesso) {
+      elUltimoAcesso.innerHTML = `<i class="bi bi-clock-history me-1"></i>Último acesso: <strong>${dataFormatada}</strong> por <strong>${quemAcessou}</strong>`;
+      elUltimoAcesso.title = `Último acesso ao sistema por ${quemAcessou} em ${dataFormatada}`;
+    }
+    if (elDropdownDetalhe) {
+      elDropdownDetalhe.innerHTML = `<i class="bi bi-shield-check text-success me-1"></i>Último acesso: <strong>${dataFormatada}</strong> por <strong>${quemAcessou}</strong>`;
+    }
   } else {
-    document.getElementById('topbarUltimoAcesso').textContent = 'Primeiro acesso ao sistema';
+    const agora = new Date();
+    const dataFormatada = agora.toLocaleDateString('pt-PT') + ' às ' + agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    if (elUltimoAcesso) {
+      elUltimoAcesso.innerHTML = `<i class="bi bi-clock-history me-1"></i>Acesso actual: <strong>${dataFormatada}</strong> por <strong>${quemAcessou}</strong>`;
+    }
+    if (elDropdownDetalhe) {
+      elDropdownDetalhe.innerHTML = `<i class="bi bi-shield-check text-success me-1"></i>Primeiro acesso por <strong>${quemAcessou}</strong>`;
+    }
   }
 
   // Configuração por Perfil de Utilizador (RBAC)
   aplicarPermissoesVisualizacao(state.user.role);
+
+  // Carregar automaticamente todos os dados essenciais da instituição (turmas, disciplinas, docentes, alunos)
+  carregarDadosGlobaisEscola();
 
   const savedTenant = localStorage.getItem('sige_selected_tenant');
 
@@ -565,6 +804,35 @@ async function iniciarApp() {
   }
 }
 
+async function carregarDadosGlobaisEscola() {
+  const isSuperAdminNoEscola = (state.user?.role === 'SUPERADMIN' && !localStorage.getItem('sige_selected_tenant'));
+  if (isSuperAdminNoEscola) return;
+
+  try {
+    const [resTurmas, resDisc, resProfs, resAlunos] = await Promise.all([
+      apiFetch('/api/v1/escola-admin/turmas', { ignoreAuthRedirect: true }),
+      apiFetch('/api/v1/disciplinas', { ignoreAuthRedirect: true }),
+      apiFetch('/api/v1/professores', { ignoreAuthRedirect: true }),
+      apiFetch('/api/v1/alunos', { ignoreAuthRedirect: true })
+    ]);
+    if (resTurmas && resTurmas.success) {
+      state.todasTurmas = resTurmas.data || [];
+      state.turmasList = resTurmas.data || [];
+    }
+    if (resDisc && resDisc.success) {
+      state.todasDisciplinas = resDisc.data || [];
+    }
+    if (resProfs && resProfs.success) {
+      state.todosProfessores = resProfs.data || [];
+    }
+    if (resAlunos && resAlunos.success) {
+      state.todosAlunos = resAlunos.data || [];
+    }
+  } catch (e) {
+    console.warn('Carregamento inicial de dados globais da escola:', e);
+  }
+}
+
 function aplicarPermissoesVisualizacao(role) {
   // Reset geral
   document.querySelectorAll('.saas-only').forEach(el => el.style.display = 'none');
@@ -597,20 +865,30 @@ function aplicarPermissoesVisualizacao(role) {
 }
 
 function atualizarBadgeTenant(tenant) {
-  document.getElementById('sidebarEscolaNome').textContent = tenant.nome;
+  if (!tenant) return;
+  const elNome = document.getElementById('sidebarEscolaNome');
+  if (elNome) elNome.textContent = tenant.nome || 'Escola';
   const badge = document.getElementById('sidebarStatusBadge');
-  badge.textContent = tenant.status;
-  badge.className = `badge badge-${tenant.status.toLowerCase()} mt-1`;
+  if (badge) {
+    const st = tenant.status || 'ATIVA';
+    badge.textContent = st;
+    badge.className = `badge badge-${st.toLowerCase()} mt-1`;
+  }
 
   const prov = tenant.provincia || 'Maputo';
-  document.getElementById('sidebarProvinciaBadge').textContent = prov;
+  const elProv = document.getElementById('sidebarProvinciaBadge');
+  if (elProv) elProv.textContent = prov;
 
-  document.getElementById('headerAnoLetivo').textContent = `Ano Lectivo: ${tenant.ano_letivo_ativo || 2026}`;
+  const elAno = document.getElementById('headerAnoLetivo');
+  if (elAno) elAno.textContent = `Ano Lectivo: ${tenant.ano_letivo_ativo || 2026}`;
 
-  if (tenant.status === 'EXPIRADA') {
-    document.getElementById('alertaExpiracaoBanner').style.display = 'flex';
-  } else {
-    document.getElementById('alertaExpiracaoBanner').style.display = 'none';
+  const elBanner = document.getElementById('alertaExpiracaoBanner');
+  if (elBanner) {
+    if (tenant.status === 'EXPIRADA' && state.user?.role !== 'SUPERADMIN') {
+      elBanner.style.display = 'flex';
+    } else {
+      elBanner.style.display = 'none';
+    }
   }
 }
 
@@ -628,7 +906,7 @@ async function carregarEscolasSuperAdminSelect() {
   } catch (err) {}
 }
 
-async function alternarEscolaSuperAdmin(escolaId) {
+async function alternarEscolaSuperAdmin(escolaId, escolaNome = '') {
   if (!escolaId) {
     sairModoInspecaoSuperAdmin();
     return;
@@ -636,28 +914,19 @@ async function alternarEscolaSuperAdmin(escolaId) {
 
   try {
     localStorage.setItem('sige_selected_tenant', escolaId);
-
-    // Obter dados completos da escola seleccionada
-    const res = await apiFetch('/api/v1/escola-admin/info');
-    if (res && res.success && res.data) {
-      state.tenant = res.data;
-    } else {
-      const resEscolas = await apiFetch('/api/v1/saas-admin/escolas');
-      if (resEscolas && resEscolas.success && Array.isArray(resEscolas.data)) {
-        state.tenant = resEscolas.data.find(e => e.id === escolaId) || { id: escolaId, nome: 'Escola Seleccionada', status: 'ATIVA' };
-      }
-    }
+    state.filtroAlunoClasse = 'TODAS';
+    state.filtroAlunoTurma = 'TODAS';
+    const nomeLimpo = (escolaNome || '').replace(/\\'/g, "'");
+    state.tenant = { id: escolaId, nome: nomeLimpo || 'Escola Seleccionada', status: 'ATIVA' };
 
     // Sincronizar o selector de tenants no topo
     const select = document.getElementById('superAdminTenantSelect');
     if (select) select.value = escolaId;
 
     // Actualizar badges da escola activa na barra lateral
-    if (state.tenant) {
-      atualizarBadgeTenant(state.tenant);
-      if (typeof atualizarBotaoToggleNotasDap === 'function') {
-        atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
-      }
+    atualizarBadgeTenant(state.tenant);
+    if (typeof atualizarBotaoToggleNotasDap === 'function') {
+      atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
     }
 
     // Habilitar todos os menus administrativos, pedagógicos e financeiros da escola
@@ -675,20 +944,39 @@ async function alternarEscolaSuperAdmin(escolaId) {
     const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
     if (bannerInspecao) {
       bannerInspecao.style.setProperty('display', 'flex', 'important');
-      const nomeEscola = state.tenant?.nome || 'Escola Seleccionada';
       const elNome = document.getElementById('superAdminInspecaoNome');
-      if (elNome) elNome.textContent = `A Inspecionar: ${nomeEscola}`;
+      if (elNome) elNome.textContent = `A Inspecionar: ${state.tenant.nome}`;
       const elStatus = document.getElementById('superAdminInspecaoStatus');
-      if (elStatus) elStatus.textContent = state.tenant?.status || 'ATIVA';
+      if (elStatus) elStatus.textContent = state.tenant.status || 'ATIVA';
     }
 
-    mostrarNotificacao(`Acesso directo concedido à instituição [${state.tenant?.nome || 'Escola'}] como SuperAdmin. Sem necessidade de credenciais.`, 'success');
+    // Ocultar banner de expiração caso esteja visível
+    const bannerExp = document.getElementById('alertaExpiracaoBanner');
+    if (bannerExp) bannerExp.style.display = 'none';
+
+    mostrarNotificacao(`Acesso directo concedido à instituição [${state.tenant.nome}] como SuperAdmin. Sem necessidade de credenciais.`, 'success');
 
     // Navegar imediatamente para o Painel Principal da escola selecionada
     navegarPara('dashboard');
+
+    // Obter dados completos da escola seleccionada em segundo plano sem bloquear a navegação
+    try {
+      const res = await apiFetch('/api/v1/escola-admin/info', { ignoreAuthRedirect: true });
+      if (res && res.success && res.data) {
+        state.tenant = res.data;
+        atualizarBadgeTenant(state.tenant);
+        const elNome = document.getElementById('superAdminInspecaoNome');
+        if (elNome) elNome.textContent = `A Inspecionar: ${state.tenant.nome}`;
+        const elStatus = document.getElementById('superAdminInspecaoStatus');
+        if (elStatus) elStatus.textContent = state.tenant.status || 'ATIVA';
+      }
+      carregarDadosGlobaisEscola();
+    } catch (infoErr) {
+      console.warn('Carregamento secundário de info da escola:', infoErr);
+    }
   } catch (err) {
     console.error('Erro ao alternar para a escola:', err);
-    window.location.reload();
+    mostrarNotificacao('Não foi possível entrar na escola: ' + (err.message || 'Erro desconhecido'), 'danger');
   }
 }
 
@@ -746,7 +1034,8 @@ function navegarPara(viewId) {
   const titulos = {
     dashboard: 'Painel Principal & Indicadores Gerais',
     saas: 'Painel de Gestão SaaS SuperAdmin (Tenants & Contratos)',
-    escola: 'Dados da Escola & Direcção de Turmas',
+    escola: 'Dados da Escola & Definições Gerais',
+    turmas: 'Painel de Turmas, Capacidade Máxima & Distribuição em Lote',
     alunos: 'Registo de Alunos & Matrículas Oficiais',
     professores: 'Corpo Docente & Carreiras MEC',
     disciplinas: 'Disciplinas & Plano Curricular Nacional',
@@ -770,10 +1059,11 @@ function navegarPara(viewId) {
   if (viewId === 'dashboard') carregarDashboardGeral();
   if (viewId === 'saas') carregarPainelSaaS();
   if (viewId === 'escola') carregarEscolaETurmas();
+  if (viewId === 'turmas') carregarTurmas();
   if (viewId === 'alunos') carregarAlunos();
   if (viewId === 'professores') carregarProfessores();
   if (viewId === 'disciplinas') carregarDisciplinas();
-  if (viewId === 'caderneta') carregarCadernetaDocente();
+  if (viewId === 'caderneta') inicializarNavegacaoCaderneta();
   if (viewId === 'pautas') carregarPautas();
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
   if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento();
@@ -786,12 +1076,14 @@ function navegarPara(viewId) {
   if (viewId === 'aluno-notas') carregarAlunoNotas();
   if (viewId === 'aluno-pagamentos') carregarAlunoPagamentos();
   if (viewId === 'acessos') carregarLogsAcesso();
+
+  setTimeout(() => aplicarResponsividadeUniversalTabelas(viewEl || document), 50);
 }
 
 // ==================== 1. DASHBOARD GERAL ====================
 async function carregarDashboardGeral() {
   try {
-    const res = await apiFetch('/api/v1/dashboard/overview');
+    const res = await apiFetch('/api/v1/dashboard/overview', { ignoreAuthRedirect: true });
     if (!res.success || !res.data) return;
 
     const data = res.data;
@@ -814,10 +1106,10 @@ async function carregarDashboardGeral() {
     if (elTotalProfs) elTotalProfs.textContent = ind.totalProfessores ?? 0;
 
     const elReceitaTotal = document.getElementById('statReceitaTotal');
-    if (elReceitaTotal) elReceitaTotal.textContent = Number(ind.totalRecebido || 0).toLocaleString('pt-PT') + ' MZN';
+    if (elReceitaTotal) elReceitaTotal.innerHTML = formatarMoeda(ind.totalRecebido || 0);
 
     const elReceitaPendente = document.getElementById('statReceitaPendente');
-    if (elReceitaPendente) elReceitaPendente.textContent = Number(ind.totalPendente || 0).toLocaleString('pt-PT') + ' MZN';
+    if (elReceitaPendente) elReceitaPendente.innerHTML = formatarMoeda(ind.totalPendente || 0);
 
     const elDiasRestantes = document.getElementById('statDiasRestantes');
     if (elDiasRestantes) elDiasRestantes.textContent = (esc.diasRestantesAssinatura ?? 0) + ' dias';
@@ -829,12 +1121,12 @@ async function carregarDashboardGeral() {
     }
 
     // Gráficos
-    const resFin = await apiFetch('/api/v1/pagamentos/stats');
+    const resFin = await apiFetch('/api/v1/pagamentos/stats', { ignoreAuthRedirect: true });
     if (resFin && resFin.success && resFin.data) {
       renderizarGraficoDashboardFaturamento(resFin.data.historicoMeses || []);
     }
 
-    const resAlunos = await apiFetch('/api/v1/alunos/stats');
+    const resAlunos = await apiFetch('/api/v1/alunos/stats', { ignoreAuthRedirect: true });
     if (resAlunos && resAlunos.success && resAlunos.data) {
       renderizarGraficoDashboardGenero(resAlunos.data.genero || resAlunos.data.porGenero || { M: 0, F: 0 });
     }
@@ -897,10 +1189,10 @@ async function carregarPainelSaaS() {
       const expiradas = d.escolas?.expiradas ?? d.escolasExpiradas ?? 0;
 
       const elMRR = document.getElementById('saasMRR');
-      if (elMRR) elMRR.textContent = mrr.toLocaleString('pt-PT') + ' MZN';
+      if (elMRR) elMRR.innerHTML = formatarMoeda(mrr);
 
       const elARR = document.getElementById('saasARR');
-      if (elARR) elARR.textContent = arr.toLocaleString('pt-PT') + ' MZN';
+      if (elARR) elARR.innerHTML = formatarMoeda(arr);
 
       const elChurn = document.getElementById('saasChurn');
       if (elChurn) elChurn.textContent = churn + '%';
@@ -931,7 +1223,7 @@ async function carregarPainelSaaS() {
               ? '<span class="badge bg-warning text-dark me-1" title="Emblema Nacional">🇲🇿 Emblema</span>' 
               : '';
             const valorContratoNum = Number(ass?.valor_pago ?? ass?.valor ?? e.plano?.preco ?? 0);
-            const valorContrato = `${valorContratoNum.toLocaleString('pt-PT')} MZN`;
+            const valorContrato = formatarMoeda(valorContratoNum);
             const planoNome = e.plano?.nome || e.plano_nome || 'MENSAL';
             const totalAlunos = e._count?.alunos ?? e.total_alunos ?? 0;
             const totalProfs = e._count?.professores ?? e.total_professores ?? 0;
@@ -959,7 +1251,7 @@ async function carregarPainelSaaS() {
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
                     <!-- Botão Entrar como Escola -->
-                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin (Acesso Imediato sem Credenciais)" onclick="alternarEscolaSuperAdmin('${e.id}')">
+                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin (Acesso Imediato sem Credenciais)" onclick="alternarEscolaSuperAdmin('${e.id}', '${nomeEscapado}')">
                       <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
                     </button>
                     <!-- Botão Toggle Ativar / Desativar -->
@@ -1004,7 +1296,7 @@ async function carregarPainelSaaS() {
               <tr>
                 <td><strong>${p.nome}</strong></td>
                 <td>${p.duracao_dias} dias</td>
-                <td><strong class="text-primary fs-6">${precoNum.toLocaleString('pt-PT')} MZN</strong></td>
+                <td><strong class="text-primary">${formatarMoeda(precoNum)}</strong></td>
                 <td><small class="text-muted">${p.descricao || 'Plano de subscrição SIGE'}</small></td>
                 <td class="text-end">
                   <button class="btn btn-outline-primary btn-sm" onclick="modalEditarPrecoPlano('${p.id}', '${p.nome}', ${precoNum})">
@@ -1386,26 +1678,28 @@ function exibirComprovativoContratoModal(c) {
         <div class="col-6"><strong>E-mail:</strong> ${c.escola.email}</div>
       </div>
 
-      <table class="table table-bordered table-sm mb-4 small">
-        <thead class="table-light">
-          <tr>
-            <th>Plano Contratado</th>
-            <th>Data de Início</th>
-            <th>Data de Término (Validade)</th>
-            <th>Valor Pago / Contrato</th>
-            <th>Estado da Licença</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>${c.plano.nome}</strong></td>
-            <td>${new Date(c.assinatura.data_inicio).toLocaleDateString('pt-PT')}</td>
-            <td><strong>${new Date(c.assinatura.data_fim).toLocaleDateString('pt-PT')}</strong></td>
-            <td class="text-success fw-bold">${Number(c.assinatura?.valor_pago ?? c.assinatura?.valor ?? c.plano?.preco ?? 0).toLocaleString('pt-PT')} MZN</td>
-            <td><span class="badge badge-ativa">${c.escola.status}</span></td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table table-bordered table-sm mb-4 small">
+          <thead class="table-light">
+            <tr>
+              <th>Plano Contratado</th>
+              <th>Data de Início</th>
+              <th>Data de Término (Validade)</th>
+              <th>Valor Pago / Contrato</th>
+              <th>Estado da Licença</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>${c.plano.nome}</strong></td>
+              <td>${new Date(c.assinatura.data_inicio).toLocaleDateString('pt-PT')}</td>
+              <td><strong>${new Date(c.assinatura.data_fim).toLocaleDateString('pt-PT')}</strong></td>
+              <td class="text-success fw-bold">${formatarMoeda(Number(c.assinatura?.valor_pago ?? c.assinatura?.valor ?? c.plano?.preco ?? 0))}</td>
+              <td><span class="badge badge-ativa">${c.escola.status}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="alert alert-light border small text-muted mb-4">
         <i class="bi bi-shield-check text-success me-1"></i>
@@ -1472,20 +1766,208 @@ async function carregarEscolaETurmas() {
       atualizarDistritosEscola(e.provincia || 'Maputo Cidade', e.distrito);
     }
 
-    const resTurmas = await apiFetch('/api/v1/escola-admin/turmas');
-    if (resTurmas.success) {
-      const tbody = document.getElementById('tabelaTurmas');
-      tbody.innerHTML = resTurmas.data.map(t => `
+    // Carregar turmas no painel integrado e dedicado
+    await carregarTurmas();
+  } catch (err) {
+    console.error('Erro ao carregar dados da escola:', err);
+  }
+}
+
+// ==================== 3.1 GESTÃO DEDICADA DE TURMAS & CAPACIDADE ====================
+async function carregarTurmas() {
+  try {
+    const [resTurmas, resDisciplinas] = await Promise.all([
+      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch('/api/v1/disciplinas')
+    ]);
+    if (!resTurmas.success) return;
+
+    state.turmasList = resTurmas.data || [];
+    state.todasTurmas = resTurmas.data || [];
+    if (resDisciplinas && resDisciplinas.success) {
+      state.todasDisciplinas = resDisciplinas.data || [];
+    }
+    renderizarEstatisticasETabelaTurmas();
+  } catch (err) {
+    console.error('Erro ao carregar turmas:', err);
+  }
+}
+
+function renderizarEstatisticasETabelaTurmas() {
+  const turmas = state.turmasList || [];
+
+  // Calcular métricas gerais
+  const totalTurmas = turmas.length;
+  let capacidadeTotal = 0;
+  let alunosAlocados = 0;
+
+  turmas.forEach(t => {
+    const ocup = t._count?.alunos ?? t.total_alunos ?? 0;
+    const cap = t.capacidade_maxima || 50;
+    capacidadeTotal += cap;
+    alunosAlocados += ocup;
+  });
+
+  const vagasLivres = Math.max(0, capacidadeTotal - alunosAlocados);
+  const taxaOcupacao = capacidadeTotal > 0 ? Math.round((alunosAlocados / capacidadeTotal) * 100) : 0;
+
+  // Actualizar Cards de Métricas no DOM
+  const elTotal = document.getElementById('statTurmasTotal');
+  if (elTotal) elTotal.textContent = totalTurmas;
+
+  const elCap = document.getElementById('statTurmasCapacidade');
+  if (elCap) elCap.textContent = capacidadeTotal;
+
+  const elAlunos = document.getElementById('statTurmasAlunos');
+  if (elAlunos) elAlunos.textContent = alunosAlocados;
+
+  const elVagas = document.getElementById('statTurmasVagasLivres');
+  if (elVagas) elVagas.textContent = vagasLivres;
+
+  const elTaxa = document.getElementById('statTurmasTaxa');
+  if (elTaxa) elTaxa.textContent = `${taxaOcupacao}%`;
+
+  const elStatus = document.getElementById('statTurmasStatus');
+  if (elStatus) {
+    if (taxaOcupacao >= 100) {
+      elStatus.className = 'badge bg-danger text-white';
+      elStatus.textContent = 'Lotada';
+    } else if (taxaOcupacao >= 80) {
+      elStatus.className = 'badge bg-warning text-dark';
+      elStatus.textContent = 'Próxima do Limite';
+    } else {
+      elStatus.className = 'badge bg-success text-white';
+      elStatus.textContent = 'Vagas Disponíveis';
+    }
+  }
+
+  if (typeof atualizarFiltroAreasTurmas === 'function') {
+    atualizarFiltroAreasTurmas();
+  }
+  aplicarFiltrosTurmas();
+}
+
+window.atualizarFiltroAreasTurmas = function() {
+  const elClasse = document.getElementById('filtroTurmasClasse');
+  const elArea = document.getElementById('filtroTurmasArea');
+  if (!elArea) return;
+  const classeSel = elClasse ? elClasse.value : 'TODAS';
+  const valorAtual = elArea.value;
+
+  const areas = typeof window.obterTodasAreasOficiais === 'function' ? window.obterTodasAreasOficiais(classeSel) : [];
+  let html = '<option value="TODAS">Todas as Secções / Áreas</option>';
+  areas.forEach(a => {
+    html += `<option value="${a}">${a}</option>`;
+  });
+  elArea.innerHTML = html;
+  if (areas.includes(valorAtual)) {
+    elArea.value = valorAtual;
+  } else {
+    elArea.value = 'TODAS';
+  }
+};
+
+function aplicarFiltrosTurmas() {
+  const turmas = state.turmasList || [];
+  const filtroClasse = document.getElementById('filtroTurmasClasse')?.value || 'TODAS';
+  const filtroArea = document.getElementById('filtroTurmasArea')?.value || 'TODAS';
+  const filtroTurno = document.getElementById('filtroTurmasTurno')?.value || 'TODOS';
+  const filtroBusca = (document.getElementById('filtroTurmasBusca')?.value || '').toLowerCase().trim();
+
+  const filtradas = turmas.filter(t => {
+    if (filtroClasse !== 'TODAS') {
+      const clsTurma = typeof normalizarClasse === 'function' ? normalizarClasse(t.grau_ano) : (t.grau_ano || '');
+      const clsFiltro = typeof normalizarClasse === 'function' ? normalizarClasse(filtroClasse) : filtroClasse;
+      if (clsTurma !== clsFiltro) return false;
+    }
+    if (filtroArea !== 'TODAS') {
+      const aTurma = typeof normalizarArea === 'function' ? normalizarArea(t.area || 'Geral') : (t.area || 'Geral');
+      const aFiltro = typeof normalizarArea === 'function' ? normalizarArea(filtroArea) : filtroArea;
+      if (aTurma !== aFiltro) return false;
+    }
+    if (filtroTurno !== 'TODOS' && (t.turno || 'MANHA') !== filtroTurno) return false;
+    if (filtroBusca) {
+      const matchNome = (t.nome || '').toLowerCase().includes(filtroBusca);
+      const matchArea = (t.area || '').toLowerCase().includes(filtroBusca);
+      const matchSala = (t.sala || '').toLowerCase().includes(filtroBusca);
+      const matchDT = (t.director_turma?.nome || t.director_turma_nome || '').toLowerCase().includes(filtroBusca);
+      const matchDC = (t.director_classe?.nome || t.director_classe_nome || '').toLowerCase().includes(filtroBusca);
+      if (!matchNome && !matchArea && !matchSala && !matchDT && !matchDC) return false;
+    }
+    return true;
+  });
+
+  renderizarTabelaTurmasNoDOM(filtradas);
+}
+
+function renderizarTabelaTurmasNoDOM(turmas) {
+  // Renderizar tanto no painel view-turmas (tabelaTurmasView) quanto no view-escola (tabelaTurmas)
+  const tbodyView = document.getElementById('tabelaTurmasView');
+  const tbodyEscola = document.getElementById('tabelaTurmas');
+
+  const gerarHtmlLinhas = (isViewPrincipal) => {
+    if (turmas.length === 0) {
+      return `<tr><td colspan="${isViewPrincipal ? '9' : '7'}" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> Nenhuma turma encontrada. Utilize o botão <strong>"Gerar Turmas (1, 2, 3...)"</strong> para criar as turmas da classe ou <strong>"Nova Turma"</strong>.</td></tr>`;
+    }
+
+    return turmas.map(t => {
+      const ocupacao = t._count?.alunos ?? t.total_alunos ?? 0;
+      const maximo = t.capacidade_maxima || 50;
+      const pct = Math.min(100, Math.round((ocupacao / maximo) * 100));
+
+      // Cores estritas de acordo com a especificação:
+      // Verde: com vagas disponíveis (< 80%)
+      // Amarelo: próxima do limite (>= 80%)
+      // Vermelho: capacidade atingida (100%)
+      let badgeClass = 'bg-success text-white';
+      let progressClass = 'bg-success';
+      let statusTexto = 'Vagas livres';
+
+      if (pct >= 100) {
+        badgeClass = 'bg-danger text-white';
+        progressClass = 'bg-danger';
+        statusTexto = 'Capacidade atingida';
+      } else if (pct >= 80) {
+        badgeClass = 'bg-warning text-dark';
+        progressClass = 'bg-warning';
+        statusTexto = 'Próxima do limite';
+      }
+
+      const areaText = t.area || 'Geral';
+      const badgeAreaHtml = typeof getBadgeAreaEstudo === 'function' ? getBadgeAreaEstudo(areaText) : `<span class="badge bg-info-subtle text-dark border border-info-subtle fw-semibold">${areaText}</span>`;
+      const areaHtml = isViewPrincipal ? `<td>${badgeAreaHtml}</td>` : '';
+      const salaHtml = isViewPrincipal ? `<td><small class="text-muted">${t.sala || '—'}</small></td>` : '';
+      const botaoAlunosHtml = isViewPrincipal ? `
+        <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="abrirAlunosDaTurma('${t.id}', '${(t.grau_ano || '').replace(/'/g, "\\'")}')" title="Ver lista de alunos matriculados nesta turma">
+          <i class="bi bi-people me-1"></i>Alunos
+        </button>
+      ` : '';
+
+      return `
         <tr>
           <td><strong>${t.nome}</strong></td>
-          <td><span class="badge bg-light text-dark border">${t.grau_ano}</span></td>
-          <td>${t.turno}</td>
+          <td>
+            <span class="badge bg-light text-dark border">${t.grau_ano}</span>
+            ${!isViewPrincipal && t.area && t.area !== 'Geral' ? `<span class="badge bg-info-subtle text-dark border border-info-subtle ms-1">${t.area}</span>` : ''}
+          </td>
+          ${areaHtml}
+          <td><span class="badge bg-light text-secondary border">${t.turno || 'Diurno'}</span></td>
+          ${salaHtml}
+          <td>
+            <div class="d-flex align-items-center justify-content-between mb-1" style="min-width: 140px; max-width: 170px;">
+              <span class="badge ${badgeClass} fw-semibold">${ocupacao} / ${maximo} alunos</span>
+              <small class="text-muted ms-1" style="font-size: 0.72rem;">${pct}%</small>
+            </div>
+            <div class="progress" style="height: 6px; min-width: 140px; max-width: 170px;">
+              <div class="progress-bar ${progressClass}" style="width: ${pct}%" title="${statusTexto}: ${ocupacao}/${maximo}"></div>
+            </div>
+          </td>
           <td><small>${t.director_turma?.nome || t.director_turma_nome || '<span class="text-muted">Não definido</span>'}</small></td>
           <td><small>${t.director_classe?.nome || t.director_classe_nome || '<span class="text-muted">Não definido</span>'}</small></td>
-          <td><span class="badge bg-primary">${t._count?.alunos ?? t.total_alunos ?? 0} alunos</span></td>
           <td class="text-end">
             <div class="d-inline-flex gap-1">
-              <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Director de Turma e Director de Classe">
+              ${botaoAlunosHtml}
+              <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Capacidade e Directores">
                 <i class="bi bi-pencil-square me-1"></i>Editar
               </button>
               <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarTurma('${t.id}', '${(t.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Turma">
@@ -1494,9 +1976,32 @@ async function carregarEscolaETurmas() {
             </div>
           </td>
         </tr>
-      `).join('');
+      `;
+    }).join('');
+  };
+
+  if (tbodyView) tbodyView.innerHTML = gerarHtmlLinhas(true);
+  if (tbodyEscola) tbodyEscola.innerHTML = gerarHtmlLinhas(false);
+}
+
+function abrirAlunosDaTurma(turmaId, grauAno) {
+  navegarPara('alunos');
+  setTimeout(() => {
+    const turmaObj = (state.todasTurmas || []).find(t => t.id === turmaId);
+    if (typeof selecionarClasseAlunos === 'function' && grauAno) {
+      selecionarClasseAlunos(grauAno, true);
     }
-  } catch (err) {}
+    setTimeout(() => {
+      if (turmaObj && turmaObj.area && typeof selecionarAreaAlunos === 'function') {
+        selecionarAreaAlunos(normalizarArea(turmaObj.area), true);
+      }
+      setTimeout(() => {
+        if (typeof selecionarTurmaAlunos === 'function' && turmaId) {
+          selecionarTurmaAlunos(turmaId, true);
+        }
+      }, 100);
+    }, 100);
+  }, 100);
 }
 
 function atualizarVisualizacaoLogo(logoSrc, usarEmblema = true) {
@@ -1599,29 +2104,140 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
   }
 });
 
+window.extrairIdentificadorTurma = function(nome, grauAno = '') {
+  if (!nome) return { tipo: 'NENHUM', val: 0, rotulo: '' };
+  const limpo = String(nome).trim().replace(/\s*\(\d+\)$/, '');
+  const mNum = limpo.match(/turma\s*(\d+)/i);
+  if (mNum) return { tipo: 'NUMERO', val: parseInt(mNum[1]), rotulo: `Turma ${mNum[1]}` };
+  const mLetra = limpo.match(/turma\s*([a-zA-Z])\b/i);
+  if (mLetra) return { tipo: 'LETRA', val: mLetra[1].toUpperCase(), rotulo: `Turma ${mLetra[1].toUpperCase()}` };
+
+  let resto = limpo;
+  if (grauAno) {
+    resto = resto.replace(new RegExp(grauAno.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'), '');
+    const numsGrau = grauAno.match(/\d+/);
+    if (numsGrau) {
+      resto = resto.replace(new RegExp(`\\b${numsGrau[0]}[ªºa-zA-Z\\s]*classe\\b`, 'gi'), '');
+      resto = resto.replace(new RegExp(`\\b${numsGrau[0]}[ªº]\\b`, 'gi'), '');
+    }
+  }
+  const nums = resto.match(/\d+/g);
+  if (nums) return { tipo: 'NUMERO', val: parseInt(nums[nums.length - 1]), rotulo: `Turma ${nums[nums.length - 1]}` };
+  const letras = resto.match(/\b([a-zA-Z])\b/g);
+  if (letras) return { tipo: 'LETRA', val: letras[letras.length - 1].toUpperCase(), rotulo: `Turma ${letras[letras.length - 1].toUpperCase()}` };
+  return { tipo: 'OUTRO', val: limpo.toUpperCase(), rotulo: limpo };
+};
+
+window.atualizarAssistenteCriarTurma = function() {
+  const grauSel = document.getElementById('mtGrau')?.value || '10ª Classe';
+  const areaInput = (document.getElementById('mtArea')?.value || 'Geral').trim();
+  const infoText = document.getElementById('infoAlunosPendentesCriarTurma');
+  const nomeInput = document.getElementById('mtNome');
+  const btnAuto = document.getElementById('btnGerarAutoCriarTurma');
+
+  const pendentes = (state.todosAlunos || []).filter(a => {
+    const semTurma = !a.turma_id && (!a.turma || typeof a.turma !== 'object' || !a.turma.nome);
+    if (!semTurma) return false;
+    const aCls = a.classe || a.turma_grau || '';
+    if (normalizarClasse(aCls) !== normalizarClasse(grauSel)) return false;
+    const aAr = (a.area || 'Geral').toLowerCase();
+    const targetAr = areaInput.toLowerCase();
+    if (targetAr.includes('geral') && aAr.includes('geral')) return true;
+    return aAr === targetAr;
+  });
+
+  const turmasExistentes = (state.todasTurmas || []).filter(t => {
+    return normalizarClasse(t.grau_ano) === normalizarClasse(grauSel);
+  });
+
+  // Calcular o próximo número disponível usando o MAIOR número já existente
+  // para esta classe, globalmente (independente da secção/área) — numeração contínua sem repetições
+  let maxNumTurma = 0;
+  turmasExistentes.forEach(t => {
+    const idInfo = window.extrairIdentificadorTurma(t.nome, t.grau_ano);
+    if (idInfo.tipo === 'NUMERO' && idInfo.val > maxNumTurma) {
+      maxNumTurma = idInfo.val;
+    }
+  });
+  const proximoNum = maxNumTurma + 1;
+  if (nomeInput && (!nomeInput.value || nomeInput.value.includes('Turma') || nomeInput.value.trim() === 'Turma 1')) {
+    nomeInput.value = `Turma ${proximoNum}`;
+  }
+
+  const qtdTurmasAuto = Math.max(1, Math.ceil(pendentes.length / 50));
+
+  if (infoText) {
+    if (pendentes.length > 0) {
+      infoText.innerHTML = `Detectados <strong>${pendentes.length} alunos</strong> matriculados na <strong>${grauSel} (${areaInput})</strong> aguardando turma. O sistema pode gerar automaticamente <strong>${qtdTurmasAuto} turma(s) (Turma ${proximoNum}...)</strong> contínuas sem conflito entre secções.`;
+    } else {
+      infoText.innerHTML = `Não foram detectados alunos pendentes de turma na <strong>${grauSel} (${areaInput})</strong> no momento. Próxima turma livre da classe: <strong>Turma ${proximoNum}</strong>.`;
+    }
+  }
+};
+
+window.executarFormacaoAutomaticaParaClasse = async function() {
+  const grau = document.getElementById('mtGrau')?.value || '10ª Classe';
+  const area = (document.getElementById('mtArea')?.value || 'Geral').trim();
+  fecharModal();
+  modalFormacaoAutomaticaTurmas(grau, area);
+};
+
 async function modalCriarTurma() {
   const profsRes = await apiFetch('/api/v1/professores');
   const optProfs = '<option value="">(Nenhum seleccionado)</option>' + 
     (profsRes.data || []).map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
 
   abrirModal('Cadastrar Nova Turma Oficial', `
+    <div class="card p-3 mb-3 border-primary bg-primary bg-opacity-10 shadow-sm" id="cardAutoAssistente">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <span class="badge bg-primary px-2 py-1 mb-1"><i class="bi bi-magic me-1"></i> Automação Completa Baseada nos Alunos</span>
+          <div class="fw-bold text-dark small" id="infoAlunosPendentesCriarTurma">A verificar alunos matriculados...</div>
+          <div class="text-muted small" style="font-size: 0.72rem;">Cria e enturma Turma 1, Turma 2, Turma 3... na base da idade, género e secção dos alunos.</div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnGerarAutoCriarTurma" onclick="executarFormacaoAutomaticaParaClasse()">
+          <i class="bi bi-lightning-charge-fill me-1"></i> Gerar Turmas 1, 2, 3... Automaticamente
+        </button>
+      </div>
+    </div>
+
     <form id="formModalTurma">
       <div class="row g-3">
-        <div class="col-md-7">
+        <div class="col-md-6">
           <label class="form-label small fw-semibold">Nome da Turma</label>
-          <input type="text" id="mtNome" class="form-control" required placeholder="Ex: 10ª Classe Turma A">
+          <input type="text" id="mtNome" class="form-control" required placeholder="Ex: 11ª Classe Turma 1">
+          <small class="text-muted" style="font-size: 0.72rem;">Sugerido automaticamente com base na sequência.</small>
         </div>
-        <div class="col-md-5">
+        <div class="col-md-3">
           <label class="form-label small fw-semibold">Classe / Grau</label>
-          <select id="mtGrau" class="form-select" required>
+          <select id="mtGrau" class="form-select" required onchange="atualizarAssistenteCriarTurma()">
+            <option value="1ª Classe">1ª Classe</option>
+            <option value="2ª Classe">2ª Classe</option>
+            <option value="3ª Classe">3ª Classe</option>
+            <option value="4ª Classe">4ª Classe</option>
+            <option value="5ª Classe">5ª Classe</option>
+            <option value="6ª Classe">6ª Classe</option>
+            <option value="7ª Classe">7ª Classe</option>
             <option value="8ª Classe">8ª Classe</option>
             <option value="9ª Classe">9ª Classe</option>
             <option value="10ª Classe">10ª Classe</option>
-            <option value="11ª Classe">11ª Classe</option>
+            <option value="11ª Classe" selected>11ª Classe</option>
             <option value="12ª Classe">12ª Classe</option>
           </select>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Secção / Área de Estudo</label>
+          <input type="text" list="listaAreasEstudoTurma" id="mtArea" class="form-control" value="Geral" placeholder="Geral / Ciências..." oninput="atualizarAssistenteCriarTurma()">
+          <datalist id="listaAreasEstudoTurma">
+            <option value="Geral">Tronco Comum / Geral</option>
+            <option value="Ciências com Biologia">Ciências com Biologia</option>
+            <option value="Ciências com Desenho">Ciências com Desenho</option>
+            <option value="Letras com Geografia">Letras com Geografia</option>
+            <option value="Letras com História">Letras com História</option>
+          </datalist>
+          <small class="text-muted" style="font-size: 0.72rem;">Secção vinculada à turma.</small>
+        </div>
+        <div class="col-md-4">
           <label class="form-label small fw-semibold">Turno</label>
           <select id="mtTurno" class="form-select">
             <option value="MANHA">Manhã</option>
@@ -1629,9 +2245,13 @@ async function modalCriarTurma() {
             <option value="NOITE">Noite</option>
           </select>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Capacidade Máxima (Alunos)</label>
+          <input type="number" id="mtCapacidade" class="form-control" value="50" min="1" max="150" required>
+        </div>
+        <div class="col-md-4">
           <label class="form-label small fw-semibold">Sala de Aula</label>
-          <input type="text" id="mtSala" class="form-control" placeholder="Ex: Sala 04">
+          <input type="text" id="mtSala" class="form-control" placeholder="Ex: Sala 01">
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Director de Turma</label>
@@ -1642,19 +2262,47 @@ async function modalCriarTurma() {
           <select id="mtDirClasse" class="form-select">${optProfs}</select>
         </div>
       </div>
-      <button type="submit" class="btn btn-primary w-100 mt-4">Criar Turma</button>
+      <div class="d-flex gap-2 justify-content-end mt-4">
+        <button type="button" class="btn btn-outline-secondary" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check2-circle me-1"></i> Criar Turma Manual</button>
+      </div>
     </form>
   `);
+
+  setTimeout(() => {
+    if (typeof atualizarAssistenteCriarTurma === 'function') {
+      atualizarAssistenteCriarTurma();
+    }
+  }, 100);
 
   document.getElementById('formModalTurma').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const nomeTurma = document.getElementById('mtNome').value.trim();
+      const grau_ano = document.getElementById('mtGrau').value;
+      const area = (document.getElementById('mtArea')?.value || 'Geral').trim();
+
+      const idInfo = window.extrairIdentificadorTurma(nomeTurma, grau_ano);
+      if (idInfo.tipo === 'NUMERO' || idInfo.tipo === 'LETRA') {
+        const duplicada = (state.todasTurmas || []).find(t => {
+          if (normalizarClasse(t.grau_ano) !== normalizarClasse(grau_ano)) return false;
+          const tId = window.extrairIdentificadorTurma(t.nome, t.grau_ano);
+          return tId.tipo === idInfo.tipo && tId.val === idInfo.val;
+        });
+        if (duplicada) {
+          alert(`Atenção: Já existe a ${idInfo.rotulo} cadastrada na ${grau_ano} (Secção/Área: "${duplicada.area || 'Geral'}", Turno: ${duplicada.turno || 'Diurno'}).\n\nNa mesma classe não pode haver turmas com a mesma numeração, independentemente da secção ou área.`);
+          return;
+        }
+      }
+
       const res = await apiFetch('/api/v1/escola-admin/turmas', {
         method: 'POST',
         body: JSON.stringify({
-          nome: document.getElementById('mtNome').value,
-          grau_ano: document.getElementById('mtGrau').value,
+          nome: nomeTurma,
+          grau_ano: grau_ano,
+          area: area,
           turno: document.getElementById('mtTurno').value,
+          capacidade_maxima: parseInt(document.getElementById('mtCapacidade').value) || 50,
           sala: document.getElementById('mtSala').value,
           director_turma_id: document.getElementById('mtDirTurma').value || null,
           director_classe_id: document.getElementById('mtDirClasse').value || null
@@ -1662,13 +2310,319 @@ async function modalCriarTurma() {
       });
       if (res.success) {
         fecharModal();
-        carregarEscolaETurmas();
+        await carregarEscolaETurmas();
+        if (typeof carregarAlunos === 'function') await carregarAlunos();
+      } else {
+        alert(res.message || 'Erro ao criar turma');
       }
     } catch (err) {
-      alert('Erro ao criar turma');
+      alert('Erro ao criar turma: ' + (err.message || 'Servidor indisponível'));
     }
   });
 }
+
+async function modalCriarTurmasEmLote() {
+  const graus = [
+    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+  ];
+  const optGraus = graus.map(g => `<option value="${g}" ${g === '10ª Classe' ? 'selected' : ''}>${g}</option>`).join('');
+  const areasLote = window.obterTodasAreasOficiais('10ª Classe');
+  const optAreasLote = areasLote.map(a => `<option value="${a}" ${a === 'Ensino Geral' ? 'selected' : ''}>${a}</option>`).join('');
+
+  abrirModal('Gerar Turmas em Lote (1, 2, 3...)', `
+    <form id="formModalTurmasLote">
+      <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-layers-fill me-1"></i> Crie rapidamente as turmas da classe sequencialmente com capacidade máxima definida e distribuição automática imediata dos alunos.
+      </div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Classe / Grau</label>
+          <select id="mlGrau" class="form-select" required onchange="document.getElementById('mlArea').innerHTML = window.obterTodasAreasOficiais(this.value).map(a => '<option value=\\'' + a + '\\'>' + a + '</option>').join('')">
+            ${optGraus}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Secção / Área de Estudo</label>
+          <select id="mlArea" class="form-select">
+            ${optAreasLote}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Quantidade de Turmas a Criar</label>
+          <input type="number" id="mlQtd" class="form-control" value="3" min="1" max="20" required>
+          <small class="text-muted">Ex: 3 cria Turma 1, Turma 2 e Turma 3</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Identificação da Turma</label>
+          <select id="mlSufixo" class="form-select">
+            <option value="NUMERO">Numérica (Turma 1, Turma 2, Turma 3...)</option>
+            <option value="LETRA">Alfabética (Turma A, Turma B, Turma C...)</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Turno Predeterminado</label>
+          <select id="mlTurno" class="form-select">
+            <option value="MANHA">Manhã</option>
+            <option value="TARDE">Tarde</option>
+            <option value="NOITE">Noite</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Número Máximo de Alunos (Capacidade)</label>
+          <input type="number" id="mlCapacidade" class="form-control" value="50" min="5" max="150" required>
+        </div>
+        <div class="col-12 mt-2">
+          <div class="card p-3 bg-light border">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="mlDistribuirAuto" checked onchange="document.getElementById('mlCriterioBox').style.display = this.checked ? 'block' : 'none'">
+              <label class="form-check-label fw-bold text-success" for="mlDistribuirAuto">
+                <i class="bi bi-magic me-1"></i> Distribuir automaticamente alunos pendentes desta classe após gerar as turmas
+              </label>
+            </div>
+            <div id="mlCriterioBox">
+              <label class="form-label small fw-semibold">Critério de Distribuição dos Alunos</label>
+              <select id="mlCriterio" class="form-select form-select-sm">
+                <option value="EQUILIBRIO_IDADE_GENERO" selected>⚖️ Equilíbrio Misto: Idade + Género (50% F / 50% M)</option>
+                <option value="IDADE_ASC">🎂 Idade: Mais jovens primeiro (Homogéneo por Idade)</option>
+                <option value="IDADE_DESC">🎂 Idade: Mais velhos primeiro</option>
+                <option value="GENERO_EQUILIBRADO">⚖️ Equilíbrio de Género (50% F / 50% M)</option>
+                <option value="ALFABETICO">🔤 Ordem Alfabética (Nomes de A a Z)</option>
+                <option value="ALEATORIO">🎲 Distribuição Aleatória / Equitativa</option>
+              </select>
+              <small class="text-muted" style="font-size: 0.72rem;">Os alunos matriculados nesta classe e área que ainda não têm turma serão imediatamente alocados.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-plus-circle me-1"></i> Gerar Turmas da Classe</button>
+    </form>
+  `);
+
+  document.getElementById('formModalTurmasLote').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const grau_ano = document.getElementById('mlGrau').value;
+      const area = document.getElementById('mlArea').value || 'Geral';
+      const quantidade = parseInt(document.getElementById('mlQtd').value) || 1;
+      const tipo_sufixo = document.getElementById('mlSufixo').value;
+      const turno = document.getElementById('mlTurno').value;
+      const capacidade_maxima = parseInt(document.getElementById('mlCapacidade').value) || 50;
+      const distribuir_automaticamente = document.getElementById('mlDistribuirAuto').checked;
+      const criterio = document.getElementById('mlCriterio').value;
+
+      const res = await apiFetch('/api/v1/escola-admin/turmas/criar-lote', {
+        method: 'POST',
+        body: JSON.stringify({ grau_ano, area, quantidade, tipo_sufixo, turno, capacidade_maxima, distribuir_automaticamente, criterio })
+      });
+
+      if (res.success) {
+        alert(res.message || 'Turmas geradas com sucesso!');
+        fecharModal();
+        await carregarEscolaETurmas();
+        if (typeof carregarAlunos === 'function') await carregarAlunos();
+      } else {
+        alert(res.message || 'Erro ao gerar turmas');
+      }
+    } catch (err) {
+      alert(err.message || 'Erro de comunicação');
+    }
+  });
+}
+
+async function corrigirNumeracaoTurmas() {
+  const anoAtivo = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+  if (!confirm(`Isto irá renumerar todas as turmas do ano ${anoAtivo} de forma contínua (Turma 1, Turma 2, Turma 3...) por classe, eliminando sobreposições e nomes como "Turma 1 (1)".\n\nContinuar?`)) return;
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/turmas/renumerar-turmas', {
+      method: 'POST',
+      body: JSON.stringify({ ano_letivo: anoAtivo })
+    });
+    if (res.success) {
+      alert(res.message || 'Numeração corrigida com sucesso!');
+      await carregarEscolaETurmas();
+      if (typeof carregarAlunos === 'function') await carregarAlunos();
+    } else {
+      alert(res.message || 'Erro ao corrigir numeração');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro de comunicação');
+  }
+}
+
+window.modalFormacaoAutomaticaTurmas = async function(classeFiltro = 'TODAS', areaFiltro = 'TODAS') {
+  const anoAtivo = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+  abrirModal('Formação Automática de Turmas & Enturmação', `
+    <div class="text-center py-4 text-muted">
+      <div class="spinner-border text-primary mb-2" role="status"></div>
+      <div>A analisar alunos matriculados, idades, géneros e secções...</div>
+    </div>
+  `);
+
+  try {
+    const resPrevia = await apiFetch(`/api/v1/escola-admin/turmas/previa-formacao-automatica?ano_letivo=${anoAtivo}&grau_ano=${classeFiltro}&area=${areaFiltro}`);
+    const grupos = resPrevia.grupos || [];
+    const totalPendentes = resPrevia.total_alunos_pendentes || 0;
+
+    let tabelaPreviaHtml = '';
+    if (grupos.length === 0) {
+      tabelaPreviaHtml = `
+        <div class="alert alert-success py-3 text-center mb-0">
+          <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i>
+          <strong>Excelente! Todos os alunos matriculados já possuem turma.</strong>
+          <p class="small text-muted mb-0 mt-1">Ao matricular novos alunos ou no início do ano lectivo, utilize esta ferramenta para criar as turmas (1, 2, 3...) e enturmar automaticamente.</p>
+        </div>
+      `;
+    } else {
+      tabelaPreviaHtml = `
+        <div class="table-responsive border rounded mb-3">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Classe / Grau</th>
+                <th>Secção / Área</th>
+                <th class="text-center">Alunos Elegíveis</th>
+                <th class="text-center">Idades (Faixa)</th>
+                <th class="text-center">Género (M/F)</th>
+                <th>Turmas a Gerar Automaticamente</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${grupos.map(g => {
+                const badgesTurmas = (g.propostas || []).map(p => 
+                  `<span class="badge ${p.turno === 'MANHA' ? 'bg-primary' : 'bg-info text-dark'} me-1 mb-1" title="Capacidade: ${p.capacidade} alunos | Turno: ${p.turno}">
+                    <i class="bi bi-door-closed me-1"></i>${p.nome} (${p.turno})
+                  </span>`
+                ).join('');
+                return `
+                  <tr>
+                    <td><strong>${g.grau_ano}</strong></td>
+                    <td><span class="badge bg-light text-dark border">${g.area}</span></td>
+                    <td class="text-center"><span class="badge bg-secondary">${g.total_alunos} alunos</span></td>
+                    <td class="text-center small text-muted">${g.idade_minima} a ${g.idade_maxima} anos <br><span style="font-size: 0.7rem;">(Média: ${g.idade_media})</span></td>
+                    <td class="text-center small"><span class="text-primary fw-bold">${g.total_masculino} M</span> / <span class="text-danger fw-bold">${g.total_feminino} F</span></td>
+                    <td>${badgesTurmas || '<span class="text-muted small">Turmas existentes suficientes</span>'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    const classesSet = new Set(['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe']);
+    (state.todosAlunos || []).forEach(a => { if (a.classe) classesSet.add(a.classe); });
+    const optClasses = ['<option value="TODAS">Todas as Classes da Escola</option>']
+      .concat(Array.from(classesSet).map(c => `<option value="${c}" ${c === classeFiltro ? 'selected' : ''}>${c}</option>`))
+      .join('');
+
+    abrirModal('Formação Automática de Turmas & Enturmação (1, 2, 3...)', `
+      <form id="formModalFormacaoAuto">
+        <div class="alert alert-primary py-2 small mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-magic fs-4 text-primary"></i>
+            <div>
+              <strong>Criação e Enturmação Totalmente Automáticas:</strong>
+              <div>O sistema calcula a quantidade de turmas necessárias (Turma 1, Turma 2, Turma 3...) com base nos alunos matriculados, distribuindo-os automaticamente por <strong>idade, secção de estudo, género (paridade 50/50)</strong> e <strong>capacidade da sala</strong>.</div>
+            </div>
+          </div>
+        </div>
+
+        ${tabelaPreviaHtml}
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Classe / Grau Alvo</label>
+            <select id="mfaClasse" class="form-select" onchange="modalFormacaoAutomaticaTurmas(this.value, document.getElementById('mfaArea').value)">
+              ${optClasses}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Secção / Área de Estudo</label>
+            <select id="mfaArea" class="form-select" onchange="modalFormacaoAutomaticaTurmas(document.getElementById('mfaClasse').value, this.value)">
+              <option value="TODAS" ${areaFiltro === 'TODAS' ? 'selected' : ''}>Todas as Áreas / Geral</option>
+              <option value="Ensino Geral" ${areaFiltro === 'Ensino Geral' || areaFiltro === 'Geral' ? 'selected' : ''}>Ensino Geral / Tronco Comum</option>
+              <option value="Ciências com Biologia" ${areaFiltro === 'Ciências com Biologia' ? 'selected' : ''}>Ciências com Biologia</option>
+              <option value="Ciências com Desenho" ${areaFiltro === 'Ciências com Desenho' ? 'selected' : ''}>Ciências com Desenho</option>
+              <option value="Letras com Geografia" ${areaFiltro === 'Letras com Geografia' ? 'selected' : ''}>Letras com Geografia</option>
+              <option value="Letras com História" ${areaFiltro === 'Letras com História' ? 'selected' : ''}>Letras com História</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Critério Pedagógico & Paridade</label>
+            <select id="mfaCriterio" class="form-select">
+              <option value="EQUILIBRIO_IDADE_GENERO" selected>⚖️ Equilíbrio Misto: Idade + Género (50% F / 50% M)</option>
+              <option value="IDADE_ASC">🎂 Idade: Mais jovens primeiro (Manhã) & Tarde</option>
+              <option value="IDADE_DESC">🎂 Idade: Mais velhos primeiro</option>
+              <option value="GENERO_EQUILIBRADO">⚖️ Equilíbrio de Género Rigoroso (50% F / 50% M)</option>
+              <option value="ALFABETICO">🔤 Ordem Alfabética (Nomes de A a Z)</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Distribuição de Turnos</label>
+            <select id="mfaTurno" class="form-select">
+              <option value="AUTO_IDADE" selected>🌞 Inteligente por Idade (Jovens de Manhã, Tarde)</option>
+              <option value="MANHA">Todas de Manhã</option>
+              <option value="TARDE">Todas de Tarde</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Capacidade Máxima por Turma</label>
+            <input type="number" id="mfaCapacidade" class="form-control" value="50" min="10" max="150" required>
+            <small class="text-muted" style="font-size: 0.72rem;">Padrão MINEDH: 50 alunos por sala.</small>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mt-4">
+          <button type="button" class="btn btn-light" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm" ${totalPendentes === 0 ? 'disabled' : ''}>
+            <i class="bi bi-lightning-charge-fill me-1"></i> Gerar Turmas 1, 2, 3... e Enturmar Automaticamente
+          </button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('formModalFormacaoAuto').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const grau_ano = document.getElementById('mfaClasse').value;
+        const area = document.getElementById('mfaArea').value;
+        const criterio = document.getElementById('mfaCriterio').value;
+        const turno = document.getElementById('mfaTurno').value;
+        const capacidade_maxima = parseInt(document.getElementById('mfaCapacidade').value) || 50;
+
+        const res = await apiFetch('/api/v1/escola-admin/turmas/gerar-e-enturmar-automatico', {
+          method: 'POST',
+          body: JSON.stringify({
+            grau_ano,
+            area,
+            criterio,
+            turno,
+            capacidade_maxima,
+            ano_letivo: anoAtivo,
+            apenas_sem_turma: true
+          })
+        });
+
+        if (res.success) {
+          alert(res.message || 'Turmas geradas e alunos enturmados com sucesso!');
+          fecharModal();
+          await carregarEscolaETurmas();
+          if (typeof carregarAlunos === 'function') await carregarAlunos();
+        } else {
+          alert(res.message || 'Erro ao gerar turmas automaticamente');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro de comunicação');
+      }
+    });
+  } catch (err) {
+    alert('Erro ao carregar prévia de formação de turmas: ' + err.message);
+  }
+};
+
+window.modalDistribuirAlunosAutomatico = window.modalFormacaoAutomaticaTurmas;
 
 async function modalEditarTurma(turmaId) {
   try {
@@ -1694,17 +2648,28 @@ async function modalEditarTurma(turmaId) {
     abrirModal(`Editar Turma: ${turma.nome}`, `
       <form id="formModalEditarTurma">
         <div class="row g-3">
-          <div class="col-md-7">
+          <div class="col-md-6">
             <label class="form-label small fw-semibold">Nome da Turma</label>
             <input type="text" id="mtEditNome" class="form-control" required value="${turma.nome || ''}">
           </div>
-          <div class="col-md-5">
+          <div class="col-md-3">
             <label class="form-label small fw-semibold">Classe / Grau</label>
             <select id="mtEditGrau" class="form-select" required>
               ${optGraus}
             </select>
           </div>
-          <div class="col-md-6">
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold">Secção / Área de Estudo</label>
+            <input type="text" list="listaAreasEstudoTurmaEdit" id="mtEditArea" class="form-control" value="${turma.area || 'Geral'}" placeholder="Geral / Ciências...">
+            <datalist id="listaAreasEstudoTurmaEdit">
+              <option value="Geral">Tronco Comum / Geral</option>
+              <option value="Ciências">Ciências Naturais e Mat. (Grupo B)</option>
+              <option value="Letras">Comunicação e Ciências Sociais (Grupo A)</option>
+              <option value="Técnico">Ensino Técnico Profissional</option>
+            </datalist>
+            <small class="text-muted" style="font-size: 0.72rem;">Secção vinculada à turma.</small>
+          </div>
+          <div class="col-md-4">
             <label class="form-label small fw-semibold">Turno</label>
             <select id="mtEditTurno" class="form-select">
               <option value="MANHA" ${turma.turno === 'MANHA' ? 'selected' : ''}>Manhã</option>
@@ -1712,7 +2677,11 @@ async function modalEditarTurma(turmaId) {
               <option value="NOITE" ${turma.turno === 'NOITE' ? 'selected' : ''}>Noite</option>
             </select>
           </div>
-          <div class="col-md-6">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Capacidade Máxima (Alunos)</label>
+            <input type="number" id="mtEditCapacidade" class="form-control" value="${turma.capacidade_maxima || 50}" min="1" max="150" required>
+          </div>
+          <div class="col-md-4">
             <label class="form-label small fw-semibold">Sala de Aula</label>
             <input type="text" id="mtEditSala" class="form-control" value="${turma.sala || ''}" placeholder="Ex: Sala 04">
           </div>
@@ -1737,10 +2706,28 @@ async function modalEditarTurma(turmaId) {
     document.getElementById('formModalEditarTurma').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
+        const novoNome = document.getElementById('mtEditNome').value.trim();
+        const novoGrau = document.getElementById('mtEditGrau').value;
+        const idInfo = window.extrairIdentificadorTurma(novoNome, novoGrau);
+        if (idInfo.tipo === 'NUMERO' || idInfo.tipo === 'LETRA') {
+          const duplicada = (state.todasTurmas || []).find(t => {
+            if (t.id === turmaId) return false;
+            if (normalizarClasse(t.grau_ano) !== normalizarClasse(novoGrau)) return false;
+            const tId = window.extrairIdentificadorTurma(t.nome, t.grau_ano);
+            return tId.tipo === idInfo.tipo && tId.val === idInfo.val;
+          });
+          if (duplicada) {
+            alert(`Atenção: Já existe a ${idInfo.rotulo} cadastrada na ${novoGrau} (Secção/Área: "${duplicada.area || 'Geral'}", Turno: ${duplicada.turno || 'Diurno'}).\n\nNa mesma classe não pode haver turmas com a mesma numeração, independentemente da secção ou área.`);
+            return;
+          }
+        }
+
         const body = {
-          nome: document.getElementById('mtEditNome').value,
-          grau_ano: document.getElementById('mtEditGrau').value,
+          nome: novoNome,
+          grau_ano: novoGrau,
+          area: (document.getElementById('mtEditArea')?.value || 'Geral').trim(),
           turno: document.getElementById('mtEditTurno').value,
+          capacidade_maxima: parseInt(document.getElementById('mtEditCapacidade').value) || 50,
           sala: document.getElementById('mtEditSala').value || null,
           director_turma_id: document.getElementById('mtEditDirTurma').value || null,
           director_classe_id: document.getElementById('mtEditDirClasse').value || null
@@ -1752,16 +2739,17 @@ async function modalEditarTurma(turmaId) {
         if (res.success) {
           alert('Turma e Direcção de Classe actualizadas com sucesso!');
           fecharModal();
-          carregarEscolaETurmas();
+          await carregarEscolaETurmas();
+          if (typeof carregarAlunos === 'function') await carregarAlunos();
         } else {
           alert(res.message || 'Erro ao actualizar turma');
         }
       } catch (err) {
-        alert(err.message || 'Erro ao actualizar turma');
+        alert('Erro ao actualizar turma: ' + (err.message || 'Servidor indisponível'));
       }
     });
   } catch (err) {
-    alert('Erro ao carregar dados da turma: ' + err.message);
+    alert('Erro ao carregar dados da turma');
   }
 }
 
@@ -1785,10 +2773,16 @@ async function eliminarTurma(turmaId, nome) {
 // ==================== 4. ALUNOS ====================
 async function carregarAlunos() {
   try {
-    const [resAlunos, resTurmas, resStats] = await Promise.all([
+    const anoAtivo = state.tenant?.ano_letivo_ativo || '2026';
+    if (!state.filtroAlunoAno) {
+      state.filtroAlunoAno = anoAtivo;
+    }
+
+    const [resAlunos, resTurmas, resStats, resDisciplinas] = await Promise.all([
       apiFetch('/api/v1/alunos'),
       apiFetch('/api/v1/escola-admin/turmas'),
-      apiFetch('/api/v1/alunos/stats')
+      apiFetch('/api/v1/alunos/stats'),
+      apiFetch('/api/v1/disciplinas')
     ]);
 
     if (resStats.success) {
@@ -1801,27 +2795,217 @@ async function carregarAlunos() {
 
     state.todosAlunos = resAlunos.success ? (resAlunos.data || []) : [];
     state.todasTurmas = resTurmas.success ? (resTurmas.data || []) : [];
+    if (resDisciplinas && resDisciplinas.data) {
+      state.todasDisciplinas = resDisciplinas.data || [];
+    }
 
+    atualizarSeletorAnosAlunos();
     renderizarBotoesClassesAlunos();
   } catch (err) {
     console.error('Erro ao carregar alunos:', err);
   }
 }
 
-function renderizarBotoesClassesAlunos() {
-  const container = document.getElementById('containerBotoesClasses');
-  if (!container) return;
+function atualizarSeletorAnosAlunos() {
+  const selAno = document.getElementById('filtroAnoAlunos');
+  if (!selAno) return;
 
-  // Extrair classes únicas das turmas e alunos
+  const anoAtivo = state.tenant?.ano_letivo_ativo || '2026';
+  if (!state.filtroAlunoAno) {
+    state.filtroAlunoAno = anoAtivo;
+  }
+
+  const anosSet = new Set([anoAtivo, '2026', '2025', '2024']);
+  (state.todosAlunos || []).forEach(a => {
+    if (a.ano_ingresso) anosSet.add(String(a.ano_ingresso));
+    else if (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/)) {
+      anosSet.add(a.matricula.slice(0, 4));
+    }
+  });
+  (state.todasTurmas || []).forEach(t => {
+    if (t.ano_letivo) anosSet.add(String(t.ano_letivo));
+  });
+
+  const anosOrdenados = Array.from(anosSet).sort((a, b) => parseInt(b) - parseInt(a));
+  const valorAtual = state.filtroAlunoAno;
+
+  selAno.innerHTML = `
+    <option value="TODOS" ${valorAtual === 'TODOS' ? 'selected' : ''}>Todos os Anos</option>
+    ${anosOrdenados.map(ano => `
+      <option value="${ano}" ${valorAtual === ano ? 'selected' : ''}>
+        ${ano} ${ano === anoAtivo ? '(Activo)' : ''}
+      </option>
+    `).join('')}
+  `;
+}
+
+window.aoMudarFiltroAnoAlunos = function(ano) {
+  state.filtroAlunoAno = ano;
+  renderizarBotoesClassesAlunos();
+};
+
+function obterAlunosFiltradosPorAno() {
+  const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+  if (!anoFiltro || anoFiltro === 'TODOS') {
+    return state.todosAlunos || [];
+  }
+  return (state.todosAlunos || []).filter(a => {
+    const anoAluno = a.ano_ingresso || (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/) ? a.matricula.slice(0, 4) : null) || (getAlunoTurma(a)?.ano_letivo);
+    return String(anoAluno) === String(anoFiltro);
+  });
+}
+
+function getAlunoTurma(a) {
+  if (!a) return null;
+  if (a.turma && typeof a.turma === 'object' && a.turma.nome) return a.turma;
+  const tId = a.turma_id || (typeof a.turma === 'string' ? a.turma : null);
+  if (tId && Array.isArray(state.todasTurmas)) {
+    const found = state.todasTurmas.find(t => t.id === tId);
+    if (found) return found;
+  }
+  if (a.turma_nome || a.turma_grau) {
+    return {
+      id: tId,
+      nome: a.turma_nome || 'Turma',
+      grau_ano: a.turma_grau || ''
+    };
+  }
+  return null;
+}
+
+function normalizarClasse(str) {
+  if (!str) return '';
+  return str.toString()
+    .replace(/[ªº°\.]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizarArea(str) {
+  if (!str) return 'Ensino Geral';
+  let s = str.toString().trim();
+  // Corrigir possíveis inconsistências de encoding / acentos corrompidos
+  s = s.replace(/Ci[\uFFFD\u00EA\u00E9e\?]?ncias/gi, 'Ciências');
+  s = s.replace(/^Cincias/gi, 'Ciências');
+  s = s.replace(/Cincias/gi, 'Ciências');
+
+  const lower = s.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // remove acentos
+
+  if (lower === 'geral' || lower === 'tronco comum' || lower === 'tronco comum / geral' || lower === 'ensino geral') {
+    return 'Ensino Geral';
+  }
+  // Verificar combinações específicas primeiro antes de palavras isoladas!
+  if (lower.includes('ciencias') && lower.includes('geografia')) {
+    return 'Ciências com Geografia';
+  }
+  if (lower.includes('letras') && lower.includes('geografia')) {
+    return 'Letras com Geografia';
+  }
+  if (lower.includes('letras') && lower.includes('historia')) {
+    return 'Letras com História';
+  }
+  if (lower.includes('ciencias') && lower.includes('biologia')) {
+    return 'Ciências com Biologia';
+  }
+  if (lower.includes('ciencias') && lower.includes('desenho')) {
+    return 'Ciências com Desenho';
+  }
+  if (lower === 'ciencias' || lower === 'cincias') {
+    return 'Ciências';
+  }
+  if (lower === 'letras') {
+    return 'Letras';
+  }
+  if (lower === 'geografia') {
+    return 'Letras com Geografia';
+  }
+  if (lower === 'historia') {
+    return 'Letras com História';
+  }
+  return s;
+}
+
+function getAlunoArea(a) {
+  if (!a) return 'Ensino Geral';
+  const t = getAlunoTurma(a);
+
+  const isEspecifica = (val) => {
+    if (!val) return false;
+    const v = String(val).trim().toLowerCase();
+    return v !== '' && v !== 'geral' && v !== 'ensino geral' && v !== 'tronco comum' && v !== 'none' && v !== 'null';
+  };
+
+  if (isEspecifica(a.area)) return normalizarArea(a.area);
+  if (isEspecifica(a.seccao)) return normalizarArea(a.seccao);
+  if (isEspecifica(t?.area)) return normalizarArea(t.area);
+  if (isEspecifica(a.turma_area)) return normalizarArea(a.turma_area);
+
+  // Se o aluno estiver na 11ª ou 12ª Classe, nunca deve ser 'Ensino Geral'
+  const classeAluno = a.classe || t?.grau_ano || a.turma_grau || '';
+  const clsNorm = normalizarClasse(classeAluno);
+  if (clsNorm.includes('11') || clsNorm.includes('12')) {
+    // Buscar área nas disciplinas cadastradas para esta classe na escola
+    const discComArea = (state.todasDisciplinas || []).find(d => {
+      const dCls = normalizarClasse(d.classe || '');
+      return (clsNorm.includes('11') ? dCls.includes('11') : dCls.includes('12')) && isEspecifica(d.area);
+    });
+    if (discComArea && discComArea.area) {
+      return normalizarArea(discComArea.area);
+    }
+    // Buscar em turmas da classe que tenham área específica
+    const turmaComArea = (state.todasTurmas || []).find(tur => {
+      const tCls = normalizarClasse(tur.grau_ano || '');
+      return (clsNorm.includes('11') ? tCls.includes('11') : tCls.includes('12')) && isEspecifica(tur.area);
+    });
+    if (turmaComArea && turmaComArea.area) {
+      return normalizarArea(turmaComArea.area);
+    }
+    return 'Ciências com Geografia';
+  }
+
+  const raw = a.area || a.seccao || (t && t.area) || a.turma_area || 'Ensino Geral';
+  return normalizarArea(raw);
+}
+
+function getBadgeAreaEstudo(area) {
+  const norm = normalizarArea(area);
+  if (norm.includes('Letras')) {
+    return `<span class="badge border" style="background-color: #f3e8ff; color: #6b21a8; border-color: #d8b4fe !important; font-size: 0.75rem;"><i class="bi bi-book me-1"></i>${norm}</span>`;
+  }
+  if (norm.includes('Ciências') || norm.includes('Ciencias')) {
+    return `<span class="badge border" style="background-color: #e0f2fe; color: #0369a1; border-color: #7dd3fc !important; font-size: 0.75rem;"><i class="bi bi-cpu me-1"></i>${norm}</span>`;
+  }
+  if (norm === 'Ensino Geral') {
+    return `<span class="badge border" style="background-color: #f1f5f9; color: #475569; border-color: #cbd5e1 !important; font-size: 0.75rem;"><i class="bi bi-mortarboard me-1"></i>${norm}</span>`;
+  }
+  return `<span class="badge border" style="background-color: #fef3c7; color: #92400e; border-color: #fde68a !important; font-size: 0.75rem;"><i class="bi bi-tag me-1"></i>${norm}</span>`;
+}
+
+function renderizarFiltrosAlunos() {
+  const selectClasse = document.getElementById('selectFiltroAlunoClasse');
+  if (!selectClasse) return;
+
+  const alunosAno = obterAlunosFiltradosPorAno();
+  const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+
+  // 1. Extrair classes únicas das turmas, alunos e disciplinas
   const classesSet = new Set();
   (state.todasTurmas || []).forEach(t => {
-    if (t.grau_ano) classesSet.add(t.grau_ano.trim());
+    if (t.grau_ano && (anoFiltro === 'TODOS' || !t.ano_letivo || String(t.ano_letivo) === String(anoFiltro))) {
+      classesSet.add(t.grau_ano.trim());
+    }
   });
-  (state.todosAlunos || []).forEach(a => {
-    if (a.turma?.grau_ano) classesSet.add(a.turma.grau_ano.trim());
+  alunosAno.forEach(a => {
+    const t = getAlunoTurma(a);
+    if (a.classe) classesSet.add(a.classe.trim());
+    if (t?.grau_ano) classesSet.add(t.grau_ano.trim());
+  });
+  (state.todasDisciplinas || []).forEach(d => {
+    if (d.classe) classesSet.add(d.classe.trim());
   });
 
-  // Ordenar classes pelo número (ex: 7ª, 8ª, 9ª, 10ª, 11ª, 12ª)
   const classesOrdenadas = Array.from(classesSet).sort((a, b) => {
     const numA = parseInt(a.replace(/\D/g, '')) || 0;
     const numB = parseInt(b.replace(/\D/g, '')) || 0;
@@ -1832,131 +3016,320 @@ function renderizarBotoesClassesAlunos() {
     classesOrdenadas.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
   }
 
-  // Se não houver classe selecionada, selecciona a primeira que tiver alunos ou a primeira da lista
-  if (!state.filtroAlunoClasse) {
-    state.filtroAlunoClasse = classesOrdenadas[0];
+  if (!state.filtroAlunoClasse) state.filtroAlunoClasse = 'TODAS';
+  if (!state.filtroAlunoArea) state.filtroAlunoArea = 'TODAS';
+  if (!state.filtroAlunoTurma) state.filtroAlunoTurma = 'TODAS';
+
+  const totalGeralAlunos = alunosAno.length;
+  const semTurmaCount = alunosAno.filter(a => !getAlunoTurma(a)).length;
+
+  const contagemClassesEl = document.getElementById('contagemClassesAlunos');
+  if (contagemClassesEl) {
+    contagemClassesEl.textContent = `${classesOrdenadas.length} classe(s)`;
   }
 
-  let html = `<button type="button" class="btn btn-sm ${state.filtroAlunoClasse === 'TODAS' ? 'btn-primary fw-bold' : 'btn-outline-primary'}" onclick="selecionarClasseAlunos('TODAS')">
-    <i class="bi bi-grid-fill me-1"></i> Todas as Classes (${state.todosAlunos?.length || 0})
-  </button>`;
+  let htmlClasse = `<option value="TODAS">Todas as Classes (${totalGeralAlunos})</option>`;
+  if (semTurmaCount > 0) {
+    htmlClasse += `<option value="SEM_TURMA">⚠️ Sem Turma Atribuída (${semTurmaCount})</option>`;
+  }
 
   classesOrdenadas.forEach(cls => {
-    const totalNaClasse = (state.todosAlunos || []).filter(a => (a.turma?.grau_ano || '').toLowerCase() === cls.toLowerCase()).length;
-    const isAtiva = state.filtroAlunoClasse === cls;
-    html += `
-      <button type="button" class="btn btn-sm ${isAtiva ? 'btn-primary fw-bold shadow-sm' : 'btn-outline-primary'}" onclick="selecionarClasseAlunos('${cls}')">
-        <i class="bi bi-mortarboard-fill me-1"></i> ${cls} <span class="badge ${isAtiva ? 'bg-white text-primary' : 'bg-primary text-white'} ms-1">${totalNaClasse}</span>
-      </button>
-    `;
+    const totalNaClasse = alunosAno.filter(a => {
+      const t = getAlunoTurma(a);
+      const aClasse = a.classe || t?.grau_ano || a.turma_grau;
+      return aClasse && normalizarClasse(aClasse) === normalizarClasse(cls);
+    }).length;
+    htmlClasse += `<option value="${cls}">${cls} (${totalNaClasse} alunos)</option>`;
   });
 
-  container.innerHTML = html;
-  selecionarClasseAlunos(state.filtroAlunoClasse, false);
+  selectClasse.innerHTML = htmlClasse;
+  selectClasse.value = state.filtroAlunoClasse;
+
+  atualizarDropdownAreasAlunos();
 }
 
-function selecionarClasseAlunos(classe, reRenderBotoes = true) {
+function aoMudarSelectClasseAlunos(classe) {
   state.filtroAlunoClasse = classe;
-  const labelNome = document.getElementById('labelNomeClasseAtiva');
-  if (labelNome) labelNome.textContent = classe === 'TODAS' ? 'Todas as Classes' : classe;
+  state.filtroAlunoArea = 'TODAS';
+  state.filtroAlunoTurma = 'TODAS';
 
-  if (reRenderBotoes) {
-    const botoes = document.querySelectorAll('#containerBotoesClasses button');
-    botoes.forEach(btn => {
-      if (btn.textContent.includes(classe) || (classe === 'TODAS' && btn.textContent.includes('Todas as Classes'))) {
-        btn.className = 'btn btn-sm btn-primary fw-bold shadow-sm';
-      } else {
-        btn.className = 'btn btn-sm btn-outline-primary';
-      }
-    });
-  }
+  const selectArea = document.getElementById('selectFiltroAlunoArea');
+  const selectTurma = document.getElementById('selectFiltroAlunoTurma');
 
-  // Filtrar turmas que pertencem a esta classe
-  const containerTurmas = document.getElementById('containerTurmasClasse');
-  const contagemTurmas = document.getElementById('contagemTurmasClasse');
-  if (!containerTurmas) return;
-
-  const turmasDaClasse = (state.todasTurmas || []).filter(t => {
-    if (classe === 'TODAS') return true;
-    return (t.grau_ano || '').toLowerCase() === classe.toLowerCase();
-  });
-
-  if (contagemTurmas) contagemTurmas.textContent = `${turmasDaClasse.length} turma(s) encontrada(s)`;
-
-  if (turmasDaClasse.length === 0) {
-    containerTurmas.innerHTML = `<span class="text-muted small py-2"><i class="bi bi-info-circle me-1"></i> Nenhuma turma cadastrada para ${classe}. Crie uma turma no menu Turmas.</span>`;
-    state.filtroAlunoTurma = 'TODAS';
+  if (classe === 'SEM_TURMA') {
+    if (selectArea) {
+      selectArea.innerHTML = `<option value="TODAS">Não aplicável</option>`;
+      selectArea.disabled = true;
+    }
+    if (selectTurma) {
+      selectTurma.innerHTML = `<option value="TODAS">Sem Turma</option>`;
+      selectTurma.disabled = true;
+    }
     aplicarFiltroHierarquicoAlunos();
     return;
   }
 
-  let htmlTurmas = `
-    <button type="button" class="btn btn-sm ${state.filtroAlunoTurma === 'TODAS' ? 'btn-success fw-bold shadow-sm' : 'btn-outline-success'}" onclick="selecionarTurmaAlunos('TODAS')">
-      <i class="bi bi-collection me-1"></i> Todas as Turmas da Classe
-    </button>
-  `;
+  if (selectArea) selectArea.disabled = false;
+  if (selectTurma) selectTurma.disabled = false;
 
-  turmasDaClasse.forEach(t => {
-    const totalAlunosTurma = (state.todosAlunos || []).filter(a => a.turma_id === t.id).length;
-    const isAtiva = state.filtroAlunoTurma === t.id;
-    htmlTurmas += `
-      <button type="button" class="btn btn-sm ${isAtiva ? 'btn-info text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="selecionarTurmaAlunos('${t.id}')">
-        <i class="bi bi-door-closed me-1"></i> ${t.nome} <span class="badge ${isAtiva ? 'bg-white text-dark' : 'bg-secondary'} ms-1">${totalAlunosTurma} alunos</span>
-      </button>
-    `;
-  });
-
-  containerTurmas.innerHTML = htmlTurmas;
-
-  // Se a turma selecionada anteriormente não pertence a esta classe, seleciona a primeira turma da classe
-  const pertence = turmasDaClasse.some(t => t.id === state.filtroAlunoTurma);
-  if (!pertence && state.filtroAlunoTurma !== 'TODAS') {
-    state.filtroAlunoTurma = turmasDaClasse[0].id;
-  }
-
-  selecionarTurmaAlunos(state.filtroAlunoTurma, false);
+  atualizarDropdownAreasAlunos();
 }
 
-function selecionarTurmaAlunos(turmaId, reRenderBotoes = true) {
-  state.filtroAlunoTurma = turmaId;
+function atualizarDropdownAreasAlunos() {
+  const selectArea = document.getElementById('selectFiltroAlunoArea');
+  const contagemAreas = document.getElementById('contagemAreasClasse');
+  if (!selectArea) return;
 
-  if (reRenderBotoes) {
-    const botoes = document.querySelectorAll('#containerTurmasClasse button');
-    botoes.forEach(btn => {
-      if ((turmaId === 'TODAS' && btn.textContent.includes('Todas as Turmas')) ||
-          (turmaId !== 'TODAS' && btn.onclick?.toString().includes(turmaId))) {
-        btn.className = turmaId === 'TODAS' ? 'btn btn-sm btn-success fw-bold shadow-sm' : 'btn btn-sm btn-info text-white fw-bold shadow-sm';
-      } else {
-        btn.className = btn.textContent.includes('Todas as Turmas') ? 'btn btn-sm btn-outline-success' : 'btn btn-sm btn-outline-secondary';
-      }
-    });
+  const classe = state.filtroAlunoClasse || 'TODAS';
+  const alunosAno = obterAlunosFiltradosPorAno();
+  const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+
+  if (classe === 'SEM_TURMA') {
+    selectArea.innerHTML = `<option value="TODAS">Não aplicável</option>`;
+    selectArea.disabled = true;
+    atualizarDropdownTurmasAlunos();
+    return;
   }
+
+  selectArea.disabled = false;
+
+  // Alunos desta classe
+  const alunosClasse = (classe === 'TODAS') 
+    ? alunosAno 
+    : alunosAno.filter(a => {
+        const t = getAlunoTurma(a);
+        const aClasse = a.classe || t?.grau_ano || a.turma_grau;
+        return aClasse && normalizarClasse(aClasse) === normalizarClasse(classe);
+      });
+
+  // Turmas desta classe no ano lectivo
+  const turmasClasse = (state.todasTurmas || []).filter(t => {
+    if (anoFiltro !== 'TODOS' && t.ano_letivo && String(t.ano_letivo) !== String(anoFiltro)) {
+      return false;
+    }
+    if (classe === 'TODAS') return true;
+    return normalizarClasse(t.grau_ano) === normalizarClasse(classe);
+  });
+
+  // Carregar TODAS as secções cadastradas (oficiais, de disciplinas, de turmas, alunos e personalizadas)
+  const todasAreasCadastradas = window.obterTodasAreasOficiais(classe);
+  const areasSet = new Set(todasAreasCadastradas.map(a => normalizarArea(a)));
+
+  turmasClasse.forEach(t => {
+    if (t.area) areasSet.add(normalizarArea(t.area));
+  });
+  alunosClasse.forEach(a => {
+    areasSet.add(getAlunoArea(a));
+  });
+
+  const areasLista = Array.from(areasSet).sort((a, b) => {
+    if (a === 'Ensino Geral') return -1;
+    if (b === 'Ensino Geral') return 1;
+    const totalA = alunosClasse.filter(al => getAlunoArea(al) === a).length + turmasClasse.filter(t => normalizarArea(t.area) === a).length;
+    const totalB = alunosClasse.filter(al => getAlunoArea(al) === b).length + turmasClasse.filter(t => normalizarArea(t.area) === b).length;
+    if (totalB !== totalA) return totalB - totalA;
+    return a.localeCompare(b);
+  });
+
+  if (contagemAreas) {
+    contagemAreas.textContent = `${areasLista.length} secção(ões)`;
+  }
+
+  if (state.filtroAlunoArea !== 'TODAS' && !areasLista.includes(state.filtroAlunoArea)) {
+    state.filtroAlunoArea = 'TODAS';
+  }
+
+  let htmlArea = `<option value="TODAS">${classe === 'TODAS' ? 'Todas as Secções / Áreas' : 'Todas as Secções da Classe'} (${alunosClasse.length})</option>`;
+  areasLista.forEach(ar => {
+    const totalAlunosNaArea = alunosClasse.filter(a => getAlunoArea(a) === ar).length;
+    const totalTurmasNaArea = turmasClasse.filter(t => normalizarArea(t.area) === ar).length;
+    let info = '';
+    if (totalTurmasNaArea > 0 && totalAlunosNaArea > 0) {
+      info = ` (${totalAlunosNaArea} alunos, ${totalTurmasNaArea} turma(s))`;
+    } else if (totalTurmasNaArea > 0) {
+      info = ` (0 alunos, ${totalTurmasNaArea} turma(s))`;
+    } else if (totalAlunosNaArea > 0) {
+      info = ` (${totalAlunosNaArea} alunos)`;
+    } else {
+      info = ` (0 alunos)`;
+    }
+    htmlArea += `<option value="${ar}">${ar}${info}</option>`;
+  });
+
+  selectArea.innerHTML = htmlArea;
+  selectArea.value = state.filtroAlunoArea;
+
+  atualizarDropdownTurmasAlunos();
+}
+
+function aoMudarSelectAreaAlunos(area) {
+  state.filtroAlunoArea = area;
+  state.filtroAlunoTurma = 'TODAS';
+  atualizarDropdownTurmasAlunos();
+}
+
+function atualizarDropdownTurmasAlunos() {
+  const selectTurma = document.getElementById('selectFiltroAlunoTurma');
+  const contagemTurmas = document.getElementById('contagemTurmasClasse');
+  if (!selectTurma) return;
+
+  const classe = state.filtroAlunoClasse || 'TODAS';
+  const area = state.filtroAlunoArea || 'TODAS';
+  const alunosAno = obterAlunosFiltradosPorAno();
+  const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+
+  if (classe === 'SEM_TURMA') {
+    selectTurma.innerHTML = `<option value="TODAS">Sem Turma</option>`;
+    selectTurma.disabled = true;
+    aplicarFiltroHierarquicoAlunos();
+    return;
+  }
+
+  selectTurma.disabled = false;
+
+  // Filtrar estritamente as turmas pertencentes àquela área e classe!
+  const turmasFiltradas = (state.todasTurmas || []).filter(t => {
+    if (anoFiltro !== 'TODOS' && t.ano_letivo && String(t.ano_letivo) !== String(anoFiltro)) {
+      return false;
+    }
+    if (classe !== 'TODAS' && normalizarClasse(t.grau_ano) !== normalizarClasse(classe)) {
+      return false;
+    }
+    if (area !== 'TODAS' && normalizarArea(t.area) !== normalizarArea(area)) {
+      return false;
+    }
+    return true;
+  });
+
+  if (contagemTurmas) {
+    contagemTurmas.textContent = `${turmasFiltradas.length} turma(s)`;
+  }
+
+  let labelTodasTurmas = 'Todas as Turmas da Secção';
+  if (classe === 'TODAS' && area === 'TODAS') labelTodasTurmas = 'Todas as Turmas';
+  else if (area === 'TODAS') labelTodasTurmas = 'Todas as Turmas da Classe';
+
+  // Alunos no contexto
+  const alunosContexto = alunosAno.filter(a => {
+    const t = getAlunoTurma(a);
+    const aClasse = a.classe || t?.grau_ano || a.turma_grau;
+    if (classe !== 'TODAS' && (!aClasse || normalizarClasse(aClasse) !== normalizarClasse(classe))) {
+      return false;
+    }
+    if (area !== 'TODAS' && normalizarArea(getAlunoArea(a)) !== normalizarArea(area)) {
+      return false;
+    }
+    return true;
+  });
+
+  let htmlTurmas = `<option value="TODAS">${labelTodasTurmas} (${alunosContexto.length})</option>`;
+  turmasFiltradas.forEach(t => {
+    const totalAlunosTurma = alunosAno.filter(a => {
+      const at = getAlunoTurma(a);
+      return at?.id === t.id || a.turma_id === t.id;
+    }).length;
+    htmlTurmas += `<option value="${t.id}">${t.nome} (${totalAlunosTurma} alunos)</option>`;
+  });
+
+  selectTurma.innerHTML = htmlTurmas;
+
+  const pertence = turmasFiltradas.some(t => t.id === state.filtroAlunoTurma);
+  if (!pertence) {
+    state.filtroAlunoTurma = 'TODAS';
+  }
+  selectTurma.value = state.filtroAlunoTurma;
 
   aplicarFiltroHierarquicoAlunos();
 }
 
+function aoMudarSelectTurmaAlunos(turmaId) {
+  state.filtroAlunoTurma = turmaId;
+  aplicarFiltroHierarquicoAlunos();
+}
+
+function limparFiltrosAlunos() {
+  state.filtroAlunoClasse = 'TODAS';
+  state.filtroAlunoArea = 'TODAS';
+  state.filtroAlunoTurma = 'TODAS';
+  const inputPesquisa = document.getElementById('pesquisaAlunosHierarquia');
+  if (inputPesquisa) inputPesquisa.value = '';
+  renderizarFiltrosAlunos();
+}
+
+// Aliases para retrocompatibilidade
+function renderizarBotoesClassesAlunos() {
+  renderizarFiltrosAlunos();
+}
+function selecionarClasseAlunos(c) {
+  const sel = document.getElementById('selectFiltroAlunoClasse');
+  if (sel) sel.value = c;
+  aoMudarSelectClasseAlunos(c);
+}
+function selecionarAreaAlunos(a) {
+  const sel = document.getElementById('selectFiltroAlunoArea');
+  if (sel) sel.value = a;
+  aoMudarSelectAreaAlunos(a);
+}
+function selecionarTurmaAlunos(t) {
+  const sel = document.getElementById('selectFiltroAlunoTurma');
+  if (sel) sel.value = t;
+  aoMudarSelectTurmaAlunos(t);
+}
+
 function aplicarFiltroHierarquicoAlunos() {
-  const classe = state.filtroAlunoClasse;
-  const turmaId = state.filtroAlunoTurma;
+  const classe = state.filtroAlunoClasse || 'TODAS';
+  const area = state.filtroAlunoArea || 'TODAS';
+  const turmaId = state.filtroAlunoTurma || 'TODAS';
   const badge = document.getElementById('badgeCaminhoHierarquia');
 
-  let alunos = state.todosAlunos || [];
+  let alunos = obterAlunosFiltradosPorAno();
 
-  let nomeClasse = classe === 'TODAS' ? 'Todas as Classes' : classe;
+  let nomeClasse = 'Todas as Classes';
+  let nomeArea = 'Todas as Secções';
   let nomeTurma = 'Todas as Turmas';
 
-  if (classe && classe !== 'TODAS') {
-    alunos = alunos.filter(a => (a.turma?.grau_ano || '').toLowerCase() === classe.toLowerCase());
+  if (classe === 'SEM_TURMA') {
+    nomeClasse = 'Sem Turma Atribuída';
+    nomeArea = '—';
+    nomeTurma = '—';
+    alunos = alunos.filter(a => !getAlunoTurma(a));
+  } else {
+    // 1. Filtro de Classe
+    if (classe && classe !== 'TODAS') {
+      nomeClasse = classe;
+      alunos = alunos.filter(a => {
+        const t = getAlunoTurma(a);
+        const aClasse = a.classe || t?.grau_ano || a.turma_grau;
+        return aClasse && normalizarClasse(aClasse) === normalizarClasse(classe);
+      });
+    }
+
+    // 2. Filtro de Secção / Área
+    if (area && area !== 'TODAS') {
+      nomeArea = area;
+      alunos = alunos.filter(a => normalizarArea(getAlunoArea(a)) === normalizarArea(area));
+    }
+
+    // 3. Filtro de Turma
+    if (turmaId && turmaId !== 'TODAS') {
+      alunos = alunos.filter(a => {
+        const t = getAlunoTurma(a);
+        return t?.id === turmaId || a.turma_id === turmaId;
+      });
+      const objTurma = (state.todasTurmas || []).find(t => t.id === turmaId);
+      if (objTurma) nomeTurma = objTurma.nome;
+    }
   }
 
-  if (turmaId && turmaId !== 'TODAS') {
-    alunos = alunos.filter(a => a.turma_id === turmaId);
-    const objTurma = (state.todasTurmas || []).find(t => t.id === turmaId);
-    if (objTurma) nomeTurma = objTurma.nome;
-  }
+  const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+  const textoAno = anoFiltro === 'TODOS' ? 'Todos os Anos' : `Ano: ${anoFiltro}`;
 
   if (badge) {
-    badge.innerHTML = `<i class="bi bi-diagram-3 me-1"></i> ${nomeClasse} &rarr; <span class="fw-bold">${nomeTurma}</span> (${alunos.length} Alunos)`;
+    if (classe === 'SEM_TURMA') {
+      badge.innerHTML = `<i class="bi bi-person-exclamation me-1"></i> <span class="badge bg-light text-primary border me-1">${textoAno}</span> <span class="fw-bold">${nomeClasse}</span> (${alunos.length} Alunos)`;
+    } else {
+      badge.innerHTML = `<i class="bi bi-diagram-3 me-1"></i> <span class="badge bg-light text-primary border me-1">${textoAno}</span> ${nomeClasse} &rarr; <span class="badge bg-light border me-1" style="color: #7c3aed; border-color: #d8b4fe !important;">${nomeArea}</span> &rarr; <span class="fw-bold">${nomeTurma}</span> (${alunos.length} Alunos)`;
+    }
   }
 
   const contagem = document.getElementById('contagemAlunosExibidos');
@@ -1976,7 +3349,8 @@ function filtrarAlunosHierarquia() {
       (a.nome || '').toLowerCase().includes(termo) ||
       (a.apelido || '').toLowerCase().includes(termo) ||
       (a.matricula || '').toLowerCase().includes(termo) ||
-      (a.numero_documento || '').toLowerCase().includes(termo)
+      (a.numero_documento || '').toLowerCase().includes(termo) ||
+      (getAlunoArea(a) || '').toLowerCase().includes(termo)
     );
 
     if (filtrados.length === 0) {
@@ -1984,7 +3358,8 @@ function filtrarAlunosHierarquia() {
         (a.nome || '').toLowerCase().includes(termo) ||
         (a.apelido || '').toLowerCase().includes(termo) ||
         (a.matricula || '').toLowerCase().includes(termo) ||
-        (a.numero_documento || '').toLowerCase().includes(termo)
+        (a.numero_documento || '').toLowerCase().includes(termo) ||
+        (getAlunoArea(a) || '').toLowerCase().includes(termo)
       );
     }
 
@@ -2003,14 +3378,24 @@ function renderizarTabelaAlunos(alunos) {
   if (!tbody) return;
 
   if (!alunos || alunos.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum aluno encontrado para a selecção actual.</td></tr>';
+    const semTurmaCount = (state.todosAlunos || []).filter(a => !getAlunoTurma(a)).length;
+    let dicaExtra = '';
+    if (semTurmaCount > 0 && state.filtroAlunoClasse !== 'SEM_TURMA' && state.filtroAlunoClasse !== 'TODAS') {
+      dicaExtra = `<div class="mt-2"><span class="badge bg-warning text-dark p-2" role="button" onclick="selecionarClasseAlunos('SEM_TURMA')"><i class="bi bi-info-circle me-1"></i> Esta escola possui ${semTurmaCount} aluno(s) sem turma atribuída. Clique aqui para ver e atribuir turmas.</span></div>`;
+    }
+    tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum aluno encontrado para a selecção actual.${dicaExtra}</td></tr>`;
     return;
   }
 
   tbody.innerHTML = alunos.map((a, idx) => {
     const nomeCompleto = `${a.nome || ''} ${a.apelido && !a.nome.endsWith(a.apelido) ? a.apelido : ''}`.trim();
-    const classe = a.turma?.grau_ano || '-';
-    const turma = a.turma?.nome || '<span class="text-muted">Sem Turma</span>';
+    const t = getAlunoTurma(a);
+    const classe = a.classe || t?.grau_ano || a.turma_grau || '<span class="text-muted fst-italic">Sem Grau</span>';
+    const areaAluno = getAlunoArea(a);
+    const areaBadge = getBadgeAreaEstudo(areaAluno);
+    const turma = t?.nome || a.turma_nome 
+      ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary">${t?.nome || a.turma_nome}</span>` 
+      : '<span class="badge bg-warning bg-opacity-25 text-dark border border-warning" title="Aluno ainda sem turma">Sem Turma</span>';
     const doc = `${a.tipo_documento || 'BI'}: ${a.numero_documento || '-'}`;
     const encarregado = a.contato_responsavel ? `${a.nome_responsavel || 'Enc.'} (${a.contato_responsavel})` : (a.nome_responsavel || '-');
     const isAtivo = a.status === 'ATIVO';
@@ -2018,10 +3403,18 @@ function renderizarTabelaAlunos(alunos) {
     return `
       <tr>
         <td class="text-center fw-bold text-muted">${idx + 1}</td>
-        <td><code>${a.matricula}</code></td>
+        <td>
+          <code>${a.matricula}</code>
+          <div class="mt-1">
+            <span class="badge bg-light text-dark border" style="font-size: 0.7rem;" title="Ano de Ingresso / Trabalho Anual">
+              <i class="bi bi-calendar-check text-primary me-1"></i>Ingresso: <strong>${a.ano_ingresso || (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/) ? a.matricula.slice(0, 4) : '2026')}</strong>
+            </span>
+          </div>
+        </td>
         <td><strong class="text-primary">${nomeCompleto}</strong></td>
         <td><span class="badge bg-light text-dark border">${classe}</span></td>
-        <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary">${turma}</span></td>
+        <td>${areaBadge}</td>
+        <td>${turma}</td>
         <td><small class="text-muted">${doc}</small></td>
         <td class="text-center"><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero || 'M'}</span></td>
         <td><small>${encarregado}</small></td>
@@ -2029,7 +3422,7 @@ function renderizarTabelaAlunos(alunos) {
         <td class="text-end">
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-primary" onclick="modalEditarAluno('${a.id}')" title="Editar Dados Cadastrais"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-outline-warning" onclick="modalTransferirAluno('${a.id}')" title="Transferir de Turma"><i class="bi bi-arrow-left-right"></i></button>
+            <button class="btn btn-outline-warning" onclick="modalTransferirAluno('${a.id}')" title="Transferir / Atribuir Turma"><i class="bi bi-arrow-left-right"></i></button>
             <button class="btn btn-outline-danger" onclick="excluirAluno('${a.id}')" title="Eliminar Aluno"><i class="bi bi-trash"></i></button>
           </div>
         </td>
@@ -2038,15 +3431,186 @@ function renderizarTabelaAlunos(alunos) {
   }).join('');
 }
 
+// ==================== UTILITÁRIOS PARA ÁREAS/SECÇÕES VINCULADAS ÀS TURMAS ====================
+window.obterTodasAreasOficiais = function(classeFiltro = null) {
+  // Lista oficial do currículo (exatamente como visível na Secção/Área de Estudo e Turmas)
+  const areasPadrao = [
+    'Ensino Geral',
+    'Ciências com Biologia',
+    'Ciências com Desenho',
+    'Ciências com Geografia',
+    'Letras com Geografia',
+    'Letras com História'
+  ];
+
+  let areas = [...areasPadrao];
+
+  // 1. Adicionar áreas das disciplinas cadastradas no sistema
+  (state.todasDisciplinas || []).forEach(d => {
+    if (d.area && d.area.trim()) {
+      const aNorm = normalizarArea(d.area);
+      if (aNorm && !areas.some(x => x.toLowerCase() === aNorm.toLowerCase())) {
+        if (!classeFiltro || classeFiltro === 'TODAS' || !d.classe || normalizarClasse(d.classe) === normalizarClasse(classeFiltro)) {
+          areas.push(aNorm);
+        }
+      }
+    }
+  });
+
+  // 2. Adicionar áreas personalizadas salvas via botão "Nova Secção / Área" ou localStorage
+  try {
+    const chaves = Object.keys(localStorage).filter(k => k.startsWith('sige_custom_areas_'));
+    chaves.forEach(k => {
+      const val = localStorage.getItem(k);
+      if (val) {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(p => {
+            if (p && typeof p === 'string' && p.trim()) {
+              const pNorm = normalizarArea(p);
+              if (pNorm && !areas.some(x => x.toLowerCase() === pNorm.toLowerCase())) {
+                areas.push(pNorm);
+              }
+            }
+          });
+        }
+      }
+    });
+  } catch (e) {}
+
+  // 3. Adicionar áreas já cadastradas nas turmas da escola
+  const turmas = (Array.isArray(state.todasTurmas) && state.todasTurmas.length > 0)
+    ? state.todasTurmas
+    : (Array.isArray(window._modalAlunoTurmasCache) && window._modalAlunoTurmasCache.length > 0)
+      ? window._modalAlunoTurmasCache
+      : (Array.isArray(window._modalEditarAlunoTurmasCache) && window._modalEditarAlunoTurmasCache.length > 0)
+        ? window._modalEditarAlunoTurmasCache
+        : (state.turmasList || []);
+
+  turmas.forEach(t => {
+    if (t.area && t.area.trim()) {
+      const aNorm = normalizarArea(t.area);
+      if (aNorm && !areas.some(x => x.toLowerCase() === aNorm.toLowerCase())) {
+        if (!classeFiltro || classeFiltro === 'TODAS' || !t.grau_ano || normalizarClasse(t.grau_ano) === normalizarClasse(classeFiltro)) {
+          areas.push(aNorm);
+        }
+      }
+    }
+  });
+
+  // 4. Adicionar áreas cadastradas nos alunos
+  (state.todosAlunos || []).forEach(a => {
+    const aArea = a.area || a.seccao || a.turma_area;
+    if (aArea && aArea.trim()) {
+      const aNorm = normalizarArea(aArea);
+      if (aNorm && !areas.some(x => x.toLowerCase() === aNorm.toLowerCase())) {
+        const aClasse = a.classe || a.turma_grau;
+        if (!classeFiltro || classeFiltro === 'TODAS' || !aClasse || normalizarClasse(aClasse) === normalizarClasse(classeFiltro)) {
+          areas.push(aNorm);
+        }
+      }
+    }
+  });
+
+  // Se filtrado por classe (11ª/12ª ou 7ª/10ª):
+  if (classeFiltro && classeFiltro !== 'TODAS' && classeFiltro !== 'SEM_TURMA') {
+    const clsNorm = classeFiltro.trim().toLowerCase();
+    if (clsNorm.includes('11') || clsNorm.includes('12')) {
+      const prioritarias = ['Ciências com Biologia', 'Ciências com Desenho', 'Ciências com Geografia', 'Letras com Geografia', 'Letras com História', 'Ensino Geral'];
+      const extras = areas.filter(a => !prioritarias.some(p => p.toLowerCase() === a.toLowerCase()));
+      return [...prioritarias, ...extras];
+    } else if (clsNorm.includes('7') || clsNorm.includes('8') || clsNorm.includes('9') || clsNorm.includes('10')) {
+      const basica = ['Ensino Geral'];
+      const extras = areas.filter(a => !basica.some(p => p.toLowerCase() === a.toLowerCase()));
+      return [...basica, ...extras];
+    }
+  }
+
+  return areas;
+};
+
+window.extrairAreasDasTurmas = function(turmasList, classeFiltro = null) {
+  return window.obterTodasAreasOficiais(classeFiltro);
+};
+
+window.obterDescricaoAmigavelArea = function(area) {
+  if (!area) return 'Ensino Geral';
+  const aNorm = area.trim().toLowerCase();
+  if (aNorm === 'geral' || aNorm === 'tronco comum' || aNorm === 'tronco comum / geral' || aNorm === 'ensino geral') {
+    return 'Ensino Geral';
+  }
+  if (aNorm === 'ciências' || aNorm === 'cincias' || aNorm === 'ciencias') {
+    return 'Ciências Naturais e Mat. (Grupo B)';
+  }
+  if (aNorm === 'letras') {
+    return 'Comunicação e Ciências Sociais (Grupo A)';
+  }
+  if (aNorm === 'técnico' || aNorm === 'tecnico') {
+    return 'Ensino Técnico Profissional';
+  }
+  return area;
+};
+
 async function modalEditarAluno(id) {
   try {
     const res = await apiFetch(`/api/v1/alunos/${id}`);
-    if (!res.success) return alert('Aluno não encontrado');
-    const a = res.data;
+    const a = res.data || (res.id ? res : null);
+    if (!a) return alert('Aluno não encontrado');
+
     const turmasRes = await apiFetch('/api/v1/escola-admin/turmas');
-    const opcoesTurmas = (turmasRes.data || []).map(t => 
-      `<option value="${t.id}" ${t.id === a.turma_id ? 'selected' : ''}>${t.nome} (${t.grau_ano})</option>`
+    const turmas = turmasRes.data || (Array.isArray(turmasRes) ? turmasRes : []) || [];
+    window._modalEditarAlunoTurmasCache = turmas;
+    const turmaAtualId = a.turma_id || (typeof a.turma === 'object' ? a.turma?.id : a.turma) || '';
+
+    let avisoTurmasHtml = '';
+    if (turmas.length === 0) {
+      avisoTurmasHtml = `
+        <div class="col-12">
+          <div class="alert alert-warning py-2 small mb-0">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> A sua instituição ainda não possui turmas cadastradas.
+            <a href="javascript:void(0)" onclick="fecharModal(); navegarPara('turmas'); modalCriarTurmasEmLote();" class="fw-bold text-dark text-decoration-underline ms-1">
+              Clique aqui para Gerar Turmas (1, 2, 3...)
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    const classesPadrao = [
+      '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+      '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+    ];
+    const classesSet = new Set(classesPadrao);
+    turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+    if (a.classe) classesSet.add(a.classe.trim());
+    if (a.turma_grau) classesSet.add(a.turma_grau.trim());
+
+    const classesOrdenadas = Array.from(classesSet).sort((x, y) => {
+      const numX = parseInt(x.replace(/\D/g, '')) || 0;
+      const numY = parseInt(y.replace(/\D/g, '')) || 0;
+      return numX - numY;
+    });
+
+    const turmaAtualObj = turmas.find(t => t.id === turmaAtualId);
+    const classeAtual = a.classe || (turmaAtualObj ? turmaAtualObj.grau_ano : (a.turma_grau || ''));
+    const areaAtual = a.area || (turmaAtualObj ? turmaAtualObj.area : 'Geral') || 'Geral';
+
+    const areasDasTurmas = window.extrairAreasDasTurmas(turmas, classeAtual);
+    if (areaAtual && !areasDasTurmas.some(ar => ar.toLowerCase() === areaAtual.toLowerCase())) {
+      areasDasTurmas.unshift(areaAtual);
+    }
+    const opcoesAreas = areasDasTurmas.map(ar => 
+      `<option value="${ar}" ${ar.toLowerCase() === areaAtual.toLowerCase() ? 'selected' : ''}>${window.obterDescricaoAmigavelArea(ar)}</option>`
     ).join('');
+
+    const opcoesClasses = classesOrdenadas.map(c => 
+      `<option value="${c}" ${c === classeAtual ? 'selected' : ''}>${c}</option>`
+    ).join('');
+
+    const opcoesTurmas = turmas.map(t => 
+      `<option value="${t.id}" data-grau="${t.grau_ano || ''}" data-area="${t.area || 'Geral'}" ${t.id === turmaAtualId ? 'selected' : ''}>${t.grau_ano} &rarr; ${t.nome} (${t.area || 'Geral'} - ${t.turno || 'Diurno'})</option>`
+    ).join('');
+
     const optProvincias = (state.geografia.provincias || []).map(p => 
       `<option value="${p}" ${p === a.provincia ? 'selected' : ''}>${p}</option>`
     ).join('');
@@ -2057,9 +3621,10 @@ async function modalEditarAluno(id) {
 
     const dtNasc = a.data_nascimento ? a.data_nascimento.split('T')[0] : '';
 
-    abrirModal('Editar Dados do Aluno', `
+    abrirModal(`Editar Aluno: ${a.nome || ''} (${a.matricula || ''})`, `
       <form id="formModalEditarAluno">
         <div class="row g-3">
+          ${avisoTurmasHtml}
           <div class="col-md-8">
             <label class="form-label small fw-semibold">Nome Completo</label>
             <input type="text" id="meNome" class="form-control" required value="${a.nome || ''}">
@@ -2068,22 +3633,52 @@ async function modalEditarAluno(id) {
             <label class="form-label small fw-semibold">Apelido</label>
             <input type="text" id="meApelido" class="form-control" value="${a.apelido || ''}">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-calendar-event me-1"></i> Ano de Ingresso</label>
+            <input type="number" id="meAnoIngresso" class="form-control border-primary fw-semibold" value="${a.ano_ingresso || (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/) ? a.matricula.slice(0, 4) : (state.tenant?.ano_letivo_ativo || new Date().getFullYear()))}" min="2000" max="2099" required title="Ano lectivo de ingresso do aluno">
+            <small class="text-muted" style="font-size: 0.72rem;">Ano de admissão / trabalho anual.</small>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-mortarboard-fill me-1"></i> Classe do Aluno</label>
+            <select id="meClasse" class="form-select border-primary fw-semibold" required onchange="aoMudarClasseEditarAluno()">
+              <option value="">Selecione a Classe...</option>
+              ${opcoesClasses}
+            </select>
+            <small class="text-muted" style="font-size: 0.72rem;">Essencial para alocação de turmas.</small>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-compass-fill me-1"></i> Secção / Área de Estudo</label>
+            <select id="meArea" class="form-select border-primary fw-semibold" onchange="aoMudarAreaEditarAluno()">
+              ${opcoesAreas}
+            </select>
+            <small class="text-muted" style="font-size: 0.72rem;">Obtida automaticamente das turmas cadastradas.</small>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-diagram-3-fill me-1"></i> Turma do Aluno</label>
+            <select id="meTurma" class="form-select border-primary fw-semibold" onchange="aoMudarTurmaEditarAluno()">
+              <option value="">(Sem turma - Aluno Pendente de Turma)</option>
+              ${opcoesTurmas}
+            </select>
+            <small class="text-muted" style="font-size: 0.72rem;">Pode deixar pendente e gerar automaticamente.</small>
+          </div>
+          <div class="col-md-3">
             <label class="form-label small fw-semibold">Data de Nascimento</label>
             <input type="date" id="meNasc" class="form-control" required value="${dtNasc}">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label small fw-semibold">Género</label>
             <select id="meGenero" class="form-select">
               <option value="M" ${a.genero === 'M' ? 'selected' : ''}>Masculino</option>
               <option value="F" ${a.genero === 'F' ? 'selected' : ''}>Feminino</option>
             </select>
           </div>
-          <div class="col-md-4">
-            <label class="form-label small fw-semibold">Turma</label>
-            <select id="meTurma" class="form-select">
-              <option value="">(Sem turma)</option>
-              ${opcoesTurmas}
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Estado do Aluno</label>
+            <select id="meStatus" class="form-select">
+              <option value="ATIVO" ${a.status === 'ATIVO' ? 'selected' : ''}>ATIVO</option>
+              <option value="INATIVO" ${a.status === 'INATIVO' ? 'selected' : ''}>INATIVO</option>
+              <option value="TRANSFERIDO" ${a.status === 'TRANSFERIDO' ? 'selected' : ''}>TRANSFERIDO</option>
+              <option value="EVADIDO" ${a.status === 'EVADIDO' ? 'selected' : ''}>EVADIDO</option>
             </select>
           </div>
           <div class="col-md-4">
@@ -2124,37 +3719,41 @@ async function modalEditarAluno(id) {
             <label class="form-label small fw-semibold">Nome da Mãe</label>
             <input type="text" id="meMae" class="form-control" value="${a.mae || ''}">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <label class="form-label small fw-semibold">Encarregado</label>
             <input type="text" id="meResp" class="form-control" value="${a.nome_responsavel || ''}">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <label class="form-label small fw-semibold">Contacto Encarregado</label>
             <input type="text" id="meTelResp" class="form-control" value="${a.contato_responsavel || ''}">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label small fw-semibold">Estado do Aluno</label>
-            <select id="meStatus" class="form-select">
-              <option value="ATIVO" ${a.status === 'ATIVO' ? 'selected' : ''}>ATIVO</option>
-              <option value="INATIVO" ${a.status === 'INATIVO' ? 'selected' : ''}>INATIVO</option>
-              <option value="TRANSFERIDO" ${a.status === 'TRANSFERIDO' ? 'selected' : ''}>TRANSFERIDO</option>
-              <option value="EVADIDO" ${a.status === 'EVADIDO' ? 'selected' : ''}>EVADIDO</option>
-            </select>
           </div>
         </div>
         <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-check2-circle me-1"></i> Guardar Alterações do Aluno</button>
       </form>
     `);
 
+    // Sincronizar opções de turmas visíveis conforme a classe e área selecionadas
+    if (typeof aoMudarClasseEditarAluno === 'function') {
+      setTimeout(() => aoMudarClasseEditarAluno(false), 50);
+    }
+
     document.getElementById('formModalEditarAluno').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
+        const turmaVal = document.getElementById('meTurma').value || null;
+        const classeVal = document.getElementById('meClasse').value || null;
+        const areaVal = document.getElementById('meArea').value || 'Geral';
         const body = {
           nome: document.getElementById('meNome').value,
           apelido: document.getElementById('meApelido').value || null,
+          ano_ingresso: document.getElementById('meAnoIngresso')?.value || null,
+          classe: classeVal,
+          area: areaVal,
+          grupo: areaVal,
           data_nascimento: document.getElementById('meNasc').value,
           genero: document.getElementById('meGenero').value,
-          turma_id: document.getElementById('meTurma').value || null,
+          turma: turmaVal,
+          turma_id: turmaVal,
           tipo_documento: document.getElementById('meTipoDoc').value,
           numero_documento: document.getElementById('meNumDoc').value || null,
           nuit: document.getElementById('meNUIT').value || null,
@@ -2171,19 +3770,134 @@ async function modalEditarAluno(id) {
           method: 'PUT',
           body: JSON.stringify(body)
         });
-        if (resUp.success) {
-          alert('Dados do aluno actualizados com sucesso!');
+        if (resUp.success || resUp.id) {
+          alert('Dados do aluno e turma actualizados com sucesso!');
           fecharModal();
-          carregarAlunos();
+          await carregarAlunos();
+          if (typeof carregarEscolaETurmas === 'function') await carregarEscolaETurmas();
+        } else {
+          alert(resUp.message || 'Erro ao actualizar dados do aluno');
         }
       } catch (err) {
         alert(err.message || 'Erro ao actualizar dados do aluno');
       }
     });
   } catch (err) {
-    alert('Erro ao carregar dados do aluno');
+    alert('Erro ao carregar dados do aluno: ' + (err.message || 'Servidor indisponível'));
   }
 }
+
+window.aoMudarClasseEditarAluno = function(limparTurma = true) {
+  const selClasse = document.getElementById('meClasse');
+  const selTurma = document.getElementById('meTurma');
+  const selArea = document.getElementById('meArea');
+  if (!selClasse || !selTurma) return;
+  const cls = selClasse.value;
+
+  if (selArea) {
+    const turmas = window._modalEditarAlunoTurmasCache || state.turmasList || [];
+    const areasDisponiveis = window.extrairAreasDasTurmas(turmas, cls);
+    const valAtual = selArea.value;
+
+    selArea.innerHTML = areasDisponiveis.map(ar => 
+      `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`
+    ).join('');
+
+    if (areasDisponiveis.some(ar => ar.toLowerCase() === valAtual.toLowerCase())) {
+      selArea.value = areasDisponiveis.find(ar => ar.toLowerCase() === valAtual.toLowerCase());
+    } else if (areasDisponiveis.length > 0) {
+      selArea.value = areasDisponiveis[0];
+    }
+  }
+
+  window.filtrarOpcoesTurmasEditarAluno(limparTurma);
+};
+
+window.aoMudarAreaEditarAluno = function(limparTurma = true) {
+  window.filtrarOpcoesTurmasEditarAluno(limparTurma);
+};
+
+window.filtrarOpcoesTurmasEditarAluno = function(limparTurma = true) {
+  const selClasse = document.getElementById('meClasse');
+  const selArea = document.getElementById('meArea');
+  const selTurma = document.getElementById('meTurma');
+  if (!selTurma) return;
+
+  const cls = selClasse ? selClasse.value.trim().toLowerCase() : '';
+  const area = selArea ? selArea.value.trim().toLowerCase() : '';
+
+  if (limparTurma && selTurma.value) {
+    const opt = selTurma.options[selTurma.selectedIndex];
+    const grau = (opt ? opt.getAttribute('data-grau') : '').trim().toLowerCase();
+    const tArea = (opt ? opt.getAttribute('data-area') : '').trim().toLowerCase();
+    if (cls && grau && grau !== cls) {
+      selTurma.value = '';
+    } else if (area && area !== 'geral' && area !== 'ensino geral' && tArea && tArea !== 'geral' && tArea !== 'ensino geral' && tArea !== area && !tArea.includes(area) && !area.includes(tArea)) {
+      selTurma.value = '';
+    }
+  }
+
+  Array.from(selTurma.options).forEach(opt => {
+    if (!opt.value) return; // Opção "Sem turma" sempre visível
+    const grau = (opt.getAttribute('data-grau') || '').trim().toLowerCase();
+    const tArea = (opt.getAttribute('data-area') || 'geral').trim().toLowerCase();
+
+    let matchClasse = !cls || !grau || grau === cls;
+    let matchArea = !area || area === 'geral' || area === 'ensino geral' ||
+      !tArea || tArea === 'geral' || tArea === 'ensino geral' ||
+      tArea === area || tArea.includes(area) || area.includes(tArea);
+
+    if (matchClasse && matchArea) {
+      opt.hidden = false;
+      opt.disabled = false;
+    } else {
+      opt.hidden = true;
+      opt.disabled = true;
+    }
+  });
+};
+
+window.aoMudarTurmaEditarAluno = function() {
+  const selClasse = document.getElementById('meClasse');
+  const selArea = document.getElementById('meArea');
+  const selTurma = document.getElementById('meTurma');
+  if (!selTurma || !selTurma.value) return;
+
+  const opt = selTurma.options[selTurma.selectedIndex];
+  if (!opt) return;
+
+  const grau = opt.getAttribute('data-grau');
+  const tArea = opt.getAttribute('data-area') || 'Geral';
+
+  if (grau && selClasse) {
+    selClasse.value = grau;
+    const turmas = window._modalEditarAlunoTurmasCache || state.turmasList || [];
+    const areasDaClasse = window.extrairAreasDasTurmas(turmas, grau);
+    if (!areasDaClasse.some(ar => ar.toLowerCase() === tArea.toLowerCase())) {
+      areasDaClasse.push(tArea);
+    }
+    if (selArea) {
+      selArea.innerHTML = areasDaClasse.map(ar => `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`).join('');
+      selArea.value = tArea;
+    }
+  } else if (tArea && selArea) {
+    let found = false;
+    for (let i = 0; i < selArea.options.length; i++) {
+      if (selArea.options[i].value.toLowerCase() === tArea.toLowerCase()) {
+        selArea.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      const newOpt = document.createElement('option');
+      newOpt.value = tArea;
+      newOpt.textContent = window.obterDescricaoAmigavelArea(tArea);
+      selArea.appendChild(newOpt);
+      selArea.value = tArea;
+    }
+  }
+};
 
 function atualizarDistritosEditarAluno(provincia) {
   const distritos = state.geografia.distritos[provincia] || [];
@@ -2196,27 +3910,38 @@ function atualizarDistritosEditarAluno(provincia) {
 async function modalTransferirAluno(id) {
   try {
     const res = await apiFetch(`/api/v1/alunos/${id}`);
-    if (!res.success) return alert('Aluno não encontrado');
-    const a = res.data;
+    const a = res.data || (res.id ? res : null);
+    if (!a) return alert('Aluno não encontrado');
+
     const turmasRes = await apiFetch('/api/v1/escola-admin/turmas');
-    const opcoesTurmas = (turmasRes.data || []).map(t => 
-      `<option value="${t.id}" ${t.id === a.turma_id ? 'disabled' : ''}>${t.nome} (${t.grau_ano} - ${t.turno || 'Diurno'})${t.id === a.turma_id ? ' — Turma Actual' : ''}</option>`
+    const turmas = turmasRes.data || (Array.isArray(turmasRes) ? turmasRes : []) || [];
+    const turmaAtualId = a.turma_id || (typeof a.turma === 'object' ? a.turma?.id : a.turma) || '';
+    const turmaAtualNome = (typeof a.turma === 'object' && a.turma?.nome) 
+      ? `${a.turma.nome} (${a.turma.grau_ano || ''})` 
+      : (a.turma_nome ? a.turma_nome : 'Sem Turma Atribuída');
+
+    if (turmas.length === 0) {
+      return alert('Ainda não existem turmas criadas nesta escola. Vá ao menu Turmas e use o botão "Gerar Turmas (1, 2, 3...)" primeiro.');
+    }
+
+    const opcoesTurmas = turmas.map(t => 
+      `<option value="${t.id}" ${t.id === turmaAtualId ? 'disabled' : ''}>${t.grau_ano} &rarr; ${t.nome} (${t.turno || 'Diurno'})${t.id === turmaAtualId ? ' — Turma Actual' : ''}</option>`
     ).join('');
 
-    abrirModal('Transferência de Turma do Aluno', `
+    abrirModal('Atribuição / Transferência de Turma do Aluno', `
       <form id="formModalTransferirAluno">
         <div class="alert alert-info py-2 small mb-3">
           Aluno: <strong>${a.nome} ${a.apelido || ''}</strong> (Matrícula: <code>${a.matricula}</code>)<br>
-          Turma Actual: <strong>${a.turma ? a.turma.nome + ' (' + a.turma.grau_ano + ')' : 'Sem Turma'}</strong>
+          Turma Actual: <strong>${turmaAtualNome}</strong>
         </div>
         <div class="mb-3">
-          <label class="form-label small fw-semibold">Nova Turma de Destino</label>
+          <label class="form-label small fw-semibold">Selecione a Turma de Destino</label>
           <select id="mtNovaTurma" class="form-select" required>
-            <option value="">Selecione a nova turma...</option>
+            <option value="">Selecione a turma...</option>
             ${opcoesTurmas}
           </select>
         </div>
-        <button type="submit" class="btn btn-warning w-100"><i class="bi bi-arrow-left-right me-1"></i> Confirmar Transferência de Turma</button>
+        <button type="submit" class="btn btn-warning w-100"><i class="bi bi-arrow-left-right me-1"></i> Confirmar Atribuição de Turma</button>
       </form>
     `);
 
@@ -2229,9 +3954,12 @@ async function modalTransferirAluno(id) {
           body: JSON.stringify({ novaTurmaId, turma_destino_id: novaTurmaId })
         });
         if (resTr.success) {
-          alert('Aluno transferido com sucesso para a nova turma!');
+          alert('Aluno alocado na turma com sucesso!');
           fecharModal();
-          carregarAlunos();
+          await carregarAlunos();
+          if (typeof carregarEscolaETurmas === 'function') await carregarEscolaETurmas();
+        } else {
+          alert(resTr.message || 'Falha ao transferir aluno');
         }
       } catch (err) {
         alert(err.message || 'Erro ao transferir aluno');
@@ -2254,6 +3982,8 @@ async function excluirAluno(id) {
 
 window.atualizarTurmasModalAluno = async function(escolaId) {
   const selectTurma = document.getElementById('maTurma');
+  const selectClasse = document.getElementById('maClasse');
+  const selectArea = document.getElementById('maArea');
   if (!selectTurma) return;
   if (!escolaId) {
     selectTurma.innerHTML = '<option value="">Selecione primeiro a escola</option>';
@@ -2262,11 +3992,18 @@ window.atualizarTurmasModalAluno = async function(escolaId) {
   try {
     const res = await apiFetch(`/api/v1/turmas?escola_id=${escolaId}`);
     const turmas = res.data || [];
+    window._modalAlunoTurmasCache = turmas;
     if (turmas.length === 0) {
       selectTurma.innerHTML = '<option value="">Sem turmas nesta escola (Ingresso Pendente)</option>';
     } else {
-      selectTurma.innerHTML = '<option value="">Selecione a turma (Opcional)</option>' +
-        turmas.map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+      selectTurma.innerHTML = '<option value="">(Sem turma - Aluno Pendente de Turma)</option>' +
+        turmas.map(t => `<option value="${t.id}" data-grau="${t.grau_ano || ''}" data-area="${t.area || 'Geral'}">${t.grau_ano} &rarr; ${t.nome} (${t.area || 'Geral'} - ${t.turno || 'Diurno'})</option>`).join('');
+    }
+
+    if (selectArea) {
+      const cls = selectClasse ? selectClasse.value : '';
+      const areas = window.extrairAreasDasTurmas(turmas, cls);
+      selectArea.innerHTML = areas.map(ar => `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`).join('');
     }
   } catch (e) {
     selectTurma.innerHTML = '<option value="">Sem turmas disponíveis</option>';
@@ -2304,8 +4041,32 @@ async function modalNovoAluno() {
     turmas = turmasRes.data || [];
   } catch (e) {}
 
-  const opcoesTurmas = turmas.map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+  if (!turmas || turmas.length === 0) {
+    turmas = state.turmasList || [];
+  }
+  window._modalAlunoTurmasCache = turmas;
+
+  const classeInicial = (state.filtroAlunoClasse && state.filtroAlunoClasse !== 'TODAS' && state.filtroAlunoClasse !== 'SEM_TURMA') 
+    ? state.filtroAlunoClasse 
+    : '';
+
+  const classesPadrao = [
+    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+  ];
+  const classesSet = new Set(classesPadrao);
+  turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+  const classesOrdenadas = Array.from(classesSet).sort((x, y) => {
+    const numX = parseInt(x.replace(/\D/g, '')) || 0;
+    const numY = parseInt(y.replace(/\D/g, '')) || 0;
+    return numX - numY;
+  });
+  const optClasses = classesOrdenadas.map(c => `<option value="${c}" ${c === classeInicial ? 'selected' : ''}>${c}</option>`).join('');
+  const opcoesTurmas = turmas.map(t => `<option value="${t.id}" data-grau="${t.grau_ano || ''}" data-area="${t.area || 'Geral'}">${t.grau_ano} &rarr; ${t.nome} (${t.area || 'Geral'} - ${t.turno || 'Diurno'})</option>`).join('');
   const optProvincias = (state.geografia.provincias || []).map(p => `<option value="${p}">${p}</option>`).join('');
+
+  const areasDasTurmas = window.extrairAreasDasTurmas(turmas, classeInicial);
+  const optAreas = areasDasTurmas.map(ar => `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`).join('');
 
   abrirModal('Matricular Novo Aluno', `
     <form id="formModalAluno">
@@ -2320,6 +4081,35 @@ async function modalNovoAluno() {
           <input type="text" id="maApelido" class="form-control" placeholder="Sobrenome / Apelido">
         </div>
 
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-primary"><i class="bi bi-calendar-event me-1"></i> Ano de Ingresso</label>
+          <input type="number" id="maAnoIngresso" class="form-control border-primary fw-semibold" value="${state.filtroAlunoAno && state.filtroAlunoAno !== 'TODOS' ? state.filtroAlunoAno : (state.tenant?.ano_letivo_ativo || new Date().getFullYear())}" min="2000" max="2099" required title="Ano de Ingresso do Aluno">
+          <small class="text-muted" style="font-size: 0.72rem;">Ano de admissão / lectivo activo.</small>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-primary"><i class="bi bi-mortarboard-fill me-1"></i> Classe de Ingresso</label>
+          <select id="maClasse" class="form-select border-primary fw-semibold" required onchange="aoMudarClasseNovoAluno()">
+            <option value="">Selecione a Classe...</option>
+            ${optClasses}
+          </select>
+          <small class="text-muted" style="font-size: 0.72rem;">Essencial para alocação e formação automática.</small>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-primary"><i class="bi bi-compass-fill me-1"></i> Secção / Área de Estudo</label>
+          <select id="maArea" class="form-select border-primary fw-semibold" onchange="aoMudarAreaNovoAluno()">
+            ${optAreas}
+          </select>
+          <small class="text-muted" style="font-size: 0.72rem;">Obtida automaticamente das turmas cadastradas.</small>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-primary"><i class="bi bi-diagram-3-fill me-1"></i> Turma de Ingresso (Opcional)</label>
+          <select id="maTurma" class="form-select border-primary fw-semibold" onchange="aoMudarTurmaNovoAluno()">
+            <option value="">(Sem turma - Aluno Pendente de Turma)</option>
+            ${opcoesTurmas}
+          </select>
+          <small class="text-muted" style="font-size: 0.72rem;">Pode deixar pendente e formar automaticamente.</small>
+        </div>
+
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Data de Nascimento</label>
           <input type="date" id="maNasc" class="form-control" required>
@@ -2329,13 +4119,6 @@ async function modalNovoAluno() {
           <select id="maGenero" class="form-select">
             <option value="M">Masculino</option>
             <option value="F">Feminino</option>
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold">Turma de Ingresso</label>
-          <select id="maTurma" class="form-select">
-            <option value="">Selecione a turma (Opcional)</option>
-            ${opcoesTurmas}
           </select>
         </div>
 
@@ -2402,10 +4185,15 @@ async function modalNovoAluno() {
         return alert('Por favor, seleccione a escola onde o aluno será matriculado.');
       }
 
+      const areaVal = document.getElementById('maArea')?.value || 'Geral';
       const body = {
         escola_id: escola_id || undefined,
         nome: document.getElementById('maNome').value,
         apelido: document.getElementById('maApelido').value || undefined,
+        ano_ingresso: document.getElementById('maAnoIngresso')?.value || String(state.tenant?.ano_letivo_ativo || new Date().getFullYear()),
+        classe: document.getElementById('maClasse')?.value || undefined,
+        area: areaVal,
+        grupo: areaVal,
         data_nascimento: document.getElementById('maNasc').value,
         genero: document.getElementById('maGenero').value,
         turma_id: document.getElementById('maTurma').value || null,
@@ -2434,6 +4222,118 @@ async function modalNovoAluno() {
   });
 }
 
+window.aoMudarClasseNovoAluno = function(limparTurma = true) {
+  const selClasse = document.getElementById('maClasse');
+  const selTurma = document.getElementById('maTurma');
+  const selArea = document.getElementById('maArea');
+  if (!selClasse || !selTurma) return;
+  const cls = selClasse.value;
+
+  if (selArea) {
+    const turmas = window._modalAlunoTurmasCache || state.turmasList || [];
+    const areasDisponiveis = window.extrairAreasDasTurmas(turmas, cls);
+    const valAtual = selArea.value;
+
+    selArea.innerHTML = areasDisponiveis.map(ar => 
+      `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`
+    ).join('');
+
+    if (areasDisponiveis.some(ar => ar.toLowerCase() === valAtual.toLowerCase())) {
+      selArea.value = areasDisponiveis.find(ar => ar.toLowerCase() === valAtual.toLowerCase());
+    } else if (areasDisponiveis.length > 0) {
+      selArea.value = areasDisponiveis[0];
+    }
+  }
+
+  window.filtrarOpcoesTurmasNovoAluno(limparTurma);
+};
+
+window.aoMudarAreaNovoAluno = function(limparTurma = true) {
+  window.filtrarOpcoesTurmasNovoAluno(limparTurma);
+};
+
+window.filtrarOpcoesTurmasNovoAluno = function(limparTurma = true) {
+  const selClasse = document.getElementById('maClasse');
+  const selArea = document.getElementById('maArea');
+  const selTurma = document.getElementById('maTurma');
+  if (!selTurma) return;
+
+  const cls = selClasse ? selClasse.value.trim().toLowerCase() : '';
+  const area = selArea ? selArea.value.trim().toLowerCase() : '';
+
+  if (limparTurma && selTurma.value) {
+    const opt = selTurma.options[selTurma.selectedIndex];
+    const grau = (opt ? opt.getAttribute('data-grau') : '').trim().toLowerCase();
+    const tArea = (opt ? opt.getAttribute('data-area') : '').trim().toLowerCase();
+    if (cls && grau && grau !== cls) {
+      selTurma.value = '';
+    } else if (area && area !== 'geral' && area !== 'ensino geral' && tArea && tArea !== 'geral' && tArea !== 'ensino geral' && tArea !== area && !tArea.includes(area) && !area.includes(tArea)) {
+      selTurma.value = '';
+    }
+  }
+
+  Array.from(selTurma.options).forEach(opt => {
+    if (!opt.value) return; // Opção "Sem turma"
+    const grau = (opt.getAttribute('data-grau') || '').trim().toLowerCase();
+    const tArea = (opt.getAttribute('data-area') || 'geral').trim().toLowerCase();
+
+    let matchClasse = !cls || !grau || grau === cls;
+    let matchArea = !area || area === 'geral' || area === 'ensino geral' ||
+      !tArea || tArea === 'geral' || tArea === 'ensino geral' ||
+      tArea === area || tArea.includes(area) || area.includes(tArea);
+
+    if (matchClasse && matchArea) {
+      opt.hidden = false;
+      opt.disabled = false;
+    } else {
+      opt.hidden = true;
+      opt.disabled = true;
+    }
+  });
+};
+
+window.aoMudarTurmaNovoAluno = function() {
+  const selClasse = document.getElementById('maClasse');
+  const selArea = document.getElementById('maArea');
+  const selTurma = document.getElementById('maTurma');
+  if (!selTurma || !selTurma.value) return;
+
+  const opt = selTurma.options[selTurma.selectedIndex];
+  if (!opt) return;
+
+  const grau = opt.getAttribute('data-grau');
+  const tArea = opt.getAttribute('data-area') || 'Geral';
+
+  if (grau && selClasse) {
+    selClasse.value = grau;
+    const turmas = window._modalAlunoTurmasCache || state.turmasList || [];
+    const areasDaClasse = window.extrairAreasDasTurmas(turmas, grau);
+    if (!areasDaClasse.some(ar => ar.toLowerCase() === tArea.toLowerCase())) {
+      areasDaClasse.push(tArea);
+    }
+    if (selArea) {
+      selArea.innerHTML = areasDaClasse.map(ar => `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`).join('');
+      selArea.value = tArea;
+    }
+  } else if (tArea && selArea) {
+    let found = false;
+    for (let i = 0; i < selArea.options.length; i++) {
+      if (selArea.options[i].value.toLowerCase() === tArea.toLowerCase()) {
+        selArea.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      const newOpt = document.createElement('option');
+      newOpt.value = tArea;
+      newOpt.textContent = window.obterDescricaoAmigavelArea(tArea);
+      selArea.appendChild(newOpt);
+      selArea.value = tArea;
+    }
+  }
+};
+
 function atualizarDistritosAluno(provincia) {
   const distritos = state.geografia.distritos[provincia] || [];
   const select = document.getElementById('maDistrito');
@@ -2445,58 +4345,370 @@ function atualizarDistritosAluno(provincia) {
 // ==================== 5. PROFESSORES ====================
 async function carregarProfessores() {
   try {
-    const [resProfs, resStats] = await Promise.all([
+    const [resProfs, resStats, resTurmas, resDisc] = await Promise.all([
       apiFetch('/api/v1/professores'),
-      apiFetch('/api/v1/professores/stats')
+      apiFetch('/api/v1/professores/stats'),
+      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch('/api/v1/disciplinas')
     ]);
+
+    if (resTurmas && resTurmas.success) {
+      state.todasTurmas = resTurmas.data || [];
+    }
+    if (resDisc && resDisc.success) {
+      state.todasDisciplinas = resDisc.data || [];
+    }
 
     if (resStats.success) {
       const s = resStats.data;
-      document.getElementById('profTotalCard').textContent = s.totalProfessores;
-      document.getElementById('profRatioCard').textContent = `${s.proporcaoAlunoProfessor} : 1`;
-      document.getElementById('profAulasMesCard').textContent = s.totalAulasMes;
+      document.getElementById('profTotalCard').textContent = s.totalProfessores ?? 0;
+      const ratio = (s.proporcaoAlunoProfessor !== undefined && s.proporcaoAlunoProfessor !== null) 
+        ? s.proporcaoAlunoProfessor 
+        : (s.totalProfessores > 0 ? Math.round(((state.todosAlunos && state.todosAlunos.length) || 0) / s.totalProfessores) : 0);
+      document.getElementById('profRatioCard').textContent = `${ratio} : 1`;
+      document.getElementById('profAulasMesCard').textContent = s.totalAulasMes ?? (s.totalAlocacoes ? s.totalAlocacoes * 16 : 0);
     }
 
-    if (resProfs.success) {
-      const tbody = document.getElementById('tabelaProfessores');
-      tbody.innerHTML = resProfs.data.map(p => `
-        <tr>
-          <td><strong>${p.nome}</strong></td>
-          <td><small>${p.email}<br>${p.telefone || '-'}</small></td>
-          <td><span class="badge bg-light text-dark border">${p.carreira || 'Licenciado'}</span></td>
-          <td><small>${p.distrito || '-'}<br><span class="text-muted">${p.provincia || '-'}</span></small></td>
-          <td>${p.carga_horaria_semanal}h / semana</td>
-          <td>
-            ${(p.alocacoes && p.alocacoes.length > 0)
-              ? p.alocacoes.map(a => `
-                <span class="badge bg-primary-subtle text-primary border d-inline-flex align-items-center gap-1 mb-1 me-1 p-1 px-2" style="font-size: 0.8rem;">
-                  ${a.disciplina?.nome || 'Disciplina'} (${a.turma?.nome || 'Turma'})
-                  <a href="javascript:void(0)" onclick="modalEditarAlocacao('${a.id}', '${p.id}')" class="text-primary ms-1" title="Editar Turma/Disciplina Alocada"><i class="bi bi-pencil-fill" style="font-size: 10px;"></i></a>
-                  <a href="javascript:void(0)" onclick="eliminarAlocacao('${a.id}', '${p.id}')" class="text-danger" title="Eliminar Alocação"><i class="bi bi-x-circle-fill" style="font-size: 11px;"></i></a>
-                </span>
-              `).join('')
-              : '<span class="text-muted small">Nenhuma turma alocada</span>'
-            }
-            <button class="btn btn-link btn-sm p-0 ms-1 text-decoration-none" onclick="modalAlocarProfessor('${p.id}')" title="Alocar nova turma a este docente">
-              <i class="bi bi-plus-circle-fill text-success" style="font-size: 14px;"></i>
+    state.todosProfessores = resProfs.success ? (resProfs.data || []) : [];
+    renderizarBotoesClassesProfessores();
+  } catch (err) {
+    console.error('Erro ao carregar professores:', err);
+  }
+}
+
+function obterClassesDocentes() {
+  const classesSet = new Set();
+  (state.todasTurmas || []).forEach(t => {
+    if (t.grau_ano) classesSet.add(t.grau_ano.trim());
+  });
+  (state.todosProfessores || []).forEach(p => {
+    (p.alocacoes || []).forEach(a => {
+      const g = a.turma_grau || a.turma?.grau_ano || a.disciplina?.classe;
+      if (g) classesSet.add(g.trim());
+    });
+  });
+  (state.todasDisciplinas || []).forEach(d => {
+    if (d.classe) classesSet.add(d.classe.trim());
+  });
+  (state.todosAlunos || []).forEach(a => {
+    if (a.classe) classesSet.add(a.classe.trim());
+    if (a.turma_grau) classesSet.add(a.turma_grau.trim());
+  });
+
+  const ordenadas = Array.from(classesSet).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+
+  if (ordenadas.length === 0) {
+    ordenadas.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
+  }
+  return ordenadas;
+}
+
+function calcularMetricasCargaProfessor(p) {
+  if (!p) return { totalAlocada: 0, maxNormal: 20, horasNormais: 0, horasExtras: 0, porClasse: {} };
+
+  const maxNormal = Number(p.carga_horaria_semanal) || 20;
+  let totalAlocada = 0;
+  const porClasse = {};
+
+  (p.alocacoes || []).forEach(a => {
+    let ch = Number(a.disciplina_carga_horaria || a.disciplina?.carga_horaria);
+    if (!ch || isNaN(ch)) {
+      const discId = a.disciplina?.id || a.disciplina;
+      const foundD = (state.todasDisciplinas || []).find(d => String(d.id) === String(discId));
+      ch = Number(foundD?.carga_horaria) || 5;
+    }
+    totalAlocada += ch;
+
+    const classe = (a.turma_grau || a.turma?.grau_ano || a.disciplina?.classe || 'Geral').trim();
+    if (!porClasse[classe]) {
+      const maxClasse = (p.carga_maxima_por_classe && p.carga_maxima_por_classe[classe])
+        ? Number(p.carga_maxima_por_classe[classe])
+        : maxNormal;
+      porClasse[classe] = {
+        classe,
+        cargaAlocada: 0,
+        cargaMaxima: maxClasse,
+        turmas: []
+      };
+    }
+    porClasse[classe].cargaAlocada += ch;
+    porClasse[classe].turmas.push({
+      alocacaoId: a.id,
+      turmaNome: a.turma_nome || a.turma?.nome || 'Turma',
+      turmaArea: a.turma_area || a.turma?.area || 'Geral',
+      disciplinaNome: a.disciplina_nome || a.disciplina?.nome || 'Disciplina',
+      cargaHoraria: ch
+    });
+  });
+
+  Object.values(porClasse).forEach(cData => {
+    cData.horasNormais = Math.min(cData.cargaAlocada, cData.cargaMaxima);
+    cData.horasExtras = Math.max(0, cData.cargaAlocada - cData.cargaMaxima);
+  });
+
+  const horasNormais = Math.min(totalAlocada, maxNormal);
+  const horasExtras = Math.max(0, totalAlocada - maxNormal);
+
+  return {
+    totalAlocada,
+    maxNormal,
+    horasNormais,
+    horasExtras,
+    porClasse
+  };
+}
+
+function professorPertenceClasse(p, classe) {
+  if (!p || !p.alocacoes || p.alocacoes.length === 0) return false;
+  return p.alocacoes.some(a => {
+    const g = a.turma_grau || a.turma?.grau_ano || a.disciplina?.classe;
+    return g && normalizarClasse(g) === normalizarClasse(classe);
+  });
+}
+
+function renderizarBotoesClassesProfessores() {
+  const selectClasse = document.getElementById('selectFiltroProfessorClasse');
+  const profs = state.todosProfessores || [];
+  const classes = obterClassesDocentes();
+  const totalGeral = profs.length;
+  const semClasseCount = profs.filter(p => !p.alocacoes || p.alocacoes.length === 0).length;
+
+  if (!state.filtroProfessorClasse) {
+    state.filtroProfessorClasse = 'TODAS';
+  }
+
+  const contagemEl = document.getElementById('contagemClassesProfessores');
+  if (contagemEl) {
+    contagemEl.textContent = `${classes.length} classe(s)`;
+  }
+
+  if (selectClasse) {
+    let htmlOptions = `<option value="TODAS">Todos os Docentes (${totalGeral})</option>`;
+    if (semClasseCount > 0) {
+      htmlOptions += `<option value="SEM_CLASSE">⚠️ Sem Classe Alocada (${semClasseCount})</option>`;
+    }
+    classes.forEach(cls => {
+      const totalNaClasse = profs.filter(p => professorPertenceClasse(p, cls)).length;
+      htmlOptions += `<option value="${cls}">${cls} (${totalNaClasse} docentes)</option>`;
+    });
+    selectClasse.innerHTML = htmlOptions;
+    selectClasse.value = state.filtroProfessorClasse;
+  }
+
+  selecionarClasseProfessores(state.filtroProfessorClasse, false);
+}
+
+function selecionarClasseProfessores(classe, syncSelect = true) {
+  state.filtroProfessorClasse = classe;
+
+  const selectClasse = document.getElementById('selectFiltroProfessorClasse');
+  if (selectClasse && syncSelect && selectClasse.value !== classe) {
+    selectClasse.value = classe;
+  }
+
+  const profs = state.todosProfessores || [];
+  let filtrados = profs;
+  let labelTexto = 'Todos os Professores';
+
+  if (classe === 'SEM_CLASSE') {
+    labelTexto = 'Docentes Sem Turma / Classe Atribuída';
+    filtrados = profs.filter(p => !p.alocacoes || p.alocacoes.length === 0);
+  } else if (classe !== 'TODAS') {
+    labelTexto = `Docentes da ${classe}`;
+    filtrados = profs.filter(p => professorPertenceClasse(p, classe));
+  }
+
+  const badge = document.getElementById('badgeCaminhoProfessores');
+  if (badge) {
+    badge.innerHTML = `<i class="bi bi-mortarboard me-1"></i> ${labelTexto} (${filtrados.length} Docentes)`;
+  }
+
+  const contagem = document.getElementById('contagemProfessoresExibidos');
+  if (contagem) {
+    contagem.textContent = `${filtrados.length} docente(s) listado(s)`;
+  }
+
+  state.professoresFiltradosAtuais = filtrados;
+  renderizarTabelaProfessores(filtrados);
+}
+
+function filtrarProfessoresTabela() {
+  const termo = (document.getElementById('pesquisaProfessores')?.value || '').toLowerCase().trim();
+  let base = state.professoresFiltradosAtuais || state.todosProfessores || [];
+
+  if (termo) {
+    let filtrados = base.filter(p => 
+      (p.nome || '').toLowerCase().includes(termo) ||
+      (p.apelido || '').toLowerCase().includes(termo) ||
+      (p.email || '').toLowerCase().includes(termo) ||
+      (p.especialidade || '').toLowerCase().includes(termo) ||
+      (p.carreira || '').toLowerCase().includes(termo) ||
+      (p.alocacoes || []).some(a => 
+        (a.turma_nome || '').toLowerCase().includes(termo) ||
+        (a.turma_grau || '').toLowerCase().includes(termo) ||
+        (a.disciplina_nome || '').toLowerCase().includes(termo)
+      )
+    );
+
+    if (filtrados.length === 0) {
+      filtrados = (state.todosProfessores || []).filter(p => 
+        (p.nome || '').toLowerCase().includes(termo) ||
+        (p.apelido || '').toLowerCase().includes(termo) ||
+        (p.email || '').toLowerCase().includes(termo) ||
+        (p.especialidade || '').toLowerCase().includes(termo)
+      );
+    }
+
+    renderizarTabelaProfessores(filtrados);
+    const contagem = document.getElementById('contagemProfessoresExibidos');
+    if (contagem) contagem.textContent = `${filtrados.length} docente(s) encontrado(s) para "${termo}"`;
+  } else {
+    renderizarTabelaProfessores(base);
+    const contagem = document.getElementById('contagemProfessoresExibidos');
+    if (contagem) contagem.textContent = `${base.length} docente(s) listado(s)`;
+  }
+}
+
+function limparFiltrosProfessores() {
+  state.filtroProfessorClasse = 'TODAS';
+  const inp = document.getElementById('pesquisaProfessores');
+  if (inp) inp.value = '';
+  const sel = document.getElementById('selectFiltroProfessorClasse');
+  if (sel) sel.value = 'TODAS';
+  selecionarClasseProfessores('TODAS');
+}
+
+function renderizarTabelaProfessores(profs) {
+  const tbody = document.getElementById('tabelaProfessores');
+  if (!tbody) return;
+
+  if (!profs || profs.length === 0) {
+    const semClasseCount = (state.todosProfessores || []).filter(p => !p.alocacoes || p.alocacoes.length === 0).length;
+    let dicaExtra = '';
+    if (semClasseCount > 0 && state.filtroProfessorClasse !== 'SEM_CLASSE' && state.filtroProfessorClasse !== 'TODAS') {
+      dicaExtra = `<div class="mt-2"><span class="badge bg-warning text-dark p-2" role="button" onclick="selecionarClasseProfessores('SEM_CLASSE')"><i class="bi bi-info-circle me-1"></i> Esta escola possui ${semClasseCount} docente(s) sem turma/classe atribuída. Clique aqui para ver e atribuir turmas.</span></div>`;
+    }
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum docente encontrado para a selecção actual.${dicaExtra}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = profs.map(p => {
+    const nomeCompleto = `${p.nome || ''} ${p.apelido || ''}`.trim();
+    const alocacoesHtml = (p.alocacoes && p.alocacoes.length > 0)
+      ? p.alocacoes.map(a => {
+          const classeTurma = a.turma_grau || a.turma?.grau_ano || '';
+          const nomeTurma = a.turma_nome || a.turma?.nome || 'Turma';
+          const nomeDisc = a.disciplina_nome || a.disciplina?.nome || 'Disciplina';
+          return `
+            <span class="badge border bg-light text-dark d-inline-flex align-items-center gap-1 mb-1 me-1 p-1 px-2" style="font-size: 0.8rem;" title="${classeTurma} &rarr; ${nomeTurma}: ${nomeDisc}">
+              <span class="badge bg-primary bg-opacity-25 text-primary border me-1" style="font-size: 0.7rem;">${classeTurma || 'Classe'}</span>
+              <strong>${nomeTurma}</strong> <span class="text-muted">(${nomeDisc})</span>
+              <a href="javascript:void(0)" onclick="modalEditarAlocacao('${a.id}', '${p.id}')" class="text-primary ms-1" title="Editar Turma/Disciplina Alocada"><i class="bi bi-pencil-fill" style="font-size: 10px;"></i></a>
+              <a href="javascript:void(0)" onclick="eliminarAlocacao('${a.id}', '${p.id}')" class="text-danger" title="Eliminar Alocação"><i class="bi bi-x-circle-fill" style="font-size: 11px;"></i></a>
+            </span>
+          `;
+        }).join('')
+      : '<span class="badge bg-warning bg-opacity-25 text-dark border border-warning">Nenhuma turma alocada</span>';
+
+    const metricas = calcularMetricasCargaProfessor(p);
+    let cargaBadgeHtml = '';
+    if (metricas.totalAlocada === 0) {
+      cargaBadgeHtml = `
+        <span class="badge bg-light text-muted border">0h / semana</span>
+        <div class="small text-muted" style="font-size: 0.72rem;">Máx: ${metricas.maxNormal}h normal</div>
+      `;
+    } else if (metricas.horasExtras === 0) {
+      cargaBadgeHtml = `
+        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 fw-semibold" style="font-size: 0.85rem;">
+          <i class="bi bi-check-circle-fill me-1"></i>${metricas.totalAlocada}h / semana
+        </span>
+        <div class="small text-muted mt-1" style="font-size: 0.72rem;">100% Normal (Máx: ${metricas.maxNormal}h)</div>
+      `;
+    } else {
+      cargaBadgeHtml = `
+        <span class="badge bg-warning text-dark border border-warning fw-bold" style="font-size: 0.85rem;" title="Transbordo de Carga Máxima">
+          <i class="bi bi-exclamation-triangle-fill me-1 text-danger"></i>${metricas.totalAlocada}h / semana
+        </span>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+          <span class="badge bg-success bg-opacity-75" style="font-size: 0.7rem;" title="Carga horária contratual normal">${metricas.horasNormais}h Normal</span>
+          <span class="badge bg-danger text-white fw-bold" style="font-size: 0.7rem;" title="Horas extras semanais suplementares">+${metricas.horasExtras}h Extras</span>
+        </div>
+      `;
+    }
+
+    return `
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; font-size: 0.85rem;">
+              ${(p.nome || 'P').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <strong class="text-primary">${nomeCompleto}</strong>
+              <div class="small text-muted">${p.especialidade || 'Área Geral'}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <small class="d-block"><i class="bi bi-envelope me-1 text-muted"></i>${p.email}</small>
+          <small class="text-muted"><i class="bi bi-telephone me-1 text-muted"></i>${p.telefone || '-'}</small>
+        </td>
+        <td>
+          <span class="badge bg-light text-dark border fw-semibold">${p.carreira || 'Licenciado'}</span>
+          <div class="small text-muted mt-1">${p.ativo !== false ? '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' : '<span class="text-secondary">Inactivo</span>'}</div>
+        </td>
+        <td><small>${p.distrito || '-'}<br><span class="text-muted">${p.provincia || '-'}</span></small></td>
+        <td>${cargaBadgeHtml}</td>
+        <td>
+          <div class="d-flex flex-wrap align-items-center">
+            ${alocacoesHtml}
+            <button class="btn btn-link btn-sm p-0 ms-1 text-decoration-none" onclick="modalAlocarProfessor('${p.id}')" title="Alocar nova turma ou classe a este docente">
+              <i class="bi bi-plus-circle-fill text-success" style="font-size: 15px;"></i>
             </button>
-          </td>
-          <td class="text-end">
-            <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarProfessor('${p.id}')" title="Editar Docente e Carreira">
+          </div>
+        </td>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" onclick="modalEditarProfessor('${p.id}')" title="Editar Dados Cadastrais e Carreira">
               <i class="bi bi-pencil-square me-1"></i>Editar
             </button>
-          </td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {}
+            <button class="btn btn-outline-warning text-dark" onclick="modalTransferirProfessor('${p.id}')" title="Transferir ou Atribuir Nova Classe a este Docente">
+              <i class="bi bi-arrow-left-right me-1"></i>Transferir Classe
+            </button>
+            <button class="btn btn-outline-danger" onclick="excluirProfessor('${p.id}')" title="Eliminar Docente do Quadro">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 async function modalNovoProfessor() {
-  const optCarreiras = (state.geografia.carreiras || []).map(c => `<option value="${c}">${c}</option>`).join('');
+  const optCarreiras = (state.geografia.carreiras || ['DN1', 'DN2', 'DN3', 'DN4', 'N1', 'N2', 'N3', 'N4', 'Licenciado', 'Mestre', 'Especialista de Educação']).map(c => `<option value="${c}">${c}</option>`).join('');
   const optProvincias = (state.geografia.provincias || []).map(p => `<option value="${p}">${p}</option>`).join('');
 
-  abrirModal('Cadastrar Docente', `
+  // Classes disponíveis
+  const classesDisponiveis = obterClassesDocentes();
+  const checkboxesClassesHtml = classesDisponiveis.map(cls => `
+    <div class="form-check form-check-inline">
+      <input class="form-check-input check-classe-novo-prof" type="checkbox" value="${cls}" id="chkCls_${cls.replace(/\s+/g, '')}" onchange="aoMudarClassesModalNovoProf()">
+      <label class="form-check-label small fw-semibold" for="chkCls_${cls.replace(/\s+/g, '')}">${cls}</label>
+    </div>
+  `).join('');
+
+  // Disciplinas disponíveis
+  const disciplinas = state.todasDisciplinas || [];
+  const optDisciplinas = disciplinas.length > 0 
+    ? disciplinas.map(d => `<option value="${d.id}">${d.nome} ${d.classe ? `(${d.classe})` : ''}</option>`).join('')
+    : '<option value="">Nenhuma disciplina cadastrada</option>';
+
+  abrirModal('Cadastrar Docente & Atribuição de Classes', `
     <form id="formModalProf">
       <div class="row g-3">
         <div class="col-md-7">
@@ -2540,14 +4752,92 @@ async function modalNovoProfessor() {
           </select>
         </div>
 
-        <div class="col-12">
+        <div class="col-md-12">
           <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
-          <input type="number" id="mpCarga" class="form-control" value="20" required>
+          <input type="number" id="mpCarga" class="form-control" value="20" required min="1" max="60">
+        </div>
+
+        <!-- Secção de Atribuição Sequencial: Classe(s) -> Turma(s) -->
+        <div class="col-12 mt-3">
+          <div class="p-3 bg-light rounded border border-primary border-opacity-25">
+            <h6 class="fw-bold text-primary mb-1"><i class="bi bi-mortarboard-fill me-1"></i> Atribuição Sequencial: Classe(s) & Turma(s)</h6>
+            <p class="text-muted small mb-2">Pode seleccionar <strong>1 ou 2 classes</strong> para atribuir ao professor. Em seguida, marque as turmas correspondentes:</p>
+            
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">Passo 1: Seleccione a(s) Classe(s) do Docente:</label>
+              <div class="p-2 bg-white rounded border">
+                ${checkboxesClassesHtml}
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">Passo 2: Turmas Disponíveis nas Classes Seleccionadas:</label>
+              <div id="containerTurmasNovoProf" class="p-2 bg-white rounded border" style="min-height: 50px;">
+                <span class="text-muted small"><i class="bi bi-info-circle me-1"></i> Marque uma ou duas classes no Passo 1 para exibir as turmas disponíveis para alocação.</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label small fw-bold text-dark mb-1">Passo 3: Disciplina Curricular a Ministrar:</label>
+              <select id="mpDisciplinaInicial" class="form-select">
+                <option value="">Selecione a Disciplina Curricular...</option>
+                ${optDisciplinas}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
-      <button type="submit" class="btn btn-primary w-100 mt-4">Cadastrar Docente</button>
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm px-4">Cadastrar Docente & Alocar</button>
+      </div>
     </form>
   `);
+
+  window.aoMudarClassesModalNovoProf = function() {
+    const checks = document.querySelectorAll('.check-classe-novo-prof:checked');
+    const classesSelecionadas = Array.from(checks).map(c => c.value);
+    const containerTurmas = document.getElementById('containerTurmasNovoProf');
+    if (!containerTurmas) return;
+
+    if (classesSelecionadas.length === 0) {
+      containerTurmas.innerHTML = `<span class="text-muted small"><i class="bi bi-info-circle me-1"></i> Marque uma ou duas classes no Passo 1 para exibir as turmas disponíveis para alocação.</span>`;
+      return;
+    }
+
+    const turmas = (state.todasTurmas || []).filter(t => 
+      classesSelecionadas.some(cls => normalizarClasse(t.grau_ano) === normalizarClasse(cls))
+    );
+
+    if (turmas.length === 0) {
+      containerTurmas.innerHTML = `<span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i> Nenhuma turma cadastrada para as classes seleccionadas (${classesSelecionadas.join(', ')}). Pode cadastrar o docente e criar turmas posteriormente.</span>`;
+      return;
+    }
+
+    let turmasHtml = `<div class="d-flex flex-wrap gap-3">`;
+    classesSelecionadas.forEach(cls => {
+      const turmasDestaClasse = turmas.filter(t => normalizarClasse(t.grau_ano) === normalizarClasse(cls));
+      turmasHtml += `<div class="p-2 border rounded bg-light" style="flex: 1; min-width: 200px;">
+        <strong class="d-block text-primary small mb-1 border-bottom pb-1"><i class="bi bi-mortarboard me-1"></i>${cls}:</strong>`;
+      if (turmasDestaClasse.length === 0) {
+        turmasHtml += `<span class="text-muted small">Sem turmas</span>`;
+      } else {
+        turmasDestaClasse.forEach(t => {
+          turmasHtml += `
+            <div class="form-check">
+              <input class="form-check-input check-turma-alocar-prof" type="checkbox" value="${t.id}" id="chkTrm_${t.id}">
+              <label class="form-check-label small" for="chkTrm_${t.id}">
+                <strong>${t.nome}</strong> ${t.area ? `<span class="text-muted">(${t.area})</span>` : ''}
+              </label>
+            </div>
+          `;
+        });
+      }
+      turmasHtml += `</div>`;
+    });
+    turmasHtml += `</div>`;
+    containerTurmas.innerHTML = turmasHtml;
+  };
 
   document.getElementById('formModalProf').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -2567,12 +4857,35 @@ async function modalNovoProfessor() {
         method: 'POST',
         body: JSON.stringify(body)
       });
-      if (res.success) {
+      if (res.success && res.data?.id) {
+        const novoProfId = res.data.id;
+        const checksTurmas = document.querySelectorAll('.check-turma-alocar-prof:checked');
+        const discId = document.getElementById('mpDisciplinaInicial')?.value;
+
+        if (checksTurmas.length > 0 && discId) {
+          const promessasAlocacao = Array.from(checksTurmas).map(chk => {
+            return apiFetch('/api/v1/professores/alocar', {
+              method: 'POST',
+              body: JSON.stringify({
+                professor_id: novoProfId,
+                turma_id: chk.value,
+                disciplina_id: discId
+              })
+            });
+          });
+          await Promise.all(promessasAlocacao);
+          mostrarNotificacao('Docente cadastrado e alocado à(s) turma(s) com sucesso!', 'success');
+        } else {
+          mostrarNotificacao('Docente cadastrado com sucesso!', 'success');
+        }
+
         fecharModal();
         carregarProfessores();
+      } else {
+        alert(res.message || 'Erro ao cadastrar docente');
       }
     } catch (err) {
-      alert('Erro ao cadastrar docente');
+      alert('Erro ao cadastrar docente: ' + (err.message || 'Erro no servidor'));
     }
   });
 }
@@ -2587,9 +4900,19 @@ function atualizarDistritosProfessor(provincia, distritoSelecionado = '', select
 
 async function modalEditarProfessor(profId) {
   try {
-    const res = await apiFetch(`/api/v1/professores/${profId}`);
-    if (!res.success || !res.data) return alert('Falha ao obter dados do professor');
-    const p = res.data;
+    let p = (state.todosProfessores || []).find(x => String(x.id) === String(profId));
+    try {
+      const res = await apiFetch(`/api/v1/professores/${profId}`);
+      if (res && res.success && res.data) {
+        p = res.data;
+      } else if (res && (res.id || res.nome)) {
+        p = res;
+      }
+    } catch (apiErr) {
+      console.warn('Usando dados de professor em cache local:', apiErr);
+    }
+
+    if (!p) return alert('Falha ao obter dados do professor');
 
     const carreirasPadrao = ['DN1', 'DN2', 'DN3', 'DN4', 'N1', 'N2', 'N3', 'N4', 'Especialista de Educação', 'Mestre', 'Professor Doutor', 'Licenciado', 'Bacharel'];
     const carreiras = (state.geografia.carreiras && state.geografia.carreiras.length) ? state.geografia.carreiras : carreirasPadrao;
@@ -2597,6 +4920,20 @@ async function modalEditarProfessor(profId) {
 
     const provincias = state.geografia.provincias || ['Maputo Cidade', 'Maputo Província', 'Gaza', 'Inhambane', 'Sofala', 'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa'];
     const optProvincias = provincias.map(prov => `<option value="${prov}" ${prov === p.provincia ? 'selected' : ''}>${prov}</option>`).join('');
+
+    const alocacoesHtml = (p.alocacoes && p.alocacoes.length > 0)
+      ? p.alocacoes.map(a => `
+        <div class="d-flex justify-content-between align-items-center p-2 mb-1 bg-white rounded border">
+          <div>
+            <span class="badge bg-primary me-1">${a.turma_grau || 'Classe'}</span>
+            <strong>${a.turma_nome || a.turma?.nome}</strong> &rarr; <span class="text-muted">${a.disciplina_nome || a.disciplina?.nome}</span>
+          </div>
+          <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarAlocacao('${a.id}', '${p.id}')" title="Desvincular esta turma">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      `).join('')
+      : '<span class="text-muted small">Nenhuma turma alocada até ao momento.</span>';
 
     abrirModal(`Editar Docente: ${p.nome}`, `
       <form id="formModalEditarProf">
@@ -2642,7 +4979,7 @@ async function modalEditarProfessor(profId) {
 
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
-            <input type="number" id="mpeCarga" class="form-control" value="${p.carga_horaria_semanal || 20}" required>
+            <input type="number" id="mpeCarga" class="form-control" value="${p.carga_horaria_semanal || 20}" required min="1" max="60">
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Estado do Docente</label>
@@ -2651,15 +4988,63 @@ async function modalEditarProfessor(profId) {
               <option value="false" ${p.ativo === false ? 'selected' : ''}>Inactivo / Licença</option>
             </select>
           </div>
+
+          <!-- Carga Horária Normal Máxima por Classe -->
+          <div class="col-12 mt-2">
+            <div class="p-3 bg-light rounded border">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <h6 class="fw-bold text-primary mb-0"><i class="bi bi-speedometer2 me-1"></i> Carga Horária Normal Máxima por Classe</h6>
+                <span class="badge bg-primary bg-opacity-10 text-primary small">Contrato & Limites</span>
+              </div>
+              <div class="small text-muted mb-2" style="font-size: 0.78rem;">
+                Defina o teto normal de aulas semanais para cada classe lecionada. Aulas atribuídas acima destes valores serão contabilizadas automaticamente como <strong>Horas Extras</strong>.
+              </div>
+              <div class="row g-2">
+                ${['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'].map(c => {
+                  const val = (p.carga_maxima_por_classe && p.carga_maxima_por_classe[c])
+                    ? p.carga_maxima_por_classe[c]
+                    : (p.carga_horaria_semanal || 16);
+                  return `
+                    <div class="col-md-4 col-sm-6">
+                      <label class="form-label small fw-semibold mb-1"><i class="bi bi-mortarboard me-1 text-primary"></i>${c}</label>
+                      <div class="input-group input-group-sm">
+                        <input type="number" class="form-control mpeCargaClasseItem text-center fw-bold" data-classe="${c}" value="${val}" min="1" max="40">
+                        <span class="input-group-text bg-white">h/sem</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Turmas e Classes Actuais do Docente -->
+          <div class="col-12 mt-2">
+            <div class="p-3 bg-light rounded border">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold text-primary mb-0"><i class="bi bi-collection-fill me-1"></i> Classes & Turmas Alocadas</h6>
+                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="fecharModal(); modalAlocarProfessor('${p.id}');">
+                  <i class="bi bi-plus-lg me-1"></i>Atribuir Nova Turma
+                </button>
+              </div>
+              <div id="containerAlocacoesEditarProf">
+                ${alocacoesHtml}
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="d-flex gap-2 justify-content-end mt-4">
-          <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+        <div class="d-flex gap-2 justify-content-between align-items-center mt-4 pt-2 border-top">
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="fecharModal(); excluirProfessor('${p.id}');">
+            <i class="bi bi-trash me-1"></i>Eliminar Docente
+          </button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+          </div>
         </div>
       </form>
     `);
 
-    // Carregar distritos para a província actual
     if (p.provincia) {
       atualizarDistritosProfessor(p.provincia, p.distrito || '', 'mpeDistrito');
     }
@@ -2667,6 +5052,13 @@ async function modalEditarProfessor(profId) {
     document.getElementById('formModalEditarProf').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
+        const cargasMap = {};
+        document.querySelectorAll('.mpeCargaClasseItem').forEach(inp => {
+          const c = inp.getAttribute('data-classe');
+          const val = Number(inp.value);
+          if (c && val > 0) cargasMap[c] = val;
+        });
+
         const body = {
           nome: document.getElementById('mpeNome').value,
           apelido: document.getElementById('mpeApelido').value || null,
@@ -2677,6 +5069,7 @@ async function modalEditarProfessor(profId) {
           provincia: document.getElementById('mpeProvincia').value || null,
           distrito: document.getElementById('mpeDistrito').value || null,
           carga_horaria_semanal: Number(document.getElementById('mpeCarga').value),
+          carga_maxima_por_classe: cargasMap,
           ativo: document.getElementById('mpeAtivo').value === 'true'
         };
         const updateRes = await apiFetch(`/api/v1/professores/${profId}`, {
@@ -2684,7 +5077,7 @@ async function modalEditarProfessor(profId) {
           body: JSON.stringify(body)
         });
         if (updateRes.success) {
-          alert('Dados do docente e carreira actualizados com sucesso!');
+          mostrarNotificacao('Dados do docente actualizados com sucesso!', 'success');
           fecharModal();
           carregarProfessores();
         } else {
@@ -2706,46 +5099,329 @@ async function modalAlocarProfessor(professorIdPadrao = '') {
     apiFetch('/api/v1/disciplinas')
   ]);
 
-  const optProfs = (profsRes.data || []).map(p => `<option value="${p.id}" ${p.id === professorIdPadrao ? 'selected' : ''}>${p.nome} ${p.apelido || ''}</option>`).join('');
-  const optTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
-  const optDisc = (discRes.data || []).map(d => `<option value="${d.id}">${d.nome} (${d.classe || ''})</option>`).join('');
+  const profs = profsRes.data || state.todosProfessores || [];
+  const turmas = turmasRes.data || state.todasTurmas || [];
+  const disciplinas = discRes.data || state.todasDisciplinas || [];
 
-  abrirModal('Alocar Docente a Turma e Disciplina', `
+  state.todosProfessores = profs;
+  state.todasTurmas = turmas;
+  state.todasDisciplinas = disciplinas;
+
+  const optProfs = profs.map(p => 
+    `<option value="${p.id}" ${p.id === professorIdPadrao ? 'selected' : ''}>${p.nome} ${p.apelido || ''} (${p.especialidade || 'Docente'})</option>`
+  ).join('');
+
+  // Obter classes distintas das turmas
+  const classesSet = new Set();
+  turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+  disciplinas.forEach(d => { if (d.classe) classesSet.add(d.classe.trim()); });
+  const classesList = Array.from(classesSet).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
+  if (classesList.length === 0) classesList.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
+
+  const optClasses = classesList.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  abrirModal('Atribuir Turma & Carga Horária Docente', `
     <form id="formModalAloc">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Professor / Docente</label>
-        <select id="malocProf" class="form-select" required>${optProfs}</select>
+        <label class="form-label small fw-semibold">1. Professor / Docente *</label>
+        <select id="malocProf" class="form-select fw-semibold" required onchange="aoMudarProfessorModalAlocar()">${optProfs}</select>
       </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-md-7">
+          <label class="form-label small fw-semibold text-primary"><i class="bi bi-mortarboard-fill me-1"></i> 2. Seleccione a Classe / Grau *</label>
+          <select id="malocClasse" class="form-select border-primary fw-semibold" required onchange="aoMudarClasseModalAlocar()">
+            <option value="">Selecione a Classe...</option>
+            ${optClasses}
+          </select>
+          <small class="text-muted" style="font-size: 0.72rem;">Filtra automaticamente turmas de todas as secções e disciplinas.</small>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small fw-semibold text-info"><i class="bi bi-speedometer2 me-1"></i> Carga Normal Máx. nesta Classe</label>
+          <div class="input-group input-group-sm">
+            <input type="number" id="malocCargaMaxClasse" class="form-control fw-bold border-info text-center" value="16" min="1" max="40" oninput="aoAtualizarCalculoCargaAlocar()">
+            <span class="input-group-text bg-info bg-opacity-10 text-info fw-bold">h/sem</span>
+          </div>
+          <small class="text-muted" style="font-size: 0.7rem;">Teto contratual normal do docente para esta classe.</small>
+        </div>
+      </div>
+
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Turma</label>
-        <select id="malocTurma" class="form-select" required>${optTurmas}</select>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label small fw-semibold text-primary mb-0"><i class="bi bi-collection-fill me-1"></i> 3. Turma da Classe Seleccionada *</label>
+          <span class="badge bg-light text-secondary border small" style="font-size: 0.7rem;">Mesma secção ou secções diferentes</span>
+        </div>
+        <select id="malocTurma" class="form-select border-primary" required onchange="aoAtualizarCalculoCargaAlocar()">
+          <option value="">Selecione primeiro a classe acima...</option>
+        </select>
       </div>
+
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Disciplina Curricular</label>
-        <select id="malocDisc" class="form-select" required>${optDisc}</select>
+        <label class="form-label small fw-semibold text-primary"><i class="bi bi-book-fill me-1"></i> 4. Disciplina Curricular *</label>
+        <select id="malocDisc" class="form-select border-primary" required onchange="aoAtualizarCalculoCargaAlocar()">
+          <option value="">Selecione a disciplina curricular...</option>
+        </select>
       </div>
-      <div class="d-flex gap-2 justify-content-end mt-4">
+
+      <!-- Painel Dinâmico de Cálculo Automático e Transbordo de Horas Extras -->
+      <div id="painelAnaliseCargaDocente" class="mt-3"></div>
+
+      <div class="d-flex gap-2 justify-content-end mt-4 pt-2 border-top">
         <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm px-4">Confirmar Alocação</button>
+        <button type="submit" id="btnConfirmarAlocacao" class="btn btn-primary btn-sm px-4 fw-semibold">
+          <i class="bi bi-check2-circle me-1"></i> Confirmar Atribuição
+        </button>
       </div>
     </form>
   `);
 
+  window.aoMudarProfessorModalAlocar = function() {
+    const profId = document.getElementById('malocProf')?.value;
+    const selClasse = document.getElementById('malocClasse')?.value;
+    const prof = (state.todosProfessores || []).find(p => String(p.id) === String(profId));
+    if (prof && selClasse) {
+      const maxClasse = (prof.carga_maxima_por_classe && prof.carga_maxima_por_classe[selClasse])
+        ? Number(prof.carga_maxima_por_classe[selClasse])
+        : (prof.carga_horaria_semanal || 16);
+      const inp = document.getElementById('malocCargaMaxClasse');
+      if (inp) inp.value = maxClasse;
+    }
+    aoAtualizarCalculoCargaAlocar();
+  };
+
+  window.aoMudarClasseModalAlocar = function() {
+    const selClasse = document.getElementById('malocClasse')?.value;
+    const profId = document.getElementById('malocProf')?.value;
+    const selTurma = document.getElementById('malocTurma');
+    const selDisc = document.getElementById('malocDisc');
+    const inpMaxClasse = document.getElementById('malocCargaMaxClasse');
+    if (!selTurma || !selDisc) return;
+
+    if (!selClasse) {
+      selTurma.innerHTML = '<option value="">Selecione primeiro a classe acima...</option>';
+      selDisc.innerHTML = '<option value="">Selecione primeiro a classe acima...</option>';
+      aoAtualizarCalculoCargaAlocar();
+      return;
+    }
+
+    // Carregar limite contratual do professor para esta classe
+    const prof = (state.todosProfessores || []).find(p => String(p.id) === String(profId));
+    if (prof && inpMaxClasse) {
+      const maxClasse = (prof.carga_maxima_por_classe && prof.carga_maxima_por_classe[selClasse])
+        ? Number(prof.carga_maxima_por_classe[selClasse])
+        : (prof.carga_horaria_semanal || 16);
+      inpMaxClasse.value = maxClasse;
+    }
+
+    // Filtrar turmas da classe seleccionada (permite qualquer secção ou área)
+    const turmasFiltradas = (state.todasTurmas || []).filter(t => 
+      normalizarClasse(t.grau_ano) === normalizarClasse(selClasse)
+    );
+
+    if (turmasFiltradas.length === 0) {
+      selTurma.innerHTML = `<option value="">Nenhuma turma cadastrada para ${selClasse}</option>`;
+    } else {
+      selTurma.innerHTML = '<option value="">Selecione a Turma...</option>' + 
+        turmasFiltradas.map(t => {
+          const areaLabel = t.area ? `Secção: ${t.area}` : 'Geral';
+          const turnoLabel = t.turno || 'Diurno';
+          return `<option value="${t.id}">${t.nome} (${areaLabel} - ${turnoLabel})</option>`;
+        }).join('');
+    }
+
+    // Filtrar disciplinas da classe
+    const discFiltradas = (state.todasDisciplinas || []).filter(d => 
+      !d.classe || normalizarClasse(d.classe) === normalizarClasse(selClasse)
+    );
+
+    if (discFiltradas.length === 0) {
+      selDisc.innerHTML = (state.todasDisciplinas || []).map(d => `<option value="${d.id}">${d.nome} (${d.carga_horaria || 5}h/sem)</option>`).join('');
+    } else {
+      selDisc.innerHTML = '<option value="">Selecione a Disciplina...</option>' + 
+        discFiltradas.map(d => `<option value="${d.id}">${d.nome} (${d.carga_horaria || 5}h/semana${d.area ? ` - ${d.area}` : ''})</option>`).join('');
+    }
+
+    aoAtualizarCalculoCargaAlocar();
+  };
+
+  window.aoAtualizarCalculoCargaAlocar = function() {
+    const profId = document.getElementById('malocProf')?.value;
+    const selClasse = document.getElementById('malocClasse')?.value;
+    const turmaId = document.getElementById('malocTurma')?.value;
+    const discId = document.getElementById('malocDisc')?.value;
+    const inputMaxClasse = document.getElementById('malocCargaMaxClasse');
+    const container = document.getElementById('painelAnaliseCargaDocente');
+    if (!container) return;
+
+    const prof = (state.todosProfessores || []).find(p => String(p.id) === String(profId));
+    if (!prof) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const metricas = calcularMetricasCargaProfessor(prof);
+    const maxClasse = Number(inputMaxClasse?.value) || (prof.carga_maxima_por_classe?.[selClasse] || prof.carga_horaria_semanal || 16);
+    const maxGeral = metricas.maxNormal;
+
+    const cargaClasseAtual = selClasse ? (metricas.porClasse[selClasse]?.cargaAlocada || 0) : 0;
+    const cargaGeralAtual = metricas.totalAlocada;
+
+    // Obter carga da disciplina selecionada
+    let chNova = 0;
+    let discNome = '';
+    if (discId) {
+      const disc = (state.todasDisciplinas || []).find(d => String(d.id) === String(discId));
+      if (disc) {
+        chNova = Number(disc.carga_horaria) || 5;
+        discNome = disc.nome || '';
+      }
+    }
+
+    const novaCargaClasse = cargaClasseAtual + chNova;
+    const novaCargaGeral = cargaGeralAtual + chNova;
+
+    // Calcular horas normais e transbordo (horas extras)
+    const horasExtrasClasse = Math.max(0, novaCargaClasse - maxClasse);
+    const horasExtrasGeral = Math.max(0, novaCargaGeral - maxGeral);
+    const horasExtrasFinais = Math.max(horasExtrasClasse, horasExtrasGeral);
+    const horasNormaisFinais = Math.max(0, novaCargaGeral - horasExtrasFinais);
+
+    // Listar turmas atuais
+    const turmasAtuais = (prof.alocacoes || []).map(a => {
+      const c = a.turma_grau || a.turma?.grau_ano || 'Classe';
+      const t = a.turma_nome || a.turma?.nome || 'Turma';
+      const d = a.disciplina_nome || a.disciplina?.nome || 'Disciplina';
+      const ch = a.disciplina_carga_horaria || a.disciplina?.carga_horaria || 5;
+      return `<li class="d-flex justify-content-between py-1 border-bottom border-light"><span><span class="badge bg-secondary me-1" style="font-size:0.68rem;">${c}</span><strong>${t}</strong>: ${d}</span><span class="badge bg-light text-dark border font-monospace">${ch}h/sem</span></li>`;
+    }).join('');
+
+    const temAlocacoes = (prof.alocacoes && prof.alocacoes.length > 0);
+
+    let statusBox = '';
+    if (chNova > 0 && horasExtrasFinais > 0) {
+      statusBox = `
+        <div class="alert alert-warning border border-warning d-flex align-items-start gap-2 mb-2 p-2 rounded">
+          <i class="bi bi-exclamation-triangle-fill text-warning fs-4 mt-1"></i>
+          <div>
+            <div class="fw-bold text-dark">Atenção: Transbordo de Carga Horária Máxima!</div>
+            <div class="small text-dark">
+              Esta atribuição (${chNova}h/semana) excede o teto contratual normal. O sistema separa e contabiliza automaticamente:
+            </div>
+            <div class="d-flex gap-2 align-items-center mt-2 flex-wrap">
+              <span class="badge bg-success p-2" style="font-size: 0.8rem;">Carga Normal: ${horasNormaisFinais}h / semana</span>
+              <span class="badge bg-danger p-2 fs-6 font-monospace" style="font-size: 0.85rem;">+${horasExtrasFinais} Horas Extras / semana</span>
+            </div>
+            <div class="small text-muted mt-1" style="font-size: 0.72rem;">
+              * As horas extras serão reflectidas no mapa de encargos e folha salarial da escola.
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (chNova > 0) {
+      statusBox = `
+        <div class="alert alert-success border border-success d-flex align-items-center gap-2 mb-2 p-2 rounded">
+          <i class="bi bi-check-circle-fill text-success fs-4"></i>
+          <div>
+            <div class="fw-bold text-success">Dentro da Carga Horária Normal</div>
+            <div class="small text-muted">
+              Carga Total: <strong>${novaCargaGeral}h / semana</strong> (100% Carga Normal | <strong>0h Extras</strong>). O docente está dentro do limite máximo de ${maxClasse}h (classe) e ${maxGeral}h (geral).
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div class="card bg-light border p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="fw-bold text-primary mb-0" style="font-size: 0.85rem;">
+            <i class="bi bi-calculator me-1"></i> Análise de Carga Horária do Docente
+          </h6>
+          <span class="badge bg-secondary font-monospace" style="font-size: 0.75rem;">
+            ${prof.nome} ${prof.apelido || ''}
+          </span>
+        </div>
+
+        <div class="row g-2 text-center mb-2">
+          <div class="col-3">
+            <div class="p-2 bg-white rounded border">
+              <small class="text-muted d-block" style="font-size: 0.68rem;">Carga Atual</small>
+              <strong class="fs-6 text-dark">${cargaGeralAtual}h</strong>
+              <small class="d-block text-muted" style="font-size: 0.65rem;">${selClasse ? `${cargaClasseAtual}h na ${selClasse.replace('Classe', '').trim()}` : 'Geral'}</small>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="p-2 bg-white rounded border border-primary border-opacity-25">
+              <small class="text-primary d-block" style="font-size: 0.68rem;">Desta Turma</small>
+              <strong class="fs-6 text-primary">+${chNova}h</strong>
+              <small class="d-block text-muted" style="font-size: 0.65rem;">${discNome ? discNome.slice(0, 10) : 'Pendente'}</small>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="p-2 bg-white rounded border ${horasExtrasFinais > 0 ? 'border-warning' : 'border-success'}">
+              <small class="d-block text-muted" style="font-size: 0.68rem;">Nova Carga Total</small>
+              <strong class="fs-6 ${horasExtrasFinais > 0 ? 'text-warning' : 'text-success'}">${novaCargaGeral}h</strong>
+              <small class="d-block ${horasExtrasFinais > 0 ? 'text-danger fw-bold' : 'text-success'}" style="font-size: 0.65rem;">
+                ${horasExtrasFinais > 0 ? `+${horasExtrasFinais}h extra` : 'Normal'}
+              </small>
+            </div>
+          </div>
+          <div class="col-3">
+            <div class="p-2 bg-white rounded border">
+              <small class="text-muted d-block" style="font-size: 0.68rem;">Máx. Normal</small>
+              <strong class="fs-6 text-info">${maxClasse}h</strong>
+              <small class="d-block text-muted" style="font-size: 0.65rem;">Geral: ${maxGeral}h</small>
+            </div>
+          </div>
+        </div>
+
+        ${statusBox}
+
+        ${temAlocacoes ? `
+          <div class="mt-1">
+            <a class="text-decoration-none small fw-semibold text-secondary d-inline-block" data-bs-toggle="collapse" href="#detalheTurmasAtuaisAloc" role="button">
+              <i class="bi bi-chevron-down me-1"></i> Ver ${prof.alocacoes.length} turma(s) já atribuída(s) a este docente
+            </a>
+            <div class="collapse mt-2" id="detalheTurmasAtuaisAloc">
+              <ul class="list-unstyled mb-0 small" style="max-height: 120px; overflow-y: auto;">
+                ${turmasAtuais}
+              </ul>
+            </div>
+          </div>
+        ` : '<div class="small text-muted fst-italic">Este docente ainda não possui nenhuma turma atribuída.</div>'}
+      </div>
+    `;
+  };
+
+  // Inicializar cálculo inicial
+  aoAtualizarCalculoCargaAlocar();
+
   document.getElementById('formModalAloc').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const profId = document.getElementById('malocProf').value;
+    const turmaId = document.getElementById('malocTurma').value;
+    const discId = document.getElementById('malocDisc').value;
+    const cargaMaxClasse = Number(document.getElementById('malocCargaMaxClasse')?.value) || 16;
+    const selClasse = document.getElementById('malocClasse')?.value;
+
+    if (!profId || !turmaId || !discId) {
+      return alert('Por favor seleccione o professor, a classe, a turma e a disciplina.');
+    }
+
     try {
       const res = await apiFetch('/api/v1/professores/alocar', {
         method: 'POST',
         body: JSON.stringify({
-          professor_id: document.getElementById('malocProf').value,
-          turma_id: document.getElementById('malocTurma').value,
-          disciplina_id: document.getElementById('malocDisc').value
+          professor_id: profId,
+          turma_id: turmaId,
+          disciplina_id: discId,
+          carga_maxima_classe: cargaMaxClasse
         })
       });
       if (res.success) {
-        mostrarNotificacao('Turma e disciplina alocadas com sucesso!', 'success');
+        mostrarNotificacao('Turma e disciplina alocadas com sucesso! Carga horária e horas extras atualizadas.', 'success');
         fecharModal();
-        carregarProfessores();
+        await carregarProfessores();
       } else {
         alert(res.message || 'Erro ao alocar professor');
       }
@@ -2753,6 +5429,196 @@ async function modalAlocarProfessor(professorIdPadrao = '') {
       alert(err.message || 'Erro ao alocar professor');
     }
   });
+}
+
+async function modalTransferirProfessor(profId) {
+  try {
+    const prof = (state.todosProfessores || []).find(p => p.id === profId);
+    if (!prof) return alert('Docente não encontrado');
+
+    const [turmasRes, discRes] = await Promise.all([
+      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch('/api/v1/disciplinas')
+    ]);
+
+    const turmas = turmasRes.data || [];
+    const disciplinas = discRes.data || [];
+    state.todasTurmas = turmas;
+    state.todasDisciplinas = disciplinas;
+
+    const classesSet = new Set();
+    turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+    const classesList = Array.from(classesSet).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
+    if (classesList.length === 0) classesList.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
+
+    const optClasses = classesList.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    const alocacoesAtuaisHtml = (prof.alocacoes && prof.alocacoes.length > 0)
+      ? prof.alocacoes.map(a => `
+        <span class="badge border bg-light text-dark p-2 me-1 mb-1">
+          <i class="bi bi-mortarboard me-1 text-primary"></i>${a.turma_grau || 'Classe'}: <strong>${a.turma_nome || a.turma?.nome}</strong> (${a.disciplina_nome || a.disciplina?.nome})
+        </span>
+      `).join('')
+      : '<span class="text-muted small">Sem turmas atribuídas de momento.</span>';
+
+    abrirModal(`Transferir / Atribuir Nova Classe: ${prof.nome}`, `
+      <form id="formModalTransferirProf">
+        <div class="mb-3 p-3 bg-light rounded border">
+          <div class="small fw-bold text-muted text-uppercase mb-1">Docente Seleccionado:</div>
+          <h5 class="fw-bold text-primary mb-1">${prof.nome} ${prof.apelido || ''}</h5>
+          <div class="small text-muted mb-2">Carreira: <strong>${prof.carreira || 'Licenciado'}</strong> | Especialidade: <strong>${prof.especialidade || 'Área Geral'}</strong></div>
+          <div class="small fw-bold text-muted text-uppercase mb-1">Classes & Turmas Actuais:</div>
+          <div class="d-flex flex-wrap gap-1">${alocacoesAtuaisHtml}</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark">Modo de Operação</label>
+          <div class="p-2 border rounded bg-white">
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="radio" name="modoOperacao" id="modoSubstituir" value="SUBSTITUIR" checked>
+              <label class="form-check-label small fw-semibold" for="modoSubstituir">
+                Transferir Integralmente (Substituir turmas anteriores pela nova classe)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="modoOperacao" id="modoAdicionar" value="ADICIONAR">
+              <label class="form-check-label small fw-semibold" for="modoAdicionar">
+                Atribuir Classe Adicional (Manter turmas actuais e acrescentar a nova classe)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-mortarboard-fill me-1"></i> 1. Nova Classe / Grau</label>
+            <select id="mtransfClasse" class="form-select border-primary fw-semibold" required onchange="aoMudarClasseModalTransferir()">
+              <option value="">Selecione a Classe...</option>
+              ${optClasses}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-collection-fill me-1"></i> 2. Turma da Nova Classe</label>
+            <select id="mtransfTurma" class="form-select border-primary" required>
+              <option value="">Selecione primeiro a classe...</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold text-primary"><i class="bi bi-book-fill me-1"></i> 3. Disciplina a Ministrar</label>
+            <select id="mtransfDisc" class="form-select border-primary" required>
+              <option value="">Selecione a disciplina...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-2 border-top">
+          <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-warning text-dark fw-bold btn-sm px-4">
+            <i class="bi bi-arrow-left-right me-1"></i> Confirmar Atribuição / Transferência
+          </button>
+        </div>
+      </form>
+    `);
+
+    window.aoMudarClasseModalTransferir = function() {
+      const cls = document.getElementById('mtransfClasse')?.value;
+      const selTurma = document.getElementById('mtransfTurma');
+      const selDisc = document.getElementById('mtransfDisc');
+      if (!selTurma || !selDisc) return;
+
+      if (!cls) {
+        selTurma.innerHTML = '<option value="">Selecione primeiro a classe...</option>';
+        selDisc.innerHTML = '<option value="">Selecione primeiro a classe...</option>';
+        return;
+      }
+
+      const turmasFiltradas = (state.todasTurmas || []).filter(t => 
+        normalizarClasse(t.grau_ano) === normalizarClasse(cls)
+      );
+
+      if (turmasFiltradas.length === 0) {
+        selTurma.innerHTML = `<option value="">Nenhuma turma cadastrada para ${cls}</option>`;
+      } else {
+        selTurma.innerHTML = '<option value="">Selecione a Turma...</option>' + 
+          turmasFiltradas.map(t => `<option value="${t.id}">${t.nome} (${t.area || 'Geral'})</option>`).join('');
+      }
+
+      const discFiltradas = (state.todasDisciplinas || []).filter(d => 
+        !d.classe || normalizarClasse(d.classe) === normalizarClasse(cls)
+      );
+
+      if (discFiltradas.length === 0) {
+        selDisc.innerHTML = (state.todasDisciplinas || []).map(d => `<option value="${d.id}">${d.nome}</option>`).join('');
+      } else {
+        selDisc.innerHTML = '<option value="">Selecione a Disciplina...</option>' + 
+          discFiltradas.map(d => `<option value="${d.id}">${d.nome} ${d.classe ? `(${d.classe})` : ''}</option>`).join('');
+      }
+    };
+
+    document.getElementById('formModalTransferirProf').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const modo = document.querySelector('input[name="modoOperacao"]:checked')?.value || 'SUBSTITUIR';
+        const turmaId = document.getElementById('mtransfTurma').value;
+        const discId = document.getElementById('mtransfDisc').value;
+
+        if (!turmaId || !discId) {
+          return alert('Por favor, seleccione a turma e a disciplina correspondentes.');
+        }
+
+        // Se for substituição integral, remove as alocações anteriores
+        if (modo === 'SUBSTITUIR' && prof.alocacoes && prof.alocacoes.length > 0) {
+          const remocoes = prof.alocacoes.map(a => 
+            apiFetch(`/api/v1/professores/alocar/${a.id}`, { method: 'DELETE' })
+          );
+          await Promise.all(remocoes);
+        }
+
+        // Cria a nova alocação
+        const resAloc = await apiFetch('/api/v1/professores/alocar', {
+          method: 'POST',
+          body: JSON.stringify({
+            professor_id: profId,
+            turma_id: turmaId,
+            disciplina_id: discId
+          })
+        });
+
+        if (resAloc.success) {
+          mostrarNotificacao('Docente transferido / atribuído à nova classe com sucesso!', 'success');
+          fecharModal();
+          carregarProfessores();
+        } else {
+          alert(resAloc.message || 'Erro ao atribuir nova classe');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao realizar transferência');
+      }
+    });
+  } catch (err) {
+    alert('Erro ao carregar modal de transferência: ' + err.message);
+  }
+}
+
+async function excluirProfessor(profId) {
+  const p = (state.todosProfessores || []).find(x => x.id === profId);
+  const nome = p ? `${p.nome} ${p.apelido || ''}`.trim() : 'este docente';
+  if (!confirm(`Tem a certeza que deseja eliminar o docente "${nome}" do quadro escolar? Todas as suas alocações de turmas e disciplinas serão desvinculadas.`)) {
+    return;
+  }
+  try {
+    const res = await apiFetch(`/api/v1/professores/${profId}`, {
+      method: 'DELETE'
+    });
+    if (res.success) {
+      mostrarNotificacao('Docente eliminado do quadro com sucesso!', 'success');
+      await carregarProfessores();
+    } else {
+      alert(res.message || 'Erro ao eliminar docente');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao comunicar com o servidor');
+  }
 }
 
 async function modalEditarAlocacao(alocacaoId, profId) {
@@ -2767,7 +5633,7 @@ async function modalEditarAlocacao(alocacaoId, profId) {
     const aloc = prof ? (prof.alocacoes || []).find(a => a.id === alocacaoId) : null;
 
     const optTurmas = (turmasRes.data || []).map(t => 
-      `<option value="${t.id}" ${aloc && aloc.turma_id === t.id ? 'selected' : ''}>${t.nome} (${t.grau_ano})</option>`
+      `<option value="${t.id}" ${aloc && aloc.turma_id === t.id ? 'selected' : ''}>${t.grau_ano} &rarr; ${t.nome} (${normalizarArea(t.area || 'Geral')})</option>`
     ).join('');
 
     const optDisc = (discRes.data || []).map(d => 
@@ -2840,121 +5706,255 @@ async function eliminarAlocacao(alocacaoId, profId) {
 
 // ==================== 6. DISCIPLINAS ====================
 function filtrarDisciplinasClasse(classe) {
-  state.filtroDisciplinaClasse = classe;
-  const pills = document.querySelectorAll('#pillsDisciplinasClasses .nav-link');
-  pills.forEach(p => {
-    if ((!classe && p.textContent.trim() === 'Todas') || p.textContent.trim() === classe) {
-      p.classList.add('active');
-    } else {
-      p.classList.remove('active');
-    }
-  });
-  atualizarPillsAreasParaClasse(classe);
+  state.filtroDisciplinaClasse = classe || '';
+  const selClasse = document.getElementById('filtroDisciplinasClasseSelect');
+  if (selClasse && selClasse.value !== (classe || '')) {
+    selClasse.value = classe || '';
+  }
+  atualizarSelectAreasDisciplinas(classe);
   carregarDisciplinas();
 }
 
 function filtrarDisciplinasArea(area) {
-  state.filtroDisciplinaArea = area;
-  const btns = document.querySelectorAll('#pillsDisciplinasAreas button');
-  btns.forEach(b => {
-    if ((!area && b.textContent.includes('Todas')) || b.textContent.trim() === area) {
-      b.className = 'btn btn-sm btn-primary py-1 px-2 small';
-    } else {
-      b.className = 'btn btn-sm btn-outline-secondary py-1 px-2 small';
-    }
-  });
+  state.filtroDisciplinaArea = area || '';
+  const selArea = document.getElementById('filtroDisciplinasAreaSelect');
+  if (selArea && selArea.value !== (area || '')) {
+    selArea.value = area || '';
+  }
   carregarDisciplinas();
 }
 
-function atualizarPillsAreasParaClasse(classe) {
-  const container = document.getElementById('pillsDisciplinasAreas');
-  if (!container) return;
+function atualizarSelectAreasDisciplinas(classe = null) {
+  const selectArea = document.getElementById('filtroDisciplinasAreaSelect');
+  if (!selectArea) return;
 
-  let areas = ['Ensino Geral'];
-  if (classe.includes('11') || classe.includes('12')) {
-    areas = ['Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História', 'Ensino Geral'];
-  } else if (classe.includes('7') || classe.includes('8') || classe.includes('9') || classe.includes('10')) {
-    areas = ['Ensino Geral', 'Área de Comunicação', 'Área de Ciências Naturais'];
-  }
-
-  // Carregar áreas personalizadas salvas
-  const savedCustom = localStorage.getItem('sige_custom_areas_' + (classe || 'geral'));
-  if (savedCustom) {
-    try {
-      const parsed = JSON.parse(savedCustom);
-      areas = Array.from(new Set([...areas, ...parsed]));
-    } catch (e) {}
-  }
+  const todasAreas = typeof window.obterTodasAreasOficiais === 'function'
+    ? window.obterTodasAreasOficiais(classe || state.filtroDisciplinaClasse)
+    : [
+        'Ensino Geral',
+        'Ciências com Biologia',
+        'Ciências com Desenho',
+        'Ciências com Geografia',
+        'Letras com Geografia',
+        'Letras com História'
+      ];
 
   const activeArea = state.filtroDisciplinaArea || '';
-  let htmlBtns = `<button class="btn btn-sm ${!activeArea ? 'btn-primary' : 'btn-outline-secondary'} py-1 px-2 small" onclick="filtrarDisciplinasArea('')">Todas as Áreas</button>`;
-  areas.forEach(a => {
-    const isAct = activeArea === a;
-    htmlBtns += `<button class="btn btn-sm ${isAct ? 'btn-primary' : 'btn-outline-secondary'} py-1 px-2 small" onclick="filtrarDisciplinasArea('${a}')">${a}</button>`;
+
+  let htmlOptions = `<option value="">Todas as Áreas / Secções (${todasAreas.length})</option>`;
+  todasAreas.forEach(a => {
+    const isAct = (activeArea && activeArea.toLowerCase() === a.toLowerCase()) ? 'selected' : '';
+    htmlOptions += `<option value="${a}" ${isAct}>${a}</option>`;
   });
 
-  container.innerHTML = htmlBtns;
+  selectArea.innerHTML = htmlOptions;
+
+  if (activeArea && !todasAreas.some(x => x.toLowerCase() === activeArea.toLowerCase())) {
+    state.filtroDisciplinaArea = '';
+    selectArea.value = '';
+  } else if (activeArea) {
+    selectArea.value = activeArea;
+  }
+}
+
+function filtrarDisciplinasTabelaTexto() {
+  const busca = (document.getElementById('filtroDisciplinasBusca')?.value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#tabelaDisciplinas tr');
+  let visiveis = 0;
+  let linhaVazia = document.getElementById('linhaNenhumaDisciplinaBusca');
+
+  rows.forEach(r => {
+    if (r.id === 'linhaNenhumaDisciplinaBusca') return;
+    if (r.cells.length < 4) return;
+    const txt = r.textContent.toLowerCase();
+    const show = (!busca || txt.includes(busca));
+    r.style.display = show ? '' : 'none';
+    if (show) visiveis++;
+  });
+
+  const tbody = document.getElementById('tabelaDisciplinas');
+  if (tbody && rows.length > 0 && visiveis === 0 && busca) {
+    if (!linhaVazia) {
+      linhaVazia = document.createElement('tr');
+      linhaVazia.id = 'linhaNenhumaDisciplinaBusca';
+      linhaVazia.innerHTML = `<td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-search me-1 text-primary"></i> Nenhuma disciplina encontrada com o termo "<strong>${busca}</strong>".</td>`;
+      tbody.appendChild(linhaVazia);
+    } else {
+      linhaVazia.style.display = '';
+      linhaVazia.innerHTML = `<td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-search me-1 text-primary"></i> Nenhuma disciplina encontrada com o termo "<strong>${busca}</strong>".</td>`;
+    }
+  } else if (linhaVazia) {
+    linhaVazia.style.display = 'none';
+  }
 }
 
 function modalNovaSeccaoArea() {
   const classeAtiva = state.filtroDisciplinaClasse || '10ª Classe';
-  abrirModal('Cadastrar Secção / Área de Estudo da Classe', `
+  const classesList = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
+  const optClasses = classesList.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
+
+  abrirModal('Cadastrar Secção / Área de Estudo', `
     <form id="formModalSeccaoArea">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Classe Correspondente</label>
-        <input type="text" id="msaClasse" class="form-control" value="${classeAtiva}" readonly>
+        <label class="form-label small fw-semibold">Classe Correspondente *</label>
+        <select id="msaClasse" class="form-select" required>
+          ${optClasses}
+        </select>
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Nome da Secção ou Área de Estudo *</label>
-        <input type="text" id="msaNome" class="form-control" placeholder="Ex: Secção de Ciências / Área de Engenharia" required>
-        <small class="text-muted">Ex: Ciências com Biologia, Letras com Geografia, Ensino Comercial, etc.</small>
+        <input type="text" id="msaNome" class="form-control" placeholder="Ex: Ciências com Geografia, Ciências com Biologia..." required>
+        <small class="text-muted">A nova secção/área aparecerá automaticamente em todas as listas de filtros, turmas e disciplinas.</small>
       </div>
       <button type="submit" class="btn btn-primary w-100 fw-semibold">
-        <i class="bi bi-plus-circle me-1"></i> Criar Secção / Área na Classe
+        <i class="bi bi-plus-circle me-1"></i> Criar Secção / Área
       </button>
     </form>
   `);
 
   document.getElementById('formModalSeccaoArea').addEventListener('submit', (e) => {
     e.preventDefault();
+    const classeAlvo = document.getElementById('msaClasse').value || classeAtiva;
     const nomeArea = document.getElementById('msaNome').value.trim();
     if (!nomeArea) return;
 
-    const chave = 'sige_custom_areas_' + (classeAtiva || 'geral');
+    const chave = 'sige_custom_areas_' + (classeAlvo || 'geral');
     const existingRaw = localStorage.getItem(chave);
     const existing = existingRaw ? JSON.parse(existingRaw) : [];
-    existing.push(nomeArea);
+    if (!existing.includes(nomeArea)) existing.push(nomeArea);
     localStorage.setItem(chave, JSON.stringify(existing));
 
+    const chaveAll = 'sige_custom_areas_all';
+    const allRaw = localStorage.getItem(chaveAll);
+    const allExisting = allRaw ? JSON.parse(allRaw) : [];
+    if (!allExisting.includes(nomeArea)) allExisting.push(nomeArea);
+    localStorage.setItem(chaveAll, JSON.stringify(allExisting));
+
     fecharModal();
-    filtrarDisciplinasClasse(classeAtiva);
-    filtrarDisciplinasArea(nomeArea);
-    alert(`Secção / Área de Estudo "${nomeArea}" cadastrada com sucesso para a ${classeAtiva}!`);
+
+    // Atualiza imediatamente a lista de filtros e seleciona a nova área
+    state.filtroDisciplinaClasse = classeAlvo;
+    state.filtroDisciplinaArea = nomeArea;
+
+    const selClasse = document.getElementById('filtroDisciplinasClasseSelect');
+    if (selClasse) selClasse.value = classeAlvo;
+
+    atualizarSelectAreasDisciplinas(classeAlvo);
+
+    const selArea = document.getElementById('filtroDisciplinasAreaSelect');
+    if (selArea) selArea.value = nomeArea;
+
+    carregarDisciplinas();
+
+    if (typeof atualizarFiltroAreasTurmas === 'function') {
+      try { atualizarFiltroAreasTurmas(); } catch(err){}
+    }
+
+    mostrarNotificacao?.(`Secção / Área "${nomeArea}" cadastrada com sucesso! Ela foi adicionada à lista de filtros.`, 'success');
   });
 }
 
 async function carregarDisciplinas() {
+  const tbody = document.getElementById('tabelaDisciplinas');
   try {
+    const selClasse = document.getElementById('filtroDisciplinasClasseSelect');
+    if (selClasse && state.filtroDisciplinaClasse !== undefined) {
+      selClasse.value = state.filtroDisciplinaClasse;
+    }
+
+    const selArea = document.getElementById('filtroDisciplinasAreaSelect');
+    if (selArea && state.filtroDisciplinaArea !== undefined) {
+      selArea.value = state.filtroDisciplinaArea;
+    }
+
     const qParams = new URLSearchParams();
     if (state.filtroDisciplinaClasse) qParams.set('classe', state.filtroDisciplinaClasse);
     if (state.filtroDisciplinaArea) qParams.set('area', state.filtroDisciplinaArea);
+    const buscaVal = (document.getElementById('filtroDisciplinasBusca')?.value || '').trim();
+    if (buscaVal) qParams.set('search', buscaVal);
+
     const url = '/api/v1/disciplinas' + (qParams.toString() ? '?' + qParams.toString() : '');
     const [resD, resStats] = await Promise.all([
       apiFetch(url),
-      apiFetch('/api/v1/disciplinas/stats')
+      apiFetch('/api/v1/disciplinas/stats').catch(() => ({ success: false }))
     ]);
 
-    if (resD.success) {
-      const tbody = document.getElementById('tabelaDisciplinas');
-      if (resD.data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Nenhuma disciplina cadastrada para este filtro de classe.</td></tr>';
+    if (resD && resD.success) {
+      let lista = resD.data || [];
+
+      // Filtro defensivo no client-side para garantir 100% de consistência imediata
+      if (state.filtroDisciplinaClasse) {
+        const digitosClasse = (state.filtroDisciplinaClasse.match(/\d+/) || [''])[0];
+        if (digitosClasse) {
+          lista = lista.filter(d => (d.classe || '').includes(digitosClasse));
+        }
+      }
+      if (state.filtroDisciplinaArea) {
+        const areaFiltroNorm = state.filtroDisciplinaArea.trim().toLowerCase();
+        lista = lista.filter(d => {
+          const dAreaNorm = (d.area || '').trim().toLowerCase();
+          if (areaFiltroNorm.includes('geral')) {
+            return dAreaNorm.includes('geral') || !dAreaNorm;
+          }
+          return dAreaNorm.includes(areaFiltroNorm);
+        });
+      }
+      if (buscaVal) {
+        const bLow = buscaVal.toLowerCase();
+        lista = lista.filter(d => 
+          (d.nome || '').toLowerCase().includes(bLow) || 
+          (d.codigo || '').toLowerCase().includes(bLow)
+        );
+      }
+
+      state.disciplinasFiltradasAtuais = lista;
+
+      // Sincronizar catálogo global se sem filtros restritivos
+      if (!state.filtroDisciplinaClasse && !state.filtroDisciplinaArea && !buscaVal) {
+        state.todasDisciplinas = lista;
       } else {
-        tbody.innerHTML = resD.data.map(d => `
+        const exist = state.todasDisciplinas || [];
+        const ids = new Set(exist.map(x => x.id));
+        lista.forEach(d => {
+          if (!ids.has(d.id)) exist.push(d);
+        });
+        state.todasDisciplinas = exist;
+      }
+
+      if (!tbody) return;
+
+      if (lista.length === 0) {
+        const descClasse = state.filtroDisciplinaClasse || 'Todas as Classes';
+        const descArea = state.filtroDisciplinaArea ? `na área "${state.filtroDisciplinaArea}"` : '';
+        const descBusca = buscaVal ? `com o termo "${buscaVal}"` : '';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center py-5">
+              <div class="text-muted">
+                <i class="bi bi-info-circle fs-3 text-secondary d-block mb-2"></i>
+                <div class="fw-semibold">Nenhuma disciplina encontrada</div>
+                <div class="small text-muted mt-1">
+                  Não foram encontradas disciplinas cadastradas para <strong>${descClasse}</strong> ${descArea} ${descBusca}.
+                </div>
+                <div class="mt-3">
+                  <button class="btn btn-outline-primary btn-sm me-2" onclick="modalNovaDisciplina()">
+                    <i class="bi bi-plus-circle me-1"></i> Cadastrar Disciplina
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" onclick="filtrarDisciplinasClasse(''); filtrarDisciplinasArea('');">
+                    <i class="bi bi-arrow-repeat me-1"></i> Limpar Filtros
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = lista.map(d => `
           <tr>
             <td><code>${d.codigo}</code></td>
             <td><strong>${d.nome}</strong></td>
             <td><span class="badge bg-secondary">${d.classe || '10ª Classe'}</span></td>
-            <td><small class="text-muted">${d.area || 'Geral'}</small></td>
+            <td><small class="text-muted fw-semibold">${d.area || 'Geral'}</small></td>
             <td>${d.carga_horaria} horas/semana</td>
             <td>${d.ano_letivo}</td>
             <td class="text-end">
@@ -2970,12 +5970,21 @@ async function carregarDisciplinas() {
           </tr>
         `).join('');
       }
+    } else {
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas do servidor.</td></tr>`;
+      }
     }
 
-    if (resStats.success) {
+    if (resStats && resStats.success) {
       renderizarGraficoReprovacao(resStats.data.rankingReprovacao || []);
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Erro ao carregar disciplinas:', err);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas: ${err.message || 'Falha de comunicação'}</td></tr>`;
+    }
+  }
 }
 
 function renderizarGraficoReprovacao(ranking) {
@@ -3005,38 +6014,42 @@ function renderizarGraficoReprovacao(ranking) {
 }
 
 function modalNovaDisciplina() {
+  const classeInicial = state.filtroDisciplinaClasse || '10ª Classe';
+  const areasIniciais = typeof window.obterTodasAreasOficiais === 'function'
+    ? window.obterTodasAreasOficiais(classeInicial)
+    : ['Ensino Geral', 'Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História'];
+
+  const optAreas = areasIniciais.map(a => 
+    `<option value="${a}" ${state.filtroDisciplinaArea === a ? 'selected' : ''}>${a}</option>`
+  ).join('');
+
   abrirModal('Nova Disciplina Curricular', `
     <form id="formModalDisc">
       <div class="row g-3">
         <div class="col-md-8">
-          <label class="form-label small fw-semibold">Nome da Disciplina</label>
-          <input type="text" id="mdNome" class="form-control" required placeholder="Ex: Matemática">
+          <label class="form-label small fw-semibold">Nome da Disciplina *</label>
+          <input type="text" id="mdNome" class="form-control" required placeholder="Ex: Matemática, Física, Português...">
         </div>
         <div class="col-md-4">
-          <label class="form-label small fw-semibold">Código Curricular</label>
+          <label class="form-label small fw-semibold">Código Curricular *</label>
           <input type="text" id="mdCodigo" class="form-control" required placeholder="Ex: MAT-10">
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Grupo de Classe *</label>
-          <select id="mdClasse" class="form-select" required>
-            <option value="7ª Classe" ${state.filtroDisciplinaClasse === '7ª Classe' ? 'selected' : ''}>7ª Classe</option>
-            <option value="8ª Classe" ${state.filtroDisciplinaClasse === '8ª Classe' ? 'selected' : ''}>8ª Classe</option>
-            <option value="9ª Classe" ${state.filtroDisciplinaClasse === '9ª Classe' ? 'selected' : ''}>9ª Classe</option>
-            <option value="10ª Classe" ${(!state.filtroDisciplinaClasse || state.filtroDisciplinaClasse === '10ª Classe') ? 'selected' : ''}>10ª Classe</option>
-            <option value="11ª Classe" ${state.filtroDisciplinaClasse === '11ª Classe' ? 'selected' : ''}>11ª Classe</option>
-            <option value="12ª Classe" ${state.filtroDisciplinaClasse === '12ª Classe' ? 'selected' : ''}>12ª Classe</option>
+          <select id="mdClasse" class="form-select" required onchange="aoMudarClasseModalNovaDisc(this.value)">
+            <option value="7ª Classe" ${classeInicial === '7ª Classe' ? 'selected' : ''}>7ª Classe</option>
+            <option value="8ª Classe" ${classeInicial === '8ª Classe' ? 'selected' : ''}>8ª Classe</option>
+            <option value="9ª Classe" ${classeInicial === '9ª Classe' ? 'selected' : ''}>9ª Classe</option>
+            <option value="10ª Classe" ${classeInicial === '10ª Classe' ? 'selected' : ''}>10ª Classe</option>
+            <option value="11ª Classe" ${classeInicial === '11ª Classe' ? 'selected' : ''}>11ª Classe</option>
+            <option value="12ª Classe" ${classeInicial === '12ª Classe' ? 'selected' : ''}>12ª Classe</option>
           </select>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Secção / Área de Estudo *</label>
-          <input type="text" id="mdArea" class="form-control" list="listaAreasSugeridas" value="${state.filtroDisciplinaArea || 'Geral'}" required placeholder="Ex: Ciências com Biologia">
-          <datalist id="listaAreasSugeridas">
-            <option value="Geral">Ensino Geral</option>
-            <option value="Ciências com Biologia">Ciências com Biologia</option>
-            <option value="Ciências com Desenho">Ciências com Desenho</option>
-            <option value="Letras com Geografia">Letras com Geografia</option>
-            <option value="Letras com História">Letras com História</option>
-          </datalist>
+          <select id="mdArea" class="form-select" required>
+            ${optAreas}
+          </select>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Carga Horária (Aulas/Semana)</label>
@@ -3051,14 +6064,24 @@ function modalNovaDisciplina() {
     </form>
   `);
 
+  window.aoMudarClasseModalNovaDisc = function(novaClasse) {
+    const selArea = document.getElementById('mdArea');
+    if (!selArea) return;
+    const areas = typeof window.obterTodasAreasOficiais === 'function'
+      ? window.obterTodasAreasOficiais(novaClasse)
+      : ['Ensino Geral'];
+    selArea.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
+  };
+
   document.getElementById('formModalDisc').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const areaVal = document.getElementById('mdArea').value;
       const body = {
         nome: document.getElementById('mdNome').value,
         codigo: document.getElementById('mdCodigo').value,
         classe: document.getElementById('mdClasse').value,
-        area: document.getElementById('mdArea').value,
+        area: areaVal,
         carga_horaria: Number(document.getElementById('mdCarga').value),
         ano_letivo: document.getElementById('mdAnoLetivo').value || '2026'
       };
@@ -3067,8 +6090,19 @@ function modalNovaDisciplina() {
         body: JSON.stringify(body)
       });
       if (res.success) {
+        // Garantir que a área cadastrada fique salva no catálogo e apareça no filtro
+        if (areaVal) {
+          const chAll = 'sige_custom_areas_all';
+          const exAll = JSON.parse(localStorage.getItem(chAll) || '[]');
+          if (!exAll.includes(areaVal)) {
+            exAll.push(areaVal);
+            localStorage.setItem(chAll, JSON.stringify(exAll));
+          }
+        }
         fecharModal();
-        carregarDisciplinas();
+        await carregarDisciplinas();
+        atualizarSelectAreasDisciplinas(state.filtroDisciplinaClasse);
+        mostrarNotificacao?.('Disciplina criada com sucesso!', 'success');
       }
     } catch (err) {
       alert(err.message || 'Erro ao criar disciplina');
@@ -3085,26 +6119,36 @@ async function modalEditarDisciplina(disciplinaId) {
     const classes = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
     const optClasses = classes.map(c => `<option value="${c}" ${c === d.classe ? 'selected' : ''}>${c}</option>`).join('');
 
+    const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
+      ? window.obterTodasAreasOficiais(d.classe)
+      : ['Ensino Geral'];
+    if (d.area && !areasDisponiveis.includes(d.area)) {
+      areasDisponiveis.push(d.area);
+    }
+    const optAreas = areasDisponiveis.map(a => `<option value="${a}" ${a === d.area ? 'selected' : ''}>${a}</option>`).join('');
+
     abrirModal(`Editar Disciplina: ${d.nome}`, `
       <form id="formModalEditarDisc">
         <div class="row g-3">
           <div class="col-md-8">
-            <label class="form-label small fw-semibold">Nome da Disciplina</label>
+            <label class="form-label small fw-semibold">Nome da Disciplina *</label>
             <input type="text" id="mdeNome" class="form-control" required value="${d.nome || ''}">
           </div>
           <div class="col-md-4">
-            <label class="form-label small fw-semibold">Código Curricular</label>
+            <label class="form-label small fw-semibold">Código Curricular *</label>
             <input type="text" id="mdeCodigo" class="form-control" required value="${d.codigo || ''}">
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Grupo de Classe *</label>
-            <select id="mdeClasse" class="form-select" required>
+            <select id="mdeClasse" class="form-select" required onchange="aoMudarClasseModalEditarDisc(this.value)">
               ${optClasses}
             </select>
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Secção / Área de Estudo *</label>
-            <input type="text" id="mdeArea" class="form-control" value="${d.area || 'Geral'}" required>
+            <select id="mdeArea" class="form-select" required>
+              ${optAreas}
+            </select>
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
@@ -3121,6 +6165,15 @@ async function modalEditarDisciplina(disciplinaId) {
         </div>
       </form>
     `);
+
+    window.aoMudarClasseModalEditarDisc = function(novaClasse) {
+      const selArea = document.getElementById('mdeArea');
+      if (!selArea) return;
+      const areas = typeof window.obterTodasAreasOficiais === 'function'
+        ? window.obterTodasAreasOficiais(novaClasse)
+        : ['Ensino Geral'];
+      selArea.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
+    };
 
     document.getElementById('formModalEditarDisc').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -3170,56 +6223,421 @@ async function eliminarDisciplina(disciplinaId, nome) {
   }
 }
 
-// ==================== 7. CADERNETA DO PROFESSOR (6 AVALIAÇÕES) ====================
-// ==================== 7. CADERNETA DO PROFESSOR (3 TRIMESTRES E ESTATÍSTICA POR COLUNA) ====================
-async function carregarCadernetaDocente() {
+// ==================== 7. CADERNETA DO PROFESSOR (NAVEGAÇÃO EM 3 NÍVEIS & MAPA OFICIAL) ====================
+window.inicializarNavegacaoCaderneta = async function(forcarRecarregar = false) {
   try {
-    const selectAloc = document.getElementById('cadernetaAlocacaoSelect');
-    if (!selectAloc) return;
+    const isDocente = state.user?.role === 'PROFESSOR';
+    const wrapperProf = document.getElementById('wrapperFiltroProfessorCaderneta');
+    const badgePerfil = document.getElementById('cadernetaBadgePerfil');
 
-    // Se ainda não carregou alocações
-    if (state.alocacoesDocente.length === 0) {
-      const resTurmas = await apiFetch('/api/v1/professores/minhas-turmas');
-      if (resTurmas.success && resTurmas.data.length > 0) {
-        state.alocacoesDocente = resTurmas.data;
-        selectAloc.innerHTML = resTurmas.data.map(a => 
-          `<option value="${a.id}">${a.disciplina.nome} — ${a.turma.nome} (${a.turma.grau_ano})</option>`
-        ).join('');
+    if (badgePerfil) {
+      if (isDocente) {
+        badgePerfil.className = 'badge bg-success-subtle text-success border border-success-subtle px-2 py-1';
+        badgePerfil.innerHTML = `<i class="bi bi-person-check-fill me-1"></i>Minhas Turmas Atribuídas: ${state.user.nome}`;
       } else {
-        selectAloc.innerHTML = '<option value="">Nenhuma turma ou disciplina alocada</option>';
-        return;
+        badgePerfil.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1';
+        badgePerfil.innerHTML = `<i class="bi bi-shield-lock-fill me-1"></i>Visão Administrativa da Escola`;
       }
     }
 
-    const alocacaoId = selectAloc.value;
-    if (!alocacaoId) return;
+    // Se o utilizador for Admin / DAP, carregar seletor de professores
+    if (!isDocente && wrapperProf) {
+      wrapperProf.style.display = 'block';
+      await carregarSelectProfessoresCaderneta();
+    } else if (wrapperProf) {
+      wrapperProf.style.display = 'none';
+    }
+
+    // Carregar alocações se vazio ou forçado
+    if (forcarRecarregar || !state.alocacoesDocente || state.alocacoesDocente.length === 0) {
+      let url = '/api/v1/professores/minhas-turmas';
+      if (!isDocente && state.cadernetaProfessorFiltroId && state.cadernetaProfessorFiltroId !== 'TODOS') {
+        url += `?professor_id=${state.cadernetaProfessorFiltroId}`;
+      }
+      const resTurmas = await apiFetch(url);
+      if (resTurmas.success) {
+        state.alocacoesDocente = resTurmas.data || [];
+      } else {
+        state.alocacoesDocente = [];
+      }
+    }
+
+    renderizarBotoesClassesCaderneta();
+  } catch (err) {
+    console.error('Erro ao inicializar navegação da caderneta:', err);
+  }
+};
+
+async function carregarSelectProfessoresCaderneta() {
+  const selectProf = document.getElementById('cadernetaFiltroProfessor');
+  if (!selectProf) return;
+
+  try {
+    const resProfs = await apiFetch('/api/v1/professores');
+    const professores = resProfs.data || [];
+    let html = '<option value="TODOS">Todos os Professores (Visão Geral)</option>';
+    professores.forEach(p => {
+      const isSel = p.id === state.cadernetaProfessorFiltroId ? 'selected' : '';
+      html += `<option value="${p.id}" ${isSel}>${p.nome} ${p.apelido || ''} (${p.especialidade || p.carreira || 'Docente'})</option>`;
+    });
+    selectProf.innerHTML = html;
+  } catch (e) {
+    console.error('Erro ao carregar lista de professores para caderneta:', e);
+  }
+}
+
+window.aoMudarFiltroProfessorCaderneta = async function(profId) {
+  state.cadernetaProfessorFiltroId = profId;
+  state.cadernetaClasseSelecionada = null;
+  state.cadernetaAreaSelecionada = null;
+  state.cadernetaAlocacaoSelecionadaId = null;
+  await window.inicializarNavegacaoCaderneta(true);
+};
+
+function renderizarBotoesClassesCaderneta() {
+  const container = document.getElementById('containerCadernetaClasses');
+  const countEl = document.getElementById('contagemClassesCaderneta');
+  const seccaoArea = document.getElementById('seccaoAreasCaderneta');
+  const seccaoTurmas = document.getElementById('seccaoCadernetasDisponiveis');
+  if (!container) return;
+
+  const alocs = state.alocacoesDocente || [];
+  if (alocs.length === 0) {
+    container.innerHTML = `
+      <div class="alert alert-warning py-3 px-3 small mb-0 w-100 border text-center">
+        <i class="bi bi-info-circle-fill me-2 fs-5 text-warning align-middle"></i>
+        <span>Nenhuma turma ou caderneta atribuída encontrada para este utilizador / perfil.</span>
+      </div>
+    `;
+    if (countEl) countEl.textContent = '0 classes';
+    if (seccaoArea) seccaoArea.style.display = 'none';
+    if (seccaoTurmas) seccaoTurmas.style.display = 'none';
+    limparCabecalhoCaderneta();
+    return;
+  }
+
+  // Extrair classes únicas das alocações
+  const classesSet = new Set();
+  alocs.forEach(a => {
+    const grau = a.turma_grau || a.turma?.grau_ano || '';
+    if (grau) classesSet.add(grau.trim());
+  });
+
+  const ordem = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
+  const classesDisponiveis = Array.from(classesSet).sort((a, b) => {
+    const idxA = ordem.indexOf(a);
+    const idxB = ordem.indexOf(b);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    return a.localeCompare(b);
+  });
+
+  if (countEl) {
+    countEl.textContent = `${classesDisponiveis.length} ${classesDisponiveis.length === 1 ? 'classe' : 'classes'}`;
+  }
+
+  if (!state.cadernetaClasseSelecionada || !classesDisponiveis.includes(state.cadernetaClasseSelecionada)) {
+    state.cadernetaClasseSelecionada = classesDisponiveis[0] || null;
+  }
+
+  const selectClasse = document.getElementById('selectCadernetaClasse');
+  if (selectClasse) {
+    selectClasse.disabled = false;
+    selectClasse.innerHTML = classesDisponiveis.map(cls => {
+      const qtdAlocs = alocs.filter(a => (a.turma_grau || a.turma?.grau_ano || '').trim() === cls).length;
+      return `<option value="${cls}">${cls} (${qtdAlocs} ${qtdAlocs === 1 ? 'turma' : 'turmas'})</option>`;
+    }).join('');
+    selectClasse.value = state.cadernetaClasseSelecionada;
+  }
+
+  if (state.cadernetaClasseSelecionada) {
+    renderizarBotoesAreasCaderneta(state.cadernetaClasseSelecionada);
+  }
+}
+
+window.aoMudarSelectClasseCaderneta = function(classe) {
+  state.cadernetaClasseSelecionada = classe;
+  state.cadernetaAreaSelecionada = null;
+  state.cadernetaAlocacaoSelecionadaId = null;
+  renderizarBotoesAreasCaderneta(classe);
+};
+
+window.selecionarClasseCaderneta = function(classe) {
+  const sel = document.getElementById('selectCadernetaClasse');
+  if (sel) sel.value = classe;
+  aoMudarSelectClasseCaderneta(classe);
+};
+
+function renderizarBotoesAreasCaderneta(classe) {
+  const selectArea = document.getElementById('selectCadernetaArea');
+  const countEl = document.getElementById('contagemAreasCaderneta');
+
+  const alocsClasse = (state.alocacoesDocente || []).filter(a => {
+    const grau = a.turma_grau || a.turma?.grau_ano || '';
+    return normalizarClasse(grau) === normalizarClasse(classe);
+  });
+
+  const areasSet = new Set();
+  alocsClasse.forEach(a => {
+    const ar = a.turma_area || a.turma?.area || 'Ensino Geral';
+    areasSet.add(normalizarArea(ar));
+  });
+
+  const areasDisponiveis = Array.from(areasSet);
+  if (countEl) {
+    countEl.textContent = `${areasDisponiveis.length} ${areasDisponiveis.length === 1 ? 'secção' : 'secções'}`;
+  }
+
+  if (areasDisponiveis.length === 0) {
+    if (selectArea) {
+      selectArea.innerHTML = '<option value="">Nenhuma secção disponível</option>';
+      selectArea.disabled = true;
+    }
+    const selectAloc = document.getElementById('selectCadernetaAlocacao');
+    if (selectAloc) {
+      selectAloc.innerHTML = '<option value="">Sem turmas</option>';
+      selectAloc.disabled = true;
+    }
+    const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
+    if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
+    limparCabecalhoCaderneta();
+    return;
+  }
+
+  if (!state.cadernetaAreaSelecionada || !areasDisponiveis.includes(state.cadernetaAreaSelecionada)) {
+    state.cadernetaAreaSelecionada = areasDisponiveis[0];
+  }
+
+  if (selectArea) {
+    selectArea.disabled = false;
+    selectArea.innerHTML = areasDisponiveis.map(ar => {
+      const qtdAlocs = alocsClasse.filter(a => normalizarArea(a.turma_area || a.turma?.area || 'Ensino Geral') === ar).length;
+      return `<option value="${ar}">${ar} (${qtdAlocs} ${qtdAlocs === 1 ? 'turma' : 'turmas'})</option>`;
+    }).join('');
+    selectArea.value = state.cadernetaAreaSelecionada;
+  }
+
+  if (state.cadernetaAreaSelecionada) {
+    renderizarBotoesCadernetasDisponiveis(classe, state.cadernetaAreaSelecionada);
+  }
+}
+
+window.aoMudarSelectAreaCaderneta = function(area) {
+  state.cadernetaAreaSelecionada = area;
+  state.cadernetaAlocacaoSelecionadaId = null;
+  renderizarBotoesCadernetasDisponiveis(state.cadernetaClasseSelecionada, area);
+};
+
+window.selecionarAreaCaderneta = function(area) {
+  const sel = document.getElementById('selectCadernetaArea');
+  if (sel) sel.value = area;
+  aoMudarSelectAreaCaderneta(area);
+};
+
+function renderizarBotoesCadernetasDisponiveis(classe, area) {
+  const selectAloc = document.getElementById('selectCadernetaAlocacao');
+  const countEl = document.getElementById('contagemTurmasCaderneta');
+  const hiddenSelectAloc = document.getElementById('cadernetaAlocacaoSelect');
+
+  const alocsArea = (state.alocacoesDocente || []).filter(a => {
+    const grau = a.turma_grau || a.turma?.grau_ano || '';
+    const aArea = a.turma_area || a.turma?.area || 'Ensino Geral';
+    return normalizarClasse(grau) === normalizarClasse(classe) && normalizarArea(aArea) === normalizarArea(area);
+  });
+
+  // Ordenar turmas de forma natural e consistente: Turma 1, Turma 2, Turma 3...
+  alocsArea.sort((a, b) => {
+    const tA = (a.turma?.nome || a.turma_nome || '').trim();
+    const tB = (b.turma?.nome || b.turma_nome || '').trim();
+    const cmp = tA.localeCompare(tB, undefined, { numeric: true, sensitivity: 'base' });
+    if (cmp !== 0) return cmp;
+    const dA = (a.disciplina?.nome || a.disciplina_nome || '').trim();
+    const dB = (b.disciplina?.nome || b.disciplina_nome || '').trim();
+    return dA.localeCompare(dB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  if (countEl) {
+    countEl.textContent = `${alocsArea.length} ${alocsArea.length === 1 ? 'turma' : 'turmas'}`;
+  }
+
+  if (alocsArea.length === 0) {
+    if (selectAloc) {
+      selectAloc.innerHTML = '<option value="">Nenhuma turma disponível nesta secção</option>';
+      selectAloc.disabled = true;
+    }
+    const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
+    if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
+    limparCabecalhoCaderneta();
+    return;
+  }
+
+  // Auto-selecionar primeira caderneta se nenhuma activa
+  if (!state.cadernetaAlocacaoSelecionadaId || !alocsArea.some(a => a.id === state.cadernetaAlocacaoSelecionadaId)) {
+    state.cadernetaAlocacaoSelecionadaId = alocsArea[0].id;
+  }
+
+  if (selectAloc) {
+    selectAloc.disabled = false;
+    selectAloc.innerHTML = alocsArea.map(a => {
+      const turmaNome = a.turma?.nome || a.turma_nome || 'Turma';
+      const discNome = a.disciplina?.nome || a.disciplina_nome || 'Disciplina';
+      const turno = a.turma?.turno || a.turma_turno || 'MANHA';
+      return `<option value="${a.id}">${turmaNome} — ${discNome} (${turno})</option>`;
+    }).join('');
+    selectAloc.value = state.cadernetaAlocacaoSelecionadaId;
+  }
+
+  // Renderizar botões rápidos de turmas para abertura direta ao clicar
+  const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
+  const containerBotoes = document.getElementById('containerBotoesTurmasCaderneta');
+  if (wrapperBotoes && containerBotoes) {
+    wrapperBotoes.style.setProperty('display', 'flex', 'important');
+    containerBotoes.innerHTML = alocsArea.map(a => {
+      const isActiva = a.id === state.cadernetaAlocacaoSelecionadaId;
+      const btnCls = isActiva ? 'btn-primary shadow-sm' : 'btn-outline-primary bg-white';
+      const turmaNome = a.turma?.nome || a.turma_nome || 'Turma';
+      const discNome = a.disciplina?.nome || a.disciplina_nome || '';
+      return `
+        <button type="button" class="btn btn-sm ${btnCls} fw-bold py-1 px-3 d-inline-flex align-items-center gap-1 turma-caderneta-btn"
+                data-aloc-id="${a.id}"
+                onclick="selecionarAlocacaoCaderneta('${a.id}')"
+                title="Clique para abrir ou visualizar a caderneta de ${turmaNome}">
+          <i class="bi bi-people-fill small"></i>
+          <span>${turmaNome}</span>
+          ${discNome ? `<span class="badge ${isActiva ? 'bg-light text-primary' : 'bg-primary-subtle text-primary border'} ms-1 small" style="font-size: 0.7rem;">${discNome}</span>` : ''}
+        </button>
+      `;
+    }).join('');
+  }
+
+  if (hiddenSelectAloc) {
+    hiddenSelectAloc.innerHTML = alocsArea.map(a => 
+      `<option value="${a.id}">${a.disciplina?.nome || a.disciplina_nome} — ${a.turma?.nome || a.turma_nome}</option>`
+    ).join('');
+    hiddenSelectAloc.value = state.cadernetaAlocacaoSelecionadaId;
+  }
+
+  carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
+}
+
+window.aoMudarSelectAlocacaoCaderneta = function(alocId) {
+  state.cadernetaAlocacaoSelecionadaId = alocId;
+  const hiddenSelectAloc = document.getElementById('cadernetaAlocacaoSelect');
+  if (hiddenSelectAloc) hiddenSelectAloc.value = alocId;
+
+  // Actualizar estado activo dos botões de turmas
+  document.querySelectorAll('.turma-caderneta-btn').forEach(btn => {
+    const isActiva = btn.getAttribute('data-aloc-id') === alocId;
+    if (isActiva) {
+      btn.className = 'btn btn-sm btn-primary shadow-sm fw-bold py-1 px-3 d-inline-flex align-items-center gap-1 turma-caderneta-btn';
+      const badge = btn.querySelector('.badge');
+      if (badge) badge.className = 'badge bg-light text-primary ms-1 small';
+    } else {
+      btn.className = 'btn btn-sm btn-outline-primary bg-white fw-bold py-1 px-3 d-inline-flex align-items-center gap-1 turma-caderneta-btn';
+      const badge = btn.querySelector('.badge');
+      if (badge) badge.className = 'badge bg-primary-subtle text-primary border ms-1 small';
+    }
+  });
+
+  carregarCadernetaDocente(alocId);
+};
+
+window.selecionarAlocacaoCaderneta = function(alocacaoId) {
+  const sel = document.getElementById('selectCadernetaAlocacao');
+  if (sel) sel.value = alocacaoId;
+  aoMudarSelectAlocacaoCaderneta(alocacaoId);
+};
+
+function limparCabecalhoCaderneta() {
+  const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
+  if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
+  const containerBotoes = document.getElementById('containerBotoesTurmasCaderneta');
+  if (containerBotoes) containerBotoes.innerHTML = '';
+  if (document.getElementById('cadBoxDisciplina')) document.getElementById('cadBoxDisciplina').textContent = '-';
+  if (document.getElementById('cadBoxProfessor')) document.getElementById('cadBoxProfessor').textContent = '-';
+  if (document.getElementById('cadBoxContacto')) document.getElementById('cadBoxContacto').textContent = '-';
+  if (document.getElementById('cadBoxArea')) document.getElementById('cadBoxArea').textContent = '-';
+  if (document.getElementById('cadBoxTurmaDirector')) document.getElementById('cadBoxTurmaDirector').textContent = '-';
+  if (document.getElementById('cadBoxClasseTurno')) document.getElementById('cadBoxClasseTurno').textContent = '-';
+  if (document.getElementById('cadBoxEfectivo')) document.getElementById('cadBoxEfectivo').textContent = 'H: 0 | M: 0 | Total: 0';
+  const tbody = document.getElementById('tabelaCadernetaCorpo');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="32" class="text-center py-4 text-muted">Selecione uma turma e disciplina para visualizar a Caderneta Oficial.</td></tr>';
+}
+
+window.destacarTrimestreTabelaCaderneta = function(periodo) {
+  const tabela = document.querySelector('.caderneta-tabela');
+  if (!tabela) return;
+
+  // Se período for TODOS, restaura visualização padrão
+  const thCols = tabela.querySelectorAll('thead th');
+  thCols.forEach(th => th.style.opacity = '1');
+  const tdCols = tabela.querySelectorAll('tbody td, tfoot td');
+  tdCols.forEach(td => td.style.opacity = '1');
+};
+
+async function carregarCadernetaDocente(alocacaoIdParam = null) {
+  try {
+    const selectAloc = document.getElementById('cadernetaAlocacaoSelect');
+    const alocacaoId = alocacaoIdParam || state.cadernetaAlocacaoSelecionadaId || selectAloc?.value;
+    if (!alocacaoId) {
+      limparCabecalhoCaderneta();
+      return;
+    }
+
     state.alocacaoAtualId = alocacaoId;
+    state.cadernetaAlocacaoSelecionadaId = alocacaoId;
 
     const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${alocacaoId}/completa`);
-    if (!resCaderneta.success) return;
-    const d = resCaderneta.data;
+    if (!resCaderneta.success) {
+      limparCabecalhoCaderneta();
+      return;
+    }
+    const d = resCaderneta.data || resCaderneta;
 
-    // Preencher Caixas de Cabeçalho Institucional Oficial (Imagem 2)
+    // Preencher Caixas de Cabeçalho Institucional Oficial automaticamente com os dados cadastrados
     if (document.getElementById('cadHeaderEscola')) {
-      document.getElementById('cadHeaderEscola').textContent = (d.escola?.nome || 'Escola Secundária').toUpperCase();
-      document.getElementById('cadHeaderSub').textContent = `PROVÍNCIA DE ${d.escola?.provincia || 'MAPUTO'} | DISTRITO DE ${d.escola?.distrito || 'CIDADE DE MAPUTO'}`.toUpperCase();
-      document.getElementById('cadHeaderAno').textContent = d.turma?.ano_letivo || '2026';
+      document.getElementById('cadHeaderEscola').textContent = (d.escola?.nome || state.tenant?.nome || 'REPÚBLICA DE MOÇAMBIQUE').toUpperCase();
+      document.getElementById('cadHeaderSub').textContent = `PROVÍNCIA DE ${d.escola?.provincia || state.tenant?.provincia || 'MAPUTO'} | DISTRITO DE ${d.escola?.distrito || state.tenant?.distrito || 'CIDADE DE MAPUTO'}`.toUpperCase();
+      document.getElementById('cadHeaderAno').textContent = d.turma?.ano_letivo || state.tenant?.ano_letivo_ativo || '2026';
 
-      document.getElementById('cadBoxDisciplina').textContent = `${d.disciplina?.nome || '-'} (${d.disciplina?.codigo || '-'})`;
-      document.getElementById('cadBoxProfessor').textContent = `${d.professor?.nome || '-'} ${d.professor?.apelido || ''}`.trim();
-      document.getElementById('cadBoxContacto').textContent = d.professor?.telefone || '-';
-      document.getElementById('cadBoxArea').textContent = d.professor?.especialidade || 'Ensino Geral';
-      document.getElementById('cadBoxTurmaDirector').textContent = `${d.turma?.nome || '-'} | Dir: ${d.directorTurma ? d.directorTurma.nome : '-'}`;
-      document.getElementById('cadBoxClasseTurno').textContent = `${d.turma?.grau_ano || '-'} | ${d.turma?.turno || 'Diurno'}`;
+      const discNome = d.disciplina?.nome || '-';
+      const discCod = d.disciplina?.codigo ? ` (${d.disciplina.codigo})` : '';
+      document.getElementById('cadBoxDisciplina').textContent = `${discNome}${discCod}`;
+
+      const profNome = `${d.professor?.nome || d.alocacao?.professor_nome || '-'} ${d.professor?.apelido || ''}`.trim();
+      document.getElementById('cadBoxProfessor').textContent = profNome;
+      document.getElementById('cadBoxContacto').textContent = d.professor?.telefone || d.alocacao?.professor_telefone || '-';
+      document.getElementById('cadBoxArea').textContent = d.professor?.especialidade || d.alocacao?.professor_especialidade || d.turma?.area || 'Ensino Geral';
+
+      const dtNome = d.directorTurma?.nome && d.directorTurma.nome !== '-' ? d.directorTurma.nome : (d.turma?.director_turma_nome || d.alocacao?.director_turma_nome || '-');
+      document.getElementById('cadBoxTurmaDirector').textContent = `${d.turma?.nome || d.alocacao?.turma_nome || '-'} | DT: ${dtNome}`;
+      document.getElementById('cadBoxClasseTurno').textContent = `${d.turma?.grau_ano || d.alocacao?.turma_grau || '-'} | ${d.turma?.turno || d.alocacao?.turma_turno || 'Diurno'}`;
       document.getElementById('cadBoxEfectivo').textContent = `H: ${d.efectivo?.h || 0} | M: ${d.efectivo?.m || 0} | Total: ${d.efectivo?.total || 0}`;
+    }
+
+    const infoResumo = document.getElementById('cadernetaInfoResumo');
+    if (infoResumo) {
+      infoResumo.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> Caderneta Sincronizada: <strong>${(d.alunos || []).length} alunos</strong></span>`;
     }
 
     // Preencher Tabela de Alunos com todos os 3 Trimestres (Imagem 2)
     const tbody = document.getElementById('tabelaCadernetaCorpo');
+    if (!tbody) return;
+
     if (!d.alunos || d.alunos.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="32" class="text-center py-4">Nenhum aluno matriculado nesta turma.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="32" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum aluno matriculado nesta turma.</td></tr>';
       return;
     }
+
+    const notaValida = (val) => {
+      if (val === null || val === undefined || val === '' || val === '-') return false;
+      const num = Number(val);
+      return !isNaN(num) && num >= 0 && num <= 20;
+    };
+
+    const temRequisitosCadernetaMT = (trimData) => {
+      if (!trimData) return false;
+      return notaValida(trimData.t1) && notaValida(trimData.t2) && notaValida(trimData.at);
+    };
 
     const formatVal = (val, isMedia = false) => {
       if (val === null || val === undefined || isNaN(val) || val <= 0) return '<span class="text-muted">-</span>';
@@ -3229,11 +6647,27 @@ async function carregarCadernetaDocente() {
       return `<span class="${cls}">${displayVal}</span>`;
     };
 
+    const formatMT = (trimData) => {
+      if (!temRequisitosCadernetaMT(trimData)) return '<span class="text-muted">-</span>';
+      return formatVal(trimData.mt, true);
+    };
+
+    const formatComportamento = (trimData) => {
+      if (!trimData) return '<span class="text-muted">-</span>';
+      if (!temRequisitosCadernetaMT(trimData) || !trimData.comportamento) return '<span class="text-muted">-</span>';
+      return `<small class="fw-semibold">${trimData.comportamento}</small>`;
+    };
+
     tbody.innerHTML = d.alunos.map((a, idx) => {
+      const t1TemMT = temRequisitosCadernetaMT(a.t1);
+      const t2TemMT = temRequisitosCadernetaMT(a.t2);
+      const t3TemMT = temRequisitosCadernetaMT(a.t3);
+      const podeExibirMFD = t1TemMT && t2TemMT && t3TemMT && (a.mfd !== null && a.mfd !== undefined && a.mfd > 0);
+
       return `
         <tr>
           <td><strong>${idx + 1}</strong></td>
-          <td class="text-start" style="cursor: pointer;" onclick="modalSalvarNotaCaderneta('${a.alunoId}')" title="Clique para lançar avaliações deste aluno"><strong class="text-primary">${a.nome}</strong> <i class="bi bi-pencil-square text-muted ms-1 small"></i></td>
+          <td class="text-start" style="cursor: pointer;" onclick="modalSalvarNotaCaderneta('${a.alunoId}')" title="Clique para lançar avaliações deste aluno"><strong class="text-primary">${a.nome}</strong> <i class="bi bi-pencil-square text-muted ms-1 small no-print d-print-none"></i></td>
           <td class="text-start">${a.apelido || '-'}</td>
           <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
           <!-- 1º Trimestre -->
@@ -3243,8 +6677,8 @@ async function carregarCadernetaDocente() {
           <td class="bg-light">${formatVal(a.t1.map)}</td>
           <td>${formatVal(a.t1.mas ?? a.t1.mac3)}</td>
           <td>${formatVal(a.t1.at)}</td>
-          <td class="bg-light fw-bold fs-6">${formatVal(a.t1.mt, true)}</td>
-          <td><small>${a.t1.comportamento || 'S'}</small></td>
+          <td class="bg-light fw-bold fs-6">${formatMT(a.t1)}</td>
+          <td>${formatComportamento(a.t1)}</td>
           <td><span class="badge bg-light text-dark border">${a.t1.anotacao || '-'}</span></td>
           <!-- 2º Trimestre -->
           <td>${formatVal(a.t2.t1)}</td>
@@ -3253,8 +6687,8 @@ async function carregarCadernetaDocente() {
           <td class="bg-light">${formatVal(a.t2.map)}</td>
           <td>${formatVal(a.t2.mas ?? a.t2.mac3)}</td>
           <td>${formatVal(a.t2.at)}</td>
-          <td class="bg-light fw-bold fs-6">${formatVal(a.t2.mt, true)}</td>
-          <td><small>${a.t2.comportamento || 'S'}</small></td>
+          <td class="bg-light fw-bold fs-6">${formatMT(a.t2)}</td>
+          <td>${formatComportamento(a.t2)}</td>
           <td><span class="badge bg-light text-dark border">${a.t2.anotacao || '-'}</span></td>
           <!-- 3º Trimestre -->
           <td>${formatVal(a.t3.t1)}</td>
@@ -3263,11 +6697,11 @@ async function carregarCadernetaDocente() {
           <td class="bg-light">${formatVal(a.t3.map)}</td>
           <td>${formatVal(a.t3.mas ?? a.t3.mac3)}</td>
           <td>${formatVal(a.t3.at)}</td>
-          <td class="bg-light fw-bold fs-6">${formatVal(a.t3.mt, true)}</td>
-          <td><small>${a.t3.comportamento || 'S'}</small></td>
+          <td class="bg-light fw-bold fs-6">${formatMT(a.t3)}</td>
+          <td>${formatComportamento(a.t3)}</td>
           <td><span class="badge bg-light text-dark border">${a.t3.anotacao || '-'}</span></td>
-          <!-- MFD -->
-          <td class="bg-light fw-bold fs-6">${formatVal(a.mfd, true)}</td>
+          <!-- MFD: só exibe quando as médias dos 3 trimestres estiverem disponíveis -->
+          <td class="bg-light fw-bold fs-6">${podeExibirMFD ? formatVal(a.mfd, true) : '<span class="text-muted">-</span>'}</td>
         </tr>
       `;
     }).join('');
@@ -3282,6 +6716,32 @@ async function carregarCadernetaDocente() {
         't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', null, null,
         'mfd'
       ];
+
+      // Garantir que faixas e média existam calculando dinamicamente a partir de d.alunos se não vierem da API
+      chavesColunas.forEach(key => {
+        if (!key) return;
+        const colStat = stats[key] || stats[key.replace('_mas', '_mac3')];
+        if (colStat && (!colStat.faixas || colStat.media === undefined)) {
+          const [per, cmp] = key.includes('_') ? key.split('_') : [null, key];
+          const notasValidas = (d.alunos || []).map(al => {
+            if (cmp === 'mt' && per) {
+              if (!temRequisitosCadernetaMT(al[per])) return null;
+            }
+            const v = per ? al[per]?.[cmp] : al[cmp];
+            return (v !== null && v !== undefined && v !== '' && !isNaN(v) && Number(v) > 0) ? Number(v) : null;
+          }).filter(v => v !== null);
+
+          const tot = notasValidas.length;
+          colStat.media = tot > 0 ? Number((notasValidas.reduce((a, b) => a + b, 0) / tot).toFixed(1)) : 0;
+          colStat.faixas = {
+            f0_94: { total: notasValidas.filter(n => n < 9.5).length },
+            f95_134: { total: notasValidas.filter(n => n >= 9.5 && n < 13.5).length },
+            f135_164: { total: notasValidas.filter(n => n >= 13.5 && n < 16.5).length },
+            f165_184: { total: notasValidas.filter(n => n >= 16.5 && n < 18.5).length },
+            f185_20: { total: notasValidas.filter(n => n >= 18.5).length },
+          };
+        }
+      });
 
       const renderCelulasEstatistica = (extrator) => {
         return chavesColunas.map(key => {
@@ -3371,29 +6831,29 @@ async function carregarCadernetaDocente() {
         <!-- 6. Faixas oficiais (0 a 9,4 | 9,5 a 13,4 | 13,5 a 16,4 | 16,5 a 18,4 | 18,5 a 20) -->
         <tr>
           <td colspan="4" class="text-start ps-2 fw-semibold bg-light">0 a 9,4</td>
-          ${renderCelulasEstatistica(s => s.faixas ? s.faixas.f0_94.total : '-')}
+          ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f0_94?.total !== undefined) ? s.faixas.f0_94.total : '-')}
         </tr>
         <tr>
           <td colspan="4" class="text-start ps-2 fw-semibold bg-light">9,5 a 13,4</td>
-          ${renderCelulasEstatistica(s => s.faixas ? s.faixas.f95_134.total : '-')}
+          ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f95_134?.total !== undefined) ? s.faixas.f95_134.total : '-')}
         </tr>
         <tr>
           <td colspan="4" class="text-start ps-2 fw-semibold bg-light">13,5 a 16,4</td>
-          ${renderCelulasEstatistica(s => s.faixas ? s.faixas.f135_164.total : '-')}
+          ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f135_164?.total !== undefined) ? s.faixas.f135_164.total : '-')}
         </tr>
         <tr>
           <td colspan="4" class="text-start ps-2 fw-semibold bg-light">16,5 a 18,4</td>
-          ${renderCelulasEstatistica(s => s.faixas ? s.faixas.f165_184.total : '-')}
+          ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f165_184?.total !== undefined) ? s.faixas.f165_184.total : '-')}
         </tr>
         <tr>
           <td colspan="4" class="text-start ps-2 fw-semibold bg-light">18,5 a 20</td>
-          ${renderCelulasEstatistica(s => s.faixas ? s.faixas.f185_20.total : '-')}
+          ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f185_20?.total !== undefined) ? s.faixas.f185_20.total : '-')}
         </tr>
 
         <!-- 7. Média da Coluna -->
         <tr class="table-primary fw-bold">
           <td colspan="4" class="text-start ps-2">Média da Coluna</td>
-          ${renderCelulasEstatistica(s => s.media > 0 ? `<strong class="text-primary">${s.media}</strong>` : '-')}
+          ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.media > 0) ? `<strong class="text-primary">${s.media}</strong>` : '-')}
         </tr>
       `;
     }
@@ -3417,7 +6877,8 @@ function imprimirCadernetaOficial() {
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
   if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina');
 
-  const periodo = document.getElementById('cadernetaPeriodoSelect')?.value || '1_TRIMESTRE';
+  const periodoFiltro = document.getElementById('cadernetaPeriodoSelect')?.value;
+  const periodo = (periodoFiltro && periodoFiltro !== 'TODOS') ? periodoFiltro : '1_TRIMESTRE';
   const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/completa`);
   if (!resCaderneta.success || !resCaderneta.data.alunos?.length) {
     return alert('Não há alunos nesta turma');
@@ -3444,33 +6905,48 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
     `<option value="${a.codigo}">${a.codigo} — ${a.significado || a.nome || a.codigo}</option>`
   ).join('');
 
+  const idTurmaPadrao = resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || '';
+  const idDisciplinaPadrao = resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || '';
+
   abrirModal('Lançar Avaliações do Aluno (Oficial MEC)', `
     <form id="formModalLancamentoNota">
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Aluno Seleccionado</label>
-        <select id="mlnAluno" class="form-select" required>${optAlunos}</select>
+      <input type="hidden" id="mlnTurmaId" value="${idTurmaPadrao}">
+      <input type="hidden" id="mlnDisciplinaId" value="${idDisciplinaPadrao}">
+      <div class="row g-2 mb-3">
+        <div class="col-md-7">
+          <label class="form-label small fw-semibold">Aluno Seleccionado</label>
+          <select id="mlnAluno" class="form-select" required>${optAlunos}</select>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small fw-semibold text-primary">Trimestre Lectivo</label>
+          <select id="mlnPeriodo" class="form-select fw-semibold" required>
+            <option value="1_TRIMESTRE" ${periodo === '1_TRIMESTRE' ? 'selected' : ''}>1º Trimestre</option>
+            <option value="2_TRIMESTRE" ${periodo === '2_TRIMESTRE' ? 'selected' : ''}>2º Trimestre</option>
+            <option value="3_TRIMESTRE" ${periodo === '3_TRIMESTRE' ? 'selected' : ''}>3º Trimestre</option>
+          </select>
+        </div>
       </div>
 
       <div class="row g-2 mb-3">
         <div class="col-md-6">
-          <label class="form-label small fw-semibold text-primary">1ª ACS (Obrigatória, 0 a 20) *</label>
-          <input type="number" step="any" min="0" max="20" id="mlnT1" class="form-control" value="12" required oninput="calcularPrevisoesCadernetaModal()">
+          <label class="form-label small fw-semibold text-primary">1ª ACS (0 a 20)</label>
+          <input type="number" step="any" min="0" max="20" id="mlnT1" class="form-control" placeholder="0 a 20" oninput="calcularPrevisoesCadernetaModal()">
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold text-primary">2ª ACS (Obrigatória, 0 a 20) *</label>
-          <input type="number" step="any" min="0" max="20" id="mlnT2" class="form-control" value="13" required oninput="calcularPrevisoesCadernetaModal()">
+          <label class="form-label small fw-semibold text-primary">2ª ACS (0 a 20)</label>
+          <input type="number" step="any" min="0" max="20" id="mlnT2" class="form-control" placeholder="0 a 20" oninput="calcularPrevisoesCadernetaModal()">
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold text-muted">3ª ACS (Opcional, 0 a 20)</label>
+          <label class="form-label small fw-semibold text-muted">3ª ACS (0 a 20)</label>
           <input type="number" step="any" min="0" max="20" id="mlnT3" class="form-control" placeholder="Opcional" oninput="calcularPrevisoesCadernetaModal()">
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold text-muted">MAP - Aulas Práticas (Opcional, 0 a 20)</label>
+          <label class="form-label small fw-semibold text-muted">MAP - Aulas Práticas (0 a 20)</label>
           <input type="number" step="any" min="0" max="20" id="mlnTrabalho" class="form-control" placeholder="Opcional" oninput="calcularPrevisoesCadernetaModal()">
         </div>
         <div class="col-md-12">
-          <label class="form-label small fw-semibold text-primary">AT - Avaliação Trimestral (Obrigatória, 0 a 20) *</label>
-          <input type="number" step="any" min="0" max="20" id="mlnAT" class="form-control" value="12" required oninput="calcularPrevisoesCadernetaModal()">
+          <label class="form-label small fw-semibold text-primary">AT - Avaliação Trimestral (0 a 20)</label>
+          <input type="number" step="any" min="0" max="20" id="mlnAT" class="form-control" placeholder="0 a 20" oninput="calcularPrevisoesCadernetaModal()">
         </div>
       </div>
 
@@ -3479,15 +6955,15 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
         <div class="row text-center">
           <div class="col-4">
             <small class="text-muted d-block">MAS (Média ACS/MAP)</small>
-            <strong id="previewMlnMAS" class="text-primary fs-6">12.5</strong>
+            <strong id="previewMlnMAS" class="text-primary fs-6">-</strong>
           </div>
           <div class="col-4">
             <small class="text-muted d-block">MT (Média Trimestre)</small>
-            <strong id="previewMlnMT" class="text-success fs-6">12</strong>
+            <strong id="previewMlnMT" class="text-success fs-6">-</strong>
           </div>
           <div class="col-4">
             <small class="text-muted d-block">Comportamento</small>
-            <strong id="previewMlnComp" class="text-dark fs-6">S (Suficiente)</strong>
+            <strong id="previewMlnComp" class="text-dark fs-6">-</strong>
           </div>
         </div>
       </div>
@@ -3512,45 +6988,135 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
     </form>
   `);
 
-  calcularPrevisoesCadernetaModal();
+  const alunoIdInicial = alunoIdPreSelecionado || (resCaderneta.data.alunos[0]?.alunoId);
+  const selectAluno = document.getElementById('mlnAluno');
+
+  function carregarNotasAlunoNoModal(alunoId) {
+    const pAtual = document.getElementById('mlnPeriodo')?.value || periodo;
+    const aluno = resCaderneta.data.alunos.find(a => String(a.alunoId) === String(alunoId));
+    const trimKey = pAtual === '2_TRIMESTRE' ? 't2' : (pAtual === '3_TRIMESTRE' ? 't3' : 't1');
+    const trimData = aluno ? aluno[trimKey] : null;
+
+    const elT1 = document.getElementById('mlnT1');
+    const elT2 = document.getElementById('mlnT2');
+    const elT3 = document.getElementById('mlnT3');
+    const elMAP = document.getElementById('mlnTrabalho');
+    const elAT = document.getElementById('mlnAT');
+    const elFaltas = document.getElementById('mlnFaltas');
+    const elAnotacao = document.getElementById('mlnAnotacao');
+
+    const temNotaCadastrada = trimData && (
+      (trimData.t1 !== null && trimData.t1 !== undefined) ||
+      (trimData.t2 !== null && trimData.t2 !== undefined) ||
+      (trimData.t3 !== null && trimData.t3 !== undefined) ||
+      (trimData.map !== null && trimData.map !== undefined) ||
+      (trimData.at !== null && trimData.at !== undefined)
+    );
+
+    if (temNotaCadastrada) {
+      if (elT1) elT1.value = trimData.t1 !== null && trimData.t1 !== undefined ? trimData.t1 : '';
+      if (elT2) elT2.value = trimData.t2 !== null && trimData.t2 !== undefined ? trimData.t2 : '';
+      if (elT3) elT3.value = trimData.t3 !== null && trimData.t3 !== undefined ? trimData.t3 : '';
+      if (elMAP) elMAP.value = trimData.map !== null && trimData.map !== undefined ? trimData.map : '';
+      if (elAT) elAT.value = trimData.at !== null && trimData.at !== undefined ? trimData.at : '';
+      if (elFaltas) elFaltas.value = trimData.faltas ?? 0;
+      if (elAnotacao) elAnotacao.value = trimData.anotacao || '';
+    } else {
+      // Se o professor ainda não lançou nota para este aluno, tudo em branco
+      if (elT1) elT1.value = '';
+      if (elT2) elT2.value = '';
+      if (elT3) elT3.value = '';
+      if (elMAP) elMAP.value = '';
+      if (elAT) elAT.value = '';
+      if (elFaltas) elFaltas.value = '0';
+      if (elAnotacao) elAnotacao.value = '';
+    }
+    calcularPrevisoesCadernetaModal();
+  }
+
+  const selectPeriodo = document.getElementById('mlnPeriodo');
+  if (selectPeriodo) {
+    selectPeriodo.addEventListener('change', () => carregarNotasAlunoNoModal(selectAluno ? selectAluno.value : alunoIdInicial));
+  }
+
+  if (selectAluno) {
+    if (alunoIdInicial) selectAluno.value = alunoIdInicial;
+    selectAluno.addEventListener('change', (e) => carregarNotasAlunoNoModal(e.target.value));
+    carregarNotasAlunoNoModal(selectAluno.value);
+  } else {
+    calcularPrevisoesCadernetaModal();
+  }
 
   document.getElementById('formModalLancamentoNota').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
       const aloc = state.alocacoesDocente.find(a => a.id === state.alocacaoAtualId);
-      const vT1 = parseFloat(document.getElementById('mlnT1').value);
-      const vT2 = parseFloat(document.getElementById('mlnT2').value);
-      const vT3 = document.getElementById('mlnT3').value ? parseFloat(document.getElementById('mlnT3').value) : null;
-      const vMAP = document.getElementById('mlnTrabalho').value ? parseFloat(document.getElementById('mlnTrabalho').value) : null;
-      const vAT = parseFloat(document.getElementById('mlnAT').value);
+      const strT1 = document.getElementById('mlnT1').value.trim();
+      const strT2 = document.getElementById('mlnT2').value.trim();
+      const strT3 = document.getElementById('mlnT3').value.trim();
+      const strMAP = document.getElementById('mlnTrabalho').value.trim();
+      const strAT = document.getElementById('mlnAT').value.trim();
 
-      // Calcular médias e comportamento
-      const testes = [vT1, vT2];
+      const vT1 = strT1 !== '' ? parseFloat(strT1) : null;
+      const vT2 = strT2 !== '' ? parseFloat(strT2) : null;
+      const vT3 = strT3 !== '' ? parseFloat(strT3) : null;
+      const vMAP = strMAP !== '' ? parseFloat(strMAP) : null;
+      const vAT = strAT !== '' ? parseFloat(strAT) : null;
+
+      // Calcular médias e comportamento de forma flexível (conforme notas já lançadas)
+      const testes = [];
+      if (vT1 !== null && !isNaN(vT1)) testes.push(vT1);
+      if (vT2 !== null && !isNaN(vT2)) testes.push(vT2);
       if (vT3 !== null && !isNaN(vT3)) testes.push(vT3);
       if (vMAP !== null && !isNaN(vMAP)) testes.push(vMAP);
-      const masVal = testes.reduce((a, b) => a + b, 0) / testes.length;
-      const mtVal = Math.round((2 * masVal + vAT) / 3);
 
-      let compAuto = 'S';
-      if (mtVal < 9.5) compAuto = 'NS';
-      else if (mtVal <= 13.4) compAuto = 'S';
-      else if (mtVal <= 16.4) compAuto = 'B';
-      else if (mtVal <= 18.4) compAuto = 'MB';
-      else compAuto = 'E';
+      // Regra Oficial MINEDH: Só forma e exibe MT quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
+      const temRequisitosMT = (vT1 !== null && !isNaN(vT1)) && (vT2 !== null && !isNaN(vT2)) && (vAT !== null && !isNaN(vAT));
+
+      let masVal = null;
+      if (testes.length > 0) {
+        masVal = testes.reduce((a, b) => a + b, 0) / testes.length;
+      }
+
+      let mtVal = null;
+      if (temRequisitosMT && masVal !== null) {
+        mtVal = Math.round((2 * masVal + vAT) / 3);
+      }
+
+      let compAuto = '';
+      if (mtVal !== null) {
+        if (mtVal < 9.5) compAuto = 'NS';
+        else if (mtVal <= 13.4) compAuto = 'S';
+        else if (mtVal <= 16.4) compAuto = 'B';
+        else if (mtVal <= 18.4) compAuto = 'MB';
+        else compAuto = 'E';
+      }
+
+      // Obter IDs automaticamente da alocação da caderneta activa
+      const alunoId = document.getElementById('mlnAluno')?.value || alunoIdInicial;
+      const turmaId = document.getElementById('mlnTurmaId')?.value || resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || aloc?.turma_id || aloc?.turma?.id;
+      const disciplinaId = document.getElementById('mlnDisciplinaId')?.value || resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || aloc?.disciplina_id || aloc?.disciplina?.id;
+
+      if (!alunoId || !turmaId || !disciplinaId) {
+        alert('Não foi possível identificar automaticamente o aluno, a turma ou a disciplina. Selecione uma turma na caderneta e tente novamente.');
+        return;
+      }
+
+      const periodoEscolhido = document.getElementById('mlnPeriodo')?.value || periodo;
 
       const body = {
-        aluno_id: document.getElementById('mlnAluno').value,
-        turma_id: aloc.turma_id,
-        disciplina_id: aloc.disciplina_id,
-        periodo: periodo,
-        teste1: vT1,
-        teste2: vT2,
-        teste3: vT3 !== null ? vT3 : undefined,
-        trabalho: vMAP !== null ? vMAP : undefined,
-        avaliacao_trimestral: vAT,
+        aluno_id: alunoId,
+        turma_id: turmaId,
+        disciplina_id: disciplinaId,
+        periodo: periodoEscolhido,
+        teste1: vT1 !== null ? vT1 : null,
+        teste2: vT2 !== null ? vT2 : null,
+        teste3: vT3 !== null ? vT3 : null,
+        trabalho: vMAP !== null ? vMAP : null,
+        avaliacao_trimestral: vAT !== null ? vAT : null,
         faltas: Number(document.getElementById('mlnFaltas').value) || 0,
         anotacao: document.getElementById('mlnAnotacao').value || undefined,
-        comportamento: compAuto
+        comportamento: compAuto || undefined
       };
 
       const res = await apiFetch('/api/v1/notas', {
@@ -3564,6 +7130,8 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
         if (typeof alternarVisualizacaoPautaTurma === 'function') {
           alternarVisualizacaoPautaTurma().catch(() => {});
         }
+      } else {
+        alert(res.message || 'Erro ao lançar avaliação');
       }
     } catch (err) {
       alert(err.message || 'Erro ao lançar avaliação');
@@ -3572,31 +7140,49 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
 }
 
 function calcularPrevisoesCadernetaModal() {
-  const t1 = parseFloat(document.getElementById('mlnT1')?.value || '0');
-  const t2 = parseFloat(document.getElementById('mlnT2')?.value || '0');
-  const t3Val = document.getElementById('mlnT3')?.value;
-  const t3 = t3Val ? parseFloat(t3Val) : null;
-  const mapVal = document.getElementById('mlnTrabalho')?.value;
-  const map = mapVal ? parseFloat(mapVal) : null;
-  const at = parseFloat(document.getElementById('mlnAT')?.value || '0');
+  const v1Str = document.getElementById('mlnT1')?.value?.trim() || '';
+  const v2Str = document.getElementById('mlnT2')?.value?.trim() || '';
+  const v3Str = document.getElementById('mlnT3')?.value?.trim() || '';
+  const mapStr = document.getElementById('mlnTrabalho')?.value?.trim() || '';
+  const atStr = document.getElementById('mlnAT')?.value?.trim() || '';
 
-  const avaliacoes = [t1, t2];
-  if (t3 !== null && !isNaN(t3)) avaliacoes.push(t3);
-  if (map !== null && !isNaN(map)) avaliacoes.push(map);
+  const avaliacoes = [];
+  if (v1Str !== '' && !isNaN(Number(v1Str))) avaliacoes.push(Number(v1Str));
+  if (v2Str !== '' && !isNaN(Number(v2Str))) avaliacoes.push(Number(v2Str));
+  if (v3Str !== '' && !isNaN(Number(v3Str))) avaliacoes.push(Number(v3Str));
+  if (mapStr !== '' && !isNaN(Number(mapStr))) avaliacoes.push(Number(mapStr));
 
-  const mas = Number((avaliacoes.reduce((a, b) => a + b, 0) / avaliacoes.length).toFixed(1));
-  const mt = Math.round((2 * mas + at) / 3);
+  let mas = null;
+  if (avaliacoes.length > 0) {
+    mas = Number((avaliacoes.reduce((a, b) => a + b, 0) / avaliacoes.length).toFixed(1));
+  }
 
-  let comp = 'S (Suficiente)';
-  if (mt < 9.5) comp = 'NS (Não Suficiente)';
-  else if (mt <= 13.4) comp = 'S (Suficiente)';
-  else if (mt <= 16.4) comp = 'B (Bom)';
-  else if (mt <= 18.4) comp = 'MB (Muito Bom)';
-  else comp = 'E (Excelente)';
+  // Regra Oficial: Só deve formar e mostrar MT quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
+  const temRequisitosMT = (v1Str !== '' && !isNaN(Number(v1Str))) &&
+                          (v2Str !== '' && !isNaN(Number(v2Str))) &&
+                          (atStr !== '' && !isNaN(Number(atStr)));
 
-  if (document.getElementById('previewMlnMAS')) document.getElementById('previewMlnMAS').textContent = mas;
-  if (document.getElementById('previewMlnMT')) document.getElementById('previewMlnMT').textContent = mt;
-  if (document.getElementById('previewMlnComp')) document.getElementById('previewMlnComp').textContent = comp;
+  let mt = null;
+  if (temRequisitosMT && mas !== null) {
+    mt = Math.round((2 * mas + Number(atStr)) / 3);
+  }
+
+  let comp = '-';
+  if (mt !== null) {
+    if (mt < 9.5) comp = 'NS (Não Suficiente)';
+    else if (mt <= 13.4) comp = 'S (Suficiente)';
+    else if (mt <= 16.4) comp = 'B (Bom)';
+    else if (mt <= 18.4) comp = 'MB (Muito Bom)';
+    else comp = 'E (Excelente)';
+  }
+
+  const elMas = document.getElementById('previewMlnMAS');
+  const elMt = document.getElementById('previewMlnMT');
+  const elComp = document.getElementById('previewMlnComp');
+
+  if (elMas) elMas.textContent = mas !== null ? mas : '-';
+  if (elMt) elMt.textContent = mt !== null ? mt : '-';
+  if (elComp) elComp.textContent = comp;
 }
 
 // ==================== 8. PAUTAS GERAIS & ACTAS OFICIAIS ====================
@@ -3631,7 +7217,7 @@ async function carregarPautas() {
 
     if (resTurmas.success && resTurmas.data.length > 0) {
       selectTurma.innerHTML = resTurmas.data.map(t => 
-        `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`
+        `<option value="${t.id}">${t.grau_ano} &rarr; ${t.nome} (${normalizarArea(t.area || 'Geral')})</option>`
       ).join('');
       alternarVisualizacaoPautaTurma();
     } else {
@@ -3660,71 +7246,116 @@ async function carregarPautaGeral(turmaId) {
 
   try {
     const res = await apiFetch(`/api/v1/pautas/turma/${turmaId}/completa`);
-    if (!res.success) return;
-    const d = res.data;
+    if (!res || !res.success) {
+      container.innerHTML = '<div class="alert alert-warning text-center py-3">Não foi possível carregar a pauta para esta turma.</div>';
+      return;
+    }
+    const d = res.data || res;
 
-    document.getElementById('pautaGeralTitulo').textContent = `Pauta Oficial de Aproveitamento Pedagógico — ${d.turma.nome} (${d.turma.grau_ano})`;
-    document.getElementById('pautaGeralSubtitulo').textContent = `Ano Lectivo: ${d.turma.ano_letivo} | Turno: ${d.turma.turno || 'Diurno'} | Director de Turma: ${d.turma.director_turma} (${d.turma.director_turma_tel || ''})`;
+    const turmaNome = d.turma?.nome || 'Turma';
+    const turmaGrau = d.turma?.grau_ano || '';
+    const turmaArea = d.turma?.area || '';
+    const areaTxt = turmaArea && !['geral', 'ensino geral', 'tronco comum'].includes(turmaArea.toLowerCase()) ? ` — Área: ${turmaArea}` : '';
+    const anoLetivo = d.turma?.ano_letivo || '2026';
+    const turno = d.turma?.turno || 'Diurno';
+    const dirTurma = d.turma?.director_turma || 'Direcção Pedagógica';
+    const dirTel = d.turma?.director_turma_tel ? ` (${d.turma.director_turma_tel})` : '';
+
+    const elTitulo = document.getElementById('pautaGeralTitulo');
+    if (elTitulo) elTitulo.textContent = `Pauta Oficial de Aproveitamento Pedagógico — ${turmaNome} (${turmaGrau}${areaTxt})`;
+
+    const elSubtitulo = document.getElementById('pautaGeralSubtitulo');
+    if (elSubtitulo) elSubtitulo.textContent = `Ano Lectivo: ${anoLetivo} | Turno: ${turno} | Director de Turma: ${dirTurma}${dirTel}`;
 
     const formatNota = (val) => {
-      if (val === null || val === undefined || isNaN(val) || val <= 0) return '<span class="text-muted">-</span>';
+      if (val === null || val === undefined || val === '' || val === '-' || isNaN(Number(val))) return '<span class="text-muted">-</span>';
       const num = Number(val);
       const cls = num >= 9.5 ? 'nota-positiva' : 'nota-negativa';
       return `<span class="${cls}">${Number.isInteger(num) ? num : num.toFixed(1)}</span>`;
     };
 
-    const thDisciplinas = d.disciplinas.map(disc => 
-      `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.75rem;">${disc.codigo || disc.nome}</th>`
+    const disciplinas = Array.isArray(d.disciplinas) ? d.disciplinas : [];
+    const alunos = Array.isArray(d.alunos) ? d.alunos : [];
+
+    const thDisciplinas = disciplinas.map(disc => 
+      `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.75rem;">${disc.nome || disc.codigo}</th>`
     ).join('');
 
-    const thSubDisciplinas = d.disciplinas.map(() => 
+    const thSubDisciplinas = disciplinas.map(() => 
       `<th style="font-size: 0.65rem;">1º</th><th style="font-size: 0.65rem;">2º</th><th style="font-size: 0.65rem;">3º</th><th style="font-size: 0.65rem;" class="bg-light fw-bold">MFD</th>`
     ).join('');
 
-    let trsAlunos = d.alunos.map(a => {
-      const tdDisciplinas = d.disciplinas.map(disc => {
-        const nd = a.notasDisciplinas[disc.codigo || disc.id] || a.notasDisciplinas[disc.id] || {};
-        return `
-          <td>${formatNota(nd.t1)}</td>
-          <td>${formatNota(nd.t2)}</td>
-          <td>${formatNota(nd.t3)}</td>
-          <td class="bg-light fw-bold">${formatNota(nd.mfd)}</td>
-        `;
-      }).join('');
+    const colSpanTotal = 2 + (disciplinas.length * 4) + 9;
 
-      let badgeResultado = '';
-      if (a.resultadoFinal === 'A' || a.resultadoFinal === 'Aprovado') {
-        badgeResultado = '<span class="fw-bold text-dark" style="font-weight: 700; color: #000000 !important;">Aprovado</span>';
-      } else if (a.resultadoFinal === 'R' || a.resultadoFinal === 'Reprovado') {
-        badgeResultado = '<span class="fw-bold text-danger" style="font-weight: 700; color: #dc2626 !important;">Reprovado</span>';
-      } else if (a.resultadoFinal === 'D') {
-        badgeResultado = '<span class="fw-bold text-secondary">Desistente</span>';
-      } else {
-        badgeResultado = '<span class="fw-bold text-secondary">Transferido</span>';
-      }
-
-      const nomeCompleto = (a.nomeCompleto || `${a.nome} ${a.apelido || ''}`).trim();
-      const isFem = (a.genero || 'M').toUpperCase().startsWith('F');
-
-      return `
+    let trsAlunos = '';
+    if (alunos.length === 0) {
+      trsAlunos = `
         <tr>
-          <td class="text-start ps-3 fw-semibold">${nomeCompleto}</td>
-          <td><span class="badge ${isFem ? 'bg-info text-white' : 'bg-secondary text-white'}" style="min-width: 22px;">${isFem ? 'F' : 'M'}</span></td>
-          ${tdDisciplinas}
-          <td class="bg-light">${formatNota(a.mediasTrimestrais?.t1)}</td>
-          <td class="bg-light">${formatNota(a.mediasTrimestrais?.t2)}</td>
-          <td class="bg-light">${formatNota(a.mediasTrimestrais?.t3)}</td>
-          <td>${a.negativas?.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
-          <td>${a.negativas?.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
-          <td>${a.negativas?.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
-          <td class="bg-light">${(a.negativas?.fimDoAno || 0) > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
-          <td class="bg-primary bg-opacity-10 fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
-          <td>${badgeResultado}</td>
+          <td colspan="${colSpanTotal}" class="text-center py-5 text-muted">
+            <i class="bi bi-people display-6 d-block mb-2 text-secondary opacity-50"></i>
+            <span class="fw-semibold">Nenhum aluno matriculado nesta turma (zero alunos na pauta).</span>
+            <p class="small mb-0 mt-1">Matricule ou aloque alunos a esta turma para visualizar notas e médias na pauta geral.</p>
+          </td>
         </tr>
       `;
-    }).join('');
+    } else {
+      trsAlunos = alunos.map(a => {
+        const notasDisc = a.notasDisciplinas || a.notas || {};
+        const tdDisciplinas = disciplinas.map(disc => {
+          const nd = notasDisc[disc.codigo || disc.id] || notasDisc[disc.id] || notasDisc[disc.nome] || {};
+          return `
+            <td>${formatNota(nd.t1)}</td>
+            <td>${formatNota(nd.t2)}</td>
+            <td>${formatNota(nd.t3)}</td>
+            <td class="bg-light fw-bold">${(nd.t1 !== '-' && nd.t2 !== '-' && nd.t3 !== '-' && nd.t1 !== null && nd.t2 !== null && nd.t3 !== null && Number(nd.t1) > 0 && Number(nd.t2) > 0 && Number(nd.t3) > 0) ? formatNota(nd.mfd) : '<span class="text-muted">-</span>'}</td>
+          `;
+        }).join('');
 
-    const est = d.estatistica;
+        let badgeResultado = '';
+        const resTexto = (a.resultadoFinal || a.resultado || '').trim();
+        if (resTexto === 'A' || resTexto === 'Aprovado') {
+          badgeResultado = '<span class="fw-bold text-dark" style="font-weight: 700; color: #000000 !important;">Aprovado</span>';
+        } else if (resTexto === 'R' || resTexto === 'Reprovado') {
+          badgeResultado = '<span class="fw-bold text-danger" style="font-weight: 700; color: #dc2626 !important;">Reprovado</span>';
+        } else if (resTexto === 'D' || resTexto === 'Desistente') {
+          badgeResultado = '<span class="fw-bold text-secondary">Desistente</span>';
+        } else if (resTexto === 'T' || resTexto === 'Transferido') {
+          badgeResultado = '<span class="fw-bold text-secondary">Transferido</span>';
+        } else {
+          badgeResultado = `<span class="fw-bold text-secondary">${resTexto || '-'}</span>`;
+        }
+
+        const nomeCompleto = (a.nomeCompleto || `${a.nome || ''} ${a.apelido || ''}`).trim() || 'Sem Nome';
+        const isFem = (a.genero || 'M').toUpperCase().startsWith('F');
+
+        return `
+          <tr>
+            <td class="text-start ps-3 fw-semibold">${nomeCompleto}</td>
+            <td><span class="badge ${isFem ? 'bg-info text-white' : 'bg-secondary text-white'}" style="min-width: 22px;">${isFem ? 'F' : 'M'}</span></td>
+            ${tdDisciplinas}
+            <td class="bg-light">${formatNota(a.mediasTrimestrais?.t1)}</td>
+            <td class="bg-light">${formatNota(a.mediasTrimestrais?.t2)}</td>
+            <td class="bg-light">${formatNota(a.mediasTrimestrais?.t3)}</td>
+            <td>${a.negativas?.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
+            <td>${a.negativas?.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
+            <td>${a.negativas?.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
+            <td class="bg-light">${(a.negativas?.fimDoAno || 0) > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
+            <td class="bg-primary bg-opacity-10 fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
+            <td>${badgeResultado}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    const est = d.estatistica || {};
+    const totalInscritos = est.inscritos?.total ?? est.totalAlunos ?? alunos.length;
+    const homensInscritos = est.inscritos?.h ?? est.homens ?? alunos.filter(a => !(a.genero || '').toUpperCase().startsWith('F')).length;
+    const mulheresInscritos = est.inscritos?.m ?? est.mulheres ?? alunos.filter(a => (a.genero || '').toUpperCase().startsWith('F')).length;
+    const totalAvaliados = est.avaliados?.total ?? totalInscritos;
+    const aprovadosTotal = typeof est.aprovados === 'object' ? (est.aprovados?.total ?? 0) : (est.aprovados ?? 0);
+    const aprovadosPct = typeof est.aprovados === 'object' ? (est.aprovados?.pct ?? 0) : (est.taxaAprovacao ?? 0);
+    const reprovadosTotal = typeof est.reprovados === 'object' ? (est.reprovados?.total ?? 0) : (est.reprovados ?? 0);
+    const reprovadosPct = typeof est.reprovados === 'object' ? (est.reprovados?.pct ?? 0) : (est.taxaReprovacao ?? 0);
 
     container.innerHTML = `
       <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: 1400px;">
@@ -3754,12 +7385,12 @@ async function carregarPautaGeral(turmaId) {
         </tbody>
         <tfoot class="table-light">
           <tr class="table-secondary fw-bold text-start">
-            <td colspan="${2 + (d.disciplinas.length * 4) + 9}" class="ps-3 py-2">
+            <td colspan="${colSpanTotal}" class="ps-3 py-2">
               <div class="d-flex flex-wrap gap-4 align-items-center">
-                <span>Total Inscritos: <strong>${est.inscritos.total}</strong> (H: ${est.inscritos.h} | M: ${est.inscritos.m})</span>
-                <span>Avaliados: <strong>${est.avaliados.total}</strong></span>
-                <span class="text-success">Aprovados: <strong>${est.aprovados.total}</strong> (${est.aprovados.pct}%)</span>
-                <span class="text-danger">Reprovados: <strong>${est.reprovados.total}</strong> (${est.reprovados.pct}%)</span>
+                <span>Total Inscritos: <strong>${totalInscritos}</strong> (H: ${homensInscritos} | M: ${mulheresInscritos})</span>
+                <span>Avaliados: <strong>${totalAvaliados}</strong></span>
+                <span class="text-success">Aprovados: <strong>${aprovadosTotal}</strong> (${aprovadosPct}%)</span>
+                <span class="text-danger">Reprovados: <strong>${reprovadosTotal}</strong> (${reprovadosPct}%)</span>
               </div>
             </td>
           </tr>
@@ -3767,7 +7398,8 @@ async function carregarPautaGeral(turmaId) {
       </table>
     `;
   } catch (err) {
-    container.innerHTML = '<div class="alert alert-danger">Erro ao carregar pauta geral da turma.</div>';
+    console.error('Erro ao carregar pauta geral da turma:', err);
+    container.innerHTML = `<div class="alert alert-danger">Erro ao carregar pauta geral da turma: ${err.message || err}</div>`;
   }
 }
 
@@ -3778,60 +7410,60 @@ async function carregarActaConselho(turmaId) {
 
   try {
     const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
-    const cp = savedParamsRaw ? JSON.parse(savedParamsRaw) : {
-      presidenteT1: 'Fernando José Mandamule',
-      presidenteT2: 'Fernando José Mandamule',
-      presidenteT3: '_________________',
-      dataT1: '26/05/2026',
-      dataT2: '01/09/2026',
-      dataT3: '____/____/2026',
-      horaInicioT1: '09',
-      minInicioT1: '30',
-      horaFimT1: '10',
-      minFimT1: '00',
-      horaInicioT2: '09',
-      minInicioT2: '30',
-      horaFimT2: '11',
-      minFimT2: '00',
-      horaInicioT3: '____',
-      minInicioT3: '____',
-      horaFimT3: '____',
-      minFimT3: '____'
-    };
+    let cp = {};
+    if (savedParamsRaw) {
+      try {
+        cp = JSON.parse(savedParamsRaw) || {};
+        // Se continha os dados fictícios hardcoded de demonstração antigos, limpar para não poluir
+        if (cp.dataT1 === '26/05/2026' && cp.dataT2 === '01/09/2026') {
+          cp = {};
+          localStorage.removeItem('sige_acta_params_' + turmaId);
+        }
+      } catch (e) {
+        cp = {};
+      }
+    }
 
     const qParams = new URLSearchParams(cp).toString();
     const res = await apiFetch(`/api/v1/pautas/turma/${turmaId}/acta?${qParams}`);
-    if (!res.success) return;
-    const d = res.data;
+    if (!res || !res.success) {
+      container.innerHTML = '<div class="alert alert-warning text-center py-3">Não foi possível carregar a acta do conselho para esta turma.</div>';
+      return;
+    }
+    const d = res.data || res;
 
     const te = d.tabelaEfectivo;
     const ta = d.tabelaAproveitamento;
+    const escola = d.escola || { nome: 'Escola Secundária', provincia: 'Maputo', distrito: 'Cidade de Maputo' };
+    const turma = d.turma || { nome: 'Turma', grau_ano: '', turno: 'Diurno' };
+    const disciplinas = Array.isArray(d.disciplinas) ? d.disciplinas : [];
 
-    const dirTurma = cp.directorTurma || d.turma?.director_turma?.nome || '_________________';
-    const p1 = cp.presidenteT1 || d.conselho?.presidenteT1 || '_________________';
-    const p2 = cp.presidenteT2 || d.conselho?.presidenteT2 || '_________________';
-    const p3 = cp.presidenteT3 || d.conselho?.presidenteT3 || '_________________';
+    const anoTurma = turma.ano_letivo || '2026';
+    const dirTurma = (cp.directorTurma && cp.directorTurma.trim()) ? cp.directorTurma.trim() : (turma.director_turma?.nome || turma.director_turma || '_________________');
+    const p1 = (cp.presidenteT1 && cp.presidenteT1.trim()) ? cp.presidenteT1.trim() : '_________________';
+    const p2 = (cp.presidenteT2 && cp.presidenteT2.trim()) ? cp.presidenteT2.trim() : '_________________';
+    const p3 = (cp.presidenteT3 && cp.presidenteT3.trim()) ? cp.presidenteT3.trim() : '_________________';
 
-    const dt1 = cp.dataT1 || '____/____/2026';
-    const dt2 = cp.dataT2 || '____/____/2026';
-    const dt3 = cp.dataT3 || '____/____/2026';
+    const dt1 = formatarDataParaExibicao(cp.dataT1, anoTurma);
+    const dt2 = formatarDataParaExibicao(cp.dataT2, anoTurma);
+    const dt3 = formatarDataParaExibicao(cp.dataT3, anoTurma);
 
-    const hIni1 = cp.horaInicioT1 || '__';
-    const mIni1 = cp.minInicioT1 || '__';
-    const hFim1 = cp.horaFimT1 || '__';
-    const mFim1 = cp.minFimT1 || '__';
+    const hIni1 = (cp.horaInicioT1 && cp.horaInicioT1.trim()) ? cp.horaInicioT1.trim() : '__';
+    const mIni1 = (cp.minInicioT1 && cp.minInicioT1.trim()) ? cp.minInicioT1.trim() : '__';
+    const hFim1 = (cp.horaFimT1 && cp.horaFimT1.trim()) ? cp.horaFimT1.trim() : '__';
+    const mFim1 = (cp.minFimT1 && cp.minFimT1.trim()) ? cp.minFimT1.trim() : '__';
 
-    const hIni2 = cp.horaInicioT2 || '__';
-    const mIni2 = cp.minInicioT2 || '__';
-    const hFim2 = cp.horaFimT2 || '__';
-    const mFim2 = cp.minFimT2 || '__';
+    const hIni2 = (cp.horaInicioT2 && cp.horaInicioT2.trim()) ? cp.horaInicioT2.trim() : '__';
+    const mIni2 = (cp.minInicioT2 && cp.minInicioT2.trim()) ? cp.minInicioT2.trim() : '__';
+    const hFim2 = (cp.horaFimT2 && cp.horaFimT2.trim()) ? cp.horaFimT2.trim() : '__';
+    const mFim2 = (cp.minFimT2 && cp.minFimT2.trim()) ? cp.minFimT2.trim() : '__';
 
-    const hIni3 = cp.horaInicioT3 || '__';
-    const mIni3 = cp.minInicioT3 || '__';
-    const hFim3 = cp.horaFimT3 || '__';
-    const mFim3 = cp.minFimT3 || '__';
+    const hIni3 = (cp.horaInicioT3 && cp.horaInicioT3.trim()) ? cp.horaInicioT3.trim() : '__';
+    const mIni3 = (cp.minInicioT3 && cp.minInicioT3.trim()) ? cp.minInicioT3.trim() : '__';
+    const hFim3 = (cp.horaFimT3 && cp.horaFimT3.trim()) ? cp.horaFimT3.trim() : '__';
+    const mFim3 = (cp.minFimT3 && cp.minFimT3.trim()) ? cp.minFimT3.trim() : '__';
 
-    const textoProtocolar = `Sob presidência do senhor professor <strong>${p1}</strong> (Iº Trimestre); <strong>${p2}</strong> (IIº Trimestre); <strong>${p3}</strong> (IIIº Trimestre); director/substituto do director de turma <strong>${dirTurma}</strong> da turma <strong>${d.turma.nome}</strong> do grupo da <strong>${d.turma.grau_ano}</strong>, curso <strong>${d.turma.turno === 'NOITE' ? 'Nocturno' : 'Diurno'}</strong>, realizou-se o Conselho de Avaliação do Iº; IIº, IIIº, Trimestre no dia <strong>${dt1}</strong>; <strong>${dt2}</strong>; <strong>${dt3}</strong>, com início às <strong>${hIni1}</strong> horas e <strong>${mIni1}</strong> minutos e com término às <strong>${hFim1}</strong> horas e <strong>${mFim1}</strong> minutos (Iº Trim); <strong>${hIni2}</strong> horas e <strong>${mIni2}</strong> minutos e com término às <strong>${hFim2}</strong> horas e <strong>${mFim2}</strong> minutos (IIº Trim); <strong>${hIni3}</strong> horas e <strong>${mIni3}</strong> minutos e com término às <strong>${hFim3}</strong> horas e <strong>${mFim3}</strong> minutos (IIIº Trim). No final deste conselho colheram-se os resultados que abaixo vão discriminados de todos os membros que participaram:`;
+    const textoProtocolar = `Sob presidência do senhor professor <strong>${p1}</strong> (Iº Trimestre); <strong>${p2}</strong> (IIº Trimestre); <strong>${p3}</strong> (IIIº Trimestre); director/substituto do director de turma <strong>${dirTurma}</strong> da turma <strong>${turma.nome}</strong> do grupo da <strong>${turma.grau_ano}</strong>, curso <strong>${turma.turno === 'NOITE' ? 'Nocturno' : 'Diurno'}</strong>, realizou-se o Conselho de Avaliação do Iº; IIº, IIIº, Trimestre no dia <strong>${dt1}</strong>; <strong>${dt2}</strong>; <strong>${dt3}</strong>, com início às <strong>${hIni1}</strong> horas e <strong>${mIni1}</strong> minutos e com término às <strong>${hFim1}</strong> horas e <strong>${mFim1}</strong> minutos (Iº Trim); <strong>${hIni2}</strong> horas e <strong>${mIni2}</strong> minutos e com término às <strong>${hFim2}</strong> horas e <strong>${mFim2}</strong> minutos (IIº Trim); <strong>${hIni3}</strong> horas e <strong>${mIni3}</strong> minutos e com término às <strong>${hFim3}</strong> horas e <strong>${mFim3}</strong> minutos (IIIº Trim). No final deste conselho colheram-se os resultados que abaixo vão discriminados de todos os membros que participaram:`;
 
     const tc = d.trimestresComNotas || { t1: true, t2: false, t3: false, fimAno: false };
 
@@ -3840,18 +7472,43 @@ async function carregarActaConselho(turmaId) {
       return ['H', 'M', 'HM'].map((gen, gIdx) => {
         const prop = gen === 'H' ? 'h' : (gen === 'M' ? 'm' : 'hm');
         const pctProp = gen === 'H' ? 'pctH' : (gen === 'M' ? 'pctM' : 'pct');
+        const isInicial = (chave === 'inscritos');
 
-        const vT1 = tc.t1 && te.t1[chave] ? te.t1[chave][prop] : (tc.t1 ? 0 : '-');
-        const pT1 = tc.t1 && te.t1[chave] && te.t1[chave][pctProp] !== undefined ? `${te.t1[chave][pctProp]}%` : '-';
+        // Iº Trimestre
+        const temT1 = tc.t1 || isInicial;
+        const vT1 = (temT1 && te?.t1?.[chave] && te.t1[chave][prop] !== undefined)
+          ? te.t1[chave][prop]
+          : (isInicial && te?.t1?.inscritos ? te.t1.inscritos[prop] : '-');
+        const pT1 = (temT1 && te?.t1?.[chave] && te.t1[chave][pctProp] !== undefined)
+          ? `${te.t1[chave][pctProp]}%`
+          : (isInicial && vT1 !== '-' ? '100%' : '-');
 
-        const vT2 = tc.t2 && te.t2[chave] ? te.t2[chave][prop] : (tc.t2 ? 0 : '-');
-        const pT2 = tc.t2 && te.t2[chave] && te.t2[chave][pctProp] !== undefined ? `${te.t2[chave][pctProp]}%` : '-';
+        // IIº Trimestre (Para Matrículas/Efectivo Inicial, replica automaticamente os matriculados do início do ano)
+        const temT2 = tc.t2 || isInicial;
+        const vT2 = isInicial
+          ? (te?.t2?.[chave]?.[prop] ?? vT1)
+          : (temT2 && te?.t2?.[chave] ? te.t2[chave][prop] : '-');
+        const pT2 = isInicial
+          ? (te?.t2?.[chave]?.[pctProp] !== undefined ? `${te.t2[chave][pctProp]}%` : pT1)
+          : (temT2 && te?.t2?.[chave] && te.t2[chave][pctProp] !== undefined ? `${te.t2[chave][pctProp]}%` : '-');
 
-        const vT3 = tc.t3 && te.t3[chave] ? te.t3[chave][prop] : (tc.t3 ? 0 : '-');
-        const pT3 = tc.t3 && te.t3[chave] && te.t3[chave][pctProp] !== undefined ? `${te.t3[chave][pctProp]}%` : '-';
+        // IIIº Trimestre (Para Matrículas/Efectivo Inicial, replica automaticamente os matriculados do início do ano)
+        const temT3 = tc.t3 || isInicial;
+        const vT3 = isInicial
+          ? (te?.t3?.[chave]?.[prop] ?? vT1)
+          : (temT3 && te?.t3?.[chave] ? te.t3[chave][prop] : '-');
+        const pT3 = isInicial
+          ? (te?.t3?.[chave]?.[pctProp] !== undefined ? `${te.t3[chave][pctProp]}%` : pT1)
+          : (temT3 && te?.t3?.[chave] && te.t3[chave][pctProp] !== undefined ? `${te.t3[chave][pctProp]}%` : '-');
 
-        const vFA = tc.fimAno && te.fimAno[chave] ? te.fimAno[chave][prop] : (tc.fimAno ? 0 : '-');
-        const pFA = tc.fimAno && te.fimAno[chave] && te.fimAno[chave][pctProp] !== undefined ? `${te.fimAno[chave][pctProp]}%` : '-';
+        // Fim do Ano (Para Matrículas/Efectivo Inicial, replica automaticamente os matriculados do início do ano)
+        const temFA = tc.fimAno || isInicial;
+        const vFA = isInicial
+          ? (te?.fimAno?.[chave]?.[prop] ?? vT1)
+          : (temFA && te?.fimAno?.[chave] ? te.fimAno[chave][prop] : '-');
+        const pFA = isInicial
+          ? (te?.fimAno?.[chave]?.[pctProp] !== undefined ? `${te.fimAno[chave][pctProp]}%` : pT1)
+          : (temFA && te?.fimAno?.[chave] && te.fimAno[chave][pctProp] !== undefined ? `${te.fimAno[chave][pctProp]}%` : '-');
 
         const tdCat = gIdx === 0 ? `<td rowspan="3" class="text-start ps-2 fw-bold align-middle bg-light border-end">${categoria}</td>` : '';
         const bgCls = gen === 'HM' ? 'table-light fw-bold' : '';
@@ -3875,39 +7532,43 @@ async function carregarActaConselho(turmaId) {
         const prop = gen === 'H' ? 'h' : (gen === 'M' ? 'm' : 'hm');
         const pctProp = gen === 'H' ? 'pctH' : (gen === 'M' ? 'pctM' : 'pct');
 
-        const vT1 = tc.t1 && ta.t1[chave] ? ta.t1[chave][prop] : (tc.t1 ? 0 : '-');
-        const pT1 = tc.t1 && ta.t1[chave] && ta.t1[chave][pctProp] !== undefined ? `${ta.t1[chave][pctProp]}%` : (tc.t1 && chave === 'avaliados' ? '100%' : '-');
+        const temNotasT1 = tc.t1 && (ta?.t1?.avaliados?.hm > 0);
+        const vT1 = temNotasT1 && ta?.t1?.[chave] ? ta.t1[chave][prop] : '-';
+        const pT1 = temNotasT1 && ta?.t1?.[chave] && ta.t1[chave][pctProp] !== undefined ? `${ta.t1[chave][pctProp]}%` : (temNotasT1 && chave === 'avaliados' ? '100%' : '-');
 
-        const vT2 = tc.t2 && ta.t2[chave] ? ta.t2[chave][prop] : (tc.t2 ? 0 : '-');
-        const pT2 = tc.t2 && ta.t2[chave] && ta.t2[chave][pctProp] !== undefined ? `${ta.t2[chave][pctProp]}%` : (tc.t2 && chave === 'avaliados' ? '100%' : '-');
+        const temNotasT2 = tc.t2 && (ta?.t2?.avaliados?.hm > 0);
+        const vT2 = temNotasT2 && ta?.t2?.[chave] ? ta.t2[chave][prop] : '-';
+        const pT2 = temNotasT2 && ta?.t2?.[chave] && ta.t2[chave][pctProp] !== undefined ? `${ta.t2[chave][pctProp]}%` : (temNotasT2 && chave === 'avaliados' ? '100%' : '-');
 
-        const vT3 = tc.t3 && ta.t3[chave] ? ta.t3[chave][prop] : (tc.t3 ? 0 : '-');
-        const pT3 = tc.t3 && ta.t3[chave] && ta.t3[chave][pctProp] !== undefined ? `${ta.t3[chave][pctProp]}%` : (tc.t3 && chave === 'avaliados' ? '100%' : '-');
+        const temNotasT3 = tc.t3 && (ta?.t3?.avaliados?.hm > 0);
+        const vT3 = temNotasT3 && ta?.t3?.[chave] ? ta.t3[chave][prop] : '-';
+        const pT3 = temNotasT3 && ta?.t3?.[chave] && ta.t3[chave][pctProp] !== undefined ? `${ta.t3[chave][pctProp]}%` : (temNotasT3 && chave === 'avaliados' ? '100%' : '-');
 
-        const vFA = tc.fimAno && ta.fimAno[chave] ? ta.fimAno[chave][prop] : (tc.fimAno ? 0 : '-');
-        const pFA = tc.fimAno && ta.fimAno[chave] && ta.fimAno[chave][pctProp] !== undefined ? `${ta.fimAno[chave][pctProp]}%` : (tc.fimAno && chave === 'avaliados' ? '100%' : '-');
+        const temNotasFA = tc.fimAno && (ta?.fimAno?.avaliados?.hm > 0);
+        const vFA = temNotasFA && ta?.fimAno?.[chave] ? ta.fimAno[chave][prop] : '-';
+        const pFA = temNotasFA && ta?.fimAno?.[chave] && ta.fimAno[chave][pctProp] !== undefined ? `${ta.fimAno[chave][pctProp]}%` : (temNotasFA && chave === 'avaliados' ? '100%' : '-');
 
         // Cálculo de Crescimento condicionado
         let c1_2 = '<span class="text-muted">-</span>';
-        if (tc.t1 && tc.t2) {
-          const nPT1 = ta.t1[chave] && ta.t1[chave][pctProp] ? Number(ta.t1[chave][pctProp]) : 0;
-          const nPT2 = ta.t2[chave] && ta.t2[chave][pctProp] ? Number(ta.t2[chave][pctProp]) : 0;
+        if (temNotasT1 && temNotasT2) {
+          const nPT1 = ta?.t1?.[chave] && ta.t1[chave][pctProp] ? Number(ta.t1[chave][pctProp]) : 0;
+          const nPT2 = ta?.t2?.[chave] && ta.t2[chave][pctProp] ? Number(ta.t2[chave][pctProp]) : 0;
           const dif1_2 = Number((nPT2 - nPT1).toFixed(1));
           c1_2 = dif1_2 > 0 ? `<span class="badge bg-success bg-opacity-25 text-success">+${dif1_2}% Subiu</span>` : (dif1_2 < 0 ? `<span class="badge bg-danger bg-opacity-25 text-danger">${dif1_2}% Desceu</span>` : '<span class="text-muted">0%</span>');
         }
 
         let c2_3 = '<span class="text-muted">-</span>';
-        if (tc.t2 && tc.t3) {
-          const nPT2 = ta.t2[chave] && ta.t2[chave][pctProp] ? Number(ta.t2[chave][pctProp]) : 0;
-          const nPT3 = ta.t3[chave] && ta.t3[chave][pctProp] ? Number(ta.t3[chave][pctProp]) : 0;
+        if (temNotasT2 && temNotasT3) {
+          const nPT2 = ta?.t2?.[chave] && ta.t2[chave][pctProp] ? Number(ta.t2[chave][pctProp]) : 0;
+          const nPT3 = ta?.t3?.[chave] && ta.t3[chave][pctProp] ? Number(ta.t3[chave][pctProp]) : 0;
           const dif2_3 = Number((nPT3 - nPT2).toFixed(1));
           c2_3 = dif2_3 > 0 ? `<span class="badge bg-success bg-opacity-25 text-success">+${dif2_3}% Subiu</span>` : (dif2_3 < 0 ? `<span class="badge bg-danger bg-opacity-25 text-danger">${dif2_3}% Desceu</span>` : '<span class="text-muted">0%</span>');
         }
 
         let cGlo = '<span class="text-muted">-</span>';
-        if (tc.t1 && tc.fimAno) {
-          const nPT1 = ta.t1[chave] && ta.t1[chave][pctProp] ? Number(ta.t1[chave][pctProp]) : 0;
-          const nPFA = ta.fimAno[chave] && ta.fimAno[chave][pctProp] ? Number(ta.fimAno[chave][pctProp]) : 0;
+        if (temNotasT1 && temNotasFA) {
+          const nPT1 = ta?.t1?.[chave] && ta.t1[chave][pctProp] ? Number(ta.t1[chave][pctProp]) : 0;
+          const nPFA = ta?.fimAno?.[chave] && ta.fimAno[chave][pctProp] ? Number(ta.fimAno[chave][pctProp]) : 0;
           const difGlo = Number((nPFA - nPT1).toFixed(1));
           cGlo = difGlo > 0 ? `<span class="badge bg-success bg-opacity-25 text-success">+${difGlo}% Subiu</span>` : (difGlo < 0 ? `<span class="badge bg-danger bg-opacity-25 text-danger">${difGlo}% Desceu</span>` : '<span class="text-muted">0%</span>');
         }
@@ -3935,20 +7596,20 @@ async function carregarActaConselho(turmaId) {
       <!-- Cabeçalho Oficial Bordado da Acta (Imagem 1) -->
       <div class="border rounded p-3 mb-3 bg-light text-center shadow-sm" style="border-color: #1E3A8A !important;">
         <h6 class="fw-bold mb-0 text-uppercase tracking-wider">REPÚBLICA DE MOÇAMBIQUE</h6>
-        <small class="text-muted d-block fw-semibold text-uppercase">GOVERNO DA PROVÍNCIA DE ${(d.escola.provincia || 'MAPUTO').toUpperCase()} | GOVERNO DO DISTRITO DE ${(d.escola.distrito || 'CIDADE DE MAPUTO').toUpperCase()}</small>
-        <h5 class="fw-bold text-dark my-1">${(d.escola.nome || 'Escola Secundária').toUpperCase()}</h5>
+        <small class="text-muted d-block fw-semibold text-uppercase">GOVERNO DA PROVÍNCIA DE ${(escola.provincia || 'MAPUTO').toUpperCase()} | GOVERNO DO DISTRITO DE ${(escola.distrito || 'CIDADE DE MAPUTO').toUpperCase()}</small>
+        <h5 class="fw-bold text-dark my-1">${(escola.nome || 'Escola Secundária').toUpperCase()}</h5>
         <small class="fw-bold text-primary text-uppercase">SECTOR PEDAGÓGICO — ACTA DO CONSELHO DE AVALIAÇÃO</small>
       </div>
 
       <!-- Texto Protocolar com Campos Editáveis (Fiel à Imagem 1) -->
-      <div class="p-3 bg-white rounded border mb-4 shadow-sm text-dark" style="line-height: 1.8; text-align: justify; font-family: 'Times New Roman', serif; font-size: 0.95rem; border-color: #cbd5e1 !important;">
+      <div class="acta-texto-protocolar p-3 bg-white rounded border mb-2 shadow-sm text-dark" style="line-height: 1.45; text-align: justify; font-family: 'Times New Roman', serif; font-size: 0.90rem; border-color: #cbd5e1 !important; page-break-after: avoid !important; break-after: avoid !important; page-break-inside: avoid !important;">
         ${textoProtocolar}
       </div>
 
-      <!-- TABELAS LADO A LADO SEGUNDO O MODELO OFICIAL (Imagem 1) -->
-      <div class="row g-3 mb-4">
+      <!-- TABELAS LADO A LADO SEGUNDO O MODELO OFICIAL (Imagem 1) - FLUXO CONTÍNUO SEM QUEBRA DE PÁGINA -->
+      <div class="acta-tabelas-lado-a-lado row g-2 mb-3" style="page-break-before: avoid !important; break-before: avoid !important;">
         <!-- TABELA 1: Aproveitamento Escolar por Trimestres e Fim do Ano (Efectivos e Movimento) -->
-        <div class="col-xl-6">
+        <div class="col-6">
           <div class="border rounded p-2 bg-white h-100 shadow-sm">
             <h6 class="fw-bold text-center small text-uppercase mb-2 py-2 rounded text-white" style="background: #1E3A8A;">Aproveitamento por Trimestres e Fim do Ano</h6>
             <div class="table-responsive">
@@ -3984,7 +7645,7 @@ async function carregarActaConselho(turmaId) {
         </div>
 
         <!-- TABELA 2: Aproveitamento Pedagógico por Faixas e Crescimento -->
-        <div class="col-xl-6">
+        <div class="col-6">
           <div class="border rounded p-2 bg-white h-100 shadow-sm">
             <h6 class="fw-bold text-center small text-uppercase mb-2 py-2 rounded text-white" style="background: #1E3A8A;">Aproveitamento Pedagógico</h6>
             <div class="table-responsive">
@@ -4089,23 +7750,23 @@ function modalConfigurarSessaoActa() {
   if (!turmaId) return alert('Selecione uma turma para configurar a sessão da acta');
 
   const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
-  const cp = savedParamsRaw ? JSON.parse(savedParamsRaw) : {
-    directorTurma: '',
-    presidenteT1: '',
-    presidenteT2: '',
-    presidenteT3: '',
-    dataT1: '',
-    dataT2: '',
-    dataT3: '',
-    horaInicioT1: '', minInicioT1: '', horaFimT1: '', minFimT1: '',
-    horaInicioT2: '', minInicioT2: '', horaFimT2: '', minFimT2: '',
-    horaInicioT3: '', minInicioT3: '', horaFimT3: '', minFimT3: ''
-  };
+  let cp = {};
+  if (savedParamsRaw) {
+    try {
+      cp = JSON.parse(savedParamsRaw) || {};
+      if (cp.dataT1 === '26/05/2026' && cp.dataT2 === '01/09/2026') {
+        cp = {};
+        localStorage.removeItem('sige_acta_params_' + turmaId);
+      }
+    } catch (e) {
+      cp = {};
+    }
+  }
 
   abrirModal('Configurar Dados da Sessão do Conselho de Avaliação', `
     <form id="formConfigSessaoActa" onsubmit="salvarConfigSessaoActa(event, '${turmaId}')">
       <div class="alert alert-info py-2 small">
-        <i class="bi bi-info-circle me-1"></i> Todos os campos abaixo são <strong>estritamente opcionais</strong>. Se deixados em branco, o sistema utilizará os valores padrão e linhas pontilhadas oficiais para preenchimento manual ou posterior.
+        <i class="bi bi-info-circle me-1"></i> Todos os campos abaixo são <strong>estritamente opcionais</strong>. Se deixados em branco, o sistema utilizará as linhas pontilhadas oficiais para preenchimento manual ou posterior para cada trimestre.
       </div>
 
       <!-- Director de Turma / Secretário -->
@@ -4114,7 +7775,7 @@ function modalConfigurarSessaoActa() {
         <div class="row g-2">
           <div class="col-12">
             <label class="form-label small text-muted">Nome do Director / Substituto (Opcional)</label>
-            <input type="text" id="cfgDirectorTurma" class="form-control form-control-sm" value="${cp.directorTurma || ''}" placeholder="Ex: Prof. Américo Silvestre (ou deixe em branco)">
+            <input type="text" id="cfgDirectorTurma" class="form-control form-control-sm" value="${cp.directorTurma || ''}" placeholder="Deixe em branco ou nome do director">
           </div>
         </div>
       </div>
@@ -4125,26 +7786,26 @@ function modalConfigurarSessaoActa() {
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label small text-muted">Presidente da Sessão (Opcional)</label>
-            <input type="text" id="cfgPresT1" class="form-control form-control-sm" value="${cp.presidenteT1 || ''}" placeholder="Ex: Fernando José Mandamule">
+            <input type="text" id="cfgPresT1" class="form-control form-control-sm" value="${cp.presidenteT1 || ''}" placeholder="Deixe em branco até à realização">
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Data da Realização (Opcional)</label>
-            <input type="text" id="cfgDataT1" class="form-control form-control-sm" value="${cp.dataT1 || ''}" placeholder="Ex: 26/05/2026">
+            <input type="date" id="cfgDataT1" class="form-control form-control-sm" value="${formatarParaInputDate(cp.dataT1)}">
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Horário Início (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHIniT1" class="form-control text-center" value="${cp.horaInicioT1 || ''}" placeholder="09">
+              <input type="text" id="cfgHIniT1" class="form-control text-center" value="${cp.horaInicioT1 || ''}" placeholder="HH" maxlength="2">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMIniT1" class="form-control text-center" value="${cp.minInicioT1 || ''}" placeholder="30">
+              <input type="text" id="cfgMIniT1" class="form-control text-center" value="${cp.minInicioT1 || ''}" placeholder="MM" maxlength="2">
             </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Horário Término (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHFimT1" class="form-control text-center" value="${cp.horaFimT1 || ''}" placeholder="10">
+              <input type="text" id="cfgHFimT1" class="form-control text-center" value="${cp.horaFimT1 || ''}" placeholder="HH" maxlength="2">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMFimT1" class="form-control text-center" value="${cp.minFimT1 || ''}" placeholder="00">
+              <input type="text" id="cfgMFimT1" class="form-control text-center" value="${cp.minFimT1 || ''}" placeholder="MM" maxlength="2">
             </div>
           </div>
         </div>
@@ -4156,26 +7817,26 @@ function modalConfigurarSessaoActa() {
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label small text-muted">Presidente da Sessão (Opcional)</label>
-            <input type="text" id="cfgPresT2" class="form-control form-control-sm" value="${cp.presidenteT2 || ''}" placeholder="Ex: Fernando José Mandamule">
+            <input type="text" id="cfgPresT2" class="form-control form-control-sm" value="${cp.presidenteT2 || ''}" placeholder="Deixe em branco até à realização">
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Data da Realização (Opcional)</label>
-            <input type="text" id="cfgDataT2" class="form-control form-control-sm" value="${cp.dataT2 || ''}" placeholder="Ex: 01/09/2026">
+            <input type="date" id="cfgDataT2" class="form-control form-control-sm" value="${formatarParaInputDate(cp.dataT2)}">
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Horário Início (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHIniT2" class="form-control text-center" value="${cp.horaInicioT2 || ''}" placeholder="09">
+              <input type="text" id="cfgHIniT2" class="form-control text-center" value="${cp.horaInicioT2 || ''}" placeholder="HH" maxlength="2">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMIniT2" class="form-control text-center" value="${cp.minInicioT2 || ''}" placeholder="30">
+              <input type="text" id="cfgMIniT2" class="form-control text-center" value="${cp.minInicioT2 || ''}" placeholder="MM" maxlength="2">
             </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Horário Término (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHFimT2" class="form-control text-center" value="${cp.horaFimT2 || ''}" placeholder="11">
+              <input type="text" id="cfgHFimT2" class="form-control text-center" value="${cp.horaFimT2 || ''}" placeholder="HH" maxlength="2">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMFimT2" class="form-control text-center" value="${cp.minFimT2 || ''}" placeholder="00">
+              <input type="text" id="cfgMFimT2" class="form-control text-center" value="${cp.minFimT2 || ''}" placeholder="MM" maxlength="2">
             </div>
           </div>
         </div>
@@ -4187,37 +7848,48 @@ function modalConfigurarSessaoActa() {
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label small text-muted">Presidente da Sessão (Opcional)</label>
-            <input type="text" id="cfgPresT3" class="form-control form-control-sm" value="${cp.presidenteT3 || ''}" placeholder="Deixe em branco se ainda não realizado">
+            <input type="text" id="cfgPresT3" class="form-control form-control-sm" value="${cp.presidenteT3 || ''}" placeholder="Deixe em branco até à realização">
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Data da Realização (Opcional)</label>
-            <input type="text" id="cfgDataT3" class="form-control form-control-sm" value="${cp.dataT3 || ''}" placeholder="____/____/2026">
+            <input type="date" id="cfgDataT3" class="form-control form-control-sm" value="${formatarParaInputDate(cp.dataT3)}">
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Horário Início (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHIniT3" class="form-control text-center" value="${cp.horaInicioT3 || ''}" placeholder="____">
+              <input type="text" id="cfgHIniT3" class="form-control text-center" value="${cp.horaInicioT3 || ''}" placeholder="HH" maxlength="2">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMIniT3" class="form-control text-center" value="${cp.minInicioT3 || ''}" placeholder="____">
+              <input type="text" id="cfgMIniT3" class="form-control text-center" value="${cp.minInicioT3 || ''}" placeholder="MM" maxlength="2">
             </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small text-muted">Horário Término (Horas : Min)</label>
             <div class="input-group input-group-sm">
-              <input type="text" id="cfgHFimT3" class="form-control text-center" value="${cp.horaFimT3 || ''}" placeholder="____">
+              <input type="text" id="cfgHFimT3" class="form-control text-center" value="${cp.horaFimT3 || ''}" placeholder="HH" maxlength="2">
               <span class="input-group-text">:</span>
-              <input type="text" id="cfgMFimT3" class="form-control text-center" value="${cp.minFimT3 || ''}" placeholder="____">
+              <input type="text" id="cfgMFimT3" class="form-control text-center" value="${cp.minFimT3 || ''}" placeholder="MM" maxlength="2">
             </div>
           </div>
         </div>
       </div>
 
-      <div class="d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i> Salvar e Actualizar Acta</button>
+      <div class="d-flex justify-content-between align-items-center gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="limparConfigSessaoActa('${turmaId}')">
+          <i class="bi bi-eraser me-1"></i> Limpar / Deixar em Branco
+        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i> Salvar e Actualizar Acta</button>
+        </div>
       </div>
     </form>
   `);
+}
+
+function limparConfigSessaoActa(turmaId) {
+  localStorage.removeItem('sige_acta_params_' + turmaId);
+  fecharModal();
+  carregarActaConselho(turmaId);
 }
 
 function salvarConfigSessaoActa(e, turmaId) {
@@ -4252,19 +7924,23 @@ function salvarConfigSessaoActa(e, turmaId) {
   carregarActaConselho(turmaId);
 }
 
-function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null) {
+function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
   const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value;
   if (!turmaId) return alert('Selecione uma turma para exportar');
   const ano = anoExplicit || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
 
   const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
   const cp = savedParamsRaw ? JSON.parse(savedParamsRaw) : {};
-  const qParams = new URLSearchParams({ anoLetivo: ano, ...cp }).toString();
+  const qParams = new URLSearchParams({ anoLetivo: ano, orientacao: orientacao, ...cp }).toString();
 
   downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-xlsx?${qParams}`, `Acta_Conselho_Turma_${ano}.xlsx`);
 }
 
 function imprimirActaConselhoOficial() {
+  const orientacao = document.getElementById('pautaOrientacaoSelect')?.value || 'portrait';
+  document.body.classList.remove('print-orientacao-landscape', 'print-orientacao-portrait');
+  document.body.classList.add(orientacao === 'landscape' ? 'print-orientacao-landscape' : 'print-orientacao-portrait');
   window.print();
 }
 
@@ -4403,8 +8079,8 @@ async function carregarPagamentos() {
 
     if (resStats.success) {
       const s = resStats.data;
-      document.getElementById('finFaturadoCard').textContent = s.totalFaturado.toLocaleString('pt-PT') + ' MZN';
-      document.getElementById('finAtrasadoCard').textContent = s.totalAtrasado.toLocaleString('pt-PT') + ' MZN';
+      document.getElementById('finFaturadoCard').innerHTML = formatarMoeda(s.totalFaturado);
+      document.getElementById('finAtrasadoCard').innerHTML = formatarMoeda(s.totalAtrasado);
       document.getElementById('finInadimplenciaCard').textContent = s.taxaInadimplencia + '%';
       document.getElementById('finAdimplentesCard').textContent = s.percentualAdimplentes + '%';
     }
@@ -4416,7 +8092,7 @@ async function carregarPagamentos() {
           <td><strong>${p.aluno.nome}</strong></td>
           <td>${p.descricao}</td>
           <td><code>${p.mes_referencia}</code></td>
-          <td><strong class="text-success">${p.valor.toLocaleString('pt-PT')} MZN</strong></td>
+          <td><strong class="text-success">${formatarMoeda(p.valor)}</strong></td>
           <td>${new Date(p.data_vencimento).toLocaleDateString('pt-PT')}</td>
           <td>
             <span class="badge ${p.status === 'PAGO' ? 'bg-success' : 'bg-warning text-dark'}">
@@ -4590,16 +8266,18 @@ async function abrirModalReciboPagamento(pagamentoId) {
           <span class="badge bg-light text-dark border fs-6">Recibo Nº: <strong>${d.pagamento.recibo_numero || 'REC-2026-001'}</strong></span>
         </div>
 
-        <table class="table table-bordered table-sm small mb-3">
-          <tr><th class="bg-light w-35">Aluno:</th><td><strong>${d.aluno.nome}</strong> (Matrícula: ${d.aluno.matricula})</td></tr>
-          <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno.turma?.nome || '-'} (${d.aluno.turma?.grau_ano || '-'})</td></tr>
-          <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao}</td></tr>
-          <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia}</code></td></tr>
-          <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold text-success fs-5">${d.pagamento.valor.toLocaleString('pt-PT')} MZN</td></tr>
-          <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Numerário / POS'}</td></tr>
-          <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || d.pagamento.data_pagamento || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
-          <tr><th class="bg-light">Estado:</th><td><span class="badge bg-success">LIQUIDADO / PAGO</span></td></tr>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm small mb-3">
+            <tr><th class="bg-light w-35">Aluno:</th><td><strong>${d.aluno.nome}</strong> (Matrícula: ${d.aluno.matricula})</td></tr>
+            <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno.turma?.nome || '-'} (${d.aluno.turma?.grau_ano || '-'})</td></tr>
+            <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao}</td></tr>
+            <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia}</code></td></tr>
+            <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold text-success fs-5">${formatarMoeda(d.pagamento.valor)}</td></tr>
+            <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Numerário / POS'}</td></tr>
+            <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || d.pagamento.data_pagamento || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
+            <tr><th class="bg-light">Estado:</th><td><span class="badge bg-success">LIQUIDADO / PAGO</span></td></tr>
+          </table>
+        </div>
 
         <div class="alert alert-light border small text-muted text-center py-2 mb-3">
           <i class="bi bi-clock-history me-1 text-primary"></i>
@@ -4753,19 +8431,27 @@ async function carregarVisualizacaoImpressao() {
     // Modo Individual
     if (tipo === 'BOLETIM') {
       const res = await apiFetch(`/api/v1/impressao/boletim/${alunoId}`);
-      if (res.success) renderizarBoletim(res.data);
+      const d = res.data || res.boletim || res;
+      if (res.success && d) renderizarBoletim(d);
+      else throw new Error(res.message || 'Falha ao carregar boletim');
     } else if (tipo === 'DECLARACAO') {
       const res = await apiFetch(`/api/v1/impressao/declaracao/${alunoId}`);
-      if (res.success) renderizarDeclaracao(res.data);
+      const d = res.data || res.declaracao || res;
+      if (res.success && d) renderizarDeclaracao(d);
+      else throw new Error(res.message || 'Falha ao carregar declaração');
     } else if (tipo === 'CERTIFICADO') {
       const res = await apiFetch(`/api/v1/impressao/certificado/${alunoId}`);
-      if (res.success) renderizarCertificado(res.data);
+      const d = res.data || res.certificado || res;
+      if (res.success && d) renderizarCertificado(d);
+      else throw new Error(res.message || 'Falha ao carregar certificado');
     } else if (tipo === 'FICHA') {
       const res = await apiFetch(`/api/v1/impressao/ficha/${alunoId}`);
-      if (res.success) renderizarFichaAluno(res.data);
+      const d = res.data || res.ficha || res;
+      if (res.success && d) renderizarFichaAluno(d);
+      else throw new Error(res.message || 'Falha ao carregar ficha do aluno');
     } else if (tipo === 'RECIBO') {
       const pagRes = await apiFetch(`/api/v1/pagamentos?alunoId=${alunoId}`);
-      if (pagRes.success && pagRes.data.length > 0) {
+      if (pagRes.success && pagRes.data && pagRes.data.length > 0) {
         carregarReciboIndividual(pagRes.data[0].id);
       } else {
         preview.innerHTML = '<div class="alert alert-warning text-center">Nenhum recibo de pagamento emitido para este aluno.</div>';
@@ -4787,7 +8473,100 @@ async function carregarVisualizacaoImpressao() {
   }
 }
 
+// ==================== GESTÃO AVANÇADA DE ORIENTAÇÃO (PORTRAIT / LANDSCAPE) ====================
+
+function obterOrientacaoAtiva(tipoDoc = null) {
+  const seletorCentral = document.getElementById('printOrientacaoSelect');
+  const seletorPauta = document.getElementById('pautaOrientacaoSelect');
+  const docTipo = tipoDoc || document.getElementById('printTipoDoc')?.value || '';
+
+  // Se o utilizador tiver escolhido explicitamente no seletor da Central de Impressão
+  if (seletorCentral && seletorCentral.value && seletorCentral.value !== 'auto') {
+    return seletorCentral.value; // 'portrait' ou 'landscape'
+  }
+
+  // Se estiver a manipular Pauta ou Acta
+  if (docTipo === 'PAUTA_TURMA' || docTipo === 'PAUTA') {
+    if (seletorPauta && seletorPauta.value) return seletorPauta.value;
+    return 'landscape'; // Pauta Oficial é estritamente Horizontal por defeito
+  }
+
+  if (docTipo === 'ACTA_CONSELHO' || docTipo === 'ACTA') {
+    if (seletorPauta && seletorPauta.value) return seletorPauta.value;
+    return 'portrait'; // Acta é Vertical por defeito
+  }
+
+  // Regra padrão automática para todos os outros documentos (Boletins, Declarações, Certificados, Recibos, Fichas):
+  // Rigorosamente Vertical (Portrait) conforme normas MEC
+  return 'portrait';
+}
+
+function definirOrientacaoDocumentoCentral(modo) {
+  const sel = document.getElementById('printOrientacaoSelect');
+  if (sel) sel.value = modo;
+
+  const btnAuto = document.getElementById('btnOrientacaoAuto');
+  const btnPort = document.getElementById('btnOrientacaoPortrait');
+  const btnLand = document.getElementById('btnOrientacaoLandscape');
+
+  if (btnAuto) {
+    btnAuto.className = modo === 'auto' ? 'btn btn-primary' : 'btn btn-outline-secondary';
+  }
+  if (btnPort) {
+    btnPort.className = modo === 'portrait' ? 'btn btn-primary' : 'btn btn-outline-secondary';
+  }
+  if (btnLand) {
+    btnLand.className = modo === 'landscape' ? 'btn btn-primary' : 'btn btn-outline-secondary';
+  }
+
+  atualizarOrientacaoDocumentoCentral(modo);
+}
+
+function atualizarOrientacaoDocumentoCentral(modo) {
+  const tipo = document.getElementById('printTipoDoc')?.value || '';
+  const orientacao = obterOrientacaoAtiva(tipo);
+
+  const preview = document.getElementById('printAreaPreview');
+  if (preview) {
+    if (orientacao === 'landscape') {
+      preview.classList.remove('preview-portrait');
+      preview.classList.add('preview-landscape');
+      preview.style.maxWidth = '1140px';
+    } else {
+      preview.classList.remove('preview-landscape');
+      preview.classList.add('preview-portrait');
+      preview.style.maxWidth = '860px';
+    }
+  }
+
+  document.body.classList.remove('print-orientacao-landscape', 'print-orientacao-portrait');
+  document.body.classList.add(orientacao === 'landscape' ? 'print-orientacao-landscape' : 'print-orientacao-portrait');
+}
+
+function aoMudarOrientacaoPauta(valor) {
+  const orientacao = valor || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  document.body.classList.remove('print-orientacao-landscape', 'print-orientacao-portrait');
+  document.body.classList.add(orientacao === 'landscape' ? 'print-orientacao-landscape' : 'print-orientacao-portrait');
+
+  const pautaContainer = document.getElementById('subViewPautaGeral');
+  const actaContainer = document.getElementById('subViewActaConselho');
+  if (pautaContainer) {
+    pautaContainer.classList.remove('documento-orientacao-portrait', 'documento-orientacao-landscape');
+    pautaContainer.classList.add(orientacao === 'landscape' ? 'documento-orientacao-landscape' : 'documento-orientacao-portrait');
+  }
+  if (actaContainer) {
+    actaContainer.classList.remove('documento-orientacao-portrait', 'documento-orientacao-landscape');
+    actaContainer.classList.add(orientacao === 'landscape' ? 'documento-orientacao-landscape' : 'documento-orientacao-portrait');
+  }
+}
+
 function imprimirDocumentoCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || '';
+  const orientacao = obterOrientacaoAtiva(tipo);
+
+  document.body.classList.remove('print-orientacao-landscape', 'print-orientacao-portrait');
+  document.body.classList.add(orientacao === 'landscape' ? 'print-orientacao-landscape' : 'print-orientacao-portrait');
+
   const preview = document.getElementById('printAreaPreview');
   if (!preview || preview.style.display === 'none' || !preview.innerHTML.trim()) {
     carregarVisualizacaoImpressao().then(() => window.print());
@@ -4800,49 +8579,56 @@ async function descarregarPdfCentral() {
   const tipo = document.getElementById('printTipoDoc')?.value || 'DOCUMENTO';
   const turmaId = document.getElementById('printSelectTurma')?.value;
   const alunoId = document.getElementById('printSelectAluno')?.value;
+  const orientacao = obterOrientacaoAtiva(tipo);
+
   if (!turmaId && tipo !== 'RECIBO') return alert('Por favor, selecione uma turma antes de descarregar o documento em PDF');
 
   if (tipo === 'PAUTA_TURMA') {
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026`, `Pauta_Oficial_${turmaId}.pdf`);
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.pdf`);
   } else if (tipo === 'ACTA_CONSELHO') {
     const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
-    const params = new URLSearchParams({ anoLetivo: '2026' });
+    const params = new URLSearchParams({ anoLetivo: '2026', orientacao: orientacao });
     if (sessao.presidente) params.append('presidente', sessao.presidente);
     if (sessao.data) params.append('data', sessao.data);
     downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_${turmaId}.pdf`);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf`, `Boletim_${alunoId}.pdf`);
+      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf?orientacao=${orientacao}`, `Boletim_${alunoId}.pdf`);
     } else {
       const preview = document.getElementById('printAreaPreview');
       if (preview && preview.style.display !== 'none') {
-        await exportarElementoParaPdf(preview, `Boletins_Turma_${turmaId}.pdf`, 'portrait');
+        await exportarElementoParaPdf(preview, `Boletins_Turma_${turmaId}.pdf`, orientacao);
       } else {
         alert('Selecione um aluno individual para emitir o Boletim oficial em PDF.');
       }
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf`, `Declaracao_${alunoId}.pdf`);
+      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf?orientacao=${orientacao}`, `Declaracao_${alunoId}.pdf`);
     } else {
       alert('Selecione um aluno individual para emitir a Declaração em PDF.');
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf`, `Certificado_${alunoId}.pdf`);
+      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf?orientacao=${orientacao}`, `Certificado_${alunoId}.pdf`);
     } else {
       alert('Selecione um aluno individual para emitir o Certificado em PDF.');
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf`, `Recibo_${alunoId}.pdf`);
+      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf?orientacao=${orientacao}`, `Recibo_${alunoId}.pdf`);
     } else {
       alert('Selecione o aluno/pagamento para emitir o Recibo em PDF.');
     }
+  } else if (tipo === 'FICHA') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, `Ficha_${alunoId}.pdf`);
+    } else {
+      alert('Selecione um aluno individual para emitir a Ficha Biográfica em PDF.');
+    }
   } else {
     const preview = document.getElementById('printAreaPreview');
-    const isLandscape = tipo === 'PAUTA_TURMA' || tipo === 'ACTA_CONSELHO';
-    await exportarElementoParaPdf(preview, `${tipo}_Oficial_2026.pdf`, isLandscape ? 'landscape' : 'portrait');
+    await exportarElementoParaPdf(preview, `${tipo}_Oficial_2026.pdf`, orientacao);
   }
 }
 
@@ -4850,39 +8636,47 @@ function descarregarDocxCentral() {
   const tipo = document.getElementById('printTipoDoc')?.value;
   const turmaId = document.getElementById('printSelectTurma')?.value;
   const alunoId = document.getElementById('printSelectAluno')?.value;
+  const orientacao = obterOrientacaoAtiva(tipo);
+
   if (!turmaId && tipo !== 'RECIBO') return alert('Por favor, selecione uma turma antes de descarregar o documento Word (DOCX)');
 
   if (tipo === 'PAUTA_TURMA') {
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026`, `Pauta_Oficial_${turmaId}.docx`);
+    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.docx`);
   } else if (tipo === 'ACTA_CONSELHO') {
     const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
-    const params = new URLSearchParams({ anoLetivo: '2026' });
+    const params = new URLSearchParams({ anoLetivo: '2026', orientacao: orientacao });
     if (sessao.presidente) params.append('presidente', sessao.presidente);
     if (sessao.data) params.append('data', sessao.data);
     downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_${turmaId}.docx`);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx`, `Boletim_${alunoId}.docx`);
+      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx?orientacao=${orientacao}`, `Boletim_${alunoId}.docx`);
     } else {
       alert('Selecione um aluno individual para descarregar o Boletim em Word (DOCX).');
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx`, `Declaracao_${alunoId}.docx`);
+      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx?orientacao=${orientacao}`, `Declaracao_${alunoId}.docx`);
     } else {
       alert('Selecione um aluno individual para descarregar a Declaração em Word (DOCX).');
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx`, `Certificado_${alunoId}.docx`);
+      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx?orientacao=${orientacao}`, `Certificado_${alunoId}.docx`);
     } else {
       alert('Selecione um aluno individual para descarregar o Certificado em Word (DOCX).');
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx`, `Recibo_${alunoId}.docx`);
+      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx?orientacao=${orientacao}`, `Recibo_${alunoId}.docx`);
     } else {
       alert('Selecione o aluno/pagamento para descarregar o Recibo em Word (DOCX).');
+    }
+  } else if (tipo === 'FICHA') {
+    if (alunoId && alunoId !== 'TODOS') {
+      downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/docx?orientacao=${orientacao}`, `Ficha_${alunoId}.docx`);
+    } else {
+      alert('Selecione um aluno individual para descarregar a Ficha em Word (DOCX).');
     }
   } else {
     alert('Documento Word não disponível para este tipo.');
@@ -4893,86 +8687,35 @@ function descarregarXlsxCentral() {
   const tipo = document.getElementById('printTipoDoc')?.value;
   const turmaId = document.getElementById('printSelectTurma')?.value;
   const alunoId = document.getElementById('printSelectAluno')?.value;
+  const orientacao = obterOrientacaoAtiva(tipo);
+
   if (!turmaId) return alert('Selecione uma turma para exportar o documento em Excel');
 
   if (tipo === 'ACTA_CONSELHO') {
-    exportarActaConselhoExcel(turmaId);
+    exportarActaConselhoExcel(turmaId, '2026', orientacao);
   } else if (tipo === 'PAUTA_TURMA') {
-    exportarPautaGeralExcel(turmaId);
+    exportarPautaGeralExcel(turmaId, '2026', orientacao);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/xlsx`, `Boletim_${alunoId}.xlsx`);
+      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/xlsx?orientacao=${orientacao}`, `Boletim_${alunoId}.xlsx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=BOLETIM`, `Boletins_Turma_${turmaId}.xlsx`);
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.xlsx`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/xlsx`, `Declaracao_${alunoId}.xlsx`);
+      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/xlsx?orientacao=${orientacao}`, `Declaracao_${alunoId}.xlsx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=DECLARACAO`, `Declaracoes_Turma_${turmaId}.xlsx`);
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.xlsx`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/xlsx`, `Certificado_${alunoId}.xlsx`);
+      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/xlsx?orientacao=${orientacao}`, `Certificado_${alunoId}.xlsx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO`, `Certificados_Turma_${turmaId}.xlsx`);
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.xlsx`);
     }
   } else {
-    exportarPautaGeralExcel(turmaId);
+    exportarPautaGeralExcel(turmaId, '2026', orientacao);
   }
-}
-
-function descarregarJsonCentral() {
-  const tipo = document.getElementById('printTipoDoc')?.value;
-  const turmaId = document.getElementById('printSelectTurma')?.value;
-  const alunoId = document.getElementById('printSelectAluno')?.value;
-  if (!turmaId) return alert('Selecione uma turma para exportar o documento em JSON');
-
-  if (tipo === 'ACTA_CONSELHO') {
-    exportarActaConselhoJson(turmaId);
-  } else if (tipo === 'PAUTA_TURMA') {
-    exportarPautaGeralJson(turmaId);
-  } else if (tipo === 'BOLETIM') {
-    if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/json`, `Boletim_${alunoId}.json`);
-    } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/json?tipo=BOLETIM`, `Boletins_Turma_${turmaId}.json`);
-    }
-  } else if (tipo === 'DECLARACAO') {
-    if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/json`, `Declaracao_${alunoId}.json`);
-    } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/json?tipo=DECLARACAO`, `Declaracoes_Turma_${turmaId}.json`);
-    }
-  } else if (tipo === 'CERTIFICADO') {
-    if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/json`, `Certificado_${alunoId}.json`);
-    } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/json?tipo=CERTIFICADO`, `Certificados_Turma_${turmaId}.json`);
-    }
-  } else {
-    exportarPautaGeralJson(turmaId);
-  }
-}
-
-function exportarPautaGeralJson(turmaId) {
-  const tId = turmaId || document.getElementById('selectPautaTurma')?.value || document.getElementById('printSelectTurma')?.value;
-  if (!tId) return alert('Selecione uma turma primeiro para exportar a Pauta em JSON.');
-  const ano = document.getElementById('selectPautaAnoLetivo')?.value || '2026';
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${tId}/export-json?anoLetivo=${ano}`, `Pauta_Turma_${ano}.json`);
-}
-
-function exportarActaConselhoJson(turmaId) {
-  const tId = turmaId || document.getElementById('selectPautaTurma')?.value || document.getElementById('printSelectTurma')?.value;
-  if (!tId) return alert('Selecione uma turma primeiro para exportar a Acta em JSON.');
-  const ano = document.getElementById('selectPautaAnoLetivo')?.value || '2026';
-  const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${tId}`) || '{}');
-  const params = new URLSearchParams({ anoLetivo: ano });
-  if (sessao.presidente) params.append('presidente', sessao.presidente);
-  if (sessao.data) params.append('data', sessao.data);
-  if (sessao.horaInicio) params.append('horaInicio', sessao.horaInicio);
-  if (sessao.horaFim) params.append('horaFim', sessao.horaFim);
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${tId}/acta-json?${params.toString()}`, `Acta_Conselho_Turma_${ano}.json`);
 }
 
 async function carregarReciboIndividual(pagamentoId) {
@@ -4990,91 +8733,388 @@ async function carregarReciboIndividual(pagamentoId) {
   }
 }
 
+function obterIdCanonicoDisciplina(str) {
+  if (!str) return '';
+  const s = String(str)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+
+  // Quebrar em palavras limpas
+  const words = s.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const compact = words.join('');
+
+  // 1. TIC / Informática (palavra exata 'tic', 'tics' ou 'informatica' - JAMAIS substrings de matematica, estatistica, etc.)
+  if (
+    words.includes('tic') ||
+    words.includes('tics') ||
+    compact === 'tic' ||
+    compact === 'tics' ||
+    words.includes('informatica') ||
+    compact.includes('tecnologiadeinformacao') ||
+    compact.includes('tecnologiasdeinformacao') ||
+    compact.includes('tecnologiasdainformacao')
+  ) {
+    return 'tic';
+  }
+
+  // 2. Matemática vs Matemática Aplicada
+  if (words.includes('matematica') || compact.startsWith('matematica')) {
+    if (words.includes('aplicada') || compact.includes('aplicada')) {
+      return 'matematica_aplicada';
+    }
+    return 'matematica';
+  }
+
+  // 3. Educação Física (antes de Física)
+  if ((words.includes('educacao') || words.includes('ed')) && (words.includes('fisica') || words.includes('fis'))) {
+    return 'educacao_fisica';
+  }
+
+  // 4. Física pura
+  if (words.includes('fisica') || compact === 'fisica') {
+    return 'fisica';
+  }
+
+  // 5. Educação Visual / Desenho / Geometria Descritiva
+  if (
+    ((words.includes('educacao') || words.includes('ed')) && (words.includes('visual') || words.includes('vis'))) ||
+    words.includes('desenho') ||
+    compact.includes('geometriadescritiva') ||
+    compact === 'edvisual' ||
+    compact === 'ev' ||
+    compact === 'dgd'
+  ) {
+    return 'educacao_visual';
+  }
+
+  // 6. Filosofia
+  if (words.includes('filosofia') || compact.includes('filosofia')) {
+    return 'filosofia';
+  }
+
+  // 7. Química
+  if (words.includes('quimica') || compact === 'quimica') {
+    return 'quimica';
+  }
+
+  // 8. Biologia
+  if (words.includes('biologia') || compact === 'biologia') {
+    return 'biologia';
+  }
+
+  // 9. Geografia
+  if (words.includes('geografia') || compact === 'geografia') {
+    return 'geografia';
+  }
+
+  // 10. História
+  if (words.includes('historia') || compact === 'historia') {
+    return 'historia';
+  }
+
+  // 11. Português
+  if (words.includes('portugues') || compact.includes('linguaportuguesa') || compact === 'portugues') {
+    return 'portugues';
+  }
+
+  // 12. Inglês
+  if (words.includes('ingles') || compact.includes('linguainglesa') || compact === 'ingles') {
+    return 'ingles';
+  }
+
+  // 13. Francês
+  if (words.includes('frances') || compact.includes('linguafrancesa') || compact === 'frances') {
+    return 'frances';
+  }
+
+  // 14. Empreendedorismo
+  if (words.includes('empreendedorismo') || compact.includes('empreendedorismo')) {
+    return 'empreendedorismo';
+  }
+
+  // 15. Agropecuária
+  if (words.includes('agropecuaria') || compact.includes('agropecuaria') || words.includes('agro')) {
+    return 'agropecuaria';
+  }
+
+  // 16. Psicopedagogia
+  if (words.includes('psicopedagogia') || compact.includes('psicopedagogia')) {
+    return 'psicopedagogia';
+  }
+
+  return compact;
+}
+
+function matchDisciplinaDocumento(alvo, candidato) {
+  const idA = obterIdCanonicoDisciplina(alvo);
+  const idC = obterIdCanonicoDisciplina(candidato);
+  if (!idA || !idC) return false;
+  return idA === idC;
+}
+
+function obterNomeCompletoDisciplina(str) {
+  if (!str) return '';
+  const id = obterIdCanonicoDisciplina(str);
+  const mapa = {
+    'portugues': 'Português',
+    'ingles': 'Inglês',
+    'frances': 'Francês',
+    'historia': 'História',
+    'geografia': 'Geografia',
+    'biologia': 'Biologia',
+    'fisica': 'Física',
+    'quimica': 'Química',
+    'matematica': 'Matemática',
+    'matematica_aplicada': 'Matemática Aplicada',
+    'filosofia': 'Introdução à Filosofia',
+    'educacao_visual': 'Educação Visual',
+    'educacao_fisica': 'Educação Física',
+    'tic': 'Tecnologias de Informação e Comunicação',
+    'empreendedorismo': 'Noções de Empreendedorismo',
+    'agropecuaria': 'Agropecuária',
+    'psicopedagogia': 'Psicopedagogia',
+    'desenho': 'Desenho e Geometria Descritiva'
+  };
+  return mapa[id] || String(str).trim();
+}
+
 function obterHtmlBoletimOficial(d) {
-  const mediaGlobalInt = Math.round(Number(d.mediaGeral !== undefined ? d.mediaGeral : (d.mediaGlobal !== undefined ? d.mediaGlobal : 14)) || 14);
-  const resultado = d.resultado || (mediaGlobalInt >= 9.5 ? 'APROVADO' : 'REPROVADO');
-  const safeName = (d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
-  const anoLetivo = d.anoLetivo || d.anoLectivo || '2026';
+  const escolaObj = d.escola || state.tenant || {};
+  const escolaNome = escolaObj.nome || 'Escola Secundária de Cambine';
+  const escolaNomeFormatado = escolaNome.toUpperCase().startsWith('ESCOLA') ? escolaNome.toUpperCase() : `ESCOLA SECUNDÁRIA DE ${escolaNome.toUpperCase()}`;
+  const provincia = (escolaObj.provincia || 'Inhambane').toUpperCase();
+  const distrito = (escolaObj.distrito || 'Morrumbene').toUpperCase();
+  const codigoEscola = escolaObj.codigo_escola || escolaObj.codigo || (state.tenant?.codigo_escola ? state.tenant.codigo_escola : 'ESC-1001');
+  const anoLetivo = d.anoLetivo || d.anoLectivo || state.tenant?.ano_letivo_ativo || '2026';
+
+  const alunoObj = d.aluno || {};
+  const alunoNome = (alunoObj.nomeCompleto || `${alunoObj.nome || ''} ${alunoObj.apelido || ''}`.trim() || 'GRAÇA MONDLANE MONDLANE').toUpperCase();
+  const matricula = alunoObj.matricula || alunoObj.codigo || 'MAT-2026-1006';
+
+  let classeTurma = '10ª Classe - 10ª Classe A';
+  if (alunoObj.grau && alunoObj.turma) {
+    const turmaStr = typeof alunoObj.turma === 'object' ? (alunoObj.turma.nome || '') : String(alunoObj.turma);
+    classeTurma = turmaStr.includes(alunoObj.grau) ? `${alunoObj.grau} - ${turmaStr}` : `${alunoObj.grau} - ${turmaStr}`;
+  } else if (alunoObj.turma) {
+    classeTurma = typeof alunoObj.turma === 'object' ? (alunoObj.turma.nome || '-') : String(alunoObj.turma);
+  } else if (alunoObj.grau) {
+    classeTurma = alunoObj.grau;
+  }
+
+  let turno = alunoObj.turno || (typeof alunoObj.turma === 'object' ? alunoObj.turma.turno : '') || 'Manhã';
+  if (turno.toUpperCase() === 'MANHA') turno = 'Manhã';
+  else if (turno.toUpperCase() === 'TARDE') turno = 'Tarde';
+  else if (turno.toUpperCase() === 'NOITE') turno = 'Noite';
+
+  let listaDisciplinas = [];
+  if (Array.isArray(d.disciplinas) && d.disciplinas.length > 0) {
+    listaDisciplinas = d.disciplinas.map(item => {
+      // Disciplinas sem abreviar
+      const nome = obterNomeCompletoDisciplina(item.nome || item.disciplina || 'Disciplina');
+      
+      const formatarNota = (val) => {
+        if (val === undefined || val === null || val === '-' || val === '' || val === '---') return '---';
+        const num = Number(val);
+        return isNaN(num) ? '---' : Math.round(num);
+      };
+
+      const t1 = formatarNota(item.t1);
+      const t2 = formatarNota(item.t2);
+      const t3 = formatarNota(item.t3);
+
+      let medAnual = '---';
+      if (item.media_anual !== undefined && item.media_anual !== null && item.media_anual !== '-' && item.media_anual !== '---' && !isNaN(Number(item.media_anual))) {
+        medAnual = Math.round(Number(item.media_anual));
+      } else if (item.mediaFinal !== undefined && item.mediaFinal !== null && item.mediaFinal !== '-' && item.mediaFinal !== '---' && !isNaN(Number(item.mediaFinal))) {
+        medAnual = Math.round(Number(item.mediaFinal));
+      } else {
+        const notasValidas = [t1, t2, t3].filter(v => typeof v === 'number');
+        if (notasValidas.length > 0) {
+          medAnual = Math.round(notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length);
+        }
+      }
+
+      let situacao = '---';
+      if (typeof medAnual === 'number') {
+        situacao = medAnual >= 9.5 ? 'Aprovado' : 'Reprovado';
+      } else if (item.situacao && item.situacao !== 'Pendente') {
+        situacao = item.situacao;
+      }
+
+      return { nome, t1, t2, t3, medAnual, situacao };
+    });
+  }
+
+  // Cálculo da Média Global
+  let mediaGlobalInt = '---';
+  if (d.mediaGeral !== undefined && d.mediaGeral !== null && d.mediaGeral !== '-' && !isNaN(Number(d.mediaGeral))) {
+    mediaGlobalInt = Math.round(Number(d.mediaGeral));
+  } else if (d.mediaGlobal !== undefined && d.mediaGlobal !== null && d.mediaGlobal !== '-' && !isNaN(Number(d.mediaGlobal))) {
+    mediaGlobalInt = Math.round(Number(d.mediaGlobal));
+  } else {
+    const mediasValidas = listaDisciplinas.map(l => l.medAnual).filter(v => typeof v === 'number');
+    if (mediasValidas.length > 0) {
+      mediaGlobalInt = Math.round(mediasValidas.reduce((a, b) => a + b, 0) / mediasValidas.length);
+    }
+  }
+
+  const situacaoGlobal = typeof mediaGlobalInt === 'number'
+    ? (mediaGlobalInt >= 9.5 ? 'Aprovado' : 'Reprovado')
+    : (d.situacaoGlobal || d.resultadoFinal || 'Sem Avaliação');
+
+  const corpoTabelaBoletim = listaDisciplinas.length > 0
+    ? listaDisciplinas.map(item => `
+        <tr>
+          <td style="border: 1px solid #777777; padding: 5px 10px; font-size: 10.5pt; font-weight: 500; text-align: left;">${item.nome}</td>
+          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10pt; text-align: center; color: ${item.t1 === '---' ? '#777777' : '#111111'};">${item.t1}</td>
+          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10pt; text-align: center; color: ${item.t2 === '---' ? '#777777' : '#111111'};">${item.t2}</td>
+          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10pt; text-align: center; color: ${item.t3 === '---' ? '#777777' : '#111111'};">${item.t3}</td>
+          <td style="border: 1px solid #777777; padding: 5px 6px; font-size: 10.5pt; font-weight: bold; text-align: center;">${item.medAnual}</td>
+          <td style="border: 1px solid #777777; padding: 5px 8px; font-size: 10pt; font-weight: 600; text-align: center; color: ${item.situacao === 'Reprovado' ? '#dc2626' : '#111827'};">${item.situacao}</td>
+        </tr>
+      `).join('')
+    : `
+        <tr>
+          <td colspan="6" style="border: 1px solid #777777; padding: 12px; font-size: 10pt; text-align: center; color: #777777; font-style: italic;">
+            Nenhuma avaliação registada na caderneta para este aluno.
+          </td>
+        </tr>
+      `;
+
+  const decisaoConselhoHtml = typeof mediaGlobalInt === 'number'
+    ? `<span style="font-weight: bold;">Decisão do Conselho:</span> Resultado pedagógico do aluno: <span style="font-weight: 500;">${situacaoGlobal}</span> com média global de <span style="font-weight: 500;">${mediaGlobalInt}</span> valores.`
+    : `<span style="font-weight: bold;">Decisão do Conselho:</span> O aluno ainda não possui avaliações concluídas na caderneta.`;
 
   return `
-    <div class="printable-document p-4 bg-white" style="page-break-after: always; break-after: page; page-break-inside: avoid;">
-      <div class="text-center border-bottom pb-3 mb-4">
-        <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 3px;" alt="Emblema Nacional">
-        <h5 class="fw-bold mb-1">REPÚBLICA DE MOÇAMBIQUE</h5>
-        <h6 class="fw-bold mb-1">${d.escola?.nome || 'Escola Secundária'}</h6>
-        <p class="text-muted small mb-0">NUIT: ${d.escola?.nif_cnpj || '-'} | ${d.escola?.distrito || '-'}, ${d.escola?.provincia || 'Maputo'}</p>
-        <h5 class="mt-3 fw-bold text-primary">${d.titulo || 'BOLETIM OFICIAL DE AVALIAÇÃO TRIMESTRAL'} — ANO LECTIVO ${anoLetivo}</h5>
+    <div class="documento-boletim-oficial" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 290mm; box-sizing: border-box; padding: 12mm 14mm 10mm 14mm;">
+      <!-- MARCA DE ÁGUA CENTRAL DO EMBLEMA NACIONAL -->
+      <div style="position: absolute; top: 52%; left: 50%; transform: translate(-50%, -46%); width: 280px; height: 280px; opacity: 0.08; pointer-events: none; z-index: 1; display: flex; align-items: center; justify-content: center;">
+        <img src="/img/emblema-mocambique.png" style="width: 100%; height: 100%; object-fit: contain;" alt="Emblema de Moçambique">
       </div>
 
-      <div class="row g-2 mb-4 p-3 bg-light rounded small">
-        <div class="col-6"><strong>Aluno:</strong> ${d.aluno?.nome || d.aluno?.nomeCompleto}</div>
-        <div class="col-6"><strong>Nº Matrícula:</strong> ${d.aluno?.matricula || '-'}</div>
-        <div class="col-6"><strong>Turma:</strong> ${d.aluno?.turma?.nome || d.aluno?.turma || '-'}</div>
-        <div class="col-6"><strong>Grau / Classe:</strong> ${d.aluno?.grau || d.aluno?.turma?.grau_ano || '-'}</div>
+      <div style="position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column;">
+        <!-- CABEÇALHO OFICIAL REPÚBLICA DE MOÇAMBIQUE -->
+        <div style="text-align: center; margin-bottom: 4px;">
+          <div style="margin-bottom: 6px;">
+            <img src="/img/emblema-mocambique.png" style="width: 56px; height: 56px; object-fit: contain;" alt="Emblema Nacional">
+          </div>
+          <div style="font-size: 13pt; font-weight: bold; letter-spacing: 0.5px; line-height: 1.25; text-transform: uppercase;">
+            REPÚBLICA DE MOÇAMBIQUE
+          </div>
+          <div style="font-size: 10pt; font-weight: bold; line-height: 1.25; text-transform: uppercase; margin-top: 2px;">
+            GOVERNO DA PROVÍNCIA DE ${provincia}
+          </div>
+          <div style="font-size: 9.5pt; font-weight: 500; line-height: 1.25; text-transform: uppercase; margin-top: 2px;">
+            SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE ${distrito}
+          </div>
+          <div style="font-size: 11.5pt; font-weight: bold; line-height: 1.25; text-transform: uppercase; margin-top: 3px;">
+            ${escolaNomeFormatado}
+          </div>
+          <div style="font-size: 8.5pt; color: #333333; margin-top: 2px;">
+            Código da Instituição: ${codigoEscola}
+          </div>
+        </div>
+
+        <!-- LINHA DIVISÓRIA -->
+        <div style="border-bottom: 2px solid #111111; margin-top: 6px; margin-bottom: 10px;"></div>
+
+        <!-- TÍTULO COM 2CM ANTES DO CONTEÚDO -->
+        <div style="text-align: center; font-size: 12pt; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20mm;">
+          BOLETIM DE APROVEITAMENTO ESCOLAR — ANO LECTIVO ${anoLetivo}
+        </div>
+
+        <!-- CAIXA COM DADOS DO ALUNO -->
+        <div style="border: 1px solid #777777; border-radius: 1px; padding: 10px 14px; margin-bottom: 14px; background-color: #ffffff;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 10pt; font-family: 'Times New Roman', Times, Georgia, serif;">
+            <tr>
+              <td style="width: 58%; padding: 3px 0; vertical-align: top;">
+                <span style="font-weight: bold;">Nome do Aluno:</span> <span style="font-weight: bold; text-transform: uppercase;">${alunoNome}</span>
+              </td>
+              <td style="width: 42%; padding: 3px 0; vertical-align: top;">
+                <span style="font-weight: bold;">Classe / Turma:</span> <span>${classeTurma}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 0; vertical-align: top;">
+                <span style="font-weight: bold;">Nº Matrícula:</span> <span>${matricula}</span>
+              </td>
+              <td style="padding: 3px 0; vertical-align: top;">
+                <span style="font-weight: bold;">Turno:</span> <span>${turno}</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- TABELA DE NOTAS OFICIAL COM LETRAS AUMENTADAS -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-family: 'Times New Roman', Times, Georgia, serif; border: 1.5px solid #444444;">
+          <thead>
+            <tr style="background-color: #e9ecf2; border-bottom: 1.5px solid #444444;">
+              <th style="border: 1px solid #666666; padding: 6px 10px; font-size: 10.5pt; font-weight: bold; text-align: left; width: 40%;">DISCIPLINA</th>
+              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; font-weight: bold; text-align: center; width: 12%;">1º TRIM</th>
+              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; font-weight: bold; text-align: center; width: 12%;">2º TRIM</th>
+              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; font-weight: bold; text-align: center; width: 12%;">3º TRIM</th>
+              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10.5pt; font-weight: bold; text-align: center; width: 13%;">MÉD. ANUAL</th>
+              <th style="border: 1px solid #666666; padding: 6px 8px; font-size: 10pt; font-weight: bold; text-align: center; width: 13%;">SITUAÇÃO</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${corpoTabelaBoletim}
+
+            <!-- LINHA DA MÉDIA GLOBAL DO PERÍODO -->
+            <tr style="background-color: #e9ecf2; font-weight: bold; border-top: 1.5px solid #444444;">
+              <td style="border: 1px solid #666666; padding: 6px 10px; font-size: 10pt; text-align: left;">MÉDIA GLOBAL DO PERÍODO</td>
+              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; text-align: center; color: #777777;">---</td>
+              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; text-align: center; color: #777777;">---</td>
+              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; text-align: center; color: #777777;">---</td>
+              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10.5pt; text-align: center;">${mediaGlobalInt}</td>
+              <td style="border: 1px solid #666666; padding: 6px 8px; font-size: 10pt; text-align: center;">${situacaoGlobal}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- DECISÃO DO CONSELHO -->
+        <div style="font-size: 10pt; margin-top: 8px; margin-bottom: 20px; line-height: 1.4;">
+          ${decisaoConselhoHtml}
+        </div>
       </div>
 
-      <table class="table table-bordered table-sm mb-4 small text-center">
-        <thead class="table-light">
-          <tr>
-            <th class="text-start">Disciplina</th>
-            <th>1º Trimestre</th>
-            <th>2º Trimestre</th>
-            <th>3º Trimestre</th>
-            <th class="bg-light fw-bold">Média Final</th>
-            <th>Faltas</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${(d.disciplinas || []).map(item => {
-            const t1 = item.t1 !== null && item.t1 !== undefined ? Math.round(item.t1) : '-';
-            const t2 = item.t2 !== null && item.t2 !== undefined ? Math.round(item.t2) : '-';
-            const t3 = item.t3 !== null && item.t3 !== undefined ? Math.round(item.t3) : '-';
-            const mVal = item.mediaFinal !== undefined && item.mediaFinal !== null ? item.mediaFinal : item.notaFinal;
-            const mfd = mVal !== undefined && mVal !== null ? Math.round(mVal) : '-';
-            const isPos = typeof mfd === 'number' ? mfd >= 9.5 : false;
-            return `
-              <tr>
-                <td class="text-start"><strong>${item.nome || item.disciplina}</strong></td>
-                <td>${t1}</td>
-                <td>${t2}</td>
-                <td>${t3}</td>
-                <td class="fw-bold ${typeof mfd === 'number' ? (isPos ? 'text-success' : 'text-danger') : ''}">${mfd}</td>
-                <td>${item.faltas || 0}</td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-
-      <div class="d-flex justify-content-between align-items-center p-3 border rounded mb-4 small">
-        <div><strong>Média Global:</strong> <span class="fs-5 fw-bold text-primary">${mediaGlobalInt}</span> valores</div>
-        <div><strong>Resultado Final:</strong> <span class="badge ${resultado.toUpperCase().includes('APROV') ? 'bg-success' : 'bg-danger'} fs-6">${resultado}</span></div>
-      </div>
-
-      <!-- Data Formal sem Hora no Boletim Oficial -->
-      <div class="text-end mb-4 small">
-        <em>${d.dataEmissaoExtenso || d.dataExtenso || 'Maputo, ' + new Date().toLocaleDateString('pt-PT')}</em>
-      </div>
-
-      <div class="row text-center pt-4 border-top small">
-        <div class="col-6"><p class="mb-0 border-top pt-2 mx-4">O Director Pedagógico (DAP)</p></div>
-        <div class="col-6"><p class="mb-0 border-top pt-2 mx-4">O Encarregado de Educação</p></div>
+      <!-- ASSINATURAS OFICIAIS A 1CM DA PARTE INFERIOR -->
+      <div style="display: flex; justify-content: space-around; align-items: flex-end; padding: 0 10px; margin-bottom: 10mm; position: relative; z-index: 2;">
+        <div style="width: 240px; text-align: center;">
+          <div style="border-top: 1.2px solid #111111; margin-bottom: 6px;"></div>
+          <div style="font-weight: bold; font-size: 10pt;">O Director de Turma</div>
+        </div>
+        <div style="width: 240px; text-align: center;">
+          <div style="border-top: 1.2px solid #111111; margin-bottom: 6px;"></div>
+          <div style="font-weight: bold; font-size: 10pt;">O Director da Escola</div>
+        </div>
       </div>
     </div>
   `;
 }
 
 function renderizarBoletim(d) {
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
+  if (!d.disciplinas) d.disciplinas = [];
   const preview = document.getElementById('printAreaPreview');
-  const safeName = (d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
+  const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const ano = d.anoLetivo || d.anoLectivo || '2026';
+  const alunoId = d.aluno?.id || document.getElementById('printSelectAluno')?.value || '';
 
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="text-end mb-3 no-print">
-      <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoComTitulo('Boletim_${safeName}_${ano}')">
-        <i class="bi bi-printer me-2"></i> Imprimir / Guardar em PDF
-      </button>
+    <div class="no-print mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="badge bg-primary px-3 py-2"><i class="bi bi-file-earmark-check me-1"></i> Boletim de Aproveitamento Escolar Oficial A4</span>
+      <div class="d-flex gap-2">
+        ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('BOLETIM', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Boletim_${safeName}_${ano}')">
+          <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
+        </button>
+      </div>
     </div>
     ${obterHtmlBoletimOficial(d)}
   `;
@@ -5083,6 +9123,10 @@ function renderizarBoletim(d) {
 // ==================== DOCUMENTOS OFICIAIS MEC (1 PÁGINA A4) ====================
 
 function obterHtmlDeclaracaoOficial(d) {
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
+  if (!d.disciplinas) d.disciplinas = [];
   const escolaNome = (d.escola?.nome || 'Escola Secundária').toUpperCase();
   const provincia = (d.escola?.provincia || 'Inhambane').toUpperCase();
   const distrito = (d.escola?.distrito || 'Massinga');
@@ -5098,57 +9142,68 @@ function obterHtmlDeclaracaoOficial(d) {
   const docNum = d.aluno?.numero_documento || '---';
   const termoExames = d.termoExames || '124';
   const folha = d.folha || '32';
-  const resOficial = d.resultadoOficial || d.resultadoFinal || 'Aprovado';
-
   // Mapa de notas por disciplina
   const notasMap = {};
   if (d.disciplinas && Array.isArray(d.disciplinas)) {
     d.disciplinas.forEach(item => {
-      const n = (item.disciplina || item.nome || '').toLowerCase().trim();
-      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.mfd);
-      notasMap[n] = v;
+      const n = (item.disciplina || item.nome || '').trim();
+      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.media_anual);
+      if (n) {
+        notasMap[n] = v;
+      }
     });
   }
 
   const obterNotaValor = (nomeDisc) => {
-    const k = nomeDisc.toLowerCase().trim();
     for (const [ch, vl] of Object.entries(notasMap)) {
-      if (ch.includes(k) || k.includes(ch)) {
-        if (vl !== null && vl !== undefined && !isNaN(vl)) {
+      if (matchDisciplinaDocumento(nomeDisc, ch)) {
+        if (vl !== null && vl !== undefined && vl !== '-' && vl !== '---' && !isNaN(vl)) {
           const num = Number(vl);
-          return Number.isInteger(num) ? String(num) : num.toFixed(1);
+          if (num > 0) {
+            return Number.isInteger(num) ? String(num) : num.toFixed(1);
+          }
         }
       }
     }
-    return '14';
+    return null;
   };
 
   const colEsquerda = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia'];
-  const colDireita = ['Física', 'Química', 'Matemática', 'Desenho', 'Educação Física', 'TIC'];
+  const colDireita = ['Física', 'Química', 'Matemática', 'Desenho e Geometria Descritiva', 'Educação Física', 'Tecnologias de Informação e Comunicação'];
 
   const renderLinhaDisc = (disc) => {
     const nota = obterNotaValor(disc);
+    const notaTexto = nota !== null ? `( ${nota} ) valores` : `( --- )`;
     return `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; font-size: 10.5pt;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 12pt;">
         <span>${disc}</span>
         <span style="flex-grow: 1; border-bottom: 1px dotted #666; margin: 0 6px;"></span>
-        <span style="font-weight: bold; white-space: nowrap;">( ${nota} ) valores</span>
+        <span style="font-weight: bold; white-space: nowrap;">${notaTexto}</span>
       </div>
     `;
   };
 
-  const mediaGlobalVal = Math.round(Number(d.mediaGlobal !== undefined ? d.mediaGlobal : (d.mediaGeral !== undefined ? d.mediaGeral : 14)) || 14);
+  const todasAvaliadasDecl = [...colEsquerda, ...colDireita].every(disc => obterNotaValor(disc) !== null);
+
+  let mediaGlobalVal = null;
+  if (todasAvaliadasDecl && d.mediaGlobal !== undefined && d.mediaGlobal !== null && d.mediaGlobal !== '-' && d.mediaGlobal !== '---' && !isNaN(Number(d.mediaGlobal))) {
+    mediaGlobalVal = Math.round(Number(d.mediaGlobal));
+  } else if (todasAvaliadasDecl && d.mediaGeral !== undefined && d.mediaGeral !== null && d.mediaGeral !== '-' && d.mediaGeral !== '---' && !isNaN(Number(d.mediaGeral))) {
+    mediaGlobalVal = Math.round(Number(d.mediaGeral));
+  }
+  const mediaGlobalStr = mediaGlobalVal !== null ? `( ${mediaGlobalVal} ) valores.` : `( --- )`;
+  const resOficial = (!todasAvaliadasDecl && (!d.resultadoOficial || d.resultadoOficial === 'Aprovado')) ? 'Pendente' : (d.resultadoOficial || d.resultadoFinal || 'Pendente');
 
   const agora = new Date();
   const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   return `
-    <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 288mm; height: 288mm; max-height: 288mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
-      <div class="borda-oficial-declaracao" style="border: 2px solid #222; padding: 8mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 290mm; height: 290mm; max-height: 290mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
+      <div class="borda-oficial-declaracao" style="border: 2px solid #222; padding: 8mm 11mm 10mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
         <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 280px; opacity: 0.07; pointer-events: none; z-index: 0;" alt="Marca d'Água">
         
-        <!-- Cabeçalho Oficial com Emblema Nacional Oficial -->
-        <div style="text-align: center; position: relative; z-index: 1;">
+        <!-- Cabeçalho Oficial com 2cm antes do conteúdo -->
+        <div style="text-align: center; position: relative; z-index: 1; margin-bottom: 20mm;">
           <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional de Moçambique">
           <div style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">REPÚBLICA DE MOÇAMBIQUE</div>
           <div style="font-size: 10pt; font-weight: bold;">GOVERNO DA PROVÍNCIA DE ${provincia}</div>
@@ -5158,13 +9213,13 @@ function obterHtmlDeclaracaoOficial(d) {
         </div>
 
         <!-- Texto Declarativo Oficial em Times New Roman 12 com espaçamento 1.5 e dados a negrito -->
-        <div style="position: relative; z-index: 1;">
-          <p style="text-align: justify; font-size: 12pt; line-height: 1.6; margin: 8px 0 10px 0; text-indent: 20px;">
+        <div style="position: relative; z-index: 1; flex: 1;">
+          <p style="text-align: justify; font-size: 11.5pt; line-height: 1.55; margin: 0 0 10px 0; text-indent: 20px;">
             Para os devidos efeitos se declara que <strong>${alunoNome}</strong>, filho(a) de <strong>${pai}</strong> e de <strong>${mae}</strong>, portador(a) do <strong>${docTipo}</strong> número <strong>${docNum}</strong>, concluiu com aproveitamento a <strong>${grauClasse}</strong> neste estabelecimento de ensino, no ano lectivo de <strong>${anoLectivo}</strong>, com as seguintes classificações:
           </p>
 
-          <!-- Tabela de Disciplinas em 2 Colunas -->
-          <div style="display: flex; gap: 26px; margin: 6px 0;">
+          <!-- Tabela de Disciplinas em 2 Colunas com letras aumentadas e sem abreviar -->
+          <div style="display: flex; gap: 26px; margin: 8px 0;">
             <div style="flex: 1;">
               ${colEsquerda.map(renderLinhaDisc).join('')}
             </div>
@@ -5173,19 +9228,19 @@ function obterHtmlDeclaracaoOficial(d) {
             </div>
           </div>
 
-          <div style="font-size: 11pt; font-weight: bold; margin: 8px 0;">
-            Média global da Classe: ( ${mediaGlobalVal} ) valores.
+          <div style="font-size: 11.5pt; font-weight: bold; margin: 8px 0;">
+            Média global da Classe: ${mediaGlobalStr}
           </div>
 
-          <p style="font-size: 10.5pt; line-height: 1.48; margin: 8px 0; text-align: justify;">
+          <p style="font-size: 10.5pt; line-height: 1.45; margin: 8px 0; text-align: justify;">
             Consta no livro do termo de exames sob o número <strong>${termoExames}</strong>, folha <strong>${folha}</strong>, do ano lectivo de <strong>${anoLectivo}</strong>, que o estudante obteve o resultado de <strong>${resOficial}</strong>.<br>
             Por ser verdade e me haver sido solicitada, mandei passar a presente declaração que vai por mim assinada e autenticada com o carimbo a tinta de óleo em uso nesta instituição.
           </p>
         </div>
 
-        <!-- Secção de Assinaturas e Datação Formal -->
-        <div style="position: relative; z-index: 1; margin-top: 4px;">
-          <div style="display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 12px;">
+        <!-- Secção de Assinaturas e Datação Formal a 1cm da parte inferior -->
+        <div style="position: relative; z-index: 1; margin-top: auto; padding-bottom: 10mm;">
+          <div style="display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 10px;">
             <div style="width: 45%;">
               <div>Extraído por: ____________________________</div>
               <div style="margin-top: 4px;">Data: ___ / ___ / 2026</div>
@@ -5199,7 +9254,7 @@ function obterHtmlDeclaracaoOficial(d) {
           <div style="text-align: center; font-size: 9.5pt;">
             <div style="text-align: right; margin-bottom: 6px; font-size: 10pt;">${distrito}, aos ${agora.getDate()} de ${meses[agora.getMonth()]} de ${agora.getFullYear()}</div>
             <div style="font-weight: bold;">O Director da Escola</div>
-            <div style="border-bottom: 1px solid #111; margin: 26px auto 4px; width: 45%;"></div>
+            <div style="border-bottom: 1px solid #111; margin: 24px auto 4px; width: 45%;"></div>
             <div style="font-weight: bold;">${directorNome}</div>
             <div style="font-size: 8.5pt; font-style: italic;">/${directorCarreira}/</div>
           </div>
@@ -5210,17 +9265,25 @@ function obterHtmlDeclaracaoOficial(d) {
 }
 
 function renderizarDeclaracao(d) {
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
+  if (!d.disciplinas) d.disciplinas = [];
   const preview = document.getElementById('printAreaPreview');
-  const safeName = (d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
+  const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const ano = d.anoLectivo || d.anoLetivo || '2026';
+  const alunoId = d.aluno?.id || document.getElementById('printSelectAluno')?.value || '';
 
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="no-print mb-3 text-end d-flex justify-content-between align-items-center">
-      <span class="badge bg-success"><i class="bi bi-file-earmark-check me-1"></i> Declaração Oficial A4 (Página Única)</span>
-      <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoComTitulo('Declaracao_${safeName}_${ano}')">
-        <i class="bi bi-printer me-2"></i> Imprimir / Guardar em PDF
-      </button>
+    <div class="no-print mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="badge bg-success px-3 py-2"><i class="bi bi-file-earmark-check me-1"></i> Declaração Oficial com Notas A4</span>
+      <div class="d-flex gap-2">
+        ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('DECLARACAO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Declaracao_${safeName}_${ano}')">
+          <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
+        </button>
+      </div>
     </div>
     <div class="printable-document">
       ${obterHtmlDeclaracaoOficial(d)}
@@ -5229,26 +9292,31 @@ function renderizarDeclaracao(d) {
 }
 
 function obterHtmlCertificadoOficial(d) {
-  const escolaNome = (d.escola?.nome || 'Escola Secundária').toUpperCase();
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
+  if (!d.disciplinas) d.disciplinas = [];
+  const escolaNome = (d.escola?.nome || 'Escola Secundária de Cambine').toUpperCase();
+  const escolaNomeFormatado = escolaNome.startsWith('ESCOLA') ? escolaNome : `ESCOLA SECUNDÁRIA DE ${escolaNome}`;
   const provincia = (d.escola?.provincia || 'Inhambane');
   const distrito = (d.escola?.distrito || 'Massinga');
-  const directorNome = d.directorNome || 'Pero Chitofo Murrombe';
+  const directorNome = d.directorNome || 'Prof. Dr. António Costa';
   const directorCarreira = d.directorCarreira || 'Especialista de Educação';
-  const chefeNome = d.chefeSecretariaNome || 'Glória João Zunguze';
+  const chefeNome = d.chefeSecretariaNome || 'Dra. Maria Eunice';
   const chefeCarreira = d.chefeSecretariaCarreira || 'Técnica Profissional';
 
-  const alunoNome = (d.aluno?.nomeCompleto || d.aluno?.nome || 'ALUNO NÃO IDENTIFICADO').toUpperCase();
-  const sexo = ((d.aluno?.genero || 'M').toUpperCase() === 'M') ? 'Masculino' : 'Feminino';
-  const pai = d.aluno?.pai || '...........................................';
-  const mae = d.aluno?.mae || '...........................................';
-  const alunoDistrito = d.aluno?.distrito || distrito;
-  const alunoProvincia = d.aluno?.provincia || provincia;
+  const alunoNome = (d.aluno?.nomeCompleto || d.aluno?.nome || 'GRAÇA MONDLANE MONDLANE').toUpperCase();
+  const sexo = ((d.aluno?.genero || 'F').toUpperCase().startsWith('F')) ? 'Feminino' : 'Masculino';
+  const pai = d.aluno?.pai || 'Eduardo Mondlane Jr.';
+  const mae = d.aluno?.mae || 'Janet Mondlane';
+  const alunoDistrito = d.aluno?.distrito || 'Cidade de Maputo';
+  const alunoProvincia = d.aluno?.provincia || 'Maputo';
   const anoLectivo = d.anoLectivo || d.anoLetivo || '2026';
-  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || '12ª';
-  const area = d.area || d.aluno?.turma?.area || 'Ciências e Letras';
-  const matricula = d.aluno?.matricula || '-';
+  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || '10ª Classe';
+  const area = d.area || d.aluno?.turma?.area || 'Geral';
+  const matricula = d.aluno?.matricula || 'MAT-2026-1006';
 
-  let diaNasc = '___', mesNasc = '___________', anoNasc = '20__';
+  let diaNasc = '09', mesNasc = 'Julho', anoNasc = '2008';
   if (d.aluno?.data_nascimento) {
     const dt = new Date(d.aluno.data_nascimento);
     if (!isNaN(dt.getTime())) {
@@ -5263,41 +9331,51 @@ function obterHtmlCertificadoOficial(d) {
   const notasMap = {};
   if (d.disciplinas && Array.isArray(d.disciplinas)) {
     d.disciplinas.forEach(item => {
-      const n = (item.disciplina || item.nome || '').toLowerCase().trim();
-      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : null);
-      notasMap[n] = v;
+      const n = (item.disciplina || item.nome || '').trim();
+      const v = item.notaFinal !== undefined ? item.notaFinal : (item.mediaFinal !== undefined ? item.mediaFinal : item.media_anual);
+      if (n) {
+        notasMap[n] = v;
+      }
     });
   }
 
   const obterNotaValor = (nomeDisc) => {
-    const k = nomeDisc.toLowerCase().trim();
     for (const [ch, vl] of Object.entries(notasMap)) {
-      if (ch.includes(k) || k.includes(ch)) {
-        if (vl !== null && vl !== undefined && !isNaN(vl)) {
+      if (matchDisciplinaDocumento(nomeDisc, ch)) {
+        if (vl !== null && vl !== undefined && vl !== '-' && vl !== '---' && !isNaN(vl)) {
           const num = Number(vl);
-          return Number.isInteger(num) ? String(num) : num.toFixed(1);
+          if (num > 0) {
+            return Number.isInteger(num) ? String(num) : num.toFixed(1);
+          }
         }
       }
     }
-    return '---';
+    return null;
   };
 
-  const col1 = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Intr. Filosofia'];
-  const col2 = ['Matemática', 'Química', 'Física', 'Biologia', 'Desenho e Geom. Descritiva', 'Educação Visual'];
-  const col3 = ['Educação Física', 'TIC\'s', 'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'];
+  const col1 = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia'];
+  const col2 = ['Matemática', 'Química', 'Física', 'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual'];
+  const col3 = ['Educação Física', 'Tecnologias de Informação e Comunicação', 'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'];
 
   const renderLinhaCert = (disc) => {
     const nota = obterNotaValor(disc);
+    const notaTexto = nota !== null ? `( ${nota} ) valores` : `( --- )`;
     return `
       <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4.5px; font-size: 10.5pt;">
-        <span>${disc}</span>
+        <span style="white-space: nowrap;">${disc}</span>
         <span style="flex-grow: 1; border-bottom: 1px dotted #777; margin: 0 4px;"></span>
-        <span style="font-weight: bold; white-space: nowrap;">( ${nota} ) valores</span>
+        <span style="font-weight: bold; white-space: nowrap;">${notaTexto}</span>
       </div>
     `;
   };
 
-  const mediaGlobalVal = Math.round(Number(d.mediaGlobal !== undefined ? d.mediaGlobal : (d.mediaGeral !== undefined ? d.mediaGeral : 14)) || 14);
+  let mediaGlobalVal = null;
+  if (d.mediaGlobal !== undefined && d.mediaGlobal !== null && d.mediaGlobal !== '-' && d.mediaGlobal !== '---' && !isNaN(Number(d.mediaGlobal))) {
+    mediaGlobalVal = Math.round(Number(d.mediaGlobal));
+  } else if (d.mediaGeral !== undefined && d.mediaGeral !== null && d.mediaGeral !== '-' && d.mediaGeral !== '---' && !isNaN(Number(d.mediaGeral))) {
+    mediaGlobalVal = Math.round(Number(d.mediaGeral));
+  }
+  const mediaGlobalStr = mediaGlobalVal !== null ? `( ${mediaGlobalVal} ) Valores` : `( --- )`;
   const pautaNum = d.pautaNumero || '01';
   const termoExames = d.termoExames || '124';
 
@@ -5307,29 +9385,31 @@ function obterHtmlCertificadoOficial(d) {
   const mesAtual = meses[agora.getMonth()];
   const anoAtual = agora.getFullYear();
 
+  const codAuth = d.codigoAutenticidade || `CERT-MZ-5001234567-${matricula}-${anoLectivo}`;
+
   return `
-    <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 288mm; height: 288mm; max-height: 288mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
-      <div class="borda-ornamental-certificado" style="border: 6px double #111; padding: 8mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 290mm; height: 290mm; max-height: 290mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
+      <div class="borda-ornamental-certificado" style="border: 6px double #111; padding: 8mm 11mm 10mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
         <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 310px; height: 310px; opacity: 0.08; pointer-events: none; z-index: 0;" alt="Marca d'Água">
 
-        <!-- Cabeçalho Oficial do Certificado -->
-        <div style="text-align: center; position: relative; z-index: 1;">
+        <!-- Cabeçalho Oficial do Certificado com 2cm antes do conteúdo -->
+        <div style="text-align: center; position: relative; z-index: 1; margin-bottom: 20mm;">
           <img src="/img/emblema-mocambique.png" style="width: 48px; height: 48px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional">
           <div style="font-size: 11pt; font-weight: bold; text-transform: uppercase;">REPÚBLICA DE MOÇAMBIQUE</div>
           <div style="font-size: 10pt; font-weight: bold; text-transform: uppercase;">MINISTÉRIO DA EDUCAÇÃO E CULTURA</div>
-          <div style="font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">INSTITUTO NACIONAL DE EXAMES, CERTIFICAÇÃO E EQUIVALÊNCIA</div>
-          <div style="font-size: 9.5pt; margin-top: 2px;"><u>a) ${escolaNome}</u></div>
-          <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.8px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">CERTIFICADO DE HABILITAÇÕES</div>
+          <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">INSTITUTO NACIONAL DE EXAMES, CERTIFICAÇÃO E EQUIVALÊNCIA</div>
+          <div style="font-size: 9.5pt; margin-top: 2px;"><u>a) ${escolaNomeFormatado}</u></div>
+          <div style="font-size: 13.5pt; font-weight: bold; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.8px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">CERTIFICADO DE HABILITAÇÕES</div>
         </div>
 
         <!-- Texto Declarativo Oficial do Chefe de Secretaria -->
-        <div style="position: relative; z-index: 1;">
-          <p style="text-align: justify; font-size: 12pt; line-height: 1.6; margin: 8px 0 10px 0; text-indent: 20px;">
-            b) <strong>${chefeNome}</strong>, <em>${chefeCarreira}</em>, Chefe da secretaria da <strong>${escolaNome}</strong>, distrito de <strong>${distrito}</strong>, província de <strong>${provincia}</strong>, CERTIFICO em cumprimento do despacho exarado em requerimento que fica arquivado nesta secretaria que <strong>${alunoNome}</strong>, do Sexo <strong>${sexo}</strong>, natural de <strong>${alunoDistrito}</strong>, distrito de <strong>${alunoDistrito}</strong>, província de <strong>${alunoProvincia}</strong>, nascido no dia <strong>${diaNasc}</strong> de <strong>${mesNasc}</strong> de <strong>${anoNasc}</strong>, filho/a de <strong>${pai}</strong> e de <strong>${mae}</strong>, concluiu nesta escola como aluno c) <strong>Interno</strong>, em <strong>Dezembro</strong> de <strong>${anoLectivo}</strong>, a <strong>${grauClasse}</strong> Classe na área de <strong>${area}</strong>, tendo obtido os seguintes resultados:
+        <div style="position: relative; z-index: 1; flex: 1;">
+          <p style="text-align: justify; font-size: 11pt; line-height: 1.55; margin: 0 0 10px 0; text-indent: 20px;">
+            b) <strong>${chefeNome}</strong>, <em>/${chefeCarreira}/</em>, Chefe da secretaria da <strong>${escolaNomeFormatado}</strong>, distrito de <strong>${distrito}</strong>, província de <strong>${provincia}</strong>, CERTIFICO em cumprimento do despacho exarado em requerimento que fica arquivado nesta secretaria que <strong>${alunoNome}</strong>, do Sexo <strong>${sexo}</strong>, natural de <strong>${alunoDistrito}</strong>, distrito de <strong>${alunoDistrito}</strong>, província de <strong>${alunoProvincia}</strong>, nascido no dia <strong>${diaNasc} de ${mesNasc} de ${anoNasc}</strong>, filho/a de <strong>${pai}</strong> e de <strong>${mae}</strong>, concluiu nesta escola como aluno c) <strong>Interno</strong>, em <strong>Dezembro de ${anoLectivo}</strong>, a <strong>${grauClasse}</strong> na área de <strong>${area}</strong>, tendo obtido os seguintes resultados:
           </p>
 
-          <!-- Tabela com 3 Colunas de Disciplinas -->
-          <div style="display: flex; gap: 14px; margin: 5px 0;">
+          <!-- Tabela com 3 Colunas de Disciplinas - Nomes sem abreviar e letras aumentadas -->
+          <div style="display: flex; gap: 14px; margin: 6px 0;">
             <div style="flex: 1;">
               ${col1.map(renderLinhaCert).join('')}
             </div>
@@ -5341,44 +9421,43 @@ function obterHtmlCertificadoOficial(d) {
             </div>
           </div>
 
-          <div style="text-align: center; font-weight: bold; font-size: 12pt; margin: 8px 0;">
-            Média Global: ( ${mediaGlobalVal} ) Valores
+          <div style="text-align: center; font-weight: bold; font-size: 11.5pt; color: #b91c1c; margin: 6px 0;">
+            Média Global: ${mediaGlobalStr}
           </div>
 
-          <p style="font-size: 10.5pt; line-height: 1.48; margin: 7px 0; text-align: justify;">
+          <p style="font-size: 10.5pt; line-height: 1.45; margin: 6px 0; text-align: justify;">
             Os resultados constam da pauta nº <strong>${pautaNum}</strong> e do livro de Termo de Exames nº <strong>${termoExames}</strong>, código do aluno <strong>${matricula}</strong>.<br>
             E, por ser verdade passo o presente certificado que assino e autentico a tinta de óleo/selo branco em uso neste Estabelecimento de Ensino.
           </p>
         </div>
 
-        <!-- Local, Datação e Assinaturas (Tudo contido na 1ª Página A4) -->
-        <div style="position: relative; z-index: 1; margin-top: 3px;">
-          <div style="text-align: center; font-size: 9.5pt; margin-bottom: 5px;">
+        <!-- Local, Datação e Assinaturas a 1cm da parte inferior -->
+        <div style="position: relative; z-index: 1; margin-top: auto; padding-bottom: 10mm;">
+          <div style="text-align: center; font-size: 9.5pt; margin-bottom: 6px;">
             ${distrito}, aos ${diaAtual} de ${mesAtual} de ${anoAtual}
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 9pt;">
-            <div style="width: 33%; text-align: left;">
-              <div>Extraí: _________________________</div>
+            <div style="width: 34%; text-align: left;">
+              <div style="font-size: 8.5pt;">Extrai: _________&nbsp;&nbsp;&nbsp;&nbsp;Conferi: _________</div>
               <div style="margin-top: 8px; text-align: center;">
                 <div style="font-weight: bold;">O Chefe da Secretaria</div>
-                <div style="border-bottom: 1px solid #111; margin: 14px auto 2px; width: 85%;"></div>
+                <div style="border-bottom: 1px solid #111; margin: 16px auto 3px; width: 85%;"></div>
                 <div style="font-weight: bold;">${chefeNome}</div>
                 <div style="font-size: 8.5pt; font-style: italic;">/${chefeCarreira}/</div>
               </div>
             </div>
 
             <div style="width: 28%; text-align: center;">
-              <div>Conferi: ________________________</div>
               <div style="margin-top: 6px;">
-                ${d.qrcodeData ? `<img src="${d.qrcodeData}" style="width: 48px; height: 48px; margin: 0 auto; display: block;" alt="QR Code">` : ''}
-                <div style="font-size: 7.5pt; color: #555; margin-top: 1px;">${d.codigoAutenticidade || ''}</div>
+                ${d.qrcodeData ? `<img src="${d.qrcodeData}" style="width: 48px; height: 48px; margin: 0 auto; display: block;" alt="QR Code">` : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://sige.co.mz/verificar-certificado.html?codigo=${codAuth}" style="width: 48px; height: 48px; margin: 0 auto; display: block;" alt="QR Code">`}
+                <div style="font-size: 7pt; color: #444; margin-top: 2px;">${codAuth}</div>
               </div>
             </div>
 
-            <div style="width: 33%; text-align: center;">
+            <div style="width: 34%; text-align: center;">
               <div style="font-weight: bold;">O Director da Escola</div>
-              <div style="border-bottom: 1px solid #111; margin: 30px auto 3px; width: 85%;"></div>
+              <div style="border-bottom: 1px solid #111; margin: 28px auto 3px; width: 85%;"></div>
               <div style="font-weight: bold;">${directorNome}</div>
               <div style="font-size: 8.5pt; font-style: italic;">/${directorCarreira}/</div>
             </div>
@@ -5390,17 +9469,25 @@ function obterHtmlCertificadoOficial(d) {
 }
 
 function renderizarCertificado(d) {
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
+  if (!d.disciplinas) d.disciplinas = [];
   const preview = document.getElementById('printAreaPreview');
-  const safeName = (d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
+  const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const ano = d.anoLectivo || d.anoLetivo || '2026';
+  const alunoId = d.aluno?.id || document.getElementById('printSelectAluno')?.value || '';
 
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="no-print mb-3 text-end d-flex justify-content-between align-items-center">
-      <span class="badge bg-primary"><i class="bi bi-award-fill me-1"></i> Certificado Oficial A4 (Página Única)</span>
-      <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoComTitulo('Certificado_${safeName}_${ano}')">
-        <i class="bi bi-printer me-2"></i> Imprimir / Guardar em PDF
-      </button>
+    <div class="no-print mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="badge bg-primary px-3 py-2"><i class="bi bi-award-fill me-1"></i> Certificado de Habilitações Oficial A4</span>
+      <div class="d-flex gap-2">
+        ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Certificado_${safeName}_${ano}')">
+          <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
+        </button>
+      </div>
     </div>
     <div class="printable-document">
       ${obterHtmlCertificadoOficial(d)}
@@ -5409,28 +9496,34 @@ function renderizarCertificado(d) {
 }
 
 function renderizarRecibo(d) {
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
+  if (!d.pagamento) d.pagamento = {};
   const preview = document.getElementById('printAreaPreview');
-  const safeName = d.aluno.nome.replace(/[^a-zA-Z0-9]/g, '_');
+  const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const carimboDataHora = d.carimboDataHora || (new Date().toLocaleDateString('pt-PT') + ' ' + new Date().toLocaleTimeString('pt-PT'));
 
   preview.style.display = 'block';
   preview.innerHTML = `
     <div class="text-center border-bottom pb-3 mb-3">
-      <h6 class="fw-bold mb-1">${d.escola.nome}</h6>
-      <p class="text-muted small mb-0">NUIT: ${d.escola.nif_cnpj} | Telefone: ${d.escola.telefone || '-'}</p>
+      <h6 class="fw-bold mb-1">${d.escola.nome || 'Escola'}</h6>
+      <p class="text-muted small mb-0">NUIT: ${d.escola.nif_cnpj || '-'} | Telefone: ${d.escola.telefone || '-'}</p>
       <h5 class="mt-2 fw-bold text-success text-uppercase">RECIBO DE PAGAMENTO DE PROPINAS</h5>
       <span class="badge bg-light text-dark border">Recibo Nº: ${d.pagamento.recibo_numero || 'REC-2026-001'}</span>
     </div>
 
-    <table class="table table-bordered table-sm small mb-4">
-      <tr><th class="bg-light w-35">Aluno:</th><td>${d.aluno.nome} (Matrícula: ${d.aluno.matricula})</td></tr>
-      <tr><th class="bg-light">Turma:</th><td>${d.aluno.turma?.nome || '-'}</td></tr>
-      <tr><th class="bg-light">Descrição da Taxa:</th><td>${d.pagamento.descricao}</td></tr>
-      <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia}</code></td></tr>
-      <tr><th class="bg-light">Valor Pago:</th><td class="fw-bold text-success fs-6">${d.pagamento.valor.toLocaleString('pt-PT')} MZN</td></tr>
-      <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Depósito / Transferência'}</td></tr>
-      <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm small mb-4">
+        <tr><th class="bg-light w-35">Aluno:</th><td>${d.aluno.nome || '-'} (Matrícula: ${d.aluno.matricula || '-'})</td></tr>
+        <tr><th class="bg-light">Turma:</th><td>${d.aluno.turma?.nome || '-'}</td></tr>
+        <tr><th class="bg-light">Descrição da Taxa:</th><td>${d.pagamento.descricao || '-'}</td></tr>
+        <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia || '-'}</code></td></tr>
+        <tr><th class="bg-light">Valor Pago:</th><td class="fw-bold text-success fs-6">${formatarMoeda(d.pagamento.valor || 0)}</td></tr>
+        <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Depósito / Transferência'}</td></tr>
+        <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
+      </table>
+    </div>
 
     <!-- Carimbo com Data e Hora Oficial -->
     <div class="alert alert-light border small text-muted text-center py-2 mb-4">
@@ -5444,7 +9537,7 @@ function renderizarRecibo(d) {
     </div>
 
     <div class="text-center mt-4 no-print">
-      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo('Recibo_${safeName}_${d.pagamento.mes_referencia}')">
+      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo('Recibo_${safeName}_${d.pagamento.mes_referencia || '2026'}')">
         <i class="bi bi-printer me-2"></i> Imprimir Recibo
       </button>
     </div>
@@ -5452,41 +9545,147 @@ function renderizarRecibo(d) {
 }
 
 function renderizarFichaAluno(d) {
+  d = d || {};
+  if (!d.aluno) d.aluno = {};
+  if (!d.escola) d.escola = {};
   const preview = document.getElementById('printAreaPreview');
-  const safeName = d.aluno.nome.replace(/[^a-zA-Z0-9]/g, '_');
+  const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const carimboDataHora = d.carimboDataHora || (new Date().toLocaleDateString('pt-PT') + ' ' + new Date().toLocaleTimeString('pt-PT'));
+
+  const alunoId = d.aluno?.id || document.getElementById('printSelectAluno')?.value || '';
+  const classeNome = d.aluno.classe || d.aluno.turma?.grau_ano || '10ª Classe';
+  const areaNome = d.aluno.area || d.aluno.turma?.area || 'Ensino Geral';
+  const anoLetivo = d.aluno.ano_letivo || d.escola?.ano_letivo || '2026';
+  const turnoNome = d.aluno.turno || d.aluno.turma?.turno || 'Manhã';
+  const turmaNome = d.aluno.turma?.nome || '-';
+  const disciplinas = Array.isArray(d.aluno.disciplinas) ? d.aluno.disciplinas : [];
+
+  let disciplinasRowsHtml = '';
+  if (disciplinas.length > 0) {
+    disciplinasRowsHtml = disciplinas.map((disc, idx) => `
+      <tr>
+        <td style="text-align: center; border: 1px solid #000; padding: 4px 6px;">${idx + 1}</td>
+        <td style="text-align: center; border: 1px solid #000; padding: 4px 6px; font-weight: bold;">${disc.codigo || '-'}</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;">${disc.nome || disc.disciplina || '-'}</td>
+        <td style="text-align: center; border: 1px solid #000; padding: 4px 6px;">${disc.carga_horaria || disc.carga || '3 h/sem'}</td>
+      </tr>
+    `).join('');
+  } else {
+    disciplinasRowsHtml = `<tr><td colspan="4" style="text-align: center; border: 1px solid #000; padding: 6px; color: #666;">Sem disciplinas associadas ao plano curricular.</td></tr>`;
+  }
 
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="text-center border-bottom pb-3 mb-4">
-      <h5 class="fw-bold mb-1">${d.escola.nome}</h5>
-      <h6 class="text-muted mb-2">FICHA BIOGRÁFICA DO ALUNO</h6>
-      <span class="badge bg-primary">Matrícula Nº: ${d.aluno.matricula}</span>
+    <div class="no-print mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="badge bg-primary px-3 py-2"><i class="bi bi-person-badge me-1"></i> Ficha Biográfica do Aluno (Oficial A4)</span>
+      <div class="d-flex gap-2">
+        ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('FICHA', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
+        ${alunoId ? `<button class="btn btn-outline-primary btn-sm fw-semibold" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Descarregar Word (DOCX)</button>` : ''}
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Ficha_${safeName}_${anoLetivo}')">
+          <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
+        </button>
+      </div>
     </div>
 
-    <table class="table table-bordered table-sm small mb-4">
-      <tr><th class="bg-light w-35">Nome Completo:</th><td><strong>${d.aluno.nome}</strong></td></tr>
-      <tr><th class="bg-light">Apelido:</th><td>${d.aluno.apelido || '-'}</td></tr>
-      <tr><th class="bg-light">Data de Nascimento:</th><td>${new Date(d.aluno.data_nascimento).toLocaleDateString('pt-PT')}</td></tr>
-      <tr><th class="bg-light">Género:</th><td>${d.aluno.genero === 'M' ? 'Masculino' : 'Feminino'}</td></tr>
-      <tr><th class="bg-light">Documento de Identificação:</th><td>${d.aluno.tipo_documento || 'BI'}: ${d.aluno.numero_documento || '-'}</td></tr>
-      <tr><th class="bg-light">NUIT:</th><td>${d.aluno.nuit || '-'}</td></tr>
-      <tr><th class="bg-light">Naturalidade / Província:</th><td>${d.aluno.distrito || '-'} / ${d.aluno.provincia || '-'}</td></tr>
-      <tr><th class="bg-light">Filiação:</th><td>Pai: ${d.aluno.pai || '-'}<br>Mãe: ${d.aluno.mae || '-'}</td></tr>
-      <tr><th class="bg-light">Encarregado de Educação:</th><td>${d.aluno.nome_responsavel || '-'} (${d.aluno.contato_responsavel || '-'})</td></tr>
-      <tr><th class="bg-light">Turma Actual:</th><td>${d.aluno.turma?.nome || '-'}</td></tr>
-    </table>
+    <div class="printable-document" style="font-family: 'Times New Roman', Times, serif; color: #000; max-width: 800px; margin: 0 auto; background: #fff; padding: 20px 25px; border: 1px solid #e0e0e0;">
+      <!-- CABEÇALHO OFICIAL -->
+      <div style="text-align: center; margin-bottom: 12px; line-height: 1.25;">
+        <div style="font-size: 11pt; font-weight: bold; text-transform: uppercase;">REPÚBLICA DE MOÇAMBIQUE</div>
+        <div style="font-size: 10pt; font-weight: bold; text-transform: uppercase;">GOVERNO DA PROVÍNCIA DE ${d.escola.provincia || 'INHAMBANE'}</div>
+        <div style="font-size: 9.5pt; text-transform: uppercase;">SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE ${d.escola.distrito || 'MASSINGA'}</div>
+        <div style="font-size: 12pt; font-weight: bold; margin-top: 4px; text-transform: uppercase;">${d.escola.nome || 'ESCOLA SECUNDÁRIA'}</div>
+        <div style="font-size: 12pt; font-weight: bold; margin-top: 6px; letter-spacing: 0.5px; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 0;">
+          FICHA BIOGRÁFICA DO ALUNO
+        </div>
+        <div style="font-size: 9.5pt; margin-top: 3px; font-weight: bold;">
+          MATRÍCULA Nº: ${d.aluno.matricula || '-'} &nbsp;|&nbsp; ANO LECTIVO: ${anoLetivo}
+        </div>
+      </div>
 
-    <!-- Carimbo com Data e Hora Oficial -->
-    <div class="alert alert-light border small text-muted text-center py-2 mb-4">
-      <i class="bi bi-clock-history me-1 text-primary"></i>
-      Registo Informatizado emitido aos <strong>${carimboDataHora}</strong>
-    </div>
+      <!-- DADOS BIOGRÁFICOS E DE ENQUADRAMENTO ACADÉMICO -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 12px; border: 1px solid #000;">
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; width: 22%; background-color: #f8f9fa; font-weight: bold;">Nome Completo:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; width: 43%; font-weight: bold;">${d.aluno.nome || '-'}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; width: 15%; background-color: #f8f9fa; font-weight: bold;">Apelido:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; width: 20%;">${d.aluno.apelido || '-'}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Data de Nascimento:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.data_nascimento ? new Date(d.aluno.data_nascimento).toLocaleDateString('pt-PT') : '-'}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Género:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.genero === 'M' ? 'Masculino' : (d.aluno.genero === 'F' ? 'Feminino' : (d.aluno.genero || '-'))}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Documento (BI / DIR):</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.tipo_documento || 'BI'}: ${d.aluno.numero_documento || '-'}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">NUIT:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.nuit || '-'}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Naturalidade / Província:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.distrito || '-'} / ${d.aluno.provincia || '-'}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Filiação (Pai):</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.pai || '-'}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Filiação (Mãe):</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.mae || '-'}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Encarregado:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${d.aluno.nome_responsavel || '-'}${d.aluno.contato_responsavel ? ' (' + d.aluno.contato_responsavel + ')' : ''}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Classe Actual:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; font-weight: bold;">${classeNome}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Área / Secção:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; font-weight: bold;">${areaNome}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Turma Actual:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${turmaNome}</td>
+          <td style="border: 1px solid #000; padding: 3px 6px; background-color: #f8f9fa; font-weight: bold;">Turno:</td>
+          <td style="border: 1px solid #000; padding: 3px 6px;">${turnoNome}</td>
+        </tr>
+      </table>
 
-    <div class="text-center mt-4 no-print">
-      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo('Ficha_${safeName}_2026')">
-        <i class="bi bi-printer me-2"></i> Imprimir Ficha
-      </button>
+      <!-- PLANO CURRICULAR E DISCIPLINAS DA CLASSE -->
+      <div style="font-size: 10pt; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; text-align: left; border-bottom: 1px solid #000; padding-bottom: 2px;">
+        Plano Curricular & Disciplinas da Classe (${classeNome} — ${areaNome})
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 12px; border: 1px solid #000;">
+        <thead>
+          <tr style="background-color: #f0f0f0;">
+            <th style="border: 1px solid #000; padding: 4px 6px; width: 8%; text-align: center;">Nº</th>
+            <th style="border: 1px solid #000; padding: 4px 6px; width: 14%; text-align: center;">Código</th>
+            <th style="border: 1px solid #000; padding: 4px 6px; width: 56%; text-align: left;">Disciplina Curricular</th>
+            <th style="border: 1px solid #000; padding: 4px 6px; width: 22%; text-align: center;">Carga Horária</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${disciplinasRowsHtml}
+        </tbody>
+      </table>
+
+      <!-- ASSINATURAS E REGISTO -->
+      <div style="margin-top: 15px; font-size: 9.5pt;">
+        <table style="width: 100%; border-collapse: collapse; text-align: center; border: none;">
+          <tr>
+            <td style="width: 50%; padding-top: 25px; border: none;">
+              ___________________________________________<br>
+              <strong>O(A) Responsável do Registo Académico</strong>
+            </td>
+            <td style="width: 50%; padding-top: 25px; border: none;">
+              ___________________________________________<br>
+              <strong>O(A) Director(a) da Escola</strong>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- CARIMBO DE EMISSÃO -->
+      <div style="margin-top: 15px; font-size: 8pt; text-align: center; color: #555; border-top: 1px dashed #ccc; padding-top: 4px;">
+        Registo Informatizado emitido aos <strong>${carimboDataHora}</strong> | Sistema Integrado de Gestão Escolar (SIGE)
+      </div>
     </div>
   `;
 }
@@ -5822,10 +10021,10 @@ async function carregarAlunoPagamentos() {
       });
 
       const elPago = document.getElementById('alunoTotalPagoCard');
-      if (elPago) elPago.textContent = `${totalPago.toLocaleString('pt-PT')} MZN`;
+      if (elPago) elPago.innerHTML = formatarMoeda(totalPago);
 
       const elPendente = document.getElementById('alunoTotalPendenteCard');
-      if (elPendente) elPendente.textContent = `${totalPendente.toLocaleString('pt-PT')} MZN`;
+      if (elPendente) elPendente.innerHTML = formatarMoeda(totalPendente);
 
       const elSituacao = document.getElementById('alunoSituacaoPropinaCard');
       if (elSituacao) {
@@ -5850,7 +10049,7 @@ async function carregarAlunoPagamentos() {
             <tr>
               <td><strong>${p.descricao || 'Mensalidade Escolar'}</strong></td>
               <td><code>${p.mes_referencia || '-'}</code></td>
-              <td><strong class="text-success">${Number(p.valor || 0).toLocaleString('pt-PT')} MZN</strong></td>
+              <td><strong class="text-success">${formatarMoeda(p.valor || 0)}</strong></td>
               <td>${p.data_vencimento ? new Date(p.data_vencimento).toLocaleDateString('pt-PT') : '-'}</td>
               <td>
                 <span class="badge ${p.status === 'PAGO' ? 'bg-success' : 'bg-warning text-dark'}">
@@ -5906,7 +10105,9 @@ async function carregarLogsAcesso() {
 let modalInstancia = null;
 function abrirModal(titulo, htmlCorpo) {
   document.getElementById('modalGenericoTitulo').textContent = titulo;
-  document.getElementById('modalGenericoCorpo').innerHTML = htmlCorpo;
+  const corpo = document.getElementById('modalGenericoCorpo');
+  corpo.innerHTML = htmlCorpo;
+  aplicarResponsividadeUniversalTabelas(corpo);
   const el = document.getElementById('modalGenerico');
   modalInstancia = new bootstrap.Modal(el);
   modalInstancia.show();
@@ -6215,53 +10416,60 @@ function renderizarPautaGeralImpressao(d) {
     return `<span class="${cls}">${Math.round(num)}</span>`;
   };
 
-  const thDisciplinas = d.disciplinas.map(disc => 
-    `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.72rem;">${disc.codigo || disc.nome}</th>`
-  ).join('');
+  const thDisciplinas = d.disciplinas.map(disc => {
+    const nomeCompleto = obterNomeCompletoDisciplina(disc.nome || disc.codigo);
+    return `<th colspan="4" class="text-center border-start border-end fw-bold" style="background-color: #eef2ff !important; color: #4338ca !important; border-color: #c7d2fe !important; font-size: 0.82rem; padding: 4px 6px;">${nomeCompleto}</th>`;
+  }).join('');
 
   const thSubDisciplinas = d.disciplinas.map(() => 
-    `<th style="font-size: 0.65rem;">1º</th><th style="font-size: 0.65rem;">2º</th><th style="font-size: 0.65rem;">3º</th><th style="font-size: 0.65rem;" class="bg-light fw-bold">MFD</th>`
+    `<th style="font-size: 0.72rem;">1º</th><th style="font-size: 0.72rem;">2º</th><th style="font-size: 0.72rem;">3º</th><th style="font-size: 0.72rem; background-color: #e2e8f0 !important; font-weight: bold;">MFD</th>`
   ).join('');
 
-  let trsAlunos = d.alunos.map(a => {
+  let trsAlunos = d.alunos.map((a, idx) => {
     const tdDisciplinas = d.disciplinas.map(disc => {
-      const nd = a.notasDisciplinas[disc.codigo || disc.id] || a.notasDisciplinas[disc.id] || {};
+      const nd = a.notasDisciplinas[disc.codigo || disc.id] || a.notasDisciplinas[disc.id] || a.notasDisciplinas[disc.nome] || {};
       return `
-        <td>${formatNota(nd.t1)}</td>
-        <td>${formatNota(nd.t2)}</td>
-        <td>${formatNota(nd.t3)}</td>
-        <td class="bg-light fw-bold">${formatNota(nd.mfd)}</td>
+        <td style="font-size: 0.82rem;">${formatNota(nd.t1)}</td>
+        <td style="font-size: 0.82rem;">${formatNota(nd.t2)}</td>
+        <td style="font-size: 0.82rem;">${formatNota(nd.t3)}</td>
+        <td style="background-color: #f1f5f9 !important; font-weight: bold; font-size: 0.82rem;">${(nd.t1 !== '-' && nd.t2 !== '-' && nd.t3 !== '-' && nd.t1 !== null && nd.t2 !== null && nd.t3 !== null && Number(nd.t1) > 0 && Number(nd.t2) > 0 && Number(nd.t3) > 0) ? formatNota(nd.mfd) : '<span class="text-muted">-</span>'}</td>
       `;
     }).join('');
 
     let badgeResultado = '';
-    if (a.resultadoFinal === 'A') {
-      badgeResultado = '<span class="badge bg-success px-2 py-1">Aprovado</span>';
-    } else if (a.resultadoFinal === 'R') {
-      badgeResultado = '<span class="badge bg-danger px-2 py-1">Reprovado</span>';
-    } else if (a.resultadoFinal === 'D') {
-      badgeResultado = '<span class="badge bg-warning text-dark px-2 py-1">Desistiu</span>';
-    } else if (a.resultadoFinal === 'T') {
-      badgeResultado = '<span class="badge bg-info text-dark px-2 py-1">Transferido</span>';
+    const resTexto = (a.resultadoFinal || a.resultado || '').trim();
+    if (resTexto === 'A' || resTexto === 'Aprovado') {
+      badgeResultado = '<span class="fw-bold" style="font-weight: 700; color: #15803d !important;">Aprovado</span>';
+    } else if (resTexto === 'R' || resTexto === 'Reprovado') {
+      badgeResultado = '<span class="fw-bold text-danger" style="font-weight: 700; color: #dc2626 !important;">Reprovado</span>';
+    } else if (resTexto === 'D' || resTexto === 'Desistente') {
+      badgeResultado = '<span class="fw-bold text-secondary">Desistente</span>';
+    } else if (resTexto === 'T' || resTexto === 'Transferido') {
+      badgeResultado = '<span class="fw-bold text-secondary">Transferido</span>';
     } else {
-      badgeResultado = `<span class="badge bg-secondary px-2 py-1">${a.resultadoFinal}</span>`;
+      badgeResultado = `<span class="fw-bold text-secondary">${resTexto || '-'}</span>`;
     }
+
+    const badgeGen = a.genero === 'F' 
+      ? '<span class="badge" style="background-color: #0ea5e9; color: #ffffff; font-size: 0.72rem; padding: 2px 6px;">F</span>' 
+      : '<span class="badge" style="background-color: #334155; color: #ffffff; font-size: 0.72rem; padding: 2px 6px;">M</span>';
+
+    const nomeCompletoAluno = (a.nomeCompleto || `${a.nome || ''} ${a.apelido || ''}`.trim()).toUpperCase();
 
     return `
       <tr>
-        <td><strong>${a.numero}</strong></td>
-        <td class="text-start"><strong>${a.nome}</strong></td>
-        <td class="text-start">${a.apelido || '-'}</td>
-        <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
+        <td><strong>${a.numero || (idx + 1)}</strong></td>
+        <td class="text-start ps-3 fw-bold" style="font-size: 0.85rem;">${nomeCompletoAluno}</td>
+        <td>${badgeGen}</td>
         ${tdDisciplinas}
-        <td class="bg-light">${formatNota(a.mediasTrimestrais.t1)}</td>
-        <td class="bg-light">${formatNota(a.mediasTrimestrais.t2)}</td>
-        <td class="bg-light">${formatNota(a.mediasTrimestrais.t3)}</td>
-        <td>${a.negativas.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
-        <td>${a.negativas.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
-        <td>${a.negativas.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
-        <td class="bg-light">${a.negativas.fimDoAno > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
-        <td class="bg-light fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${formatNota(a.mediasTrimestrais.t1)}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${formatNota(a.mediasTrimestrais.t2)}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${formatNota(a.mediasTrimestrais.t3)}</td>
+        <td style="font-size: 0.82rem;">${a.negativas.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="font-size: 0.82rem;">${a.negativas.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="font-size: 0.82rem;">${a.negativas.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${a.negativas.fimDoAno > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="background-color: #e0e7ff; font-weight: bold; color: #1e1b4b; font-size: 0.95rem;">${formatNota(a.mediaFinalGeral)}</td>
         <td>${badgeResultado}</td>
       </tr>
     `;
@@ -6281,19 +10489,19 @@ function renderizarPautaGeralImpressao(d) {
           <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4 Paisagem)
         </button>
         <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Pauta_${safeTurma}_${ano}')">
-          <i class="bi bi-printer me-1"></i> Imprimir
+          <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
     </div>
 
-    <div id="subViewPautaGeral" class="printable-document p-3 bg-white border rounded shadow-sm" style="overflow-x: auto;">
-      <!-- Cabeçalho Oficial -->
-      <div class="text-center border-bottom pb-2 mb-3">
-        <img src="/img/emblema-mocambique.png" style="width: 52px; height: 52px; margin-bottom: 2px;" alt="Emblema Nacional">
-        <h6 class="fw-bold mb-0 text-uppercase">REPÚBLICA DE MOÇAMBIQUE</h6>
+    <div id="subViewPautaGeral" class="printable-document p-3 bg-white border rounded shadow-sm" style="overflow-x: auto; font-family: 'Times New Roman', Times, serif;">
+      <!-- Cabeçalho Oficial a 2cm antes do conteúdo -->
+      <div class="text-center border-bottom pb-2" style="margin-bottom: 20mm !important;">
+        <img src="/img/emblema-mocambique.png" style="width: 52px; height: 52px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional">
+        <h6 class="fw-bold mb-0 text-uppercase" style="letter-spacing: 0.5px;">REPÚBLICA DE MOÇAMBIQUE</h6>
         <small class="text-muted fw-semibold text-uppercase">GOVERNO DA PROVÍNCIA DE ${(d.escola.provincia || 'MAPUTO').toUpperCase()} | DISTRITO DE ${(d.escola.distrito || 'CIDADE DE MAPUTO').toUpperCase()}</small>
         <h5 class="fw-bold text-dark my-1">${(d.escola.nome || 'Escola Secundária').toUpperCase()}</h5>
-        <div class="fw-bold text-primary small">PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO ${ano}</div>
+        <div class="fw-bold text-primary small" style="color: #4338ca !important; font-size: 1.05rem;">PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO ${ano}</div>
         <small class="text-muted">Turma: <strong>${d.turma.nome}</strong> | Classe: <strong>${d.turma.grau_ano}</strong> | Turno: <strong>${d.turma.turno || 'Diurno'}</strong> | Director de Turma: <strong>${d.turma.director_turma || '-'}</strong></small>
       </div>
 
@@ -6303,14 +10511,13 @@ function renderizarPautaGeralImpressao(d) {
           <thead class="table-light">
             <tr>
               <th rowspan="2" class="align-middle">Nº</th>
-              <th rowspan="2" class="align-middle text-start" style="min-width: 180px;">Nome Completo</th>
-              <th rowspan="2" class="align-middle text-start" style="min-width: 90px;">Apelido</th>
+              <th rowspan="2" class="align-middle text-start ps-3" style="min-width: 210px; font-size: 0.85rem;">Nome Completo do Aluno</th>
               <th rowspan="2" class="align-middle">Gén</th>
               ${thDisciplinas}
-              <th colspan="3" class="bg-light">Médias Trimestrais</th>
-              <th colspan="4" class="bg-light">Disciplinas Negativas</th>
-              <th rowspan="2" class="align-middle bg-primary text-white fw-bold">Média Geral</th>
-              <th rowspan="2" class="align-middle bg-secondary text-white fw-bold">Resultado</th>
+              <th colspan="3" class="fw-semibold" style="background-color: #f8fafc !important; font-size: 0.75rem;">Médias Trimestrais</th>
+              <th colspan="4" class="fw-semibold" style="background-color: #f8fafc !important; font-size: 0.75rem;">Disciplinas Negativas</th>
+              <th rowspan="2" class="align-middle fw-bold" style="background-color: #4f46e5 !important; color: #ffffff !important; font-size: 0.8rem;">Média Geral</th>
+              <th rowspan="2" class="align-middle fw-bold" style="background-color: #1e293b !important; color: #ffffff !important; font-size: 0.8rem;">Resultado</th>
             </tr>
             <tr>
               ${thSubDisciplinas}
@@ -6322,6 +10529,24 @@ function renderizarPautaGeralImpressao(d) {
             ${trsAlunos}
           </tbody>
         </table>
+      </div>
+
+      <!-- Assinaturas Oficiais da Pauta a 1cm da parte inferior -->
+      <div class="row text-center mx-0" style="font-size: 9.5pt; margin-top: 25px; padding-bottom: 10mm;">
+        <div class="col-4">
+          <div style="border-top: 1.2px solid #222; width: 75%; margin: 0 auto 6px;"></div>
+          <strong>O Director de Turma</strong>
+          <div style="font-size: 8.5pt; color: #475569;">${d.turma?.director_turma || ''}</div>
+        </div>
+        <div class="col-4">
+          <div style="border-top: 1.2px solid #222; width: 75%; margin: 0 auto 6px;"></div>
+          <strong>O Director Pedagógico (DAP)</strong>
+        </div>
+        <div class="col-4">
+          <div style="border-top: 1.2px solid #222; width: 75%; margin: 0 auto 6px;"></div>
+          <strong>O Director da Escola</strong>
+          <div style="font-size: 8.5pt; color: #475569;">${d.escola?.director || ''}</div>
+        </div>
       </div>
     </div>
   `;
@@ -6374,32 +10599,75 @@ async function aoSelecionarTurmaDT(turmaId) {
 
   // Carregar parâmetros salvos do conselho
   const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
-  const cp = savedParamsRaw ? JSON.parse(savedParamsRaw) : {};
+  let cp = {};
+  if (savedParamsRaw) {
+    try {
+      cp = JSON.parse(savedParamsRaw) || {};
+      // Se continha os dados fictícios hardcoded de demonstração antigos, descartar
+      if (cp.dataT1 === '26/05/2026' && cp.dataT2 === '01/09/2026') {
+        cp = {};
+        localStorage.removeItem('sige_acta_params_' + turmaId);
+      }
+    } catch (e) {
+      cp = {};
+    }
+  }
 
-  document.getElementById('dtPresidenteT1').value = cp.presidenteT1 || 'Fernando José Mandamule';
-  document.getElementById('dtPresidenteT2').value = cp.presidenteT2 || 'Fernando José Mandamule';
-  document.getElementById('dtPresidenteT3').value = cp.presidenteT3 || 'Fernando José Mandamule';
+  document.getElementById('dtPresidenteT1').value = cp.presidenteT1 || '';
+  document.getElementById('dtPresidenteT2').value = cp.presidenteT2 || '';
+  document.getElementById('dtPresidenteT3').value = cp.presidenteT3 || '';
 
-  document.getElementById('dtDataT1').value = cp.dataT1 || '26/05/2026';
-  document.getElementById('dtDataT2').value = cp.dataT2 || '01/09/2026';
-  document.getElementById('dtDataT3').value = cp.dataT3 || '15/11/2026';
+  document.getElementById('dtDataT1').value = formatarParaInputDate(cp.dataT1);
+  document.getElementById('dtDataT2').value = formatarParaInputDate(cp.dataT2);
+  document.getElementById('dtDataT3').value = formatarParaInputDate(cp.dataT3);
 
-  document.getElementById('dtHIni1').value = cp.horaInicioT1 || '09';
-  document.getElementById('dtMIni1').value = cp.minInicioT1 || '30';
-  document.getElementById('dtHFim1').value = cp.horaFimT1 || '10';
-  document.getElementById('dtMFim1').value = cp.minFimT1 || '00';
+  document.getElementById('dtHIni1').value = cp.horaInicioT1 || '';
+  document.getElementById('dtMIni1').value = cp.minInicioT1 || '';
+  document.getElementById('dtHFim1').value = cp.horaFimT1 || '';
+  document.getElementById('dtMFim1').value = cp.minFimT1 || '';
 
-  document.getElementById('dtHIni2').value = cp.horaInicioT2 || '09';
-  document.getElementById('dtMIni2').value = cp.minInicioT2 || '30';
-  document.getElementById('dtHFim2').value = cp.horaFimT2 || '11';
-  document.getElementById('dtMFim2').value = cp.minFimT2 || '00';
+  document.getElementById('dtHIni2').value = cp.horaInicioT2 || '';
+  document.getElementById('dtMIni2').value = cp.minInicioT2 || '';
+  document.getElementById('dtHFim2').value = cp.horaFimT2 || '';
+  document.getElementById('dtMFim2').value = cp.minFimT2 || '';
 
-  document.getElementById('dtHIni3').value = cp.horaInicioT3 || '09';
-  document.getElementById('dtMIni3').value = cp.minInicioT3 || '30';
-  document.getElementById('dtHFim3').value = cp.horaFimT3 || '11';
-  document.getElementById('dtMFim3').value = cp.minFimT3 || '00';
+  document.getElementById('dtHIni3').value = cp.horaInicioT3 || '';
+  document.getElementById('dtMIni3').value = cp.minInicioT3 || '';
+  document.getElementById('dtHFim3').value = cp.horaFimT3 || '';
+  document.getElementById('dtMFim3').value = cp.minFimT3 || '';
 
   await carregarDadosTurmaDT();
+}
+
+function limparParametrosSessaoDT() {
+  if (!dtTurmaAtivaId) return alert('Selecione uma turma primeiro');
+  localStorage.removeItem('sige_acta_params_' + dtTurmaAtivaId);
+
+  document.getElementById('dtPresidenteT1').value = '';
+  document.getElementById('dtPresidenteT2').value = '';
+  document.getElementById('dtPresidenteT3').value = '';
+
+  document.getElementById('dtDataT1').value = '';
+  document.getElementById('dtDataT2').value = '';
+  document.getElementById('dtDataT3').value = '';
+
+  document.getElementById('dtHIni1').value = '';
+  document.getElementById('dtMIni1').value = '';
+  document.getElementById('dtHFim1').value = '';
+  document.getElementById('dtMFim1').value = '';
+
+  document.getElementById('dtHIni2').value = '';
+  document.getElementById('dtMIni2').value = '';
+  document.getElementById('dtHFim2').value = '';
+  document.getElementById('dtMFim2').value = '';
+
+  document.getElementById('dtHIni3').value = '';
+  document.getElementById('dtMIni3').value = '';
+  document.getElementById('dtHFim3').value = '';
+  document.getElementById('dtMFim3').value = '';
+
+  alert('Parâmetros da sessão limpos! A Acta da turma voltará a exibir as linhas pontilhadas oficiais em branco.');
+  carregarDadosTurmaDT();
 }
 
 function salvarParametrosSessaoDT() {
@@ -6515,79 +10783,88 @@ function gerarTabelaPautaHtml(d) {
   };
 
   const thDisciplinas = d.disciplinas.map(disc => 
-    `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary border-start border-end fw-bold" style="font-size: 0.72rem;">${disc.codigo || disc.nome}</th>`
+    `<th colspan="4" class="text-center border-start border-end fw-bold" style="background-color: #eef2ff !important; color: #4338ca !important; border-color: #c7d2fe !important; font-size: 0.82rem;">${obterNomeCompletoDisciplina(disc.nome || disc.codigo)}</th>`
   ).join('');
 
   const thSubDisciplinas = d.disciplinas.map(() => 
-    `<th style="font-size: 0.65rem;">1º</th><th style="font-size: 0.65rem;">2º</th><th style="font-size: 0.65rem;">3º</th><th style="font-size: 0.65rem;" class="bg-light fw-bold">MFD</th>`
+    `<th style="font-size: 0.72rem;">1º</th><th style="font-size: 0.72rem;">2º</th><th style="font-size: 0.72rem;">3º</th><th style="font-size: 0.72rem; background-color: #e2e8f0 !important; font-weight: bold;">MFD</th>`
   ).join('');
 
-  let trsAlunos = d.alunos.map(a => {
+  let trsAlunos = d.alunos.map((a, idx) => {
     const tdDisciplinas = d.disciplinas.map(disc => {
-      const nd = a.notasDisciplinas[disc.codigo || disc.id] || a.notasDisciplinas[disc.id] || {};
+      const nd = a.notasDisciplinas[disc.codigo || disc.id] || a.notasDisciplinas[disc.id] || a.notasDisciplinas[disc.nome] || {};
       return `
-        <td>${formatNota(nd.t1)}</td>
-        <td>${formatNota(nd.t2)}</td>
-        <td>${formatNota(nd.t3)}</td>
-        <td class="bg-light fw-bold">${formatNota(nd.mfd)}</td>
+        <td style="font-size: 0.82rem;">${formatNota(nd.t1)}</td>
+        <td style="font-size: 0.82rem;">${formatNota(nd.t2)}</td>
+        <td style="font-size: 0.82rem;">${formatNota(nd.t3)}</td>
+        <td style="background-color: #f1f5f9 !important; font-weight: bold; font-size: 0.82rem;">${(nd.t1 !== '-' && nd.t2 !== '-' && nd.t3 !== '-' && nd.t1 !== null && nd.t2 !== null && nd.t3 !== null && Number(nd.t1) > 0 && Number(nd.t2) > 0 && Number(nd.t3) > 0) ? formatNota(nd.mfd) : '<span class="text-muted">-</span>'}</td>
       `;
     }).join('');
 
     let badgeResultado = '';
-    if (a.resultadoFinal === 'A') {
-      badgeResultado = '<span class="badge bg-success px-2 py-1">A</span>';
-    } else if (a.resultadoFinal === 'R') {
-      badgeResultado = '<span class="badge bg-danger px-2 py-1">R</span>';
-    } else if (a.resultadoFinal === 'D') {
-      badgeResultado = '<span class="badge bg-warning text-dark px-2 py-1">D</span>';
+    const resTexto = (a.resultadoFinal || a.resultado || '').trim();
+    if (resTexto === 'A' || resTexto === 'Aprovado') {
+      badgeResultado = '<span class="fw-bold" style="font-weight: 700; color: #15803d !important;">Aprovado</span>';
+    } else if (resTexto === 'R' || resTexto === 'Reprovado') {
+      badgeResultado = '<span class="fw-bold text-danger" style="font-weight: 700; color: #dc2626 !important;">Reprovado</span>';
+    } else if (resTexto === 'D' || resTexto === 'Desistente') {
+      badgeResultado = '<span class="fw-bold text-secondary">Desistente</span>';
+    } else if (resTexto === 'T' || resTexto === 'Transferido') {
+      badgeResultado = '<span class="fw-bold text-secondary">Transferido</span>';
     } else {
-      badgeResultado = `<span class="badge bg-info text-dark px-2 py-1">${a.resultadoFinal}</span>`;
+      badgeResultado = `<span class="fw-bold text-secondary">${resTexto || '-'}</span>`;
     }
+
+    const badgeGen = a.genero === 'F' 
+      ? '<span class="badge" style="background-color: #0ea5e9; color: #ffffff; font-size: 0.75rem; padding: 2px 6px;">F</span>' 
+      : '<span class="badge" style="background-color: #334155; color: #ffffff; font-size: 0.75rem; padding: 2px 6px;">M</span>';
+
+    const nomeCompleto = a.nomeCompleto || `${a.nome || ''} ${a.apelido || ''}`.trim() || 'Aluno';
 
     return `
       <tr>
-        <td><strong>${a.numero}</strong></td>
-        <td class="text-start"><strong>${a.nome}</strong></td>
-        <td class="text-start">${a.apelido || '-'}</td>
-        <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
+        <td><strong>${a.numero || (idx + 1)}</strong></td>
+        <td class="text-start ps-3" style="font-size: 0.85rem;"><strong>${nomeCompleto}</strong></td>
+        <td>${badgeGen}</td>
         ${tdDisciplinas}
-        <td class="bg-light">${formatNota(a.mediasTrimestrais.t1)}</td>
-        <td class="bg-light">${formatNota(a.mediasTrimestrais.t2)}</td>
-        <td class="bg-light">${formatNota(a.mediasTrimestrais.t3)}</td>
-        <td>${a.negativas.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '0'}</td>
-        <td>${a.negativas.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '0'}</td>
-        <td>${a.negativas.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '0'}</td>
-        <td class="bg-light">${a.negativas.fimDoAno > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '0'}</td>
-        <td class="bg-light fw-bold fs-6">${formatNota(a.mediaFinalGeral)}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${formatNota(a.mediasTrimestrais.t1)}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${formatNota(a.mediasTrimestrais.t2)}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${formatNota(a.mediasTrimestrais.t3)}</td>
+        <td style="font-size: 0.82rem;">${a.negativas.t1 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t1}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="font-size: 0.82rem;">${a.negativas.t2 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t2}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="font-size: 0.82rem;">${a.negativas.t3 > 0 ? `<span class="text-danger fw-bold">${a.negativas.t3}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="background-color: #f8fafc; font-size: 0.82rem;">${a.negativas.fimDoAno > 0 ? `<span class="text-danger fw-bold">${a.negativas.fimDoAno}</span>` : '<span class="text-muted">0</span>'}</td>
+        <td style="background-color: #e0e7ff; font-weight: bold; color: #1e1b4b; font-size: 0.95rem;">${formatNota(a.mediaFinalGeral)}</td>
         <td>${badgeResultado}</td>
       </tr>
     `;
   }).join('');
 
   return `
-    <table class="table table-bordered table-sm table-hover align-middle text-center small mb-0">
-      <thead class="table-light">
-        <tr>
-          <th rowspan="2" class="align-middle">Nº</th>
-          <th rowspan="2" class="align-middle text-start" style="min-width: 170px;">Nome Completo</th>
-          <th rowspan="2" class="align-middle text-start" style="min-width: 90px;">Apelido</th>
-          <th rowspan="2" class="align-middle">Gén</th>
-          ${thDisciplinas}
-          <th colspan="3" class="bg-light">Médias</th>
-          <th colspan="4" class="bg-light">Negativas</th>
-          <th rowspan="2" class="align-middle bg-primary text-white fw-bold">Média Final</th>
-          <th rowspan="2" class="align-middle bg-secondary text-white fw-bold">Resultado</th>
-        </tr>
-        <tr>
-          ${thSubDisciplinas}
-          <th>1º</th><th>2º</th><th>3º</th>
-          <th>1º</th><th>2º</th><th>3º</th><th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${trsAlunos}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm table-hover align-middle text-center small mb-0">
+        <thead class="table-light">
+          <tr>
+            <th rowspan="2" class="align-middle">Nº</th>
+            <th rowspan="2" class="align-middle text-start ps-3" style="min-width: 210px; font-size: 0.85rem;">Nome Completo do Aluno</th>
+            <th rowspan="2" class="align-middle">Gén</th>
+            ${thDisciplinas}
+            <th colspan="3" class="fw-semibold" style="background-color: #f8fafc !important; font-size: 0.75rem;">Médias Trimestrais</th>
+            <th colspan="4" class="fw-semibold" style="background-color: #f8fafc !important; font-size: 0.75rem;">Disciplinas Negativas</th>
+            <th rowspan="2" class="align-middle fw-bold" style="background-color: #4f46e5 !important; color: #ffffff !important; font-size: 0.8rem;">Média Final</th>
+            <th rowspan="2" class="align-middle fw-bold" style="background-color: #1e293b !important; color: #ffffff !important; font-size: 0.8rem;">Resultado</th>
+          </tr>
+          <tr>
+            ${thSubDisciplinas}
+            <th>1º</th><th>2º</th><th>3º</th>
+            <th>1º</th><th>2º</th><th>3º</th><th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${trsAlunos}
+        </tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -6637,19 +10914,21 @@ async function descarregarExtratoEscolaSuperAdmin(escolaId) {
             <strong>Referência Contratual:</strong> ${c.comprovativo_numero}<br>
             <strong>Plano Subscrito:</strong> <span class="badge bg-primary">${c.plano.nome}</span><br>
             <strong>Estado da Licença:</strong> <span class="badge bg-success">${c.status_atual}</span><br>
-            <strong>Valor Contratual:</strong> ${c.assinatura.valor.toLocaleString('pt-PT')} MZN
+            <strong>Valor Contratual:</strong> ${formatarMoeda(c.assinatura.valor)}
           </div>
         </div>
 
-        <table class="table table-bordered table-sm small mb-4">
-          <tr class="table-light"><th colspan="2" class="text-center fw-bold">VIGÊNCIA E CLÁUSULAS CONTRATUAIS</th></tr>
-          <tr><th class="w-40">Data de Início:</th><td>${new Date(c.assinatura.data_inicio).toLocaleDateString('pt-PT')}</td></tr>
-          <tr><th>Data de Vencimento:</th><td>${new Date(c.assinatura.data_fim).toLocaleDateString('pt-PT')}</td></tr>
-          <tr><th>Capacidade Licenciada:</th><td>Até ${c.plano.max_alunos} alunos matriculados e ${c.plano.max_professores} docentes</td></tr>
-          <tr><th>Alunos Ativos Registados:</th><td>${c.estatisticas.total_alunos} alunos</td></tr>
-          <tr><th>Corpo Docente Ativo:</th><td>${c.estatisticas.total_professores} professores</td></tr>
-          <tr><th>Turmas Cadastradas:</th><td>${c.estatisticas.total_turmas} turmas ativas</td></tr>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm small mb-4">
+            <tr class="table-light"><th colspan="2" class="text-center fw-bold">VIGÊNCIA E CLÁUSULAS CONTRATUAIS</th></tr>
+            <tr><th class="w-40">Data de Início:</th><td>${new Date(c.assinatura.data_inicio).toLocaleDateString('pt-PT')}</td></tr>
+            <tr><th>Data de Vencimento:</th><td>${new Date(c.assinatura.data_fim).toLocaleDateString('pt-PT')}</td></tr>
+            <tr><th>Capacidade Licenciada:</th><td>Até ${c.plano.max_alunos} alunos matriculados e ${c.plano.max_professores} docentes</td></tr>
+            <tr><th>Alunos Ativos Registados:</th><td>${c.estatisticas.total_alunos} alunos</td></tr>
+            <tr><th>Corpo Docente Ativo:</th><td>${c.estatisticas.total_professores} professores</td></tr>
+            <tr><th>Turmas Cadastradas:</th><td>${c.estatisticas.total_turmas} turmas ativas</td></tr>
+          </table>
+        </div>
 
         <div class="alert alert-light border small text-muted text-center py-2 mb-4">
           Extrato emitido aos <strong>${dataEmissao}</strong> | Assinado digitalmente pelo Engenheiro de Sistemas SuperAdmin
@@ -6699,19 +10978,28 @@ async function carregarEstatisticasAproveitamento() {
       return;
     }
 
-    const d = res.data;
-    const ge = d.geralEscola;
+    const d = res.data || {};
+    const ge = d.geralEscola || {
+      inscritos: { total: 0, h: 0, m: 0 },
+      avaliados: { total: 0, h: 0, m: 0 },
+      aprovados: { total: 0, h: 0, m: 0, pct: 0 },
+      reprovados: { total: 0, h: 0, m: 0, pct: 0 }
+    };
+    const porTurma = Array.isArray(d.porTurma) ? d.porTurma : [];
+    const porClasse = Array.isArray(d.porClasse) ? d.porClasse : [];
+    const porDisciplina = Array.isArray(d.porDisciplina) ? d.porDisciplina : [];
+    const escolaNome = (d.escola && d.escola.nome) ? d.escola.nome : 'Escola';
 
     // Atualizar cartões KPI superiores
     if (document.getElementById('statKpiAprovacao')) {
-      document.getElementById('statKpiAprovacao').textContent = `${ge.aprovados.pct}%`;
-      document.getElementById('statKpiAprovacaoSub').textContent = `${ge.aprovados.total} Aprovados (${ge.aprovados.h} H / ${ge.aprovados.m} M)`;
-      document.getElementById('statKpiReprovacao').textContent = `${ge.reprovados.pct}%`;
-      document.getElementById('statKpiReprovacaoSub').textContent = `${ge.reprovados.total} Não transitam (${ge.reprovados.h} H / ${ge.reprovados.m} M)`;
-      document.getElementById('statKpiAvaliados').textContent = `${ge.avaliados.total}`;
-      document.getElementById('statKpiAvaliadosSub').textContent = `${ge.avaliados.h} H / ${ge.avaliados.m} M (Inscritos: ${ge.inscritos.total})`;
-      document.getElementById('statKpiTurmas').textContent = `${d.porTurma.length}`;
-      document.getElementById('statKpiTurmasSub').textContent = `${d.porClasse.length} Níveis de Ensino Secundário`;
+      document.getElementById('statKpiAprovacao').textContent = `${ge.aprovados?.pct ?? 0}%`;
+      document.getElementById('statKpiAprovacaoSub').textContent = `${ge.aprovados?.total ?? 0} Aprovados (${ge.aprovados?.h ?? 0} H / ${ge.aprovados?.m ?? 0} M)`;
+      document.getElementById('statKpiReprovacao').textContent = `${ge.reprovados?.pct ?? 0}%`;
+      document.getElementById('statKpiReprovacaoSub').textContent = `${ge.reprovados?.total ?? 0} Não transitam (${ge.reprovados?.h ?? 0} H / ${ge.reprovados?.m ?? 0} M)`;
+      document.getElementById('statKpiAvaliados').textContent = `${ge.avaliados?.total ?? 0}`;
+      document.getElementById('statKpiAvaliadosSub').textContent = `${ge.avaliados?.h ?? 0} H / ${ge.avaliados?.m ?? 0} M (Inscritos: ${ge.inscritos?.total ?? 0})`;
+      document.getElementById('statKpiTurmas').textContent = `${porTurma.length}`;
+      document.getElementById('statKpiTurmasSub').textContent = `${porClasse.length} Níveis de Ensino Secundário`;
     }
 
     // Renderizar Tabelas Estatísticas
@@ -6721,7 +11009,7 @@ async function carregarEstatisticasAproveitamento() {
         <img src="/img/emblema-mocambique.png" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 3px;" alt="Emblema Nacional">
         <h6 class="fw-bold mb-0 text-uppercase">REPÚBLICA DE MOÇAMBIQUE</h6>
         <div class="text-muted small fw-semibold">MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO</div>
-        <h5 class="fw-bold text-primary mt-2 mb-0">${d.escola.nome.toUpperCase()}</h5>
+        <h5 class="fw-bold text-primary mt-2 mb-0">${escolaNome.toUpperCase()}</h5>
         <div class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 mt-2 fs-6">
           MAPA CONSOLIDADO DO RENDIMENTO E APROVEITAMENTO PEDAGÓGICO — ${ano} (${periodo === 'GLOBAL' ? 'MÉDIA ANUAL / MFD' : periodo})
         </div>
@@ -6731,7 +11019,7 @@ async function carregarEstatisticasAproveitamento() {
       <div class="mb-4">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h6 class="fw-bold text-dark mb-0"><i class="bi bi-building me-1 text-primary"></i> 1. Resumo Global da Escola</h6>
-          <span class="badge bg-secondary">${d.porTurma.length} Turmas Activas</span>
+          <span class="badge bg-secondary">${porTurma.length} Turmas Activas</span>
         </div>
         <div class="table-responsive">
           <table class="table table-bordered table-sm text-center align-middle small mb-0">
@@ -6769,7 +11057,7 @@ async function carregarEstatisticasAproveitamento() {
       <div class="mb-4">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h6 class="fw-bold text-dark mb-0"><i class="bi bi-layers-fill me-1 text-primary"></i> 2. Rendimento por Classe (7ª, 8ª, 9ª, 10ª, 11ª, 12ª)</h6>
-          <span class="badge bg-primary">${d.porClasse.length} Classes Registadas</span>
+          <span class="badge bg-primary">${porClasse.length} Classes Registadas</span>
         </div>
         <div class="table-responsive">
           <table class="table table-bordered table-hover table-sm text-center align-middle small mb-0">
@@ -6792,7 +11080,7 @@ async function carregarEstatisticasAproveitamento() {
               </tr>
             </thead>
             <tbody>
-              ${d.porClasse.map(c => `
+              ${porClasse.map(c => `
                 <tr>
                   <td class="text-start fw-bold">${c.classe} Classe</td>
                   <td><span class="badge bg-light text-dark border">${c.turmas}</span></td>
@@ -6815,7 +11103,7 @@ async function carregarEstatisticasAproveitamento() {
       <div class="mb-4">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h6 class="fw-bold text-dark mb-0"><i class="bi bi-people-fill me-1 text-primary"></i> 3. Aproveitamento Pedagógico por Turma</h6>
-          <span class="badge bg-info text-dark">${d.porTurma.length} Turmas</span>
+          <span class="badge bg-info text-dark">${porTurma.length} Turmas</span>
         </div>
         <div class="table-responsive">
           <table class="table table-bordered table-hover table-sm text-center align-middle small mb-0">
@@ -6834,7 +11122,7 @@ async function carregarEstatisticasAproveitamento() {
               </tr>
             </thead>
             <tbody>
-              ${d.porTurma.map(t => `
+              ${porTurma.map(t => `
                 <tr>
                   <td class="text-start fw-bold">${t.turmaNome}</td>
                   <td>${t.grau_ano}</td>
@@ -6857,7 +11145,7 @@ async function carregarEstatisticasAproveitamento() {
       <div class="mb-4">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h6 class="fw-bold text-dark mb-0"><i class="bi bi-book-half me-1 text-primary"></i> 4. Rendimento Comparativo por Disciplina</h6>
-          <span class="badge bg-secondary">${d.porDisciplina.length} Disciplinas</span>
+          <span class="badge bg-secondary">${porDisciplina.length} Disciplinas</span>
         </div>
         <div class="table-responsive">
           <table class="table table-bordered table-hover table-sm text-center align-middle small mb-0">
@@ -6876,7 +11164,7 @@ async function carregarEstatisticasAproveitamento() {
               </tr>
             </thead>
             <tbody>
-              ${d.porDisciplina.map(disc => `
+              ${porDisciplina.map(disc => `
                 <tr>
                   <td class="text-start fw-bold">${disc.nome}</td>
                   <td><code>${disc.codigo}</code></td>
@@ -7021,41 +11309,34 @@ async function carregarPainelMaterialEscolar(classeFiltro) {
 }
 
 function renderizarBotoesClasses() {
-  const container = document.getElementById('containerBotoesClasses');
+  const container = document.getElementById('containerBotoesClassesMateriais') || document.getElementById('containerBotoesClasses');
   if (!container) return;
 
   const isAluno = state.user?.role === 'ALUNO';
+  const selectMaterialClasse = document.getElementById('filtroMaterialClasseSelect');
   if (isAluno) {
     const clsAluno = state.materialEscolar.classeAtiva !== 'TODAS' ? state.materialEscolar.classeAtiva : (state.materialEscolar.classes[0]?.classe || 'Minha Classe');
     const qtd = state.materialEscolar.classes[0]?.totalMateriais || state.materialEscolar.materiais?.length || 0;
-    container.innerHTML = `
-      <button class="btn btn-sm btn-primary shadow-sm rounded-pill px-3 py-1 cursor-default">
-        <i class="bi bi-mortarboard-fill me-1"></i> A Sua Classe: ${clsAluno} <span class="badge bg-white text-primary ms-1">${qtd}</span>
-      </button>
-    `;
+    if (selectMaterialClasse) {
+      selectMaterialClasse.innerHTML = `<option value="${clsAluno}">${clsAluno} (${qtd})</option>`;
+      selectMaterialClasse.disabled = true;
+    }
     return;
   }
 
   const totalGeral = state.materialEscolar.classes.reduce((acc, c) => acc + (c.totalMateriais || 0), 0);
   const mapaContagens = new Map(state.materialEscolar.classes.map(c => [c.classe, c.totalMateriais || 0]));
 
-  let html = `
-    <button class="btn btn-sm ${state.materialEscolar.classeAtiva === 'TODAS' ? 'btn-primary shadow-sm' : 'btn-outline-secondary'} rounded-pill px-3 py-1" onclick="selecionarClasseMaterial('TODAS')">
-      Todas as Classes <span class="badge ${state.materialEscolar.classeAtiva === 'TODAS' ? 'bg-white text-primary' : 'bg-secondary'} ms-1">${totalGeral}</span>
-    </button>
-  `;
-
-  CLASSES_SISTEMA_ORDEM.forEach(cls => {
-    const qtd = mapaContagens.get(cls) || 0;
-    const isAtiva = state.materialEscolar.classeAtiva === cls;
-    html += `
-      <button class="btn btn-sm ${isAtiva ? 'btn-primary shadow-sm' : 'btn-outline-secondary'} rounded-pill px-3 py-1" onclick="selecionarClasseMaterial('${cls}')">
-        ${cls} <span class="badge ${isAtiva ? 'bg-white text-primary' : 'bg-light text-dark border'} ms-1">${qtd}</span>
-      </button>
-    `;
-  });
-
-  container.innerHTML = html;
+  if (selectMaterialClasse) {
+    selectMaterialClasse.disabled = false;
+    let optHtml = `<option value="TODAS">Todas as Classes (${totalGeral})</option>`;
+    CLASSES_SISTEMA_ORDEM.forEach(cls => {
+      const qtd = mapaContagens.get(cls) || 0;
+      optHtml += `<option value="${cls}">${cls} (${qtd})</option>`;
+    });
+    selectMaterialClasse.innerHTML = optHtml;
+    selectMaterialClasse.value = state.materialEscolar.classeAtiva || 'TODAS';
+  }
 }
 
 function selecionarClasseMaterial(classe) {
@@ -7063,6 +11344,10 @@ function selecionarClasseMaterial(classe) {
   state.materialEscolar.classeAtiva = classe;
   const badgeAtiva = document.getElementById('badgeClasseAtiva');
   if (badgeAtiva) badgeAtiva.textContent = classe === 'TODAS' ? 'Todas as Classes' : classe;
+  const selectMaterialClasse = document.getElementById('filtroMaterialClasseSelect');
+  if (selectMaterialClasse && selectMaterialClasse.value !== classe) {
+    selectMaterialClasse.value = classe;
+  }
   renderizarBotoesClasses();
   carregarPainelMaterialEscolar(classe);
 }

@@ -5,9 +5,17 @@ from urllib.parse import urlparse, unquote, parse_qs
 DEBUG = True
 
 # Configuracao da Base de Dados
+is_testing = 'pytest' in sys.modules or 'test' in sys.argv or os.environ.get('TESTING') == '1'
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3')
 
-if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
+if is_testing:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+elif db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
     parsed = urlparse(db_url)
     db_name = unquote(parsed.path.lstrip('/')).split('?')[0]
     username = unquote(parsed.username or '')
@@ -24,6 +32,8 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
         if '.' not in username:
             username = f"{username}.{project_ref}"
         hostname = "aws-0-us-west-2.pooler.supabase.com"
+        if not parsed.port or str(parsed.port) == '5432':
+            port = '6543'
 
     options = {}
     if 'sslmode' in query_params:

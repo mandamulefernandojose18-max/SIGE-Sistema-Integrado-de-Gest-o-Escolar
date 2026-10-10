@@ -23,6 +23,8 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
         if '.' not in username:
             username = f"{username}.{project_ref}"
         hostname = "aws-0-us-west-2.pooler.supabase.com"
+        if not parsed.port or str(parsed.port) == '5432':
+            port = '6543'
 
     options = {}
     if 'sslmode' in query_params:
@@ -55,5 +57,5 @@ else:
     }
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 't')
+CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 't')
