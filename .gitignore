@@ -46,6 +46,7 @@ backend/tests/__pycache__/
 
 # Binários e arquivos temporários de rede
 cloudflared.exe
+certs/
 *.pem
 *.key
 *.id_rsa

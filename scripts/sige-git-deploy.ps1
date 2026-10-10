@@ -59,9 +59,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  OK: Deploy separado concluido com sucesso na VM!" -ForegroundColor Green
 
-# 4. CRIAR LINK PARA WEB CUJO NOME É 'sige'
-Write-Host "[4/5] Criando atalho/link para a Web cujo nome e 'sige'..." -ForegroundColor Blue
-$webUrl = "http://${VmIp}:5173/"
+# 4. CRIAR LINK PARA WEB CUJO NOME É 'sige' (HTTPS SEGURO)
+Write-Host "[4/5] Criando atalho/link seguro HTTPS para a Web cujo nome e 'sige'..." -ForegroundColor Blue
+$sslDomain = "sige.$($VmIp -replace '\.','-').sslip.io"
+$webUrl = "https://${sslDomain}/"
 
 $shortcutLines = @(
     "[InternetShortcut]",
@@ -72,29 +73,29 @@ $shortcutLines = @(
 # A. Raiz do projeto
 $localShortcut = "d:\SIGE\sige.url"
 Set-Content -Path $localShortcut -Value $shortcutLines -Encoding ASCII
-Write-Host "  OK: Link web criado no projeto: $localShortcut" -ForegroundColor Green
+Write-Host "  OK: Link web HTTPS criado no projeto: $localShortcut" -ForegroundColor Green
 
 # B. Desktop
 $desktopShortcut = "$env:USERPROFILE\Desktop\sige.url"
 try {
     Set-Content -Path $desktopShortcut -Value $shortcutLines -Encoding ASCII
-    Write-Host "  OK: Link web criado no Desktop: $desktopShortcut" -ForegroundColor Green
+    Write-Host "  OK: Link web HTTPS criado no Desktop: $desktopShortcut" -ForegroundColor Green
 } catch {
     Write-Host "  AVISO: Nao foi possivel gravar no Desktop." -ForegroundColor Yellow
 }
 
 # C. Script utilitário 'sige.cmd'
-$cmdContent = "@start http://${VmIp}:5173/"
+$cmdContent = "@start $webUrl"
 Set-Content -Path "d:\SIGE\sige.cmd" -Value $cmdContent -Encoding ASCII
 Write-Host "  OK: Atalho CLI 'sige' criado (digite .\sige para abrir)" -ForegroundColor Green
 
 # 5. RESUMO FINAL
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Green
-Write-Host "   PIPELINE SIGE CONCLUIDA COM SUCESSO!                         " -ForegroundColor Green
+Write-Host "   PIPELINE SIGE CONCLUIDA COM SUCESSO (HTTPS SEGURO)!          " -ForegroundColor Green
 Write-Host "================================================================" -ForegroundColor Green
 Write-Host "  Link Web (sige): $webUrl" -ForegroundColor Cyan
-Write-Host "  Link API:        http://${VmIp}:8000/api/v1/" -ForegroundColor Cyan
+Write-Host "  Link API HTTPS:  ${webUrl}api/v1/" -ForegroundColor Cyan
 Write-Host "  Swagger Docs:    http://${VmIp}:8000/api/docs/" -ForegroundColor Cyan
 Write-Host ""
 

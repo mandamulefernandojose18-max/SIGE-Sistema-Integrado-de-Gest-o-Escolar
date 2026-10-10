@@ -79,18 +79,38 @@ done
 [ "$API_OK" = true ] || log_error "API falhou no health check!"
 
 # ------------------------------------------------------------------------------
-# 3. DEPLOY ISOLADO DA WEB (Frontend SPA / Nginx)
+# 3. DEPLOY ISOLADO DA WEB (Frontend SPA / Nginx com HTTPS Let's Encrypt)
 # ------------------------------------------------------------------------------
-log_info "[3/5] === INICIANDO DEPLOY SEPARADO: WEB (FRONTEND) ==="
+log_info "[3/5] === INICIANDO DEPLOY SEPARADO: WEB (FRONTEND HTTPS) ==="
+SSL_DOMAIN="sige.$(echo "${VM_IP}" | tr '.' '-').sslip.io"
+mkdir -p "${PROJECT_DIR}/certs"
+
+# Garante que o certificado SSL existe antes de subir o Nginx em 443
+if [ ! -f "${PROJECT_DIR}/certs/fullchain.pem" ] || [ ! -f "${PROJECT_DIR}/certs/privkey.pem" ]; then
+    log_info "Gerando certificado SSL para ${SSL_DOMAIN}..."
+    if [ -f "/root/.acme.sh/acme.sh" ]; then
+        /root/.acme.sh/acme.sh --issue --server letsencrypt -d "${SSL_DOMAIN}" -w "${PROJECT_DIR}/frontend" || true
+        /root/.acme.sh/acme.sh --install-cert -d "${SSL_DOMAIN}" \
+            --key-file "${PROJECT_DIR}/certs/privkey.pem" \
+            --fullchain-file "${PROJECT_DIR}/certs/fullchain.pem" || true
+    fi
+    if [ ! -f "${PROJECT_DIR}/certs/fullchain.pem" ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "${PROJECT_DIR}/certs/privkey.pem" \
+            -out "${PROJECT_DIR}/certs/fullchain.pem" \
+            -subj "/CN=${SSL_DOMAIN}" >/dev/null 2>&1
+    fi
+fi
+
 docker compose build frontend
 docker compose up -d frontend
 
 WEB_OK=false
 for i in $(seq 1 8); do
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/ || echo "000")
+    HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" "https://localhost/" || echo "000")
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
         WEB_OK=true
-        log_success "Web (Frontend SPA) está ativo! (HTTP ${HTTP_CODE} em http://localhost:5173/)"
+        log_success "Web (Frontend SPA HTTPS) está ativo! (HTTP ${HTTP_CODE} em https://${SSL_DOMAIN}/)"
         break
     fi
     sleep 2
@@ -99,17 +119,16 @@ done
 [ "$WEB_OK" = true ] || log_warn "Aviso: Web demorou para responder HTTP 200."
 
 # ------------------------------------------------------------------------------
-# 4. LIGAR A API DA WEB (Conexão e validação integrada Web -> API)
+# 4. LIGAR A API DA WEB (Conexão e validação integrada Web HTTPS -> API)
 # ------------------------------------------------------------------------------
-log_info "[4/5] === LIGANDO E VALIDANDO API DA WEB (PROXY REVERSO) ==="
+log_info "[4/5] === LIGANDO E VALIDANDO API DA WEB (PROXY REVERSO HTTPS) ==="
 
-# Testa se a requisição que entra pelo container Web (porta 5173 / Nginx) alcança a API
 INTEGRATED_OK=false
 for i in $(seq 1 5); do
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5173/api/v1/health/" || echo "000")
+    HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" "https://localhost/api/v1/health/" || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
         INTEGRATED_OK=true
-        log_success "Ligação da API com a Web confirmada com sucesso! (Web -> API proxy HTTP 200 OK)"
+        log_success "Ligação Segura HTTPS da API com a Web confirmada com sucesso! (Web HTTPS -> API proxy HTTP 200 OK)"
         break
     fi
     sleep 2
@@ -120,20 +139,18 @@ if [ "$INTEGRATED_OK" = false ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 5. CRIAR LINK PARA WEB CUJO NOME É 'sige'
+# 5. CRIAR LINK PARA WEB CUJO NOME É 'sige' (HTTPS SEGURO)
 # ------------------------------------------------------------------------------
-log_info "[5/5] === CRIANDO LINKS E ATALHOS 'sige' ==="
+log_info "[5/5] === CRIANDO LINKS E ATALHOS SEGUROS 'sige' (HTTPS) ==="
 
-# Cria atalho local no servidor
 cat > /var/www/sige/sige.url << URLEOF
 [InternetShortcut]
-URL=http://${VM_IP}:5173/
+URL=https://${SSL_DOMAIN}/
 URLEOF
 
-# Cria atalho CLI para terminal Linux
-cat > /usr/local/bin/sige << 'CLISIGEOF'
+cat > /usr/local/bin/sige << CLISIGEOF
 #!/usr/bin/env bash
-echo "🌐 SIGE Web: http://$(curl -sf https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'):5173/"
+echo "🔒 SIGE Web Seguro (HTTPS): https://${SSL_DOMAIN}/"
 CLISIGEOF
 chmod +x /usr/local/bin/sige 2>/dev/null || true
 
@@ -141,7 +158,7 @@ chmod +x /usr/local/bin/sige 2>/dev/null || true
 docker image prune -f >/dev/null 2>&1 || true
 
 echo -e "${GREEN}====================================================================${NC}"
-echo -e "${GREEN}   ✅ DEPLOY CONCLUÍDO COM SUCESSO!                                ${NC}"
-echo -e "${GREEN}   🔗 Link Web SIGE: http://${VM_IP}:5173                          ${NC}"
-echo -e "${GREEN}   🔌 API Backend:   http://${VM_IP}:8000/api/v1/                  ${NC}"
+echo -e "${GREEN}   ✅ DEPLOY CONCLUÍDO COM SUCESSO (HTTPS OFICIAL LET'S ENCRYPT)!   ${NC}"
+echo -e "${GREEN}   🔒 Link Web SIGE: https://${SSL_DOMAIN}/                         ${NC}"
+echo -e "${GREEN}   🔌 API via HTTPS: https://${SSL_DOMAIN}/api/v1/                  ${NC}"
 echo -e "${GREEN}====================================================================${NC}"
