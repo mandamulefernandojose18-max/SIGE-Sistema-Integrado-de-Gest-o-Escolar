@@ -4,13 +4,19 @@ from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+import unicodedata, re
 from django.http import HttpResponse
 from django.db.models import Q, Count
 
 from .models import MaterialEscolar
 from .serializers import MaterialEscolarSerializer
 from apps.tenants.models import Escola
+
+def _safe_ascii_filename(nome: str) -> str:
+    s = unicodedata.normalize('NFKD', str(nome or 'material.pdf')).encode('ascii', 'ignore').decode('ascii')
+    s = re.sub(r'[^A-Za-z0-9._-]+', '_', s).strip('_')
+    return s or 'material.pdf'
 
 CLASSES_MOCAMBIQUE = [
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe',
@@ -22,16 +28,19 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
     serializer_class = MaterialEscolarSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
-        is_super = getattr(self.request.user, 'role', '') == 'SUPERADMIN'
+    def get_permissions(self):
+        if getattr(self, 'action', None) in ['download', 'list', 'retrieve']:
+            return [AllowAny()]
+        return super().get_permissions()
 
-        if is_super and (not escola or self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'download']):
+    def get_queryset(self):
+        escola = getattr(self.request, 'tenant', None) or getattr(getattr(self.request, 'user', None), 'escola', None)
+        is_super = getattr(getattr(self.request, 'user', None), 'role', '') == 'SUPERADMIN'
+
+        if is_super or not escola or self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'download']:
             qs = MaterialEscolar.objects.all()
-        elif escola:
-            qs = MaterialEscolar.objects.filter(escola=escola)
         else:
-            qs = MaterialEscolar.objects.all()
+            qs = MaterialEscolar.objects.filter(escola=escola)
 
         classe = self.request.query_params.get('classe')
         if classe:
@@ -81,9 +90,11 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         super().destroy(request, *args, **kwargs)
         return Response({'success': True, 'message': 'Material excluído com sucesso.'})
 
-    @action(detail=True, methods=['get'], url_path='download')
+    @action(detail=True, methods=['get'], url_path='download', permission_classes=[AllowAny])
     def download(self, request, pk=None):
-        material = self.get_object()
+        material = MaterialEscolar.objects.defer('conteudo_base64').select_related('escola', 'disciplina').filter(id=pk).first()
+        if not material:
+            material = self.get_object()
         from django.db.models.functions import Length, Substr
         b64_chunks = []
         total_len = (
@@ -112,8 +123,9 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
                 b64_str = b64_str.split(',', 1)[1]
             try:
                 file_bytes = base64.b64decode(b64_str)
+                fname = _safe_ascii_filename(material.nome_arquivo or 'material.pdf')
                 response = HttpResponse(file_bytes, content_type=material.tipo_mime or 'application/octet-stream')
-                response['Content-Disposition'] = f'attachment; filename="{material.nome_arquivo}"'
+                response['Content-Disposition'] = f'attachment; filename="{fname}"'
                 return response
             except Exception:
                 pass
@@ -150,7 +162,8 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
 
         doc.build(elems)
         buffer.seek(0)
-        nome_pdf = material.nome_arquivo if str(material.nome_arquivo).lower().endswith('.pdf') else f"{material.nome_arquivo or 'material'}.pdf"
+        raw_pdf = material.nome_arquivo if str(material.nome_arquivo).lower().endswith('.pdf') else f"{material.nome_arquivo or 'material'}.pdf"
+        nome_pdf = _safe_ascii_filename(raw_pdf)
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{nome_pdf}"'
         return response

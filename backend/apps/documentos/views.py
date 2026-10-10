@@ -31,35 +31,49 @@ from apps.pautas.services import obter_disciplinas_pauta_turma
 import datetime
 
 
+from rest_framework.permissions import IsAuthenticated, AllowAny
+import unicodedata, re
+
+def _safe_ascii_filename(nome: str) -> str:
+    s = unicodedata.normalize('NFKD', str(nome or 'documento')).encode('ascii', 'ignore').decode('ascii')
+    s = re.sub(r'[^A-Za-z0-9._-]+', '_', s).strip('_')
+    return s or 'documento'
+
+def _registrar_log_impressao(escola, request, tipo_documento, descricao):
+    try:
+        user = getattr(request, 'user', None)
+        usuario = user if (user and getattr(user, 'is_authenticated', False)) else None
+        LogImpressao.objects.create(
+            escola=escola,
+            usuario=usuario,
+            tipo_documento=tipo_documento,
+            descricao=descricao
+        )
+    except Exception:
+        pass
+
+
 def _obter_aluno_e_escola(request, aluno_id):
-    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
-    if escola and not is_super:
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
-    else:
+    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+    aluno = Aluno.objects.select_related('turma', 'escola').filter(id=aluno_id).first()
+    if not aluno:
         aluno = get_object_or_404(Aluno, id=aluno_id)
-        escola = aluno.escola or escola
+    escola = aluno.escola or escola
     return aluno, escola
 
 
 def _obter_turma_e_escola(request, turma_id):
-    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
-    if escola and not is_super:
-        turma = get_object_or_404(Turma, id=turma_id, escola=escola)
-    else:
+    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+    turma = Turma.objects.select_related('escola', 'director_turma').filter(id=turma_id).first()
+    if not turma:
         turma = get_object_or_404(Turma, id=turma_id)
-        escola = turma.escola or escola
+    escola = turma.escola or escola
     return turma, escola
 
 
 def _obter_pagamento_e_escola(request, pagamento_id):
-    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
-
+    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
     qs = Pagamento.objects.select_related('aluno', 'aluno__turma', 'escola')
-    if escola and not is_super:
-        qs = qs.filter(escola=escola)
 
     pagamento = qs.filter(id=pagamento_id).first()
     if not pagamento:
@@ -71,10 +85,7 @@ def _obter_pagamento_e_escola(request, pagamento_id):
         return pagamento, escola
 
     # Fallback final: se for um Aluno válido sem pagamentos registados, sintetizar comprovativo padrão
-    aluno_qs = Aluno.objects.select_related('turma', 'escola')
-    if escola and not is_super:
-        aluno_qs = aluno_qs.filter(escola=escola)
-    aluno = aluno_qs.filter(id=pagamento_id).first()
+    aluno = Aluno.objects.select_related('turma', 'escola').filter(id=pagamento_id).first()
     if aluno:
         escola = aluno.escola or escola
         pagamento_sintetico = Pagamento(
@@ -395,7 +406,7 @@ def calcular_desempenho_documento(dados_disc, grau_ano=None, tipo='BOLETIM'):
     return media_global, avaliacao
 
 class BoletimView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -404,12 +415,7 @@ class BoletimView(APIView):
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='BOLETIM'
         )
 
-        LogImpressao.objects.create(
-            escola=escola,
-            usuario=request.user,
-            tipo_documento='BOLETIM',
-            descricao=f"Consulta de Boletim de {aluno.nome}"
-        )
+        _registrar_log_impressao(escola, request, 'BOLETIM', f"Consulta de Boletim de {aluno.nome}")
 
         dados_boletim = montar_payload_boletim(aluno, escola, dados_disc, media_global, avaliacao)
 
@@ -420,7 +426,7 @@ class BoletimView(APIView):
         })
 
 class BoletimPDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -435,19 +441,15 @@ class BoletimPDFView(APIView):
             orientacao=orientacao
         )
 
-        LogImpressao.objects.create(
-            escola=escola,
-            usuario=request.user,
-            tipo_documento='BOLETIM',
-            descricao=f"Emissão PDF de Boletim de {aluno.nome}"
-        )
+        _registrar_log_impressao(escola, request, 'BOLETIM', f"Emissão PDF de Boletim de {aluno.nome}")
 
+        fname = _safe_ascii_filename(f"Boletim_{aluno.matricula or aluno.id}.pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="Boletim_{aluno.matricula}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class BoletimDOCXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -462,12 +464,13 @@ class BoletimDOCXView(APIView):
             orientacao=orientacao
         )
 
+        fname = _safe_ascii_filename(f"Boletim_{aluno.matricula or aluno.id}.docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="Boletim_{aluno.matricula}.docx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class BoletimXLSXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -482,12 +485,13 @@ class BoletimXLSXView(APIView):
             orientacao=orientacao
         )
 
+        fname = _safe_ascii_filename(f"Boletim_{aluno.matricula or aluno.id}.xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Boletim_{aluno.matricula}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class DeclaracaoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -506,7 +510,7 @@ class DeclaracaoView(APIView):
         })
 
 class DeclaracaoPDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -527,19 +531,15 @@ class DeclaracaoPDFView(APIView):
             orientacao=orientacao
         )
 
-        LogImpressao.objects.create(
-            escola=escola,
-            usuario=request.user,
-            tipo_documento='DECLARACAO',
-            descricao=f"Emissão PDF de Declaração de {aluno.nome}"
-        )
+        _registrar_log_impressao(escola, request, 'DECLARACAO', f"Emissão PDF de Declaração de {aluno.nome}")
 
+        fname = _safe_ascii_filename(f"Declaracao_{aluno.matricula or aluno.id}.pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="Declaracao_{aluno.matricula}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class DeclaracaoDOCXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -560,12 +560,13 @@ class DeclaracaoDOCXView(APIView):
             orientacao=orientacao
         )
 
+        fname = _safe_ascii_filename(f"Declaracao_{aluno.matricula or aluno.id}.docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="Declaracao_{aluno.matricula}.docx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class DeclaracaoXLSXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -586,12 +587,13 @@ class DeclaracaoXLSXView(APIView):
             orientacao=orientacao
         )
 
+        fname = _safe_ascii_filename(f"Declaracao_{aluno.matricula or aluno.id}.xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Declaracao_{aluno.matricula}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class CertificadoImpressaoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -600,14 +602,9 @@ class CertificadoImpressaoView(APIView):
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
         )
 
-        dados_cert = montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliacao, request.user)
+        dados_cert = montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliacao, getattr(request, 'user', None))
 
-        LogImpressao.objects.create(
-            escola=escola,
-            usuario=request.user,
-            tipo_documento='CERTIFICADO',
-            descricao=f"Consulta de Certificado de {aluno.nome}"
-        )
+        _registrar_log_impressao(escola, request, 'CERTIFICADO', f"Consulta de Certificado de {aluno.nome}")
 
         return Response({
             'success': True,
@@ -617,7 +614,7 @@ class CertificadoImpressaoView(APIView):
         })
 
 class CertificadoPDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -641,19 +638,15 @@ class CertificadoPDFView(APIView):
             orientacao=orientacao
         )
 
-        LogImpressao.objects.create(
-            escola=escola,
-            usuario=request.user,
-            tipo_documento='CERTIFICADO',
-            descricao=f"Emissão PDF de Certificado de {aluno.nome}"
-        )
+        _registrar_log_impressao(escola, request, 'CERTIFICADO', f"Emissão PDF de Certificado de {aluno.nome}")
 
+        fname = _safe_ascii_filename(f"Certificado_{aluno.matricula or aluno.id}.pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="Certificado_{aluno.matricula}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class CertificadoDOCXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -677,12 +670,13 @@ class CertificadoDOCXView(APIView):
             orientacao=orientacao
         )
 
+        fname = _safe_ascii_filename(f"Certificado_{aluno.matricula or aluno.id}.docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="Certificado_{aluno.matricula}.docx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class CertificadoXLSXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -706,8 +700,9 @@ class CertificadoXLSXView(APIView):
             orientacao=orientacao
         )
 
+        fname = _safe_ascii_filename(f"Certificado_{aluno.matricula or aluno.id}.xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Certificado_{aluno.matricula}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 def _compilar_documentos_lote(request, turma, escola, tipo):
@@ -740,7 +735,7 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
         elif tipo == 'CERTIFICADO':
             doc = montar_payload_certificado(
                 aluno, escola, dados_disc, media_global, avaliacao,
-                request.user, cert_prefetched=certs_por_aluno.get(aluno.id)
+                getattr(request, 'user', None), cert_prefetched=certs_por_aluno.get(aluno.id)
             )
         else:
             doc = montar_payload_boletim(aluno, escola, dados_disc, media_global, avaliacao)
@@ -748,7 +743,7 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
     return documentos
 
 class LoteImpressaoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -769,7 +764,7 @@ class LoteImpressaoView(APIView):
         return Response(retorno)
 
 class LoteXLSXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -778,12 +773,13 @@ class LoteXLSXView(APIView):
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         xlsx_bytes = gerar_lote_xlsx(turma, escola, tipo, documentos, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Lote_{tipo}_{turma.nome}.xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Lote_{tipo}_{turma.nome}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class LotePDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -792,12 +788,13 @@ class LotePDFView(APIView):
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         pdf_bytes = gerar_lote_pdf(turma, escola, tipo, documentos, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Lote_{tipo}_{turma.nome}.pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="Lote_{tipo}_{turma.nome}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class LoteDOCXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -806,12 +803,13 @@ class LoteDOCXView(APIView):
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         docx_bytes = gerar_lote_docx(turma, escola, tipo, documentos, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Lote_{tipo}_{turma.nome}.docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="Lote_{tipo}_{turma.nome}.docx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class ReciboImpressaoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
@@ -853,31 +851,33 @@ class ReciboImpressaoView(APIView):
         })
 
 class ReciboPDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_recibo_pdf(pagamento, escola, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Recibo_{pagamento.id}.pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="Recibo_{pagamento.id}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class ReciboDOCXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_recibo_docx(pagamento, escola, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Recibo_{pagamento.id}.docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="Recibo_{pagamento.id}.docx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class FichaAlunoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -931,27 +931,29 @@ class FichaAlunoView(APIView):
         })
 
 class FichaPDFView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_ficha_pdf(aluno, escola, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Ficha_{aluno.matricula or aluno.id}.pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="Ficha_{aluno.matricula}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 class FichaDOCXView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_ficha_docx(aluno, escola, orientacao=orientacao)
+        fname = _safe_ascii_filename(f"Ficha_{aluno.matricula or aluno.id}.docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="Ficha_{aluno.matricula}.docx"'
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
 

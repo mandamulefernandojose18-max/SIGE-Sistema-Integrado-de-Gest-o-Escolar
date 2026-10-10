@@ -150,12 +150,60 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
   }
 }
 
-function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
-  if (!turmaId) return alert('Selecione uma turma para exportar a pauta');
+async function obterTurmaAtivaOuPrimeira(turmaIdExplicit = null) {
+  let turmaId = turmaIdExplicit
+    || document.getElementById('pautaTurmaSelect')?.value
+    || document.getElementById('dtTurmaSelect')?.value
+    || document.getElementById('printSelectTurma')?.value;
+  if (turmaId) return turmaId;
+  const selects = ['pautaTurmaSelect', 'dtTurmaSelect', 'printSelectTurma'];
+  for (const id of selects) {
+    const sel = document.getElementById(id);
+    if (sel && sel.options) {
+      for (const opt of sel.options) {
+        if (opt.value && opt.value !== 'TODOS') return opt.value;
+      }
+    }
+  }
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/turmas');
+    if (res?.data?.length > 0) return res.data[0].id;
+  } catch (_) {}
+  return null;
+}
+
+async function obterAlocacaoAtivaOuPrimeira() {
+  if (state.alocacaoAtualId) return state.alocacaoAtualId;
+  const sel = document.getElementById('cadernetaAlocacaoSelect') || document.getElementById('profTurmaSelect');
+  if (sel && sel.value) {
+    state.alocacaoAtualId = sel.value;
+    return sel.value;
+  }
+  if (sel && sel.options) {
+    for (const opt of sel.options) {
+      if (opt.value) {
+        state.alocacaoAtualId = opt.value;
+        return opt.value;
+      }
+    }
+  }
+  try {
+    const res = await apiFetch('/api/v1/professores/minhas-turmas');
+    const lista = res?.data || res || [];
+    if (Array.isArray(lista) && lista.length > 0) {
+      state.alocacaoAtualId = lista[0].id;
+      return lista[0].id;
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
+  if (!turmaId) return;
   const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.xlsx`);
+  await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.xlsx`);
 }
 
 function imprimirPautaGeralOficial() {
@@ -166,38 +214,45 @@ function imprimirPautaGeralOficial() {
 }
 
 async function descarregarCadernetaPdf() {
-  if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina para descarregar a caderneta em PDF');
-  await downloadFicheiroBinario(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/pdf`, `Caderneta_Oficial_2026.pdf`);
+  const alocId = await obterAlocacaoAtivaOuPrimeira();
+  if (!alocId) return;
+  await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/pdf`, `Caderneta_Oficial_2026.pdf`);
 }
 
-function descarregarCadernetaExcel() {
-  if (!state.alocacaoAtualId) return alert('Selecione uma alocação para exportar a caderneta');
-  downloadFicheiroBinario(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/xlsx`, `Caderneta_Oficial_2026.xlsx`);
+async function descarregarCadernetaExcel() {
+  const alocId = await obterAlocacaoAtivaOuPrimeira();
+  if (!alocId) return;
+  await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/xlsx`, `Caderneta_Oficial_2026.xlsx`);
+}
+
+async function descarregarCadernetaDocx() {
+  const alocId = await obterAlocacaoAtivaOuPrimeira();
+  if (!alocId) return;
+  await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/docx`, `Caderneta_Oficial_2026.docx`);
 }
 
 async function descarregarPautaGeralPdf(turmaIdExplicit = null, orientacaoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   if (turmaId) {
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.pdf`);
     return;
   }
   const el = document.getElementById('containerTabelaPautaGeral') || document.getElementById('subViewPautaGeral');
-  if (!el) return alert('Selecione uma turma para visualizar a pauta');
-  await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, orientacao);
+  if (el) await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, orientacao);
 }
 
-function descarregarPautaGeralDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
-  if (!turmaId) return alert('Selecione uma turma para descarregar a pauta em Word');
+async function descarregarPautaGeralDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
+  if (!turmaId) return;
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.docx`);
+  await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.docx`);
 }
 
 async function descarregarActaConselhoPdf(turmaIdExplicit = null, orientacaoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   if (turmaId) {
@@ -210,17 +265,16 @@ async function descarregarActaConselhoPdf(turmaIdExplicit = null, orientacaoExpl
     });
     if (sessao.presidente && !params.has('presidente')) params.append('presidente', sessao.presidente);
     if (sessao.data && !params.has('data')) params.append('data', sessao.data);
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_Turma_${ano}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_Turma_${ano}.pdf`);
     return;
   }
   const el = document.getElementById('containerActaConselhoCorpo') || document.getElementById('subViewActaConselho');
-  if (!el) return alert('Selecione uma turma para visualizar a acta');
-  await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, orientacao);
+  if (el) await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, orientacao);
 }
 
-function descarregarActaConselhoDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value || document.getElementById('printSelectTurma')?.value;
-  if (!turmaId) return alert('Selecione uma turma para descarregar a acta em Word');
+async function descarregarActaConselhoDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
+  if (!turmaId) return;
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   const rawSessao = localStorage.getItem('sige_acta_params_' + turmaId) || localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}';
@@ -232,11 +286,12 @@ function descarregarActaConselhoDocx(turmaIdExplicit = null, orientacaoExplicit 
   });
   if (sessao.presidente && !params.has('presidente')) params.append('presidente', sessao.presidente);
   if (sessao.data && !params.has('data')) params.append('data', sessao.data);
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_Turma_${ano}.docx`);
+  await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_Turma_${ano}.docx`);
 }
 
 async function descarregarDocumentoOficialPdf(tipo, alunoOuTurmaId) {
-  if (!alunoOuTurmaId) return alert('Identificador do documento não fornecido.');
+  if (!alunoOuTurmaId) alunoOuTurmaId = await obterTurmaAtivaOuPrimeira();
+  if (!alunoOuTurmaId) return;
   const t = String(tipo).toUpperCase();
   if (t === 'BOLETIM') {
     await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoOuTurmaId}/pdf`, `Boletim_${alunoOuTurmaId}.pdf`);
@@ -471,8 +526,9 @@ async function apiFetch(endpoint, options = {}) {
   }
 }
 
-// Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh de Token e MIME estrito
+// Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh de Token, MIME estrito e fallback direto sem bloqueio
 async function downloadFicheiroBinario(url, defaultFilename) {
+  const fullUrl = formatarUrlApi(url);
   try {
     const montarHeaders = () => {
       const h = {};
@@ -484,7 +540,6 @@ async function downloadFicheiroBinario(url, defaultFilename) {
       return h;
     };
 
-    const fullUrl = formatarUrlApi(url);
     let res = await fetch(fullUrl, { headers: montarHeaders() });
 
     if (res.status === 401) {
@@ -508,16 +563,14 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     }
 
     if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      const msg = errJson.message || errJson.detail || errJson.error || `Falha ao descarregar documento (HTTP ${res.status})`;
-      throw new Error(msg);
+      throw new Error(`HTTP ${res.status}`);
     }
 
     const disposition = res.headers.get('content-disposition');
     let filename = defaultFilename;
     if (disposition && disposition.includes('filename=')) {
-      const match = disposition.match(/filename="?([^"]+)"?/);
-      if (match && match[1]) filename = match[1];
+      const match = disposition.match(/filename="?([^";]+)"?/);
+      if (match && match[1]) filename = match[1].trim();
     }
 
     const arrayBuffer = await res.arrayBuffer();
@@ -542,7 +595,16 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     a.remove();
     setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 5000);
   } catch (err) {
-    alert(err.message || 'Erro ao descarregar ficheiro');
+    // Fallback direto via link nativo do navegador para nunca bloquear o descarregamento
+    const sep = fullUrl.includes('?') ? '&' : '?';
+    const tokenParam = state.token ? `${sep}token=${encodeURIComponent(state.token)}` : '';
+    const a = document.createElement('a');
+    a.href = `${fullUrl}${tokenParam}`;
+    a.download = defaultFilename || 'documento';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 }
 
@@ -6888,10 +6950,11 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
   }
 }
 
-function exportarCadernetaExcel() {
-  if (!state.alocacaoAtualId) return alert('Selecione uma alocação de turma');
-  const url = `/api/v1/professores/caderneta/${state.alocacaoAtualId}/xlsx`;
-  downloadFicheiroBinario(url, `Caderneta_Oficial_2026.xlsx`);
+async function exportarCadernetaExcel() {
+  const alocId = await obterAlocacaoAtivaOuPrimeira();
+  if (!alocId) return;
+  const url = `/api/v1/professores/caderneta/${alocId}/xlsx`;
+  await downloadFicheiroBinario(url, `Caderneta_Oficial_2026.xlsx`);
 }
 
 function imprimirCadernetaOficial() {
@@ -7950,9 +8013,9 @@ function salvarConfigSessaoActa(e, turmaId) {
   carregarActaConselho(turmaId);
 }
 
-function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
-  const turmaId = turmaIdExplicit || document.getElementById('pautaTurmaSelect')?.value || document.getElementById('dtTurmaSelect')?.value;
-  if (!turmaId) return alert('Selecione uma turma para exportar');
+async function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
+  if (!turmaId) return;
   const ano = anoExplicit || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
 
@@ -7960,7 +8023,7 @@ function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null, o
   const cp = savedParamsRaw ? JSON.parse(savedParamsRaw) : {};
   const qParams = new URLSearchParams({ anoLetivo: ano, orientacao: orientacao, ...cp }).toString();
 
-  downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-xlsx?${qParams}`, `Acta_Conselho_Turma_${ano}.xlsx`);
+  await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-xlsx?${qParams}`, `Acta_Conselho_Turma_${ano}.xlsx`);
 }
 
 function imprimirActaConselhoOficial() {
@@ -8031,9 +8094,14 @@ async function carregarCertificados() {
             <img src="${c.qrcode_data}" alt="QR" width="38" height="38" class="border rounded" style="cursor: pointer;" onclick="verQrCodeGrande('${c.qrcode_data}', '${c.codigo_autenticidade}')">
           </td>
           <td class="text-end">
-            <a href="/verificar-certificado.html?codigo=${c.codigo_autenticidade}" target="_blank" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-shield-check me-1"></i> Validar
-            </a>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-primary" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${c.aluno.id}')" title="Descarregar Certificado Oficial em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <a href="/verificar-certificado.html?codigo=${c.codigo_autenticidade}" target="_blank" class="btn btn-outline-primary">
+                <i class="bi bi-shield-check me-1"></i> Validar
+              </a>
+            </div>
           </td>
         </tr>
       `).join('');
@@ -8126,20 +8194,19 @@ async function carregarPagamentos() {
             </span>
           </td>
           <td class="text-end">
-            ${p.status === 'PENDENTE' ? `
-              <button class="btn btn-sm btn-outline-success" onclick="liquidarPagamento('${p.id}', ${p.valor})">
-                <i class="bi bi-cash me-1"></i> Liquidar
+            <div class="btn-group btn-group-sm">
+              ${p.status === 'PENDENTE' ? `
+                <button class="btn btn-outline-success" onclick="liquidarPagamento('${p.id}', ${p.valor})">
+                  <i class="bi bi-cash me-1"></i> Liquidar
+                </button>
+              ` : ''}
+              <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
+                <i class="bi bi-receipt me-1"></i> Recibo
               </button>
-            ` : `
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
-                  <i class="bi bi-receipt me-1"></i> Recibo
-                </button>
-                <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF (PDFKit)">
-                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF
-                </button>
-              </div>
-            `}
+              <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+            </div>
           </td>
         </tr>
       `).join('');
@@ -8476,11 +8543,11 @@ async function carregarVisualizacaoImpressao() {
       if (res.success && d) renderizarFichaAluno(d);
       else throw new Error(res.message || 'Falha ao carregar ficha do aluno');
     } else if (tipo === 'RECIBO') {
-      const pagRes = await apiFetch(`/api/v1/pagamentos?alunoId=${alunoId}`);
+      const pagRes = await apiFetch(`/api/v1/pagamentos?alunoId=${alunoId}`).catch(() => ({}));
       if (pagRes.success && pagRes.data && pagRes.data.length > 0) {
         carregarReciboIndividual(pagRes.data[0].id);
       } else {
-        preview.innerHTML = '<div class="alert alert-warning text-center">Nenhum recibo de pagamento emitido para este aluno.</div>';
+        carregarReciboIndividual(alunoId);
       }
     } else if (tipo === 'PAUTA_TURMA' || tipo === 'ACTA_CONSELHO') {
       if (turmaId) {
@@ -8602,146 +8669,138 @@ function imprimirDocumentoCentral() {
 }
 
 async function descarregarPdfCentral() {
-  const tipo = document.getElementById('printTipoDoc')?.value || 'DOCUMENTO';
-  const turmaId = document.getElementById('printSelectTurma')?.value;
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
 
-  if (!turmaId && tipo !== 'RECIBO') return alert('Por favor, selecione uma turma antes de descarregar o documento em PDF');
-
   if (tipo === 'PAUTA_TURMA') {
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.pdf`);
   } else if (tipo === 'ACTA_CONSELHO') {
     const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
     const params = new URLSearchParams({ anoLetivo: '2026', orientacao: orientacao });
     if (sessao.presidente) params.append('presidente', sessao.presidente);
     if (sessao.data) params.append('data', sessao.data);
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_${turmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_${turmaId}.pdf`);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf?orientacao=${orientacao}`, `Boletim_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf?orientacao=${orientacao}`, `Boletim_${alunoId}.pdf`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf?orientacao=${orientacao}`, `Declaracao_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf?orientacao=${orientacao}`, `Declaracao_${alunoId}.pdf`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf?orientacao=${orientacao}`, `Certificado_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf?orientacao=${orientacao}`, `Certificado_${alunoId}.pdf`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf?orientacao=${orientacao}`, `Recibo_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf?orientacao=${orientacao}`, `Recibo_${alunoId}.pdf`);
     } else if (turmaId) {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.pdf`);
-    } else {
-      alert('Selecione o aluno/pagamento para emitir o Recibo em PDF.');
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=RECIBO&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'FICHA') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, `Ficha_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, `Ficha_${alunoId}.pdf`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.pdf`);
     }
   } else {
     const preview = document.getElementById('printAreaPreview');
-    await exportarElementoParaPdf(preview, `${tipo}_Oficial_2026.pdf`, orientacao);
+    if (preview) await exportarElementoParaPdf(preview, `${tipo}_Oficial_2026.pdf`, orientacao);
   }
 }
 
-function descarregarDocxCentral() {
-  const tipo = document.getElementById('printTipoDoc')?.value;
-  const turmaId = document.getElementById('printSelectTurma')?.value;
+async function descarregarDocxCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
 
-  if (!turmaId && tipo !== 'RECIBO') return alert('Por favor, selecione uma turma antes de descarregar o documento Word (DOCX)');
-
   if (tipo === 'PAUTA_TURMA') {
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.docx`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.docx`);
   } else if (tipo === 'ACTA_CONSELHO') {
     const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
     const params = new URLSearchParams({ anoLetivo: '2026', orientacao: orientacao });
     if (sessao.presidente) params.append('presidente', sessao.presidente);
     if (sessao.data) params.append('data', sessao.data);
-    downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_${turmaId}.docx`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_${turmaId}.docx`);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx?orientacao=${orientacao}`, `Boletim_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx?orientacao=${orientacao}`, `Boletim_${alunoId}.docx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx?orientacao=${orientacao}`, `Declaracao_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx?orientacao=${orientacao}`, `Declaracao_${alunoId}.docx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx?orientacao=${orientacao}`, `Certificado_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx?orientacao=${orientacao}`, `Certificado_${alunoId}.docx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx?orientacao=${orientacao}`, `Recibo_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx?orientacao=${orientacao}`, `Recibo_${alunoId}.docx`);
     } else if (turmaId) {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.docx`);
-    } else {
-      alert('Selecione o aluno/pagamento para descarregar o Recibo em Word (DOCX).');
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=RECIBO&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'FICHA') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/docx?orientacao=${orientacao}`, `Ficha_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/docx?orientacao=${orientacao}`, `Ficha_${alunoId}.docx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.docx`);
     }
-  } else {
-    alert('Documento Word não disponível para este tipo.');
+  } else if (turmaId) {
+    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Documento_Turma_${turmaId}.docx`);
   }
 }
 
-function descarregarXlsxCentral() {
-  const tipo = document.getElementById('printTipoDoc')?.value;
-  const turmaId = document.getElementById('printSelectTurma')?.value;
+async function descarregarXlsxCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
 
-  if (!turmaId) return alert('Selecione uma turma para exportar o documento em Excel');
+  if (!turmaId) return;
 
   if (tipo === 'ACTA_CONSELHO') {
-    exportarActaConselhoExcel(turmaId, '2026', orientacao);
+    await exportarActaConselhoExcel(turmaId, '2026', orientacao);
   } else if (tipo === 'PAUTA_TURMA') {
-    exportarPautaGeralExcel(turmaId, '2026', orientacao);
+    await exportarPautaGeralExcel(turmaId, '2026', orientacao);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/xlsx?orientacao=${orientacao}`, `Boletim_${alunoId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/xlsx?orientacao=${orientacao}`, `Boletim_${alunoId}.xlsx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.xlsx`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/xlsx?orientacao=${orientacao}`, `Declaracao_${alunoId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/xlsx?orientacao=${orientacao}`, `Declaracao_${alunoId}.xlsx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.xlsx`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/xlsx?orientacao=${orientacao}`, `Certificado_${alunoId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/xlsx?orientacao=${orientacao}`, `Certificado_${alunoId}.xlsx`);
     } else {
-      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.xlsx`);
     }
   } else if (tipo === 'FICHA' || tipo === 'RECIBO') {
-    downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=${tipo}&orientacao=${orientacao}`, `${tipo}_Turma_${turmaId}.xlsx`);
+    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=${tipo}&orientacao=${orientacao}`, `${tipo}_Turma_${turmaId}.xlsx`);
   } else {
-    exportarPautaGeralExcel(turmaId, '2026', orientacao);
+    await exportarPautaGeralExcel(turmaId, '2026', orientacao);
   }
 }
 

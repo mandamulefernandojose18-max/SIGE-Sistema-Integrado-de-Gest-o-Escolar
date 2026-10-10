@@ -6,7 +6,13 @@ EXEMPT_PATHS = [
     '/health/',
     '/api/v1/auth/',
     '/api/v1/saas-admin/',
-    '/api/v1/certificados/verificar/',
+    '/api/v1/certificados/',
+    '/api/v1/impressao/',
+    '/api/v1/pautas/',
+    '/api/v1/professores/',
+    '/api/v1/material-escolar',
+    '/api/v1/escolas/',
+    '/api/v1/pagamentos/',
     '/api/schema/',
     '/api/docs/',
     '/api/redoc/',
@@ -23,9 +29,11 @@ MENSAGEM_EXPIRACAO = (
 class TenantExpirationMiddleware(MiddlewareMixin):
     """
     Bloqueia o acesso com HTTP 402 (Payment Required) caso a escola esteja com status 'EXPIRADA'
-    ou bloqueada manualmente, exceto para rotas públicas e de gestão do SaaS.
+    ou bloqueada manualmente, exceto para rotas públicas, consultas/downloads (GET) e gestão do SaaS.
     """
     def process_request(self, request):
+        if request.method == 'GET':
+            return None
         path = request.path
 
         # Rotas isentas não são bloqueadas

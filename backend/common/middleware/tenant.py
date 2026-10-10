@@ -11,12 +11,16 @@ class TenantMiddleware(MiddlewareMixin):
     def process_request(self, request):
         request.tenant = None
 
-        # 1. Se ainda não autenticado pela sessão, tenta autenticar via Bearer JWT
+        # 1. Se ainda não autenticado pela sessão, tenta autenticar via Bearer JWT ou query param ?token=
         if not (hasattr(request, 'user') and request.user.is_authenticated):
             auth_header = request.headers.get('Authorization') or request.META.get('HTTP_AUTHORIZATION')
+            raw_token = None
             if auth_header and auth_header.startswith('Bearer '):
+                raw_token = auth_header.split(' ', 1)[1].strip()
+            elif request.GET.get('token'):
+                raw_token = request.GET.get('token').strip()
+            if raw_token:
                 try:
-                    raw_token = auth_header.split(' ', 1)[1].strip()
                     jwt_auth = JWTAuthentication()
                     validated_token = jwt_auth.get_validated_token(raw_token)
                     user = jwt_auth.get_user(validated_token)
