@@ -84,24 +84,27 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='download')
     def download(self, request, pk=None):
         material = self.get_object()
-        from django.db import connection
+        from django.db.models.functions import Length, Substr
         b64_chunks = []
-        with connection.cursor() as cur:
-            cur.execute("SELECT LENGTH(conteudo_base64) FROM materiais_escolares WHERE id = %s", [str(material.id)])
-            row = cur.fetchone()
-            total_len = row[0] if (row and row[0]) else 0
-            if total_len > 0:
-                chunk_size = 4_000_000
-                offset = 1
-                while offset <= total_len:
-                    cur.execute(
-                        "SELECT SUBSTRING(conteudo_base64 FROM %s FOR %s) FROM materiais_escolares WHERE id = %s",
-                        [offset, chunk_size, str(material.id)]
-                    )
-                    part = cur.fetchone()
-                    if part and part[0]:
-                        b64_chunks.append(part[0])
-                    offset += chunk_size
+        total_len = (
+            MaterialEscolar.objects.filter(id=material.id)
+            .annotate(blen=Length('conteudo_base64'))
+            .values_list('blen', flat=True)
+            .first()
+        ) or 0
+        if total_len > 0:
+            chunk_size = 4_000_000
+            offset = 1
+            while offset <= total_len:
+                part = (
+                    MaterialEscolar.objects.filter(id=material.id)
+                    .annotate(chunk=Substr('conteudo_base64', offset, chunk_size))
+                    .values_list('chunk', flat=True)
+                    .first()
+                )
+                if part:
+                    b64_chunks.append(part)
+                offset += chunk_size
 
         if b64_chunks:
             b64_str = "".join(b64_chunks)
