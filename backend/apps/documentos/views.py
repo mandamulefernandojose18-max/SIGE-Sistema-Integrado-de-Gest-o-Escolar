@@ -298,7 +298,7 @@ def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliaca
         cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
     if not cert:
         codigo_auth = f"CERT-{uuid.uuid4().hex[:10].upper()}"
-        qr_url = f"https://sige.co.mz/verificar-certificado.html?codigo={codigo_auth}"
+        qr_url = f"http://139.84.226.46:5173/verificar-certificado.html?codigo={codigo_auth}"
         cert = Certificado.objects.create(
             escola=escola,
             aluno=aluno,
@@ -307,6 +307,17 @@ def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliaca
             qrcode_data=qr_url,
             emitido_por=usuario.nome if (usuario and hasattr(usuario, 'nome')) else 'Secretaria'
         )
+
+    qr_img_b64 = cert.qrcode_data or ''
+    if not str(qr_img_b64).startswith('data:image/'):
+        try:
+            import base64
+            from apps.documentos.services.pdf_service import gerar_qr_code_image
+            url_verif = f"http://139.84.226.46:5173/verificar-certificado.html?codigo={cert.codigo_autenticidade}"
+            qr_buf = gerar_qr_code_image(url_verif)
+            qr_img_b64 = f"data:image/png;base64,{base64.b64encode(qr_buf.getvalue()).decode('ascii')}"
+        except Exception:
+            pass
 
     return {
         'titulo': f"CERTIFICADO DE HABILITAÇÕES — {aluno.nome.upper()}",
@@ -364,13 +375,16 @@ def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliaca
         'chefeSecretariaNome': getattr(escola, 'chefe_secretaria_nome', 'Glória João Zunguze'),
         'chefeSecretariaCarreira': getattr(escola, 'chefe_secretaria_carreira', 'Técnica Profissional'),
         'codigo_autenticidade': cert.codigo_autenticidade,
-        'qrcode_data': cert.qrcode_data,
+        'codigoAutenticidade': cert.codigo_autenticidade,
+        'qrcode_data': qr_img_b64,
+        'qrcodeData': qr_img_b64,
         'certificado': {
             'aluno': aluno.nome,
             'matricula': aluno.matricula,
             'turma': aluno.turma.nome if aluno.turma else '',
             'escola': escola.nome,
-            'codigo_autenticidade': cert.codigo_autenticidade
+            'codigo_autenticidade': cert.codigo_autenticidade,
+            'codigoAutenticidade': cert.codigo_autenticidade
         }
     }
 

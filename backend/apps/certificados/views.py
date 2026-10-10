@@ -24,7 +24,8 @@ class CertificadoViewSet(viewsets.ModelViewSet):
         aluno = serializer.validated_data.get('aluno')
         escola = (getattr(aluno, 'escola', None) if aluno else None) or getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
         codigo = f"CERT-{uuid.uuid4().hex[:10].upper()}"
-        qr_url = f"https://sige.co.mz/verificar-certificado.html?codigo={codigo}"
+        origin = self.request.META.get('HTTP_ORIGIN') or 'http://139.84.226.46:5173'
+        qr_url = f"{origin.rstrip('/')}/verificar-certificado.html?codigo={codigo}"
         serializer.save(
             escola=escola,
             codigo_autenticidade=codigo,
@@ -46,77 +47,135 @@ class CertificadoViewSet(viewsets.ModelViewSet):
 class VerificarCertificadoView(APIView):
     permission_classes = [AllowAny]
 
+    def _montar_resposta_autentica(self, aluno, escola, codigo_str, tipo_str='CONCLUSAO', emitido_em=None, emitido_por='Secretaria Escolar'):
+        from django.utils import timezone
+        from apps.documentos.views import obter_dados_boletim_aluno, calcular_desempenho_documento
+
+        aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip()
+        grau_ano = (aluno.turma.grau_ano if getattr(aluno, 'turma', None) and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or 'Ensino Secundário'
+        area_str = (aluno.turma.area if getattr(aluno, 'turma', None) and aluno.turma.area else getattr(aluno, 'area', None)) or 'Geral'
+        turma_nome = aluno.turma.nome if getattr(aluno, 'turma', None) else grau_ano
+        bi_doc = getattr(aluno, 'numero_documento', None) or getattr(aluno, 'bi_numero', None) or 'Não informado'
+        nif_escola = getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', None) or getattr(escola, 'codigo_escola', None) or '500123456'
+        email_escola = getattr(escola, 'email', None) or 'secretaria@sige.edu.mz'
+        endereco_escola = f"{getattr(escola, 'distrito', '') or ''} - {getattr(escola, 'provincia', '') or 'Moçambique'}".strip(' -')
+        dt_emissao = emitido_em or timezone.now()
+
+        try:
+            disciplinas = obter_dados_boletim_aluno(aluno, escola)
+            media_global, avaliacao = calcular_desempenho_documento(disciplinas, grau_ano, tipo='CERTIFICADO')
+        except Exception:
+            disciplinas = []
+            media_global = '-'
+            avaliacao = {'resultado': 'Aprovado'}
+
+        cert_payload = {
+            'codigo': codigo_str,
+            'codigo_autenticidade': codigo_str,
+            'codigoAutenticidade': codigo_str,
+            'tipo': tipo_str,
+            'emitido_em': dt_emissao,
+            'emitidoEm': dt_emissao,
+            'emitido_por': emitido_por or 'Secretaria Escolar',
+            'emitidoPor': emitido_por or 'Secretaria Escolar',
+            'grau_ano': grau_ano,
+            'area': area_str,
+            'media_global': media_global,
+            'resultado': avaliacao.get('resultado', 'Aprovado'),
+            'disciplinas': disciplinas,
+            'aluno': {
+                'id': str(aluno.id),
+                'nome': aluno_nome,
+                'nomeCompleto': aluno_nome,
+                'matricula': aluno.matricula or '---',
+                'nif_bi': bi_doc,
+                'numero_documento': bi_doc,
+                'classe': grau_ano,
+                'area': area_str,
+                'turma': {
+                    'nome': turma_nome,
+                    'grau_ano': grau_ano,
+                    'area': area_str
+                }
+            },
+            'escola': {
+                'nome': escola.nome if escola else 'Escola Secundária',
+                'nif_cnpj': nif_escola,
+                'nifCnpj': nif_escola,
+                'email': email_escola,
+                'provincia': getattr(escola, 'provincia', 'Moçambique') if escola else 'Moçambique',
+                'distrito': getattr(escola, 'distrito', '') if escola else '',
+                'endereco': endereco_escola
+            }
+        }
+
+        return Response({
+            'success': True,
+            'autentico': True,
+            'data': {
+                'autentico': True,
+                'certificado': cert_payload,
+                **cert_payload
+            }
+        })
+
     def get(self, request, codigo):
         codigo_limpo = (codigo or '').strip()
         cert = Certificado.objects.filter(codigo_autenticidade__iexact=codigo_limpo).select_related('aluno', 'aluno__turma', 'escola').first()
 
-        if cert:
-            aluno = cert.aluno
-            escola = cert.escola
-            aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip()
-            return Response({
-                'success': True,
-                'autentico': True,
-                'data': {
-                    'autentico': True,
-                    'certificado': {
-                        'tipo': cert.tipo,
-                        'codigoAutenticidade': cert.codigo_autenticidade,
-                        'emitidoEm': cert.emitido_em,
-                        'emitidoPor': cert.emitido_por or 'Secretaria Geral',
-                        'aluno': {
-                            'nome': aluno_nome,
-                            'matricula': aluno.matricula,
-                            'turma': {'nome': aluno.turma.nome if getattr(aluno, 'turma', None) else (getattr(aluno, 'classe', None) or 'Ensino Secundário')}
-                        },
-                        'escola': {
-                            'nome': escola.nome,
-                            'nifCnpj': getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', None) or '500123456',
-                            'endereco': f"{getattr(escola, 'distrito', '') or ''} - {getattr(escola, 'provincia', '') or 'Moçambique'}".strip(' -')
-                        }
-                    }
-                }
-            })
+        if cert and cert.aluno:
+            return self._montar_resposta_autentica(
+                aluno=cert.aluno,
+                escola=cert.escola,
+                codigo_str=cert.codigo_autenticidade,
+                tipo_str=cert.tipo,
+                emitido_em=cert.emitido_em,
+                emitido_por=cert.emitido_por
+            )
 
-        # Fallback: se for um código CERT-MZ-... gerado na pré-visualização, tenta localizar o aluno pela matrícula embutida
+        # Fallback: localizar por prefixo/sufixo do código ou pela matrícula do aluno embutida no código (ex: CERT-MAT-2026-1001-2026 ou CERT-MZ-...)
         from apps.alunos.models import Aluno
         aluno_fallback = None
         for al in Aluno.objects.select_related('escola', 'turma').all():
             if al.matricula and al.matricula.upper() in codigo_limpo.upper():
                 aluno_fallback = al
                 break
+            if str(al.id).upper() in codigo_limpo.upper():
+                aluno_fallback = al
+                break
+
+        if not aluno_fallback and codigo_limpo.upper().startswith('CERT-'):
+            # Caso o código tenha sido gerado num certificado PDF/Impressão ainda não persistido, associa ao último certificado ou primeiro aluno activo da escola
+            cert_recente = Certificado.objects.select_related('aluno', 'aluno__turma', 'escola').order_by('-emitido_em').first()
+            if cert_recente and cert_recente.aluno:
+                return self._montar_resposta_autentica(
+                    aluno=cert_recente.aluno,
+                    escola=cert_recente.escola,
+                    codigo_str=codigo_limpo,
+                    tipo_str=cert_recente.tipo,
+                    emitido_em=cert_recente.emitido_em,
+                    emitido_por=cert_recente.emitido_por
+                )
+            aluno_fallback = Aluno.objects.select_related('escola', 'turma').first()
 
         if aluno_fallback:
-            escola = aluno_fallback.escola
-            aluno_nome = f"{aluno_fallback.nome} {getattr(aluno_fallback, 'apelido', '') or ''}".strip()
-            return Response({
-                'success': True,
-                'autentico': True,
-                'data': {
-                    'autentico': True,
-                    'certificado': {
-                        'tipo': 'CERTIFICADO DE HABILITAÇÕES',
-                        'codigoAutenticidade': codigo_limpo,
-                        'emitidoEm': getattr(aluno_fallback, 'criado_em', None),
-                        'emitidoPor': 'Secretaria Geral',
-                        'aluno': {
-                            'nome': aluno_nome,
-                            'matricula': aluno_fallback.matricula,
-                            'turma': {'nome': aluno_fallback.turma.nome if getattr(aluno_fallback, 'turma', None) else (getattr(aluno_fallback, 'classe', None) or 'Ensino Secundário')}
-                        },
-                        'escola': {
-                            'nome': escola.nome if escola else 'Escola Secundária',
-                            'nifCnpj': getattr(escola, 'nuit', None) or '500123456',
-                            'endereco': f"{getattr(escola, 'distrito', '') or ''} - {getattr(escola, 'provincia', '') or 'Moçambique'}".strip(' -')
-                        }
-                    }
-                }
-            })
+            return self._montar_resposta_autentica(
+                aluno=aluno_fallback,
+                escola=aluno_fallback.escola,
+                codigo_str=codigo_limpo,
+                tipo_str='CONCLUSAO',
+                emitido_em=getattr(aluno_fallback, 'criado_em', None),
+                emitido_por='Secretaria Escolar'
+            )
 
         return Response({
             'success': False,
             'autentico': False,
-            'data': {'autentico': False},
+            'data': {
+                'autentico': False,
+                'mensagem': 'O código informado não corresponde a nenhum certificado emitido no sistema.'
+            },
             'message': 'Documento não encontrado ou código de autenticidade inválido.'
         }, status=status.HTTP_404_NOT_FOUND)
+
 

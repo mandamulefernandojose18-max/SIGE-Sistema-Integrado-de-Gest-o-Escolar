@@ -9559,7 +9559,8 @@ function obterHtmlCertificadoOficial(d) {
   const mesAtual = meses[agora.getMonth()];
   const anoAtual = agora.getFullYear();
 
-  const codAuth = d.codigoAutenticidade || `CERT-MZ-5001234567-${matricula}-${anoLectivo}`;
+  const codAuth = d.codigoAutenticidade || d.codigo_autenticidade || `CERT-MZ-5001234567-${matricula}-${anoLectivo}`;
+  const qrSrc = d.qrcodeData || d.qrcode_data || `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '/verificar-certificado.html?codigo=' + codAuth)}`;
 
   return `
     <div class="documento-a4-pagina-unica" style="width: 100%; max-width: 210mm; min-height: 282mm; padding: 4mm 6mm; margin: 0 auto; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
@@ -9621,8 +9622,10 @@ function obterHtmlCertificadoOficial(d) {
 
             <div style="width: 28%; text-align: center;">
               <div style="margin-top: 4px;">
-                ${d.qrcodeData ? `<img src="${d.qrcodeData}" style="width: 46px; height: 46px; margin: 0 auto; display: block;" alt="QR Code">` : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://sige.co.mz/verificar-certificado.html?codigo=${codAuth}" style="width: 46px; height: 46px; margin: 0 auto; display: block;" alt="QR Code">`}
-                <div style="font-size: 6.5pt; color: #444; margin-top: 2px; word-break: break-all;">${codAuth}</div>
+                <a href="/verificar-certificado.html?codigo=${encodeURIComponent(codAuth)}" target="_blank" title="Verificar Autenticidade Digital" style="text-decoration: none; color: inherit;">
+                  <img src="${qrSrc}" style="width: 46px; height: 46px; margin: 0 auto; display: block;" alt="QR Code">
+                  <div style="font-size: 6.5pt; color: #444; margin-top: 2px; word-break: break-all;">${codAuth}</div>
+                </a>
               </div>
             </div>
 
@@ -9648,12 +9651,16 @@ function renderizarCertificado(d) {
   const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const ano = d.anoLectivo || d.anoLetivo || '2026';
   const alunoId = d.aluno?.id || document.getElementById('printSelectAluno')?.value || '';
+  const codAuth = d.codigoAutenticidade || d.codigo_autenticidade || `CERT-MZ-5001234567-${d.aluno?.matricula || 'MAT-2026-1006'}-${ano}`;
 
   preview.style.display = 'block';
   preview.innerHTML = `
     <div class="no-print mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
       <span class="badge bg-primary px-3 py-2"><i class="bi bi-award-fill me-1"></i> Certificado de Habilitações Oficial A4</span>
       <div class="d-flex gap-2">
+        <a href="/verificar-certificado.html?codigo=${encodeURIComponent(codAuth)}" target="_blank" class="btn btn-outline-success btn-sm fw-semibold">
+          <i class="bi bi-shield-check me-1"></i> Validar Autenticidade
+        </a>
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
         <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Certificado_${safeName}_${ano}')">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF

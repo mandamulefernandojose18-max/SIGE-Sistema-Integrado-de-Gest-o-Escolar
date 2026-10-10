@@ -75,19 +75,34 @@
               <td id="dAlunoBI"></td>
             </tr>
             <tr>
-              <th class="bg-light">Turma / Grau</th>
+              <th class="bg-light">Classe / Secção</th>
               <td id="dAlunoTurma"></td>
             </tr>
           </tbody>
         </table>
       </div>
 
+      <div id="blocoDisciplinasVerificacao" style="display: none;" class="mb-4">
+        <h6 class="text-uppercase text-muted fw-bold small mb-2">Plano Curricular & Classificações</h6>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm small mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Disciplina Curricular</th>
+                <th class="text-center" style="width: 130px;">Classificação</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaDisciplinasVerificacao"></tbody>
+          </table>
+        </div>
+      </div>
+
       <h6 class="text-uppercase text-muted fw-bold small mb-3">Instituição de Ensino</h6>
       <div class="p-3 bg-light rounded mb-4">
         <h6 id="dEscolaNome" class="fw-bold text-dark mb-1"></h6>
         <div class="small text-muted">
-          <span>NIF: <strong id="dEscolaNIF"></strong></span> |
-          <span>Email: <strong id="dEscolaEmail"></strong></span>
+          <span>NUIT/Código: <strong id="dEscolaNIF"></strong></span> |
+          <span>Localização: <strong id="dEscolaEmail"></strong></span>
         </div>
       </div>
     </div>
@@ -109,7 +124,7 @@
 <script>
   async function carregarVerificacao() {
     const urlParams = new URLSearchParams(window.location.search);
-    const codigo = urlParams.get('codigo') || window.location.pathname.split('/').pop();
+    const codigo = (urlParams.get('codigo') || window.location.pathname.split('/').pop() || '').trim();
 
     if (!codigo || codigo === 'verificar-certificado.html') {
       mostrarErro('Nenhum código de autenticidade foi informado na URL.');
@@ -117,29 +132,63 @@
     }
 
     try {
-      const res = await fetch(`/api/v1/certificados/verificar/${codigo}`);
+      const res = await fetch(`/api/v1/certificados/verificar/${encodeURIComponent(codigo)}`);
       const json = await res.json();
 
       document.getElementById('loadingSpinner').style.display = 'none';
 
-      if (json.success && json.data.autentico) {
-        const d = json.data.certificado;
+      const isAutentico = Boolean(json && (json.autentico || (json.data && json.data.autentico)));
+      if (json && json.success && isAutentico) {
+        const d = (json.data && json.data.certificado) ? json.data.certificado : (json.data || {});
+        const aluno = d.aluno || {};
+        const escola = d.escola || {};
+        const turma = (typeof aluno.turma === 'object' && aluno.turma) ? aluno.turma : {};
+
+        const header = document.getElementById('statusHeader');
+        header.className = 'header-valid';
+        document.getElementById('statusIcon').className = 'bi bi-shield-fill-check display-3';
+        document.getElementById('statusTitle').textContent = 'Documento Autêntico e Válido';
+        document.getElementById('statusDesc').textContent = 'Assinatura digital e registo académico confirmados no SIGE.';
+
         document.getElementById('detalhesContainer').style.display = 'block';
-        document.getElementById('dCodigo').textContent = d.codigo;
-        document.getElementById('dTipo').textContent = d.tipo === 'CONCLUSAO' ? 'Certificado de Conclusão de Estudos' : d.tipo;
-        document.getElementById('dData').textContent = new Date(d.emitido_em).toLocaleDateString('pt-BR');
-        document.getElementById('dEmissor').textContent = d.emitido_por || 'Secretaria Escolar';
+        document.getElementById('dCodigo').textContent = d.codigo || d.codigo_autenticidade || d.codigoAutenticidade || codigo;
+        const tipoRaw = d.tipo || 'CONCLUSAO';
+        const mapaTipos = {
+          'CONCLUSAO': 'Certificado de Habilitações / Conclusão de Estudos',
+          'DECLARACAO': 'Declaração Oficial com Notas',
+          'TRANSFERENCIA': 'Guia de Transferência Oficial',
+          'MATRICULA': 'Declaração de Matrícula e Frequência'
+        };
+        document.getElementById('dTipo').textContent = mapaTipos[tipoRaw] || tipoRaw;
 
-        document.getElementById('dAlunoNome').textContent = d.aluno.nome;
-        document.getElementById('dAlunoMatricula').textContent = d.aluno.matricula;
-        document.getElementById('dAlunoBI').textContent = d.aluno.nif_bi || 'Não informado';
-        document.getElementById('dAlunoTurma').textContent = d.aluno.turma ? `${d.aluno.turma.nome} (${d.aluno.turma.grau_ano})` : 'Geral';
+        const dtVal = d.emitido_em || d.emitidoEm;
+        document.getElementById('dData').textContent = dtVal ? new Date(dtVal).toLocaleDateString('pt-PT') : new Date().toLocaleDateString('pt-PT');
+        document.getElementById('dEmissor').textContent = d.emitido_por || d.emitidoPor || 'Secretaria Escolar';
 
-        document.getElementById('dEscolaNome').textContent = d.escola.nome;
-        document.getElementById('dEscolaNIF').textContent = d.escola.nif_cnpj;
-        document.getElementById('dEscolaEmail').textContent = d.escola.email;
+        document.getElementById('dAlunoNome').textContent = aluno.nomeCompleto || aluno.nome || d.aluno_nome || '---';
+        document.getElementById('dAlunoMatricula').textContent = aluno.matricula || d.matricula || '---';
+        document.getElementById('dAlunoBI').textContent = aluno.nif_bi || aluno.numero_documento || 'Registado na Secretaria';
+
+        const classeTxt = turma.grau_ano || aluno.classe || d.grau_ano || '';
+        const areaTxt = turma.area || aluno.area || d.area || '';
+        const turmaNome = turma.nome || '';
+        document.getElementById('dAlunoTurma').textContent = [classeTxt, areaTxt, turmaNome].filter(Boolean).join(' — ') || 'Ensino Secundário Geral';
+
+        document.getElementById('dEscolaNome').textContent = escola.nome || d.escola_nome || 'Escola Secundária';
+        document.getElementById('dEscolaNIF').textContent = escola.nif_cnpj || escola.nifCnpj || '500123456';
+        document.getElementById('dEscolaEmail').textContent = escola.endereco || escola.email || 'Moçambique';
+
+        if (Array.isArray(d.disciplinas) && d.disciplinas.length > 0) {
+          const tbodyDisc = document.getElementById('tabelaDisciplinasVerificacao');
+          tbodyDisc.innerHTML = d.disciplinas.map(disc => {
+            const nome = disc.nome || disc.disciplina || '-';
+            const med = (disc.media_anual !== undefined && disc.media_anual !== null && disc.media_anual !== '-') ? `${Math.round(Number(disc.media_anual))} valores` : '( --- )';
+            return `<tr><td>${nome}</td><td class="text-center fw-bold">${med}</td></tr>`;
+          }).join('');
+          document.getElementById('blocoDisciplinasVerificacao').style.display = 'block';
+        }
       } else {
-        mostrarErro(json.data?.mensagem || 'Certificado inválido ou adulterado.');
+        mostrarErro(json?.data?.mensagem || json?.message || 'Certificado inválido ou adulterado.');
       }
     } catch (e) {
       mostrarErro('Erro de conexão ao verificar certificado.');
