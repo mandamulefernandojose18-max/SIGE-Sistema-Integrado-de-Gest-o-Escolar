@@ -9074,28 +9074,28 @@ function obterHtmlBoletimOficial(d) {
     : `<span style="font-weight: bold;">Decisão do Conselho:</span> O aluno ainda não possui avaliações concluídas na caderneta.`;
 
   return `
-    <div class="documento-boletim-oficial" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 290mm; box-sizing: border-box; padding: 12mm 14mm 10mm 14mm;">
+    <div class="documento-boletim-oficial" style="display: flex; flex-direction: column; justify-content: space-between; width: 100%; max-width: 210mm; min-height: 282mm; box-sizing: border-box; overflow: hidden; padding: 10mm 12mm 8mm 12mm; margin: 0 auto;">
       <!-- MARCA DE ÁGUA CENTRAL DO EMBLEMA NACIONAL -->
-      <div style="position: absolute; top: 52%; left: 50%; transform: translate(-50%, -46%); width: 280px; height: 280px; opacity: 0.08; pointer-events: none; z-index: 1; display: flex; align-items: center; justify-content: center;">
+      <div style="position: absolute; top: 52%; left: 50%; transform: translate(-50%, -46%); width: 260px; height: 260px; opacity: 0.08; pointer-events: none; z-index: 1; display: flex; align-items: center; justify-content: center;">
         <img src="/img/emblema-mocambique.png" style="width: 100%; height: 100%; object-fit: contain;" alt="Emblema de Moçambique">
       </div>
 
-      <div style="position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column;">
+      <div style="position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 100%; box-sizing: border-box;">
         <!-- CABEÇALHO OFICIAL REPÚBLICA DE MOÇAMBIQUE -->
         <div style="text-align: center; margin-bottom: 4px;">
-          <div style="margin-bottom: 6px;">
-            <img src="/img/emblema-mocambique.png" style="width: 56px; height: 56px; object-fit: contain;" alt="Emblema Nacional">
+          <div style="margin-bottom: 4px;">
+            <img src="/img/emblema-mocambique.png" style="width: 50px; height: 50px; object-fit: contain;" alt="Emblema Nacional">
           </div>
-          <div style="font-size: 13pt; font-weight: bold; letter-spacing: 0.5px; line-height: 1.25; text-transform: uppercase;">
+          <div style="font-size: 12.5pt; font-weight: bold; letter-spacing: 0.5px; line-height: 1.2; text-transform: uppercase;">
             REPÚBLICA DE MOÇAMBIQUE
           </div>
-          <div style="font-size: 10pt; font-weight: bold; line-height: 1.25; text-transform: uppercase; margin-top: 2px;">
+          <div style="font-size: 10pt; font-weight: bold; line-height: 1.2; text-transform: uppercase; margin-top: 2px;">
             GOVERNO DA PROVÍNCIA DE ${provincia}
           </div>
-          <div style="font-size: 9.5pt; font-weight: 500; line-height: 1.25; text-transform: uppercase; margin-top: 2px;">
+          <div style="font-size: 9pt; font-weight: 500; line-height: 1.2; text-transform: uppercase; margin-top: 2px;">
             SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE ${distrito}
           </div>
-          <div style="font-size: 11.5pt; font-weight: bold; line-height: 1.25; text-transform: uppercase; margin-top: 3px;">
+          <div style="font-size: 11pt; font-weight: bold; line-height: 1.2; text-transform: uppercase; margin-top: 3px;">
             ${escolaNomeFormatado}
           </div>
           <div style="font-size: 8.5pt; color: #333333; margin-top: 2px;">
@@ -9104,26 +9104,26 @@ function obterHtmlBoletimOficial(d) {
         </div>
 
         <!-- LINHA DIVISÓRIA -->
-        <div style="border-bottom: 2px solid #111111; margin-top: 6px; margin-bottom: 10px;"></div>
+        <div style="border-bottom: 2px solid #111111; margin-top: 6px; margin-bottom: 8px;"></div>
 
-        <!-- TÍTULO COM 2CM ANTES DO CONTEÚDO -->
-        <div style="text-align: center; font-size: 12pt; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20mm;">
+        <!-- TÍTULO -->
+        <div style="text-align: center; font-size: 11.5pt; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8mm;">
           BOLETIM DE APROVEITAMENTO ESCOLAR — ANO LECTIVO ${anoLetivo}
         </div>
 
         <!-- CAIXA COM DADOS DO ALUNO -->
-        <div style="border: 1px solid #777777; border-radius: 1px; padding: 10px 14px; margin-bottom: 14px; background-color: #ffffff;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 10pt; font-family: 'Times New Roman', Times, Georgia, serif;">
+        <div style="border: 1px solid #777777; border-radius: 1px; padding: 8px 12px; margin-bottom: 12px; background-color: #ffffff; width: 100%; box-sizing: border-box;">
+          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9.5pt; font-family: 'Times New Roman', Times, Georgia, serif;">
             <tr>
-              <td style="width: 58%; padding: 3px 0; vertical-align: top;">
+              <td style="width: 58%; padding: 3px 4px 3px 0; vertical-align: top; overflow-wrap: break-word;">
                 <span style="font-weight: bold;">Nome do Aluno:</span> <span style="font-weight: bold; text-transform: uppercase;">${alunoNome}</span>
               </td>
-              <td style="width: 42%; padding: 3px 0; vertical-align: top;">
+              <td style="width: 42%; padding: 3px 0; vertical-align: top; overflow-wrap: break-word;">
                 <span style="font-weight: bold;">Classe / Turma:</span> <span>${classeTurma}</span>
               </td>
             </tr>
             <tr>
-              <td style="padding: 3px 0; vertical-align: top;">
+              <td style="padding: 3px 4px 3px 0; vertical-align: top;">
                 <span style="font-weight: bold;">Nº Matrícula:</span> <span>${matricula}</span>
               </td>
               <td style="padding: 3px 0; vertical-align: top;">
@@ -9133,16 +9133,16 @@ function obterHtmlBoletimOficial(d) {
           </table>
         </div>
 
-        <!-- TABELA DE NOTAS OFICIAL COM LETRAS AUMENTADAS -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-family: 'Times New Roman', Times, Georgia, serif; border: 1.5px solid #444444;">
+        <!-- TABELA DE NOTAS OFICIAL -->
+        <table style="width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 10px; font-family: 'Times New Roman', Times, Georgia, serif; border: 1.5px solid #444444; box-sizing: border-box;">
           <thead>
             <tr style="background-color: #e9ecf2; border-bottom: 1.5px solid #444444;">
-              <th style="border: 1px solid #666666; padding: 6px 10px; font-size: 10.5pt; font-weight: bold; text-align: left; width: 40%;">DISCIPLINA</th>
-              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; font-weight: bold; text-align: center; width: 12%;">1º TRIM</th>
-              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; font-weight: bold; text-align: center; width: 12%;">2º TRIM</th>
-              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; font-weight: bold; text-align: center; width: 12%;">3º TRIM</th>
-              <th style="border: 1px solid #666666; padding: 6px 6px; font-size: 10.5pt; font-weight: bold; text-align: center; width: 13%;">MÉD. ANUAL</th>
-              <th style="border: 1px solid #666666; padding: 6px 8px; font-size: 10pt; font-weight: bold; text-align: center; width: 13%;">SITUAÇÃO</th>
+              <th style="border: 1px solid #666666; padding: 5px 8px; font-size: 10pt; font-weight: bold; text-align: left; width: 38%;">DISCIPLINA</th>
+              <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 12%;">1º TRIM</th>
+              <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 12%;">2º TRIM</th>
+              <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 12%;">3º TRIM</th>
+              <th style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 13%;">MÉD. ANUAL</th>
+              <th style="border: 1px solid #666666; padding: 5px 6px; font-size: 9.5pt; font-weight: bold; text-align: center; width: 13%;">SITUAÇÃO</th>
             </tr>
           </thead>
           <tbody>
@@ -9150,31 +9150,31 @@ function obterHtmlBoletimOficial(d) {
 
             <!-- LINHA DA MÉDIA GLOBAL DO PERÍODO -->
             <tr style="background-color: #e9ecf2; font-weight: bold; border-top: 1.5px solid #444444;">
-              <td style="border: 1px solid #666666; padding: 6px 10px; font-size: 10pt; text-align: left;">MÉDIA GLOBAL DO PERÍODO</td>
-              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; text-align: center; color: #777777;">---</td>
-              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; text-align: center; color: #777777;">---</td>
-              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10pt; text-align: center; color: #777777;">---</td>
-              <td style="border: 1px solid #666666; padding: 6px 6px; font-size: 10.5pt; text-align: center;">${mediaGlobalInt}</td>
-              <td style="border: 1px solid #666666; padding: 6px 8px; font-size: 10pt; text-align: center;">${situacaoGlobal}</td>
+              <td style="border: 1px solid #666666; padding: 5px 8px; font-size: 9.5pt; text-align: left;">MÉDIA GLOBAL DO PERÍODO</td>
+              <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; text-align: center; color: #777777;">---</td>
+              <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; text-align: center; color: #777777;">---</td>
+              <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 9.5pt; text-align: center; color: #777777;">---</td>
+              <td style="border: 1px solid #666666; padding: 5px 4px; font-size: 10pt; text-align: center;">${mediaGlobalInt}</td>
+              <td style="border: 1px solid #666666; padding: 5px 6px; font-size: 9.5pt; text-align: center;">${situacaoGlobal}</td>
             </tr>
           </tbody>
         </table>
 
         <!-- DECISÃO DO CONSELHO -->
-        <div style="font-size: 10pt; margin-top: 8px; margin-bottom: 20px; line-height: 1.4;">
+        <div style="font-size: 9.5pt; margin-top: 6px; margin-bottom: 14px; line-height: 1.4;">
           ${decisaoConselhoHtml}
         </div>
       </div>
 
-      <!-- ASSINATURAS OFICIAIS A 1CM DA PARTE INFERIOR -->
-      <div style="display: flex; justify-content: space-around; align-items: flex-end; padding: 0 10px; margin-bottom: 10mm; position: relative; z-index: 2;">
-        <div style="width: 240px; text-align: center;">
+      <!-- ASSINATURAS OFICIAIS DENTRO DA MOLDURA -->
+      <div style="display: flex; justify-content: space-around; align-items: flex-end; padding: 0 10px; margin-bottom: 4mm; position: relative; z-index: 2; width: 100%; box-sizing: border-box;">
+        <div style="width: 42%; max-width: 220px; text-align: center;">
           <div style="border-top: 1.2px solid #111111; margin-bottom: 6px;"></div>
-          <div style="font-weight: bold; font-size: 10pt;">O Director de Turma</div>
+          <div style="font-weight: bold; font-size: 9.5pt;">O Director de Turma</div>
         </div>
-        <div style="width: 240px; text-align: center;">
+        <div style="width: 42%; max-width: 220px; text-align: center;">
           <div style="border-top: 1.2px solid #111111; margin-bottom: 6px;"></div>
-          <div style="font-weight: bold; font-size: 10pt;">O Director da Escola</div>
+          <div style="font-weight: bold; font-size: 9.5pt;">O Director da Escola</div>
         </div>
       </div>
     </div>
@@ -9261,10 +9261,10 @@ function obterHtmlDeclaracaoOficial(d) {
     const nota = obterNotaValor(disc);
     const notaTexto = nota !== null ? `( ${nota} ) valores` : `( --- )`;
     return `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 12pt;">
-        <span>${disc}</span>
-        <span style="flex-grow: 1; border-bottom: 1px dotted #666; margin: 0 6px;"></span>
-        <span style="font-weight: bold; white-space: nowrap;">${notaTexto}</span>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; font-size: 9.5pt; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+        <span style="min-width: 0; overflow-wrap: break-word;">${disc}</span>
+        <span style="flex: 1 1 8px; min-width: 6px; border-bottom: 1px dotted #666; margin: 0 4px;"></span>
+        <span style="font-weight: bold; white-space: nowrap; flex-shrink: 0;">${notaTexto}</span>
       </div>
     `;
   };
@@ -9284,37 +9284,37 @@ function obterHtmlDeclaracaoOficial(d) {
   const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   return `
-    <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 290mm; height: 290mm; max-height: 290mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
-      <div class="borda-oficial-declaracao" style="border: 2px solid #222; padding: 8mm 11mm 10mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
-        <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 280px; opacity: 0.07; pointer-events: none; z-index: 0;" alt="Marca d'Água">
+    <div class="documento-a4-pagina-unica" style="width: 100%; max-width: 210mm; min-height: 282mm; padding: 4mm 6mm; margin: 0 auto; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
+      <div class="borda-oficial-declaracao" style="border: 2px solid #222; padding: 8mm 10mm; width: 100%; max-width: 100%; min-height: 272mm; box-sizing: border-box; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+        <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 260px; height: 260px; opacity: 0.07; pointer-events: none; z-index: 0;" alt="Marca d'Água">
         
-        <!-- Cabeçalho Oficial com 2cm antes do conteúdo -->
-        <div style="text-align: center; position: relative; z-index: 1; margin-bottom: 20mm;">
+        <!-- Cabeçalho Oficial -->
+        <div style="text-align: center; position: relative; z-index: 1; margin-bottom: 10mm;">
           <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional de Moçambique">
           <div style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">REPÚBLICA DE MOÇAMBIQUE</div>
           <div style="font-size: 10pt; font-weight: bold;">GOVERNO DA PROVÍNCIA DE ${provincia}</div>
           <div style="font-size: 9pt; font-weight: bold;">DIRECÇÃO PROVINCIAL DA EDUCAÇÃO E CULTURA DE ${provincia}</div>
           <div style="font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin-top: 2px;">${escolaNome}</div>
-          <div style="font-size: 14pt; font-weight: bold; margin-top: 4px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">Declaração</div>
+          <div style="font-size: 13.5pt; font-weight: bold; margin-top: 4px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">Declaração</div>
         </div>
 
-        <!-- Texto Declarativo Oficial em Times New Roman 12 com espaçamento 1.5 e dados a negrito -->
-        <div style="position: relative; z-index: 1; flex: 1;">
-          <p style="text-align: justify; font-size: 11.5pt; line-height: 1.55; margin: 0 0 10px 0; text-indent: 20px;">
+        <!-- Texto Declarativo Oficial -->
+        <div style="position: relative; z-index: 1; flex: 1; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <p style="text-align: justify; font-size: 11pt; line-height: 1.5; margin: 0 0 10px 0; text-indent: 20px;">
             Para os devidos efeitos se declara que <strong>${alunoNome}</strong>, filho(a) de <strong>${pai}</strong> e de <strong>${mae}</strong>, portador(a) do <strong>${docTipo}</strong> número <strong>${docNum}</strong>, concluiu com aproveitamento a <strong>${grauClasse}</strong> neste estabelecimento de ensino, no ano lectivo de <strong>${anoLectivo}</strong>, com as seguintes classificações:
           </p>
 
-          <!-- Tabela de Disciplinas em 2 Colunas com letras aumentadas e sem abreviar -->
-          <div style="display: flex; gap: 26px; margin: 8px 0;">
-            <div style="flex: 1;">
+          <!-- Tabela de Disciplinas em 2 Colunas estritamente contida nas bordas -->
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; margin: 8px 0; width: 100%; max-width: 100%; box-sizing: border-box;">
+            <div style="min-width: 0; overflow: hidden;">
               ${colEsquerda.map(renderLinhaDisc).join('')}
             </div>
-            <div style="flex: 1;">
+            <div style="min-width: 0; overflow: hidden;">
               ${colDireita.map(renderLinhaDisc).join('')}
             </div>
           </div>
 
-          <div style="font-size: 11.5pt; font-weight: bold; margin: 8px 0;">
+          <div style="font-size: 11pt; font-weight: bold; margin: 8px 0;">
             Média global da Classe: ${mediaGlobalStr}
           </div>
 
@@ -9324,14 +9324,14 @@ function obterHtmlDeclaracaoOficial(d) {
           </p>
         </div>
 
-        <!-- Secção de Assinaturas e Datação Formal a 1cm da parte inferior -->
-        <div style="position: relative; z-index: 1; margin-top: auto; padding-bottom: 10mm;">
+        <!-- Secção de Assinaturas e Datação Formal dentro da moldura -->
+        <div style="position: relative; z-index: 1; margin-top: auto; padding-bottom: 4mm; width: 100%; box-sizing: border-box;">
           <div style="display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 10px;">
-            <div style="width: 45%;">
+            <div style="width: 46%;">
               <div>Extraído por: ____________________________</div>
               <div style="margin-top: 4px;">Data: ___ / ___ / 2026</div>
             </div>
-            <div style="width: 45%; text-align: left;">
+            <div style="width: 46%; text-align: left;">
               <div>Conferido por: ____________________________</div>
               <div style="margin-top: 4px;">Data: ___ / ___ / 2026</div>
             </div>
@@ -9340,7 +9340,7 @@ function obterHtmlDeclaracaoOficial(d) {
           <div style="text-align: center; font-size: 9.5pt;">
             <div style="text-align: right; margin-bottom: 6px; font-size: 10pt;">${distrito}, aos ${agora.getDate()} de ${meses[agora.getMonth()]} de ${agora.getFullYear()}</div>
             <div style="font-weight: bold;">O Director da Escola</div>
-            <div style="border-bottom: 1px solid #111; margin: 24px auto 4px; width: 45%;"></div>
+            <div style="border-bottom: 1px solid #111; margin: 22px auto 4px; width: 45%;"></div>
             <div style="font-weight: bold;">${directorNome}</div>
             <div style="font-size: 8.5pt; font-style: italic;">/${directorCarreira}/</div>
           </div>
@@ -9439,18 +9439,25 @@ function obterHtmlCertificadoOficial(d) {
     return null;
   };
 
-  const col1 = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia'];
-  const col2 = ['Matemática', 'Química', 'Física', 'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual'];
-  const col3 = ['Educação Física', 'Tecnologias de Informação e Comunicação', 'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'];
+  // Distribuição equilibrada em 2 colunas para caber integralmente dentro das bordas duplas sem transgredir margens
+  const colEsquerda = [
+    'Português', 'Inglês', 'Francês', 'História', 'Geografia',
+    'Introdução à Filosofia', 'Matemática', 'Química', 'Física'
+  ];
+  const colDireita = [
+    'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual',
+    'Educação Física', 'Tecnologias de Informação e Comunicação',
+    'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'
+  ];
 
   const renderLinhaCert = (disc) => {
     const nota = obterNotaValor(disc);
     const notaTexto = nota !== null ? `( ${nota} ) valores` : `( --- )`;
     return `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4.5px; font-size: 10.5pt;">
-        <span style="white-space: nowrap;">${disc}</span>
-        <span style="flex-grow: 1; border-bottom: 1px dotted #777; margin: 0 4px;"></span>
-        <span style="font-weight: bold; white-space: nowrap;">${notaTexto}</span>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; font-size: 9.2pt; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+        <span style="min-width: 0; overflow-wrap: break-word;">${disc}</span>
+        <span style="flex: 1 1 8px; min-width: 6px; border-bottom: 1px dotted #777; margin: 0 4px;"></span>
+        <span style="font-weight: bold; white-space: nowrap; flex-shrink: 0;">${notaTexto}</span>
       </div>
     `;
   };
@@ -9474,76 +9481,73 @@ function obterHtmlCertificadoOficial(d) {
   const codAuth = d.codigoAutenticidade || `CERT-MZ-5001234567-${matricula}-${anoLectivo}`;
 
   return `
-    <div class="documento-a4-pagina-unica" style="width: 210mm; min-height: 290mm; height: 290mm; max-height: 290mm; padding: 4mm 6mm; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
-      <div class="borda-ornamental-certificado" style="border: 6px double #111; padding: 8mm 11mm 10mm 11mm; height: 100%; box-sizing: border-box; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
-        <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 310px; height: 310px; opacity: 0.08; pointer-events: none; z-index: 0;" alt="Marca d'Água">
+    <div class="documento-a4-pagina-unica" style="width: 100%; max-width: 210mm; min-height: 282mm; padding: 4mm 6mm; margin: 0 auto; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">
+      <div class="borda-ornamental-certificado" style="border: 6px double #111; padding: 7mm 9mm; width: 100%; max-width: 100%; min-height: 272mm; box-sizing: border-box; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+        <img src="/img/emblema-mocambique.png" class="marca-dagua-emblema" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 280px; opacity: 0.08; pointer-events: none; z-index: 0;" alt="Marca d'Água">
 
-        <!-- Cabeçalho Oficial do Certificado com 2cm antes do conteúdo -->
-        <div style="text-align: center; position: relative; z-index: 1; margin-bottom: 20mm;">
-          <img src="/img/emblema-mocambique.png" style="width: 48px; height: 48px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional">
+        <!-- Cabeçalho Oficial do Certificado -->
+        <div style="text-align: center; position: relative; z-index: 1; margin-bottom: 6mm;">
+          <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 2px; object-fit: contain;" alt="Emblema Nacional">
           <div style="font-size: 11pt; font-weight: bold; text-transform: uppercase;">REPÚBLICA DE MOÇAMBIQUE</div>
           <div style="font-size: 10pt; font-weight: bold; text-transform: uppercase;">MINISTÉRIO DA EDUCAÇÃO E CULTURA</div>
           <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">INSTITUTO NACIONAL DE EXAMES, CERTIFICAÇÃO E EQUIVALÊNCIA</div>
           <div style="font-size: 9.5pt; margin-top: 2px;"><u>a) ${escolaNomeFormatado}</u></div>
-          <div style="font-size: 13.5pt; font-weight: bold; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.8px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">CERTIFICADO DE HABILITAÇÕES</div>
+          <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.8px; border-bottom: 1.5px solid #111; display: inline-block; padding-bottom: 2px;">CERTIFICADO DE HABILITAÇÕES</div>
         </div>
 
         <!-- Texto Declarativo Oficial do Chefe de Secretaria -->
-        <div style="position: relative; z-index: 1; flex: 1;">
-          <p style="text-align: justify; font-size: 11pt; line-height: 1.55; margin: 0 0 10px 0; text-indent: 20px;">
+        <div style="position: relative; z-index: 1; flex: 1; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <p style="text-align: justify; font-size: 10.5pt; line-height: 1.45; margin: 0 0 8px 0; text-indent: 20px;">
             b) <strong>${chefeNome}</strong>, <em>/${chefeCarreira}/</em>, Chefe da secretaria da <strong>${escolaNomeFormatado}</strong>, distrito de <strong>${distrito}</strong>, província de <strong>${provincia}</strong>, CERTIFICO em cumprimento do despacho exarado em requerimento que fica arquivado nesta secretaria que <strong>${alunoNome}</strong>, do Sexo <strong>${sexo}</strong>, natural de <strong>${alunoDistrito}</strong>, distrito de <strong>${alunoDistrito}</strong>, província de <strong>${alunoProvincia}</strong>, nascido no dia <strong>${diaNasc} de ${mesNasc} de ${anoNasc}</strong>, filho/a de <strong>${pai}</strong> e de <strong>${mae}</strong>, concluiu nesta escola como aluno c) <strong>Interno</strong>, em <strong>Dezembro de ${anoLectivo}</strong>, a <strong>${grauClasse}</strong> na área de <strong>${area}</strong>, tendo obtido os seguintes resultados:
           </p>
 
-          <!-- Tabela com 3 Colunas de Disciplinas - Nomes sem abreviar e letras aumentadas -->
-          <div style="display: flex; gap: 14px; margin: 6px 0;">
-            <div style="flex: 1;">
-              ${col1.map(renderLinhaCert).join('')}
+          <!-- Grelha de Disciplinas contida rigorosamente dentro das bordas duplas -->
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; margin: 6px 0; width: 100%; max-width: 100%; box-sizing: border-box;">
+            <div style="min-width: 0; overflow: hidden;">
+              ${colEsquerda.map(renderLinhaCert).join('')}
             </div>
-            <div style="flex: 1;">
-              ${col2.map(renderLinhaCert).join('')}
-            </div>
-            <div style="flex: 1;">
-              ${col3.map(renderLinhaCert).join('')}
+            <div style="min-width: 0; overflow: hidden;">
+              ${colDireita.map(renderLinhaCert).join('')}
             </div>
           </div>
 
-          <div style="text-align: center; font-weight: bold; font-size: 11.5pt; color: #b91c1c; margin: 6px 0;">
+          <div style="text-align: center; font-weight: bold; font-size: 11pt; color: #b91c1c; margin: 6px 0;">
             Média Global: ${mediaGlobalStr}
           </div>
 
-          <p style="font-size: 10.5pt; line-height: 1.45; margin: 6px 0; text-align: justify;">
+          <p style="font-size: 10pt; line-height: 1.4; margin: 6px 0; text-align: justify;">
             Os resultados constam da pauta nº <strong>${pautaNum}</strong> e do livro de Termo de Exames nº <strong>${termoExames}</strong>, código do aluno <strong>${matricula}</strong>.<br>
             E, por ser verdade passo o presente certificado que assino e autentico a tinta de óleo/selo branco em uso neste Estabelecimento de Ensino.
           </p>
         </div>
 
-        <!-- Local, Datação e Assinaturas a 1cm da parte inferior -->
-        <div style="position: relative; z-index: 1; margin-top: auto; padding-bottom: 10mm;">
+        <!-- Local, Datação e Assinaturas dentro da moldura -->
+        <div style="position: relative; z-index: 1; margin-top: auto; padding-bottom: 3mm; width: 100%; box-sizing: border-box;">
           <div style="text-align: center; font-size: 9.5pt; margin-bottom: 6px;">
             ${distrito}, aos ${diaAtual} de ${mesAtual} de ${anoAtual}
           </div>
 
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 9pt;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 9pt; width: 100%; box-sizing: border-box;">
             <div style="width: 34%; text-align: left;">
-              <div style="font-size: 8.5pt;">Extrai: _________&nbsp;&nbsp;&nbsp;&nbsp;Conferi: _________</div>
-              <div style="margin-top: 8px; text-align: center;">
+              <div style="font-size: 8pt; white-space: nowrap;">Extrai: _______&nbsp;&nbsp;Conferi: _______</div>
+              <div style="margin-top: 6px; text-align: center;">
                 <div style="font-weight: bold;">O Chefe da Secretaria</div>
-                <div style="border-bottom: 1px solid #111; margin: 16px auto 3px; width: 85%;"></div>
+                <div style="border-bottom: 1px solid #111; margin: 14px auto 3px; width: 85%;"></div>
                 <div style="font-weight: bold;">${chefeNome}</div>
                 <div style="font-size: 8.5pt; font-style: italic;">/${chefeCarreira}/</div>
               </div>
             </div>
 
             <div style="width: 28%; text-align: center;">
-              <div style="margin-top: 6px;">
-                ${d.qrcodeData ? `<img src="${d.qrcodeData}" style="width: 48px; height: 48px; margin: 0 auto; display: block;" alt="QR Code">` : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://sige.co.mz/verificar-certificado.html?codigo=${codAuth}" style="width: 48px; height: 48px; margin: 0 auto; display: block;" alt="QR Code">`}
-                <div style="font-size: 7pt; color: #444; margin-top: 2px;">${codAuth}</div>
+              <div style="margin-top: 4px;">
+                ${d.qrcodeData ? `<img src="${d.qrcodeData}" style="width: 46px; height: 46px; margin: 0 auto; display: block;" alt="QR Code">` : `<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://sige.co.mz/verificar-certificado.html?codigo=${codAuth}" style="width: 46px; height: 46px; margin: 0 auto; display: block;" alt="QR Code">`}
+                <div style="font-size: 6.5pt; color: #444; margin-top: 2px; word-break: break-all;">${codAuth}</div>
               </div>
             </div>
 
             <div style="width: 34%; text-align: center;">
               <div style="font-weight: bold;">O Director da Escola</div>
-              <div style="border-bottom: 1px solid #111; margin: 28px auto 3px; width: 85%;"></div>
+              <div style="border-bottom: 1px solid #111; margin: 24px auto 3px; width: 85%;"></div>
               <div style="font-weight: bold;">${directorNome}</div>
               <div style="font-size: 8.5pt; font-style: italic;">/${directorCarreira}/</div>
             </div>

@@ -265,11 +265,11 @@
 
     /* Estilos Oficiais de Impressão A4, Certificados e Declarações */
     .documento-a4-pagina-unica {
-      box-sizing: border-box;
-      width: 210mm;
+      box-sizing: border-box !important;
+      width: 100% !important;
+      max-width: 210mm !important;
       min-height: 282mm;
-      max-height: 290mm;
-      padding: 6mm 8mm;
+      padding: 4mm 6mm;
       margin: 0 auto;
       background: white;
       position: relative;
@@ -279,24 +279,30 @@
       color: #111;
       page-break-inside: avoid !important;
       page-break-after: avoid !important;
-      overflow: hidden;
+      overflow: hidden !important;
     }
 
     .borda-ornamental-certificado {
       border: 6px double #111;
-      padding: 6mm 8mm;
+      padding: 7mm 9mm;
+      width: 100% !important;
+      max-width: 100% !important;
       height: 100%;
       min-height: 270mm;
-      box-sizing: border-box;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
       position: relative;
     }
 
     .borda-oficial-declaracao {
       border: 2px solid #111;
-      padding: 6mm 8mm;
+      padding: 8mm 10mm;
+      width: 100% !important;
+      max-width: 100% !important;
       height: 100%;
       min-height: 270mm;
-      box-sizing: border-box;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
       position: relative;
     }
 

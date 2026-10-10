@@ -499,10 +499,10 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
-        rightMargin=1.2 * cm,
-        leftMargin=1.2 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -510,16 +510,16 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     # Emblema no Topo Centralizado
     if os.path.exists(EMBLEMA_PATH):
         try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.4 * cm, height=1.4 * cm))
+            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
             elements.append(Spacer(1, 0.1 * cm))
         except Exception:
             pass
 
-    style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=12, leading=14, fontName='Times-Bold')
-    style_gov = ParagraphStyle('Gov', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Bold')
-    style_sdejt = ParagraphStyle('Sdejt', parent=styles['Normal'], alignment=1, fontSize=9, leading=11.5, fontName='Times-Roman')
-    style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=11, leading=13.5, fontName='Times-Bold')
-    style_code = ParagraphStyle('Code', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=11, fontName='Times-Roman')
+    style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11.5, leading=13.5, fontName='Times-Bold')
+    style_gov = ParagraphStyle('Gov', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=11.5, fontName='Times-Bold')
+    style_sdejt = ParagraphStyle('Sdejt', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=11, fontName='Times-Roman')
+    style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=13, fontName='Times-Bold')
+    style_code = ParagraphStyle('Code', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=10.5, fontName='Times-Roman')
 
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Morrumbene') or 'Morrumbene').upper()
@@ -533,19 +533,18 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     elements.append(Paragraph(f"SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist}", style_sdejt))
     elements.append(Paragraph(escola_nome, style_school))
     elements.append(Paragraph(f"Código da Instituição: {codigo_inst}", style_code))
-    elements.append(Spacer(1, 0.15 * cm))
+    elements.append(Spacer(1, 0.12 * cm))
 
-    # Linha divisória
-    line_table = Table([[""]], colWidths=[18.6 * cm], rowHeights=[1])
+    # Linha divisória (contida na largura útil de 18.0 cm)
+    line_table = Table([[""]], colWidths=[18.0 * cm], rowHeights=[1])
     line_table.setStyle(TableStyle([('LINEBELOW', (0, 0), (-1, -1), 1.5, colors.HexColor('#1e3a8a'))]))
     elements.append(line_table)
-    elements.append(Spacer(1, 0.2 * cm))
+    elements.append(Spacer(1, 0.18 * cm))
 
     # Título do Boletim
-    style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=11.5, leading=14, fontName='Times-Bold')
+    style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=11, leading=13.5, fontName='Times-Bold')
     elements.append(Paragraph(f"BOLETIM DE APROVEITAMENTO ESCOLAR — ANO LECTIVO {ano_letivo or 2026}", style_title))
-    # Cabeçalho deve estar a 2cm antes do conteúdo
-    elements.append(Spacer(1, 2.0 * cm))
+    elements.append(Spacer(1, 0.45 * cm))
 
     # Caixa de Dados do Aluno
     turma_nome = aluno.turma.nome if aluno.turma else '10ª Classe A'
@@ -566,7 +565,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
             Paragraph(f"<b>Turno:</b> {turno_aluno}", style_info)
         ]
     ]
-    t_info = Table(info_data, colWidths=[10.5 * cm, 8.1 * cm])
+    t_info = Table(info_data, colWidths=[10.2 * cm, 7.8 * cm])
     t_info.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#777777')),
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
@@ -576,11 +575,11 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     elements.append(t_info)
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
-    # Tabela de Avaliações com cabeçalho oficial slate/azul claro (#cbd5e1) - Letras aumentadas
-    style_th = ParagraphStyle('TH', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1, textColor=colors.HexColor('#0f172a'))
-    style_th_disc = ParagraphStyle('THD', fontName='Times-Bold', fontSize=10.5, leading=13, alignment=0, textColor=colors.HexColor('#0f172a'))
+    # Tabela de Avaliações contida em 18.0 cm
+    style_th = ParagraphStyle('TH', fontName='Times-Bold', fontSize=9, leading=11.5, alignment=1, textColor=colors.HexColor('#0f172a'))
+    style_th_disc = ParagraphStyle('THD', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=0, textColor=colors.HexColor('#0f172a'))
     headers = [
         Paragraph('<b>DISCIPLINA</b>', style_th_disc),
         Paragraph('<b>1º TRIM</b>', style_th),
@@ -591,9 +590,9 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     ]
     tabela_data = [headers]
 
-    style_td_disc = ParagraphStyle('TDisc', fontName='Times-Roman', fontSize=10.5, leading=13, alignment=0)
-    style_td_nota = ParagraphStyle('TNota', fontName='Times-Roman', fontSize=10, leading=12, alignment=1)
-    style_td_med = ParagraphStyle('TMed', fontName='Times-Bold', fontSize=10.5, leading=13, alignment=1)
+    style_td_disc = ParagraphStyle('TDisc', fontName='Times-Roman', fontSize=9.5, leading=12, alignment=0)
+    style_td_nota = ParagraphStyle('TNota', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1)
+    style_td_med = ParagraphStyle('TMed', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1)
 
     total_media = 0
     count_disciplinas = 0
@@ -649,7 +648,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         Paragraph(sit_global_txt, style_foot_sit)
     ])
 
-    t_notas = Table(tabela_data, colWidths=[6.6 * cm, 2.4 * cm, 2.4 * cm, 2.4 * cm, 2.4 * cm, 2.4 * cm])
+    t_notas = Table(tabela_data, colWidths=[6.5 * cm, 2.3 * cm, 2.3 * cm, 2.3 * cm, 2.3 * cm, 2.3 * cm])
     t_notas.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#cbd5e1')),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#cbd5e1')),
@@ -659,7 +658,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     elements.append(t_notas)
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
     # Decisão do Conselho
     if count_disciplinas > 0:
@@ -669,7 +668,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
 
     style_dec = ParagraphStyle('Dec', fontName='Times-Roman', fontSize=9.5, leading=13)
     elements.append(Paragraph(decisao_texto, style_dec))
-    elements.append(Spacer(1, 0.8 * cm))
+    elements.append(Spacer(1, 0.6 * cm))
 
     # Assinaturas Oficiais (O Director de Turma | O Director da Escola)
     sig_data = [
@@ -677,7 +676,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         ["O Director de Turma", "O Director da Escola"],
         ["", getattr(escola, 'director_nome', 'A Direcção')]
     ]
-    t_sig = Table(sig_data, colWidths=[9.3 * cm, 9.3 * cm])
+    t_sig = Table(sig_data, colWidths=[9.0 * cm, 9.0 * cm])
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
@@ -703,10 +702,10 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
-        rightMargin=1.3 * cm,
-        leftMargin=1.3 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -714,7 +713,7 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     # Emblema no Topo Centralizado
     if os.path.exists(EMBLEMA_PATH):
         try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.4 * cm, height=1.4 * cm))
+            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
             elements.append(Spacer(1, 0.1 * cm))
         except Exception:
             pass
@@ -726,20 +725,19 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     dir_nome = director_nome or getattr(escola, 'director_nome', None) or 'Prof. Dr. António Costa'
     dir_carreira = director_carreira or getattr(escola, 'director_carreira', 'Especialista de Educação')
 
-    style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11, leading=13.5, fontName='Times-Bold')
-    style_gov = ParagraphStyle('Gov', parent=styles['Normal'], alignment=1, fontSize=10, leading=12.5, fontName='Times-Bold')
-    style_dpe = ParagraphStyle('Dpe', parent=styles['Normal'], alignment=1, fontSize=9, leading=11.5, fontName='Times-Roman')
-    style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=13, fontName='Times-Bold')
-    style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=13, leading=16, fontName='Times-Bold')
+    style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
+    style_gov = ParagraphStyle('Gov', parent=styles['Normal'], alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
+    style_dpe = ParagraphStyle('Dpe', parent=styles['Normal'], alignment=1, fontSize=9, leading=11, fontName='Times-Roman')
+    style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=12.5, fontName='Times-Bold')
+    style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=13, leading=15.5, fontName='Times-Bold')
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_country))
     elements.append(Paragraph(f"GOVERNO DA PROVÍNCIA DE {prov}", style_gov))
     elements.append(Paragraph(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO E CULTURA DE {prov}", style_dpe))
     elements.append(Paragraph(escola_nome, style_school))
-    elements.append(Spacer(1, 0.15 * cm))
+    elements.append(Spacer(1, 0.12 * cm))
     elements.append(Paragraph("<u>Declaração</u>", style_title))
-    # Cabeçalho deve estar a 2cm antes do conteúdo
-    elements.append(Spacer(1, 2.0 * cm))
+    elements.append(Spacer(1, 0.5 * cm))
 
     aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
     pai = getattr(aluno, 'pai', None) or 'Eduardo Mondlane Jr.'
@@ -753,11 +751,11 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
         f"portador(a) do <b>{doc_tipo}</b> número <b>{doc_num}</b>, concluiu com aproveitamento a <b>{grau_classe}</b> "
         f"neste estabelecimento de ensino, no ano lectivo de <b>{ano_letivo or 2026}</b>, com as seguintes classificações:"
     )
-    style_body = ParagraphStyle('BodyDecl', parent=styles['Normal'], fontSize=11, leading=15.5, alignment=4, fontName='Times-Roman')
+    style_body = ParagraphStyle('BodyDecl', parent=styles['Normal'], fontSize=10.5, leading=15, alignment=4, fontName='Times-Roman')
     elements.append(Paragraph(corpo_texto, style_body))
     elements.append(Spacer(1, 0.25 * cm))
 
-    # Tabela com as disciplinas em 2 Colunas com Pontilhado - Nomes sem abreviar e tamanho de letra aumentado
+    # Tabela com as disciplinas em 2 Colunas estritamente dentro de 18.0 cm
     notas_map = {}
     for d in notas_disciplinas:
         n = (d.get('disciplina') or d.get('nome') or '').strip()
@@ -777,19 +775,19 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     col_esq = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Biologia']
     col_dir = ['Física', 'Química', 'Matemática', 'Desenho e Geometria Descritiva', 'Educação Física', 'Tecnologias de Informação e Comunicação']
 
-    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=11, leading=13.5)
-    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=11, leading=13.5, alignment=1, textColor=colors.HexColor('#666666'))
-    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=11, leading=13.5, alignment=2)
+    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=9.5, leading=11.5)
+    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#666666'))
+    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=2)
 
-    def criar_subitem_2col(disc, w_col=9.2 * cm):
+    def criar_subitem_2col(disc, w_col=8.7 * cm):
         nota = obter_nota_decl(disc)
         nota_str = f'( {nota} ) valores' if nota != '---' else '( --- )'
-        w1 = 3.2 * cm
-        w3 = 2.8 * cm
+        w1 = 5.3 * cm
+        w3 = 2.2 * cm
         w2 = w_col - w1 - w3
         t = Table([[
             Paragraph(disc, s_name),
-            Paragraph('....................', s_dots),
+            Paragraph('.........', s_dots),
             Paragraph(nota_str, s_val)
         ]], colWidths=[w1, w2, w3])
         t.setStyle(TableStyle([
@@ -805,15 +803,15 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     for i in range(max(len(col_esq), len(col_dir))):
         d1 = col_esq[i] if i < len(col_esq) else ''
         d2 = col_dir[i] if i < len(col_dir) else ''
-        it1 = criar_subitem_2col(d1, 9.2 * cm) if d1 else Paragraph('', s_name)
-        it2 = criar_subitem_2col(d2, 9.2 * cm) if d2 else Paragraph('', s_name)
-        rows_2col.append([it1, it2])
+        it1 = criar_subitem_2col(d1, 8.7 * cm) if d1 else Paragraph('', s_name)
+        it2 = criar_subitem_2col(d2, 8.7 * cm) if d2 else Paragraph('', s_name)
+        rows_2col.append([it1, '', it2])
 
-    t_grid = Table(rows_2col, colWidths=[9.3 * cm, 9.3 * cm])
+    t_grid = Table(rows_2col, colWidths=[8.8 * cm, 0.4 * cm, 8.8 * cm])
     t_grid.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
         ('TOPPADDING', (0, 0), (-1, -1), 1),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
@@ -835,12 +833,12 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
         f"e autenticada com o carimbo a tinta de óleo em uso nesta instituição."
     )
     elements.append(Paragraph(fecho_texto, style_body))
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
     # Datação à direita
     hoje = datetime.date.today().strftime('%d de %B de %Y')
     elements.append(Paragraph(f"Maputo, aos {hoje}", ParagraphStyle('PData', fontName='Times-Roman', fontSize=10, alignment=2)))
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
     # Campos de conferência
     conf_data = [
@@ -849,10 +847,10 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
             Paragraph("Conferido por: ____________________________<br/>Data: _____ / _____ / 2026", ParagraphStyle('C2', fontName='Times-Roman', fontSize=9, leading=12))
         ]
     ]
-    t_conf = Table(conf_data, colWidths=[9.3 * cm, 9.3 * cm])
+    t_conf = Table(conf_data, colWidths=[9.0 * cm, 9.0 * cm])
     t_conf.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
     elements.append(t_conf)
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
     # Assinatura Centralizada do Diretor da Escola
     sig_data = [
@@ -861,7 +859,7 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
         [dir_nome],
         [f"/{dir_carreira}/"]
     ]
-    t_sig = Table(sig_data, colWidths=[18.6 * cm])
+    t_sig = Table(sig_data, colWidths=[18.0 * cm])
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
@@ -889,10 +887,10 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
-        rightMargin=1.2 * cm,
-        leftMargin=1.2 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -900,8 +898,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     # Emblema no Topo Centralizado
     if os.path.exists(EMBLEMA_PATH):
         try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.4 * cm, height=1.4 * cm))
-            elements.append(Spacer(1, 0.1 * cm))
+            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
+            elements.append(Spacer(1, 0.08 * cm))
         except Exception:
             pass
 
@@ -915,20 +913,19 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     chefe_nome = kwargs.get('chefe_secretaria_nome') or getattr(escola, 'chefe_secretaria_nome', 'Dra. Maria Eunice')
     chefe_carreira = kwargs.get('chefe_secretaria_carreira') or getattr(escola, 'chefe_secretaria_carreira', 'Técnica Profissional')
 
-    style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11, leading=13.5, fontName='Times-Bold')
-    style_mec = ParagraphStyle('Mec', parent=styles['Normal'], alignment=1, fontSize=10, leading=12.5, fontName='Times-Bold')
-    style_inece = ParagraphStyle('Inece', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=11, fontName='Times-Bold')
-    style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman')
-    style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=13.5, leading=16, fontName='Times-Bold')
+    style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
+    style_mec = ParagraphStyle('Mec', parent=styles['Normal'], alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
+    style_inece = ParagraphStyle('Inece', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=10.5, fontName='Times-Bold')
+    style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=11.5, fontName='Times-Roman')
+    style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=13, leading=15.5, fontName='Times-Bold')
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_country))
     elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E CULTURA", style_mec))
     elements.append(Paragraph("INSTITUTO NACIONAL DE EXAMES, CERTIFICAÇÃO E EQUIVALÊNCIA", style_inece))
     elements.append(Paragraph(f"<u>a) {escola_nome}</u>", style_school))
-    elements.append(Spacer(1, 0.15 * cm))
+    elements.append(Spacer(1, 0.1 * cm))
     elements.append(Paragraph("<u><b>CERTIFICADO DE HABILITAÇÕES</b></u>", style_title))
-    # Cabeçalho deve estar a 2cm antes do conteúdo
-    elements.append(Spacer(1, 2.0 * cm))
+    elements.append(Spacer(1, 0.4 * cm))
 
     aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
     sexo = 'Feminino' if (getattr(aluno, 'genero', 'M') or '').upper().startswith('F') else 'Masculino'
@@ -964,11 +961,11 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         f"filho/a de <b>{pai}</b> e de <b>{mae}</b>, concluiu nesta escola como aluno c) <b>Interno</b>, "
         f"em <b>Dezembro de {ano_letivo or 2026}</b>, a <b>{grau_classe}</b> na área de <b>{area}</b>, tendo obtido os seguintes resultados:"
     )
-    style_body = ParagraphStyle('BodyCert', parent=styles['Normal'], fontSize=10.5, leading=15, alignment=4, fontName='Times-Roman')
+    style_body = ParagraphStyle('BodyCert', parent=styles['Normal'], fontSize=10, leading=14.5, alignment=4, fontName='Times-Roman')
     elements.append(Paragraph(corpo, style_body))
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 0.2 * cm))
 
-    # Tabela com as 3 Colunas de disciplinas com pontilhado de preenchimento - Letras aumentadas e sem abreviações
+    # Tabela de disciplinas em 2 Colunas equilibradas (18.0 cm total) estritamente dentro da moldura dupla
     notas_map = {}
     for d in notas_disciplinas:
         nome_d = d.get('nome') or d.get('disciplina') or ''
@@ -985,23 +982,29 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
                 return vl
         return '---'
 
-    col1 = ['Português', 'Inglês', 'Francês', 'História', 'Geografia', 'Introdução à Filosofia']
-    col2 = ['Matemática', 'Química', 'Física', 'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual']
-    col3 = ['Educação Física', 'Tecnologias de Informação e Comunicação', 'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia']
+    col_esq = [
+        'Português', 'Inglês', 'Francês', 'História', 'Geografia',
+        'Introdução à Filosofia', 'Matemática', 'Química', 'Física'
+    ]
+    col_dir = [
+        'Biologia', 'Desenho e Geometria Descritiva', 'Educação Visual',
+        'Educação Física', 'Tecnologias de Informação e Comunicação',
+        'Noções de Empreendedorismo', 'Agropecuária', 'Psicopedagogia'
+    ]
 
-    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=9.5, leading=11.5)
-    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#666666'))
-    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=2)
+    s_name = ParagraphStyle('SN', fontName='Times-Roman', fontSize=9.2, leading=11)
+    s_dots = ParagraphStyle('SD', fontName='Times-Roman', fontSize=9.2, leading=11, alignment=1, textColor=colors.HexColor('#666666'))
+    s_val = ParagraphStyle('SV', fontName='Times-Bold', fontSize=9.2, leading=11, alignment=2)
 
-    def criar_subitem_3col(disc, w_col=6.1 * cm):
+    def criar_subitem_cert(disc, w_col=8.7 * cm):
         nota = obter_nota_cert(disc)
         nota_str = f'( {nota} ) valores' if nota != '---' else '( --- )'
-        w1 = 2.6 * cm
-        w3 = 1.9 * cm
+        w1 = 5.3 * cm
+        w3 = 2.2 * cm
         w2 = w_col - w1 - w3
         t = Table([[
             Paragraph(disc, s_name),
-            Paragraph('..................', s_dots),
+            Paragraph('.........', s_dots),
             Paragraph(nota_str, s_val)
         ]], colWidths=[w1, w2, w3])
         t.setStyle(TableStyle([
@@ -1013,20 +1016,18 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         ]))
         return t
 
-    rows_3col = []
-    max_len = max(len(col1), len(col2), len(col3))
+    rows_cert = []
+    max_len = max(len(col_esq), len(col_dir))
     for i in range(max_len):
-        d1 = col1[i] if i < len(col1) else ''
-        d2 = col2[i] if i < len(col2) else ''
-        d3 = col3[i] if i < len(col3) else ''
+        d1 = col_esq[i] if i < len(col_esq) else ''
+        d2 = col_dir[i] if i < len(col_dir) else ''
 
-        it1 = criar_subitem_3col(d1) if d1 else Paragraph('', s_name)
-        it2 = criar_subitem_3col(d2) if d2 else Paragraph('', s_name)
-        it3 = criar_subitem_3col(d3) if d3 else Paragraph('', s_name)
+        it1 = criar_subitem_cert(d1, 8.7 * cm) if d1 else Paragraph('', s_name)
+        it2 = criar_subitem_cert(d2, 8.7 * cm) if d2 else Paragraph('', s_name)
 
-        rows_3col.append([it1, it2, it3])
+        rows_cert.append([it1, '', it2])
 
-    t_grid = Table(rows_3col, colWidths=[6.2 * cm, 6.2 * cm, 6.2 * cm])
+    t_grid = Table(rows_cert, colWidths=[8.8 * cm, 0.4 * cm, 8.8 * cm])
     t_grid.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 1),
@@ -1035,7 +1036,7 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0.5),
     ]))
     elements.append(t_grid)
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 0.2 * cm))
 
     # Média Global (Destacada e Centralizada)
     if media_global is not None and str(media_global) not in ('-', '---'):
@@ -1049,7 +1050,7 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
     style_med = ParagraphStyle('MedGlobal', parent=styles['Normal'], fontSize=11, leading=14, fontName='Times-Bold', alignment=1)
     elements.append(Paragraph(texto_med, style_med))
-    elements.append(Spacer(1, 0.2 * cm))
+    elements.append(Spacer(1, 0.18 * cm))
 
     # Texto de Encerramento Oficial
     pauta_num = kwargs.get('pauta_num', '01')
@@ -1061,23 +1062,23 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         f"E, por ser verdade passo o presente certificado que assino e autentico a tinta de óleo/selo branco em uso neste Estabelecimento de Ensino."
     )
     elements.append(Paragraph(fecho, style_body))
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 0.2 * cm))
 
     # Datação
     hoje = datetime.date.today().strftime('%d de %B de %Y')
     elements.append(Paragraph(f"{dist}, aos {hoje}", ParagraphStyle('PCertData', fontName='Times-Roman', fontSize=9.5, alignment=1)))
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.22 * cm))
 
     # QR Code e Autenticidade Digital
     cod = codigo_autenticidade or f"CERT-MZ-5001234567-{matricula}-{ano_letivo or 2026}"
     qr_url = f"https://sige.co.mz/verificar-certificado.html?codigo={cod}"
     qr_img = gerar_qr_code_image(qr_url)
-    rl_qr = RLImage(qr_img, width=1.6 * cm, height=1.6 * cm)
+    rl_qr = RLImage(qr_img, width=1.5 * cm, height=1.5 * cm)
 
-    # Assinaturas Oficiais (3 Colunas: Chefe Secretaria, QR Code, Director da Escola)
+    # Assinaturas Oficiais (3 Colunas estritamente em 18.0 cm)
     col_esq_content = [
-        Paragraph("Extrai: _________&nbsp;&nbsp;&nbsp;&nbsp;Conferi: _________", ParagraphStyle('AExtrai', fontName='Times-Roman', fontSize=8.5, leading=11)),
-        Spacer(1, 0.15 * cm),
+        Paragraph("Extrai: _______&nbsp;&nbsp;&nbsp;Conferi: _______", ParagraphStyle('AExtrai', fontName='Times-Roman', fontSize=8, leading=10.5)),
+        Spacer(1, 0.12 * cm),
         Paragraph("<b>O Chefe da Secretaria</b>", ParagraphStyle('AChefe', fontName='Times-Bold', fontSize=9, leading=11, alignment=1)),
         Paragraph("_____________________________", ParagraphStyle('ALinha1', fontName='Times-Roman', fontSize=9, alignment=1)),
         Paragraph(f"<b>{chefe_nome}</b>", ParagraphStyle('AChefeN', fontName='Times-Bold', fontSize=8.5, leading=11, alignment=1)),
@@ -1091,15 +1092,15 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     ]
 
     col_dir_content = [
-        Paragraph("&nbsp;", ParagraphStyle('ASpace', fontSize=8.5, leading=11)),
-        Spacer(1, 0.15 * cm),
+        Paragraph("&nbsp;", ParagraphStyle('ASpace', fontSize=8, leading=10.5)),
+        Spacer(1, 0.12 * cm),
         Paragraph("<b>O Director da Escola</b>", ParagraphStyle('ADir', fontName='Times-Bold', fontSize=9, leading=11, alignment=1)),
         Paragraph("_____________________________", ParagraphStyle('ALinha2', fontName='Times-Roman', fontSize=9, alignment=1)),
         Paragraph(f"<b>{dir_nome}</b>", ParagraphStyle('ADirN', fontName='Times-Bold', fontSize=8.5, leading=11, alignment=1)),
         Paragraph(f"<i>/{dir_carreira}/</i>", ParagraphStyle('ADirC', fontName='Times-Italic', fontSize=8, leading=10, alignment=1)),
     ]
 
-    t_sigs = Table([[col_esq_content, col_meio_content, col_dir_content]], colWidths=[6.8 * cm, 5.0 * cm, 6.8 * cm])
+    t_sigs = Table([[col_esq_content, col_meio_content, col_dir_content]], colWidths=[6.5 * cm, 5.0 * cm, 6.5 * cm])
     t_sigs.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
         ('ALIGN', (1, 0), (1, 0), 'CENTER'),
@@ -1131,10 +1132,10 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
-        rightMargin=0.6 * cm,
-        leftMargin=0.6 * cm,
-        topMargin=0.5 * cm,
-        bottomMargin=0.5 * cm
+        rightMargin=1.0 * cm,
+        leftMargin=1.0 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -1402,7 +1403,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             data_t2.append([label if gen == 'H' else '', gen, v_t1, p_t1, v_t2, p_t2, v_t3, p_t3, v_fa, p_fa, c1_2, c2_3, c_glo])
             curr_row_t2 += 1
 
-    t2_col_widths = [3.0 * cm, 0.65 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm, 1.1 * cm, 1.1 * cm, 1.1 * cm]
+    t2_col_widths = [2.8 * cm, 0.6 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm]
     t2_table = Table(data_t2, colWidths=t2_col_widths, rowHeights=[10.5, 9.5] + [8.5] * 24)
     t2_table.setStyle(TableStyle(t2_styles))
 
@@ -1411,7 +1412,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     col_t1 = [Paragraph("<b>APROVEITAMENTO POR TRIMESTRES E FIM DO ANO (EFECTIVOS E MOVIMENTO)</b>", style_th_block), Spacer(1, 0.06 * cm), t1_table]
     col_t2 = [Paragraph("<b>APROVEITAMENTO PEDAGÓGICO POR FAIXAS E CRESCIMENTO</b>", style_th_block), Spacer(1, 0.06 * cm), t2_table]
 
-    t_side_by_side = Table([[col_t1, col_t2]], colWidths=[13.4 * cm, 15.1 * cm])
+    t_side_by_side = Table([[col_t1, col_t2]], colWidths=[13.2 * cm, 14.3 * cm])
     t_side_by_side.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
@@ -1429,8 +1430,8 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         elements.append(Spacer(1, 0.2 * cm))
 
         num_d = len(discs)
-        col_w_class = 3.6 * cm
-        disp_w = 24.3 * cm
+        col_w_class = 3.5 * cm
+        disp_w = 24.0 * cm
         d_width = disp_w / max(num_d, 1)
         sub_w = d_width / 3.0
 
@@ -1546,7 +1547,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             Paragraph(res_val, style_res)
         ])
 
-    t_alunos = Table(tabela_alunos_data, colWidths=[1.2 * cm, 13.0 * cm, 3.2 * cm, 3.5 * cm, 7.0 * cm], repeatRows=1)
+    t_alunos = Table(tabela_alunos_data, colWidths=[1.2 * cm, 12.6 * cm, 3.2 * cm, 3.5 * cm, 7.0 * cm], repeatRows=1)
     t_alunos.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
@@ -1564,7 +1565,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         ["\n__________________________________", "\n__________________________________", "\n__________________________________"],
         [pres_final, "Secretário(a) Designado(a)", dir_turma_final]
     ]
-    t_sig = Table(sig_data, colWidths=[9.3 * cm, 9.3 * cm, 9.3 * cm])
+    t_sig = Table(sig_data, colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm])
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
@@ -1786,10 +1787,10 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
-        rightMargin=0.5 * cm,
-        leftMargin=0.5 * cm,
-        topMargin=0.5 * cm,
-        bottomMargin=0.5 * cm
+        rightMargin=1.0 * cm,
+        leftMargin=1.0 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -1901,7 +1902,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
                 r_st.append('-')
         data_table.append(r_st)
 
-    col_widths = [0.65 * cm, 4.45 * cm, 0.65 * cm] + ([0.88 * cm] * 24) + [0.95 * cm]
+    col_widths = [0.65 * cm, 4.35 * cm, 0.65 * cm] + ([0.86 * cm] * 24) + [0.95 * cm]
     t_cad = Table(data_table, colWidths=col_widths, repeatRows=2)
     t_styles = [
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
@@ -1945,7 +1946,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         ["\n__________________________________", "\n__________________________________", "\n__________________________________"],
         [prof_nome, dt_nome, "Assinatura e Carimbo"]
     ]
-    t_sig = Table(sig_data, colWidths=[9.3 * cm, 9.3 * cm, 9.3 * cm])
+    t_sig = Table(sig_data, colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm])
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
