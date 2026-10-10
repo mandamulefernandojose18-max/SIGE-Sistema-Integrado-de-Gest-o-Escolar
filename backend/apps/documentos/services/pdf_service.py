@@ -190,21 +190,24 @@ def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=T
 
     canvas.restoreState()
 
-def gerar_cabecalho_minedh(styles, escola_nome, provincia, distrito):
+def gerar_cabecalho_minedh(styles, escola_nome, provincia, distrito, compacto=False):
     """Gera o cabeçalho padrão com emblema no topo."""
     elements = []
+    img_sz = 1.0 * cm if compacto else 1.3 * cm
     if os.path.exists(EMBLEMA_PATH):
         try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
-            elements.append(Spacer(1, 0.15 * cm))
+            elements.append(RLImage(EMBLEMA_PATH, width=img_sz, height=img_sz))
+            elements.append(Spacer(1, 0.08 * cm if compacto else 0.15 * cm))
         except Exception:
             pass
 
     style_center_bold = ParagraphStyle(
-        'CenterBold', parent=styles['Normal'], alignment=1, fontSize=11, leading=14, fontName='Times-Bold'
+        'CenterBold', parent=styles['Normal'], alignment=1,
+        fontSize=9.5 if compacto else 11, leading=11.5 if compacto else 14, fontName='Times-Bold'
     )
     style_center = ParagraphStyle(
-        'Center', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman'
+        'Center', parent=styles['Normal'], alignment=1,
+        fontSize=8.5 if compacto else 9.5, leading=10.5 if compacto else 12, fontName='Times-Roman'
     )
 
     prov_str = (provincia or 'Inhambane').upper()
@@ -215,7 +218,7 @@ def gerar_cabecalho_minedh(styles, escola_nome, provincia, distrito):
     elements.append(Paragraph(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov_str}", style_center))
     elements.append(Paragraph(f"SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist_str}", style_center))
     elements.append(Paragraph(escola_nome.upper(), style_center_bold))
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 0.12 * cm if compacto else 0.25 * cm))
     return elements
 
 # ==================== 1. PAUTA OFICIAL DA TURMA (HORIZONTAL / LANDSCAPE) ====================
