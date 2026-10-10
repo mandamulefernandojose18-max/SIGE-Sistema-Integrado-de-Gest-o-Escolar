@@ -10,6 +10,7 @@ def health_check(request):
     })
 
 api_v1_patterns = [
+    re_path(r'^health/?', health_check, name='api_v1_health'),
     re_path(r'^auth/?', include('apps.accounts.urls')),
     re_path(r'^escola-admin/turmas/?', include('apps.turmas.urls')),
     re_path(r'^turmas/?', include('apps.turmas.urls')),
