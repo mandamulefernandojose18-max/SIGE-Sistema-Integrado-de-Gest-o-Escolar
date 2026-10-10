@@ -50,7 +50,7 @@ Write-Host "  OK: Push concluido com sucesso!" -ForegroundColor Green
 
 # 3. DEPLOY SEPARADO NA VM
 Write-Host "[3/5] Disparando deploy desacoplado na VM ($VmIp)..." -ForegroundColor Blue
-$remoteCmd = "cd /var/www/sige && chmod +x scripts/*.sh && bash scripts/deploy-separated.sh $Branch"
+$remoteCmd = "cd /var/www/sige && git fetch origin $Branch && git checkout $Branch && git reset --hard origin/$Branch && chmod +x scripts/*.sh && bash scripts/deploy-separated.sh $Branch"
 
 ssh -i $KeyPath -o StrictHostKeyChecking=no "${VmUser}@${VmIp}" "$remoteCmd"
 if ($LASTEXITCODE -ne 0) {
