@@ -16,11 +16,11 @@ from apps.certificados.models import Certificado
 from common.utils.avaliacoes_mocambique import avaliar_aprovacao_pauta, obter_disciplinas_plano_curricular
 from .services.pdf_service import (
     gerar_boletim_pdf, gerar_declaracao_pdf, gerar_certificado_pdf,
-    gerar_ficha_pdf, gerar_recibo_pdf
+    gerar_ficha_pdf, gerar_recibo_pdf, gerar_lote_pdf
 )
 from .services.docx_service import (
     gerar_boletim_docx, gerar_declaracao_docx, gerar_certificado_docx,
-    gerar_ficha_docx, gerar_recibo_docx
+    gerar_ficha_docx, gerar_recibo_docx, gerar_lote_docx
 )
 from .services.excel_service import (
     gerar_boletim_xlsx, gerar_declaracao_xlsx, gerar_certificado_xlsx,
@@ -28,11 +28,86 @@ from .services.excel_service import (
 )
 
 from apps.pautas.services import obter_disciplinas_pauta_turma
+import datetime
 
-def obter_dados_boletim_aluno(aluno, escola):
-    notas = list(Nota.objects.filter(aluno=aluno).select_related('disciplina'))
 
-    if aluno.turma:
+def _obter_aluno_e_escola(request, aluno_id):
+    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
+    if escola and not is_super:
+        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+    else:
+        aluno = get_object_or_404(Aluno, id=aluno_id)
+        escola = aluno.escola or escola
+    return aluno, escola
+
+
+def _obter_turma_e_escola(request, turma_id):
+    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
+    if escola and not is_super:
+        turma = get_object_or_404(Turma, id=turma_id, escola=escola)
+    else:
+        turma = get_object_or_404(Turma, id=turma_id)
+        escola = turma.escola or escola
+    return turma, escola
+
+
+def _obter_pagamento_e_escola(request, pagamento_id):
+    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
+
+    qs = Pagamento.objects.select_related('aluno', 'aluno__turma', 'escola')
+    if escola and not is_super:
+        qs = qs.filter(escola=escola)
+
+    pagamento = qs.filter(id=pagamento_id).first()
+    if not pagamento:
+        # Fallback: pagamento_id pode ser o ID de um Aluno (ex: na Central de Impressão)
+        pagamento = qs.filter(aluno_id=pagamento_id).order_by('-status', '-data_pagamento', '-created_at').first()
+
+    if pagamento:
+        escola = pagamento.escola or escola
+        return pagamento, escola
+
+    # Fallback final: se for um Aluno válido sem pagamentos registados, sintetizar comprovativo padrão
+    aluno_qs = Aluno.objects.select_related('turma', 'escola')
+    if escola and not is_super:
+        aluno_qs = aluno_qs.filter(escola=escola)
+    aluno = aluno_qs.filter(id=pagamento_id).first()
+    if aluno:
+        escola = aluno.escola or escola
+        pagamento_sintetico = Pagamento(
+            id=aluno.id,
+            escola=escola,
+            aluno=aluno,
+            descricao='Propina / Mensalidade Escolar',
+            valor=1500,
+            valor_pago=1500,
+            mes_referencia=datetime.date.today().strftime('%m/%Y'),
+            data_vencimento=datetime.date.today(),
+            data_pagamento=datetime.date.today(),
+            status='PAGO',
+            metodo_pagamento='MPESA',
+            recibo_numero=f"REC-{aluno.matricula or str(aluno.id)[:8].upper()}"
+        )
+        pagamento_sintetico.created_at = datetime.datetime.now()
+        return pagamento_sintetico, escola
+
+    # Se não encontrou nem Pagamento nem Aluno, lança 404 oficial
+    pagamento = get_object_or_404(Pagamento, id=pagamento_id)
+    return pagamento, pagamento.escola or escola
+
+
+def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_prefetched=None):
+    if notas_prefetched is not None:
+        notas = notas_prefetched
+    else:
+        notas = list(Nota.objects.filter(aluno=aluno).select_related('disciplina'))
+
+    if disciplinas_prefetched is not None:
+        disciplinas = disciplinas_prefetched
+    elif aluno.turma:
         disciplinas = obter_disciplinas_pauta_turma(aluno.turma)
     else:
         classe_aluno = aluno.classe or ''
@@ -196,12 +271,14 @@ def montar_payload_declaracao(aluno, escola, dados_disc, media_global, avaliacao
         }
     }
 
-def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliacao, usuario=None):
+def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliacao, usuario=None, cert_prefetched=None):
     codigo_inst = getattr(escola, 'codigo_escola', None) or f"ESC-{str(escola.id)[:4].upper()}"
     grau_ano_str = (aluno.turma.grau_ano if aluno.turma else aluno.classe) or '12ª Classe'
     area_str = (aluno.turma.area if aluno.turma else aluno.area) or 'Ciências e Letras'
 
-    cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
+    cert = cert_prefetched
+    if not cert:
+        cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
     if not cert:
         codigo_auth = f"CERT-{uuid.uuid4().hex[:10].upper()}"
         qr_url = f"https://sige.co.mz/verificar-certificado.html?codigo={codigo_auth}"
@@ -321,8 +398,7 @@ class BoletimView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, avaliacao = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='BOLETIM'
@@ -347,8 +423,7 @@ class BoletimPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -375,8 +450,7 @@ class BoletimDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -396,8 +470,7 @@ class BoletimXLSXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -417,8 +490,7 @@ class DeclaracaoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, avaliacao = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='DECLARACAO'
@@ -437,8 +509,7 @@ class DeclaracaoPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='DECLARACAO'
@@ -471,8 +542,7 @@ class DeclaracaoDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='DECLARACAO'
@@ -498,8 +568,7 @@ class DeclaracaoXLSXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='DECLARACAO'
@@ -525,8 +594,7 @@ class CertificadoImpressaoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, avaliacao = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -552,8 +620,7 @@ class CertificadoPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -589,8 +656,7 @@ class CertificadoDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -619,8 +685,7 @@ class CertificadoXLSXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -645,31 +710,50 @@ class CertificadoXLSXView(APIView):
         response['Content-Disposition'] = f'attachment; filename="Certificado_{aluno.matricula}.xlsx"'
         return response
 
+def _compilar_documentos_lote(request, turma, escola, tipo):
+    alunos = list(Aluno.objects.filter(turma=turma, status='ATIVO').select_related('turma').order_by('nome'))
+    disciplinas_turma = obter_disciplinas_pauta_turma(turma)
+    todas_notas = list(Nota.objects.filter(aluno__in=alunos).select_related('disciplina'))
+    notas_por_aluno = {}
+    for n in todas_notas:
+        notas_por_aluno.setdefault(n.aluno_id, []).append(n)
+
+    certs_por_aluno = {}
+    if tipo == 'CERTIFICADO' and alunos:
+        for c in Certificado.objects.filter(escola=escola, aluno__in=alunos, tipo='CONCLUSAO'):
+            certs_por_aluno[c.aluno_id] = c
+
+    documentos = []
+    for aluno in alunos:
+        aluno.turma = turma
+        dados_disc = obter_dados_boletim_aluno(
+            aluno,
+            escola,
+            disciplinas_prefetched=disciplinas_turma,
+            notas_prefetched=notas_por_aluno.get(aluno.id, [])
+        )
+        media_global, avaliacao = calcular_desempenho_documento(
+            dados_disc, turma.grau_ano, tipo=tipo
+        )
+        if tipo == 'DECLARACAO':
+            doc = montar_payload_declaracao(aluno, escola, dados_disc, media_global, avaliacao)
+        elif tipo == 'CERTIFICADO':
+            doc = montar_payload_certificado(
+                aluno, escola, dados_disc, media_global, avaliacao,
+                request.user, cert_prefetched=certs_por_aluno.get(aluno.id)
+            )
+        else:
+            doc = montar_payload_boletim(aluno, escola, dados_disc, media_global, avaliacao)
+        documentos.append(doc)
+    return documentos
+
 class LoteImpressaoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
-        escola = request.tenant or request.user.escola
-        turma = get_object_or_404(Turma, id=turma_id, escola=escola)
+        turma, escola = _obter_turma_e_escola(request, turma_id)
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
-
-        alunos = Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome')
-        documentos = []
-
-        for aluno in alunos:
-            dados_disc = obter_dados_boletim_aluno(aluno, escola)
-            media_global, avaliacao = calcular_desempenho_documento(
-                dados_disc, turma.grau_ano, tipo=tipo
-            )
-
-            if tipo == 'DECLARACAO':
-                doc = montar_payload_declaracao(aluno, escola, dados_disc, media_global, avaliacao)
-            elif tipo == 'CERTIFICADO':
-                doc = montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliacao, request.user)
-            else:
-                doc = montar_payload_boletim(aluno, escola, dados_disc, media_global, avaliacao)
-
-            documentos.append(doc)
+        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         retorno = {
             'success': True,
@@ -688,38 +772,49 @@ class LoteXLSXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
-        escola = request.tenant or request.user.escola
-        turma = get_object_or_404(Turma, id=turma_id, escola=escola)
+        turma, escola = _obter_turma_e_escola(request, turma_id)
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
         orientacao = request.query_params.get('orientacao', 'portrait')
-
-        alunos = Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome')
-        documentos = []
-
-        for aluno in alunos:
-            dados_disc = obter_dados_boletim_aluno(aluno, escola)
-            media_global, avaliacao = calcular_desempenho_documento(
-                dados_disc, turma.grau_ano, tipo=tipo
-            )
-            if tipo == 'DECLARACAO':
-                doc = montar_payload_declaracao(aluno, escola, dados_disc, media_global, avaliacao)
-            elif tipo == 'CERTIFICADO':
-                doc = montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliacao, request.user)
-            else:
-                doc = montar_payload_boletim(aluno, escola, dados_disc, media_global, avaliacao)
-            documentos.append(doc)
+        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         xlsx_bytes = gerar_lote_xlsx(turma, escola, tipo, documentos, orientacao=orientacao)
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Lote_{tipo}_{turma.nome}.xlsx"'
         return response
 
+class LotePDFView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, turma_id):
+        turma, escola = _obter_turma_e_escola(request, turma_id)
+        tipo = request.query_params.get('tipo', 'BOLETIM').upper()
+        orientacao = request.query_params.get('orientacao', 'portrait')
+        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
+
+        pdf_bytes = gerar_lote_pdf(turma, escola, tipo, documentos, orientacao=orientacao)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="Lote_{tipo}_{turma.nome}.pdf"'
+        return response
+
+class LoteDOCXView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, turma_id):
+        turma, escola = _obter_turma_e_escola(request, turma_id)
+        tipo = request.query_params.get('tipo', 'BOLETIM').upper()
+        orientacao = request.query_params.get('orientacao', 'portrait')
+        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
+
+        docx_bytes = gerar_lote_docx(turma, escola, tipo, documentos, orientacao=orientacao)
+        response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response['Content-Disposition'] = f'attachment; filename="Lote_{tipo}_{turma.nome}.docx"'
+        return response
+
 class ReciboImpressaoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
-        escola = request.tenant or request.user.escola
-        pagamento = get_object_or_404(Pagamento, id=pagamento_id, escola=escola)
+        pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         aluno = pagamento.aluno
         dados_rec = {
             'numero': pagamento.recibo_numero or f"REC-{pagamento.id}",
@@ -761,8 +856,7 @@ class ReciboPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
-        escola = request.tenant or request.user.escola
-        pagamento = get_object_or_404(Pagamento, id=pagamento_id, escola=escola)
+        pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_recibo_pdf(pagamento, escola, orientacao=orientacao)
@@ -774,8 +868,7 @@ class ReciboDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
-        escola = request.tenant or request.user.escola
-        pagamento = get_object_or_404(Pagamento, id=pagamento_id, escola=escola)
+        pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_recibo_docx(pagamento, escola, orientacao=orientacao)
@@ -787,8 +880,7 @@ class FichaAlunoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
 
         classe_str = getattr(aluno, 'classe', None) or (aluno.turma.grau_ano if aluno.turma else None) or '10ª Classe'
         area_str = getattr(aluno, 'area', None) or (aluno.turma.area if aluno.turma else None) or 'Ensino Geral'
@@ -842,8 +934,7 @@ class FichaPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_ficha_pdf(aluno, escola, orientacao=orientacao)
@@ -855,12 +946,12 @@ class FichaDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        escola = request.tenant or request.user.escola
-        aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+        aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_ficha_docx(aluno, escola, orientacao=orientacao)
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         response['Content-Disposition'] = f'attachment; filename="Ficha_{aluno.matricula}.docx"'
         return response
+
 

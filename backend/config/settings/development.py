@@ -41,7 +41,12 @@ elif db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
     elif 'supabase' in hostname or hostname not in ('localhost', '127.0.0.1', 'postgres'):
         options['sslmode'] = 'require'
 
-    options['connect_timeout'] = 15
+    options['connect_timeout'] = 5
+    options['keepalives'] = 1
+    options['keepalives_idle'] = 30
+    options['keepalives_interval'] = 10
+    options['keepalives_count'] = 5
+    options['prepare_threshold'] = None
 
     DATABASES = {
         'default': {
@@ -51,7 +56,9 @@ elif db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
             'PASSWORD': password,
             'HOST': hostname,
             'PORT': port,
-            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', 600)),
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', 60)),
+            'CONN_HEALTH_CHECKS': True,
+            'DISABLE_SERVER_SIDE_CURSORS': True,
             'OPTIONS': options,
         }
     }

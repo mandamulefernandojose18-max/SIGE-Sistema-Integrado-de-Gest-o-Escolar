@@ -144,6 +144,8 @@ class EscolaViewSet(viewsets.ModelViewSet):
             plano = Plano.objects.filter(ativo=True).first()
 
         # Criar a Escola
+        raw_logo = data.get('logo_url') or None
+        is_b64_logo = bool(raw_logo and str(raw_logo).startswith('data:'))
         escola = Escola.objects.create(
             nome=nome,
             nif_cnpj=nif_cnpj,
@@ -153,7 +155,8 @@ class EscolaViewSet(viewsets.ModelViewSet):
             distrito=data.get('distrito', 'KaMpfumo'),
             plano=plano,
             usar_emblema_nacional=data.get('usar_emblema_nacional', True),
-            logo_url=data.get('logo_url') or None,
+            logo_url=None if is_b64_logo else raw_logo,
+            logo_base64=raw_logo if is_b64_logo else (data.get('logo_base64') or None),
             status='ATIVA'
         )
 
@@ -277,63 +280,65 @@ class EscolaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='comprovativo-contrato')
     def comprovativo_contrato(self, request, pk=None):
         escola = self.get_object()
-        assinatura = escola.assinaturas.order_by('-data_fim').first()
-        plano = escola.plano or (assinatura.plano if assinatura else None)
         return Response({
             'success': True,
-            'data': {
-                'escola': {
-                    'nome': escola.nome,
-                    'nif_cnpj': escola.nif_cnpj,
-                    'distrito': escola.distrito,
-                    'provincia': escola.provincia,
-                    'email': escola.email,
-                    'status': escola.status,
-                },
-                'plano': {
-                    'nome': plano.nome if plano else 'Plano Padrão',
-                    'preco': float(plano.preco) if plano else 0.0,
-                },
-                'assinatura': {
-                    'data_inicio': assinatura.data_inicio if assinatura else escola.created_at,
-                    'data_fim': assinatura.data_fim if assinatura else timezone.now(),
-                    'valor_pago': float(assinatura.valor) if assinatura else (float(plano.preco) if plano else 0.0),
-                }
-            }
+            'data': _montar_comprovativo_escola(escola)
         })
+
+
+def _montar_comprovativo_escola(escola):
+    from apps.turmas.models import Turma
+    assinatura = escola.assinaturas.order_by('-data_fim').first()
+    plano = escola.plano or (assinatura.plano if assinatura else None)
+    val_pago = float(assinatura.valor) if assinatura else (float(plano.preco) if plano else 0.0)
+    return {
+        'comprovativo_numero': f"CONT-{str(escola.id)[:8].upper()}-{timezone.now().year}",
+        'status_atual': escola.status,
+        'escola': {
+            'id': str(escola.id),
+            'nome': escola.nome,
+            'nif_cnpj': escola.nif_cnpj,
+            'distrito': escola.distrito,
+            'provincia': escola.provincia,
+            'email': escola.email,
+            'telefone': escola.telefone or '+258',
+            'status': escola.status,
+        },
+        'plano': {
+            'nome': plano.nome if plano else 'Plano Padrão',
+            'preco': float(plano.preco) if plano else 0.0,
+            'max_alunos': plano.max_alunos if plano else 1000,
+            'max_professores': plano.max_professores if plano else 100,
+        },
+        'assinatura': {
+            'data_inicio': assinatura.data_inicio if assinatura else escola.created_at,
+            'data_fim': assinatura.data_fim if assinatura else timezone.now(),
+            'valor': val_pago,
+            'valor_pago': val_pago,
+        },
+        'estatisticas': {
+            'total_alunos': Aluno.objects.filter(escola=escola).count(),
+            'total_professores': Professor.objects.filter(escola=escola).count(),
+            'total_turmas': Turma.objects.filter(escola=escola).count(),
+        }
+    }
+
 
 class MinhaEscolaComprovativoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        if not escola and getattr(request.user, 'role', '') == 'SUPERADMIN':
+            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
-        
-        assinatura = escola.assinaturas.order_by('-data_fim').first()
-        plano = escola.plano or (assinatura.plano if assinatura else None)
+
         return Response({
             'success': True,
-            'data': {
-                'escola': {
-                    'nome': escola.nome,
-                    'nif_cnpj': escola.nif_cnpj,
-                    'distrito': escola.distrito,
-                    'provincia': escola.provincia,
-                    'email': escola.email,
-                    'status': escola.status,
-                },
-                'plano': {
-                    'nome': plano.nome if plano else 'Plano Padrão',
-                    'preco': float(plano.preco) if plano else 0.0,
-                },
-                'assinatura': {
-                    'data_inicio': assinatura.data_inicio if assinatura else escola.created_at,
-                    'data_fim': assinatura.data_fim if assinatura else timezone.now(),
-                    'valor_pago': float(assinatura.valor) if assinatura else (float(plano.preco) if plano else 0.0),
-                }
-            }
+            'data': _montar_comprovativo_escola(escola)
         })
+
 
 
 class VerificarExpiracoesView(APIView):

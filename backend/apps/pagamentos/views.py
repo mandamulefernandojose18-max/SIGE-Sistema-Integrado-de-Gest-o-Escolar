@@ -23,8 +23,12 @@ class PagamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or self.request.user.escola
-        qs = Pagamento.objects.filter(escola=escola)
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        is_super = getattr(self.request.user, 'role', '') == 'SUPERADMIN'
+        if escola and not is_super:
+            qs = Pagamento.objects.filter(escola=escola)
+        else:
+            qs = Pagamento.objects.all()
 
         status_param = self.request.query_params.get('status')
         if status_param:
@@ -34,15 +38,22 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         if mes:
             qs = qs.filter(mes_referencia=mes)
 
-        aluno_id = self.request.query_params.get('aluno_id')
+        aluno_id = self.request.query_params.get('aluno_id') or self.request.query_params.get('alunoId')
         if aluno_id:
             qs = qs.filter(aluno_id=aluno_id)
 
-        return qs.select_related('aluno', 'aluno__turma').order_by('-data_vencimento')
+        return qs.select_related('aluno', 'aluno__turma', 'escola').order_by('-data_vencimento')
 
     def perform_create(self, serializer):
-        escola = self.request.tenant or self.request.user.escola
+        aluno = serializer.validated_data.get('aluno')
+        escola = (getattr(aluno, 'escola', None) if aluno else None) or getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
         serializer.save(escola=escola)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
@@ -59,7 +70,7 @@ class PagamentoViewSet(viewsets.ModelViewSet):
 
         pagamento.valor_pago = valor_pago
         pagamento.status = 'PAGO'
-        pagamento.data_pagamento = timezone.now()
+        pagamento.data_pagamento = timezone.now().date()
         pagamento.metodo_pagamento = metodo
         if not pagamento.recibo_numero:
             ano = timezone.now().year
@@ -79,8 +90,13 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        escola = request.tenant or request.user.escola
-        turma = get_object_or_404(Turma, id=data['turma_id'], escola=escola)
+        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
+        if escola and not is_super:
+            turma = get_object_or_404(Turma, id=data['turma_id'], escola=escola)
+        else:
+            turma = get_object_or_404(Turma, id=data['turma_id'])
+            escola = turma.escola or escola
         alunos = Aluno.objects.filter(turma=turma, status='ATIVO')
 
         criados = 0
@@ -123,7 +139,8 @@ class PagamentoStatsView(APIView):
         total_atrasado = qs.filter(status='ATRASADO').aggregate(total=Sum('valor'))['total'] or 0
         total_geral = total_recebido + total_pendente + total_atrasado
 
-        taxa = round((float(total_recebido) / float(total_geral) * 100), 1) if total_geral > 0 else 0
+        taxa_adimp = round((float(total_recebido) / float(total_geral) * 100), 1) if total_geral > 0 else 0
+        taxa_inadimp = round(100.0 - taxa_adimp, 1) if total_geral > 0 else 0
 
         historico_meses = [
             {'mes': 'Jan', 'recebido': 0, 'pendente': 0},
@@ -134,11 +151,15 @@ class PagamentoStatsView(APIView):
         return Response({
             'success': True,
             'data': {
+                'totalFaturado': float(total_geral),
                 'totalRecebido': float(total_recebido),
                 'totalPendente': float(total_pendente),
                 'totalAtrasado': float(total_atrasado),
-                'taxaAdimplencia': taxa,
+                'taxaAdimplencia': taxa_adimp,
+                'percentualAdimplentes': taxa_adimp,
+                'taxaInadimplencia': taxa_inadimp,
                 'historicoMeses': historico_meses
             }
         })
+
 

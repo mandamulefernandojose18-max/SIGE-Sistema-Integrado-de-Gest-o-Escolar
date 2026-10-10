@@ -12,23 +12,36 @@ class CertificadoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or self.request.user.escola
-        return Certificado.objects.filter(escola=escola).select_related('aluno', 'escola').order_by('-emitido_em')
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        is_super = getattr(self.request.user, 'role', '') == 'SUPERADMIN'
+        if escola and not is_super:
+            qs = Certificado.objects.filter(escola=escola)
+        else:
+            qs = Certificado.objects.all()
+        return qs.select_related('aluno', 'escola').order_by('-emitido_em')
 
     def perform_create(self, serializer):
-        escola = self.request.tenant or self.request.user.escola
+        aluno = serializer.validated_data.get('aluno')
+        escola = (getattr(aluno, 'escola', None) if aluno else None) or getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
         codigo = f"CERT-{uuid.uuid4().hex[:10].upper()}"
         qr_url = f"https://sige.co.mz/verificar-certificado.html?codigo={codigo}"
         serializer.save(
             escola=escola,
             codigo_autenticidade=codigo,
             qrcode_data=qr_url,
-            emitido_por=self.request.user.nome if self.request.user else 'Secretaria'
+            emitido_por=getattr(self.request.user, 'nome', None) or 'Secretaria'
         )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
         return Response({'success': True, 'data': CertificadoSerializer(qs, many=True).data})
+
 
 class VerificarCertificadoView(APIView):
     permission_classes = [AllowAny]

@@ -1773,3 +1773,261 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
     doc.build(elements)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+# ==================== 8. CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR (PDF HORIZONTAL) ====================
+
+def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=0.5 * cm,
+        leftMargin=0.5 * cm,
+        topMargin=0.5 * cm,
+        bottomMargin=0.5 * cm
+    )
+    styles = getSampleStyleSheet()
+    elements = []
+
+    escola_info = caderneta_data.get('escola') or {}
+    turma_info = caderneta_data.get('turma') or {}
+    disc_info = caderneta_data.get('disciplina') or {}
+    prof_info = caderneta_data.get('professor') or {}
+    dt_info = caderneta_data.get('directorTurma') or {}
+    ef_info = caderneta_data.get('efectivo') or {}
+    alunos = caderneta_data.get('alunos') or []
+    estatisticas = caderneta_data.get('estatisticasColunas') or {}
+
+    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()
+    prov = escola_info.get('provincia') or 'Inhambane'
+    dist = escola_info.get('distrito') or 'Massinga'
+    disc_nome = (disc_info.get('nome') or 'Disciplina').upper()
+    disc_cod = disc_info.get('codigo') or disc_nome[:3]
+    ano_letivo = turma_info.get('ano_letivo') or '2026'
+    turma_nome = turma_info.get('nome') or 'Turma'
+    grau_ano = turma_info.get('grau_ano') or ''
+    turno = turma_info.get('turno') or 'MANHÃ'
+    sala = turma_info.get('sala') or '-'
+    ef_h = ef_info.get('h', 0)
+    ef_m = ef_info.get('m', 0)
+    ef_tot = ef_info.get('total', len(alunos))
+    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
+    prof_tel = prof_info.get('telefone') or '-'
+    dt_nome = dt_info.get('nome') or '-'
+
+    # 1. Cabeçalho Institucional Oficial
+    elements.extend(gerar_cabecalho_minedh(styles, esc_nome, prov, dist, compacto=True))
+
+    style_title = ParagraphStyle('CadTitle', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=13, fontName='Times-Bold')
+    style_meta = ParagraphStyle('CadMeta', parent=styles['Normal'], alignment=1, fontSize=8.0, leading=10, fontName='Times-Roman')
+    elements.append(Paragraph(f"CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod})", style_title))
+    elements.append(Paragraph(
+        f"<b>Ano Lectivo:</b> {ano_letivo} | <b>Classe:</b> {grau_ano} | <b>Turma:</b> {turma_nome} | <b>Turno:</b> {turno} | <b>Sala:</b> {sala} | "
+        f"<b>Efectivo:</b> H={ef_h}, M={ef_m}, HM={ef_tot} | <b>Docente:</b> {prof_nome} ({prof_tel}) | <b>Director de Turma:</b> {dt_nome}",
+        style_meta
+    ))
+    elements.append(Spacer(1, 0.18 * cm))
+
+    # 2. Tabela da Caderneta (28 colunas: Nº, Nome Completo, Gén, 3x8 colunas trimestrais, MFD)
+    row_top = [
+        'Nº', 'Nome Completo do Aluno', 'Gén',
+        'Iº TRIMESTRE', '', '', '', '', '', '', '',
+        'IIº TRIMESTRE', '', '', '', '', '', '', '',
+        'IIIº TRIMESTRE', '', '', '', '', '', '', '',
+        'MFD'
+    ]
+    row_sub = [
+        '', '', '',
+        '1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp',
+        '1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp',
+        '1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp',
+        ''
+    ]
+    data_table = [row_top, row_sub]
+
+    def fmt_n(val):
+        if val is None or val == '' or val == '-':
+            return '-'
+        try:
+            f = float(val)
+            return str(round(f, 1) if f % 1 != 0 else int(f))
+        except (ValueError, TypeError):
+            return str(val)
+
+    style_nome = ParagraphStyle('CadAlNome', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=0)
+    for idx, al in enumerate(alunos, start=1):
+        t1 = al.get('t1') or {}
+        t2 = al.get('t2') or {}
+        t3 = al.get('t3') or {}
+        nome_c = f"{al.get('nome') or ''} {al.get('apelido') or ''}".strip()
+        r = [
+            str(al.get('numero') or idx),
+            Paragraph(nome_c[:38], style_nome),
+            str(al.get('genero') or 'M'),
+            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')), str(t1.get('comportamento') or '-'),
+            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')), str(t2.get('comportamento') or '-'),
+            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')), str(t3.get('comportamento') or '-'),
+            fmt_n(al.get('mfd'))
+        ]
+        data_table.append(r)
+
+    # Linhas Estatísticas Resumidas (HM)
+    stat_cols = [
+        't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', None,
+        't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', None,
+        't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', None,
+        'mfd'
+    ]
+    stat_rows_start = len(data_table)
+    resumo_linhas = [
+        ('Avaliados (HM)', lambda st: str((st.get('avaliados') or {}).get('total', 0))),
+        ('Positivas (HM)', lambda st: str((st.get('positivas') or {}).get('total', 0))),
+        ('% Positivas', lambda st: f"{(st.get('positivas') or {}).get('pct', 0)}%"),
+        ('Negativas (HM)', lambda st: str((st.get('negativas') or {}).get('total', 0))),
+        ('% Negativas', lambda st: f"{(st.get('negativas') or {}).get('pct', 0)}%"),
+        ('Média da Coluna', lambda st: str(st.get('media', 0))),
+    ]
+    for s_label, fn_extr in resumo_linhas:
+        r_st = ['', s_label, 'HM']
+        for sk in stat_cols:
+            if sk and sk in estatisticas:
+                r_st.append(fn_extr(estatisticas[sk]))
+            else:
+                r_st.append('-')
+        data_table.append(r_st)
+
+    col_widths = [0.65 * cm, 4.45 * cm, 0.65 * cm] + ([0.88 * cm] * 24) + [0.95 * cm]
+    t_cad = Table(data_table, colWidths=col_widths, repeatRows=2)
+    t_styles = [
+        ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
+        ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
+        ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
+        ('FONTNAME', (0, 2), (-1, -1), 'Times-Roman'),
+        ('FONTSIZE', (0, 0), (-1, -1), 6.0),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (1, 2), (1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#94a3b8')),
+        ('TOPPADDING', (0, 0), (-1, -1), 1.4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1.2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1.2),
+        ('SPAN', (0, 0), (0, 1)),
+        ('SPAN', (1, 0), (1, 1)),
+        ('SPAN', (2, 0), (2, 1)),
+        ('SPAN', (3, 0), (10, 0)),
+        ('SPAN', (11, 0), (18, 0)),
+        ('SPAN', (19, 0), (26, 0)),
+        ('SPAN', (27, 0), (27, 1)),
+    ]
+    # Destacar colunas MT (9, 17, 25) e MFD (27)
+    for col_mt in (9, 17, 25, 27):
+        t_styles.append(('BACKGROUND', (col_mt, 2), (col_mt, len(data_table) - 1), colors.HexColor('#f8fafc')))
+        t_styles.append(('FONTNAME', (col_mt, 2), (col_mt, len(data_table) - 1), 'Times-Bold'))
+
+    # Destacar linhas estatísticas no fundo
+    for r_i in range(stat_rows_start, len(data_table)):
+        t_styles.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor('#f1f5f9')))
+        t_styles.append(('FONTNAME', (0, r_i), (-1, r_i), 'Times-Bold'))
+
+    t_cad.setStyle(TableStyle(t_styles))
+    elements.append(t_cad)
+    elements.append(Spacer(1, 0.4 * cm))
+
+    # Assinaturas
+    sig_data = [
+        ["O Docente da Disciplina", "O Director de Turma", "O Director Adjunto Pedagógico"],
+        ["\n__________________________________", "\n__________________________________", "\n__________________________________"],
+        [prof_nome, dt_nome, "Assinatura e Carimbo"]
+    ]
+    t_sig = Table(sig_data, colWidths=[9.3 * cm, 9.3 * cm, 9.3 * cm])
+    t_sig.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.0),
+    ]))
+    elements.append(KeepTogether(t_sig))
+
+    doc.build(
+        elements,
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+    )
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+# ==================== 9. EMISSÃO EM LOTE DA TURMA (PDF) ====================
+
+def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.extend(gerar_cabecalho_minedh(styles, escola.nome, escola.provincia, escola.distrito))
+
+    style_title = ParagraphStyle('LoteTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
+    style_sub = ParagraphStyle('LoteSub', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman')
+    elements.append(Paragraph(f"MAPA DE EMISSÃO EM LOTE — {tipo_documento.upper()}", style_title))
+    elements.append(Paragraph(
+        f"<b>Turma:</b> {turma.nome} ({turma.grau_ano}) | <b>Ano Lectivo:</b> {turma.ano_letivo or getattr(escola, 'ano_letivo_ativo', '2026')} | "
+        f"<b>Total de Alunos:</b> {len(alunos_documentos)}",
+        style_sub
+    ))
+    elements.append(Spacer(1, 0.35 * cm))
+
+    headers = [
+        Paragraph('<b>Nº</b>', ParagraphStyle('LH1', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.white)),
+        Paragraph('<b>Nome Completo do Aluno</b>', ParagraphStyle('LH2', fontName='Times-Bold', fontSize=8.5, textColor=colors.white)),
+        Paragraph('<b>Matrícula</b>', ParagraphStyle('LH3', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.white)),
+        Paragraph('<b>Média Global</b>', ParagraphStyle('LH4', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.white)),
+        Paragraph('<b>Situação Pedagógica</b>', ParagraphStyle('LH5', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.white)),
+    ]
+    data_rows = [headers]
+    s_c = ParagraphStyle('LC', fontName='Times-Roman', fontSize=8.5, alignment=1)
+    s_l = ParagraphStyle('LL', fontName='Times-Roman', fontSize=8.5, alignment=0)
+    s_b = ParagraphStyle('LB', fontName='Times-Bold', fontSize=8.5, alignment=1)
+
+    for idx, doc_item in enumerate(alunos_documentos, start=1):
+        al_info = doc_item.get('aluno') or {}
+        nome = al_info.get('nomeCompleto') or al_info.get('nome') or 'Aluno'
+        mat = al_info.get('matricula') or '-'
+        med = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
+        sit = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        data_rows.append([
+            Paragraph(str(idx), s_c),
+            Paragraph(str(nome), s_l),
+            Paragraph(str(mat), s_c),
+            Paragraph(str(med), s_b),
+            Paragraph(str(sit), s_b),
+        ])
+
+    t = Table(data_rows, colWidths=[1.2 * cm, 7.6 * cm, 3.4 * cm, 2.8 * cm, 3.6 * cm], repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(t)
+
+    doc.build(
+        elements,
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+    )
+    buffer.seek(0)
+    return buffer.getvalue()
+

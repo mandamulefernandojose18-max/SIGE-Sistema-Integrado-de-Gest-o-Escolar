@@ -210,258 +210,306 @@ class MeuPerfilView(APIView):
             return Response({'success': False, 'message': 'Professor não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'success': True, 'data': ProfessorSerializer(prof).data})
 
+def compilar_dados_caderneta(request, alocacao_id):
+    from rest_framework.exceptions import PermissionDenied
+    escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+    is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
+
+    if escola and not is_super:
+        aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id, escola=escola)
+    else:
+        aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id)
+        escola = aloc.escola or escola
+
+    # Isolamento estrito de permissões: cada professor só visualiza e acede às suas próprias cadernetas
+    if getattr(request.user, 'role', '') == 'PROFESSOR':
+        if str(aloc.professor_id) != str(request.user.professor_id):
+            raise PermissionDenied('Acesso não autorizado a esta caderneta.')
+
+    turma = aloc.turma
+    prof = aloc.professor
+    disc = aloc.disciplina
+
+    alunos = Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome', 'apelido')
+    notas = Nota.objects.filter(turma=turma, disciplina=disc)
+
+    notas_dict = {}
+    for n in notas:
+        key = f"{n.aluno_id}_{n.periodo}"
+        notas_dict[key] = {
+            'id': str(n.id),
+            't1': n.teste1,
+            't2': n.teste2,
+            't3': n.teste3,
+            'map': n.trabalho or n.teste4,
+            'mas': n.teste4,
+            'at': n.avaliacao_trimestral,
+            'mt': n.media_final,
+            'anotacao': n.anotacao,
+            'comportamento': n.comportamento or '',
+            'resultado': n.resultado,
+            'faltas': n.faltas
+        }
+
+    total_h = alunos.filter(genero='M').count()
+    total_m = alunos.filter(genero='F').count()
+
+    alunos_caderneta = []
+    for idx, a in enumerate(alunos, start=1):
+        def extrair_trimestre(per):
+            nd = notas_dict.get(f"{a.id}_{per}")
+            if not nd:
+                return {
+                    't1': None, 't2': None, 't3': None, 'map': None, 'mas': None,
+                    'at': None, 'mt': None, 'comportamento': '', 'anotacao': '', 'faltas': 0
+                }
+            def nota_valida(val):
+                if val is None or val == '' or val == '-':
+                    return False
+                try:
+                    n = float(val)
+                    return 0.0 <= n <= 20.0
+                except (ValueError, TypeError):
+                    return False
+
+            # Regra estrita: Na caderneta só deve mostrar a "MT" quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
+            tem_requisitos_mt = nota_valida(nd.get('t1')) and nota_valida(nd.get('t2')) and nota_valida(nd.get('at'))
+            mt_val = nd.get('mt') if tem_requisitos_mt else None
+
+            tem_nota = any(
+                nd.get(k) is not None and nd.get(k) != ''
+                for k in ['t1', 't2', 't3', 'map', 'mas', 'at']
+            ) or (mt_val is not None)
+            comp = (nd.get('comportamento') or '') if (tem_nota and tem_requisitos_mt) else ''
+            return {
+                't1': nd.get('t1'),
+                't2': nd.get('t2'),
+                't3': nd.get('t3'),
+                'map': nd.get('map'),
+                'mas': nd.get('mas'),
+                'at': nd.get('at'),
+                'mt': mt_val,
+                'comportamento': comp,
+                'anotacao': nd.get('anotacao') or '',
+                'faltas': nd.get('faltas') or 0
+            }
+
+        t1_data = extrair_trimestre('1_TRIMESTRE')
+        t2_data = extrair_trimestre('2_TRIMESTRE')
+        t3_data = extrair_trimestre('3_TRIMESTRE')
+
+        def tem_mt_valido(trim_data):
+            if not trim_data:
+                return False
+            val = trim_data.get('mt')
+            if val is None or val == '' or val == '-':
+                return False
+            try:
+                num = float(val)
+                if num > 0:
+                    return True
+                tem_aval = any(
+                    trim_data.get(k) is not None and trim_data.get(k) != '' and trim_data.get(k) != '-' and float(trim_data.get(k)) > 0
+                    for k in ['t1', 't2', 't3', 'map', 'mas', 'at']
+                )
+                return tem_aval or bool(trim_data.get('anotacao'))
+            except (ValueError, TypeError):
+                return False
+
+        # MFD oficial: só deve ser calculado e exibido quando as médias dos 3 trimestres estiverem disponíveis
+        if tem_mt_valido(t1_data) and tem_mt_valido(t2_data) and tem_mt_valido(t3_data):
+            mfd = round((float(t1_data['mt']) + float(t2_data['mt']) + float(t3_data['mt'])) / 3, 1)
+        else:
+            mfd = None
+
+        alunos_caderneta.append({
+            'numero': idx,
+            'alunoId': str(a.id),
+            'matricula': a.matricula or '',
+            'nome': a.nome,
+            'apelido': a.apelido or '',
+            'genero': a.genero or 'M',
+            't1': t1_data,
+            't2': t2_data,
+            't3': t3_data,
+            'mfd': mfd
+        })
+
+    chaves = [
+        ('t1_t1', 't1', 't1'), ('t1_t2', 't1', 't2'), ('t1_t3', 't1', 't3'),
+        ('t1_map', 't1', 'map'), ('t1_mas', 't1', 'mas'), ('t1_at', 't1', 'at'), ('t1_mt', 't1', 'mt'),
+        ('t2_t1', 't2', 't1'), ('t2_t2', 't2', 't2'), ('t2_t3', 't2', 't3'),
+        ('t2_map', 't2', 'map'), ('t2_mas', 't2', 'mas'), ('t2_at', 't2', 'at'), ('t2_mt', 't2', 'mt'),
+        ('t3_t1', 't3', 't1'), ('t3_t2', 't3', 't2'), ('t3_t3', 't3', 't3'),
+        ('t3_map', 't3', 'map'), ('t3_mas', 't3', 'mas'), ('t3_at', 't3', 'at'), ('t3_mt', 't3', 'mt'),
+        ('mfd', None, 'mfd')
+    ]
+
+    estatisticas = {}
+    for chave, sub, campo in chaves:
+        m_notas = []
+        f_notas = []
+        for al in alunos_caderneta:
+            val = al[campo] if sub is None else al[sub][campo]
+            if val is not None and val != '' and not (isinstance(val, (int, float)) and val <= 0):
+                try:
+                    n_val = float(val)
+                    if al['genero'] == 'F':
+                        f_notas.append(n_val)
+                    else:
+                        m_notas.append(n_val)
+                except (ValueError, TypeError):
+                    pass
+
+        av_h = len(m_notas)
+        av_f = len(f_notas)
+        av_tot = av_h + av_f
+
+        pos_h = sum(1 for n in m_notas if n >= 9.5)
+        pos_f = sum(1 for n in f_notas if n >= 9.5)
+        pos_tot = pos_h + pos_f
+
+        neg_h = av_h - pos_h
+        neg_f = av_f - pos_f
+        neg_tot = av_tot - pos_tot
+
+        pct_pos_h = round((pos_h / av_h) * 100) if av_h > 0 else 0
+        pct_pos_f = round((pos_f / av_f) * 100) if av_f > 0 else 0
+        pct_pos_tot = round((pos_tot / av_tot) * 100) if av_tot > 0 else 0
+
+        pct_neg_h = round((neg_h / av_h) * 100) if av_h > 0 else 0
+        pct_neg_f = round((neg_f / av_f) * 100) if av_f > 0 else 0
+        pct_neg_tot = round((neg_tot / av_tot) * 100) if av_tot > 0 else 0
+
+        todas_notas = m_notas + f_notas
+        media_coluna = round(sum(todas_notas) / len(todas_notas), 1) if todas_notas else 0
+
+        # Faixas oficiais de aproveitamento
+        f0_94_h = sum(1 for n in m_notas if n < 9.5)
+        f0_94_f = sum(1 for n in f_notas if n < 9.5)
+        f0_94_tot = f0_94_h + f0_94_f
+
+        f95_134_h = sum(1 for n in m_notas if 9.5 <= n < 13.5)
+        f95_134_f = sum(1 for n in f_notas if 9.5 <= n < 13.5)
+        f95_134_tot = f95_134_h + f95_134_f
+
+        f135_164_h = sum(1 for n in m_notas if 13.5 <= n < 16.5)
+        f135_164_f = sum(1 for n in f_notas if 13.5 <= n < 16.5)
+        f135_164_tot = f135_164_h + f135_164_f
+
+        f165_184_h = sum(1 for n in m_notas if 16.5 <= n < 18.5)
+        f165_184_f = sum(1 for n in f_notas if 16.5 <= n < 18.5)
+        f165_184_tot = f165_184_h + f165_184_f
+
+        f185_20_h = sum(1 for n in m_notas if n >= 18.5)
+        f185_20_f = sum(1 for n in f_notas if n >= 18.5)
+        f185_20_tot = f185_20_h + f185_20_f
+
+        estatisticas[chave] = {
+            'avaliados': {'h': av_h, 'm': av_f, 'total': av_tot},
+            'positivas': {'h': pos_h, 'm': pos_f, 'total': pos_tot, 'pctH': pct_pos_h, 'pctM': pct_pos_f, 'pct': pct_pos_tot},
+            'negativas': {'h': neg_h, 'm': neg_f, 'total': neg_tot, 'pctH': pct_neg_h, 'pctM': pct_neg_f, 'pct': pct_neg_tot},
+            'faixas': {
+                'f0_94': {'h': f0_94_h, 'm': f0_94_f, 'total': f0_94_tot},
+                'f95_134': {'h': f95_134_h, 'm': f95_134_f, 'total': f95_134_tot},
+                'f135_164': {'h': f135_164_h, 'm': f135_164_f, 'total': f135_164_tot},
+                'f165_184': {'h': f165_184_h, 'm': f165_184_f, 'total': f165_184_tot},
+                'f185_20': {'h': f185_20_h, 'm': f185_20_f, 'total': f185_20_tot},
+            },
+            'media': media_coluna
+        }
+
+    caderneta_data = {
+        'escola': {
+            'id': str(escola.id) if escola else '',
+            'nome': escola.nome if escola else 'Escola Secundária',
+            'provincia': escola.provincia if escola else 'Maputo',
+            'distrito': escola.distrito if escola else 'Cidade de Maputo',
+        },
+        'turma': {
+            'id': str(turma.id),
+            'nome': turma.nome,
+            'grau_ano': turma.grau_ano,
+            'area': turma.area or 'Ensino Geral',
+            'turno': turma.turno or 'MANHA',
+            'sala': turma.sala or '',
+            'ano_letivo': turma.ano_letivo or '2026',
+        },
+        'disciplina': {
+            'id': str(disc.id),
+            'nome': disc.nome,
+            'codigo': disc.codigo or disc.abreviatura or '',
+        },
+        'professor': {
+            'id': str(prof.id) if prof else '',
+            'nome': prof.nome if prof else (aloc.professor_nome or 'Professor'),
+            'apelido': prof.apelido if prof else '',
+            'telefone': prof.telefone if prof else '',
+            'especialidade': prof.especialidade or prof.carreira or 'Ensino Geral',
+        },
+        'directorTurma': {
+            'nome': turma.director_turma.nome if turma.director_turma else '-'
+        },
+        'efectivo': {
+            'h': total_h,
+            'm': total_m,
+            'total': total_h + total_m
+        },
+        'alocacao': AlocacaoDocenteSerializer(aloc).data,
+        'alunos': alunos_caderneta,
+        'estatisticasColunas': estatisticas
+    }
+    return aloc, caderneta_data, alunos_caderneta
+
+
 class CadernetaCompletaView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, alocacao_id):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-        if escola:
-            aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id, escola=escola)
-        else:
-            aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id)
-
-        # Isolamento estrito de permissões: cada professor só visualiza e acede às suas próprias cadernetas
-        if getattr(request.user, 'role', '') == 'PROFESSOR':
-            if str(aloc.professor_id) != str(request.user.professor_id):
-                return Response({'success': False, 'message': 'Acesso não autorizado a esta caderneta.'}, status=status.HTTP_403_FORBIDDEN)
-
-        turma = aloc.turma
-        prof = aloc.professor
-        disc = aloc.disciplina
-
-        alunos = Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome', 'apelido')
-        notas = Nota.objects.filter(turma=turma, disciplina=disc)
-
-        notas_dict = {}
-        for n in notas:
-            key = f"{n.aluno_id}_{n.periodo}"
-            notas_dict[key] = {
-                'id': str(n.id),
-                't1': n.teste1,
-                't2': n.teste2,
-                't3': n.teste3,
-                'map': n.trabalho or n.teste4,
-                'mas': n.teste4,
-                'at': n.avaliacao_trimestral,
-                'mt': n.media_final,
-                'anotacao': n.anotacao,
-                'comportamento': n.comportamento or '',
-                'resultado': n.resultado,
-                'faltas': n.faltas
-            }
-
-        total_h = alunos.filter(genero='M').count()
-        total_m = alunos.filter(genero='F').count()
-
-        alunos_caderneta = []
-        for idx, a in enumerate(alunos, start=1):
-            def extrair_trimestre(per):
-                nd = notas_dict.get(f"{a.id}_{per}")
-                if not nd:
-                    return {
-                        't1': None, 't2': None, 't3': None, 'map': None, 'mas': None,
-                        'at': None, 'mt': None, 'comportamento': '', 'anotacao': '', 'faltas': 0
-                    }
-                def nota_valida(val):
-                    if val is None or val == '' or val == '-':
-                        return False
-                    try:
-                        n = float(val)
-                        return 0.0 <= n <= 20.0
-                    except (ValueError, TypeError):
-                        return False
-
-                # Regra estrita: Na caderneta só deve mostrar a "MT" quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
-                tem_requisitos_mt = nota_valida(nd.get('t1')) and nota_valida(nd.get('t2')) and nota_valida(nd.get('at'))
-                mt_val = nd.get('mt') if tem_requisitos_mt else None
-
-                tem_nota = any(
-                    nd.get(k) is not None and nd.get(k) != ''
-                    for k in ['t1', 't2', 't3', 'map', 'mas', 'at']
-                ) or (mt_val is not None)
-                comp = (nd.get('comportamento') or '') if (tem_nota and tem_requisitos_mt) else ''
-                return {
-                    't1': nd.get('t1'),
-                    't2': nd.get('t2'),
-                    't3': nd.get('t3'),
-                    'map': nd.get('map'),
-                    'mas': nd.get('mas'),
-                    'at': nd.get('at'),
-                    'mt': mt_val,
-                    'comportamento': comp,
-                    'anotacao': nd.get('anotacao') or '',
-                    'faltas': nd.get('faltas') or 0
-                }
-
-            t1_data = extrair_trimestre('1_TRIMESTRE')
-            t2_data = extrair_trimestre('2_TRIMESTRE')
-            t3_data = extrair_trimestre('3_TRIMESTRE')
-
-            def tem_mt_valido(trim_data):
-                if not trim_data:
-                    return False
-                val = trim_data.get('mt')
-                if val is None or val == '' or val == '-':
-                    return False
-                try:
-                    num = float(val)
-                    if num > 0:
-                        return True
-                    tem_aval = any(
-                        trim_data.get(k) is not None and trim_data.get(k) != '' and trim_data.get(k) != '-' and float(trim_data.get(k)) > 0
-                        for k in ['t1', 't2', 't3', 'map', 'mas', 'at']
-                    )
-                    return tem_aval or bool(trim_data.get('anotacao'))
-                except (ValueError, TypeError):
-                    return False
-
-            # MFD oficial: só deve ser calculado e exibido quando as médias dos 3 trimestres estiverem disponíveis
-            if tem_mt_valido(t1_data) and tem_mt_valido(t2_data) and tem_mt_valido(t3_data):
-                mfd = round((float(t1_data['mt']) + float(t2_data['mt']) + float(t3_data['mt'])) / 3, 1)
-            else:
-                mfd = None
-
-            alunos_caderneta.append({
-                'numero': idx,
-                'alunoId': str(a.id),
-                'matricula': a.matricula or '',
-                'nome': a.nome,
-                'apelido': a.apelido or '',
-                'genero': a.genero or 'M',
-                't1': t1_data,
-                't2': t2_data,
-                't3': t3_data,
-                'mfd': mfd
-            })
-
-        chaves = [
-            ('t1_t1', 't1', 't1'), ('t1_t2', 't1', 't2'), ('t1_t3', 't1', 't3'),
-            ('t1_map', 't1', 'map'), ('t1_mas', 't1', 'mas'), ('t1_at', 't1', 'at'), ('t1_mt', 't1', 'mt'),
-            ('t2_t1', 't2', 't1'), ('t2_t2', 't2', 't2'), ('t2_t3', 't2', 't3'),
-            ('t2_map', 't2', 'map'), ('t2_mas', 't2', 'mas'), ('t2_at', 't2', 'at'), ('t2_mt', 't2', 'mt'),
-            ('t3_t1', 't3', 't1'), ('t3_t2', 't3', 't2'), ('t3_t3', 't3', 't3'),
-            ('t3_map', 't3', 'map'), ('t3_mas', 't3', 'mas'), ('t3_at', 't3', 'at'), ('t3_mt', 't3', 'mt'),
-            ('mfd', None, 'mfd')
-        ]
-
-        estatisticas = {}
-        for chave, sub, campo in chaves:
-            m_notas = []
-            f_notas = []
-            for al in alunos_caderneta:
-                val = al[campo] if sub is None else al[sub][campo]
-                if val is not None and val != '' and not (isinstance(val, (int, float)) and val <= 0):
-                    try:
-                        n_val = float(val)
-                        if al['genero'] == 'F':
-                            f_notas.append(n_val)
-                        else:
-                            m_notas.append(n_val)
-                    except (ValueError, TypeError):
-                        pass
-
-            av_h = len(m_notas)
-            av_f = len(f_notas)
-            av_tot = av_h + av_f
-
-            pos_h = sum(1 for n in m_notas if n >= 9.5)
-            pos_f = sum(1 for n in f_notas if n >= 9.5)
-            pos_tot = pos_h + pos_f
-
-            neg_h = av_h - pos_h
-            neg_f = av_f - pos_f
-            neg_tot = av_tot - pos_tot
-
-            pct_pos_h = round((pos_h / av_h) * 100) if av_h > 0 else 0
-            pct_pos_f = round((pos_f / av_f) * 100) if av_f > 0 else 0
-            pct_pos_tot = round((pos_tot / av_tot) * 100) if av_tot > 0 else 0
-
-            pct_neg_h = round((neg_h / av_h) * 100) if av_h > 0 else 0
-            pct_neg_f = round((neg_f / av_f) * 100) if av_f > 0 else 0
-            pct_neg_tot = round((neg_tot / av_tot) * 100) if av_tot > 0 else 0
-
-            todas_notas = m_notas + f_notas
-            media_coluna = round(sum(todas_notas) / len(todas_notas), 1) if todas_notas else 0
-
-            # Faixas oficiais de aproveitamento
-            f0_94_h = sum(1 for n in m_notas if n < 9.5)
-            f0_94_f = sum(1 for n in f_notas if n < 9.5)
-            f0_94_tot = f0_94_h + f0_94_f
-
-            f95_134_h = sum(1 for n in m_notas if 9.5 <= n < 13.5)
-            f95_134_f = sum(1 for n in f_notas if 9.5 <= n < 13.5)
-            f95_134_tot = f95_134_h + f95_134_f
-
-            f135_164_h = sum(1 for n in m_notas if 13.5 <= n < 16.5)
-            f135_164_f = sum(1 for n in f_notas if 13.5 <= n < 16.5)
-            f135_164_tot = f135_164_h + f135_164_f
-
-            f165_184_h = sum(1 for n in m_notas if 16.5 <= n < 18.5)
-            f165_184_f = sum(1 for n in f_notas if 16.5 <= n < 18.5)
-            f165_184_tot = f165_184_h + f165_184_f
-
-            f185_20_h = sum(1 for n in m_notas if n >= 18.5)
-            f185_20_f = sum(1 for n in f_notas if n >= 18.5)
-            f185_20_tot = f185_20_h + f185_20_f
-
-            estatisticas[chave] = {
-                'avaliados': {'h': av_h, 'm': av_f, 'total': av_tot},
-                'positivas': {'h': pos_h, 'm': pos_f, 'total': pos_tot, 'pctH': pct_pos_h, 'pctM': pct_pos_f, 'pct': pct_pos_tot},
-                'negativas': {'h': neg_h, 'm': neg_f, 'total': neg_tot, 'pctH': pct_neg_h, 'pctM': pct_neg_f, 'pct': pct_neg_tot},
-                'faixas': {
-                    'f0_94': {'h': f0_94_h, 'm': f0_94_f, 'total': f0_94_tot},
-                    'f95_134': {'h': f95_134_h, 'm': f95_134_f, 'total': f95_134_tot},
-                    'f135_164': {'h': f135_164_h, 'm': f135_164_f, 'total': f135_164_tot},
-                    'f165_184': {'h': f165_184_h, 'm': f165_184_f, 'total': f165_184_tot},
-                    'f185_20': {'h': f185_20_h, 'm': f185_20_f, 'total': f185_20_tot},
-                },
-                'media': media_coluna
-            }
-
-        caderneta_data = {
-            'escola': {
-                'id': str(escola.id) if escola else '',
-                'nome': escola.nome if escola else 'Escola Secundária',
-                'provincia': escola.provincia if escola else 'Maputo',
-                'distrito': escola.distrito if escola else 'Cidade de Maputo',
-            },
-            'turma': {
-                'id': str(turma.id),
-                'nome': turma.nome,
-                'grau_ano': turma.grau_ano,
-                'area': turma.area or 'Ensino Geral',
-                'turno': turma.turno or 'MANHA',
-                'sala': turma.sala or '',
-                'ano_letivo': turma.ano_letivo or '2026',
-            },
-            'disciplina': {
-                'id': str(disc.id),
-                'nome': disc.nome,
-                'codigo': disc.codigo or disc.abreviatura or '',
-            },
-            'professor': {
-                'id': str(prof.id) if prof else '',
-                'nome': prof.nome if prof else (aloc.professor_nome or 'Professor'),
-                'apelido': prof.apelido if prof else '',
-                'telefone': prof.telefone if prof else '',
-                'especialidade': prof.especialidade or prof.carreira or 'Ensino Geral',
-            },
-            'directorTurma': {
-                'nome': turma.director_turma.nome if turma.director_turma else '-'
-            },
-            'efectivo': {
-                'h': total_h,
-                'm': total_m,
-                'total': total_h + total_m
-            },
-            'alocacao': AlocacaoDocenteSerializer(aloc).data,
-            'alunos': alunos_caderneta,
-            'estatisticasColunas': estatisticas
-        }
-
+        aloc, caderneta_data, alunos_caderneta = compilar_dados_caderneta(request, alocacao_id)
         return Response({
             'success': True,
             'data': caderneta_data,
             'alocacao': AlocacaoDocenteSerializer(aloc).data,
             'alunos': alunos_caderneta
         })
+
+
+class CadernetaPDFView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, alocacao_id):
+        from apps.documentos.services.pdf_service import gerar_caderneta_pdf
+        aloc, caderneta_data, _ = compilar_dados_caderneta(request, alocacao_id)
+        orientacao = request.query_params.get('orientacao', 'landscape')
+        pdf_bytes = gerar_caderneta_pdf(caderneta_data, orientacao=orientacao)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="Caderneta_{aloc.turma.nome}_{aloc.disciplina.nome}.pdf"'
+        return response
+
+
+class CadernetaXLSXView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, alocacao_id):
+        from apps.documentos.services.excel_service import gerar_caderneta_xlsx
+        aloc, caderneta_data, _ = compilar_dados_caderneta(request, alocacao_id)
+        orientacao = request.query_params.get('orientacao', 'landscape')
+        xlsx_bytes = gerar_caderneta_xlsx(caderneta_data, orientacao=orientacao)
+        response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Caderneta_{aloc.turma.nome}_{aloc.disciplina.nome}.xlsx"'
+        return response
+
+
+class CadernetaDOCXView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, alocacao_id):
+        from apps.documentos.services.docx_service import gerar_caderneta_docx
+        aloc, caderneta_data, _ = compilar_dados_caderneta(request, alocacao_id)
+        orientacao = request.query_params.get('orientacao', 'landscape')
+        docx_bytes = gerar_caderneta_docx(caderneta_data, orientacao=orientacao)
+        response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response['Content-Disposition'] = f'attachment; filename="Caderneta_{aloc.turma.nome}_{aloc.disciplina.nome}.docx"'
+        return response
+

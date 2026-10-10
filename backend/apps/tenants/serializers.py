@@ -22,11 +22,19 @@ class EscolaSerializer(serializers.ModelSerializer):
     assinatura_ativa = serializers.SerializerMethodField()
     assinaturas = AssinaturaEscolaSerializer(many=True, read_only=True)
     _count = serializers.SerializerMethodField()
+    logo_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Escola
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        logo_val = attrs.get('logo_url')
+        if logo_val and str(logo_val).startswith('data:'):
+            attrs['logo_base64'] = logo_val
+            attrs['logo_url'] = None
+        return super().validate(attrs)
 
     def get_assinatura_ativa(self, obj):
         ass = obj.assinaturas.order_by('-data_fim').first()
@@ -53,6 +61,7 @@ class EscolaSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        data['logo_url'] = instance.logo_url or instance.logo_base64 or None
         if instance.plano:
             data['plano_id'] = str(instance.plano.id)
             data['plano'] = {
@@ -65,4 +74,5 @@ class EscolaSerializer(serializers.ModelSerializer):
             data['plano_id'] = None
             data['plano'] = None
         return data
+
 

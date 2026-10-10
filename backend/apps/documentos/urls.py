@@ -14,6 +14,8 @@ from .views import (
     CertificadoXLSXView,
     LoteImpressaoView,
     LoteXLSXView,
+    LotePDFView,
+    LoteDOCXView,
     ReciboImpressaoView,
     ReciboPDFView,
     ReciboDOCXView,
@@ -28,6 +30,11 @@ urlpatterns = [
     path('lote/turma/<uuid:turma_id>/', LoteImpressaoView.as_view(), name='impressao_lote'),
     path('lote/turma/<uuid:turma_id>/xlsx', LoteXLSXView.as_view(), name='impressao_lote_xlsx_no_slash'),
     path('lote/turma/<uuid:turma_id>/xlsx/', LoteXLSXView.as_view(), name='impressao_lote_xlsx'),
+    path('lote/turma/<uuid:turma_id>/pdf', LotePDFView.as_view(), name='impressao_lote_pdf_no_slash'),
+    path('lote/turma/<uuid:turma_id>/pdf/', LotePDFView.as_view(), name='impressao_lote_pdf'),
+    path('lote/turma/<uuid:turma_id>/docx', LoteDOCXView.as_view(), name='impressao_lote_docx_no_slash'),
+    path('lote/turma/<uuid:turma_id>/docx/', LoteDOCXView.as_view(), name='impressao_lote_docx'),
+
 
     # Boletim
     path('boletim/<uuid:aluno_id>', BoletimView.as_view(), name='impressao_boletim_no_slash'),

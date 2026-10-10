@@ -1332,3 +1332,219 @@ def gerar_estatisticas_gerais_xlsx(escola, ano_letivo, periodo, stats_data, orie
     buffer.seek(0)
     return buffer.getvalue()
 
+
+# ==================== 11. CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR (XLSX) ====================
+
+def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    escola_info = caderneta_data.get('escola') or {}
+    turma_info = caderneta_data.get('turma') or {}
+    disc_info = caderneta_data.get('disciplina') or {}
+    prof_info = caderneta_data.get('professor') or {}
+    dt_info = caderneta_data.get('directorTurma') or {}
+    ef_info = caderneta_data.get('efectivo') or {}
+    alunos = caderneta_data.get('alunos') or []
+    estatisticas = caderneta_data.get('estatisticasColunas') or {}
+
+    turma_nome = turma_info.get('nome') or 'Turma'
+    ws.title = f"Caderneta {turma_nome}"[:31]
+    configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=0)
+
+    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()
+    prov = escola_info.get('provincia') or 'Inhambane'
+    dist = escola_info.get('distrito') or 'Massinga'
+    disc_nome = (disc_info.get('nome') or 'Disciplina').upper()
+    disc_cod = disc_info.get('codigo') or disc_nome[:3]
+    ano_letivo = turma_info.get('ano_letivo') or '2026'
+    grau_ano = turma_info.get('grau_ano') or ''
+    turno = turma_info.get('turno') or 'MANHÃ'
+    sala = turma_info.get('sala') or '-'
+    ef_h = ef_info.get('h', 0)
+    ef_m = ef_info.get('m', 0)
+    ef_tot = ef_info.get('total', len(alunos))
+    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
+    prof_tel = prof_info.get('telefone') or '-'
+    dt_nome = dt_info.get('nome') or '-'
+
+    # 1. Cabeçalho Institucional (A1:AF4)
+    ws.merge_cells('A1:AF1')
+    ws['A1'] = f"REPÚBLICA DE MOÇAMBIQUE — {esc_nome} ({prov} - {dist})"
+    ws['A1'].font = FONT_SUBTITLE
+    ws['A1'].alignment = ALIGN_CENTER
+    ws.row_dimensions[1].height = 20
+
+    ws.merge_cells('A2:AF2')
+    ws['A2'] = f"CADERNETA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod}) | ANO LECTIVO: {ano_letivo}"
+    ws['A2'].font = FONT_TITLE
+    ws['A2'].alignment = ALIGN_CENTER
+    ws.row_dimensions[2].height = 24
+
+    ws.merge_cells('A3:AF3')
+    ws['A3'] = f"Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Sala: {sala} | Efectivo: H={ef_h} | M={ef_m} | HM={ef_tot}"
+    ws['A3'].font = FONT_SMALL_BOLD
+    ws['A3'].alignment = ALIGN_CENTER
+    ws.row_dimensions[3].height = 18
+
+    ws.merge_cells('A4:AF4')
+    ws['A4'] = f"Docente: {prof_nome} | Contacto: {prof_tel} | Director de Turma: {dt_nome}"
+    ws['A4'].font = FONT_SMALL
+    ws['A4'].alignment = ALIGN_CENTER
+    ws.row_dimensions[4].height = 18
+
+    # 2. Cabeçalhos das 32 colunas da Caderneta
+    headers = [
+        'Nº', 'Nome Completo', 'Apelido', 'Gén',
+        '1º 1ªACS', '1º 2ªACS', '1º 3ªACS', '1º MAP', '1º MAS', '1º AT', '1º MT', '1º Comp', '1º Obs',
+        '2º 1ªACS', '2º 2ªACS', '2º 3ªACS', '2º MAP', '2º MAS', '2º AT', '2º MT', '2º Comp', '2º Obs',
+        '3º 1ªACS', '3º 2ªACS', '3º 3ªACS', '3º MAP', '3º MAS', '3º AT', '3º MT', '3º Comp', '3º Obs',
+        'MFD'
+    ]
+    row = 6
+    ws.row_dimensions[row].height = 24
+    for col_idx, h in enumerate(headers, start=1):
+        c = ws.cell(row=row, column=col_idx, value=h)
+        c.font = FONT_HEADER_SM
+        c.fill = FILL_NAVY
+        c.alignment = ALIGN_CENTER
+        c.border = THIN_BORDER
+
+    # 3. Linhas dos Alunos
+    def fmt_nota(val):
+        if val is None or val == '' or val == '-':
+            return '-'
+        try:
+            f = float(val)
+            return round(f, 1) if f % 1 != 0 else int(f)
+        except (ValueError, TypeError):
+            return str(val)
+
+    for idx, al in enumerate(alunos, start=1):
+        row += 1
+        ws.row_dimensions[row].height = 18
+        t1 = al.get('t1') or {}
+        t2 = al.get('t2') or {}
+        t3 = al.get('t3') or {}
+        vals = [
+            al.get('numero') or idx,
+            al.get('nome') or '',
+            al.get('apelido') or '',
+            al.get('genero') or 'M',
+            fmt_nota(t1.get('t1')), fmt_nota(t1.get('t2')), fmt_nota(t1.get('t3')),
+            fmt_nota(t1.get('map')), fmt_nota(t1.get('mas')), fmt_nota(t1.get('at')), fmt_nota(t1.get('mt')),
+            t1.get('comportamento') or '', t1.get('anotacao') or '',
+            fmt_nota(t2.get('t1')), fmt_nota(t2.get('t2')), fmt_nota(t2.get('t3')),
+            fmt_nota(t2.get('map')), fmt_nota(t2.get('mas')), fmt_nota(t2.get('at')), fmt_nota(t2.get('mt')),
+            t2.get('comportamento') or '', t2.get('anotacao') or '',
+            fmt_nota(t3.get('t1')), fmt_nota(t3.get('t2')), fmt_nota(t3.get('t3')),
+            fmt_nota(t3.get('map')), fmt_nota(t3.get('mas')), fmt_nota(t3.get('at')), fmt_nota(t3.get('mt')),
+            t3.get('comportamento') or '', t3.get('anotacao') or '',
+            fmt_nota(al.get('mfd'))
+        ]
+        for col_idx, val in enumerate(vals, start=1):
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_LEFT if col_idx in (2, 3, 13, 22, 31) else ALIGN_CENTER
+            if col_idx in (11, 20, 29, 32):
+                if isinstance(val, (int, float)):
+                    c.font = FONT_SUCCESS_SM if val >= 9.5 else FONT_DANGER_SM
+                else:
+                    c.font = FONT_TINY_BOLD
+                c.fill = FILL_LIGHT
+            else:
+                c.font = FONT_TINY
+
+    # 4. Linhas Estatísticas da Caderneta
+    col_stat_map = {
+        5: 't1_t1', 6: 't1_t2', 7: 't1_t3', 8: 't1_map', 9: 't1_mas', 10: 't1_at', 11: 't1_mt',
+        14: 't2_t1', 15: 't2_t2', 16: 't2_t3', 17: 't2_map', 18: 't2_mas', 19: 't2_at', 20: 't2_mt',
+        23: 't3_t1', 24: 't3_t2', 25: 't3_t3', 26: 't3_map', 27: 't3_mas', 28: 't3_at', 29: 't3_mt',
+        32: 'mfd'
+    }
+
+    blocos_estatisticos = [
+        ('Avaliados', 'avaliados', False, None),
+        ('Positivos', 'positivas', False, None),
+        ('% Positivas', 'positivas', True, None),
+        ('Negativos', 'negativas', False, None),
+        ('% Negativas', 'negativas', True, None),
+        ('Notas [0 - 9.4]', 'faixas', False, 'f0_94'),
+        ('Notas [9.5 - 13.4]', 'faixas', False, 'f95_134'),
+        ('Notas [13.5 - 16.4]', 'faixas', False, 'f135_164'),
+        ('Notas [16.5 - 18.4]', 'faixas', False, 'f165_184'),
+        ('Notas [18.5 - 20]', 'faixas', False, 'f185_20'),
+    ]
+
+    for label, prop_key, is_pct, sub_faixa in blocos_estatisticos:
+        for gen_label, gen_key in [('H', 'h'), ('M', 'm'), ('HM', 'total')]:
+            row += 1
+            ws.row_dimensions[row].height = 16
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+            ws.cell(row=row, column=1, value=label if gen_label == 'H' else '')
+            ws.cell(row=row, column=4, value=gen_label)
+
+            fill_r = FILL_ROW_HM if gen_label == 'HM' else None
+            font_r = FONT_TINY_BOLD if gen_label == 'HM' else FONT_TINY
+            aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=fill_r, border=THIN_BORDER, alignment=ALIGN_LEFT)
+            aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_r, fill=fill_r, border=THIN_BORDER, alignment=ALIGN_CENTER)
+
+            for col_idx in range(5, 33):
+                s_key = col_stat_map.get(col_idx)
+                val_cel = ''
+                if s_key and s_key in estatisticas:
+                    st_col = estatisticas[s_key]
+                    if sub_faixa:
+                        bloco = (st_col.get('faixas') or {}).get(sub_faixa) or {}
+                        val_cel = bloco.get(gen_key, 0)
+                    elif is_pct:
+                        bloco = st_col.get(prop_key) or {}
+                        pct_k = 'pctH' if gen_label == 'H' else ('pctM' if gen_label == 'M' else 'pct')
+                        val_cel = f"{bloco.get(pct_k, 0)}%"
+                    else:
+                        bloco = st_col.get(prop_key) or {}
+                        val_cel = bloco.get(gen_key, 0)
+                c = ws.cell(row=row, column=col_idx, value=val_cel)
+                c.font = font_r
+                if fill_r:
+                    c.fill = fill_r
+                c.border = THIN_BORDER
+                c.alignment = ALIGN_CENTER
+
+    # Linha final: Média da Coluna
+    row += 1
+    ws.row_dimensions[row].height = 18
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+    ws.cell(row=row, column=1, value='Média da Coluna')
+    ws.cell(row=row, column=4, value='HM')
+    aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=FILL_ROW_HM, border=THIN_BORDER, alignment=ALIGN_LEFT)
+    aplicar_estilo_intervalo(ws, 4, row, 4, row, font=FONT_TINY_BOLD, fill=FILL_ROW_HM, border=THIN_BORDER, alignment=ALIGN_CENTER)
+    for col_idx in range(5, 33):
+        s_key = col_stat_map.get(col_idx)
+        val_cel = ''
+        if s_key and s_key in estatisticas:
+            val_cel = estatisticas[s_key].get('media', 0)
+        c = ws.cell(row=row, column=col_idx, value=val_cel)
+        c.font = FONT_TINY_BOLD
+        c.fill = FILL_ROW_HM
+        c.border = THIN_BORDER
+        c.alignment = ALIGN_CENTER
+
+    # Ajustar larguras de coluna
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 24
+    ws.column_dimensions['C'].width = 16
+    ws.column_dimensions['D'].width = 5.5
+    for c_idx in range(5, 33):
+        col_letter = get_column_letter(c_idx)
+        if c_idx in (13, 22, 31):
+            ws.column_dimensions[col_letter].width = 12
+        else:
+            ws.column_dimensions[col_letter].width = 7.5
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+

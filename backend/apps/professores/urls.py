@@ -6,7 +6,10 @@ from .views import (
     ProfessorStatsView,
     MinhasTurmasView,
     MeuPerfilView,
-    CadernetaCompletaView
+    CadernetaCompletaView,
+    CadernetaPDFView,
+    CadernetaXLSXView,
+    CadernetaDOCXView,
 )
 
 router = OptionalSlashRouter()
@@ -25,5 +28,12 @@ urlpatterns = [
     path('alocar/<uuid:alocacao_id>/', AlocarProfessorView.as_view(), name='professores_dealocar'),
     path('caderneta/<uuid:alocacao_id>/completa', CadernetaCompletaView.as_view(), name='caderneta_completa_no_slash'),
     path('caderneta/<uuid:alocacao_id>/completa/', CadernetaCompletaView.as_view(), name='caderneta_completa'),
+    path('caderneta/<uuid:alocacao_id>/pdf', CadernetaPDFView.as_view(), name='caderneta_pdf_no_slash'),
+    path('caderneta/<uuid:alocacao_id>/pdf/', CadernetaPDFView.as_view(), name='caderneta_pdf'),
+    path('caderneta/<uuid:alocacao_id>/xlsx', CadernetaXLSXView.as_view(), name='caderneta_xlsx_no_slash'),
+    path('caderneta/<uuid:alocacao_id>/xlsx/', CadernetaXLSXView.as_view(), name='caderneta_xlsx'),
+    path('caderneta/<uuid:alocacao_id>/docx', CadernetaDOCXView.as_view(), name='caderneta_docx_no_slash'),
+    path('caderneta/<uuid:alocacao_id>/docx/', CadernetaDOCXView.as_view(), name='caderneta_docx'),
     path('', include(router.urls)),
 ]
+

@@ -21,6 +21,7 @@ class MaterialEscolar(models.Model):
         ('LIVRO', 'Livro Didático'),
         ('EXERCICIOS', 'Caderno de Exercícios'),
         ('GUIA', 'Guia do Professor'),
+        ('APOSTILA', 'Apostila / Resumo'),
         ('OUTRO', 'Outro Recurso'),
     ]
     tipo = models.CharField(max_length=50, choices=TIPO_CHOICES, default='MANUAL')

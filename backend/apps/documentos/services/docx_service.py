@@ -1266,3 +1266,159 @@ def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
     doc.save(buffer)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+# ==================== 8. CADERNETA DO PROFESSOR (DOCX HORIZONTAL) ====================
+
+def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.35)
+
+    escola_info = caderneta_data.get('escola') or {}
+    turma_info = caderneta_data.get('turma') or {}
+    disc_info = caderneta_data.get('disciplina') or {}
+    prof_info = caderneta_data.get('professor') or {}
+    dt_info = caderneta_data.get('directorTurma') or {}
+    ef_info = caderneta_data.get('efectivo') or {}
+    alunos = caderneta_data.get('alunos') or []
+
+    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()
+    disc_nome = (disc_info.get('nome') or 'Disciplina').upper()
+    disc_cod = disc_info.get('codigo') or disc_nome[:3]
+    ano_letivo = turma_info.get('ano_letivo') or '2026'
+    turma_nome = turma_info.get('nome') or 'Turma'
+    grau_ano = turma_info.get('grau_ano') or ''
+    turno = turma_info.get('turno') or 'MANHÃ'
+    ef_h = ef_info.get('h', 0)
+    ef_m = ef_info.get('m', 0)
+    ef_tot = ef_info.get('total', len(alunos))
+    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
+    dt_nome = dt_info.get('nome') or '-'
+
+    p1 = doc.add_paragraph()
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.space_after = Pt(2)
+    r1 = p1.add_run(f"REPÚBLICA DE MOÇAMBIQUE — {esc_nome}")
+    aplicar_fonte_times(r1, pt_size=11, bold=True)
+
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_after = Pt(2)
+    r2 = p2.add_run(f"CADERNETA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod}) | ANO LECTIVO: {ano_letivo}")
+    aplicar_fonte_times(r2, pt_size=10.5, bold=True)
+
+    p3 = doc.add_paragraph()
+    p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p3.paragraph_format.space_after = Pt(6)
+    r3 = p3.add_run(
+        f"Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Efectivo: H={ef_h}, M={ef_m}, HM={ef_tot} | Docente: {prof_nome} | DT: {dt_nome}"
+    )
+    aplicar_fonte_times(r3, pt_size=8.5)
+
+    headers = [
+        'Nº', 'Nome Completo', 'Gén',
+        '1º 1A', '1º 2A', '1º 3A', '1º AT', '1º MT',
+        '2º 1A', '2º 2A', '2º 3A', '2º AT', '2º MT',
+        '3º 1A', '3º 2A', '3º 3A', '3º AT', '3º MT',
+        'MFD'
+    ]
+    t = doc.add_table(rows=1, cols=len(headers))
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t.style = 'Table Grid'
+    aplicar_cant_split_tabela(t)
+
+    for c_i, h in enumerate(headers):
+        p = t.rows[0].cells[c_i].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(h)
+        aplicar_fonte_times(r, pt_size=7.0, bold=True)
+        set_cell_shading(t.rows[0].cells[c_i], '1E3A8A')
+        r.font.color.rgb = RGBColor(0xff, 0xff, 0xff)
+
+    def fmt_n(val):
+        if val is None or val == '' or val == '-':
+            return '-'
+        try:
+            f = float(val)
+            return str(round(f, 1) if f % 1 != 0 else int(f))
+        except (ValueError, TypeError):
+            return str(val)
+
+    for idx, al in enumerate(alunos, start=1):
+        row = t.add_row()
+        t1 = al.get('t1') or {}
+        t2 = al.get('t2') or {}
+        t3 = al.get('t3') or {}
+        nome_c = f"{al.get('nome') or ''} {al.get('apelido') or ''}".strip()
+        vals = [
+            str(al.get('numero') or idx),
+            nome_c,
+            str(al.get('genero') or 'M'),
+            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')),
+            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')),
+            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')),
+            fmt_n(al.get('mfd'))
+        ]
+        for c_i, v in enumerate(vals):
+            p = row.cells[c_i].paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 1 else WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(v)
+            aplicar_fonte_times(r, pt_size=7.0, bold=(c_i in (7, 12, 17, 18)))
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+# ==================== 9. EMISSÃO EM LOTE DA TURMA (DOCX) ====================
+
+def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+
+    p1 = doc.add_paragraph()
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.space_after = Pt(2)
+    r1 = p1.add_run(f"REPÚBLICA DE MOÇAMBIQUE — {escola.nome.upper()}")
+    aplicar_fonte_times(r1, pt_size=12, bold=True)
+
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_after = Pt(8)
+    r2 = p2.add_run(f"MAPA DE EMISSÃO EM LOTE ({tipo_documento.upper()}) — TURMA {turma.nome} ({turma.grau_ano})")
+    aplicar_fonte_times(r2, pt_size=11, bold=True)
+
+    headers = ['Nº', 'Nome Completo do Aluno', 'Matrícula', 'Média Global', 'Situação Pedagógica']
+    t = doc.add_table(rows=1, cols=len(headers))
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t.style = 'Table Grid'
+    aplicar_cant_split_tabela(t)
+
+    for c_i, h in enumerate(headers):
+        p = t.rows[0].cells[c_i].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(h)
+        aplicar_fonte_times(r, pt_size=9.5, bold=True)
+        set_cell_shading(t.rows[0].cells[c_i], '1E3A8A')
+        r.font.color.rgb = RGBColor(0xff, 0xff, 0xff)
+
+    for idx, doc_item in enumerate(alunos_documentos, start=1):
+        row = t.add_row()
+        al_info = doc_item.get('aluno') or {}
+        nome = al_info.get('nomeCompleto') or al_info.get('nome') or 'Aluno'
+        mat = al_info.get('matricula') or '-'
+        med = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
+        sit = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        vals = [str(idx), str(nome), str(mat), str(med), str(sit)]
+        for c_i, v in enumerate(vals):
+            p = row.cells[c_i].paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 1 else WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(v)
+            aplicar_fonte_times(r, pt_size=9.0, bold=(c_i in (3, 4)))
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+

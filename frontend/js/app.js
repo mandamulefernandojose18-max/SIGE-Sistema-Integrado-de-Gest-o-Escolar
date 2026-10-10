@@ -471,20 +471,46 @@ async function apiFetch(endpoint, options = {}) {
   }
 }
 
-// Download de Ficheiros Binários (Excel XLSX / PDF) com ArrayBuffer e MIME estrito
+// Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh de Token e MIME estrito
 async function downloadFicheiroBinario(url, defaultFilename) {
   try {
-    const headers = {};
-    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
-    const superAdminEscolaId = localStorage.getItem('sige_selected_tenant');
-    if (superAdminEscolaId && state.user?.role === 'SUPERADMIN') {
-      headers['X-Tenant-ID'] = superAdminEscolaId;
+    const montarHeaders = () => {
+      const h = {};
+      if (state.token) h['Authorization'] = `Bearer ${state.token}`;
+      const superAdminEscolaId = localStorage.getItem('sige_selected_tenant');
+      if (superAdminEscolaId && state.user?.role === 'SUPERADMIN') {
+        h['X-Tenant-ID'] = superAdminEscolaId;
+      }
+      return h;
+    };
+
+    const fullUrl = formatarUrlApi(url);
+    let res = await fetch(fullUrl, { headers: montarHeaders() });
+
+    if (res.status === 401) {
+      const refresh = state.refreshToken || localStorage.getItem('sige_refresh');
+      if (refresh) {
+        const refreshRes = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: refresh, refresh })
+        }).catch(() => null);
+        if (refreshRes && refreshRes.ok) {
+          const rData = await refreshRes.json().catch(() => ({}));
+          const newToken = rData.token || rData.access || rData.data?.token;
+          if (newToken) {
+            state.token = newToken;
+            localStorage.setItem('sige_token', newToken);
+            res = await fetch(fullUrl, { headers: montarHeaders() });
+          }
+        }
+      }
     }
 
-    const res = await fetch(formatarUrlApi(url), { headers });
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.message || 'Falha ao descarregar documento');
+      const msg = errJson.message || errJson.detail || errJson.error || `Falha ao descarregar documento (HTTP ${res.status})`;
+      throw new Error(msg);
     }
 
     const disposition = res.headers.get('content-disposition');
@@ -8595,28 +8621,25 @@ async function descarregarPdfCentral() {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf?orientacao=${orientacao}`, `Boletim_${alunoId}.pdf`);
     } else {
-      const preview = document.getElementById('printAreaPreview');
-      if (preview && preview.style.display !== 'none') {
-        await exportarElementoParaPdf(preview, `Boletins_Turma_${turmaId}.pdf`, orientacao);
-      } else {
-        alert('Selecione um aluno individual para emitir o Boletim oficial em PDF.');
-      }
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf?orientacao=${orientacao}`, `Declaracao_${alunoId}.pdf`);
     } else {
-      alert('Selecione um aluno individual para emitir a Declaração em PDF.');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf?orientacao=${orientacao}`, `Certificado_${alunoId}.pdf`);
     } else {
-      alert('Selecione um aluno individual para emitir o Certificado em PDF.');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.pdf`);
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf?orientacao=${orientacao}`, `Recibo_${alunoId}.pdf`);
+    } else if (turmaId) {
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.pdf`);
     } else {
       alert('Selecione o aluno/pagamento para emitir o Recibo em PDF.');
     }
@@ -8624,7 +8647,7 @@ async function descarregarPdfCentral() {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, `Ficha_${alunoId}.pdf`);
     } else {
-      alert('Selecione um aluno individual para emitir a Ficha Biográfica em PDF.');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.pdf`);
     }
   } else {
     const preview = document.getElementById('printAreaPreview');
@@ -8652,23 +8675,25 @@ function descarregarDocxCentral() {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx?orientacao=${orientacao}`, `Boletim_${alunoId}.docx`);
     } else {
-      alert('Selecione um aluno individual para descarregar o Boletim em Word (DOCX).');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx?orientacao=${orientacao}`, `Declaracao_${alunoId}.docx`);
     } else {
-      alert('Selecione um aluno individual para descarregar a Declaração em Word (DOCX).');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx?orientacao=${orientacao}`, `Certificado_${alunoId}.docx`);
     } else {
-      alert('Selecione um aluno individual para descarregar o Certificado em Word (DOCX).');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.docx`);
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx?orientacao=${orientacao}`, `Recibo_${alunoId}.docx`);
+    } else if (turmaId) {
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.docx`);
     } else {
       alert('Selecione o aluno/pagamento para descarregar o Recibo em Word (DOCX).');
     }
@@ -8676,7 +8701,7 @@ function descarregarDocxCentral() {
     if (alunoId && alunoId !== 'TODOS') {
       downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/docx?orientacao=${orientacao}`, `Ficha_${alunoId}.docx`);
     } else {
-      alert('Selecione um aluno individual para descarregar a Ficha em Word (DOCX).');
+      downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.docx`);
     }
   } else {
     alert('Documento Word não disponível para este tipo.');
@@ -8713,6 +8738,8 @@ function descarregarXlsxCentral() {
     } else {
       downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.xlsx`);
     }
+  } else if (tipo === 'FICHA' || tipo === 'RECIBO') {
+    downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=${tipo}&orientacao=${orientacao}`, `${tipo}_Turma_${turmaId}.xlsx`);
   } else {
     exportarPautaGeralExcel(turmaId, '2026', orientacao);
   }

@@ -23,14 +23,20 @@ from .services import (
     CURRICULO_REGRAS_AREAS,
 )
 
-def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026'):
+def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefetched=None, notas_prefetched=None):
     # Buscar única e estritamente as disciplinas daquela área ou secção da turma
     disciplinas = obter_disciplinas_pauta_turma(turma)
 
     # Obter todas as notas da turma (1_TRIMESTRE, 2_TRIMESTRE, 3_TRIMESTRE) para histórico completo
-    todas_notas_qs = list(Nota.objects.filter(turma=turma).select_related('disciplina'))
+    if notas_prefetched is not None:
+        todas_notas_qs = notas_prefetched
+    else:
+        todas_notas_qs = list(Nota.objects.filter(turma=turma).select_related('disciplina'))
 
-    alunos = list(Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome', 'apelido'))
+    if alunos_prefetched is not None:
+        alunos = alunos_prefetched
+    else:
+        alunos = list(Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome', 'apelido'))
 
     # Mapa de notas: (aluno_id, disc_id, periodo) e (aluno_id, disc_nome, periodo)
     notas_map = {}
@@ -684,6 +690,16 @@ def compilar_estatisticas_gerais_escola(escola, ano_letivo='2026', periodo='GLOB
         turmas_qs = turmas_qs.filter(escola=escola)
     turmas = list(turmas_qs.select_related('director_turma', 'escola').order_by('grau_ano', 'nome'))
 
+    todos_alunos = list(Aluno.objects.filter(turma__in=turmas, status='ATIVO').order_by('nome', 'apelido'))
+    alunos_por_turma = {}
+    for al in todos_alunos:
+        alunos_por_turma.setdefault(al.turma_id, []).append(al)
+
+    todas_notas_escola = list(Nota.objects.filter(turma__in=turmas).select_related('disciplina'))
+    notas_por_turma = {}
+    for nt in todas_notas_escola:
+        notas_por_turma.setdefault(nt.turma_id, []).append(nt)
+
     por_turma = []
     turmas_por_classe = {}
     disciplinas_stats = {}
@@ -698,7 +714,13 @@ def compilar_estatisticas_gerais_escola(escola, ano_letivo='2026', periodo='GLOB
     geral_reprovados_m = 0
 
     for turma in turmas:
-        dados = consolidar_dados_turma(turma, periodo=periodo_norm, ano_letivo=ano_letivo)
+        dados = consolidar_dados_turma(
+            turma,
+            periodo=periodo_norm,
+            ano_letivo=ano_letivo,
+            alunos_prefetched=alunos_por_turma.get(turma.id, []),
+            notas_prefetched=notas_por_turma.get(turma.id, [])
+        )
         alunos_t = dados['dados_alunos']
         disciplinas_t = dados['disciplinas']
 
