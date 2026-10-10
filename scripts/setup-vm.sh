@@ -113,8 +113,8 @@ DEBUG=False
 # Hosts permitidos (inclui o IP da VM)
 ALLOWED_HOSTS=${VM_IP},localhost,127.0.0.1
 
-# PostgreSQL
-DATABASE_URL=postgresql://sige_user:sige_secure_pass_2026@postgres:5432/sige_db
+# PostgreSQL (Supabase em Produção)
+DATABASE_URL=postgresql://postgres:Deusamo8Mandamule@db.pkokhrdsffwqsmscirrl.supabase.co:5432/postgres
 POSTGRES_DB=sige_db
 POSTGRES_USER=sige_user
 POSTGRES_PASSWORD=sige_secure_pass_2026
