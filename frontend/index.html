@@ -101,23 +101,70 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      transition: margin-left 0.3s ease;
+      max-width: calc(100vw - var(--sidebar-width));
     }
     .topbar {
-      height: 68px;
+      min-height: 68px;
+      height: auto;
       background: #fff;
       border-bottom: 1px solid #e2e8f0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
+      padding: 8px 24px;
       position: sticky;
       top: 0;
       z-index: 90;
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .content-area {
       padding: 24px;
       flex: 1;
       position: relative;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+    #sidebarMobileBackdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(2px);
+      z-index: 1040;
+    }
+    @media (max-width: 991.98px) {
+      #sidebar {
+        transform: translateX(-100%);
+        z-index: 1050;
+        width: 270px;
+        max-width: 82vw;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+      }
+      body.sidebar-mobile-open #sidebar {
+        transform: translateX(0);
+      }
+      body.sidebar-mobile-open #sidebarMobileBackdrop {
+        display: block;
+      }
+      #main-wrapper {
+        margin-left: 0 !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+      }
+      .topbar {
+        padding: 8px 12px;
+      }
+      .content-area {
+        padding: 12px;
+      }
+      #pageTitle {
+        font-size: 0.98rem !important;
+      }
+      #subPageTitle, #headerAnoLetivo {
+        display: none !important;
+      }
     }
     /* Marca de Água Oficial SIGE no Sistema (Visível e Não Invasiva) */
     .marca-dagua-sistema {
@@ -623,15 +670,21 @@
 
 <!-- APLICAÇÃO PRINCIPAL (Autenticada) -->
 <div id="appView" style="display: flex;">
+  <div id="sidebarMobileBackdrop" onclick="fecharSidebarMobile()"></div>
 
   <!-- Sidebar Lateral -->
   <aside id="sidebar">
-    <div class="brand">
-      <img src="/img/logo-sige.png" alt="SIGE" class="rounded shadow-sm" style="width: 36px; height: 36px; object-fit: contain;">
-      <div style="line-height: 1.2;">
-        <span class="text-white d-block fw-bold" style="font-size: 0.95rem;">SIGE</span>
-        <small class="text-muted" style="font-size: 0.7rem;">Gestão Escolar Integrada</small>
+    <div class="brand justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <img src="/img/logo-sige.png" alt="SIGE" class="rounded shadow-sm" style="width: 36px; height: 36px; object-fit: contain;">
+        <div style="line-height: 1.2;">
+          <span class="text-white d-block fw-bold" style="font-size: 0.95rem;">SIGE</span>
+          <small class="text-muted" style="font-size: 0.7rem;">Gestão Escolar Integrada</small>
+        </div>
       </div>
+      <button type="button" class="btn btn-sm btn-outline-light d-lg-none border-0 px-2 py-1" onclick="fecharSidebarMobile()" aria-label="Fechar Menu">
+        <i class="bi bi-x-lg"></i>
+      </button>
     </div>
 
     <!-- Tenant Card / Escola Ativa -->
@@ -757,7 +810,10 @@
   <div id="main-wrapper">
     <!-- Topbar Oficial -->
     <header class="topbar">
-      <div class="d-flex align-items-center gap-3">
+      <div class="d-flex align-items-center gap-2 gap-md-3">
+        <button type="button" id="btnMobileMenu" class="btn btn-outline-primary d-lg-none px-2 py-1" onclick="alternarSidebarMobile()" aria-label="Abrir Menu">
+          <i class="bi bi-list fs-4"></i>
+        </button>
         <img src="/img/logo-sige.png" alt="SIGE" class="d-none d-sm-block shadow-sm" style="width: 38px; height: 38px; object-fit: contain; border-radius: 8px;">
         <div>
           <h5 id="pageTitle" class="mb-0 fw-bold text-dark">Sistema Integrado de Gestão Escolar</h5>
@@ -2926,8 +2982,8 @@
 
 <!-- SCRIPTS DO FRONTEND SPA -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/config.js?v=20261010_0938"></script>
+<script src="/js/config.js?v=20261010_2110"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
-<script src="/js/app.js?v=20261010_0938"></script>
+<script src="/js/app.js?v=20261010_2110"></script>
 </body>
 </html>

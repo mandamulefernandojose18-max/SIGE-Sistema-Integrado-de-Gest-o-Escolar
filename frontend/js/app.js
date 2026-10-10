@@ -327,7 +327,7 @@ function filtrarAlunosCaderneta() {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js?v=20261005_07').then((reg) => {
+    navigator.serviceWorker.register('/service-worker.js?v=20261010_2110').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -1097,8 +1097,20 @@ function sairModoInspecaoSuperAdmin() {
   navegarPara('saas');
 }
 
-// ==================== NAVEGAÇÃO ENTRE MÓDULOS ====================
+// ==================== NAVEGAÇÃO ENTRE MÓDULOS & MENU MOBILE ====================
+function alternarSidebarMobile() {
+  document.body.classList.toggle('sidebar-mobile-open');
+}
+
+function fecharSidebarMobile() {
+  document.body.classList.remove('sidebar-mobile-open');
+}
+
+window.alternarSidebarMobile = alternarSidebarMobile;
+window.fecharSidebarMobile = fecharSidebarMobile;
+
 function navegarPara(viewId) {
+  fecharSidebarMobile();
   if (viewId === 'professor-perfil') carregarPerfilDocenteIndividual();
   if (viewId === 'usuarios-senhas') carregarCofreUsuarios();
   if (state.user?.role === 'ALUNO') {
@@ -1112,6 +1124,7 @@ function navegarPara(viewId) {
 
   const viewEl = document.getElementById(`view-${viewId}`);
   if (viewEl) viewEl.style.display = 'block';
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
 
   // Marcar link como ativo
   const link = document.getElementById(`nav-${viewId}`) || Array.from(document.querySelectorAll('#sidebar .nav-link')).find(a =>
