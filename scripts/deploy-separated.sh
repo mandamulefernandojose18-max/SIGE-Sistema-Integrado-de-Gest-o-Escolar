@@ -66,7 +66,7 @@ done
 docker compose exec -T backend python manage.py collectstatic --noinput >/dev/null 2>&1 || true
 
 # Health check isolado da API
-for i in $(seq 1 10); do
+for i in $(seq 1 30); do
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health/ || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
         API_OK=true
@@ -82,7 +82,10 @@ done
 # 3. DEPLOY ISOLADO DA WEB (Frontend SPA / Nginx com HTTPS Let's Encrypt)
 # ------------------------------------------------------------------------------
 log_info "[3/5] === INICIANDO DEPLOY SEPARADO: WEB (FRONTEND HTTPS) ==="
-SSL_DOMAIN="sige.$(echo "${VM_IP}" | tr '.' '-').sslip.io"
+DUCKDNS_TOKEN="1b67494d-fda0-411c-bf42-580288317db0"
+DUCKDNS_SUBDOMAIN="sigesaas"
+SSL_DOMAIN="${DUCKDNS_SUBDOMAIN}.duckdns.org"
+curl -sk "https://www.duckdns.org/update?domains=${DUCKDNS_SUBDOMAIN},sigesass&token=${DUCKDNS_TOKEN}&ip=${VM_IP}" >/dev/null 2>&1 || true
 mkdir -p "${PROJECT_DIR}/certs"
 
 # Garante que o certificado SSL existe antes de subir o Nginx em 443

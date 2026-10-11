@@ -2,31 +2,15 @@ import uuid
 import datetime
 from django.db import models
 
-def gerar_proxima_matricula(escola=None, ano_ingresso=None):
-    if ano_ingresso and str(ano_ingresso).strip().isdigit():
-        ano = int(str(ano_ingresso).strip())
-    elif escola and hasattr(escola, 'ano_letivo_ativo') and escola.ano_letivo_ativo and str(escola.ano_letivo_ativo).strip().isdigit():
-        ano = int(str(escola.ano_letivo_ativo).strip())
-    else:
-        ano = datetime.date.today().year
-
-    prefixo = str(ano)
-    qs = Aluno.objects.filter(matricula__startswith=prefixo)
-    ultimo = qs.order_by('-matricula').first()
-    if ultimo and ultimo.matricula and ultimo.matricula.isdigit():
-        try:
-            proximo = int(ultimo.matricula) + 1
-            cand = str(proximo)
-            if not Aluno.objects.filter(matricula=cand).exists():
-                return cand
-        except (ValueError, TypeError):
-            pass
-    count = qs.count() + 1
-    cand = f"{ano}{count:03d}"
-    while Aluno.objects.filter(matricula=cand).exists():
-        count += 1
-        cand = f"{ano}{count:03d}"
-    return cand
+def gerar_proxima_matricula(escola=None, ano_ingresso=None, classe=None, turma=None, area=None):
+    from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
+    return gerar_codigo_aluno_oficial(
+        escola=escola,
+        classe=classe,
+        turma=turma,
+        ano=ano_ingresso,
+        area=area,
+    )
 
 class Aluno(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -35,7 +19,7 @@ class Aluno(models.Model):
     classe = models.CharField(max_length=50, blank=True, null=True)  # ex: 10ª Classe
     area = models.CharField(max_length=50, default='Geral', blank=True, null=True)  # ex: Geral, Ciências, Letras
     ano_ingresso = models.CharField(max_length=10, default='2026', blank=True, null=True)
-    matricula = models.CharField(max_length=50, unique=True)
+    matricula = models.CharField(max_length=80, db_index=True)  # ex: 0101S0001.12.01.2026.cg
     nome = models.CharField(max_length=255)
     apelido = models.CharField(max_length=100, blank=True, null=True)
     data_nascimento = models.DateField()
@@ -82,8 +66,7 @@ class Aluno(models.Model):
                 self.ano_ingresso = self.escola.ano_letivo_ativo
             else:
                 self.ano_ingresso = str(datetime.date.today().year)
-        if not self.matricula:
-            self.matricula = gerar_proxima_matricula(self.escola, self.ano_ingresso)
+
         if self.turma and getattr(self.turma, 'grau_ano', None):
             self.classe = self.turma.grau_ano
 
@@ -103,8 +86,49 @@ class Aluno(models.Model):
                     self.area = disc_area or 'Ciências com Geografia'
                 else:
                     self.area = 'Ensino Geral'
+
+        # O Código do Aluno depende sempre da Escola + Classe + Turma + Ano + Área/Secção (ex: 0101S0001.12.01.2026.cg)
+        from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
+        self.matricula = gerar_codigo_aluno_oficial(
+            escola=self.escola,
+            classe=self.classe,
+            turma=self.turma,
+            ano=self.ano_ingresso,
+            area=self.area,
+        )
+
         self.full_clean()
         super().save(*args, **kwargs)
+
+        # Sincronizar conta de acesso (Usuario) do aluno com o código oficial
+        try:
+            from apps.accounts.models import Usuario
+            nome_completo = f"{self.nome} {self.apelido or ''}".strip()
+            u = Usuario.objects.filter(aluno_id=self.id).first()
+            if not u:
+                email_cand = f"aluno.{str(self.id)[:8].lower()}@sige.edu.mz"
+                Usuario.objects.create_user(
+                    email=email_cand,
+                    password='123456',
+                    nome=nome_completo,
+                    role='ALUNO',
+                    escola=self.escola,
+                    telefone=self.contato_responsavel or '',
+                    aluno_id=self.id,
+                    codigo_acesso=self.matricula,
+                )
+            else:
+                changed = False
+                if u.codigo_acesso != self.matricula:
+                    u.codigo_acesso = self.matricula
+                    changed = True
+                if u.escola_id != self.escola_id:
+                    u.escola = self.escola
+                    changed = True
+                if changed:
+                    u.save()
+        except Exception:
+            pass
 
     def __str__(self):
         return f"{self.nome} ({self.matricula})"

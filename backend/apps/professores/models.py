@@ -5,6 +5,7 @@ from django.core.validators import MinValueValidator
 class Professor(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='professores')
+    codigo = models.CharField(max_length=50, blank=True, null=True, db_index=True)  # Código fixo (ex: PR0101S0001.001)
     nome = models.CharField(max_length=255)
     apelido = models.CharField(max_length=100, blank=True, null=True)
     genero = models.CharField(max_length=10, default='M')
@@ -31,10 +32,57 @@ class Professor(models.Model):
         indexes = [
             models.Index(fields=['escola']),
             models.Index(fields=['email']),
+            models.Index(fields=['codigo']),
         ]
 
+    def save(self, *args, **kwargs):
+        # O código do Professor é FIXO: só é gerado uma única vez no registo (ou se estiver vazio)
+        if not self.codigo:
+            from common.utils.geografia_mocambique import gerar_codigo_fixo_professor
+            self.codigo = gerar_codigo_fixo_professor(self.escola, exclude_prof_id=self.id)
+        super().save(*args, **kwargs)
+
+        # Sincronizar conta de acesso (Usuario) com o código fixo do professor
+        try:
+            from apps.accounts.models import Usuario
+            nome_completo = f"{self.nome} {self.apelido or ''}".strip()
+            u = (
+                Usuario.objects.filter(professor_id=self.id).first()
+                or (Usuario.objects.filter(email__iexact=self.email).first() if self.email else None)
+            )
+            if not u:
+                email_cand = (self.email or '').strip().lower()
+                if not email_cand or Usuario.objects.filter(email__iexact=email_cand).exists():
+                    slug_c = (self.codigo or str(self.id)[:8]).lower().replace('.', '_')
+                    email_cand = f"{slug_c}@sige.edu.mz"
+                Usuario.objects.create_user(
+                    email=email_cand,
+                    password='123456',
+                    nome=nome_completo,
+                    role='PROFESSOR',
+                    escola=self.escola,
+                    telefone=self.telefone or '',
+                    professor_id=self.id,
+                    codigo_acesso=self.codigo,
+                )
+            else:
+                changed = False
+                if u.professor_id != self.id:
+                    u.professor_id = self.id
+                    changed = True
+                if u.codigo_acesso != self.codigo:
+                    u.codigo_acesso = self.codigo
+                    changed = True
+                if u.escola_id != self.escola_id:
+                    u.escola = self.escola
+                    changed = True
+                if changed:
+                    u.save()
+        except Exception:
+            pass
+
     def __str__(self):
-        return f"{self.nome} ({self.especialidade})"
+        return f"{self.nome} [{self.codigo or self.especialidade}]"
 
 class AlocacaoDocente(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

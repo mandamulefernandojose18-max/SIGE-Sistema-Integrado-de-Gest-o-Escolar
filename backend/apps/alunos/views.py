@@ -89,13 +89,18 @@ class AlunoViewSet(viewsets.ModelViewSet):
             '2026'
         )
 
-        matricula = serializer.validated_data.get('matricula')
-        if not matricula:
-            from .models import gerar_proxima_matricula
-            matricula = gerar_proxima_matricula(escola=escola, ano_ingresso=ano_ingresso)
-            serializer.save(escola=escola, matricula=matricula, ano_ingresso=ano_ingresso)
-        else:
-            serializer.save(escola=escola, ano_ingresso=ano_ingresso)
+        from .models import gerar_proxima_matricula
+        turma = serializer.validated_data.get('turma')
+        classe = serializer.validated_data.get('classe') or (turma.grau_ano if turma else None)
+        area = serializer.validated_data.get('area') or (turma.area if turma else None)
+        matricula = gerar_proxima_matricula(
+            escola=escola,
+            ano_ingresso=ano_ingresso,
+            classe=classe,
+            turma=turma,
+            area=area,
+        )
+        serializer.save(escola=escola, matricula=matricula, ano_ingresso=ano_ingresso)
 
     def list(self, request, *args, **kwargs):
         # Suporte a paginação e resposta compatível

@@ -46,10 +46,6 @@ class AlunoSerializer(serializers.ModelSerializer):
             validated_data['ano_ingresso'] = turma.ano_letivo
             ano_ingresso = turma.ano_letivo
 
-        if not validated_data.get('matricula'):
-            escola = validated_data.get('escola')
-            validated_data['matricula'] = gerar_proxima_matricula(escola=escola, ano_ingresso=ano_ingresso)
-
         if turma:
             if getattr(turma, 'grau_ano', None):
                 validated_data['classe'] = turma.grau_ano
@@ -57,11 +53,19 @@ class AlunoSerializer(serializers.ModelSerializer):
             if not area_in or str(area_in).strip().lower() in ['', 'geral', 'ensino geral', 'tronco comum', 'none']:
                 if getattr(turma, 'area', None) and str(turma.area).strip().lower() not in ['', 'geral', 'ensino geral']:
                     validated_data['area'] = turma.area
+
+        escola = validated_data.get('escola')
+        validated_data['matricula'] = gerar_proxima_matricula(
+            escola=escola,
+            ano_ingresso=ano_ingresso,
+            classe=validated_data.get('classe'),
+            turma=turma,
+            area=validated_data.get('area'),
+        )
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        if not validated_data.get('matricula'):
-            validated_data.pop('matricula', None)
+        validated_data.pop('matricula', None)
         turma = validated_data.get('turma')
         if turma:
             if getattr(turma, 'grau_ano', None):
@@ -104,6 +108,17 @@ class AlunoSerializer(serializers.ModelSerializer):
         ret['area'] = area_final
         ret['grupo'] = area_final
         ret['turma_area'] = turma_area or area_final
+
+        # Garantir que o código do aluno exibido segue sempre o formato oficial (ex: 0101S0001.12.01.2026.cg)
+        from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
+        ret['matricula'] = gerar_codigo_aluno_oficial(
+            escola=instance.escola,
+            classe=ret['classe'],
+            turma=instance.turma,
+            ano=instance.ano_ingresso,
+            area=area_final,
+        )
+
         if instance.turma:
             ret['turma'] = {
                 'id': str(instance.turma.id),

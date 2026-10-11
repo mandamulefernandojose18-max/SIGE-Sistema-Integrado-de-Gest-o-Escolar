@@ -23,11 +23,19 @@ class EscolaSerializer(serializers.ModelSerializer):
     assinaturas = AssinaturaEscolaSerializer(many=True, read_only=True)
     _count = serializers.SerializerMethodField()
     logo_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    codigo_gabinete_director = serializers.ReadOnlyField()
+    codigo_direccao_pedagogica = serializers.ReadOnlyField()
+    codigo_secretaria = serializers.ReadOnlyField()
+    codigos_orgaos = serializers.SerializerMethodField()
 
     class Meta:
         model = Escola
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_codigos_orgaos(self, obj):
+        from common.utils.geografia_mocambique import obter_codigos_orgaos_escola
+        return obter_codigos_orgaos_escola(obj.codigo_escola or '')
 
     def validate(self, attrs):
         logo_val = attrs.get('logo_url')
@@ -62,6 +70,9 @@ class EscolaSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['logo_url'] = instance.logo_url or instance.logo_base64 or None
+        data['codigo_gabinete_director'] = instance.codigo_gabinete_director
+        data['codigo_direccao_pedagogica'] = instance.codigo_direccao_pedagogica
+        data['codigo_secretaria'] = instance.codigo_secretaria
         if instance.plano:
             data['plano_id'] = str(instance.plano.id)
             data['plano'] = {

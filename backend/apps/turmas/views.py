@@ -26,6 +26,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
+        from django.utils import timezone
         escola = self.request.tenant or getattr(self.request.user, 'escola', None)
         if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
             escola_id = (
@@ -46,7 +47,35 @@ class TurmaViewSet(viewsets.ModelViewSet):
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de criar a turma.'
             })
 
-        serializer.save(escola=escola)
+        extra_kwargs = {'escola': escola}
+        user_role = getattr(self.request.user, 'role', '')
+        pode_homologar = user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
+        homologar_imediato = bool(self.request.data.get('homologar_directores')) and pode_homologar
+
+        nome_dap = getattr(escola, 'dap_nome', None) or (self.request.user.nome if user_role == 'DAP' else 'Direcção Pedagógica')
+        nome_director = getattr(escola, 'director_nome', None) or (self.request.user.nome if pode_homologar else 'Director da Escola')
+
+        if serializer.validated_data.get('director_turma'):
+            extra_kwargs['dt_nomeado_por'] = nome_dap
+            extra_kwargs['dt_data_nomeacao'] = timezone.now()
+            if homologar_imediato:
+                extra_kwargs['dt_status_homologacao'] = 'HOMOLOGADO'
+                extra_kwargs['dt_homologado_por'] = nome_director
+                extra_kwargs['dt_data_homologacao'] = timezone.now()
+            else:
+                extra_kwargs['dt_status_homologacao'] = 'PENDENTE_HOMOLOGACAO'
+
+        if serializer.validated_data.get('director_classe'):
+            extra_kwargs['dc_nomeado_por'] = nome_dap
+            extra_kwargs['dc_data_nomeacao'] = timezone.now()
+            if homologar_imediato:
+                extra_kwargs['dc_status_homologacao'] = 'HOMOLOGADO'
+                extra_kwargs['dc_homologado_por'] = nome_director
+                extra_kwargs['dc_data_homologacao'] = timezone.now()
+            else:
+                extra_kwargs['dc_status_homologacao'] = 'PENDENTE_HOMOLOGACAO'
+
+        serializer.save(**extra_kwargs)
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
@@ -59,9 +88,226 @@ class TurmaViewSet(viewsets.ModelViewSet):
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        from django.utils import timezone
         kwargs['partial'] = True
-        response = super().update(request, *args, **kwargs)
-        return Response({'success': True, 'data': response.data})
+        turma = self.get_object()
+        old_dt_id = turma.director_turma_id
+        old_dc_id = turma.director_classe_id
+
+        serializer = self.get_serializer(turma, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        escola = turma.escola
+        user_role = getattr(request.user, 'role', '')
+        pode_homologar = user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
+        homologar_imediato = bool(request.data.get('homologar_directores')) and pode_homologar
+
+        nome_dap = getattr(escola, 'dap_nome', None) or (request.user.nome if user_role == 'DAP' else 'Direcção Pedagógica')
+        nome_director = getattr(escola, 'director_nome', None) or (request.user.nome if pode_homologar else 'Director da Escola')
+
+        extra_kwargs = {}
+        new_dt = serializer.validated_data.get('director_turma', turma.director_turma)
+        new_dc = serializer.validated_data.get('director_classe', turma.director_classe)
+
+        if 'director_turma' in serializer.validated_data:
+            if new_dt and new_dt.id != old_dt_id:
+                extra_kwargs['dt_nomeado_por'] = nome_dap
+                extra_kwargs['dt_data_nomeacao'] = timezone.now()
+                if homologar_imediato:
+                    extra_kwargs['dt_status_homologacao'] = 'HOMOLOGADO'
+                    extra_kwargs['dt_homologado_por'] = nome_director
+                    extra_kwargs['dt_data_homologacao'] = timezone.now()
+                else:
+                    extra_kwargs['dt_status_homologacao'] = 'PENDENTE_HOMOLOGACAO'
+            elif new_dt and homologar_imediato:
+                extra_kwargs['dt_status_homologacao'] = 'HOMOLOGADO'
+                extra_kwargs['dt_homologado_por'] = nome_director
+                extra_kwargs['dt_data_homologacao'] = timezone.now()
+
+        if 'director_classe' in serializer.validated_data:
+            if new_dc and new_dc.id != old_dc_id:
+                extra_kwargs['dc_nomeado_por'] = nome_dap
+                extra_kwargs['dc_data_nomeacao'] = timezone.now()
+                if homologar_imediato:
+                    extra_kwargs['dc_status_homologacao'] = 'HOMOLOGADO'
+                    extra_kwargs['dc_homologado_por'] = nome_director
+                    extra_kwargs['dc_data_homologacao'] = timezone.now()
+                else:
+                    extra_kwargs['dc_status_homologacao'] = 'PENDENTE_HOMOLOGACAO'
+            elif new_dc and homologar_imediato:
+                extra_kwargs['dc_status_homologacao'] = 'HOMOLOGADO'
+                extra_kwargs['dc_homologado_por'] = nome_director
+                extra_kwargs['dc_data_homologacao'] = timezone.now()
+
+        turma_salva = serializer.save(**extra_kwargs)
+
+        # Actualizar os códigos dos alunos da turma caso classe, turma, ano ou área tenham sido alterados
+        for aluno in turma_salva.alunos.all():
+            aluno.classe = turma_salva.grau_ano
+            aluno.area = turma_salva.area
+            aluno.save()
+
+        return Response({'success': True, 'data': TurmaSerializer(turma_salva).data})
+
+    @action(detail=True, methods=['post'], url_path='nomear-directores')
+    def nomear_directores(self, request, pk=None):
+        """
+        Acção oficial do Director Pedagógico (DAP/DP) para nomear o Director de Turma (DT)
+        e/ou o Director de Classe (DC). Após a nomeação, fica pendente de homologação pelo
+        Director da Escola (GD) para emissão definitiva do código oficial.
+        """
+        from django.utils import timezone
+        from apps.professores.models import Professor
+
+        turma = self.get_object()
+        escola = turma.escola
+        user_role = getattr(request.user, 'role', '')
+        if user_role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+            return Response({
+                'success': False,
+                'message': 'Apenas a Direcção Pedagógica (DP) ou Direcção da Escola pode nomear Directores de Turma e de Classe.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        dt_id = request.data.get('director_turma_id')
+        dc_id = request.data.get('director_classe_id')
+        aplicar_classe = request.data.get('aplicar_toda_classe', True)
+
+        nome_dap = (
+            request.data.get('nomeado_por')
+            or (request.user.nome if user_role == 'DAP' else None)
+            or getattr(escola, 'dap_nome', None)
+            or 'Direcção Pedagógica'
+        )
+
+        if 'director_turma_id' in request.data:
+            if dt_id:
+                prof_dt = Professor.objects.filter(id=dt_id, escola=escola).first()
+                if not prof_dt:
+                    return Response({'success': False, 'message': 'Professor indicado para Director de Turma não encontrado nesta escola.'}, status=status.HTTP_404_NOT_FOUND)
+                turma.director_turma = prof_dt
+                turma.dt_status_homologacao = 'PENDENTE_HOMOLOGACAO'
+                turma.dt_nomeado_por = nome_dap
+                turma.dt_data_nomeacao = timezone.now()
+                turma.codigo_director_turma = None
+            else:
+                turma.director_turma = None
+                turma.dt_status_homologacao = 'NAO_DEFINIDO'
+                turma.codigo_director_turma = None
+
+        if 'director_classe_id' in request.data:
+            if dc_id:
+                prof_dc = Professor.objects.filter(id=dc_id, escola=escola).first()
+                if not prof_dc:
+                    return Response({'success': False, 'message': 'Professor indicado para Director de Classe não encontrado nesta escola.'}, status=status.HTTP_404_NOT_FOUND)
+                turma.director_classe = prof_dc
+                turma.dc_status_homologacao = 'PENDENTE_HOMOLOGACAO'
+                turma.dc_nomeado_por = nome_dap
+                turma.dc_data_nomeacao = timezone.now()
+                turma.codigo_director_classe = None
+
+                if aplicar_classe:
+                    outras_turmas = Turma.objects.filter(
+                        escola=escola,
+                        grau_ano__iexact=turma.grau_ano,
+                        ano_letivo=turma.ano_letivo
+                    ).exclude(id=turma.id)
+                    for t_outra in outras_turmas:
+                        t_outra.director_classe = prof_dc
+                        t_outra.dc_status_homologacao = 'PENDENTE_HOMOLOGACAO'
+                        t_outra.dc_nomeado_por = nome_dap
+                        t_outra.dc_data_nomeacao = timezone.now()
+                        t_outra.codigo_director_classe = None
+                        t_outra.save()
+            else:
+                turma.director_classe = None
+                turma.dc_status_homologacao = 'NAO_DEFINIDO'
+                turma.codigo_director_classe = None
+
+        turma.save()
+        return Response({
+            'success': True,
+            'message': f'Nomeação registada pela Direcção Pedagógica ({nome_dap}). Aguarda homologação do Director da Escola.',
+            'data': TurmaSerializer(turma).data
+        })
+
+    @action(detail=True, methods=['post'], url_path='homologar-directores')
+    def homologar_directores(self, request, pk=None):
+        """
+        Acção exclusiva do Director da Escola (Gabinete do Director - GD / Admin Geral)
+        para homologar a nomeação feita pelo Director Pedagógico e emitir os códigos oficiais:
+          - Código do Director de Turma (ex: DT0101S0001.12.01.2026.cg)
+          - Código do Director de Classe (ex: DC0101S0001.12.2026)
+        """
+        from django.utils import timezone
+
+        turma = self.get_object()
+        escola = turma.escola
+        user_role = getattr(request.user, 'role', '')
+        if user_role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({
+                'success': False,
+                'message': 'Apenas o Director da Escola (Gabinete do Director) tem competência para homologar a nomeação do Director de Turma e do Director de Classe.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        tipo = (request.data.get('tipo') or 'AMBOS').upper()  # 'DT', 'DC', 'AMBOS'
+        acao = (request.data.get('acao') or 'HOMOLOGAR').upper()  # 'HOMOLOGAR', 'REJEITAR'
+        nome_director = (
+            request.data.get('homologado_por')
+            or getattr(escola, 'director_nome', None)
+            or request.user.nome
+            or 'Director da Escola'
+        )
+
+        codigos_gerados = []
+
+        if tipo in ['DT', 'AMBOS'] and turma.director_turma_id:
+            if acao == 'REJEITAR':
+                turma.dt_status_homologacao = 'REJEITADO'
+                turma.codigo_director_turma = None
+            else:
+                turma.dt_status_homologacao = 'HOMOLOGADO'
+                turma.dt_homologado_por = nome_director
+                turma.dt_data_homologacao = timezone.now()
+
+        if tipo in ['DC', 'AMBOS'] and turma.director_classe_id:
+            if acao == 'REJEITAR':
+                turma.dc_status_homologacao = 'REJEITADO'
+                turma.codigo_director_classe = None
+            else:
+                turma.dc_status_homologacao = 'HOMOLOGADO'
+                turma.dc_homologado_por = nome_director
+                turma.dc_data_homologacao = timezone.now()
+
+                # Homologar o mesmo Director de Classe em todas as turmas da mesma classe/ano
+                outras_turmas = Turma.objects.filter(
+                    escola=escola,
+                    grau_ano__iexact=turma.grau_ano,
+                    ano_letivo=turma.ano_letivo,
+                    director_classe_id=turma.director_classe_id
+                ).exclude(id=turma.id)
+                for t_outra in outras_turmas:
+                    t_outra.dc_status_homologacao = 'HOMOLOGADO'
+                    t_outra.dc_homologado_por = nome_director
+                    t_outra.dc_data_homologacao = timezone.now()
+                    t_outra.save()
+
+        turma.save()
+        if turma.codigo_director_turma:
+            codigos_gerados.append(f"DT: {turma.codigo_director_turma}")
+        if turma.codigo_director_classe:
+            codigos_gerados.append(f"DC: {turma.codigo_director_classe}")
+
+        resumo_codigos = f" ({', '.join(codigos_gerados)})" if codigos_gerados else ""
+        msg = (
+            f"Nomeação homologada pelo Director da Escola ({nome_director}) com sucesso{resumo_codigos}!"
+            if acao != 'REJEITAR'
+            else f"Nomeação rejeitada pelo Gabinete do Director ({nome_director})."
+        )
+        return Response({
+            'success': True,
+            'message': msg,
+            'data': TurmaSerializer(turma).data
+        })
 
     def destroy(self, request, *args, **kwargs):
         super().destroy(request, *args, **kwargs)
@@ -544,7 +790,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
                         aluno.turma = turma_alvo
                         aluno.classe = turma_alvo.grau_ano
                         aluno.area = turma_alvo.area
-                        aluno.save(update_fields=['turma', 'classe', 'area'])
+                        aluno.save()
                         ocupacao[turma_alvo.id] += 1
                         total_alunos_alocados += 1
                         alocado = True
@@ -559,7 +805,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
                     aluno.turma = menor_t
                     aluno.classe = menor_t.grau_ano
                     aluno.area = menor_t.area
-                    aluno.save(update_fields=['turma', 'classe', 'area'])
+                    aluno.save()
                     ocupacao[menor_t.id] += 1
                     total_alunos_alocados += 1
 
@@ -640,7 +886,9 @@ class TurmaViewSet(viewsets.ModelViewSet):
                 for novo_num, turma in enumerate(turmas_ordenadas, start=1):
                     nome_final = f"Turma {novo_num}"
                     turma.nome = nome_final
-                    turma.save(update_fields=['nome'])
+                    turma.save()
+                    for al in turma.alunos.all():
+                        al.save()
                     renomeadas += 1
                     detalhes.append({'id': str(turma.id), 'para': nome_final, 'grau': cls, 'area': turma.area})
 
@@ -774,7 +1022,7 @@ def executar_distribuicao_alunos(escola, turmas, grau_ano=None, area=None, crite
                 aluno.classe = turma_alvo.grau_ano
                 if not aluno.area or str(aluno.area).strip().lower() in ['', 'geral', 'ensino geral', 'tronco comum']:
                     aluno.area = turma_alvo.area
-                aluno.save(update_fields=['turma', 'classe', 'area'])
+                aluno.save()
                 ocupacao[turma_alvo.id] += 1
                 alocados_count += 1
                 alocado = True
@@ -791,7 +1039,7 @@ def executar_distribuicao_alunos(escola, turmas, grau_ano=None, area=None, crite
             aluno.classe = menor_turma.grau_ano
             if not aluno.area or str(aluno.area).strip().lower() in ['', 'geral', 'ensino geral', 'tronco comum']:
                 aluno.area = menor_turma.area
-            aluno.save(update_fields=['turma', 'classe', 'area'])
+            aluno.save()
             ocupacao[menor_turma.id] += 1
             alocados_count += 1
             indices_por_area[chave_area] = idx + 1

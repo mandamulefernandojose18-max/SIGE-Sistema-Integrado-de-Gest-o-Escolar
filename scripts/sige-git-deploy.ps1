@@ -59,9 +59,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  OK: Deploy separado concluido com sucesso na VM!" -ForegroundColor Green
 
-# 4. CRIAR LINK PARA WEB CUJO NOME É 'sige' (HTTPS SEGURO)
-Write-Host "[4/5] Criando atalho/link seguro HTTPS para a Web cujo nome e 'sige'..." -ForegroundColor Blue
-$sslDomain = "sige.$($VmIp -replace '\.','-').sslip.io"
+# 4. CRIAR LINK PARA WEB CUJO NOME É 'sige' (HTTPS SEGURO DUCKDNS - IP OCULTO)
+Write-Host "[4/5] Criando atalho/link seguro HTTPS para a Web cujo nome e 'sige' (sigesaas.duckdns.org)..." -ForegroundColor Blue
+$sslDomain = "sigesaas.duckdns.org"
 $webUrl = "https://${sslDomain}/"
 
 $shortcutLines = @(

@@ -1,1 +1,1 @@
-@start http://139.84.226.46:5173/
+@start https://sigesaas.duckdns.org/

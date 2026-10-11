@@ -47,6 +47,10 @@
       opacity: 1;
       background-color: rgba(0, 0, 0, 0.08);
     }
+    #loginSenha::-ms-reveal,
+    #loginSenha::-ms-clear {
+      display: none;
+    }
     
     /* Layout */
     #sidebar {
@@ -643,13 +647,13 @@
     <form id="loginForm">
       <div class="mb-3">
         <label class="form-label text-uppercase fw-bold text-start d-block" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
-          UTILIZADOR
+          CÓDIGO DE ACESSO OU UTILIZADOR
         </label>
         <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden; transition: all 0.2s;" onfocusin="this.style.borderColor='#df8704'; this.style.boxShadow='0 0 0 3px rgba(223, 135, 4, 0.25)'" onfocusout="this.style.borderColor='transparent'; this.style.boxShadow='none'">
           <span class="input-group-text bg-transparent border-0 pe-1 text-warning">
-            <i class="bi bi-person fs-5"></i>
+            <i class="bi bi-person-badge fs-5"></i>
           </span>
-          <input type="text" id="loginEmail" class="form-control bg-transparent border-0 shadow-none ps-2" required placeholder="030372.2023 ou e-mail" autocomplete="username" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 10px;">
+          <input type="text" id="loginEmail" class="form-control bg-transparent border-0 shadow-none ps-2" required placeholder="Ex: GD0101S0001, DP0101S0001, PR... ou e-mail" autocomplete="username" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 10px;">
         </div>
       </div>
 
@@ -658,7 +662,10 @@
           SENHA
         </label>
         <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden; transition: all 0.2s;" onfocusin="this.style.borderColor='#df8704'; this.style.boxShadow='0 0 0 3px rgba(223, 135, 4, 0.25)'" onfocusout="this.style.borderColor='transparent'; this.style.boxShadow='none'">
-          <input type="password" id="loginSenha" class="form-control bg-transparent border-0 shadow-none px-3" required placeholder="••••••••" autocomplete="current-password" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 14px;">
+          <input type="password" id="loginSenha" class="form-control bg-transparent border-0 shadow-none ps-3 pe-1" required placeholder="••••••••" autocomplete="current-password" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 14px;">
+          <button type="button" class="input-group-text bg-transparent border-0 shadow-none px-3" onclick="const inp = document.getElementById('loginSenha'); const ico = document.getElementById('iconToggleLoginSenha'); if (inp.type === 'password') { inp.type = 'text'; ico.className = 'bi bi-eye-slash fs-5'; } else { inp.type = 'password'; ico.className = 'bi bi-eye fs-5'; }" title="Mostrar / ocultar senha" aria-label="Mostrar ou ocultar senha" style="cursor: pointer; color: #64748b;">
+            <i id="iconToggleLoginSenha" class="bi bi-eye fs-5"></i>
+          </button>
         </div>
       </div>
 
@@ -1123,9 +1130,47 @@
             <div class="card p-4">
               <h5 class="fw-bold mb-3"><i class="bi bi-sliders me-2"></i>Dados da Instituição de Ensino</h5>
               <form id="formEscolaInfo">
-                <div class="mb-3">
-                  <label class="form-label small fw-semibold">Nome da Instituição</label>
-                  <input type="text" id="confEscolaNome" class="form-control" required>
+                <!-- Card de Código Único da Escola e Códigos dos Órgãos Institucionais -->
+                <div class="p-3 mb-3 rounded-3 border bg-primary-subtle border-primary-subtle shadow-sm">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small fw-bold text-primary text-uppercase"><i class="bi bi-upc-scan me-1"></i> Código Único Oficial da Escola</span>
+                    <span id="confEscolaCodigoBadge" class="badge bg-primary font-monospace fs-6 px-3 py-1">0101S0001</span>
+                  </div>
+                  <div class="row g-2 text-center mt-1" style="font-size: 0.76rem;">
+                    <div class="col-4">
+                      <div class="p-1 bg-white rounded border">
+                        <small class="text-muted d-block">Gab. Director (GD)</small>
+                        <strong id="confCodigoGD" class="font-monospace text-dark">GD0101S0001</strong>
+                      </div>
+                    </div>
+                    <div class="col-4">
+                      <div class="p-1 bg-white rounded border">
+                        <small class="text-muted d-block">Dir. Pedagógica (DP)</small>
+                        <strong id="confCodigoDP" class="font-monospace text-primary">DP0101S0001</strong>
+                      </div>
+                    </div>
+                    <div class="col-4">
+                      <div class="p-1 bg-white rounded border">
+                        <small class="text-muted d-block">Secretaria (SECR)</small>
+                        <strong id="confCodigoSECR" class="font-monospace text-success">SECR0101S0001</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                  <div class="col-8">
+                    <label class="form-label small fw-semibold">Nome da Instituição</label>
+                    <input type="text" id="confEscolaNome" class="form-control" required>
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label small fw-semibold">Nível de Ensino</label>
+                    <select id="confEscolaTipo" class="form-select" onchange="atualizarPreviewCodigoEscolaConfig()">
+                      <option value="P">P - Primária</option>
+                      <option value="B">B - Básica</option>
+                      <option value="S" selected>S - Secundária</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="row g-2 mb-3">
                   <div class="col-6">
@@ -1144,11 +1189,11 @@
                 <div class="row g-2 mb-3">
                   <div class="col-6">
                     <label class="form-label small fw-semibold">Província</label>
-                    <select id="confEscolaProvincia" class="form-select" onchange="atualizarDistritosEscola(this.value)"></select>
+                    <select id="confEscolaProvincia" class="form-select" onchange="atualizarDistritosEscola(this.value); atualizarPreviewCodigoEscolaConfig();"></select>
                   </div>
                   <div class="col-6">
                     <label class="form-label small fw-semibold">Distrito</label>
-                    <select id="confEscolaDistrito" class="form-select"></select>
+                    <select id="confEscolaDistrito" class="form-select" onchange="atualizarPreviewCodigoEscolaConfig()"></select>
                   </div>
                 </div>
                 <div class="mb-3">
@@ -1160,15 +1205,15 @@
                   <input type="email" id="confEscolaEmail" class="form-control" required>
                 </div>
                 <div class="mb-3">
-                  <label class="form-label small fw-semibold">Director da Escola</label>
+                  <label class="form-label small fw-semibold">Director da Escola <span class="badge bg-dark-subtle text-dark font-monospace ms-1" id="labelBadgeGD">GD</span></label>
                   <input type="text" id="confEscolaDirector" class="form-control" placeholder="Nome completo do Director">
                 </div>
                 <div class="mb-3">
-                  <label class="form-label small fw-semibold">Director Adjunto Pedagógico (DAP)</label>
+                  <label class="form-label small fw-semibold">Director Adjunto Pedagógico (DAP) <span class="badge bg-primary-subtle text-primary font-monospace ms-1" id="labelBadgeDP">DP</span></label>
                   <input type="text" id="confEscolaDAP" class="form-control" placeholder="Nome do DAP">
                 </div>
                 <div class="mb-3">
-                  <label class="form-label small fw-semibold">Chefe da Secretaria</label>
+                  <label class="form-label small fw-semibold">Chefe da Secretaria <span class="badge bg-success-subtle text-success font-monospace ms-1" id="labelBadgeSECR">SECR</span></label>
                   <input type="text" id="confEscolaChefeSec" class="form-control" placeholder="Nome do Chefe da Secretaria">
                 </div>
                 <div class="form-check mb-3">
@@ -2743,7 +2788,7 @@
                   <tr><th class="bg-light w-40">Nome Completo:</th><td id="alunoPerfilNome"></td></tr>
                   <tr><th class="bg-light">Apelido:</th><td id="alunoPerfilApelido"></td></tr>
                   <tr><th class="bg-light">Data de Nascimento:</th><td id="alunoPerfilDataNasc">-</td></tr>
-                  <tr><th class="bg-light">Nº de Matrícula:</th><td id="alunoPerfilMatricula"></td></tr>
+                  <tr><th class="bg-light">Código do Aluno (Matrícula):</th><td id="alunoPerfilMatricula" class="font-monospace fw-bold text-primary"></td></tr>
                   <tr><th class="bg-light">Turma & Grau:</th><td id="alunoPerfilTurma"></td></tr>
                   <tr><th class="bg-light">Documento (BI/DIRE):</th><td id="alunoPerfilDoc"></td></tr>
                   <tr><th class="bg-light">NUIT:</th><td id="alunoPerfilNUIT"></td></tr>
@@ -2906,18 +2951,18 @@
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 border-bottom pb-3">
             <div>
               <h5 class="fw-bold mb-0 text-warning text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Cofre Restrito de Utilizadores e Palavras-passe</h5>
-              <small class="text-muted">Acesso restrito à Direcção da Escola e SuperAdmin para gestão de credenciais</small>
+              <small class="text-muted">Acesso restrito à Direcção da Escola e SuperAdmin para gestão de códigos de acesso e credenciais</small>
             </div>
             <div class="d-flex gap-2">
-              <input type="text" id="filtroUsuarioCofre" class="form-control form-control-sm" placeholder="Pesquisar por nome ou e-mail..." oninput="filtrarUsuariosCofre()" style="width: 250px;">
-              <select id="filtroRoleCofre" class="form-select form-select-sm" onchange="filtrarUsuariosCofre()" style="width: 160px;">
+              <input type="text" id="filtroUsuarioCofre" class="form-control form-control-sm" placeholder="Pesquisar por código, nome ou e-mail..." oninput="filtrarUsuariosCofre()" style="width: 260px;">
+              <select id="filtroRoleCofre" class="form-select form-select-sm" onchange="filtrarUsuariosCofre()" style="width: 170px;">
                 <option value="">Todos os Perfis</option>
-                <option value="PROFESSOR">Professores</option>
+                <option value="ADMIN_ESCOLA">Gabinete do Director (GD)</option>
+                <option value="DIRECTOR_ESCOLA">Director da Escola (GD)</option>
+                <option value="DAP">Direcção Pedagógica (DP)</option>
+                <option value="CHEFE_SECRETARIA">Secretaria (SECR)</option>
+                <option value="PROFESSOR">Professores (PR)</option>
                 <option value="ALUNO">Alunos</option>
-                <option value="ADMIN_ESCOLA">Administradores</option>
-                <option value="DIRECTOR_ESCOLA">Director Escola</option>
-                <option value="DAP">DAP</option>
-                <option value="CHEFE_SECRETARIA">Chefe Secretaria</option>
               </select>
               <button class="btn btn-primary btn-sm" onclick="carregarCofreUsuarios()">
                 <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
@@ -2929,9 +2974,10 @@
             <table class="table table-hover align-middle">
               <thead class="table-light">
                 <tr>
+                  <th>Código de Acesso</th>
                   <th>Nome Completo</th>
                   <th>E-mail de Acesso</th>
-                  <th>Perfil / Função</th>
+                  <th>Perfil / Órgão</th>
                   <th>Telefone</th>
                   <th>Último Acesso</th>
                   <th>Estado</th>
@@ -2939,7 +2985,7 @@
                 </tr>
               </thead>
               <tbody id="tabelaCofreUsuariosCorpo">
-                <tr><td colspan="7" class="text-center py-4">A carregar utilizadores da escola...</td></tr>
+                <tr><td colspan="8" class="text-center py-4">A carregar utilizadores da escola...</td></tr>
               </tbody>
             </table>
           </div>
@@ -2995,8 +3041,8 @@
 
 <!-- SCRIPTS DO FRONTEND SPA -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/config.js?v=20261011_1440"></script>
+<script src="/js/config.js?v=20261011_1500"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
-<script src="/js/app.js?v=20261011_1440"></script>
+<script src="/js/app.js?v=20261011_1500"></script>
 </body>
 </html>

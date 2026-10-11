@@ -100,3 +100,346 @@ COMPORTAMENTOS = [
 
 def obter_distritos_por_provincia(provincia: str) -> list[str]:
     return DISTRITOS_POR_PROVINCIA.get(provincia, [])
+
+
+TIPOS_ESCOLA = [
+    {'codigo': 'P', 'nome': 'Escola Primária'},
+    {'codigo': 'B', 'nome': 'Escola Básica'},
+    {'codigo': 'S', 'nome': 'Escola Secundária'},
+]
+
+# Mapeamento oficial dos 2 primeiros dígitos (Província de Moçambique: 01 a 11)
+CODIGOS_PROVINCIAS_MOCAMBIQUE = {
+    'cidade de maputo': ('01', 'Cidade de Maputo'),
+    'maputo cidade': ('01', 'Cidade de Maputo'),
+    'maputo': ('01', 'Cidade de Maputo'),
+    'provincia de maputo': ('02', 'Província de Maputo'),
+    'província de maputo': ('02', 'Província de Maputo'),
+    'maputo provincia': ('02', 'Província de Maputo'),
+    'maputo província': ('02', 'Província de Maputo'),
+    'gaza': ('03', 'Gaza'),
+    'inhambane': ('04', 'Inhambane'),
+    'manica': ('05', 'Manica'),
+    'sofala': ('06', 'Sofala'),
+    'tete': ('07', 'Tete'),
+    'zambezia': ('08', 'Zambézia'),
+    'zambézia': ('08', 'Zambézia'),
+    'nampula': ('09', 'Nampula'),
+    'niassa': ('10', 'Niassa'),
+    'cabo delgado': ('11', 'Cabo Delgado'),
+}
+
+
+def _normalizar_texto_sem_acentos(texto: str) -> str:
+    import unicodedata
+    s = unicodedata.normalize('NFKD', str(texto or '').strip()).encode('ascii', 'ignore').decode('ascii')
+    return s.lower().strip()
+
+
+def obter_codigo_e_nome_provincia(provincia: str) -> tuple[str, str]:
+    """Retorna (codigo_2_digitos, nome_oficial_provincia)."""
+    chave = (provincia or '').strip().lower()
+    if chave in CODIGOS_PROVINCIAS_MOCAMBIQUE:
+        return CODIGOS_PROVINCIAS_MOCAMBIQUE[chave]
+
+    chave_norm = _normalizar_texto_sem_acentos(provincia)
+    for k, val in CODIGOS_PROVINCIAS_MOCAMBIQUE.items():
+        if _normalizar_texto_sem_acentos(k) == chave_norm:
+            return val
+
+    for idx, p_nome in enumerate(PROVINCIAS_MOCAMBIQUE, start=1):
+        if _normalizar_texto_sem_acentos(p_nome) == chave_norm:
+            return (f"{idx:02d}", p_nome)
+
+    return ('01', 'Cidade de Maputo')
+
+
+def obter_codigo_distrito(provincia: str, distrito: str) -> str:
+    """Retorna os 2 dígitos (3º e 4º dígitos do código da escola) correspondentes ao número do distrito na província."""
+    _, nome_prov = obter_codigo_e_nome_provincia(provincia)
+    distritos = DISTRITOS_POR_PROVINCIA.get(nome_prov, [])
+    if not distritos:
+        return '01'
+
+    dist_norm = _normalizar_texto_sem_acentos(distrito)
+    for idx, d in enumerate(distritos, start=1):
+        if _normalizar_texto_sem_acentos(d) == dist_norm:
+            return f"{idx:02d}"
+
+    # Busca parcial caso o distrito venha com prefixo "Cidade de ..." ou "Distrito de ..."
+    for idx, d in enumerate(distritos, start=1):
+        d_n = _normalizar_texto_sem_acentos(d)
+        if d_n and (d_n in dist_norm or dist_norm in d_n):
+            return f"{idx:02d}"
+
+    return '01'
+
+
+def obter_letra_tipo_escola(tipo_escola: str = None, nome_escola: str = None) -> str:
+    """
+    Retorna a letra oficial do nível/tipo de escola:
+    - P: Escola Primária
+    - B: Escola Básica
+    - S: Escola Secundária
+    """
+    t = _normalizar_texto_sem_acentos(tipo_escola)
+    if t in ['p', 'primaria', 'escola primaria']:
+        return 'P'
+    if t in ['b', 'basica', 'escola basica']:
+        return 'B'
+    if t in ['s', 'secundaria', 'escola secundaria']:
+        return 'S'
+
+    nome_n = _normalizar_texto_sem_acentos(nome_escola)
+    if 'primaria' in nome_n or 'ep1' in nome_n or 'ep2' in nome_n or 'epc' in nome_n:
+        return 'P'
+    if 'basica' in nome_n or 'eb ' in nome_n:
+        return 'B'
+    return 'S'
+
+
+def gerar_codigo_unico_escola(provincia: str, distrito: str, tipo_escola: str = None, nome_escola: str = None, exclude_escola_id=None) -> str:
+    """
+    Gera o código único da escola no formato oficial:
+    Exemplo: 0101S0001
+    - 1º e 2º dígitos: número da província de Moçambique (01..11)
+    - 3º e 4º dígitos: número do distrito naquela província (01..99)
+    - Letra (5º caractere): P (Primária), B (Básica) ou S (Secundária)
+    - Dígitos seguintes: número sequencial da escola (0001, 0002, ...)
+    """
+    import re
+    from apps.tenants.models import Escola
+
+    cod_prov, _ = obter_codigo_e_nome_provincia(provincia)
+    cod_dist = obter_codigo_distrito(provincia, distrito)
+    letra = obter_letra_tipo_escola(tipo_escola, nome_escola)
+    prefixo = f"{cod_prov}{cod_dist}{letra}"
+
+    qs = Escola.objects.all()
+    if exclude_escola_id:
+        qs = qs.exclude(id=exclude_escola_id)
+
+    max_seq = 0
+    for esc in qs.filter(codigo_escola__istartswith=prefixo):
+        cod = (esc.codigo_escola or '').strip().upper()
+        resto = cod[len(prefixo):]
+        m = re.match(r'^(\d+)$', resto)
+        if m:
+            val = int(m.group(1))
+            if val > max_seq:
+                max_seq = val
+
+    seq = max_seq + 1
+    candidato = f"{prefixo}{seq:04d}"
+    while qs.filter(codigo_escola__iexact=candidato).exists():
+        seq += 1
+        candidato = f"{prefixo}{seq:04d}"
+
+    return candidato
+
+
+def obter_codigos_orgaos_escola(codigo_escola: str) -> dict:
+    """
+    Para os códigos do Gabinete do Director, Direcção Pedagógica e Secretaria,
+    inicia pelas letras (GD, DP, SECR) e em seguida o código da escola.
+    """
+    cod = (codigo_escola or '0101S0001').strip().upper()
+    return {
+        'gabinete_director': f"GD{cod}",
+        'direccao_pedagogica': f"DP{cod}",
+        'secretaria': f"SECR{cod}",
+    }
+
+
+def extrair_codigo_classe_2d(classe_str: str) -> str:
+    """Extrai o número da classe com 2 dígitos (ex: '12ª Classe' -> '12', '7ª Classe' -> '07')."""
+    import re
+    m = re.search(r'(\d+)', str(classe_str or ''))
+    if m:
+        num = int(m.group(1))
+        return f"{num:02d}"
+    return '10'
+
+
+def extrair_codigo_turma_2d(turma_nome: str, grau_ano: str = '') -> str:
+    """Extrai o número da turma com 2 dígitos (ex: 'Turma 1' -> '01', 'Turma B' -> '02')."""
+    import re
+    if not turma_nome:
+        return '01'
+    limpo = str(turma_nome).strip()
+    m_num = re.search(r'turma\s*(\d+)', limpo, re.IGNORECASE)
+    if m_num:
+        return f"{int(m_num.group(1)):02d}"
+    m_let = re.search(r'turma\s*([a-zA-Z])\b', limpo, re.IGNORECASE)
+    if m_let:
+        idx = ord(m_let.group(1).upper()) - ord('A') + 1
+        return f"{max(1, idx):02d}"
+
+    # Remover o número da classe antes de procurar dígitos restantes
+    resto = limpo
+    if grau_ano:
+        m_cls = re.search(r'(\d+)', str(grau_ano))
+        if m_cls:
+            resto = re.sub(rf'\b{m_cls.group(1)}[ªºa-zA-Z\s]*classe\b', '', resto, flags=re.IGNORECASE)
+            resto = re.sub(rf'\b{m_cls.group(1)}[ªº]\b', '', resto, flags=re.IGNORECASE)
+
+    nums = re.findall(r'\d+', resto)
+    if nums:
+        return f"{int(nums[-1]):02d}"
+
+    letras = re.findall(r'\b([a-zA-Z])\b', resto)
+    if letras:
+        idx = ord(letras[-1].upper()) - ord('A') + 1
+        return f"{max(1, idx):02d}"
+
+    return '01'
+
+
+def obter_sigla_area_estudo(area: str, classe: str = '') -> str:
+    """
+    Retorna a sigla em minúsculas da área/secção de estudo:
+    Exemplo:
+    - 'Ciências com Geografia' -> 'cg'
+    - 'Ciências com Biologia' -> 'cb'
+    - 'Ciências com Desenho' -> 'cd'
+    - 'Letras com Geografia' -> 'lg'
+    - 'Letras com História' -> 'lh'
+    - 'Ensino Geral' / 'Geral' -> 'eg'
+    """
+    a_norm = _normalizar_texto_sem_acentos(area)
+    mapa_direto = {
+        'ciencias com geografia': 'cg',
+        'ciencias com biologia': 'cb',
+        'ciencias com desenho': 'cd',
+        'letras com geografia': 'lg',
+        'letras com historia': 'lh',
+        'ciencias': 'cn',
+        'letras': 'lt',
+        'geral': 'eg',
+        'ensino geral': 'eg',
+        'tronco comum': 'eg',
+        '': 'eg',
+    }
+    if a_norm in mapa_direto:
+        return mapa_direto[a_norm]
+
+    # Se já for uma sigla curta (ex: 'cg', 'cb', 'cd')
+    if 1 <= len(a_norm) <= 4 and a_norm.isalpha():
+        return a_norm
+
+    stopwords = {'com', 'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'para', 'a', 'o', 'na', 'no'}
+    palavras = [p for p in a_norm.replace('-', ' ').replace('/', ' ').split() if p and p not in stopwords]
+    if len(palavras) >= 2:
+        return ''.join(p[0] for p in palavras).lower()
+    elif len(palavras) == 1:
+        return palavras[0][:2].lower()
+    return 'eg'
+
+
+def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano: str = None, area: str = None) -> str:
+    """
+    Gera o código oficial do aluno associando:
+    CodigoEscola + Classe + Turma + Ano + Area/Secção de estudo
+    Exemplo: 0101S0001.12.01.2026.cg
+    """
+    import datetime
+    cod_escola = '0101S0001'
+    if escola:
+        if getattr(escola, 'codigo_escola', None):
+            cod_escola = escola.codigo_escola.strip().upper()
+        else:
+            cod_escola = gerar_codigo_unico_escola(
+                getattr(escola, 'provincia', 'Cidade de Maputo'),
+                getattr(escola, 'distrito', 'KaMpfumo'),
+                getattr(escola, 'tipo_escola', 'S'),
+                getattr(escola, 'nome', ''),
+                exclude_escola_id=getattr(escola, 'id', None)
+            )
+
+    cls_str = classe or (getattr(turma, 'grau_ano', None) if turma else None) or '10ª Classe'
+    cod_classe = extrair_codigo_classe_2d(cls_str)
+
+    if turma:
+        t_nome = getattr(turma, 'nome', '') if not isinstance(turma, str) else turma
+        t_grau = getattr(turma, 'grau_ano', cls_str) if not isinstance(turma, str) else cls_str
+        cod_turma = extrair_codigo_turma_2d(t_nome, t_grau)
+    else:
+        cod_turma = '01'
+
+    ano_str = str(
+        ano
+        or (getattr(turma, 'ano_letivo', None) if turma and not isinstance(turma, str) else None)
+        or (getattr(escola, 'ano_letivo_ativo', None) if escola else None)
+        or datetime.date.today().year
+    ).strip()
+
+    area_str = area
+    if not area_str or _normalizar_texto_sem_acentos(area_str) in ['', 'geral', 'ensino geral', 'tronco comum', 'none']:
+        if turma and not isinstance(turma, str) and getattr(turma, 'area', None):
+            area_str = turma.area
+    sigla_area = obter_sigla_area_estudo(area_str or 'Geral', cls_str)
+
+    return f"{cod_escola}.{cod_classe}.{cod_turma}.{ano_str}.{sigla_area}"
+
+
+def gerar_codigo_director_turma(turma) -> str:
+    """
+    Gera o código oficial do Director de Turma (após nomeação pelo DP e homologação pelo Director da Escola).
+    Formato: DT{codigo_escola}.{classe}.{turma}.{ano}.{sigla_area}
+    Exemplo: DT0101S0001.12.01.2026.cg
+    """
+    escola = getattr(turma, 'escola', None)
+    cod_escola = (getattr(escola, 'codigo_escola', None) or '0101S0001').strip().upper()
+    cod_classe = extrair_codigo_classe_2d(getattr(turma, 'grau_ano', '10ª Classe'))
+    cod_turma = extrair_codigo_turma_2d(getattr(turma, 'nome', 'Turma 1'), getattr(turma, 'grau_ano', ''))
+    ano_str = str(getattr(turma, 'ano_letivo', None) or (getattr(escola, 'ano_letivo_ativo', None) if escola else '2026') or '2026').strip()
+    sigla_area = obter_sigla_area_estudo(getattr(turma, 'area', 'Geral'), getattr(turma, 'grau_ano', ''))
+    return f"DT{cod_escola}.{cod_classe}.{cod_turma}.{ano_str}.{sigla_area}"
+
+
+def gerar_codigo_director_classe(turma) -> str:
+    """
+    Gera o código oficial do Director de Classe (após nomeação pelo DP e homologação pelo Director da Escola).
+    Formato: DC{codigo_escola}.{classe}.{ano}
+    Exemplo: DC0101S0001.12.2026
+    """
+    escola = getattr(turma, 'escola', None)
+    cod_escola = (getattr(escola, 'codigo_escola', None) or '0101S0001').strip().upper()
+    cod_classe = extrair_codigo_classe_2d(getattr(turma, 'grau_ano', '10ª Classe'))
+    ano_str = str(getattr(turma, 'ano_letivo', None) or (getattr(escola, 'ano_letivo_ativo', None) if escola else '2026') or '2026').strip()
+    return f"DC{cod_escola}.{cod_classe}.{ano_str}"
+
+
+def gerar_codigo_fixo_professor(escola, exclude_prof_id=None) -> str:
+    """
+    Gera um código fixo e permanente para o Professor na escola.
+    Formato: PR{codigo_escola}.{sequencia:03d} (Exemplo: PR0101S0001.001)
+    Não se altera quando o professor muda de turma, classe ou ano lectivo.
+    """
+    import re
+    from apps.professores.models import Professor
+
+    cod_escola = (getattr(escola, 'codigo_escola', None) or '0101S0001').strip().upper()
+    prefixo = f"PR{cod_escola}."
+
+    qs = Professor.objects.filter(escola=escola) if escola else Professor.objects.all()
+    if exclude_prof_id:
+        qs = qs.exclude(id=exclude_prof_id)
+
+    max_seq = 0
+    for p in qs.filter(codigo__istartswith=prefixo):
+        c = (p.codigo or '').strip()
+        resto = c[len(prefixo):]
+        m = re.match(r'^(\d+)$', resto)
+        if m:
+            val = int(m.group(1))
+            if val > max_seq:
+                max_seq = val
+
+    seq = max_seq + 1
+    cand = f"{prefixo}{seq:03d}"
+    while Professor.objects.exclude(id=exclude_prof_id).filter(codigo__iexact=cand).exists():
+        seq += 1
+        cand = f"{prefixo}{seq:03d}"
+    return cand
+

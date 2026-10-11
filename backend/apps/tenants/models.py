@@ -60,12 +60,13 @@ class Escola(models.Model):
     # Dados Oficiais para Documentação MINEDH
     provincia = models.CharField(max_length=100, default='Maputo')
     distrito = models.CharField(max_length=100, default='Cidade de Maputo')
+    tipo_escola = models.CharField(max_length=10, default='S')  # P=Primária, B=Básica, S=Secundária
     director_nome = models.CharField(max_length=255, default='Prof. Dr. António Costa')
     director_carreira = models.CharField(max_length=100, default='Professor Doutor')
     dap_nome = models.CharField(max_length=255, default='Prof. João Baptista')
     chefe_secretaria_nome = models.CharField(max_length=255, default='Dra. Maria Eunice')
     usar_emblema_nacional = models.BooleanField(default=True)
-    codigo_escola = models.CharField(max_length=50, blank=True, null=True)
+    codigo_escola = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     logo_base64 = models.TextField(blank=True, null=True)
     bloqueada_manualmente = models.BooleanField(default=False)
     permitir_visualizacao_notas = models.BooleanField(default=True)
@@ -85,10 +86,43 @@ class Escola(models.Model):
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['email']),
+            models.Index(fields=['codigo_escola']),
         ]
 
+    @property
+    def codigo_gabinete_director(self):
+        return f"GD{self.codigo_escola}" if self.codigo_escola else ""
+
+    @property
+    def codigo_direccao_pedagogica(self):
+        return f"DP{self.codigo_escola}" if self.codigo_escola else ""
+
+    @property
+    def codigo_secretaria(self):
+        return f"SECR{self.codigo_escola}" if self.codigo_escola else ""
+
+    def save(self, *args, **kwargs):
+        import re
+        from common.utils.geografia_mocambique import (
+            obter_letra_tipo_escola,
+            gerar_codigo_unico_escola,
+        )
+        self.tipo_escola = obter_letra_tipo_escola(self.tipo_escola, self.nome)
+        cod_atual = (self.codigo_escola or '').strip().upper()
+        if not cod_atual or not re.match(r'^\d{4}[PBS]\d{4,5}$', cod_atual):
+            self.codigo_escola = gerar_codigo_unico_escola(
+                provincia=self.provincia,
+                distrito=self.distrito,
+                tipo_escola=self.tipo_escola,
+                nome_escola=self.nome,
+                exclude_escola_id=self.id,
+            )
+        else:
+            self.codigo_escola = cod_atual
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.nome} [{self.status}]"
+        return f"{self.nome} [{self.codigo_escola or self.status}]"
 
 class AssinaturaEscola(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

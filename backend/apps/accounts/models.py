@@ -50,6 +50,7 @@ class Usuario(AbstractUser):
     avatar_url = models.URLField(blank=True, null=True)
     aluno_id = models.UUIDField(null=True, blank=True)
     professor_id = models.UUIDField(null=True, blank=True)
+    codigo_acesso = models.CharField(max_length=100, blank=True, null=True, db_index=True)
 
     username = models.CharField(max_length=150, unique=True, blank=True)
 
@@ -70,10 +71,11 @@ class Usuario(AbstractUser):
         indexes = [
             models.Index(fields=['escola']),
             models.Index(fields=['role']),
+            models.Index(fields=['codigo_acesso']),
         ]
 
     def __str__(self):
-        return f"{self.nome} ({self.email}) - {self.role}"
+        return f"{self.nome} ({self.codigo_acesso or self.email}) - {self.role}"
 
 class LogAcesso(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

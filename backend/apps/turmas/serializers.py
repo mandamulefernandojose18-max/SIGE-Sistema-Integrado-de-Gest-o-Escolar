@@ -19,13 +19,21 @@ class TurmaSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    codigo_director_turma_previsto = serializers.SerializerMethodField()
+    codigo_director_classe_previsto = serializers.SerializerMethodField()
+    codigo_aluno_padrao_turma = serializers.SerializerMethodField()
 
     class Meta:
         model = Turma
         fields = [
             'id', 'nome', 'grau_ano', 'turno', 'sala', 'capacidade_maxima', 'ano_letivo', 'area',
             'director_turma', 'director_turma_id', 'director_turma_nome',
+            'dt_status_homologacao', 'dt_nomeado_por', 'dt_data_nomeacao',
+            'dt_homologado_por', 'dt_data_homologacao', 'codigo_director_turma', 'codigo_director_turma_previsto',
             'director_classe', 'director_classe_id', 'director_classe_nome',
+            'dc_status_homologacao', 'dc_nomeado_por', 'dc_data_nomeacao',
+            'dc_homologado_por', 'dc_data_homologacao', 'codigo_director_classe', 'codigo_director_classe_previsto',
+            'codigo_aluno_padrao_turma',
             'total_alunos', '_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -37,6 +45,24 @@ class TurmaSerializer(serializers.ModelSerializer):
         return {
             'alunos': obj.alunos.filter(status='ATIVO').count()
         }
+
+    def get_codigo_director_turma_previsto(self, obj):
+        from common.utils.geografia_mocambique import gerar_codigo_director_turma
+        return gerar_codigo_director_turma(obj)
+
+    def get_codigo_director_classe_previsto(self, obj):
+        from common.utils.geografia_mocambique import gerar_codigo_director_classe
+        return gerar_codigo_director_classe(obj)
+
+    def get_codigo_aluno_padrao_turma(self, obj):
+        from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
+        return gerar_codigo_aluno_oficial(
+            escola=obj.escola,
+            classe=obj.grau_ano,
+            turma=obj,
+            ano=obj.ano_letivo,
+            area=obj.area,
+        )
 
     def validate(self, attrs):
         nome = attrs.get('nome') or (self.instance.nome if self.instance else None)
@@ -76,12 +102,18 @@ class TurmaSerializer(serializers.ModelSerializer):
         if instance.director_turma:
             data['director_turma'] = {
                 'id': str(instance.director_turma.id),
-                'nome': instance.director_turma.nome
+                'codigo': instance.director_turma.codigo or '',
+                'nome': instance.director_turma.nome,
+                'status_homologacao': instance.dt_status_homologacao,
+                'codigo_funcao': instance.codigo_director_turma or '',
             }
         if instance.director_classe:
             data['director_classe'] = {
                 'id': str(instance.director_classe.id),
-                'nome': instance.director_classe.nome
+                'codigo': instance.director_classe.codigo or '',
+                'nome': instance.director_classe.nome,
+                'status_homologacao': instance.dc_status_homologacao,
+                'codigo_funcao': instance.codigo_director_classe or '',
             }
         return data
 

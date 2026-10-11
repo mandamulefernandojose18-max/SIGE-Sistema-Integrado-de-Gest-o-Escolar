@@ -46,6 +46,7 @@ class AlocacaoDocenteSerializer(serializers.ModelSerializer):
         if prof:
             data['professor'] = {
                 'id': str(prof.id),
+                'codigo': prof.codigo or '',
                 'nome': f"{prof.nome} {prof.apelido or ''}".strip(),
                 'telefone': prof.telefone or '',
                 'email': prof.email or '',
@@ -67,23 +68,62 @@ class AlocacaoDocenteSerializer(serializers.ModelSerializer):
         return data
 
 class ProfessorSerializer(serializers.ModelSerializer):
+    codigo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     alocacoes = AlocacaoDocenteSerializer(many=True, read_only=True)
     total_carga_alocada = serializers.SerializerMethodField()
     horas_normais = serializers.SerializerMethodField()
     horas_extras = serializers.SerializerMethodField()
     resumo_por_classe = serializers.SerializerMethodField()
+    codigos_direccao_turma = serializers.SerializerMethodField()
+    codigos_direccao_classe = serializers.SerializerMethodField()
 
     class Meta:
         model = Professor
         fields = [
-            'id', 'nome', 'apelido', 'genero', 'email', 'telefone',
+            'id', 'codigo', 'nome', 'apelido', 'genero', 'email', 'telefone',
             'tipo_documento', 'numero_documento', 'nuit', 'nacionalidade',
             'provincia', 'distrito', 'carreira', 'especialidade',
             'carga_horaria_semanal', 'carga_maxima_por_classe', 'ativo',
             'total_carga_alocada', 'horas_normais', 'horas_extras', 'resumo_por_classe',
+            'codigos_direccao_turma', 'codigos_direccao_classe',
             'alocacoes', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_codigos_direccao_turma(self, obj):
+        res = []
+        for t in obj.turmas_como_director_turma.all():
+            res.append({
+                'turma_id': str(t.id),
+                'turma_nome': t.nome,
+                'grau_ano': t.grau_ano,
+                'area': t.area,
+                'codigo': getattr(t, 'codigo_director_turma', '') or '',
+                'status_homologacao': getattr(t, 'dt_status_homologacao', 'NAO_DEFINIDO'),
+                'nomeado_por': getattr(t, 'dt_nomeado_por', '') or '',
+                'homologado_por': getattr(t, 'dt_homologado_por', '') or '',
+            })
+        return res
+
+    def get_codigos_direccao_classe(self, obj):
+        res = []
+        vistos = set()
+        for t in obj.turmas_como_director_classe.all():
+            cod = getattr(t, 'codigo_director_classe', '') or ''
+            chave = (t.grau_ano, t.ano_letivo, cod)
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            res.append({
+                'turma_id': str(t.id),
+                'grau_ano': t.grau_ano,
+                'ano_letivo': t.ano_letivo,
+                'codigo': cod,
+                'status_homologacao': getattr(t, 'dc_status_homologacao', 'NAO_DEFINIDO'),
+                'nomeado_por': getattr(t, 'dc_nomeado_por', '') or '',
+                'homologado_por': getattr(t, 'dc_homologado_por', '') or '',
+            })
+        return res
 
     def get_total_carga_alocada(self, obj):
         total = 0
