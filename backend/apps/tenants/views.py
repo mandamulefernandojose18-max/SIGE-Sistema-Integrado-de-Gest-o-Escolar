@@ -57,7 +57,7 @@ def garantir_contas_institucionais_escola(escola, data=None):
         or f"Director da Escola ({escola.nome})"
     ).strip()
     admin_email_req = (data.get('adminEmail') or '').strip().lower()
-    admin_senha = data.get('adminSenha')
+    admin_senha = (data.get('adminSenha') or '').strip()
 
     admin_user = (
         Usuario.objects.filter(escola=escola, role__in=['ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']).first()
@@ -69,12 +69,13 @@ def garantir_contas_institucionais_escola(escola, data=None):
             email_cand = f"gd.{slug_cod}.{str(escola.id)[:4]}@sige.edu.mz"
         admin_user = Usuario.objects.create_user(
             email=email_cand,
-            password=admin_senha or '123456',
+            password=admin_senha or cod_gd,
             nome=admin_nome,
             role='ADMIN_ESCOLA',
             escola=escola,
             telefone=data.get('telefone') or escola.telefone or '',
             codigo_acesso=cod_gd,
+            senha_redefinida=bool(admin_senha and admin_senha != cod_gd),
         )
     else:
         changed = False
@@ -83,12 +84,15 @@ def garantir_contas_institucionais_escola(escola, data=None):
             changed = True
         if admin_user.codigo_acesso != cod_gd:
             admin_user.codigo_acesso = cod_gd
+            if not admin_user.senha_redefinida and not admin_senha:
+                admin_user.set_password(cod_gd)
             changed = True
         if data.get('adminNome') or data.get('director_nome'):
             admin_user.nome = admin_nome
             changed = True
         if admin_senha:
             admin_user.set_password(admin_senha)
+            admin_user.senha_redefinida = (admin_senha != cod_gd)
             changed = True
         if changed:
             admin_user.save()
@@ -101,7 +105,7 @@ def garantir_contas_institucionais_escola(escola, data=None):
         or f"Direcção Pedagógica ({escola.nome})"
     ).strip()
     dp_email_req = (data.get('dapEmail') or '').strip().lower()
-    dp_senha = data.get('dapSenha')
+    dp_senha = (data.get('dapSenha') or '').strip()
 
     dp_user = (
         Usuario.objects.filter(escola=escola, role='DAP').first()
@@ -113,12 +117,13 @@ def garantir_contas_institucionais_escola(escola, data=None):
             email_cand = f"dp.{slug_cod}.{str(escola.id)[:4]}@sige.edu.mz"
         dp_user = Usuario.objects.create_user(
             email=email_cand,
-            password=dp_senha or '123456',
+            password=dp_senha or cod_dp,
             nome=dp_nome,
             role='DAP',
             escola=escola,
             telefone=escola.telefone or '',
             codigo_acesso=cod_dp,
+            senha_redefinida=bool(dp_senha and dp_senha != cod_dp),
         )
     else:
         changed = False
@@ -127,12 +132,15 @@ def garantir_contas_institucionais_escola(escola, data=None):
             changed = True
         if dp_user.codigo_acesso != cod_dp:
             dp_user.codigo_acesso = cod_dp
+            if not dp_user.senha_redefinida and not dp_senha:
+                dp_user.set_password(cod_dp)
             changed = True
         if data.get('dapNome') or data.get('dap_nome'):
             dp_user.nome = dp_nome
             changed = True
         if dp_senha:
             dp_user.set_password(dp_senha)
+            dp_user.senha_redefinida = (dp_senha != cod_dp)
             changed = True
         if changed:
             dp_user.save()
@@ -145,7 +153,7 @@ def garantir_contas_institucionais_escola(escola, data=None):
         or f"Chefe da Secretaria ({escola.nome})"
     ).strip()
     secr_email_req = (data.get('secretariaEmail') or '').strip().lower()
-    secr_senha = data.get('secretariaSenha')
+    secr_senha = (data.get('secretariaSenha') or '').strip()
 
     secr_user = (
         Usuario.objects.filter(escola=escola, role='CHEFE_SECRETARIA').first()
@@ -157,12 +165,13 @@ def garantir_contas_institucionais_escola(escola, data=None):
             email_cand = f"secr.{slug_cod}.{str(escola.id)[:4]}@sige.edu.mz"
         secr_user = Usuario.objects.create_user(
             email=email_cand,
-            password=secr_senha or '123456',
+            password=secr_senha or cod_secr,
             nome=secr_nome,
             role='CHEFE_SECRETARIA',
             escola=escola,
             telefone=escola.telefone or '',
             codigo_acesso=cod_secr,
+            senha_redefinida=bool(secr_senha and secr_senha != cod_secr),
         )
     else:
         changed = False
@@ -171,12 +180,15 @@ def garantir_contas_institucionais_escola(escola, data=None):
             changed = True
         if secr_user.codigo_acesso != cod_secr:
             secr_user.codigo_acesso = cod_secr
+            if not secr_user.senha_redefinida and not secr_senha:
+                secr_user.set_password(cod_secr)
             changed = True
         if data.get('secretariaNome') or data.get('chefe_secretaria_nome'):
             secr_user.nome = secr_nome
             changed = True
         if secr_senha:
             secr_user.set_password(secr_senha)
+            secr_user.senha_redefinida = (secr_senha != cod_secr)
             changed = True
         if changed:
             secr_user.save()

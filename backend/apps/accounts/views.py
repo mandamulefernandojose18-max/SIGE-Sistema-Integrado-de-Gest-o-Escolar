@@ -102,7 +102,7 @@ class UserStatsView(APIView):
 class RedefinirSenhaView(APIView):
     permission_classes = [IsAuthenticated, IsEscolaAdmin]
 
-    def post(self, request, user_id):
+    def _executar(self, request, user_id):
         serializer = RedefinirSenhaSerializer(data=request.data)
         if not serializer.is_valid():
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -111,11 +111,152 @@ class RedefinirSenhaView(APIView):
         if not user:
             return Response({'success': False, 'message': 'Utilizador não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Verificar isolamento: se não for SuperAdmin, só pode redefinir da própria escola
         if getattr(request.user, 'role', '') != 'SUPERADMIN' and user.escola != request.user.escola:
             return Response({'success': False, 'message': 'Sem permissão para alterar utilizador de outra escola.'}, status=status.HTTP_403_FORBIDDEN)
 
-        user.set_password(serializer.validated_data['nova_senha'])
-        user.save()
+        repor_codigo = serializer.validated_data.get('repor_codigo', False) or bool(request.data.get('reporCodigo'))
+        nova_senha = (
+            serializer.validated_data.get('nova_senha')
+            or serializer.validated_data.get('novaSenha')
+            or request.data.get('nova_senha')
+            or request.data.get('novaSenha')
+            or request.data.get('senha')
+            or ''
+        ).strip()
+
+        if repor_codigo:
+            cod_padrao = (user.codigo_acesso or '').strip()
+            if not cod_padrao:
+                return Response({'success': False, 'message': 'Este utilizador não possui código oficial atribuído.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(cod_padrao)
+            user.senha_redefinida = False
+            user.save(update_fields=['password', 'senha_redefinida'])
+            return Response({
+                'success': True,
+                'message': f'Senha de {user.nome} reposta para o código oficial ({cod_padrao}) com sucesso!'
+            })
+
+        if not nova_senha or len(nova_senha) < 4:
+            return Response({'success': False, 'message': 'Informe uma nova palavra-passe (mínimo 4 caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(nova_senha)
+        user.senha_redefinida = (nova_senha.lower() != (user.codigo_acesso or '').strip().lower())
+        user.save(update_fields=['password', 'senha_redefinida'])
 
         return Response({'success': True, 'message': f'Senha de {user.nome} redefinida com sucesso!'})
+
+    def post(self, request, user_id):
+        return self._executar(request, user_id)
+
+    def put(self, request, user_id):
+        return self._executar(request, user_id)
+
+
+class AlterarMinhaSenhaView(APIView):
+    """Permite que qualquer utilizador autenticado (GD, DP, SECR, Professor, DT, DC, Aluno) redefina a sua própria senha."""
+    permission_classes = [IsAuthenticated]
+
+    def _executar(self, request):
+        user = request.user
+        senha_atual = (request.data.get('senha_atual') or request.data.get('senhaAtual') or '').strip()
+        nova_senha = (
+            request.data.get('nova_senha')
+            or request.data.get('novaSenha')
+            or request.data.get('senha')
+            or ''
+        ).strip()
+
+        if not nova_senha or len(nova_senha) < 4:
+            return Response({
+                'success': False,
+                'message': 'A nova palavra-passe deve ter pelo menos 4 caracteres.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if senha_atual:
+            from .serializers import _validar_senha_ou_codigo_inicial
+            if not _validar_senha_ou_codigo_inicial(user, senha_atual):
+                return Response({
+                    'success': False,
+                    'message': 'A senha actual informada está incorrecta (se ainda não redefiniu, introduza o seu código de acesso).'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(nova_senha)
+        user.senha_redefinida = (nova_senha.lower() != (user.codigo_acesso or '').strip().lower())
+        user.save(update_fields=['password', 'senha_redefinida'])
+
+        return Response({
+            'success': True,
+            'message': 'A sua palavra-passe foi redefinida com sucesso!',
+            'data': UsuarioSerializer(user).data
+        })
+
+    def post(self, request):
+        return self._executar(request)
+
+    def put(self, request):
+        return self._executar(request)
+
+
+class RedefinirSenhaPublicoView(APIView):
+    """
+    Permite ao utilizador redefinir a sua própria senha directamente na tela de Login,
+    informando o seu Código de Utilizador (GD..., DP..., SECR..., PR..., DT..., DC..., Aluno),
+    a Senha Actual (no 1.º acesso é a repetição do próprio código) e a Nova Senha.
+    """
+    permission_classes = [AllowAny]
+
+    def _executar(self, request):
+        identificador = (
+            request.data.get('codigo')
+            or request.data.get('usuario')
+            or request.data.get('email')
+            or request.data.get('identificador')
+            or ''
+        ).strip()
+        senha_atual = (
+            request.data.get('senha_atual')
+            or request.data.get('senhaAtual')
+            or request.data.get('senha')
+            or ''
+        ).strip()
+        nova_senha = (
+            request.data.get('nova_senha')
+            or request.data.get('novaSenha')
+            or ''
+        ).strip()
+
+        if not identificador or not senha_atual or not nova_senha:
+            return Response({
+                'success': False,
+                'message': 'Preencha o seu Código de Utilizador, a Senha Actual (ou repita o código) e a Nova Senha.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(nova_senha) < 4:
+            return Response({
+                'success': False,
+                'message': 'A nova palavra-passe deve ter pelo menos 4 caracteres.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = LoginSerializer(data={'email': identificador, 'senha': senha_atual})
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'message': 'Código de utilizador ou senha actual inválidos. No primeiro acesso, a senha actual é igual ao seu código.'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = serializer.validated_data['user']
+        user.set_password(nova_senha)
+        user.senha_redefinida = (nova_senha.lower() != (user.codigo_acesso or '').strip().lower())
+        user.save(update_fields=['password', 'senha_redefinida'])
+
+        return Response({
+            'success': True,
+            'message': f'Palavra-passe de {user.nome} ({user.codigo_acesso or identificador}) redefinida com sucesso! Já pode iniciar sessão com a nova senha.'
+        })
+
+    def post(self, request):
+        return self._executar(request)
+
+    def put(self, request):
+        return self._executar(request)
+

@@ -13,7 +13,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
         fields = [
-            'id', 'nome', 'email', 'codigo_acesso', 'role', 'escola_id', 'escola_nome', 'escola_codigo',
+            'id', 'nome', 'email', 'codigo_acesso', 'senha_redefinida', 'role', 'escola_id', 'escola_nome', 'escola_codigo',
             'ativo', 'telefone', 'avatar_url', 'aluno_id', 'professor_id', 'date_joined',
             'last_login', 'ultimo_acesso', 'ultimo_acesso_quem'
         ]
@@ -27,6 +27,30 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     def get_ultimo_acesso_quem(self, obj):
         return obj.nome or obj.codigo_acesso or obj.username or obj.email
+
+
+def _validar_senha_ou_codigo_inicial(u, pwd, codigo_extra=None) -> bool:
+    """
+    Valida a senha do utilizador:
+    1) Aceita sempre a senha gravada no hash (seja a senha redefinida ou a inicial).
+    2) Caso o utilizador ainda não tenha redefinido a senha (senha_redefinida=False),
+       aceita também a repetição do seu código oficial (codigo_acesso ou codigo_extra DT/DC)
+       e sincroniza o hash para manter consistência.
+    """
+    if not u or not pwd:
+        return False
+    if u.check_password(pwd):
+        return True
+    if not getattr(u, 'senha_redefinida', False):
+        pwd_clean = str(pwd).strip().lower()
+        cod_acesso = str(u.codigo_acesso or '').strip().lower()
+        cod_ext = str(codigo_extra or '').strip().lower()
+        if (cod_acesso and pwd_clean == cod_acesso) or (cod_ext and pwd_clean == cod_ext):
+            u.set_password(u.codigo_acesso or pwd.strip())
+            u.save(update_fields=['password'])
+            return True
+    return False
+
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=False)
@@ -58,16 +82,46 @@ class LoginSerializer(serializers.Serializer):
             u = Usuario.objects.filter(email__iexact=login_id).first()
             if not u:
                 u = Usuario.objects.filter(username__iexact=login_id).first()
-            if u and u.check_password(pwd):
+            if u and _validar_senha_ou_codigo_inicial(u, pwd):
                 user = u
 
         # Busca por Código de Acesso Oficial (GD..., DP..., SECR..., PR..., código do aluno, etc.)
         if not user:
             candidatos_cod = Usuario.objects.filter(codigo_acesso__iexact=login_id)
             for cand in candidatos_cod:
-                if cand.check_password(pwd):
+                if _validar_senha_ou_codigo_inicial(cand, pwd, codigo_extra=login_id):
                     user = cand
                     break
+
+        # Busca direta no modelo Aluno pela matrícula/código caso a conta Usuario ainda não estivesse vinculada
+        if not user and '.' in login_id:
+            try:
+                from apps.alunos.models import Aluno
+                aluno_obj = Aluno.objects.select_related('escola').filter(matricula__iexact=login_id).first()
+                if aluno_obj:
+                    u_aluno = Usuario.objects.filter(aluno_id=aluno_obj.id).first()
+                    if not u_aluno:
+                        aluno_obj.save()
+                        u_aluno = Usuario.objects.filter(aluno_id=aluno_obj.id).first()
+                    if u_aluno and _validar_senha_ou_codigo_inicial(u_aluno, pwd, codigo_extra=aluno_obj.matricula):
+                        user = u_aluno
+            except Exception:
+                pass
+
+        # Busca direta no modelo Professor pelo código fixo PR...
+        if not user and login_id.upper().startswith('PR'):
+            try:
+                from apps.professores.models import Professor
+                prof_obj = Professor.objects.select_related('escola').filter(codigo__iexact=login_id).first()
+                if prof_obj:
+                    u_prof = Usuario.objects.filter(professor_id=prof_obj.id).first() or Usuario.objects.filter(email__iexact=prof_obj.email).first()
+                    if not u_prof:
+                        prof_obj.save()
+                        u_prof = Usuario.objects.filter(professor_id=prof_obj.id).first()
+                    if u_prof and _validar_senha_ou_codigo_inicial(u_prof, pwd, codigo_extra=prof_obj.codigo):
+                        user = u_prof
+            except Exception:
+                pass
 
         # Busca por Código de Director de Turma (DT...) ou Director de Classe (DC...) homologado
         if not user and (login_id.upper().startswith('DT') or login_id.upper().startswith('DC')):
@@ -86,7 +140,7 @@ class LoginSerializer(serializers.Serializer):
                     )
                     if prof_alvo:
                         u_prof = Usuario.objects.filter(professor_id=prof_alvo.id).first() or Usuario.objects.filter(email__iexact=prof_alvo.email).first()
-                        if u_prof and u_prof.check_password(pwd):
+                        if u_prof and _validar_senha_ou_codigo_inicial(u_prof, pwd, codigo_extra=login_id):
                             user = u_prof
             except Exception:
                 pass
@@ -109,11 +163,11 @@ class LoginSerializer(serializers.Serializer):
             alias_target = aliases.get(login_id.lower())
             if alias_target:
                 u = Usuario.objects.filter(email__iexact=alias_target).first() or Usuario.objects.filter(username__iexact=alias_target).first()
-                if u and u.check_password(pwd):
+                if u and _validar_senha_ou_codigo_inicial(u, pwd):
                     user = u
 
         if not user:
-            raise serializers.ValidationError('Credenciais inválidas. Verifique o código/email e a senha.')
+            raise serializers.ValidationError('Credenciais inválidas. Verifique o código/utilizador e a senha (no 1.º acesso, repita o seu código como senha).')
 
         if not user.ativo or not user.is_active:
             raise serializers.ValidationError('Conta de utilizador inativa ou desativada.')
@@ -132,4 +186,7 @@ class LoginSerializer(serializers.Serializer):
         }
 
 class RedefinirSenhaSerializer(serializers.Serializer):
-    nova_senha = serializers.CharField(min_length=6, write_only=True)
+    nova_senha = serializers.CharField(min_length=4, write_only=True, required=False)
+    novaSenha = serializers.CharField(min_length=4, write_only=True, required=False)
+    repor_codigo = serializers.BooleanField(required=False, default=False)
+

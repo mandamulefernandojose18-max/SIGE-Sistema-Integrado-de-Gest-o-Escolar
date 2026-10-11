@@ -492,7 +492,9 @@ def sincronizar_todos_codigos_oficiais() -> dict:
         Usuario.objects.filter(escola=prof.escola, email__iexact=prof.email, role='PROFESSOR').exclude(codigo_acesso=prof.codigo).update(codigo_acesso=prof.codigo)
         resumo['professores'] += 1
 
+    from apps.tenants.views import garantir_contas_institucionais_escola
     for esc in Escola.objects.all():
+        garantir_contas_institucionais_escola(esc)
         cod_esc = (esc.codigo_escola or '0101S0001').strip().upper()
         resumo['usuarios'] += Usuario.objects.filter(escola=esc, role__in=['ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']).exclude(codigo_acesso=f"GD{cod_esc}").update(codigo_acesso=f"GD{cod_esc}")
         resumo['usuarios'] += Usuario.objects.filter(escola=esc, role='DAP').exclude(codigo_acesso=f"DP{cod_esc}").update(codigo_acesso=f"DP{cod_esc}")

@@ -742,20 +742,169 @@ async function carregarDadosGeografia() {
 }
 
 function modalEsqueciSenha() {
-  abrirModal('Recuperação de Acesso', `
-    <div class="text-center p-3">
-      <div class="mb-3 text-warning fs-1"><i class="bi bi-shield-lock"></i></div>
-      <h6 class="fw-bold mb-2">Esqueceu a sua senha?</h6>
-      <p class="text-muted small mb-3">
-        Por razões de segurança e integridade institucional, o pedido de redefinição de credenciais deve ser solicitado diretamente ao Administrador do Sistema ou à Direção Pedagógica da sua instituição.
-      </p>
+  abrirModal('Recuperação & Credenciais de Acesso', `
+    <div class="text-center p-2">
+      <div class="mb-2 text-warning fs-1"><i class="bi bi-shield-lock"></i></div>
+      <h6 class="fw-bold mb-2">Como funciona a sua senha no SIGE?</h6>
       <div class="p-3 bg-light rounded text-start small border mb-3">
-        <div class="mb-1"><i class="bi bi-envelope me-1 text-primary"></i> <strong>Apoio Técnico:</strong> suporte@sige.edu.mz</div>
-        <div><i class="bi bi-shield-check me-1 text-success"></i> <strong>Administrador:</strong> Eng. Fernando Mandamule</div>
+        <div class="mb-2">
+          <i class="bi bi-check-circle-fill text-success me-1"></i>
+          <strong>1.º Acesso (Senha Inicial):</strong> A sua senha inicial é exactamente a <strong>repetição do seu Código Oficial de Utilizador</strong>:
+          <ul class="mb-1 mt-1 ps-3">
+            <li>Director da Escola: <code>GD0101S0001</code> &rarr; Senha: <code>GD0101S0001</code></li>
+            <li>Direcção Pedagógica: <code>DP0101S0001</code> &rarr; Senha: <code>DP0101S0001</code></li>
+            <li>Secretaria: <code>SECR0101S0001</code> &rarr; Senha: <code>SECR0101S0001</code></li>
+            <li>Professor: <code>PR0101S0001.001</code> &rarr; Senha: <code>PR0101S0001.001</code></li>
+            <li>Director de Turma / Classe: <code>DT0101S0001.12.01.2026.cg</code> &rarr; repita o código</li>
+            <li>Aluno: <code>0101S0001.12.01.2026.cg</code> &rarr; Senha: <code>0101S0001.12.01.2026.cg</code></li>
+          </ul>
+        </div>
+        <div>
+          <i class="bi bi-key-fill text-warning me-1"></i>
+          <strong>Já redefiniu e esqueceu a senha personalizada?</strong> Solicite ao Director da Escola / Secretaria a reposição da sua senha para o código oficial no <em>Cofre de Credenciais</em>.
+        </div>
       </div>
-      <button class="btn btn-primary w-100" onclick="fecharModal()">Compreendido</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-warning fw-semibold w-100" onclick="modalRedefinirSenhaNoLogin()">
+          <i class="bi bi-key-fill me-1"></i> Redefinir a Minha Senha Agora
+        </button>
+        <button class="btn btn-secondary w-50" onclick="fecharModal()">Fechar</button>
+      </div>
     </div>
   `);
+}
+
+function modalRedefinirSenhaNoLogin() {
+  const codigoPreenchido = (document.getElementById('loginEmail')?.value || '').trim();
+  abrirModal('Redefinir a Minha Palavra-passe', `
+    <form id="formRedefinirSenhaNoLogin">
+      <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-info-circle-fill me-1"></i>
+        Se este for o seu primeiro acesso, informe no campo <strong>Senha Actual</strong> o seu próprio <strong>Código de Utilizador</strong> (repetindo o código) e escolha a sua nova senha pessoal.
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-bold">Código do Utilizador (ou E-mail)</label>
+        <input type="text" id="rslIdentificador" class="form-control font-monospace" required value="${codigoPreenchido}" placeholder="Ex: GD0101S0001, PR0101S0001.001 ou 0101S0001.12.01.2026.cg">
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-bold">Senha Actual <span class="text-muted fw-normal">(no 1.º acesso, repita o seu código)</span></label>
+        <input type="password" id="rslSenhaAtual" class="form-control" required placeholder="Repita o seu código ou digite a senha actual">
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <label class="form-label small fw-bold text-primary">Nova Palavra-passe</label>
+          <input type="password" id="rslNovaSenha" class="form-control" required minlength="4" placeholder="Mínimo 4 caracteres">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-bold text-primary">Confirmar Nova Senha</label>
+          <input type="password" id="rslConfirmarSenha" class="form-control" required minlength="4" placeholder="Repita a nova senha">
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-light" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary fw-semibold px-4">
+          <i class="bi bi-check2-circle me-1"></i> Gravar Nova Senha
+        </button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('formRedefinirSenhaNoLogin')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const codigo = (document.getElementById('rslIdentificador')?.value || '').trim();
+    const senha_atual = document.getElementById('rslSenhaAtual')?.value || '';
+    const nova_senha = document.getElementById('rslNovaSenha')?.value || '';
+    const confirmar = document.getElementById('rslConfirmarSenha')?.value || '';
+
+    if (nova_senha !== confirmar) {
+      return alert('A nova palavra-passe e a confirmação não coincidem.');
+    }
+
+    try {
+      const res = await fetch(formatarUrlApi('/api/v1/auth/redefinir-senha-direto'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, senha_atual, nova_senha })
+      });
+      const json = await res.json();
+      if (json && json.success) {
+        alert(json.message || 'Palavra-passe redefinida com sucesso!');
+        fecharModal();
+        preencherLogin(codigo, nova_senha);
+      } else {
+        alert(json?.message || 'Não foi possível redefinir a palavra-passe. Verifique o código e a senha actual.');
+      }
+    } catch (err) {
+      alert('Erro ao comunicar com o servidor: ' + (err.message || 'Tente novamente.'));
+    }
+  });
+}
+
+function modalRedefinirMinhaSenha() {
+  const u = state.user || {};
+  const cod = u.codigo_acesso || u.email || '';
+  const statusSenha = u.senha_redefinida
+    ? '<span class="badge bg-success">Personalizada pelo Utilizador</span>'
+    : `<span class="badge bg-warning text-dark">Padrão Inicial (Igual ao Código: ${cod})</span>`;
+
+  abrirModal('Redefinir a Minha Palavra-passe', `
+    <form id="formRedefinirMinhaSenha">
+      <div class="p-3 bg-light rounded border mb-3 small">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span><strong>Utilizador:</strong> ${u.nome || '-'}</span>
+          <span class="badge bg-dark font-monospace">${cod}</span>
+        </div>
+        <div><strong>Estado actual da senha:</strong> ${statusSenha}</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-bold">Senha Actual <span class="text-muted fw-normal">(opcional ou repita o seu código ${cod})</span></label>
+        <input type="password" id="rmsSenhaAtual" class="form-control" placeholder="Deixe em branco ou informe a senha actual / código">
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <label class="form-label small fw-bold text-primary">Nova Palavra-passe</label>
+          <input type="password" id="rmsNovaSenha" class="form-control" required minlength="4" placeholder="Mínimo 4 caracteres">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-bold text-primary">Confirmar Nova Senha</label>
+          <input type="password" id="rmsConfirmarSenha" class="form-control" required minlength="4" placeholder="Repita a nova senha">
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-light" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary fw-semibold px-4">
+          <i class="bi bi-key-fill me-1"></i> Actualizar Minha Senha
+        </button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('formRedefinirMinhaSenha')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const senha_atual = document.getElementById('rmsSenhaAtual')?.value || '';
+    const nova_senha = document.getElementById('rmsNovaSenha')?.value || '';
+    const confirmar = document.getElementById('rmsConfirmarSenha')?.value || '';
+
+    if (nova_senha !== confirmar) {
+      return alert('A nova palavra-passe e a confirmação não coincidem.');
+    }
+
+    try {
+      const res = await apiFetch('/api/v1/auth/minha-senha', {
+        method: 'POST',
+        body: JSON.stringify({ senha_atual, nova_senha })
+      });
+      if (res && res.success) {
+        if (state.user) state.user.senha_redefinida = true;
+        mostrarNotificacao(res.message || 'Palavra-passe redefinida com sucesso!', 'success');
+        fecharModal();
+      } else {
+        alert(res?.message || 'Erro ao redefinir a palavra-passe.');
+      }
+    } catch (err) {
+      alert(err.message || 'Erro ao redefinir a palavra-passe.');
+    }
+  });
 }
 
 function preencherLogin(email, senha) {
@@ -10986,9 +11135,17 @@ function renderizarTabelaCofre(lista) {
       dtAcesso = dt.toLocaleDateString('pt-PT') + ' ' + dt.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
     }
 
+    const codEscapado = (u.codigo_acesso || '').replace(/'/g, "\\'");
+    const badgeSenha = u.senha_redefinida
+      ? '<span class="badge bg-info bg-opacity-10 text-dark border border-info ms-1" style="font-size: 0.68rem;" title="O utilizador personalizou a sua senha">Senha Redefinida</span>'
+      : '<span class="badge bg-warning bg-opacity-25 text-dark border border-warning ms-1" style="font-size: 0.68rem;" title="Senha inicial activa: basta repetir o código de acesso">Senha = Código</span>';
+
     return `
       <tr>
-        <td><span class="badge bg-dark text-white font-monospace">${u.codigo_acesso || '-'}</span></td>
+        <td>
+          <span class="badge bg-dark text-white font-monospace">${u.codigo_acesso || '-'}</span>
+          <div class="mt-1">${badgeSenha}</div>
+        </td>
         <td><strong>${u.nome}</strong></td>
         <td><code>${u.email}</code></td>
         <td><span class="badge bg-secondary">${u.role}</span></td>
@@ -10996,8 +11153,8 @@ function renderizarTabelaCofre(lista) {
         <td><small class="text-muted">${dtAcesso}</small></td>
         <td><span class="badge ${u.ativo ? 'bg-success' : 'bg-danger'}">${u.ativo ? 'Activo' : 'Inactivo'}</span></td>
         <td class="text-end">
-          <button class="btn btn-outline-warning btn-sm" onclick="modalRedefinirSenhaUsuario('${u.id}', '${u.nome.replace(/'/g, "\\'")}')">
-            <i class="bi bi-key me-1"></i> Nova Senha
+          <button class="btn btn-outline-warning btn-sm" onclick="modalRedefinirSenhaUsuario('${u.id}', '${u.nome.replace(/'/g, "\\'")}', '${codEscapado}')">
+            <i class="bi bi-key me-1"></i> Gerir Senha
           </button>
         </td>
       </tr>
@@ -11021,17 +11178,25 @@ function filtrarUsuariosCofre() {
   renderizarTabelaCofre(filtrados);
 }
 
-function modalRedefinirSenhaUsuario(userId, userNome) {
-  abrirModal(`Redefinir Palavra-passe: ${userNome}`, `
+function modalRedefinirSenhaUsuario(userId, userNome, codigoAcesso = '') {
+  abrirModal(`Gerir / Redefinir Palavra-passe: ${userNome}`, `
     <form id="formRedefinirSenhaUsuario">
-      <p class="small text-muted mb-3">Defina a nova palavra-passe para o utilizador <strong>${userNome}</strong>.</p>
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Nova Palavra-passe</label>
-        <input type="password" id="novaSenhaUsuarioInput" class="form-control" placeholder="Mínimo 6 caracteres" required minlength="6">
+      <div class="p-3 bg-light rounded border mb-3 small">
+        <div><strong>Utilizador:</strong> ${userNome}</div>
+        ${codigoAcesso ? `<div class="mt-1"><strong>Código Oficial:</strong> <code class="fw-bold text-dark">${codigoAcesso}</code></div>` : ''}
       </div>
-      <button type="submit" class="btn btn-warning w-100">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Definir Nova Palavra-passe Personalizada</label>
+        <input type="password" id="novaSenhaUsuarioInput" class="form-control" placeholder="Mínimo 4 caracteres (ou use o botão abaixo para repor o código)" required minlength="4">
+      </div>
+      <button type="submit" class="btn btn-warning fw-semibold w-100 mb-2">
         <i class="bi bi-check-lg me-1"></i> Gravar Nova Senha
       </button>
+      ${codigoAcesso ? `
+        <button type="button" class="btn btn-outline-dark btn-sm w-100" onclick="reporSenhaParaCodigoOficial('${userId}', '${codigoAcesso}')">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Repor Senha Padrão (Repetir Código: <strong>${codigoAcesso}</strong>)
+        </button>
+      ` : ''}
     </form>
   `);
 
@@ -11039,24 +11204,32 @@ function modalRedefinirSenhaUsuario(userId, userNome) {
     e.preventDefault();
     try {
       const novaSenha = document.getElementById('novaSenhaUsuarioInput').value;
-      const res = await apiFetch(`/api/v1/auth/usuarios/${userId}/redefinir-senha`, {
+      await apiFetch(`/api/v1/auth/usuarios/${userId}/redefinir-senha`, {
         method: 'PUT',
         body: JSON.stringify({ novaSenha })
-      }).catch(async () => {
-        // Fallback genérico para rota de utilizador
-        return apiFetch(`/api/v1/escola-admin/administrativos/${userId}`, {
-          method: 'PUT',
-          body: JSON.stringify({ senha: novaSenha })
-        });
       });
 
-      alert('Palavra-passe actualizada com sucesso!');
+      mostrarNotificacao('Palavra-passe actualizada com sucesso!', 'success');
       fecharModal();
       carregarCofreUsuarios();
     } catch (err) {
       alert(err.message || 'Erro ao actualizar palavra-passe');
     }
   });
+}
+
+async function reporSenhaParaCodigoOficial(userId, codigoAcesso) {
+  try {
+    const res = await apiFetch(`/api/v1/auth/usuarios/${userId}/redefinir-senha`, {
+      method: 'PUT',
+      body: JSON.stringify({ repor_codigo: true })
+    });
+    mostrarNotificacao(res?.message || `Senha reposta para o código ${codigoAcesso}!`, 'success');
+    fecharModal();
+    carregarCofreUsuarios();
+  } catch (err) {
+    alert(err.message || 'Erro ao repor senha para o código oficial');
+  }
 }
 
 

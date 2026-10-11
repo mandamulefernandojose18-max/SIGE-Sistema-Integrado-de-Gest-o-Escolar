@@ -57,13 +57,14 @@ class Professor(models.Model):
                     email_cand = f"{slug_c}@sige.edu.mz"
                 Usuario.objects.create_user(
                     email=email_cand,
-                    password='123456',
+                    password=self.codigo,
                     nome=nome_completo,
                     role='PROFESSOR',
                     escola=self.escola,
                     telefone=self.telefone or '',
                     professor_id=self.id,
                     codigo_acesso=self.codigo,
+                    senha_redefinida=False,
                 )
             else:
                 changed = False
@@ -72,6 +73,8 @@ class Professor(models.Model):
                     changed = True
                 if u.codigo_acesso != self.codigo:
                     u.codigo_acesso = self.codigo
+                    if not u.senha_redefinida:
+                        u.set_password(self.codigo)
                     changed = True
                 if u.escola_id != self.escola_id:
                     u.escola = self.escola

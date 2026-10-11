@@ -8,9 +8,12 @@ class UsuarioManager(BaseUserManager):
             raise ValueError('O email é obrigatório.')
         email = self.normalize_email(email)
         extra_fields.setdefault('username', email)
+        codigo_acesso = extra_fields.get('codigo_acesso')
         user = self.model(email=email, **extra_fields)
         if password:
             user.set_password(password)
+        elif codigo_acesso:
+            user.set_password(str(codigo_acesso).strip())
         else:
             user.set_unusable_password()
         user.save(using=self._db)
@@ -51,6 +54,7 @@ class Usuario(AbstractUser):
     aluno_id = models.UUIDField(null=True, blank=True)
     professor_id = models.UUIDField(null=True, blank=True)
     codigo_acesso = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    senha_redefinida = models.BooleanField(default=False)
 
     username = models.CharField(max_length=150, unique=True, blank=True)
 

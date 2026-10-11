@@ -100,7 +100,7 @@ class Aluno(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
-        # Sincronizar conta de acesso (Usuario) do aluno com o código oficial
+        # Sincronizar conta de acesso (Usuario) do aluno com o código oficial (senha inicial = repetir o código)
         try:
             from apps.accounts.models import Usuario
             nome_completo = f"{self.nome} {self.apelido or ''}".strip()
@@ -109,18 +109,21 @@ class Aluno(models.Model):
                 email_cand = f"aluno.{str(self.id)[:8].lower()}@sige.edu.mz"
                 Usuario.objects.create_user(
                     email=email_cand,
-                    password='123456',
+                    password=self.matricula,
                     nome=nome_completo,
                     role='ALUNO',
                     escola=self.escola,
                     telefone=self.contato_responsavel or '',
                     aluno_id=self.id,
                     codigo_acesso=self.matricula,
+                    senha_redefinida=False,
                 )
             else:
                 changed = False
                 if u.codigo_acesso != self.matricula:
                     u.codigo_acesso = self.matricula
+                    if not u.senha_redefinida:
+                        u.set_password(self.matricula)
                     changed = True
                 if u.escola_id != self.escola_id:
                     u.escola = self.escola
