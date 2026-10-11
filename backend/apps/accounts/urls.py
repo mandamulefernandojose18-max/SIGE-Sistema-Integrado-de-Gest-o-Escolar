@@ -6,7 +6,6 @@ from .views import (
     UserStatsView,
     RedefinirSenhaView,
     AlterarMinhaSenhaView,
-    RedefinirSenhaPublicoView,
 )
 
 urlpatterns = [
@@ -20,9 +19,8 @@ urlpatterns = [
     path('stats/', UserStatsView.as_view(), name='auth_stats'),
     path('minha-senha', AlterarMinhaSenhaView.as_view(), name='auth_minha_senha_no_slash'),
     path('minha-senha/', AlterarMinhaSenhaView.as_view(), name='auth_minha_senha'),
-    path('redefinir-senha-direto', RedefinirSenhaPublicoView.as_view(), name='auth_redefinir_senha_direto_no_slash'),
-    path('redefinir-senha-direto/', RedefinirSenhaPublicoView.as_view(), name='auth_redefinir_senha_direto'),
     path('usuarios/<uuid:user_id>/redefinir-senha', RedefinirSenhaView.as_view(), name='auth_redefinir_senha_no_slash'),
     path('usuarios/<uuid:user_id>/redefinir-senha/', RedefinirSenhaView.as_view(), name='auth_redefinir_senha'),
 ]
+
 

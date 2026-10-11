@@ -742,102 +742,20 @@ async function carregarDadosGeografia() {
 }
 
 function modalEsqueciSenha() {
-  abrirModal('Recuperação & Credenciais de Acesso', `
-    <div class="text-center p-2">
-      <div class="mb-2 text-warning fs-1"><i class="bi bi-shield-lock"></i></div>
-      <h6 class="fw-bold mb-2">Como funciona a sua senha no SIGE?</h6>
+  abrirModal('Recuperação de Acesso', `
+    <div class="text-center p-3">
+      <div class="mb-3 text-warning fs-1"><i class="bi bi-shield-lock"></i></div>
+      <h6 class="fw-bold mb-2">Esqueceu a sua senha?</h6>
+      <p class="text-muted small mb-3">
+        Por razões de segurança e integridade institucional, o pedido de redefinição de credenciais deve ser solicitado diretamente ao Administrador do Sistema ou à Direção Pedagógica da sua instituição.
+      </p>
       <div class="p-3 bg-light rounded text-start small border mb-3">
-        <div class="mb-2">
-          <i class="bi bi-check-circle-fill text-success me-1"></i>
-          <strong>1.º Acesso (Senha Inicial):</strong> A sua senha inicial é exactamente a <strong>repetição do seu Código Oficial de Utilizador</strong>:
-          <ul class="mb-1 mt-1 ps-3">
-            <li>Director da Escola: <code>GD0101S0001</code> &rarr; Senha: <code>GD0101S0001</code></li>
-            <li>Direcção Pedagógica: <code>DP0101S0001</code> &rarr; Senha: <code>DP0101S0001</code></li>
-            <li>Secretaria: <code>SECR0101S0001</code> &rarr; Senha: <code>SECR0101S0001</code></li>
-            <li>Professor: <code>PR0101S0001.001</code> &rarr; Senha: <code>PR0101S0001.001</code></li>
-            <li>Director de Turma / Classe: <code>DT0101S0001.12.01.2026.cg</code> &rarr; repita o código</li>
-            <li>Aluno: <code>0101S0001.12.01.2026.cg</code> &rarr; Senha: <code>0101S0001.12.01.2026.cg</code></li>
-          </ul>
-        </div>
-        <div>
-          <i class="bi bi-key-fill text-warning me-1"></i>
-          <strong>Já redefiniu e esqueceu a senha personalizada?</strong> Solicite ao Director da Escola / Secretaria a reposição da sua senha para o código oficial no <em>Cofre de Credenciais</em>.
-        </div>
+        <div class="mb-1"><i class="bi bi-envelope me-1 text-primary"></i> <strong>Apoio Técnico:</strong> suporte@sige.edu.mz</div>
+        <div><i class="bi bi-shield-check me-1 text-success"></i> <strong>Administrador:</strong> Eng. Fernando Mandamule</div>
       </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-warning fw-semibold w-100" onclick="modalRedefinirSenhaNoLogin()">
-          <i class="bi bi-key-fill me-1"></i> Redefinir a Minha Senha Agora
-        </button>
-        <button class="btn btn-secondary w-50" onclick="fecharModal()">Fechar</button>
-      </div>
+      <button class="btn btn-primary w-100" onclick="fecharModal()">Compreendido</button>
     </div>
   `);
-}
-
-function modalRedefinirSenhaNoLogin() {
-  const codigoPreenchido = (document.getElementById('loginEmail')?.value || '').trim();
-  abrirModal('Redefinir a Minha Palavra-passe', `
-    <form id="formRedefinirSenhaNoLogin">
-      <div class="alert alert-info py-2 small mb-3">
-        <i class="bi bi-info-circle-fill me-1"></i>
-        Se este for o seu primeiro acesso, informe no campo <strong>Senha Actual</strong> o seu próprio <strong>Código de Utilizador</strong> (repetindo o código) e escolha a sua nova senha pessoal.
-      </div>
-      <div class="mb-3">
-        <label class="form-label small fw-bold">Código do Utilizador (ou E-mail)</label>
-        <input type="text" id="rslIdentificador" class="form-control font-monospace" required value="${codigoPreenchido}" placeholder="Ex: GD0101S0001, PR0101S0001.001 ou 0101S0001.12.01.2026.cg">
-      </div>
-      <div class="mb-3">
-        <label class="form-label small fw-bold">Senha Actual <span class="text-muted fw-normal">(no 1.º acesso, repita o seu código)</span></label>
-        <input type="password" id="rslSenhaAtual" class="form-control" required placeholder="Repita o seu código ou digite a senha actual">
-      </div>
-      <div class="row g-2 mb-3">
-        <div class="col-md-6">
-          <label class="form-label small fw-bold text-primary">Nova Palavra-passe</label>
-          <input type="password" id="rslNovaSenha" class="form-control" required minlength="4" placeholder="Mínimo 4 caracteres">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label small fw-bold text-primary">Confirmar Nova Senha</label>
-          <input type="password" id="rslConfirmarSenha" class="form-control" required minlength="4" placeholder="Repita a nova senha">
-        </div>
-      </div>
-      <div class="d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-light" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="btn btn-primary fw-semibold px-4">
-          <i class="bi bi-check2-circle me-1"></i> Gravar Nova Senha
-        </button>
-      </div>
-    </form>
-  `);
-
-  document.getElementById('formRedefinirSenhaNoLogin')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const codigo = (document.getElementById('rslIdentificador')?.value || '').trim();
-    const senha_atual = document.getElementById('rslSenhaAtual')?.value || '';
-    const nova_senha = document.getElementById('rslNovaSenha')?.value || '';
-    const confirmar = document.getElementById('rslConfirmarSenha')?.value || '';
-
-    if (nova_senha !== confirmar) {
-      return alert('A nova palavra-passe e a confirmação não coincidem.');
-    }
-
-    try {
-      const res = await fetch(formatarUrlApi('/api/v1/auth/redefinir-senha-direto'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo, senha_atual, nova_senha })
-      });
-      const json = await res.json();
-      if (json && json.success) {
-        alert(json.message || 'Palavra-passe redefinida com sucesso!');
-        fecharModal();
-        preencherLogin(codigo, nova_senha);
-      } else {
-        alert(json?.message || 'Não foi possível redefinir a palavra-passe. Verifique o código e a senha actual.');
-      }
-    } catch (err) {
-      alert('Erro ao comunicar com o servidor: ' + (err.message || 'Tente novamente.'));
-    }
-  });
 }
 
 function modalRedefinirMinhaSenha() {
@@ -847,18 +765,19 @@ function modalRedefinirMinhaSenha() {
     ? '<span class="badge bg-success">Personalizada pelo Utilizador</span>'
     : `<span class="badge bg-warning text-dark">Padrão Inicial (Igual ao Código: ${cod})</span>`;
 
-  abrirModal('Redefinir a Minha Palavra-passe', `
+  abrirModal('Meu Perfil de Utilizador & Alterar Palavra-passe', `
     <form id="formRedefinirMinhaSenha">
       <div class="p-3 bg-light rounded border mb-3 small">
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span><strong>Utilizador:</strong> ${u.nome || '-'}</span>
           <span class="badge bg-dark font-monospace">${cod}</span>
         </div>
+        <div class="mb-1"><strong>Perfil / Cargo:</strong> <span class="badge bg-secondary">${u.role || '-'}</span></div>
         <div><strong>Estado actual da senha:</strong> ${statusSenha}</div>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-bold">Senha Actual <span class="text-muted fw-normal">(opcional ou repita o seu código ${cod})</span></label>
-        <input type="password" id="rmsSenhaAtual" class="form-control" placeholder="Deixe em branco ou informe a senha actual / código">
+        <label class="form-label small fw-bold">Senha Actual <span class="text-muted fw-normal">(no 1.º acesso é a repetição do seu código: ${cod})</span></label>
+        <input type="password" id="rmsSenhaAtual" class="form-control" placeholder="Informe a senha actual ou o seu código">
       </div>
       <div class="row g-2 mb-3">
         <div class="col-md-6">
@@ -11060,7 +10979,10 @@ async function carregarPerfilDocenteIndividual() {
           </div>
           <p class="small text-muted mb-1"><i class="bi bi-book me-1"></i>Especialidade: <strong>${p.especialidade}</strong></p>
           <p class="small text-muted mb-1"><i class="bi bi-telephone me-1"></i>${p.telefone || '-'}</p>
-          <p class="small text-muted mb-0"><i class="bi bi-envelope me-1"></i>${p.email}</p>
+          <p class="small text-muted mb-2"><i class="bi bi-envelope me-1"></i>${p.email}</p>
+          <button class="btn btn-outline-primary btn-sm w-100 mt-1 fw-semibold" onclick="modalRedefinirMinhaSenha()">
+            <i class="bi bi-key-fill me-1"></i> Alterar a Minha Senha
+          </button>
         </div>
       </div>
 
