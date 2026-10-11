@@ -106,6 +106,7 @@ if [ ! -f "${PROJECT_DIR}/certs/fullchain.pem" ] || [ ! -f "${PROJECT_DIR}/certs
 fi
 
 docker compose build frontend
+docker rm -f $(docker ps -aq --filter "name=sige_frontend") >/dev/null 2>&1 || true
 docker compose up -d frontend
 
 WEB_OK=false

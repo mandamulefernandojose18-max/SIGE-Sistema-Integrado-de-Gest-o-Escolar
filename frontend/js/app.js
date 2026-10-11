@@ -1351,14 +1351,24 @@ async function carregarPainelSaaS() {
             const totalAlunos = e._count?.alunos ?? e.total_alunos ?? 0;
             const totalProfs = e._count?.professores ?? e.total_professores ?? 0;
             const nomeEscapado = (e.nome || '').replace(/'/g, "\\'");
+            const codEscola = e.codigo_escola || '0101S0001';
+            const codGD = e.codigo_gabinete_director || `GD${codEscola}`;
+            const codDP = e.codigo_direccao_pedagogica || `DP${codEscola}`;
+            const codSECR = e.codigo_secretaria || `SECR${codEscola}`;
 
             return `
               <tr>
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <div>
+                      <span class="badge bg-primary font-monospace me-1" title="Código Único Oficial da Escola">${codEscola}</span>
                       <strong>${e.nome}</strong> ${emblemaIcon}
                       <br><small class="text-muted">${e.email} | ${e.telefone || '-'}</small>
+                      <div class="mt-1 d-flex flex-wrap gap-1">
+                        <span class="badge bg-light text-primary border font-monospace" style="font-size: 0.68rem;" title="Gabinete do Director (Admin Geral)">${codGD}</span>
+                        <span class="badge bg-light text-info border font-monospace" style="font-size: 0.68rem;" title="Direcção Pedagógica (Sub-Admin)">${codDP}</span>
+                        <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.68rem;" title="Chefe da Secretaria">${codSECR}</span>
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -1437,6 +1447,89 @@ async function carregarPainelSaaS() {
   }
 }
 
+// ==================== UTILITÁRIOS DE PREVIEW DE CÓDIGOS OFICIAIS (ESCOLA, ÓRGÃOS, ALUNO, DT/DC) ====================
+window.gerarPreviewCodigoEscola = function(provincia, distrito, tipoEscola, nomeEscola = '', seqNum = 1) {
+  const provs = state.geografia?.provincias || [
+    'Maputo Cidade', 'Maputo Província', 'Gaza', 'Inhambane', 'Sofala',
+    'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa'
+  ];
+  let idxProv = provs.findIndex(p => p.toLowerCase() === (provincia || '').trim().toLowerCase());
+  const codProv = String(idxProv >= 0 ? idxProv + 1 : 1).padStart(2, '0');
+
+  const dists = (state.geografia?.distritos && state.geografia.distritos[provincia]) || [];
+  let idxDist = dists.findIndex(d => d.toLowerCase() === (distrito || '').trim().toLowerCase());
+  const codDist = String(idxDist >= 0 ? idxDist + 1 : 1).padStart(2, '0');
+
+  let letra = (tipoEscola || '').toUpperCase().trim();
+  if (!['P', 'B', 'S'].includes(letra)) {
+    const nLow = (nomeEscola || '').toLowerCase();
+    if (nLow.includes('primária') || nLow.includes('primaria') || nLow.includes('ep1') || nLow.includes('ep2')) letra = 'P';
+    else if (nLow.includes('básica') || nLow.includes('basica') || nLow.includes('eb')) letra = 'B';
+    else letra = 'S';
+  }
+
+  const numEscola = String(seqNum || 1).padStart(4, '0');
+  const codigo_escola = `${codProv}${codDist}${letra}${numEscola}`;
+  return {
+    codigo_escola,
+    codigo_gd: `GD${codigo_escola}`,
+    codigo_dp: `DP${codigo_escola}`,
+    codigo_secr: `SECR${codigo_escola}`
+  };
+};
+
+window.obterSiglaAreaEstudo = function(areaStr, classeStr = '') {
+  const s = (areaStr || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  if (s.includes('ciencias') && s.includes('geografia')) return 'cg';
+  if (s.includes('ciencias') && s.includes('biologia')) return 'cb';
+  if (s.includes('ciencias') && s.includes('desenho')) return 'cd';
+  if (s.includes('letras') && s.includes('geografia')) return 'lg';
+  if (s.includes('letras') && s.includes('historia')) return 'lh';
+  if (s === 'cg' || s === 'cb' || s === 'cd' || s === 'lg' || s === 'lh' || s === 'eg') return s;
+  if (s.includes('ciencias')) return 'cn';
+  if (s.includes('letras')) return 'lt';
+  if (s.includes('tecnic')) return 'tc';
+  const clsDigits = String(classeStr || '').replace(/\D/g, '');
+  if (clsDigits === '11' || clsDigits === '12') return 'cg';
+  return 'eg';
+};
+
+window.gerarPreviewCodigoAluno = function(codigoEscola, classeStr, turmaNome, anoStr, areaStr) {
+  const codEsc = (codigoEscola || state.escolaAtual?.codigo_escola || state.tenant?.codigo_escola || '0101S0001').toUpperCase();
+  const clsNum = parseInt(String(classeStr || '10').replace(/\D/g, '')) || 10;
+  const cls2d = String(clsNum).padStart(2, '0');
+
+  let tNum = 1;
+  if (turmaNome) {
+    const idInfo = typeof window.extrairIdentificadorTurma === 'function'
+      ? window.extrairIdentificadorTurma(turmaNome, classeStr)
+      : { tipo: 'NUMERO', val: 1 };
+    if (idInfo.tipo === 'NUMERO' && idInfo.val > 0) tNum = idInfo.val;
+    else if (idInfo.tipo === 'LETRA' && idInfo.val) tNum = Math.max(1, idInfo.val.charCodeAt(0) - 64);
+  }
+  const turma2d = String(tNum).padStart(2, '0');
+  const ano4d = String(anoStr || state.tenant?.ano_letivo_ativo || '2026').slice(0, 4);
+  const siglaArea = window.obterSiglaAreaEstudo(areaStr, classeStr);
+  return `${codEsc}.${cls2d}.${turma2d}.${ano4d}.${siglaArea}`;
+};
+
+window.atualizarPreviewModalCadastroEscola = function() {
+  const prov = document.getElementById('cadEscolaProvincia')?.value || 'Maputo Cidade';
+  const dist = document.getElementById('cadEscolaDistrito')?.value || '';
+  const tipo = document.getElementById('cadEscolaTipo')?.value || 'S';
+  const nome = document.getElementById('cadEscolaNome')?.value || '';
+  const prev = window.gerarPreviewCodigoEscola(prov, dist, tipo, nome, 1);
+
+  const elEsc = document.getElementById('cadPreviewCodEscola');
+  const elGD = document.getElementById('cadPreviewCodGD');
+  const elDP = document.getElementById('cadPreviewCodDP');
+  const elSECR = document.getElementById('cadPreviewCodSECR');
+  if (elEsc) elEsc.textContent = prev.codigo_escola;
+  if (elGD) elGD.textContent = prev.codigo_gd;
+  if (elDP) elDP.textContent = prev.codigo_dp;
+  if (elSECR) elSECR.textContent = prev.codigo_secr;
+};
+
 
 async function toggleStatusEscola(escolaId, nome, statusAtual) {
   const proximo = statusAtual === 'ATIVA' ? 'SUSPENSA' : 'ATIVA';
@@ -1465,12 +1558,45 @@ async function modalCadastrarEscolaSuperAdmin() {
 
   abrirModal('Cadastrar Nova Escola no SIGE', `
     <form id="formModalCadastrarEscola">
-      <div class="row g-3">
-        <div class="col-md-7">
-          <label class="form-label small fw-semibold">Nome da Instituição</label>
-          <input type="text" id="cadEscolaNome" class="form-control" required placeholder="Ex: Escola Secundária Josina Machel">
+      <!-- Painel de Pré-visualização Automática dos Códigos Oficiais -->
+      <div class="alert alert-primary border-primary bg-primary bg-opacity-10 py-2 px-3 mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <small class="fw-bold text-primary d-block"><i class="bi bi-upc-scan me-1"></i> Geração Automática do Código Único da Escola & Órgãos:</small>
+            <small class="text-muted" style="font-size: 0.73rem;">[2 díg. Província] + [2 díg. Distrito] + [P/B/S Nível] + [Nº Escola]</small>
+          </div>
+          <span class="badge bg-primary fs-6 font-monospace px-3 py-2" id="cadPreviewCodEscola">0101S0001</span>
         </div>
+        <div class="row g-2 mt-1 pt-2 border-top border-primary border-opacity-25 text-center small">
+          <div class="col-4">
+            <span class="text-muted d-block" style="font-size: 0.7rem;">Gabinete do Director (Admin Geral)</span>
+            <code class="fw-bold text-primary" id="cadPreviewCodGD">GD0101S0001</code>
+          </div>
+          <div class="col-4">
+            <span class="text-muted d-block" style="font-size: 0.7rem;">Direcção Pedagógica (Sub-Admin)</span>
+            <code class="fw-bold text-info" id="cadPreviewCodDP">DP0101S0001</code>
+          </div>
+          <div class="col-4">
+            <span class="text-muted d-block" style="font-size: 0.7rem;">Chefe da Secretaria</span>
+            <code class="fw-bold text-secondary" id="cadPreviewCodSECR">SECR0101S0001</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
         <div class="col-md-5">
+          <label class="form-label small fw-semibold">Nome da Instituição</label>
+          <input type="text" id="cadEscolaNome" class="form-control" required placeholder="Ex: Escola Secundária de Massinga" oninput="atualizarPreviewModalCadastroEscola()">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-bold text-primary">Nível / Tipo de Escola</label>
+          <select id="cadEscolaTipo" class="form-select border-primary fw-semibold" onchange="atualizarPreviewModalCadastroEscola()" required>
+            <option value="S" selected>S — Escola Secundária</option>
+            <option value="B">B — Escola Básica</option>
+            <option value="P">P — Escola Primária</option>
+          </select>
+        </div>
+        <div class="col-md-3">
           <label class="form-label small fw-semibold">NUIT da Escola</label>
           <input type="text" id="cadEscolaNUIT" class="form-control" required placeholder="Ex: 400123456">
         </div>
@@ -1485,15 +1611,15 @@ async function modalCadastrarEscolaSuperAdmin() {
         </div>
 
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Província</label>
-          <select id="cadEscolaProvincia" class="form-select" onchange="atualizarDistritosCadastroEscola(this.value)" required>
+          <label class="form-label small fw-semibold">Província (Dígitos 1 e 2)</label>
+          <select id="cadEscolaProvincia" class="form-select" onchange="atualizarDistritosCadastroEscola(this.value); atualizarPreviewModalCadastroEscola();" required>
             <option value="">Selecione a Província</option>
             ${optProvincias}
           </select>
         </div>
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Distrito</label>
-          <select id="cadEscolaDistrito" class="form-select" required>
+          <label class="form-label small fw-semibold">Distrito (Dígitos 3 e 4)</label>
+          <select id="cadEscolaDistrito" class="form-select" onchange="atualizarPreviewModalCadastroEscola()" required>
             <option value="">Selecione primeiro a província</option>
           </select>
         </div>
@@ -1508,15 +1634,24 @@ async function modalCadastrarEscolaSuperAdmin() {
         </div>
 
         <div class="col-md-4">
-          <label class="form-label small fw-semibold">Nome do Director / Admin (Opcional)</label>
-          <input type="text" id="cadEscolaAdminNome" class="form-control" placeholder="Director(a) da Escola">
+          <label class="form-label small fw-semibold">Director da Escola (GD - Admin Geral)</label>
+          <input type="text" id="cadEscolaAdminNome" class="form-control" placeholder="Nome do Director da Escola">
         </div>
         <div class="col-md-4">
+          <label class="form-label small fw-semibold">Director Pedagógico (DP - Sub-Admin)</label>
+          <input type="text" id="cadEscolaDapNome" class="form-control" placeholder="Nome do Director Pedagógico">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Chefe da Secretaria (SECR)</label>
+          <input type="text" id="cadEscolaChefeSecNome" class="form-control" placeholder="Nome do Chefe da Secretaria">
+        </div>
+
+        <div class="col-md-6">
           <label class="form-label small fw-semibold">E-mail do Director / Admin (Opcional)</label>
           <input type="email" id="cadEscolaAdminEmail" class="form-control" placeholder="director@escola.edu.mz">
         </div>
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold">Senha de Acesso (Opcional)</label>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Senha Inicial dos Órgãos (Opcional)</label>
           <input type="password" id="cadEscolaAdminSenha" class="form-control" placeholder="123456 (Padrão)">
         </div>
 
@@ -1544,7 +1679,7 @@ async function modalCadastrarEscolaSuperAdmin() {
           <input type="hidden" id="cadEscolaLogoBase64" value="">
         </div>
       </div>
-      <button type="submit" class="btn btn-primary w-100 mt-4">Concluir Cadastro da Escola</button>
+      <button type="submit" class="btn btn-primary w-100 mt-4">Concluir Cadastro da Escola & Gerar Códigos Oficiais</button>
     </form>
   `);
 
@@ -1554,6 +1689,7 @@ async function modalCadastrarEscolaSuperAdmin() {
       const logoFinal = document.getElementById('cadEscolaLogoBase64')?.value || document.getElementById('cadEscolaLogo')?.value || undefined;
       const body = {
         nome: document.getElementById('cadEscolaNome').value,
+        tipo_escola: document.getElementById('cadEscolaTipo')?.value || 'S',
         nif_cnpj: document.getElementById('cadEscolaNUIT').value,
         email: document.getElementById('cadEscolaEmail').value,
         telefone: document.getElementById('cadEscolaTelefone').value,
@@ -1562,6 +1698,8 @@ async function modalCadastrarEscolaSuperAdmin() {
         plano_id: document.getElementById('cadEscolaPlano').value,
         valor_contrato: Number(document.getElementById('cadEscolaValor').value) || undefined,
         adminNome: document.getElementById('cadEscolaAdminNome')?.value || undefined,
+        dap_nome: document.getElementById('cadEscolaDapNome')?.value || undefined,
+        chefe_secretaria_nome: document.getElementById('cadEscolaChefeSecNome')?.value || undefined,
         adminEmail: document.getElementById('cadEscolaAdminEmail')?.value || undefined,
         adminSenha: document.getElementById('cadEscolaAdminSenha')?.value || undefined,
         usar_emblema_nacional: document.getElementById('cadEscolaEmblema').checked,
@@ -1573,10 +1711,21 @@ async function modalCadastrarEscolaSuperAdmin() {
         body: JSON.stringify(body)
       });
       if (res.success) {
-        const adminData = res.data?.adminUser;
-        const msg = adminData 
-          ? `Escola cadastrada com sucesso no SIGE!\n\nCREDENCIAIS DO ADMINISTRADOR DA ESCOLA:\nNome: ${adminData.nome}\nE-mail: ${adminData.email}\nSenha: ${body.adminSenha || '123456'}\n\nGuarde e forneça estas credenciais à Direcção da Escola.`
-          : 'Escola cadastrada com sucesso no SIGE!';
+        const escData = res.data?.escola || res.data || {};
+        const codEscola = escData.codigo_escola || '';
+        const codGD = escData.codigo_gabinete_director || (codEscola ? `GD${codEscola}` : '');
+        const codDP = escData.codigo_direccao_pedagogica || (codEscola ? `DP${codEscola}` : '');
+        const codSECR = escData.codigo_secretaria || (codEscola ? `SECR${codEscola}` : '');
+        const senhaPadrao = body.adminSenha || '123456';
+
+        const msg = `Escola cadastrada com sucesso no SIGE!\n\n` +
+          `CÓDIGO ÚNICO DA ESCOLA: ${codEscola}\n\n` +
+          `CÓDIGOS DE ACESSO DOS ÓRGÃOS DE DIRECÇÃO:\n` +
+          `• Director da Escola (Admin Geral): ${codGD}\n` +
+          `• Direcção Pedagógica (Sub-Admin): ${codDP}\n` +
+          `• Chefe da Secretaria (Secretaria): ${codSECR}\n` +
+          `• Senha Inicial: ${senhaPadrao}\n\n` +
+          `Guarde e forneça estes códigos oficiais à Direcção da Escola.`;
         alert(msg);
         fecharModal();
         carregarPainelSaaS();
@@ -1601,20 +1750,39 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
     const escola = res.data.find(e => e.id === escolaId);
     if (!escola) return alert('Escola não encontrada');
 
-    const ass = escola.assinaturas[0];
+    const ass = escola.assinaturas && escola.assinaturas[0];
     const dataFimStr = ass ? new Date(ass.data_fim).toISOString().split('T')[0] : '';
     const optProvincias = (state.geografia.provincias || []).map(p => 
       `<option value="${p}" ${p === escola.provincia ? 'selected' : ''}>${p}</option>`
     ).join('');
+    const codEscola = escola.codigo_escola || '0101S0001';
 
-    abrirModal(`Editar Escola: ${escola.nome}`, `
+    abrirModal(`Editar Escola: ${escola.nome} [${codEscola}]`, `
       <form id="formModalEditarEscola">
+        <div class="alert alert-light border py-2 px-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="small">
+            <strong>Código Único da Escola:</strong> <code class="fs-6 fw-bold text-primary ms-1">${codEscola}</code>
+          </div>
+          <div class="d-flex gap-2 small">
+            <span class="badge bg-primary-subtle text-primary border font-monospace">GD: ${escola.codigo_gabinete_director || 'GD' + codEscola}</span>
+            <span class="badge bg-info-subtle text-info-emphasis border font-monospace">DP: ${escola.codigo_direccao_pedagogica || 'DP' + codEscola}</span>
+            <span class="badge bg-secondary-subtle text-secondary-emphasis border font-monospace">SECR: ${escola.codigo_secretaria || 'SECR' + codEscola}</span>
+          </div>
+        </div>
         <div class="row g-3">
-          <div class="col-md-7">
+          <div class="col-md-5">
             <label class="form-label small fw-semibold">Nome da Instituição</label>
             <input type="text" id="editEscolaNome" class="form-control" value="${escola.nome}" required>
           </div>
-          <div class="col-md-5">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold text-primary">Nível / Tipo de Escola</label>
+            <select id="editEscolaTipo" class="form-select border-primary fw-semibold">
+              <option value="S" ${(escola.tipo_escola || 'S') === 'S' ? 'selected' : ''}>S — Escola Secundária</option>
+              <option value="B" ${escola.tipo_escola === 'B' ? 'selected' : ''}>B — Escola Básica</option>
+              <option value="P" ${escola.tipo_escola === 'P' ? 'selected' : ''}>P — Escola Primária</option>
+            </select>
+          </div>
+          <div class="col-md-3">
             <label class="form-label small fw-semibold">NUIT</label>
             <input type="text" id="editEscolaNUIT" class="form-control" value="${escola.nif_cnpj}" required>
           </div>
@@ -1691,6 +1859,7 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
       try {
         const body = {
           nome: document.getElementById('editEscolaNome').value,
+          tipo_escola: document.getElementById('editEscolaTipo')?.value || 'S',
           nif_cnpj: document.getElementById('editEscolaNUIT').value,
           email: document.getElementById('editEscolaEmail').value,
           telefone: document.getElementById('editEscolaTelefone').value,
@@ -1708,7 +1877,7 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           body: JSON.stringify(body)
         });
         if (updRes.success) {
-          alert('Dados da escola e prazo de contrato actualizados com sucesso!');
+          alert('Dados da escola e código institucional actualizados com sucesso!');
           fecharModal();
           carregarPainelSaaS();
         }
@@ -1858,11 +2027,43 @@ async function executarCronVerificacaoManual() {
 }
 
 // ==================== 3. ESCOLA & TURMAS ====================
+window.atualizarPreviewCodigoEscolaConfig = function() {
+  const prov = document.getElementById('confEscolaProvincia')?.value || state.escolaAtual?.provincia || 'Maputo Cidade';
+  const dist = document.getElementById('confEscolaDistrito')?.value || state.escolaAtual?.distrito || '';
+  const tipo = document.getElementById('confEscolaTipo')?.value || state.escolaAtual?.tipo_escola || 'S';
+  const nome = document.getElementById('confEscolaNome')?.value || state.escolaAtual?.nome || '';
+
+  const codExistente = state.escolaAtual?.codigo_escola || '';
+  let seqNum = 1;
+  if (codExistente && codExistente.length >= 9) {
+    const parsedSeq = parseInt(codExistente.slice(5), 10);
+    if (!isNaN(parsedSeq) && parsedSeq > 0) seqNum = parsedSeq;
+  }
+
+  const prev = window.gerarPreviewCodigoEscola(prov, dist, tipo, nome, seqNum);
+  const setTxt = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  setTxt('confEscolaCodigoBadge', prev.codigo_escola);
+  setTxt('confCodigoGD', prev.codigo_gd);
+  setTxt('confCodigoDP', prev.codigo_dp);
+  setTxt('confCodigoSECR', prev.codigo_secr);
+  setTxt('labelBadgeGD', prev.codigo_gd);
+  setTxt('labelBadgeDP', prev.codigo_dp);
+  setTxt('labelBadgeSECR', prev.codigo_secr);
+};
+
 async function carregarEscolaETurmas() {
   try {
     const resInfo = await apiFetch('/api/v1/escola-admin/info');
     if (resInfo.success) {
       const e = resInfo.data;
+      state.escolaAtual = e;
+      if (state.tenant) {
+        state.tenant.codigo_escola = e.codigo_escola;
+        state.tenant.tipo_escola = e.tipo_escola;
+      }
       document.getElementById('confEscolaNome').value = e.nome;
       document.getElementById('confEscolaAnoLetivo').value = e.ano_letivo_ativo;
       document.getElementById('confEscolaTrimestreAtivo').value = e.trimestre_ativo || '1_TRIMESTRE';
@@ -1872,6 +2073,25 @@ async function carregarEscolaETurmas() {
       document.getElementById('confEscolaDAP').value = e.dap_nome || '';
       document.getElementById('confEscolaChefeSec').value = e.chefe_secretaria_nome || '';
       document.getElementById('confEscolaEmblema').checked = !!e.usar_emblema_nacional;
+
+      const selTipo = document.getElementById('confEscolaTipo');
+      if (selTipo) selTipo.value = e.tipo_escola || 'S';
+
+      const codEscola = e.codigo_escola || '0101S0001';
+      const codGD = e.codigo_gabinete_director || `GD${codEscola}`;
+      const codDP = e.codigo_direccao_pedagogica || `DP${codEscola}`;
+      const codSECR = e.codigo_secretaria || `SECR${codEscola}`;
+      const setTxt = (id, txt) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+      };
+      setTxt('confEscolaCodigoBadge', codEscola);
+      setTxt('confCodigoGD', codGD);
+      setTxt('confCodigoDP', codDP);
+      setTxt('confCodigoSECR', codSECR);
+      setTxt('labelBadgeGD', codGD);
+      setTxt('labelBadgeDP', codDP);
+      setTxt('labelBadgeSECR', codSECR);
 
       // Logótipo da Escola
       const logoVal = e.logo_url || e.logo_base64 || '';
@@ -2013,8 +2233,8 @@ function aplicarFiltrosTurmas() {
       const matchNome = (t.nome || '').toLowerCase().includes(filtroBusca);
       const matchArea = (t.area || '').toLowerCase().includes(filtroBusca);
       const matchSala = (t.sala || '').toLowerCase().includes(filtroBusca);
-      const matchDT = (t.director_turma?.nome || t.director_turma_nome || '').toLowerCase().includes(filtroBusca);
-      const matchDC = (t.director_classe?.nome || t.director_classe_nome || '').toLowerCase().includes(filtroBusca);
+      const matchDT = (t.director_turma?.nome || t.director_turma_nome || t.codigo_director_turma || '').toLowerCase().includes(filtroBusca);
+      const matchDC = (t.director_classe?.nome || t.director_classe_nome || t.codigo_director_classe || '').toLowerCase().includes(filtroBusca);
       if (!matchNome && !matchArea && !matchSala && !matchDT && !matchDC) return false;
     }
     return true;
@@ -2023,10 +2243,47 @@ function aplicarFiltrosTurmas() {
   renderizarTabelaTurmasNoDOM(filtradas);
 }
 
+window.homologarDirectoresTurmaRapido = async function(turmaId, alvo = 'AMBOS') {
+  try {
+    const res = await apiFetch(`/api/v1/escola-admin/turmas/${turmaId}/homologar-directores`, {
+      method: 'POST',
+      body: JSON.stringify({ acao: 'HOMOLOGAR', alvo })
+    });
+    if (res.success) {
+      const t = res.data || {};
+      let msg = res.message || 'Homologação realizada com sucesso!';
+      if (t.codigo_director_turma) msg += `\n• Código Director de Turma: ${t.codigo_director_turma}`;
+      if (t.codigo_director_classe) msg += `\n• Código Director de Classe: ${t.codigo_director_classe}`;
+      alert(msg);
+      await carregarEscolaETurmas();
+      if (typeof carregarProfessores === 'function') await carregarProfessores();
+    } else {
+      alert(res.message || 'Erro ao homologar nomeação');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao homologar nomeação');
+  }
+};
+
 function renderizarTabelaTurmasNoDOM(turmas) {
   // Renderizar tanto no painel view-turmas (tabelaTurmasView) quanto no view-escola (tabelaTurmas)
   const tbodyView = document.getElementById('tabelaTurmasView');
   const tbodyEscola = document.getElementById('tabelaTurmas');
+  const podeHomologar = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'].includes(state.user?.role);
+
+  const renderDirectorCell = (nome, statusHomolog, codigoGerado, turmaId, alvo) => {
+    if (!nome) return '<small class="text-muted">Não definido</small>';
+    let badgeHtml = '';
+    if (statusHomolog === 'HOMOLOGADO' && codigoGerado) {
+      badgeHtml = `<div class="mt-1"><span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size: 0.68rem;" title="Homologado pelo Director da Escola"><i class="bi bi-patch-check-fill me-1"></i>${codigoGerado}</span></div>`;
+    } else if (statusHomolog === 'PENDENTE') {
+      const btnHomolog = podeHomologar
+        ? `<button type="button" class="btn btn-success btn-sm py-0 px-1 ms-1" style="font-size: 0.65rem;" onclick="homologarDirectoresTurmaRapido('${turmaId}', '${alvo}')" title="Homologar Nomeação (Director da Escola)"><i class="bi bi-check2-circle"></i> Homologar</button>`
+        : '';
+      badgeHtml = `<div class="mt-1 d-flex align-items-center flex-wrap gap-1"><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.66rem;" title="Nomeado pelo Director Pedagógico — Aguarda Homologação do Director da Escola"><i class="bi bi-hourglass-split me-1"></i>Nomeado DP (Pendente)</span>${btnHomolog}</div>`;
+    }
+    return `<div><small class="fw-semibold text-dark">${nome}</small>${badgeHtml}</div>`;
+  };
 
   const gerarHtmlLinhas = (isViewPrincipal) => {
     if (turmas.length === 0) {
@@ -2038,10 +2295,6 @@ function renderizarTabelaTurmasNoDOM(turmas) {
       const maximo = t.capacidade_maxima || 50;
       const pct = Math.min(100, Math.round((ocupacao / maximo) * 100));
 
-      // Cores estritas de acordo com a especificação:
-      // Verde: com vagas disponíveis (< 80%)
-      // Amarelo: próxima do limite (>= 80%)
-      // Vermelho: capacidade atingida (100%)
       let badgeClass = 'bg-success text-white';
       let progressClass = 'bg-success';
       let statusTexto = 'Vagas livres';
@@ -2066,6 +2319,9 @@ function renderizarTabelaTurmasNoDOM(turmas) {
         </button>
       ` : '';
 
+      const dtNome = t.director_turma?.nome || t.director_turma_nome || '';
+      const dcNome = t.director_classe?.nome || t.director_classe_nome || '';
+
       return `
         <tr>
           <td><strong>${t.nome}</strong></td>
@@ -2085,12 +2341,12 @@ function renderizarTabelaTurmasNoDOM(turmas) {
               <div class="progress-bar ${progressClass}" style="width: ${pct}%" title="${statusTexto}: ${ocupacao}/${maximo}"></div>
             </div>
           </td>
-          <td><small>${t.director_turma?.nome || t.director_turma_nome || '<span class="text-muted">Não definido</span>'}</small></td>
-          <td><small>${t.director_classe?.nome || t.director_classe_nome || '<span class="text-muted">Não definido</span>'}</small></td>
+          <td>${renderDirectorCell(dtNome, t.dt_status_homologacao, t.codigo_director_turma, t.id, 'DT')}</td>
+          <td>${renderDirectorCell(dcNome, t.dc_status_homologacao, t.codigo_director_classe, t.id, 'DC')}</td>
           <td class="text-end">
             <div class="d-inline-flex gap-1">
               ${botaoAlunosHtml}
-              <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Capacidade e Directores">
+              <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Nomear (DP) e Homologar Directores (GD)">
                 <i class="bi bi-pencil-square me-1"></i>Editar
               </button>
               <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarTurma('${t.id}', '${(t.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Turma">
@@ -2205,6 +2461,7 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
   try {
     const body = {
       nome: document.getElementById('confEscolaNome').value,
+      tipo_escola: document.getElementById('confEscolaTipo')?.value || 'S',
       ano_letivo_ativo: document.getElementById('confEscolaAnoLetivo').value,
       trimestre_ativo: document.getElementById('confEscolaTrimestreAtivo').value,
       telefone: document.getElementById('confEscolaTelefone').value,
@@ -2221,7 +2478,10 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       method: 'PUT',
       body: JSON.stringify(body)
     });
-    if (res.success) alert('Configurações da escola e logótipo salvos com sucesso!');
+    if (res.success) {
+      await carregarEscolaETurmas();
+      alert('Configurações da escola e códigos institucionais (GD, DP, SECR) actualizados com sucesso!');
+    }
   } catch (err) {
     alert('Erro ao actualizar dados da escola');
   }
