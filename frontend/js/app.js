@@ -327,15 +327,19 @@ function filtrarAlunosCaderneta() {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js?v=20261010_2110').then((reg) => {
+    navigator.serviceWorker.register('/service-worker.js?v=20261011_1440').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
 }
 
+// Limpar eventuais tokens antigos persistidos no localStorage para que ao entrar no sistema exija sempre sessão ativa
+localStorage.removeItem('sige_token');
+localStorage.removeItem('sige_refresh_token');
+
 const state = {
-  token: localStorage.getItem('sige_token'),
-  refreshToken: localStorage.getItem('sige_refresh_token'),
+  token: sessionStorage.getItem('sige_token'),
+  refreshToken: sessionStorage.getItem('sige_refresh_token'),
   user: null,
   tenant: null,
   charts: {},
@@ -471,7 +475,7 @@ async function apiFetch(endpoint, options = {}) {
 
     if (!res.ok) {
       if (res.status === 401 && !options._isRetry) {
-        const storedRefresh = localStorage.getItem('sige_refresh_token');
+        const storedRefresh = sessionStorage.getItem('sige_refresh_token');
         if (storedRefresh) {
           try {
             const refreshResp = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
@@ -483,7 +487,7 @@ async function apiFetch(endpoint, options = {}) {
               const refreshJson = await refreshResp.json();
               const newAccessToken = refreshJson.access || refreshJson.accessToken || refreshJson.data?.tokens?.accessToken;
               if (newAccessToken) {
-                localStorage.setItem('sige_token', newAccessToken);
+                sessionStorage.setItem('sige_token', newAccessToken);
                 state.token = newAccessToken;
                 const retryHeaders = { ...headers, Authorization: `Bearer ${newAccessToken}` };
                 return apiFetch(endpoint, { ...options, headers: retryHeaders, _isRetry: true });
@@ -543,7 +547,7 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     let res = await fetch(fullUrl, { headers: montarHeaders() });
 
     if (res.status === 401) {
-      const refresh = state.refreshToken || localStorage.getItem('sige_refresh');
+      const refresh = state.refreshToken || sessionStorage.getItem('sige_refresh_token');
       if (refresh) {
         const refreshRes = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
           method: 'POST',
@@ -555,7 +559,7 @@ async function downloadFicheiroBinario(url, defaultFilename) {
           const newToken = rData.token || rData.access || rData.data?.token;
           if (newToken) {
             state.token = newToken;
-            localStorage.setItem('sige_token', newToken);
+            sessionStorage.setItem('sige_token', newToken);
             res = await fetch(fullUrl, { headers: montarHeaders() });
           }
         }
@@ -680,13 +684,13 @@ document.addEventListener('focusin', (e) => {
 
 // ==================== INICIALIZAÇÃO DA APLICAÇÃO ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  await carregarDadosGeografia();
+  // Garantir imediatamente que a tela de sessão (login) esteja ativa e o painel oculto
+  mostrarTelaLogin();
+  carregarDadosGeografia();
 
-  if (!state.token) {
-    mostrarTelaLogin();
-  } else {
+  if (state.token) {
     try {
-      const res = await apiFetch('/api/v1/auth/me');
+      const res = await apiFetch('/api/v1/auth/me', { ignoreAuthRedirect: true });
       const userData = res?.data?.user || res?.user || res?.data;
       if (res && (res.success || userData)) {
         state.user = userData;
@@ -696,7 +700,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const savedTenantId = localStorage.getItem('sige_selected_tenant');
         if (state.user?.role === 'SUPERADMIN' && savedTenantId) {
           try {
-            const escolaRes = await apiFetch('/api/v1/escola-admin/info');
+            const escolaRes = await apiFetch('/api/v1/escola-admin/info', { ignoreAuthRedirect: true });
             if (escolaRes && escolaRes.success && escolaRes.data) {
               state.tenant = escolaRes.data;
             }
@@ -705,12 +709,18 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
-        iniciarApp();
+        await iniciarApp();
       } else {
+        sessionStorage.removeItem('sige_token');
+        sessionStorage.removeItem('sige_refresh_token');
+        state.token = null;
         mostrarTelaLogin();
       }
     } catch (err) {
       console.warn('Sessão expirada ou inválida:', err);
+      sessionStorage.removeItem('sige_token');
+      sessionStorage.removeItem('sige_refresh_token');
+      state.token = null;
       mostrarTelaLogin();
     }
   }
@@ -772,15 +782,16 @@ async function realizarLogin(e) {
     }
 
     if (json && json.success) {
-      localStorage.setItem('sige_token', json.data.tokens.accessToken);
-      localStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
+      sessionStorage.setItem('sige_token', json.data.tokens.accessToken);
+      sessionStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
       if (json.data.user.role !== 'SUPERADMIN') {
         localStorage.removeItem('sige_selected_tenant');
       }
       state.token = json.data.tokens.accessToken;
+      state.refreshToken = json.data.tokens.refreshToken;
       state.user = json.data.user;
       state.tenant = json.data.escola;
-      iniciarApp();
+      await iniciarApp();
     } else if (json && (json.message || json.detail)) {
       alert(json.message || json.detail || 'Falha na autenticação. Verifique o e-mail e a palavra-passe.');
     } else {
@@ -794,22 +805,28 @@ async function realizarLogin(e) {
 
 function fazerLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
+  mostrarTelaLogin();
   localStorage.clear();
   sessionStorage.clear();
   state.token = null;
+  state.refreshToken = null;
   state.user = null;
   state.tenant = null;
   window.location.href = '/';
 }
 
 function mostrarTelaLogin() {
-  document.getElementById('loginView').style.display = 'flex';
-  document.getElementById('appView').style.display = 'none';
+  document.body.classList.remove('authenticated');
+  document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
+  const appEl = document.getElementById('appView');
+  if (appEl) appEl.style.display = 'none';
+  const loginEl = document.getElementById('loginView');
+  if (loginEl) loginEl.style.display = 'flex';
 }
 
 async function iniciarApp() {
-  document.getElementById('loginView').style.display = 'none';
-  document.getElementById('appView').style.display = 'flex';
+  // Ocultar todas as vistas antes de activar o módulo correspondente ao perfil autenticado
+  document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
 
   // Cabeçalho e Utilizador Activo
   document.getElementById('topbarUserName').textContent = state.user.nome;
@@ -853,7 +870,7 @@ async function iniciarApp() {
 
   if (state.user.role === 'SUPERADMIN') {
     document.getElementById('superAdminTenantSelectWrapper').style.display = 'block';
-    await carregarEscolasSuperAdminSelect();
+    carregarEscolasSuperAdminSelect();
 
     if (savedTenant) {
       // SuperAdmin está dentro de uma escola específica (Modo Inspecção)
@@ -890,6 +907,11 @@ async function iniciarApp() {
       atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
     }
   }
+
+  // Exibir a aplicação principal apenas após a sessão estar autenticada e a página inicial do perfil estar activa
+  document.body.classList.add('authenticated');
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('appView').style.display = 'flex';
 }
 
 async function carregarDadosGlobaisEscola() {
