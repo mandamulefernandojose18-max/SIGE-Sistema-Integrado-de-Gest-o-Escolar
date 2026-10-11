@@ -5080,6 +5080,7 @@ function filtrarProfessoresTabela() {
 
   if (termo) {
     let filtrados = base.filter(p => 
+      (p.codigo || '').toLowerCase().includes(termo) ||
       (p.nome || '').toLowerCase().includes(termo) ||
       (p.apelido || '').toLowerCase().includes(termo) ||
       (p.email || '').toLowerCase().includes(termo) ||
@@ -5094,6 +5095,7 @@ function filtrarProfessoresTabela() {
 
     if (filtrados.length === 0) {
       filtrados = (state.todosProfessores || []).filter(p => 
+        (p.codigo || '').toLowerCase().includes(termo) ||
         (p.nome || '').toLowerCase().includes(termo) ||
         (p.apelido || '').toLowerCase().includes(termo) ||
         (p.email || '').toLowerCase().includes(termo) ||
@@ -5134,8 +5136,33 @@ function renderizarTabelaProfessores(profs) {
     return;
   }
 
+  const todasTurmas = state.todasTurmas || [];
+
   tbody.innerHTML = profs.map(p => {
     const nomeCompleto = `${p.nome || ''} ${p.apelido || ''}`.trim();
+    const turmasDT = todasTurmas.filter(t => String(t.director_turma_id || t.director_turma) === String(p.id));
+    const turmasDC = todasTurmas.filter(t => String(t.director_classe_id || t.director_classe) === String(p.id));
+
+    let cargosBadges = '';
+    turmasDT.forEach(t => {
+      if (t.homologado_dt && t.codigo_director_turma) {
+        cargosBadges += `<span class="badge bg-success bg-opacity-10 text-success border border-success font-monospace me-1 mt-1" style="font-size:0.7rem;" title="Director de Turma Homologado (${t.nome})"><i class="bi bi-patch-check-fill me-1"></i>${t.codigo_director_turma}</span>`;
+      } else {
+        cargosBadges += `<span class="badge bg-warning text-dark font-monospace me-1 mt-1" style="font-size:0.7rem;" title="Indicado DT (${t.nome}) - Pendente Homologação GD">DT Pendente (${t.nome})</span>`;
+      }
+    });
+    const dcCodigosVistos = new Set();
+    turmasDC.forEach(t => {
+      const chave = t.codigo_director_classe || t.grau_ano;
+      if (dcCodigosVistos.has(chave)) return;
+      dcCodigosVistos.add(chave);
+      if (t.homologado_dc && t.codigo_director_classe) {
+        cargosBadges += `<span class="badge bg-info bg-opacity-10 text-dark border border-info font-monospace me-1 mt-1" style="font-size:0.7rem;" title="Director de Classe Homologado (${t.grau_ano})"><i class="bi bi-patch-check-fill text-primary me-1"></i>${t.codigo_director_classe}</span>`;
+      } else {
+        cargosBadges += `<span class="badge bg-warning text-dark font-monospace me-1 mt-1" style="font-size:0.7rem;" title="Indicado DC (${t.grau_ano}) - Pendente Homologação GD">DC Pendente (${t.grau_ano})</span>`;
+      }
+    });
+
     const alocacoesHtml = (p.alocacoes && p.alocacoes.length > 0)
       ? p.alocacoes.map(a => {
           const classeTurma = a.turma_grau || a.turma?.grau_ano || '';
@@ -5186,8 +5213,12 @@ function renderizarTabelaProfessores(profs) {
               ${(p.nome || 'P').charAt(0).toUpperCase()}
             </div>
             <div>
-              <strong class="text-primary">${nomeCompleto}</strong>
+              <div class="d-flex align-items-center gap-1 flex-wrap">
+                <strong class="text-primary">${nomeCompleto}</strong>
+                <span class="badge bg-dark text-white font-monospace" style="font-size: 0.72rem;" title="Código Fixo Oficial do Professor (imutável entre turmas/classes)">${p.codigo || 'PR-FIXO'}</span>
+              </div>
               <div class="small text-muted">${p.especialidade || 'Área Geral'}</div>
+              ${cargosBadges ? `<div class="d-flex flex-wrap">${cargosBadges}</div>` : ''}
             </div>
           </div>
         </td>
@@ -5246,9 +5277,18 @@ async function modalNovoProfessor() {
     ? disciplinas.map(d => `<option value="${d.id}">${d.nome} ${d.classe ? `(${d.classe})` : ''}</option>`).join('')
     : '<option value="">Nenhuma disciplina cadastrada</option>';
 
+  const codEsc = state.escolaInfo?.codigo_escola || state.user?.escola?.codigo_escola || '0101S0001';
+  const proxSeq = String((state.todosProfessores?.length || 0) + 1).padStart(3, '0');
+
   abrirModal('Cadastrar Docente & Atribuição de Classes', `
     <form id="formModalProf">
       <div class="row g-3">
+        <div class="col-12">
+          <div class="p-2 px-3 rounded bg-dark bg-opacity-10 border d-flex justify-content-between align-items-center">
+            <span class="small fw-semibold"><i class="bi bi-lock-fill me-1 text-primary"></i>Código Fixo Oficial do Professor (gerado automaticamente e imutável):</span>
+            <span class="badge bg-dark text-white font-monospace px-3 py-2">PR${codEsc}.${proxSeq}</span>
+          </div>
+        </div>
         <div class="col-md-7">
           <label class="form-label small fw-semibold">Nome Completo</label>
           <input type="text" id="mpNome" class="form-control" required placeholder="Prof. Nome Próprio">
@@ -5476,6 +5516,12 @@ async function modalEditarProfessor(profId) {
     abrirModal(`Editar Docente: ${p.nome}`, `
       <form id="formModalEditarProf">
         <div class="row g-3">
+          <div class="col-12">
+            <div class="p-2 px-3 rounded bg-dark bg-opacity-10 border d-flex justify-content-between align-items-center">
+              <span class="small fw-semibold"><i class="bi bi-lock-fill me-1 text-primary"></i>Código Fixo Oficial do Professor (Imutável):</span>
+              <span class="badge bg-dark text-white font-monospace px-3 py-2">${p.codigo || 'PR-FIXO'}</span>
+            </div>
+          </div>
           <div class="col-md-7">
             <label class="form-label small fw-semibold">Nome Completo</label>
             <input type="text" id="mpeNome" class="form-control" required value="${p.nome || ''}">
@@ -10859,7 +10905,10 @@ async function carregarPerfilDocenteIndividual() {
         <div class="card p-3 border text-center">
           <i class="bi bi-person-circle fs-1 text-primary mb-2"></i>
           <h5 class="fw-bold mb-0">${p.nome} ${p.apelido || ''}</h5>
-          <span class="badge bg-primary bg-opacity-10 text-primary mt-1 mb-2">${p.carreira || 'Docente'}</span>
+          <div class="mt-1 mb-2 d-flex justify-content-center gap-1 flex-wrap">
+            <span class="badge bg-dark text-white font-monospace">${p.codigo || 'PR-FIXO'}</span>
+            <span class="badge bg-primary bg-opacity-10 text-primary">${p.carreira || 'Docente'}</span>
+          </div>
           <p class="small text-muted mb-1"><i class="bi bi-book me-1"></i>Especialidade: <strong>${p.especialidade}</strong></p>
           <p class="small text-muted mb-1"><i class="bi bi-telephone me-1"></i>${p.telefone || '-'}</p>
           <p class="small text-muted mb-0"><i class="bi bi-envelope me-1"></i>${p.email}</p>
@@ -10870,12 +10919,13 @@ async function carregarPerfilDocenteIndividual() {
         <div class="card p-3 border h-100">
           <h6 class="fw-bold mb-3 text-primary border-bottom pb-2">Dados Funcionais e Institucionais</h6>
           <div class="row g-2 small">
+            <div class="col-md-6"><strong>Código Fixo Docente:</strong> <span class="badge bg-dark text-white font-monospace">${p.codigo || '-'}</span></div>
             <div class="col-md-6"><strong>Nacionalidade:</strong> ${p.nacionalidade || 'Moçambicana'}</div>
             <div class="col-md-6"><strong>Província:</strong> ${p.provincia || '-'}</div>
             <div class="col-md-6"><strong>Distrito:</strong> ${p.distrito || '-'}</div>
             <div class="col-md-6"><strong>Documento:</strong> ${p.tipo_documento || 'BI'} (${p.numero_documento || '-'})</div>
             <div class="col-md-6"><strong>Carga Horária:</strong> ${p.carga_horaria_semanal || 20}h semanais</div>
-            <div class="col-md-6"><strong>Instituição:</strong> ${p.escola?.nome || '-'}</div>
+            <div class="col-md-12"><strong>Instituição:</strong> ${p.escola?.nome || '-'} ${p.escola?.codigo_escola ? `(<span class="font-monospace fw-bold">${p.escola.codigo_escola}</span>)` : ''}</div>
           </div>
         </div>
       </div>
@@ -10908,7 +10958,7 @@ async function carregarCofreUsuarios() {
   const tbody = document.getElementById('tabelaCofreUsuariosCorpo');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A aceder ao cofre seguro...</p></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A aceder ao cofre seguro...</p></td></tr>';
 
   try {
     const res = await apiFetch('/api/v1/escola-admin/usuarios-credenciais');
@@ -10916,7 +10966,7 @@ async function carregarCofreUsuarios() {
     cacheUsuariosCofre = res.data;
     renderizarTabelaCofre(cacheUsuariosCofre);
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4"><i class="bi bi-shield-x me-1"></i>${err.message || 'Acesso não autorizado ao cofre'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4"><i class="bi bi-shield-x me-1"></i>${err.message || 'Acesso não autorizado ao cofre'}</td></tr>`;
   }
 }
 
@@ -10925,7 +10975,7 @@ function renderizarTabelaCofre(lista) {
   if (!tbody) return;
 
   if (lista.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum utilizador encontrado.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum utilizador encontrado.</td></tr>';
     return;
   }
 
@@ -10938,6 +10988,7 @@ function renderizarTabelaCofre(lista) {
 
     return `
       <tr>
+        <td><span class="badge bg-dark text-white font-monospace">${u.codigo_acesso || '-'}</span></td>
         <td><strong>${u.nome}</strong></td>
         <td><code>${u.email}</code></td>
         <td><span class="badge bg-secondary">${u.role}</span></td>
@@ -10959,7 +11010,10 @@ function filtrarUsuariosCofre() {
   const role = document.getElementById('filtroRoleCofre')?.value || '';
 
   const filtrados = cacheUsuariosCofre.filter(u => {
-    const bateTexto = u.nome.toLowerCase().includes(termo) || u.email.toLowerCase().includes(termo);
+    const bateTexto =
+      (u.nome || '').toLowerCase().includes(termo) ||
+      (u.email || '').toLowerCase().includes(termo) ||
+      (u.codigo_acesso || '').toLowerCase().includes(termo);
     const bateRole = !role || u.role === role;
     return bateTexto && bateRole;
   });
