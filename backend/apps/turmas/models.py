@@ -70,14 +70,20 @@ class Turma(models.Model):
     def clean(self):
         from common.integrity import validar_integridade_tenant
         validar_integridade_tenant(self, director_turma=self.director_turma, director_classe=self.director_classe)
-        from .utils import validar_unicidade_turma_na_classe
-        validar_unicidade_turma_na_classe(
-            escola=self.escola,
-            grau_ano=self.grau_ano,
-            nome=self.nome,
-            ano_letivo=self.ano_letivo,
-            exclude_id=self.id
-        )
+        validar_numero = True
+        if self.id and not self._state.adding:
+            antiga = Turma.objects.filter(id=self.id).values('nome', 'grau_ano', 'ano_letivo').first()
+            if antiga and antiga['nome'] == self.nome and antiga['grau_ano'] == self.grau_ano and antiga['ano_letivo'] == self.ano_letivo:
+                validar_numero = False
+        if validar_numero:
+            from .utils import validar_unicidade_turma_na_classe
+            validar_unicidade_turma_na_classe(
+                escola=self.escola,
+                grau_ano=self.grau_ano,
+                nome=self.nome,
+                ano_letivo=self.ano_letivo,
+                exclude_id=self.id
+            )
 
     def save(self, *args, **kwargs):
         from django.utils import timezone

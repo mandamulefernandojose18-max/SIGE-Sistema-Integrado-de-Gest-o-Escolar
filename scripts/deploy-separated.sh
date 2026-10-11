@@ -64,6 +64,7 @@ while [ $RETRY -lt $MAX_RETRIES ]; do
 done
 
 docker compose exec -T backend python manage.py collectstatic --noinput >/dev/null 2>&1 || true
+docker compose exec -T backend python manage.py shell -c "from common.utils.geografia_mocambique import sincronizar_todos_codigos_oficiais; print('Codigos oficiais sincronizados:', sincronizar_todos_codigos_oficiais())" || true
 
 # Health check isolado da API
 for i in $(seq 1 30); do

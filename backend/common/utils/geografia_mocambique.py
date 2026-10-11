@@ -443,3 +443,81 @@ def gerar_codigo_fixo_professor(escola, exclude_prof_id=None) -> str:
         cand = f"{prefixo}{seq:03d}"
     return cand
 
+
+def sincronizar_todos_codigos_oficiais() -> dict:
+    """
+    Sincroniza e preenche todos os códigos oficiais (Escolas, GD/DP/SECR, Professores, DT/DC e Alunos)
+    na base de dados para garantir conformidade imediata em ambientes existentes.
+    """
+    import re
+    from apps.tenants.models import Escola
+    from apps.accounts.models import Usuario
+    from apps.professores.models import Professor
+    from apps.turmas.models import Turma
+    from apps.alunos.models import Aluno
+
+    resumo = {
+        'escolas': 0,
+        'usuarios': 0,
+        'professores': 0,
+        'turmas': 0,
+        'alunos': 0,
+    }
+
+    padrao_escola = re.compile(r'^\d{4}[PBS]\d{4,5}$')
+    for esc in Escola.objects.all().order_by('created_at'):
+        mudou = False
+        if not esc.tipo_escola:
+            esc.tipo_escola = obter_letra_tipo_escola(None, esc.nome)
+            mudou = True
+        cod_atual = (esc.codigo_escola or '').strip().upper()
+        if not cod_atual or not padrao_escola.match(cod_atual):
+            esc.codigo_escola = gerar_codigo_unico_escola(
+                esc.provincia or 'Cidade de Maputo',
+                esc.distrito or 'KaMpfumo',
+                esc.tipo_escola,
+                esc.nome,
+                exclude_escola_id=esc.id
+            )
+            mudou = True
+        if mudou:
+            esc.save()
+        resumo['escolas'] += 1
+
+    for prof in Professor.objects.select_related('escola').all().order_by('created_at'):
+        cod_esc = (prof.escola.codigo_escola if prof.escola else '0101S0001').strip().upper()
+        if not prof.codigo or not prof.codigo.upper().startswith(f"PR{cod_esc}."):
+            prof.codigo = gerar_codigo_fixo_professor(prof.escola, exclude_prof_id=prof.id)
+            prof.save(update_fields=['codigo', 'updated_at'])
+        Usuario.objects.filter(escola=prof.escola, email__iexact=prof.email, role='PROFESSOR').exclude(codigo_acesso=prof.codigo).update(codigo_acesso=prof.codigo)
+        resumo['professores'] += 1
+
+    for esc in Escola.objects.all():
+        cod_esc = (esc.codigo_escola or '0101S0001').strip().upper()
+        resumo['usuarios'] += Usuario.objects.filter(escola=esc, role__in=['ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']).exclude(codigo_acesso=f"GD{cod_esc}").update(codigo_acesso=f"GD{cod_esc}")
+        resumo['usuarios'] += Usuario.objects.filter(escola=esc, role='DAP').exclude(codigo_acesso=f"DP{cod_esc}").update(codigo_acesso=f"DP{cod_esc}")
+        resumo['usuarios'] += Usuario.objects.filter(escola=esc, role__in=['CHEFE_SECRETARIA', 'ADMINISTRATIVO']).exclude(codigo_acesso=f"SECR{cod_esc}").update(codigo_acesso=f"SECR{cod_esc}")
+
+    from django.db.models import Q
+    for t in Turma.objects.select_related('escola', 'director_turma', 'director_classe').filter(
+        Q(director_turma__isnull=False) | Q(director_classe__isnull=False)
+    ):
+        t.save()
+        resumo['turmas'] += 1
+
+    for a in Aluno.objects.select_related('escola', 'turma').all():
+        novo_cod = gerar_codigo_aluno_oficial(
+            escola=a.escola,
+            classe=a.classe,
+            turma=a.turma,
+            ano=a.ano_ingresso,
+            area=a.area,
+        )
+        if a.matricula != novo_cod:
+            Aluno.objects.filter(id=a.id).update(matricula=novo_cod)
+        Usuario.objects.filter(aluno_id=a.id).exclude(codigo_acesso=novo_cod).update(codigo_acesso=novo_cod)
+        resumo['alunos'] += 1
+
+    return resumo
+
+
