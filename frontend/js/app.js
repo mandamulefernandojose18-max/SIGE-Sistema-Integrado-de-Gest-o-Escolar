@@ -3020,13 +3020,22 @@ async function modalEditarTurma(turmaId) {
 
     const professores = profsRes.data || [];
     const optDirTurma = '<option value="">(Nenhum seleccionado)</option>' +
-      professores.map(p => `<option value="${p.id}" ${p.id === turma.director_turma_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} (${p.carreira || 'Docente'})</option>`).join('');
+      professores.map(p => `<option value="${p.id}" ${p.id === turma.director_turma_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} [${p.codigo || 'Docente'}]</option>`).join('');
 
     const optDirClasse = '<option value="">(Nenhum seleccionado)</option>' +
-      professores.map(p => `<option value="${p.id}" ${p.id === turma.director_classe_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} (${p.carreira || 'Docente'})</option>`).join('');
+      professores.map(p => `<option value="${p.id}" ${p.id === turma.director_classe_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} [${p.codigo || 'Docente'}]</option>`).join('');
 
     const graus = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
     const optGraus = graus.map(g => `<option value="${g}" ${g === turma.grau_ano ? 'selected' : ''}>${g}</option>`).join('');
+
+    const podeHomologar = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'].includes(state.user?.role);
+    const dtBadgeStatus = turma.dt_status_homologacao === 'HOMOLOGADO' && turma.codigo_director_turma
+      ? `<span class="badge bg-success font-monospace"><i class="bi bi-patch-check-fill me-1"></i>Homologado: ${turma.codigo_director_turma}</span>`
+      : (turma.director_turma_id ? `<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendente de Homologação (Nomeado pelo DP)</span>` : `<span class="badge bg-secondary">Sem Nomeação</span>`);
+
+    const dcBadgeStatus = turma.dc_status_homologacao === 'HOMOLOGADO' && turma.codigo_director_classe
+      ? `<span class="badge bg-success font-monospace"><i class="bi bi-patch-check-fill me-1"></i>Homologado: ${turma.codigo_director_classe}</span>`
+      : (turma.director_classe_id ? `<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendente de Homologação (Nomeado pelo DP)</span>` : `<span class="badge bg-secondary">Sem Nomeação</span>`);
 
     abrirModal(`Editar Turma: ${turma.nome}`, `
       <form id="formModalEditarTurma">
@@ -3046,9 +3055,11 @@ async function modalEditarTurma(turmaId) {
             <input type="text" list="listaAreasEstudoTurmaEdit" id="mtEditArea" class="form-control" value="${turma.area || 'Geral'}" placeholder="Geral / Ciências...">
             <datalist id="listaAreasEstudoTurmaEdit">
               <option value="Geral">Tronco Comum / Geral</option>
-              <option value="Ciências">Ciências Naturais e Mat. (Grupo B)</option>
-              <option value="Letras">Comunicação e Ciências Sociais (Grupo A)</option>
-              <option value="Técnico">Ensino Técnico Profissional</option>
+              <option value="Ciências com Geografia">Ciências com Geografia (cg)</option>
+              <option value="Ciências com Biologia">Ciências com Biologia (cb)</option>
+              <option value="Ciências com Desenho">Ciências com Desenho (cd)</option>
+              <option value="Letras com Geografia">Letras com Geografia (lg)</option>
+              <option value="Letras com História">Letras com História (lh)</option>
             </datalist>
             <small class="text-muted" style="font-size: 0.72rem;">Secção vinculada à turma.</small>
           </div>
@@ -3068,15 +3079,51 @@ async function modalEditarTurma(turmaId) {
             <label class="form-label small fw-semibold">Sala de Aula</label>
             <input type="text" id="mtEditSala" class="form-control" value="${turma.sala || ''}" placeholder="Ex: Sala 04">
           </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold text-primary">Director de Turma (DT)</label>
-            <select id="mtEditDirTurma" class="form-select">${optDirTurma}</select>
-            <small class="text-muted" style="font-size: 0.72rem;">Pode alterar o Director de Turma a qualquer momento.</small>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold text-primary">Director de Classe (DC)</label>
-            <select id="mtEditDirClasse" class="form-select">${optDirClasse}</select>
-            <small class="text-muted" style="font-size: 0.72rem;">Pode alterar o Director de Classe a qualquer momento.</small>
+
+          <!-- Fluxo Institucional: Nomeação pelo Director Pedagógico (DP) & Homologação pelo Director da Escola (GD) -->
+          <div class="col-12">
+            <div class="p-3 rounded border border-primary border-opacity-25 bg-light">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h6 class="fw-bold text-primary mb-0">
+                  <i class="bi bi-award-fill me-1"></i> Nomeação (Direcção Pedagógica - DP) & Homologação (Director da Escola - GD)
+                </h6>
+                <small class="text-muted" style="font-size: 0.72rem;">O código de DT e DC é gerado após homologação pelo Director da Escola</small>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label small fw-bold text-dark mb-0">Director de Turma (DT)</label>
+                    ${dtBadgeStatus}
+                  </div>
+                  <select id="mtEditDirTurma" class="form-select">${optDirTurma}</select>
+                  <small class="text-muted" style="font-size: 0.71rem;">
+                    ${turma.dt_nomeado_por_nome ? `Nomeado por: <strong>${turma.dt_nomeado_por_nome}</strong>` : 'Seleccione o docente para nomear como Director de Turma.'}
+                    ${turma.dt_homologado_por_nome ? ` | Homologado por: <strong>${turma.dt_homologado_por_nome}</strong>` : ''}
+                  </small>
+                </div>
+                <div class="col-md-6">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label small fw-bold text-dark mb-0">Director de Classe (DC)</label>
+                    ${dcBadgeStatus}
+                  </div>
+                  <select id="mtEditDirClasse" class="form-select">${optDirClasse}</select>
+                  <small class="text-muted" style="font-size: 0.71rem;">
+                    ${turma.dc_nomeado_por_nome ? `Nomeado por: <strong>${turma.dc_nomeado_por_nome}</strong>` : 'Seleccione o docente para nomear como Director de Classe.'}
+                    ${turma.dc_homologado_por_nome ? ` | Homologado por: <strong>${turma.dc_homologado_por_nome}</strong>` : ''}
+                  </small>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-outline-info btn-sm fw-semibold" onclick="nomearDirectoresNoModal('${turma.id}')">
+                  <i class="bi bi-person-plus-fill me-1"></i> 1. Nomear Directores (Direcção Pedagógica - DP)
+                </button>
+                ${podeHomologar ? `
+                  <button type="button" class="btn btn-success btn-sm fw-semibold" onclick="homologarDirectoresNoModal('${turma.id}')">
+                    <i class="bi bi-patch-check-fill me-1"></i> 2. Homologar Nomeação & Gerar Códigos DT/DC (Director da Escola)
+                  </button>
+                ` : ''}
+              </div>
+            </div>
           </div>
         </div>
         <div class="d-flex gap-2 justify-content-end mt-4">
@@ -3085,6 +3132,58 @@ async function modalEditarTurma(turmaId) {
         </div>
       </form>
     `);
+
+    window.nomearDirectoresNoModal = async function(tId) {
+      try {
+        const dtId = document.getElementById('mtEditDirTurma')?.value || null;
+        const dcId = document.getElementById('mtEditDirClasse')?.value || null;
+        const res = await apiFetch(`/api/v1/escola-admin/turmas/${tId}/nomear-directores`, {
+          method: 'POST',
+          body: JSON.stringify({ director_turma_id: dtId, director_classe_id: dcId })
+        });
+        if (res.success) {
+          alert(res.message || 'Nomeação registada pelo Director Pedagógico! Aguarda homologação do Director da Escola.');
+          fecharModal();
+          await carregarEscolaETurmas();
+        } else {
+          alert(res.message || 'Erro ao registar nomeação');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao registar nomeação');
+      }
+    };
+
+    window.homologarDirectoresNoModal = async function(tId) {
+      try {
+        // Primeiro garantir que os directores seleccionados estão salvos se foram alterados
+        const dtId = document.getElementById('mtEditDirTurma')?.value || null;
+        const dcId = document.getElementById('mtEditDirClasse')?.value || null;
+        if (dtId !== turma.director_turma_id || dcId !== turma.director_classe_id) {
+          await apiFetch(`/api/v1/escola-admin/turmas/${tId}/nomear-directores`, {
+            method: 'POST',
+            body: JSON.stringify({ director_turma_id: dtId, director_classe_id: dcId })
+          });
+        }
+        const res = await apiFetch(`/api/v1/escola-admin/turmas/${tId}/homologar-directores`, {
+          method: 'POST',
+          body: JSON.stringify({ acao: 'HOMOLOGAR', alvo: 'AMBOS' })
+        });
+        if (res.success) {
+          const t = res.data || {};
+          let msg = `${res.message || 'Homologação concluída com sucesso pelo Director da Escola!'}\n`;
+          if (t.codigo_director_turma) msg += `\n• Código Oficial do Director de Turma: ${t.codigo_director_turma}`;
+          if (t.codigo_director_classe) msg += `\n• Código Oficial do Director de Classe: ${t.codigo_director_classe}`;
+          alert(msg);
+          fecharModal();
+          await carregarEscolaETurmas();
+          if (typeof carregarProfessores === 'function') await carregarProfessores();
+        } else {
+          alert(res.message || 'Erro ao homologar directores');
+        }
+      } catch (err) {
+        alert(err.message || 'Erro ao homologar directores');
+      }
+    };
 
     document.getElementById('formModalEditarTurma').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -3120,7 +3219,7 @@ async function modalEditarTurma(turmaId) {
           body: JSON.stringify(body)
         });
         if (res.success) {
-          alert('Turma e Direcção de Classe actualizadas com sucesso!');
+          alert('Turma e Direcção actualizadas com sucesso!');
           fecharModal();
           await carregarEscolaETurmas();
           if (typeof carregarAlunos === 'function') await carregarAlunos();
@@ -4006,6 +4105,13 @@ async function modalEditarAluno(id) {
 
     abrirModal(`Editar Aluno: ${a.nome || ''} (${a.matricula || ''})`, `
       <form id="formModalEditarAluno">
+        <div class="alert alert-primary border-primary bg-primary bg-opacity-10 py-2 px-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <small class="fw-bold text-primary d-block"><i class="bi bi-upc-scan me-1"></i> Código Oficial do Aluno (Dinâmico):</small>
+            <small class="text-muted" style="font-size: 0.72rem;">Associa: Código da Escola + Classe + Turma + Ano + Área/Secção</small>
+          </div>
+          <code class="fs-6 fw-bold text-primary bg-white border border-primary px-3 py-1 rounded" id="mePreviewCodAluno">${a.matricula || '0101S0001.12.01.2026.cg'}</code>
+        </div>
         <div class="row g-3">
           ${avisoTurmasHtml}
           <div class="col-md-8">
@@ -4018,7 +4124,7 @@ async function modalEditarAluno(id) {
           </div>
           <div class="col-md-3">
             <label class="form-label small fw-bold text-primary"><i class="bi bi-calendar-event me-1"></i> Ano de Ingresso</label>
-            <input type="number" id="meAnoIngresso" class="form-control border-primary fw-semibold" value="${a.ano_ingresso || (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/) ? a.matricula.slice(0, 4) : (state.tenant?.ano_letivo_ativo || new Date().getFullYear()))}" min="2000" max="2099" required title="Ano lectivo de ingresso do aluno">
+            <input type="number" id="meAnoIngresso" class="form-control border-primary fw-semibold" value="${a.ano_ingresso || (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/) ? a.matricula.slice(0, 4) : (state.tenant?.ano_letivo_ativo || new Date().getFullYear()))}" min="2000" max="2099" required title="Ano lectivo de ingresso do aluno" oninput="atualizarPreviewCodigoAlunoEditar()">
             <small class="text-muted" style="font-size: 0.72rem;">Ano de admissão / trabalho anual.</small>
           </div>
           <div class="col-md-3">
@@ -4170,6 +4276,36 @@ async function modalEditarAluno(id) {
   }
 }
 
+window.atualizarPreviewCodigoAlunoEditar = function() {
+  const elPrev = document.getElementById('mePreviewCodAluno');
+  if (!elPrev) return;
+  const cls = document.getElementById('meClasse')?.value || '10ª Classe';
+  const area = document.getElementById('meArea')?.value || 'Geral';
+  const ano = document.getElementById('meAnoIngresso')?.value || '2026';
+  const selTurma = document.getElementById('meTurma');
+  let turmaNome = 'Turma 1';
+  if (selTurma && selTurma.value) {
+    const tObj = (window._modalEditarAlunoTurmasCache || state.todasTurmas || []).find(t => t.id === selTurma.value);
+    if (tObj) turmaNome = tObj.nome;
+  }
+  elPrev.textContent = window.gerarPreviewCodigoAluno(null, cls, turmaNome, ano, area);
+};
+
+window.atualizarPreviewCodigoAlunoNovo = function() {
+  const elPrev = document.getElementById('maPreviewCodAluno');
+  if (!elPrev) return;
+  const cls = document.getElementById('maClasse')?.value || '10ª Classe';
+  const area = document.getElementById('maArea')?.value || 'Geral';
+  const ano = document.getElementById('maAnoIngresso')?.value || '2026';
+  const selTurma = document.getElementById('maTurma');
+  let turmaNome = 'Turma 1';
+  if (selTurma && selTurma.value) {
+    const tObj = (window._modalAlunoTurmasCache || state.todasTurmas || []).find(t => t.id === selTurma.value);
+    if (tObj) turmaNome = tObj.nome;
+  }
+  elPrev.textContent = window.gerarPreviewCodigoAluno(null, cls, turmaNome, ano, area);
+};
+
 window.aoMudarClasseEditarAluno = function(limparTurma = true) {
   const selClasse = document.getElementById('meClasse');
   const selTurma = document.getElementById('meTurma');
@@ -4194,10 +4330,12 @@ window.aoMudarClasseEditarAluno = function(limparTurma = true) {
   }
 
   window.filtrarOpcoesTurmasEditarAluno(limparTurma);
+  window.atualizarPreviewCodigoAlunoEditar();
 };
 
 window.aoMudarAreaEditarAluno = function(limparTurma = true) {
   window.filtrarOpcoesTurmasEditarAluno(limparTurma);
+  window.atualizarPreviewCodigoAlunoEditar();
 };
 
 window.filtrarOpcoesTurmasEditarAluno = function(limparTurma = true) {
@@ -4244,7 +4382,10 @@ window.aoMudarTurmaEditarAluno = function() {
   const selClasse = document.getElementById('meClasse');
   const selArea = document.getElementById('meArea');
   const selTurma = document.getElementById('meTurma');
-  if (!selTurma || !selTurma.value) return;
+  if (!selTurma || !selTurma.value) {
+    window.atualizarPreviewCodigoAlunoEditar();
+    return;
+  }
 
   const opt = selTurma.options[selTurma.selectedIndex];
   if (!opt) return;
@@ -4280,6 +4421,7 @@ window.aoMudarTurmaEditarAluno = function() {
       selArea.value = tArea;
     }
   }
+  window.atualizarPreviewCodigoAlunoEditar();
 };
 
 function atualizarDistritosEditarAluno(provincia) {
@@ -4388,6 +4530,7 @@ window.atualizarTurmasModalAluno = async function(escolaId) {
       const areas = window.extrairAreasDasTurmas(turmas, cls);
       selectArea.innerHTML = areas.map(ar => `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`).join('');
     }
+    window.atualizarPreviewCodigoAlunoNovo();
   } catch (e) {
     selectTurma.innerHTML = '<option value="">Sem turmas disponíveis</option>';
   }
@@ -4431,7 +4574,7 @@ async function modalNovoAluno() {
 
   const classeInicial = (state.filtroAlunoClasse && state.filtroAlunoClasse !== 'TODAS' && state.filtroAlunoClasse !== 'SEM_TURMA') 
     ? state.filtroAlunoClasse 
-    : '';
+    : '10ª Classe';
 
   const classesPadrao = [
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
@@ -4450,9 +4593,18 @@ async function modalNovoAluno() {
 
   const areasDasTurmas = window.extrairAreasDasTurmas(turmas, classeInicial);
   const optAreas = areasDasTurmas.map(ar => `<option value="${ar}">${window.obterDescricaoAmigavelArea(ar)}</option>`).join('');
+  const anoDefault = state.filtroAlunoAno && state.filtroAlunoAno !== 'TODOS' ? state.filtroAlunoAno : (state.tenant?.ano_letivo_ativo || new Date().getFullYear());
+  const previewInicial = window.gerarPreviewCodigoAluno(null, classeInicial, 'Turma 1', anoDefault, areasDasTurmas[0] || 'Geral');
 
   abrirModal('Matricular Novo Aluno', `
     <form id="formModalAluno">
+      <div class="alert alert-primary border-primary bg-primary bg-opacity-10 py-2 px-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <small class="fw-bold text-primary d-block"><i class="bi bi-upc-scan me-1"></i> Código Oficial do Aluno (Gerado Automaticamente):</small>
+          <small class="text-muted" style="font-size: 0.72rem;">Associa: Código da Escola + Classe + Turma + Ano + Área/Secção</small>
+        </div>
+        <code class="fs-6 fw-bold text-primary bg-white border border-primary px-3 py-1 rounded" id="maPreviewCodAluno">${previewInicial}</code>
+      </div>
       <div class="row g-3">
         ${seletorEscolaHtml}
         <div class="col-md-8">
@@ -4466,7 +4618,7 @@ async function modalNovoAluno() {
 
         <div class="col-md-3">
           <label class="form-label small fw-bold text-primary"><i class="bi bi-calendar-event me-1"></i> Ano de Ingresso</label>
-          <input type="number" id="maAnoIngresso" class="form-control border-primary fw-semibold" value="${state.filtroAlunoAno && state.filtroAlunoAno !== 'TODOS' ? state.filtroAlunoAno : (state.tenant?.ano_letivo_ativo || new Date().getFullYear())}" min="2000" max="2099" required title="Ano de Ingresso do Aluno">
+          <input type="number" id="maAnoIngresso" class="form-control border-primary fw-semibold" value="${anoDefault}" min="2000" max="2099" required title="Ano de Ingresso do Aluno" oninput="atualizarPreviewCodigoAlunoNovo()">
           <small class="text-muted" style="font-size: 0.72rem;">Ano de admissão / lectivo activo.</small>
         </div>
         <div class="col-md-3">
@@ -4595,7 +4747,8 @@ async function modalNovoAluno() {
         body: JSON.stringify(body)
       });
       if (res.success) {
-        alert('Aluno matriculado com sucesso!');
+        const codAluno = res.data?.matricula || '';
+        alert(`Aluno matriculado com sucesso!\n\nCódigo Oficial do Aluno: ${codAluno}`);
         fecharModal();
         carregarAlunos();
       }
@@ -4629,10 +4782,12 @@ window.aoMudarClasseNovoAluno = function(limparTurma = true) {
   }
 
   window.filtrarOpcoesTurmasNovoAluno(limparTurma);
+  window.atualizarPreviewCodigoAlunoNovo();
 };
 
 window.aoMudarAreaNovoAluno = function(limparTurma = true) {
   window.filtrarOpcoesTurmasNovoAluno(limparTurma);
+  window.atualizarPreviewCodigoAlunoNovo();
 };
 
 window.filtrarOpcoesTurmasNovoAluno = function(limparTurma = true) {
