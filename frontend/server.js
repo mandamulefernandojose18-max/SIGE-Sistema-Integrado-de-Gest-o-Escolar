@@ -63,15 +63,14 @@ const server = http.createServer((req, res) => {
 
   // Endpoint de configuração dinâmica gerada a partir do .env
   if (pathname === '/js/config.js') {
-    const apiBase = process.env.API_BASE_URL || `http://${BACKEND_HOST}:${BACKEND_PORT}/api/v1`;
     const configJs = `// SIGE - Configurações carregadas do .env (Hostname, Hospedagem e Portas)
 window.SIGE_CONFIG = {
   SYSTEM_HOSTNAME: "${SYSTEM_HOSTNAME}",
   FRONTEND_PORT: "${PORT}",
   BACKEND_PORT: "${BACKEND_PORT}",
   BACKEND_HOST: "${BACKEND_HOST}",
-  API_BASE_URL: (typeof window !== 'undefined' && (window.location.protocol === 'file:' || (window.location.port !== '${PORT}' && window.location.port !== '80' && window.location.port !== '443' && window.location.port !== '')))
-    ? '${apiBase}'
+  API_BASE_URL: (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:')
+    ? 'http://127.0.0.1:8000/api/v1'
     : '/api/v1'
 };
 `;

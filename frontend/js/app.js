@@ -327,7 +327,7 @@ function filtrarAlunosCaderneta() {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js?v=20261011_1440').then((reg) => {
+    navigator.serviceWorker.register('/service-worker.js?v=20261013_2100').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -435,10 +435,21 @@ function formatarUrlApi(url) {
     cleanUrl = cleanUrl + '/';
   }
   if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl;
+
   const baseUrl = (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL) || '/api/v1';
+
+  // Se a aplicação estiver a correr via HTTPS ou domínio web remoto,
+  // nunca retornar URLs 'http://' (Mixed Content) nem tentar ligar a 127.0.0.1 que não existe no cliente.
+  const isHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+  const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
   if (cleanUrl.startsWith('/api/v1')) {
-    return baseUrl.replace(/\/api\/v1\/?$/, '') + cleanUrl;
+    if (baseUrl.startsWith('https://') || (baseUrl.startsWith('http://') && isLocalHost && !isHttps)) {
+      return baseUrl.replace(/\/api\/v1\/?$/, '') + cleanUrl;
+    }
+    return cleanUrl;
   }
+
   return baseUrl.replace(/\/+$/, '') + '/' + cleanUrl.replace(/^\/+/, '');
 }
 
@@ -829,11 +840,25 @@ async function realizarLogin(e) {
   // Memoriza o utilizador para preenchimento exclusivo após atualização da página
   localStorage.setItem('sige_ultimo_usuario', email);
 
+  const submitBtn = document.querySelector('#loginForm button[type="submit"]') || document.querySelector('button[onclick*="realizarLogin"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+  }
+
   try {
-    const res = await fetch(formatarUrlApi('/api/v1/auth/login'), {
+    const apiUrl = formatarUrlApi('/api/v1/auth/login');
+    const res = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, senha })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ 
+        email, 
+        senha,
+        username: email,
+        password: senha
+      })
     });
     let json = null;
     try {
@@ -862,6 +887,10 @@ async function realizarLogin(e) {
     alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.') + '\nA atualizar a página imediatamente...');
     window.location.reload();
     return;
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+    }
   }
 }
 

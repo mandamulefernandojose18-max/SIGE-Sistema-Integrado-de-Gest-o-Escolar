@@ -82,6 +82,9 @@ class LoginSerializer(serializers.Serializer):
             u = Usuario.objects.filter(email__iexact=login_id).first()
             if not u:
                 u = Usuario.objects.filter(username__iexact=login_id).first()
+            if not u and '@sige.com' in login_id.lower():
+                variante = login_id.replace('.@sige.com', '@sige.com') if '.@sige.com' in login_id.lower() else login_id.replace('@sige.com', '.@sige.com')
+                u = Usuario.objects.filter(email__iexact=variante).first() or Usuario.objects.filter(username__iexact=variante).first()
             if u and _validar_senha_ou_codigo_inicial(u, pwd):
                 user = u
 
