@@ -333,13 +333,15 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Limpar eventuais tokens antigos persistidos no localStorage para que ao entrar no sistema exija sempre sessão ativa
+// Garantir que ao abrir ou atualizar a página não haja auto-login nem persistência automática de sessão
+sessionStorage.removeItem('sige_token');
+sessionStorage.removeItem('sige_refresh_token');
 localStorage.removeItem('sige_token');
 localStorage.removeItem('sige_refresh_token');
 
 const state = {
-  token: sessionStorage.getItem('sige_token'),
-  refreshToken: sessionStorage.getItem('sige_refresh_token'),
+  token: null,
+  refreshToken: null,
   user: null,
   tenant: null,
   charts: {},
@@ -684,45 +686,28 @@ document.addEventListener('focusin', (e) => {
 
 // ==================== INICIALIZAÇÃO DA APLICAÇÃO ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Garantir imediatamente que a tela de sessão (login) esteja ativa e o painel oculto
+  // Garantir imediatamente que a tela de login esteja ativa e o painel do sistema totalmente oculto
   mostrarTelaLogin();
   carregarDadosGeografia();
 
-  if (state.token) {
-    try {
-      const res = await apiFetch('/api/v1/auth/me', { ignoreAuthRedirect: true });
-      const userData = res?.data?.user || res?.user || res?.data;
-      if (res && (res.success || userData)) {
-        state.user = userData;
-        state.tenant = res?.data?.tenant || res?.tenant || res?.data?.escola || res?.escola || null;
+  // Limpeza de sessão ao inicializar ou atualizar a página: NUNCA efetuar login automático via AJAX!
+  sessionStorage.removeItem('sige_token');
+  sessionStorage.removeItem('sige_refresh_token');
+  state.token = null;
+  state.refreshToken = null;
+  state.user = null;
+  state.tenant = null;
 
-        // Se for SuperAdmin e tiver uma escola seleccionada, carregar os dados daquela escola
-        const savedTenantId = localStorage.getItem('sige_selected_tenant');
-        if (state.user?.role === 'SUPERADMIN' && savedTenantId) {
-          try {
-            const escolaRes = await apiFetch('/api/v1/escola-admin/info', { ignoreAuthRedirect: true });
-            if (escolaRes && escolaRes.success && escolaRes.data) {
-              state.tenant = escolaRes.data;
-            }
-          } catch(e) {
-            console.warn('Tenant selecionado não pôde ser carregado na inicialização:', e);
-          }
-        }
-
-        await iniciarApp();
-      } else {
-        sessionStorage.removeItem('sige_token');
-        sessionStorage.removeItem('sige_refresh_token');
-        state.token = null;
-        mostrarTelaLogin();
-      }
-    } catch (err) {
-      console.warn('Sessão expirada ou inválida:', err);
-      sessionStorage.removeItem('sige_token');
-      sessionStorage.removeItem('sige_refresh_token');
-      state.token = null;
-      mostrarTelaLogin();
-    }
+  // Pré-preencher apenas o campo do utilizador memorizado (sem senha e sem efectuar login)
+  const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario') || '';
+  const inpEmail = document.getElementById('loginEmail');
+  const inpSenha = document.getElementById('loginSenha');
+  if (inpEmail && ultimoUsuario) {
+    inpEmail.value = ultimoUsuario;
+  }
+  if (inpSenha) {
+    inpSenha.value = '';
+    setTimeout(() => inpSenha.focus(), 150);
   }
 
   document.getElementById('loginForm')?.addEventListener('submit', realizarLogin);
@@ -832,9 +817,17 @@ function preencherLogin(email, senha) {
 }
 
 async function realizarLogin(e) {
-  e.preventDefault();
-  const email = (document.getElementById('loginEmail').value || '').trim();
-  const senha = document.getElementById('loginSenha').value;
+  if (e && e.preventDefault) e.preventDefault();
+  const email = (document.getElementById('loginEmail')?.value || '').trim();
+  const senha = document.getElementById('loginSenha')?.value || '';
+
+  if (!email || !senha) {
+    alert('Por favor, introduza o utilizador e a palavra-passe.');
+    return;
+  }
+
+  // Memoriza o utilizador para preenchimento exclusivo após atualização da página
+  localStorage.setItem('sige_ultimo_usuario', email);
 
   try {
     const res = await fetch(formatarUrlApi('/api/v1/auth/login'), {
@@ -845,9 +838,7 @@ async function realizarLogin(e) {
     let json = null;
     try {
       json = await res.json();
-    } catch (e) {
-      console.warn('Resposta não pôde ser convertida para JSON:', res.status);
-    }
+    } catch (_) {}
 
     if (res.ok && json && json.success) {
       sessionStorage.setItem('sige_token', json.data.tokens.accessToken);
@@ -876,14 +867,18 @@ async function realizarLogin(e) {
 
 function fazerLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
-  mostrarTelaLogin();
+  const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario');
   localStorage.clear();
   sessionStorage.clear();
+  if (ultimoUsuario) {
+    localStorage.setItem('sige_ultimo_usuario', ultimoUsuario);
+  }
   state.token = null;
   state.refreshToken = null;
   state.user = null;
   state.tenant = null;
-  window.location.href = '/';
+  mostrarTelaLogin();
+  window.location.reload();
 }
 
 function mostrarTelaLogin() {
