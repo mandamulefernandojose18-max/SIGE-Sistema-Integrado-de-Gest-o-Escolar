@@ -1,0 +1,92 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-FINANCEIRO | Visão Geral Financeira -->
+<!-- Página independente do módulo: dashboard.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-dashboard" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total de Alunos</span>
+                <h3 id="statTotalAlunos" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-success fw-medium"><span id="statAlunosAtivos">0</span> matriculados</small>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-people-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Corpo Docente</span>
+                <h3 id="statTotalProfessores" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-muted">Professores activos</small>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-person-badge-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Receita Arrecadada</span>
+                <h3 id="statReceitaTotal" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h3>
+                <small class="text-danger fw-medium"><span id="statReceitaPendente">0 <span class="moeda-sufixo">MZN</span></span> pendente</small>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-cash-coin"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Validade do Contrato</span>
+                <h3 id="statDiasRestantes" class="fw-bold mb-0 text-primary">0 dias</h3>
+                <small id="statStatusAssinatura" class="badge badge-ativa">ATIVA</small>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-shield-lock-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner de Atalhos Rápidos da Instituição e Logótipo -->
+        <div class="card p-3 mb-4 border-0 shadow-sm bg-primary-subtle escola-admin-only">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+              <div class="bg-primary text-white rounded p-2 fs-4">
+                <i class="bi bi-image"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-0 text-primary-emphasis">Identidade Visual & Logótipo Oficial da Instituição</h6>
+                <small class="text-secondary">Carregue o logótipo da escola ou active o Emblema Nacional para os cabeçalhos de pautas, cadernetas, boletins e certificados.</small>
+              </div>
+            </div>
+            <div>
+              <button class="btn btn-primary btn-sm fw-bold px-3 shadow-sm" onclick="navegarPara('escola')">
+                <i class="bi bi-gear-fill me-1"></i> Carregar / Gerir Logótipo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-lg-8">
+            <div class="card p-3">
+              <h6 class="fw-bold mb-3"><i class="bi bi-graph-up me-2 text-primary"></i>Receitas Arrecadadas vs. Propinas Pendentes (MZN)</h6>
+              <canvas id="chartDashboardFaturamento" height="120"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card p-3">
+              <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Distribuição por Género</h6>
+              <canvas id="chartDashboardGenero" height="240"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>

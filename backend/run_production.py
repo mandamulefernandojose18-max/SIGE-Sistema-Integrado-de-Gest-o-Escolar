@@ -60,7 +60,7 @@ def main():
     print("[*] Coletando arquivos estaticos para producao...")
     call_command('collectstatic', interactive=False, clear=False)
     
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get('BACKEND_PORT', os.environ.get('PORT', 8000)))
     host = os.environ.get('HOST', '0.0.0.0')
     threads = int(os.environ.get('THREADS', 8))
     

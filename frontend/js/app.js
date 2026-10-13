@@ -849,7 +849,7 @@ async function realizarLogin(e) {
       console.warn('Resposta não pôde ser convertida para JSON:', res.status);
     }
 
-    if (json && json.success) {
+    if (res.ok && json && json.success) {
       sessionStorage.setItem('sige_token', json.data.tokens.accessToken);
       sessionStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
       if (json.data.user.role !== 'SUPERADMIN') {
@@ -860,14 +860,17 @@ async function realizarLogin(e) {
       state.user = json.data.user;
       state.tenant = json.data.escola;
       await iniciarApp();
-    } else if (json && (json.message || json.detail)) {
-      alert(json.message || json.detail || 'Falha na autenticação. Verifique o e-mail e a palavra-passe.');
     } else {
-      alert(`Erro ao conectar ao servidor do SIGE (HTTP ${res.status}). Verifique o estado do servidor.`);
+      const msgErro = (json && (json.message || json.detail)) || 'Credenciais inválidas! Utilizador ou senha incorretos.';
+      alert(msgErro + '\nA atualizar a página imediatamente...');
+      window.location.reload();
+      return;
     }
   } catch (err) {
     console.error('Erro de conexão no login:', err);
-    alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.'));
+    alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.') + '\nA atualizar a página imediatamente...');
+    window.location.reload();
+    return;
   }
 }
 
@@ -1011,34 +1014,126 @@ async function carregarDadosGlobaisEscola() {
   }
 }
 
+const MAPA_PAINEIS = {
+  SUPERADMIN: 'painel-superadmin',
+  ADMIN_ESCOLA: 'painel-escola',
+  DIRECTOR_ESCOLA: 'painel-escola',
+  DAP: 'painel-escola',
+  CHEFE_SECRETARIA: 'painel-escola',
+  PROFESSOR: 'painel-professor',
+  ALUNO: 'painel-aluno',
+  FINANCEIRO: 'painel-financeiro'
+};
+
+const MENUS_POR_PAINEL = {
+  'painel-superadmin': [
+    { id: 'saas', titulo: 'Gestão de Escolas & Planos', icone: 'bi-buildings-fill text-warning', categoria: 'Administração Geral SaaS' },
+    { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais Master', icone: 'bi-key-fill text-warning', categoria: 'Segurança' },
+    { id: 'acessos', titulo: 'Auditoria & Acessos Globais', icone: 'bi-shield-check', categoria: 'Segurança' }
+  ],
+  'painel-escola': [
+    { id: 'dashboard', titulo: 'Painel Principal', icone: 'bi-grid-1x2-fill', categoria: 'Geral' },
+    { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão Escolar' },
+    { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
+    { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
+    { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
+    { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Gestão Escolar' },
+    { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Gestão Escolar' },
+    { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Pedagógico' },
+    { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Pedagógico' },
+    { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Pedagógico' },
+    { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Pedagógico' },
+    { id: 'material-escolar', titulo: 'Material Escolar', icone: 'bi-book-half text-primary', categoria: 'Pedagógico' },
+    { id: 'certificados', titulo: 'Certificados (QR Code)', icone: 'bi-award-fill', categoria: 'Financeiro & Secretaria' },
+    { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Secretaria' },
+    { id: 'impressao', titulo: 'Central de Impressão', icone: 'bi-printer-fill', categoria: 'Financeiro & Secretaria' },
+    { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais', icone: 'bi-key-fill text-warning', categoria: 'Segurança & Cofre' },
+    { id: 'acessos', titulo: 'Auditoria & Acessos', icone: 'bi-shield-check', categoria: 'Segurança & Cofre' }
+  ],
+  'painel-professor': [
+    { id: 'professor-perfil', titulo: 'Meu Perfil Docente', icone: 'bi-person-lines-fill text-primary', categoria: 'Espaço do Docente' },
+    { id: 'caderneta', titulo: 'Caderneta do Professor', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Espaço do Docente' },
+    { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Espaço do Docente' },
+    { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Espaço do Docente' },
+    { id: 'estatisticas-aproveitamento', titulo: 'Estatística das Minhas Turmas', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Espaço do Docente' },
+    { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Espaço do Docente' }
+  ],
+  'painel-aluno': [
+    { id: 'aluno-perfil', titulo: 'O Meu Perfil & Filiação', icone: 'bi-person-vcard-fill text-primary', categoria: 'Espaço do Aluno' },
+    { id: 'aluno-notas', titulo: 'As Minhas Notas & Boletim', icone: 'bi-card-checklist text-success', categoria: 'Espaço do Aluno' },
+    { id: 'aluno-pagamentos', titulo: 'As Minhas Propinas & Mensalidades', icone: 'bi-wallet2 text-warning', categoria: 'Espaço do Aluno' },
+    { id: 'material-escolar', titulo: 'Material Escolar da Minha Classe', icone: 'bi-book-half text-info', categoria: 'Espaço do Aluno' }
+  ],
+  'painel-financeiro': [
+    { id: 'dashboard', titulo: 'Visão Geral Financeira', icone: 'bi-grid-1x2-fill', categoria: 'Financeiro & Tesouraria' },
+    { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Tesouraria' },
+    { id: 'impressao', titulo: 'Central de Impressão de Recibos', icone: 'bi-printer-fill', categoria: 'Financeiro & Tesouraria' }
+  ]
+};
+
+function renderizarSidebarPorNivel(role) {
+  const painel = MAPA_PAINEIS[role] || 'painel-escola';
+  const menus = MENUS_POR_PAINEL[painel] || [];
+  const navContainer = document.getElementById('sidebarNavItems');
+  if (!navContainer) return;
+
+  let html = '';
+  let categoriaAtual = '';
+
+  menus.forEach(menu => {
+    if (menu.categoria !== categoriaAtual) {
+      categoriaAtual = menu.categoria;
+      html += `<div class="nav-category">${categoriaAtual}</div>`;
+    }
+    html += `
+      <a class="nav-link" href="#" onclick="navegarPara('${menu.id}')" id="nav-${menu.id}">
+        <i class="bi ${menu.icone}"></i> <span>${menu.titulo}</span>
+      </a>
+    `;
+  });
+
+  html += `
+    <div class="mt-4 pt-3 border-top px-2">
+      <a class="nav-link text-light py-2 rounded d-flex align-items-center gap-2 mb-1" href="javascript:void(0)" onclick="modalRedefinirMinhaSenha()" title="Ver o meu perfil de utilizador e alterar palavra-passe">
+        <i class="bi bi-person-gear text-warning fs-5"></i> <span>Meu Perfil & Alterar Senha</span>
+      </a>
+      <a class="nav-link text-danger fw-bold py-2 rounded d-flex align-items-center gap-2" href="#" onclick="fazerLogout(event)" id="nav-logout-sidebar" title="Terminar sessão com segurança">
+        <i class="bi bi-box-arrow-right text-danger fs-5"></i> <span>Sair do Sistema</span>
+      </a>
+    </div>
+  `;
+
+  navContainer.innerHTML = html;
+}
+
 function aplicarPermissoesVisualizacao(role) {
-  // Reset geral
-  document.querySelectorAll('.saas-only').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.escola-admin-only').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.ped-only').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.fin-only').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.aluno-only').forEach(el => el.style.display = 'none');
+  renderizarSidebarPorNivel(role);
 
   if (role === 'SUPERADMIN') {
-    document.querySelectorAll('.saas-only').forEach(el => el.style.display = 'flex');
-    document.getElementById('nav-dashboard').style.display = 'flex';
+    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'block');
+    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
   } else if (role === 'ALUNO') {
-    document.querySelectorAll('.aluno-only').forEach(el => el.style.display = 'flex');
-    document.getElementById('nav-dashboard').style.display = 'none';
-    document.getElementById('nav-impressao').style.display = 'none';
-    document.getElementById('sidebarTenantCard').style.display = 'none';
+    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
+    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'none');
   } else if (role === 'PROFESSOR') {
-    document.querySelectorAll('.professor-only').forEach(el => el.style.display = 'block');
-    document.querySelectorAll('.ped-only').forEach(el => el.style.display = 'flex');
-    document.getElementById('nav-dashboard').style.display = 'flex';
-    document.getElementById('nav-impressao').style.display = 'flex';
+    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
+    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
+  } else if (role === 'FINANCEIRO') {
+    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
+    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
   } else {
-    // DIRECTOR_ESCOLA, DAP, CHEFE_SECRETARIA, ADMIN_ESCOLA
-    document.querySelectorAll('.escola-admin-only').forEach(el => el.style.display = 'flex');
-    document.querySelectorAll('.ped-only').forEach(el => el.style.display = 'flex');
-    document.querySelectorAll('.fin-only').forEach(el => el.style.display = 'flex');
-    document.getElementById('nav-dashboard').style.display = 'flex';
-    document.getElementById('nav-impressao').style.display = 'flex';
+    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
+    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'flex');
+    document.getElementById('btnComprovativoEscola')?.classList.remove('d-none');
+    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
   }
 }
 
@@ -1199,15 +1294,92 @@ function fecharSidebarMobile() {
 window.alternarSidebarMobile = alternarSidebarMobile;
 window.fecharSidebarMobile = fecharSidebarMobile;
 
-function navegarPara(viewId) {
-  fecharSidebarMobile();
-  if (viewId === 'professor-perfil') carregarPerfilDocenteIndividual();
-  if (viewId === 'usuarios-senhas') carregarCofreUsuarios();
-  if (state.user?.role === 'ALUNO') {
-    if (viewId !== 'aluno-perfil' && viewId !== 'aluno-notas' && viewId !== 'material-escolar') {
-      viewId = 'aluno-perfil';
+const cachePaginasModular = {};
+
+async function carregarPaginaModulo(painel, viewId) {
+  const container = document.getElementById('conteudo-modulo') || document.querySelector('main.content-area');
+  if (!container) return null;
+
+  const idSecao = `view-${viewId}`;
+  let viewEl = document.getElementById(idSecao);
+  if (viewEl && container.contains(viewEl)) {
+    return viewEl;
+  }
+
+  const urlPagina = `/pages/${painel}/${viewId}.html`;
+  try {
+    let html = cachePaginasModular[urlPagina];
+    if (!html) {
+      const resp = await fetch(urlPagina);
+      if (resp.ok) {
+        html = await resp.text();
+        cachePaginasModular[urlPagina] = html;
+      }
+    }
+
+    if (!html && window.SIGE_TEMPLATES && window.SIGE_TEMPLATES[`${painel}/${viewId}`]) {
+      html = window.SIGE_TEMPLATES[`${painel}/${viewId}`];
+    }
+
+    if (html) {
+      const tempWrapper = document.createElement('div');
+      tempWrapper.innerHTML = html;
+      const novaSecao = tempWrapper.querySelector('section') || tempWrapper.firstElementChild;
+      if (novaSecao) {
+        novaSecao.style.display = 'none';
+        container.appendChild(novaSecao);
+        return novaSecao;
+      }
+    }
+  } catch (err) {
+    console.warn(`[ROUTER] Falha ao carregar página modular ${urlPagina}:`, err);
+    if (window.SIGE_TEMPLATES && window.SIGE_TEMPLATES[`${painel}/${viewId}`]) {
+      const html = window.SIGE_TEMPLATES[`${painel}/${viewId}`];
+      const tempWrapper = document.createElement('div');
+      tempWrapper.innerHTML = html;
+      const novaSecao = tempWrapper.querySelector('section') || tempWrapper.firstElementChild;
+      if (novaSecao) {
+        novaSecao.style.display = 'none';
+        container.appendChild(novaSecao);
+        return novaSecao;
+      }
     }
   }
+
+  return document.getElementById(idSecao);
+}
+
+async function carregarScriptModulo(painel, viewId) {
+  const idScript = `script-modulo-${painel}-${viewId}`;
+  if (document.getElementById(idScript)) return;
+  const scriptUrl = `/js/modules/${painel}/${viewId}.js`;
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.id = idScript;
+    s.src = scriptUrl;
+    s.onload = () => resolve();
+    s.onerror = () => resolve();
+    document.body.appendChild(s);
+  });
+}
+
+async function navegarPara(viewId) {
+  fecharSidebarMobile();
+
+  const role = state.user?.role || 'ADMIN_ESCOLA';
+  const painel = MAPA_PAINEIS[role] || 'painel-escola';
+  const menusPermitidos = (MENUS_POR_PAINEL[painel] || []).map(m => m.id);
+
+  // Isolamento estrito entre painéis: Não pode ter uma ligação entre os painéis!
+  if (!menusPermitidos.includes(viewId)) {
+    console.warn(`[SEGURANÇA] Bloqueio de ligação inter-painel: Utilizador com role '${role}' (Painel '${painel}') tentou aceder a view '${viewId}'.`);
+    mostrarToast('Acesso negado: Este painel não pertence ao seu nível de acesso.', 'danger');
+    viewId = menusPermitidos[0] || 'dashboard';
+  }
+
+  // Carregar ficheiro de página (HTML) e módulo (JS) separados correspondentes a este menu
+  await carregarPaginaModulo(painel, viewId);
+  await carregarScriptModulo(painel, viewId);
 
   document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
   document.querySelectorAll('#sidebar .nav-link').forEach(el => el.classList.remove('active'));
@@ -1216,35 +1388,27 @@ function navegarPara(viewId) {
   if (viewEl) viewEl.style.display = 'block';
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
 
-  // Marcar link como ativo
+  // Marcar link como ativo na sidebar
   const link = document.getElementById(`nav-${viewId}`) || Array.from(document.querySelectorAll('#sidebar .nav-link')).find(a =>
     a.getAttribute('onclick')?.includes(viewId)
   );
   if (link) link.classList.add('active');
 
-  const titulos = {
-    dashboard: 'Painel Principal & Indicadores Gerais',
-    saas: 'Painel de Gestão SaaS SuperAdmin (Tenants & Contratos)',
-    escola: 'Dados da Escola & Definições Gerais',
-    turmas: 'Painel de Turmas, Capacidade Máxima & Distribuição em Lote',
-    alunos: 'Registo de Alunos & Matrículas Oficiais',
-    professores: 'Corpo Docente & Carreiras MEC',
-    disciplinas: 'Disciplinas & Plano Curricular Nacional',
-    caderneta: 'Caderneta de Avaliação Contínua do Professor',
-    pautas: 'Pautas de Avaliação & Actas Estatísticas',
-    'director-turma': 'Painel Oficial do Director de Turma (Pauta & Acta)',
-    'estatisticas-aproveitamento': 'Estatística do Aproveitamento Pedagógico Escolar',
-    'material-escolar': 'Material Escolar & Recursos Didáticos por Classe',
-    certificados: 'Certificados Digitais com QR Code',
-    pagamentos: 'Gestão Financeira, Propinas e Mensalidades',
-    impressao: 'Central de Impressão de Documentos Oficiais',
-    desbloqueio: 'Autorização de Desbloqueio de Trimestre',
-    'aluno-perfil': 'O Meu Perfil Escolar & Filiação',
-    'aluno-notas': 'As Minhas Notas & Avaliações',
-    'aluno-pagamentos': 'Os Meus Pagamentos de Mensalidades',
-    acessos: 'Auditoria de Acessos & Segurança de Dados'
-  };
-  document.getElementById('pageTitle').textContent = titulos[viewId] || 'SIGE';
+  // Actualizar Títulos de Topbar
+  const menuInfo = (MENUS_POR_PAINEL[painel] || []).find(m => m.id === viewId);
+  if (menuInfo && document.getElementById('pageTitle')) {
+    document.getElementById('pageTitle').textContent = menuInfo.titulo;
+  }
+  if (document.getElementById('subPageTitle')) {
+    const nomeNivel = {
+      'painel-superadmin': 'Nível SuperAdmin SaaS',
+      'painel-escola': 'Nível Gestão Escolar & Pedagógica',
+      'painel-professor': 'Nível Docente',
+      'painel-aluno': 'Nível Discente',
+      'painel-financeiro': 'Nível Financeiro & Tesouraria'
+    }[painel] || 'SIGE';
+    document.getElementById('subPageTitle').textContent = nomeNivel;
+  }
 
   // Gatilhos de carregamento específico
   if (viewId === 'dashboard') carregarDashboardGeral();
@@ -1266,6 +1430,8 @@ function navegarPara(viewId) {
   if (viewId === 'aluno-perfil') carregarAlunoPerfil();
   if (viewId === 'aluno-notas') carregarAlunoNotas();
   if (viewId === 'aluno-pagamentos') carregarAlunoPagamentos();
+  if (viewId === 'professor-perfil') carregarPerfilDocenteIndividual();
+  if (viewId === 'usuarios-senhas') carregarCofreUsuarios();
   if (viewId === 'acessos') carregarLogsAcesso();
 
   setTimeout(() => aplicarResponsividadeUniversalTabelas(viewEl || document), 50);

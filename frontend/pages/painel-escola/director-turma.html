@@ -1,0 +1,151 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Painel Director de Turma -->
+<!-- Página independente do módulo: director-turma.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-director-turma" class="modulo-view" style="display: none;">
+        <div class="card p-4 no-print mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+              <h5 class="fw-bold mb-1"><i class="bi bi-person-workspace text-warning me-2"></i>Painel Oficial do Director de Turma</h5>
+              <p class="text-muted small mb-0">Gestão académica e administrativa da sua turma atribuída: Pauta Geral e Acta Oficial do Conselho de Avaliação.</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label small fw-bold mb-0 text-nowrap">Turma Atribuída:</label>
+              <select id="dtTurmaSelect" class="form-select form-select-sm" style="min-width: 260px;" onchange="aoSelecionarTurmaDT(this.value)"></select>
+            </div>
+          </div>
+
+          <!-- Parâmetros da Sessão do Conselho de Avaliação (Acordeão recolhível) -->
+          <div class="accordion mb-3" id="accordionParamsConselho">
+            <div class="accordion-item border rounded">
+              <h2 class="accordion-header" id="headingConselho">
+                <button class="accordion-button collapsed py-2 small fw-semibold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConselho">
+                  <i class="bi bi-pencil-square text-primary me-2"></i> Configurar Dados da Sessão do Conselho de Avaliação (Presidente, Datas e Horários)
+                </button>
+              </h2>
+              <div id="collapseConselho" class="accordion-collapse collapse" data-bs-parent="#accordionParamsConselho">
+                <div class="accordion-body p-3 bg-white">
+                  <form id="formParamsConselho" onsubmit="event.preventDefault(); salvarParametrosSessaoDT();">
+                    <div class="row g-3">
+                      <!-- 1º Trimestre -->
+                      <div class="col-md-4 border-end">
+                        <div class="fw-bold text-primary small mb-2"><i class="bi bi-1-circle me-1"></i> Iº Trimestre</div>
+                        <div class="mb-2">
+                          <label class="form-label very-small text-muted mb-0">Presidente do Conselho</label>
+                          <input type="text" id="dtPresidenteT1" class="form-control form-control-sm" value="" placeholder="Deixe em branco até à realização">
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label very-small text-muted mb-0">Data da Realização</label>
+                          <input type="date" id="dtDataT1" class="form-control form-control-sm" value="">
+                        </div>
+                        <div class="row g-1">
+                          <div class="col-6">
+                            <label class="form-label very-small text-muted mb-0">Início (HH:MM)</label>
+                            <div class="d-flex gap-1">
+                              <input type="text" id="dtHIni1" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMIni1" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
+                            </div>
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label very-small text-muted mb-0">Término (HH:MM)</label>
+                            <div class="d-flex gap-1">
+                              <input type="text" id="dtHFim1" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMFim1" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 2º Trimestre -->
+                      <div class="col-md-4 border-end">
+                        <div class="fw-bold text-primary small mb-2"><i class="bi bi-2-circle me-1"></i> IIº Trimestre</div>
+                        <div class="mb-2">
+                          <label class="form-label very-small text-muted mb-0">Presidente do Conselho</label>
+                          <input type="text" id="dtPresidenteT2" class="form-control form-control-sm" value="" placeholder="Deixe em branco até à realização">
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label very-small text-muted mb-0">Data da Realização</label>
+                          <input type="date" id="dtDataT2" class="form-control form-control-sm" value="">
+                        </div>
+                        <div class="row g-1">
+                          <div class="col-6">
+                            <label class="form-label very-small text-muted mb-0">Início (HH:MM)</label>
+                            <div class="d-flex gap-1">
+                              <input type="text" id="dtHIni2" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMIni2" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
+                            </div>
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label very-small text-muted mb-0">Término (HH:MM)</label>
+                            <div class="d-flex gap-1">
+                              <input type="text" id="dtHFim2" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMFim2" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 3º Trimestre -->
+                      <div class="col-md-4">
+                        <div class="fw-bold text-primary small mb-2"><i class="bi bi-3-circle me-1"></i> IIIº Trimestre</div>
+                        <div class="mb-2">
+                          <label class="form-label very-small text-muted mb-0">Presidente do Conselho</label>
+                          <input type="text" id="dtPresidenteT3" class="form-control form-control-sm" value="" placeholder="Deixe em branco até à realização">
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label very-small text-muted mb-0">Data da Realização</label>
+                          <input type="date" id="dtDataT3" class="form-control form-control-sm" value="">
+                        </div>
+                        <div class="row g-1">
+                          <div class="col-6">
+                            <label class="form-label very-small text-muted mb-0">Início (HH:MM)</label>
+                            <div class="d-flex gap-1">
+                              <input type="text" id="dtHIni3" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMIni3" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
+                            </div>
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label very-small text-muted mb-0">Término (HH:MM)</label>
+                            <div class="d-flex gap-1">
+                              <input type="text" id="dtHFim3" class="form-control form-control-sm text-center" value="" placeholder="HH" maxlength="2">
+                              <input type="text" id="dtMFim3" class="form-control form-control-sm text-center" value="" placeholder="MM" maxlength="2">
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="text-end mt-3">
+                      <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="limparParametrosSessaoDT()">
+                        <i class="bi bi-eraser me-1"></i> Limpar / Deixar em Branco
+                      </button>
+                      <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="bi bi-save me-1"></i> Gravar Parâmetros do Conselho
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Abas do Director de Turma: Pauta Geral vs Acta do Conselho -->
+          <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+              <a class="nav-link fw-bold active" id="dtTabPautaBtn" href="#" onclick="alternarAbaDT('pauta')">
+                <i class="bi bi-table me-1"></i> Pauta Geral da Turma
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link fw-bold" id="dtTabActaBtn" href="#" onclick="alternarAbaDT('acta')">
+                <i class="bi bi-file-earmark-text me-1"></i> Acta Oficial do Conselho de Avaliação
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Conteúdo do Documento Activo do Director de Turma -->
+        <div class="card p-4 printable-document bg-white" id="dtDocumentoContainer">
+          <div class="text-center py-4 text-muted">Selecione uma turma para visualizar a pauta e acta.</div>
+        </div>
+      </section>

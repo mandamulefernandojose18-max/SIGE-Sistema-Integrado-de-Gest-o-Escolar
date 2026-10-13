@@ -1,0 +1,155 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Turmas & Capacidade -->
+<!-- Página independente do módulo: turmas.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-turmas" class="modulo-view" style="display: none;">
+        <!-- Cabeçalho Principal com Botões de Ação -->
+        <div class="card p-4 mb-4 border-0 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-diagram-3-fill me-1"></i> Gestão de Turmas & Pedagógico</span>
+                <span class="badge bg-light text-muted border">Capacidade Padrão: 50 Alunos</span>
+              </div>
+              <h4 class="fw-bold text-dark mb-1">Painel de Turmas & Capacidade Máxima</h4>
+              <p class="text-muted small mb-0">Controle de ocupação, criação em lote (Turmas 1, 2, 3...) e formação automática com critérios pedagógicos.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="modalFormacaoAutomaticaTurmas()">
+                <i class="bi bi-magic me-1"></i> Formação Automática de Turmas (1, 2, 3...)
+              </button>
+              <button class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" onclick="modalCriarTurmasEmLote()">
+                <i class="bi bi-layers-fill me-1"></i> Gerar Turmas em Lote
+              </button>
+              <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" onclick="modalCriarTurma()">
+                <i class="bi bi-plus-lg me-1"></i> Cadastrar Turma
+              </button>
+              <button class="btn btn-outline-warning btn-sm fw-semibold shadow-sm" onclick="corrigirNumeracaoTurmas()" title="Renumera turmas de forma contínua por classe, eliminando sobreposições e nomes como 'Turma 1 (1)'">
+                <i class="bi bi-sort-numeric-up me-1"></i> Corrigir Numeração
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicadores & Métricas de Ocupação -->
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total de Turmas</span>
+                <h3 id="statTurmasTotal" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-muted">Turmas ativas no ano lectivo</small>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-diagram-3-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Capacidade Total</span>
+                <h3 id="statTurmasCapacidade" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-muted">Vagas máximas autorizadas</small>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-person-workspace"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Alunos Enturmados</span>
+                <h3 id="statTurmasAlunos" class="fw-bold mb-0 text-success">0</h3>
+                <small class="text-success fw-medium"><span id="statTurmasVagasLivres">0</span> vagas livres</small>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-people-fill"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Ocupação</span>
+                <h3 id="statTurmasTaxa" class="fw-bold mb-0 text-primary">0%</h3>
+                <small id="statTurmasStatus" class="badge bg-light text-dark border">Normal</small>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-speedometer2"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtros & Tabela de Turmas -->
+        <div class="card p-4 border-0 shadow-sm">
+          <div class="row g-2 align-items-center mb-3">
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-funnel me-1"></i> Filtrar por Classe</label>
+              <select id="filtroTurmasClasse" class="form-select form-select-sm" onchange="atualizarFiltroAreasTurmas(); aplicarFiltrosTurmas();">
+                <option value="TODAS">Todas as Classes (7ª à 12ª)</option>
+                <option value="7ª Classe">7ª Classe</option>
+                <option value="8ª Classe">8ª Classe</option>
+                <option value="9ª Classe">9ª Classe</option>
+                <option value="10ª Classe">10ª Classe</option>
+                <option value="11ª Classe">11ª Classe</option>
+                <option value="12ª Classe">12ª Classe</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-tag me-1"></i> Secção / Área</label>
+              <select id="filtroTurmasArea" class="form-select form-select-sm" onchange="aplicarFiltrosTurmas()">
+                <option value="TODAS">Todas as Secções / Áreas</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-sun me-1"></i> Turno</label>
+              <select id="filtroTurmasTurno" class="form-select form-select-sm" onchange="aplicarFiltrosTurmas()">
+                <option value="TODOS">Todos os Turnos</option>
+                <option value="MANHA">Manhã</option>
+                <option value="TARDE">Tarde</option>
+                <option value="NOITE">Noite</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i> Pesquisar</label>
+              <div class="input-group input-group-sm">
+                <input type="search" id="filtroTurmasBusca" class="form-control" placeholder="Buscar por turma, director ou sala..." oninput="aplicarFiltrosTurmas()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('filtroTurmasBusca').value=''; aplicarFiltrosTurmas();">&times;</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Legenda de Cores de Ocupação -->
+          <div class="d-flex flex-wrap align-items-center gap-3 p-2 mb-3 bg-light rounded border small">
+            <strong class="text-secondary"><i class="bi bi-info-circle me-1"></i> Legenda da Ocupação / Máx:</strong>
+            <span class="d-inline-flex align-items-center gap-1"><span class="badge bg-success">&bull;</span> <strong>Verde:</strong> com vagas disponíveis (&lt; 80%)</span>
+            <span class="d-inline-flex align-items-center gap-1"><span class="badge bg-warning text-dark">&bull;</span> <strong>Amarelo:</strong> próxima do limite (&ge; 80%)</span>
+            <span class="d-inline-flex align-items-center gap-1"><span class="badge bg-danger">&bull;</span> <strong>Vermelho:</strong> capacidade atingida (100% ou lotada)</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Turma</th>
+                  <th>Classe / Grau</th>
+                  <th>Secção / Área</th>
+                  <th>Turno</th>
+                  <th>Sala</th>
+                  <th style="min-width: 170px;">Ocupação / Máx</th>
+                  <th>Director de Turma</th>
+                  <th>Director de Classe</th>
+                  <th class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaTurmasView">
+                <tr><td colspan="9" class="text-center py-4">A carregar turmas...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>

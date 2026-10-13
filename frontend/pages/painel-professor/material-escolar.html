@@ -1,0 +1,85 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-PROFESSOR | Material Didático & Escolar -->
+<!-- Página independente do módulo: material-escolar.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-material-escolar" class="modulo-view" style="display: none;">
+        <!-- Cabeçalho do Painel com Ações -->
+        <div class="card p-4 mb-4 border-0 shadow-sm text-white" style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h4 class="fw-bold mb-1"><i class="bi bi-book-half me-2"></i>Material Escolar & Recursos Didáticos</h4>
+              <p class="mb-0 text-white-50 small">
+                Navegue pelas classes de 1ª a 12ª Classe, consulte, descarregue manuais oficiais ou carregue novos ficheiros e livros da instituição.
+              </p>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-light fw-bold text-primary shadow-sm" onclick="modalCarregarMaterialEscolar()" id="btnCarregarMaterial">
+                <i class="bi bi-cloud-arrow-up-fill me-1"></i> Carregar / Importar Material
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra Unificada de Filtros de Materiais Escolares (Sem excesso de botões) -->
+        <div class="card p-3 mb-4 shadow-sm border-0">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3 col-sm-6">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:
+              </label>
+              <select id="filtroMaterialClasseSelect" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="selecionarClasseMaterial(this.value)">
+                <option value="TODAS">Todas as Classes</option>
+                <option value="1ª Classe">1ª Classe</option>
+                <option value="2ª Classe">2ª Classe</option>
+                <option value="3ª Classe">3ª Classe</option>
+                <option value="4ª Classe">4ª Classe</option>
+                <option value="5ª Classe">5ª Classe</option>
+                <option value="6ª Classe">6ª Classe</option>
+                <option value="7ª Classe">7ª Classe</option>
+                <option value="8ª Classe">8ª Classe</option>
+                <option value="9ª Classe">9ª Classe</option>
+                <option value="10ª Classe">10ª Classe</option>
+                <option value="11ª Classe">11ª Classe</option>
+                <option value="12ª Classe">12ª Classe</option>
+              </select>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-tag me-1 text-info"></i> 2. Tipo de Material:
+              </label>
+              <select id="filtroMaterialTipo" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="filtrarMateriaisEscolares()">
+                <option value="">Todos os Tipos (Manuais, Fichas...)</option>
+                <option value="MANUAL">Livros / Manuais Oficiais</option>
+                <option value="FICHA">Fichas de Exercícios / Avaliação</option>
+                <option value="GUIA">Guias de Correcção / Apoio</option>
+                <option value="APOSTILA">Apostilas & Resumos</option>
+                <option value="OUTRO">Outros Materiais</option>
+              </select>
+            </div>
+            <div class="col-md-4 col-sm-8">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-search me-1 text-secondary"></i> 3. Pesquisa:
+              </label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" id="filtroMaterialBusca" class="form-control form-control-sm bg-white" placeholder="Título, disciplina ou descrição..." oninput="filtrarMateriaisEscolares()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('filtroMaterialBusca').value=''; filtrarMateriaisEscolares();" title="Limpar pesquisa">&times;</button>
+              </div>
+            </div>
+            <div class="col-md-2 col-sm-4 text-end">
+              <div id="containerBotoesClassesMateriais" style="display: none;"></div>
+              <span class="badge bg-primary-subtle text-primary fw-semibold d-block text-truncate mb-1" id="badgeClasseAtiva">Todas as Classes</span>
+              <small class="text-muted d-block" id="contadorMateriaisEncontrados">0 materiais</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista / Grelha de Materiais da Classe -->
+        <div class="row g-4" id="grelhaMateriaisEscolares">
+          <div class="col-12 text-center py-5 text-muted">
+            <i class="bi bi-folder2-open display-4 d-block mb-3 opacity-50"></i>
+            A carregar materiais da classe...
+          </div>
+        </div>
+      </section>

@@ -1,0 +1,113 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-SUPERADMIN | Gestão de Escolas & Planos SaaS -->
+<!-- Página independente do módulo: saas.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-saas" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">MRR (Mensal Recorrente)</span>
+                <h3 id="saasMRR" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h3>
+                <small class="text-muted">Valor contratado mensal</small>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-stack"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">ARR (Anual Projetado)</span>
+                <h3 id="saasARR" class="fw-bold mb-0 text-primary">0 <span class="moeda-sufixo">MZN</span></h3>
+                <small class="text-muted">Projeção anual de receita</small>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-graph-up-arrow"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Churn</span>
+                <h3 id="saasChurn" class="fw-bold mb-0 text-danger">0%</h3>
+                <small class="text-muted">Escolas suspensas/expiradas</small>
+              </div>
+              <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-person-x-fill"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Instituições de Ensino</span>
+                <h3 id="saasTotalEscolas" class="fw-bold mb-0 text-dark">0</h3>
+                <small class="text-success"><span id="saasEscolasAtivas">0</span> ativas</small> | 
+                <small class="text-danger"><span id="saasEscolasExpiradas">0</span> expiradas</small>
+              </div>
+              <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-buildings"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela de Escolas Cadastradas -->
+        <div class="card p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-buildings me-2"></i>Gestão de Escolas (Tenants)</h5>
+              <small class="text-muted">Cadastre, edite prazos, active ou desactive instituições de ensino.</small>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm" onclick="modalCadastrarEscolaSuperAdmin()">
+                <i class="bi bi-plus-lg me-1"></i> Cadastrar Nova Escola
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="executarCronVerificacaoManual()">
+                <i class="bi bi-arrow-repeat me-1"></i> Rodar Verificação de Expiração
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Escola</th>
+                  <th>Província / Distrito</th>
+                  <th>NUIT</th>
+                  <th>Plano & Contrato</th>
+                  <th>Validade</th>
+                  <th>Estado</th>
+                  <th>Alunos/Profs</th>
+                  <th class="text-end">Acções</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaSaasEscolas">
+                <tr><td colspan="8" class="text-center py-4">A carregar escolas...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tabela de Gestão de Preços dos Planos de Assinatura -->
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-tags-fill me-2 text-warning"></i>Planos de Assinatura & Preços (MZN)</h5>
+              <small class="text-muted">Altere o valor do contrato para novos períodos de adesão (Mensal, Trimestral, Semestral e Anual).</small>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Plano</th>
+                  <th>Duração (Dias)</th>
+                  <th>Preço Vigente (MZN)</th>
+                  <th>Descrição Oficial</th>
+                  <th class="text-end">Editar Valor</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaSaasPlanos">
+                <tr><td colspan="5" class="text-center py-4">A carregar planos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>

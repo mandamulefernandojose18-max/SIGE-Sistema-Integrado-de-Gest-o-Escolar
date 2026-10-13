@@ -1,0 +1,138 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Desbloqueio de Trimestre -->
+<!-- Página independente do módulo: desbloqueio.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-desbloqueio" class="modulo-view" style="display: none;">
+        <div class="row g-4">
+          <!-- CARD 1: CALENDÁRIO OFICIAL DE PRAZOS POR TRIMESTRE -->
+          <div class="col-lg-6">
+            <div class="card p-4 h-100 shadow-sm border-0">
+              <h5 class="fw-bold mb-2 text-primary"><i class="bi bi-calendar-week me-2"></i>Calendário Oficial de Prazos de Lançamento</h5>
+              <p class="text-muted small mb-3">Defina as datas limites de lançamento de notas para cada trimestre lectivo. Professores que tentarem lançar notas fora destas datas serão bloqueados por atraso.</p>
+
+              <form id="formPrazosTrimestrais" class="row g-3">
+                <!-- 1º Trimestre -->
+                <div class="col-12 p-3 bg-light rounded border">
+                  <span class="badge bg-primary mb-2">1º Trimestre Lectivo</span>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data de Início</label>
+                      <input type="date" id="prazoT1Inicio" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                      <input type="date" id="prazoT1Fim" class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 2º Trimestre -->
+                <div class="col-12 p-3 bg-light rounded border">
+                  <span class="badge bg-info text-dark mb-2">2º Trimestre Lectivo</span>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data de Início</label>
+                      <input type="date" id="prazoT2Inicio" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                      <input type="date" id="prazoT2Fim" class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3º Trimestre -->
+                <div class="col-12 p-3 bg-light rounded border">
+                  <span class="badge bg-secondary mb-2">3º Trimestre Lectivo</span>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data de Início</label>
+                      <input type="date" id="prazoT3Inicio" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                      <input type="date" id="prazoT3Fim" class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 text-end">
+                  <button type="submit" class="btn btn-primary fw-semibold btn-sm">
+                    <i class="bi bi-save me-1"></i> Guardar Calendário de Prazos
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- CARD 2: JANELA DE AUTORIZAÇÃO / REDEFINIÇÃO DE PRAZO POR ATRASO -->
+          <div class="col-lg-6">
+            <div class="card p-4 h-100 shadow-sm border-0">
+              <h5 class="fw-bold mb-2 text-warning"><i class="bi bi-unlock-fill me-2"></i>Autorização / Redefinição de Prazo por Atraso</h5>
+              <p class="text-muted small mb-3">Conceda uma janela de autorização temporária ou prorrogação de prazo para que docentes em atraso possam submeter avaliações.</p>
+              
+              <form id="formAutorizarDesbloqueio" class="row g-3">
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Turma Alvo</label>
+                  <select id="desbloqueioTurma" class="form-select" required></select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Docente Titular (Opcional - Em branco para toda a turma)</label>
+                  <select id="desbloqueioProfessor" class="form-select">
+                    <option value="">(Todos os Docentes da Turma)</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold">Trimestre a Desbloquear</label>
+                  <select id="desbloqueioTrimestre" class="form-select">
+                    <option value="1_TRIMESTRE">1º Trimestre</option>
+                    <option value="2_TRIMESTRE">2º Trimestre</option>
+                    <option value="3_TRIMESTRE">3º Trimestre</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold">Prazo de Validade (Horas)</label>
+                  <input type="number" id="desbloqueioHoras" class="form-control" value="48" min="1" max="720" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Justificação Administrativa Oficial</label>
+                  <textarea id="desbloqueioMotivo" class="form-control" rows="3" placeholder="Ex: Despacho da Direcção Pedagógica autorizando rectificação / lançamento com atraso fundamentado..." required></textarea>
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-warning fw-semibold w-100"><i class="bi bi-check2-circle me-1"></i> Conceder Autorização de Desbloqueio</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- CARD 3: TABELA DE AUTORIZAÇÕES ACTIVAS -->
+          <div class="col-12">
+            <div class="card p-4 shadow-sm border-0">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-shield-check text-success me-2"></i>Autorizações de Desbloqueio em Vigor</h6>
+                <button class="btn btn-outline-secondary btn-sm" onclick="carregarAutorizacoesDesbloqueio()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle small mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Turma</th>
+                      <th>Docente Autorizado</th>
+                      <th>Trimestre</th>
+                      <th>Concedido Por</th>
+                      <th>Data de Concessão</th>
+                      <th>Motivo / Validade</th>
+                      <th>Estado</th>
+                      <th class="text-end">Acção</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaAutorizacoesDesbloqueio">
+                    <tr><td colspan="8" class="text-center py-3 text-muted">A carregar autorizações activas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>

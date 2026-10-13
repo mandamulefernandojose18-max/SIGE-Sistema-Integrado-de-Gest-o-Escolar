@@ -1,0 +1,82 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Disciplinas & Currículo -->
+<!-- Página independente do módulo: disciplinas.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-disciplinas" class="modulo-view" style="display: none;">
+        <div class="row g-4 mb-4">
+          <div class="col-lg-8">
+            <div class="card p-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-book me-2"></i>Disciplinas do Plano Curricular Nacional</h5>
+                <button class="btn btn-primary btn-sm" onclick="modalNovaDisciplina()"><i class="bi bi-plus-lg me-1"></i> Nova Disciplina</button>
+              </div>
+
+              <!-- Barra de Filtros Inteligente: Classe, Secção/Área de Estudo e Pesquisa -->
+              <div class="card bg-light border p-3 mb-3 shadow-none">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+                      <i class="bi bi-mortarboard me-1 text-primary"></i> 1. Classe / Plano Curricular:
+                    </label>
+                    <select id="filtroDisciplinasClasseSelect" class="form-select form-select-sm fw-semibold" onchange="filtrarDisciplinasClasse(this.value)">
+                      <option value="">Todas as Classes (7ª à 12ª)</option>
+                      <option value="7ª Classe">7ª Classe</option>
+                      <option value="8ª Classe">8ª Classe</option>
+                      <option value="9ª Classe">9ª Classe</option>
+                      <option value="10ª Classe">10ª Classe</option>
+                      <option value="11ª Classe">11ª Classe</option>
+                      <option value="12ª Classe">12ª Classe</option>
+                    </select>
+                  </div>
+                  <div class="col-md-5">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label class="form-label small fw-bold text-uppercase text-secondary mb-0">
+                        <i class="bi bi-diagram-3 me-1 text-primary"></i> 2. Secção ou Área de Estudo:
+                      </label>
+                      <button class="btn btn-link btn-sm p-0 text-primary fw-semibold small text-decoration-none" onclick="modalNovaSeccaoArea()" title="Cadastrar nova secção ou área para a classe selecionada">
+                        <i class="bi bi-plus-circle me-1"></i> + Nova Secção / Área
+                      </button>
+                    </div>
+                    <select id="filtroDisciplinasAreaSelect" class="form-select form-select-sm fw-semibold" onchange="filtrarDisciplinasArea(this.value)">
+                      <option value="">Todas as Áreas / Secções</option>
+                      <!-- Povoado automaticamente a cada cadastro de secção/área -->
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+                      <i class="bi bi-search me-1 text-primary"></i> Pesquisar Disciplina:
+                    </label>
+                    <input type="search" id="filtroDisciplinasBusca" class="form-control form-control-sm" placeholder="Nome ou código..." oninput="filtrarDisciplinasTabelaTexto()" onsearch="filtrarDisciplinasTabelaTexto()">
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Código</th>
+                      <th>Disciplina</th>
+                      <th>Classe</th>
+                      <th>Área</th>
+                      <th>Carga Horária</th>
+                      <th>Ano Lectivo</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaDisciplinas">
+                    <tr><td colspan="7" class="text-center py-4">A carregar disciplinas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card p-3">
+              <h6 class="fw-bold mb-3"><i class="bi bi-exclamation-diamond text-danger me-2"></i>Ranking de Negativas (%)</h6>
+              <canvas id="chartDisciplinasReprovacao" height="240"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>

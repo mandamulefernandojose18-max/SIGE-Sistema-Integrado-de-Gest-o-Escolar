@@ -1,0 +1,154 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Alunos & Matrículas -->
+<!-- Página independente do módulo: alunos.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-alunos" class="modulo-view" style="display: none;">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Total de Alunos</span>
+                <h4 id="alunoTotalCard" class="fw-bold mb-0">0</h4>
+              </div>
+              <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Retenção</span>
+                <h4 id="alunoRetencaoCard" class="fw-bold mb-0 text-success">100%</h4>
+              </div>
+              <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-check2-all"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Taxa de Evasão</span>
+                <h4 id="alunoEvasaoCard" class="fw-bold mb-0 text-danger">0%</h4>
+              </div>
+              <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-door-open-fill"></i></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card">
+              <div>
+                <span class="text-muted small text-uppercase fw-semibold">Masculino / Feminino</span>
+                <h4 id="alunoGeneroRatioCard" class="fw-bold mb-0 text-info">0 / 0</h4>
+              </div>
+              <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-gender-ambiguous"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4 mb-3 border-0 shadow-sm">
+          <!-- Cabeçalho com Título e Botão Novo Aluno -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold text-primary mb-1"><i class="bi bi-diagram-3-fill me-2"></i>Gestão de Alunos & Matrículas Oficiais</h5>
+              <p class="text-muted small mb-0">Selecione os filtros: <strong>Classe</strong> &rarr; <strong>Secção / Área</strong> &rarr; <strong>Turma</strong> para listar os alunos</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <div class="input-group input-group-sm" style="width: auto;" title="Filtrar dados pelo Ano de Ingresso / Lectivo">
+                <span class="input-group-text bg-light text-primary fw-semibold"><i class="bi bi-calendar-event me-1"></i> Ano Lectivo:</span>
+                <select id="filtroAnoAlunos" class="form-select form-select-sm fw-semibold" onchange="aoMudarFiltroAnoAlunos(this.value)">
+                  <option value="TODOS">Todos os Anos</option>
+                  <option value="2026" selected>2026 (Ano Activo)</option>
+                </select>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" onclick="carregarAlunos()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
+              <button class="btn btn-primary btn-sm" onclick="modalNovoAluno()"><i class="bi bi-plus-lg me-1"></i> Matricular Aluno</button>
+            </div>
+          </div>
+
+          <!-- Barra de Filtros Hierárquicos Compacta, Moderna e Sem Excesso de Botões -->
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="row g-2 align-items-end">
+              <!-- Filtro 1: Classe -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:</span>
+                  <span id="contagemClassesAlunos" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroAlunoClasse" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectClasseAlunos(this.value)">
+                  <option value="TODAS">Todas as Classes</option>
+                </select>
+              </div>
+
+              <!-- Filtro 2: Secção / Área -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-diagram-2-fill me-1" style="color: #7c3aed;"></i> 2. Secção / Área:</span>
+                  <span id="contagemAreasClasse" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroAlunoArea" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAreaAlunos(this.value)">
+                  <option value="TODAS">Todas as Secções / Áreas</option>
+                </select>
+              </div>
+
+              <!-- Filtro 3: Turma da Secção -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-collection-fill me-1 text-info"></i> 3. Turma da Secção:</span>
+                  <span id="contagemTurmasClasse" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectFiltroAlunoTurma" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectTurmaAlunos(this.value)">
+                  <option value="TODAS">Todas as Turmas da Área</option>
+                </select>
+              </div>
+
+              <!-- Filtro 4: Pesquisa Rápida -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1">
+                  <i class="bi bi-search me-1 text-secondary"></i> Pesquisa Rápida:
+                </label>
+                <div class="input-group input-group-sm">
+                  <input type="search" id="pesquisaAlunosHierarquia" class="form-control form-control-sm bg-white" placeholder="Nome, apelido ou matrícula..." oninput="filtrarAlunosHierarquia()">
+                  <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('pesquisaAlunosHierarquia').value=''; filtrarAlunosHierarquia();" title="Limpar pesquisa">&times;</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Informação da Selecção Activa -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-2 border-top">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm" id="badgeCaminhoHierarquia">
+                <i class="bi bi-people-fill me-1"></i> Todos os Alunos
+              </span>
+              <span id="contagemAlunosExibidos" class="text-muted small fw-semibold"></span>
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-2">
+              <button class="btn btn-link btn-sm text-decoration-none text-muted p-0" onclick="limparFiltrosAlunos()"><i class="bi bi-x-circle me-1"></i> Repor Filtros</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela de Alunos da Turma Selecionada -->
+        <div class="card p-3 border-0 shadow-sm">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 50px;">Nº</th>
+                  <th>Matrícula</th>
+                  <th>Nome Completo & Apelido</th>
+                  <th>Classe / Grau</th>
+                  <th>Secção / Área</th>
+                  <th>Turma</th>
+                  <th>Documento</th>
+                  <th>Género</th>
+                  <th>Contacto Encarregado</th>
+                  <th>Estado</th>
+                  <th class="text-end">Acções</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaAlunos">
+                <tr><td colspan="11" class="text-center py-4 text-muted">A carregar dados...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>

@@ -1,0 +1,238 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-PROFESSOR | Caderneta Oficial de Notas -->
+<!-- Página independente do módulo: caderneta.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-caderneta" class="modulo-view" style="display: none;">
+        <!-- Card de Navegação Sequencial: Classe -> Secção/Área -> Caderneta -->
+        <div class="card p-4 mb-3 no-print border-0 shadow-sm">
+          <!-- Cabeçalho com Título, Seletor de Professor (para Admins) e Botões de Exportação -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-journal-bookmark-fill me-1"></i> Registo de Avaliações Oficiais</span>
+                <span id="cadernetaBadgePerfil" class="badge bg-light text-dark border">Caderneta Oficial MINEDH</span>
+              </div>
+              <h5 class="fw-bold text-dark mb-0"><i class="bi bi-book-half me-2 text-primary"></i>Caderneta Escolar & Mapa de Avaliação Contínua</h5>
+              <p class="text-muted small mb-0">Navegue sequencialmente: <strong>Classe</strong> &rarr; <strong>Secção / Área</strong> &rarr; <strong>Turma da Secção</strong></p>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <!-- Filtro de Professor visível APENAS para Admins / Direcção -->
+              <div id="wrapperFiltroProfessorCaderneta" style="display: none;">
+                <div class="input-group input-group-sm" style="width: 250px;">
+                  <span class="input-group-text bg-light text-muted small"><i class="bi bi-person-badge"></i></span>
+                  <select id="cadernetaFiltroProfessor" class="form-select form-select-sm" onchange="aoMudarFiltroProfessorCaderneta(this.value)">
+                    <option value="TODOS">Todos os Professores</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="modalSalvarNotaCaderneta()" title="Lançar notas de alunos">
+                <i class="bi bi-pencil-square me-1"></i> Lançar Avaliações
+              </button>
+              <button class="btn btn-outline-success btn-sm" onclick="exportarCadernetaExcel()" title="Descarregar ficheiro XLSX">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="descarregarCadernetaPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <button class="btn btn-outline-primary btn-sm" onclick="imprimirCadernetaOficial()" title="Imprimir em A4 horizontal">
+                <i class="bi bi-printer"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra Unificada de Filtros Inteligentes da Caderneta (Sem excesso de botões) -->
+          <div class="p-3 bg-light rounded-3 border mb-3">
+            <div class="row g-2 align-items-end">
+              <!-- Filtro 1: Classe -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:</span>
+                  <span id="contagemClassesCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaClasse" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectClasseCaderneta(this.value)">
+                  <!-- Opções de Classes geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 2: Secção / Área -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-diagram-2-fill me-1" style="color: #7c3aed;"></i> 2. Secção / Área:</span>
+                  <span id="contagemAreasCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaArea" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAreaCaderneta(this.value)">
+                  <!-- Opções de Áreas geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 3: Turma da Secção (Caderneta) -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-collection-fill me-1 text-success"></i> 3. Turma da Secção:</span>
+                  <span id="contagemTurmasCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaAlocacao" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAlocacaoCaderneta(this.value)">
+                  <!-- Opções de Turmas / Cadernetas geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 4: Trimestre -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1">
+                  <i class="bi bi-calendar3 me-1 text-secondary"></i> 4. Trimestre:
+                </label>
+                <select id="cadernetaPeriodoSelect" class="form-select form-select-sm bg-white fw-semibold shadow-sm" onchange="destacarTrimestreTabelaCaderneta(this.value)">
+                  <option value="TODOS">Todos os 3 Trimestres</option>
+                  <option value="1_TRIMESTRE">1º Trimestre</option>
+                  <option value="2_TRIMESTRE">2º Trimestre</option>
+                  <option value="3_TRIMESTRE">3º Trimestre</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Lista Visual de Turmas da Secção: turma por turma para abrir ou visualizar a caderneta ao clicar -->
+            <div id="containerBotoesTurmasCadernetaWrapper" class="mt-2 pt-2 border-top d-flex align-items-center flex-wrap gap-2" style="display: none !important;">
+              <span class="small fw-bold text-muted me-1"><i class="bi bi-collection-play me-1 text-primary"></i>Turmas da Secção:</span>
+              <div id="containerBotoesTurmasCaderneta" class="d-inline-flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <!-- Barra de Pesquisa Rápida na Caderneta Aberta -->
+          <div class="row g-2 align-items-center pt-1 border-top">
+            <div class="col-md-7">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text py-1 px-2 bg-white"><i class="bi bi-search"></i></span>
+                <input type="search" id="cadernetaPesquisaAluno" class="form-control" placeholder="Pesquisar aluno por nome ou número nesta caderneta..." oninput="filtrarAlunosCaderneta()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('cadernetaPesquisaAluno').value=''; filtrarAlunosCaderneta();">&times;</button>
+              </div>
+            </div>
+            <div class="col-md-5 text-end">
+              <!-- Selectors e containers ocultos para retrocompatibilidade com scripts legados -->
+              <div id="containerCadernetaClasses" style="display: none;"></div>
+              <div id="seccaoAreasCaderneta" style="display: none;"><div id="containerCadernetaAreas"></div><span id="cadernetaNomeClasseSelecionada"></span></div>
+              <div id="seccaoCadernetasDisponiveis" style="display: none;"><div id="containerCadernetasBotoes"></div><span id="cadernetaNomeAreaSelecionada"></span></div>
+              <select id="cadernetaAlocacaoSelect" style="display: none;"></select>
+              <select id="cadernetaClasseFilter" style="display: none;"></select>
+              <small class="text-muted fw-semibold" id="cadernetaInfoResumo"></small>
+            </div>
+          </div>
+
+          <!-- Aviso de Bloqueio do Trimestre -->
+          <div id="avisoTrimestreBloqueado" class="alert alert-warning mt-3 mb-0 d-none" role="alert">
+            <i class="bi bi-lock-fill me-2"></i>
+            <strong>Trimestre Encerrado:</strong> Este trimestre lectivo encontra-se fechado para edição directa. Contacte a Direcção da Escola ou DAP para solicitar autorização de desbloqueio.
+          </div>
+        </div>
+
+        <div class="card p-4 printable-document" id="cadernetaPrintContainer">
+          <!-- Cabeçalho Institucional Oficial (Imagem 2) -->
+          <div class="border p-3 rounded mb-3 bg-white" id="cadernetaCabecalhoOficial">
+            <div class="text-center mb-3">
+              <h6 class="fw-bold mb-0 text-uppercase" id="cadHeaderEscola">REPÚBLICA DE MOÇAMBIQUE</h6>
+              <small class="text-muted d-block" id="cadHeaderSub">PROVÍNCIA DE MAPUTO | DISTRITO DE CIDADE DE MAPUTO</small>
+              <h5 class="fw-bold text-primary mt-1 mb-0">Mapa de Registo de Avaliações — <span id="cadHeaderAno">2026</span></h5>
+            </div>
+            <div class="row g-2 text-center" style="font-size: 0.8rem;">
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Disciplina Lecionada</span>
+                  <strong id="cadBoxDisciplina" class="text-primary">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Nome do Professor</span>
+                  <strong id="cadBoxProfessor">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Contacto(s) do Prof.</span>
+                  <strong id="cadBoxContacto">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Área de Formação</span>
+                  <strong id="cadBoxArea">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Turma & Director de Turma</span>
+                  <strong id="cadBoxTurmaDirector">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Classe & Turno</span>
+                  <strong id="cadBoxClasseTurno">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Efectivo de Alunos</span>
+                  <strong id="cadBoxEfectivo" class="text-success">H: 0 | M: 0 | Total: 0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela Completa da Caderneta com 3 Trimestres e Estatísticas por Coluna (Imagem 2) -->
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle text-center small caderneta-tabela" style="min-width: 1300px;">
+              <thead class="table-light">
+                <tr>
+                  <th rowspan="2" class="align-middle" style="width: 35px;">Nº</th>
+                  <th rowspan="2" class="align-middle text-start" style="min-width: 140px;">Nome do Aluno</th>
+                  <th rowspan="2" class="align-middle text-start" style="min-width: 80px;">Apelido</th>
+                  <th rowspan="2" class="align-middle" style="width: 35px;">Gên</th>
+                  <th colspan="9" class="bg-primary bg-opacity-10 text-primary fw-bold">1º TRIMESTRE</th>
+                  <th colspan="9" class="bg-info bg-opacity-10 text-info fw-bold">2º TRIMESTRE</th>
+                  <th colspan="9" class="bg-warning bg-opacity-10 text-dark fw-bold">3º TRIMESTRE</th>
+                  <th rowspan="2" class="align-middle bg-success bg-opacity-10 text-success fw-bold" style="width: 55px;">MFD</th>
+                </tr>
+                <tr>
+                  <!-- 1º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAS</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                  <!-- 2º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAS</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                  <!-- 3º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAS</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaCadernetaCorpo">
+                <tr><td colspan="32" class="text-center py-4">Selecione uma turma e disciplina para visualizar a Caderneta Oficial.</td></tr>
+              </tbody>
+              <tfoot id="tabelaCadernetaRodape" class="table-light fw-semibold" style="font-size: 0.72rem;">
+                <!-- Linhas calculadas dinamicamente com estatística por coluna -->
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </section>

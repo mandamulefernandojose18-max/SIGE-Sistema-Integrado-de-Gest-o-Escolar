@@ -1,0 +1,120 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-PROFESSOR | Pautas & Actas das Minhas Turmas -->
+<!-- Página independente do módulo: pautas.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-pautas" class="modulo-view" style="display: none;">
+        <!-- Barra Superior de Controlo e Navegação entre Pauta e Acta -->
+        <div class="card p-4 mb-4 no-print">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+              <div>
+                <label class="form-label small fw-semibold mb-1">Classe</label>
+                <select id="pautaClasseFilter" class="form-select form-select-sm" style="min-width: 130px;" onchange="filtrarTurmasPautaPorClasse()">
+                  <option value="">Todas as Classes</option>
+                  <option value="7ª">7ª Classe</option>
+                  <option value="8ª">8ª Classe</option>
+                  <option value="9ª">9ª Classe</option>
+                  <option value="10ª">10ª Classe</option>
+                  <option value="11ª">11ª Classe</option>
+                  <option value="12ª">12ª Classe</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">Turma</label>
+                <select id="pautaTurmaSelect" class="form-select form-select-sm" style="min-width: 230px;" onchange="alternarVisualizacaoPautaTurma()">
+                  <option value="">A carregar turmas...</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">Ano Lectivo</label>
+                <select id="pautaAnoSelect" class="form-select form-select-sm">
+                  <option value="2026">2026</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">Orientação da Página</label>
+                <div class="input-group input-group-sm">
+                  <select id="pautaOrientacaoSelect" class="form-select form-select-sm" style="min-width: 145px;" onchange="aoMudarOrientacaoPauta(this.value)">
+                    <option value="landscape" selected>Horizontal (Oficial Pauta)</option>
+                    <option value="portrait">Vertical (Retrato A4)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-primary active" id="btnAbaPauta" onclick="mudarSubAbaPauta('pauta')">
+                  <i class="bi bi-table me-1"></i> Pauta Geral da Turma
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnAbaActa" onclick="mudarSubAbaPauta('acta')">
+                  <i class="bi bi-journal-text me-1"></i> Acta do Conselho de Avaliação
+                </button>
+              </div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="modalGerarPauta()">
+                <i class="bi bi-plus-circle me-1"></i> Consolidar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-ABA 1: PAUTA GERAL DA TURMA (TODAS AS DISCIPLINAS LADO A LADO) (Imagem 3) -->
+        <div id="subViewPautaGeral" class="card p-4 printable-document">
+          <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+            <div>
+              <h5 class="fw-bold mb-0" id="pautaGeralTitulo">Pauta Oficial de Aproveitamento Pedagógico</h5>
+              <small class="text-muted" id="pautaGeralSubtitulo">Ano Lectivo: 2026 | Critério Oficial MEC Aplicado</small>
+            </div>
+            <div class="d-flex gap-2 no-print">
+              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()" title="Descarregar ficheiro XLSX (Excel)">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="descarregarPautaGeralPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+              </button>
+              <button class="btn btn-outline-primary btn-sm" onclick="descarregarPautaGeralDocx()" title="Descarregar documento em Word (DOCX)">
+                <i class="bi bi-file-earmark-word me-1"></i> Word (.docx)
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="imprimirPautaGeralOficial()" title="Imprimir em A4 horizontal">
+                <i class="bi bi-printer me-1"></i> Imprimir
+              </button>
+            </div>
+          </div>
+
+          <!-- Grelha da Pauta Geral renderizada dinamicamente -->
+          <div class="table-responsive" id="containerTabelaPautaGeral">
+            <p class="text-center py-4 text-muted">Selecione uma turma acima para gerar a pauta geral.</p>
+          </div>
+        </div>
+
+        <!-- SUB-ABA 2: ACTA DO CONSELHO DE AVALIAÇÃO / ESTATÍSTICA DA TURMA (Imagem 1) -->
+        <div id="subViewActaConselho" class="card p-5 printable-document d-none" style="background: #fff;">
+          <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+            <div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="modalConfigurarSessaoActa()">
+                <i class="bi bi-sliders me-1"></i> Configurar Dados da Sessão do Conselho
+              </button>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()" title="Descarregar ficheiro XLSX (Excel)">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="descarregarActaConselhoPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+              </button>
+              <button class="btn btn-outline-primary btn-sm" onclick="descarregarActaConselhoDocx()" title="Descarregar documento em Word (DOCX)">
+                <i class="bi bi-file-earmark-word me-1"></i> Word (.docx)
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="imprimirActaConselhoOficial()" title="Imprimir em A4 horizontal">
+                <i class="bi bi-printer me-1"></i> Imprimir
+              </button>
+            </div>
+          </div>
+
+          <!-- Conteúdo da Acta renderizado fielmente à Imagem 1 -->
+          <div id="containerActaConselhoCorpo">
+            <p class="text-center py-4 text-muted">Selecione uma turma acima para gerar a acta do conselho.</p>
+          </div>
+        </div>
+      </section>

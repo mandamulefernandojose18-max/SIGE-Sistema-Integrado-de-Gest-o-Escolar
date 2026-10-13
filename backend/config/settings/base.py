@@ -10,12 +10,16 @@ sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / 'apps'))
 
 from dotenv import load_dotenv
+load_dotenv(BASE_DIR.parent / '.env')
 load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'sige-django-secret-key-enterprise-2026-mz!')
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = list(set([host.strip() for host in os.environ.get('ALLOWED_HOSTS', '*').split(',') if host.strip()] + ['*', '.duckdns.org', 'sigesaas.duckdns.org', 'sigesass.duckdns.org', '.sslip.io', 'sige.8b54e22e.sslip.io', 'sige.139-84-226-46.sslip.io', '139.84.226.46', 'localhost', '127.0.0.1']))
+sys_host = os.environ.get('SYSTEM_HOSTNAME', '').strip()
+extra_hosts = [sys_host] if sys_host else []
+
+ALLOWED_HOSTS = list(set([host.strip() for host in os.environ.get('ALLOWED_HOSTS', '*').split(',') if host.strip()] + extra_hosts + ['*', '.duckdns.org', 'sigesaas.duckdns.org', 'sigesass.duckdns.org', '.sslip.io', 'sige.8b54e22e.sslip.io', 'sige.139-84-226-46.sslip.io', '139.84.226.46', 'localhost', '127.0.0.1']))
 CSRF_TRUSTED_ORIGINS = [
     'https://sigesaas.duckdns.org',
     'https://sigesass.duckdns.org',

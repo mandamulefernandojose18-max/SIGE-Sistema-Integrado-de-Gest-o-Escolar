@@ -1,0 +1,87 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-PROFESSOR | Estatística das Minhas Turmas -->
+<!-- Página independente do módulo: estatisticas-aproveitamento.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-estatisticas-aproveitamento" class="modulo-view" style="display: none;">
+        <div class="card p-4 no-print mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+              <h5 class="fw-bold mb-1"><i class="bi bi-bar-chart-line-fill text-success me-2"></i>Estatística do Aproveitamento Pedagógico Escolar</h5>
+              <p class="text-muted small mb-0">Monitoramento oficial do rendimento escolar por Turma, por Classe (7ª a 12ª), Geral da Escola e por Disciplina.</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <div>
+                <label class="form-label very-small text-muted mb-0">Ano Lectivo</label>
+                <select id="statAnoFiltro" class="form-select form-select-sm" onchange="carregarEstatisticasAproveitamento()">
+                  <option value="2026" selected>2026</option>
+                  <option value="2025">2025</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label very-small text-muted mb-0">Período / Trimestre</label>
+                <select id="statPeriodoFiltro" class="form-select form-select-sm" onchange="carregarEstatisticasAproveitamento()">
+                  <option value="GLOBAL" selected>Anual / Global (MFD)</option>
+                  <option value="T1">1º Trimestre</option>
+                  <option value="T2">2º Trimestre</option>
+                  <option value="T3">3º Trimestre</option>
+                </select>
+              </div>
+              <div class="d-flex gap-1 align-self-end">
+                <button class="btn btn-outline-primary btn-sm" onclick="carregarEstatisticasAproveitamento()" title="Atualizar dados">
+                  <i class="bi bi-arrow-repeat me-1"></i> Visualizar
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="window.print()" title="Imprimir Relatório">
+                  <i class="bi bi-printer me-1"></i> Imprimir
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="descarregarEstatisticasPdf()" title="Descarregar PDF">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportarEstatisticasExcel()" title="Exportar para folha Excel">
+                  <i class="bi bi-file-earmark-excel me-1"></i> Descarregar XLSX
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Indicadores Globais Rápidos (KPIs) -->
+          <div class="row g-3 mb-2" id="kpiEstatisticasContainer">
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Taxa de Aprovação Global</span>
+                <h4 id="statKpiAprovacao" class="fw-bold mb-0 text-success">0%</h4>
+                <small class="text-muted" id="statKpiAprovacaoSub">0 Aprovados de 0 Avaliados</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Taxa de Reprovação</span>
+                <h4 id="statKpiReprovacao" class="fw-bold mb-0 text-danger">0%</h4>
+                <small class="text-muted" id="statKpiReprovacaoSub">0 Alunos não transitam</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Efectivo Avaliado</span>
+                <h4 id="statKpiAvaliados" class="fw-bold mb-0 text-primary">0</h4>
+                <small class="text-muted" id="statKpiAvaliadosSub">0 M | 0 F</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Total de Turmas Activas</span>
+                <h4 id="statKpiTurmas" class="fw-bold mb-0 text-dark">0</h4>
+                <small class="text-muted" id="statKpiTurmasSub">Classes do Ensino Secundário</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Documento Renderizado de Estatísticas (Para visualização e impressão) -->
+        <div class="card p-4 printable-document bg-white" id="containerEstatisticasDocumento">
+          <div class="text-center py-4">
+            <div class="spinner-border text-primary"></div>
+            <p class="small text-muted mt-2">A carregar estatísticas pedagógicas da escola...</p>
+          </div>
+        </div>
+      </section>

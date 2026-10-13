@@ -1,0 +1,50 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Cofre de Credenciais da Escola -->
+<!-- Página independente do módulo: usuarios-senhas.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+      <section id="view-usuarios-senhas" class="modulo-view" style="display: none;">
+        <div class="card p-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 border-bottom pb-3">
+            <div>
+              <h5 class="fw-bold mb-0 text-warning text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Cofre Restrito de Utilizadores e Palavras-passe</h5>
+              <small class="text-muted">Acesso restrito à Direcção da Escola e SuperAdmin para gestão de códigos de acesso e credenciais</small>
+            </div>
+            <div class="d-flex gap-2">
+              <input type="text" id="filtroUsuarioCofre" class="form-control form-control-sm" placeholder="Pesquisar por código, nome ou e-mail..." oninput="filtrarUsuariosCofre()" style="width: 260px;">
+              <select id="filtroRoleCofre" class="form-select form-select-sm" onchange="filtrarUsuariosCofre()" style="width: 170px;">
+                <option value="">Todos os Perfis</option>
+                <option value="ADMIN_ESCOLA">Gabinete do Director (GD)</option>
+                <option value="DIRECTOR_ESCOLA">Director da Escola (GD)</option>
+                <option value="DAP">Direcção Pedagógica (DP)</option>
+                <option value="CHEFE_SECRETARIA">Secretaria (SECR)</option>
+                <option value="PROFESSOR">Professores (PR)</option>
+                <option value="ALUNO">Alunos</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="carregarCofreUsuarios()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Código de Acesso</th>
+                  <th>Nome Completo</th>
+                  <th>E-mail de Acesso</th>
+                  <th>Perfil / Órgão</th>
+                  <th>Telefone</th>
+                  <th>Último Acesso</th>
+                  <th>Estado</th>
+                  <th class="text-end">Acções</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaCofreUsuariosCorpo">
+                <tr><td colspan="8" class="text-center py-4">A carregar utilizadores da escola...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>

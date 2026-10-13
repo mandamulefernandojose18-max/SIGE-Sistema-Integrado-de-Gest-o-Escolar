@@ -1,13 +1,44 @@
 /**
  * SIGE Front-End - Servidor de Desenvolvimento e Produção SPA
  * Servidor HTTP nativo e autônomo com Proxy Reverso para API Backend
+ * Lê todas as credenciais, hostname, hospedagem e portas a partir do .env
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 5173;
+// Carregar variáveis de ambiente diretamente do ficheiro .env
+function carregarEnv(caminhoEnv) {
+  if (fs.existsSync(caminhoEnv)) {
+    try {
+      const conteudo = fs.readFileSync(caminhoEnv, 'utf8');
+      const linhas = conteudo.split(/\r?\n/);
+      for (const linha of linhas) {
+        const trimmed = linha.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const chave = trimmed.slice(0, eqIdx).trim();
+          const valor = trimmed.slice(eqIdx + 1).trim();
+          if (!process.env[chave]) {
+            process.env[chave] = valor;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[SERVER] Aviso ao ler .env:', e.message);
+    }
+  }
+}
+
+// Carrega .env da raiz do projecto ou da pasta local
+carregarEnv(path.join(__dirname, '..', '.env'));
+carregarEnv(path.join(__dirname, '.env'));
+
+const PORT = process.env.FRONTEND_PORT || process.env.PORT || 5173;
 const BACKEND_PORT = process.env.BACKEND_PORT || 8000;
+const BACKEND_HOST = process.env.BACKEND_HOST || '127.0.0.1';
+const SYSTEM_HOSTNAME = process.env.SYSTEM_HOSTNAME || 'localhost';
 const PUBLIC_DIR = __dirname;
 
 const MIME_TYPES = {
@@ -30,15 +61,38 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
   let pathname = decodeURIComponent(parsedUrl.pathname);
 
+  // Endpoint de configuração dinâmica gerada a partir do .env
+  if (pathname === '/js/config.js') {
+    const apiBase = process.env.API_BASE_URL || `http://${BACKEND_HOST}:${BACKEND_PORT}/api/v1`;
+    const configJs = `// SIGE - Configurações carregadas do .env (Hostname, Hospedagem e Portas)
+window.SIGE_CONFIG = {
+  SYSTEM_HOSTNAME: "${SYSTEM_HOSTNAME}",
+  FRONTEND_PORT: "${PORT}",
+  BACKEND_PORT: "${BACKEND_PORT}",
+  BACKEND_HOST: "${BACKEND_HOST}",
+  API_BASE_URL: (typeof window !== 'undefined' && (window.location.protocol === 'file:' || (window.location.port !== '${PORT}' && window.location.port !== '80' && window.location.port !== '443' && window.location.port !== '')))
+    ? '${apiBase}'
+    : '/api/v1'
+};
+`;
+    res.writeHead(200, {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache'
+    });
+    return res.end(configJs);
+  }
+
   // Proxy reverso transparente para chamadas de API (/api/ e /health/)
   if (pathname.startsWith('/api/') || pathname.startsWith('/health/')) {
     const proxyHeaders = {
       ...req.headers,
-      host: `127.0.0.1:${BACKEND_PORT}`
+      host: `${BACKEND_HOST}:${BACKEND_PORT}`
     };
 
     const backendReq = http.request({
-      hostname: '127.0.0.1',
+      hostname: BACKEND_HOST,
       port: BACKEND_PORT,
       path: req.url,
       method: req.method,
@@ -71,7 +125,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ 
           success: false, 
-          message: 'Erro ao conectar ao servidor do SIGE (Backend Django na porta ' + BACKEND_PORT + ').' 
+          message: 'Erro ao conectar ao servidor do SIGE (Backend Django em ' + BACKEND_HOST + ':' + BACKEND_PORT + ').' 
         }));
       } else {
         res.destroy();
@@ -97,7 +151,12 @@ const server = http.createServer((req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      // Fallback para SPA (index.html)
+      // Se for uma requisição de módulo ou página específica que não existe, não faz fallback para index.html se for .js ou .html dentro de /pages/
+      if (pathname.startsWith('/pages/') || pathname.startsWith('/js/modules/')) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end('Recurso modular não encontrado');
+      }
+      // Fallback padrão para SPA (index.html)
       filePath = path.join(PUBLIC_DIR, 'index.html');
     }
 
@@ -124,8 +183,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('====================================================');
-  console.log(`  SIGE Frontend SPA rodando em: http://localhost:${PORT}`);
-  console.log(`  Proxy Reverso API ativado -> http://127.0.0.1:${BACKEND_PORT}`);
+  console.log(`  SIGE Frontend rodando em: http://${SYSTEM_HOSTNAME}:${PORT}`);
+  console.log(`  Hospedagem Backend -> http://${BACKEND_HOST}:${BACKEND_PORT}`);
+  console.log(`  Credenciais e Configurações carregadas do ficheiro .env`);
   console.log('====================================================');
 });
 
@@ -136,4 +196,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   console.error('[UNHANDLED REJECTION]', reason);
 });
-
