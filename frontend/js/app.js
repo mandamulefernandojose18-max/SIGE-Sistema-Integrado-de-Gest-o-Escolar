@@ -10351,7 +10351,13 @@ function obterHtmlCertificadoOficial(d) {
   const anoAtual = agora.getFullYear();
 
   const codAuth = d.codigoAutenticidade || d.codigo_autenticidade || `CERT-MZ-5001234567-${matricula}-${anoLectivo}`;
-  const qrSrc = d.qrcodeData || d.qrcode_data || `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '/verificar-certificado.html?codigo=' + codAuth)}`;
+  let qrRaw = d.qrcodeData || d.qrcode_data;
+  if (qrRaw && typeof qrRaw === 'string') {
+    qrRaw = qrRaw.replace(/http:\/\/139\.84\.226\.46(:\d+)?/g, 'https://sigesaas.duckdns.org')
+                 .replace(/https:\/\/139\.84\.226\.46(:\d+)?/g, 'https://sigesaas.duckdns.org');
+  }
+  const baseUrlCert = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? window.location.origin : 'https://sigesaas.duckdns.org';
+  const qrSrc = qrRaw || `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(baseUrlCert + '/verificar-certificado.html?codigo=' + codAuth)}`;
 
   return `
     <div class="documento-a4-pagina-unica" style="width: 100%; max-width: 210mm; min-height: 282mm; padding: 4mm 6mm; margin: 0 auto; box-sizing: border-box; overflow: hidden; background: #fff; font-family: 'Times New Roman', Times, serif; position: relative; page-break-inside: avoid; page-break-after: always;">

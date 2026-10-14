@@ -298,7 +298,8 @@ def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliaca
         cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
     if not cert:
         codigo_auth = f"CERT-{uuid.uuid4().hex[:10].upper()}"
-        qr_url = f"http://139.84.226.46:5173/verificar-certificado.html?codigo={codigo_auth}"
+        domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
+        qr_url = f"{domain_base}/verificar-certificado.html?codigo={codigo_auth}"
         cert = Certificado.objects.create(
             escola=escola,
             aluno=aluno,
@@ -313,7 +314,8 @@ def montar_payload_certificado(aluno, escola, dados_disc, media_global, avaliaca
         try:
             import base64
             from apps.documentos.services.pdf_service import gerar_qr_code_image
-            url_verif = f"http://139.84.226.46:5173/verificar-certificado.html?codigo={cert.codigo_autenticidade}"
+            domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
+            url_verif = f"{domain_base}/verificar-certificado.html?codigo={cert.codigo_autenticidade}"
             qr_buf = gerar_qr_code_image(url_verif)
             qr_img_b64 = f"data:image/png;base64,{base64.b64encode(qr_buf.getvalue()).decode('ascii')}"
         except Exception:

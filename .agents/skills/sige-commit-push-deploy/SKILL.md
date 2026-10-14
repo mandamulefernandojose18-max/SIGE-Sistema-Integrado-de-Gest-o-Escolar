@@ -33,7 +33,7 @@ Esta skill guia e automatiza o ciclo completo de entrega contínua do **SIGE**: 
      ▼
 [Acesso do Usuário]
      └── 6. Criação do Link 'sige' (Desktop, Projeto e CLI)
-            └─► http://139.84.226.46:5173/
+            └─► https://sigesaas.duckdns.org/
 ```
 
 ---
@@ -107,11 +107,11 @@ curl -sf http://localhost:5173/api/v1/health/
 ### Passo 6: Criação do Link para Web com o nome 'sige'
 1. **Atalho Windows no Desktop (`sige.url`):**
    ```powershell
-   Set-Content -Path "$env:USERPROFILE\Desktop\sige.url" -Value "[InternetShortcut]`nURL=http://139.84.226.46:5173/"
+   Set-Content -Path "$env:USERPROFILE\Desktop\sige.url" -Value "[InternetShortcut]`nURL=https://sigesaas.duckdns.org/"
    ```
 2. **Atalho Windows na Raiz do Projeto (`d:\SIGE\sige.url`):**
    ```powershell
-   Set-Content -Path "d:\SIGE\sige.url" -Value "[InternetShortcut]`nURL=http://139.84.226.46:5173/"
+   Set-Content -Path "d:\SIGE\sige.url" -Value "[InternetShortcut]`nURL=https://sigesaas.duckdns.org/"
    ```
 3. **Comando Rápido no Terminal CLI (`sige`):**
    O comando `.\sige` ou `sige` abre o navegador direto no sistema.

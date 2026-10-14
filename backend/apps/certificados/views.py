@@ -24,8 +24,13 @@ class CertificadoViewSet(viewsets.ModelViewSet):
         aluno = serializer.validated_data.get('aluno')
         escola = (getattr(aluno, 'escola', None) if aluno else None) or getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
         codigo = f"CERT-{uuid.uuid4().hex[:10].upper()}"
-        origin = self.request.META.get('HTTP_ORIGIN') or 'http://139.84.226.46:5173'
-        qr_url = f"{origin.rstrip('/')}/verificar-certificado.html?codigo={codigo}"
+        domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
+        origin = self.request.META.get('HTTP_ORIGIN')
+        if not origin or '139.84.226.46' in origin or 'localhost' in origin or '127.0.0.1' in origin:
+            origin = domain_base
+        else:
+            origin = origin.rstrip('/')
+        qr_url = f"{origin}/verificar-certificado.html?codigo={codigo}"
         serializer.save(
             escola=escola,
             codigo_autenticidade=codigo,

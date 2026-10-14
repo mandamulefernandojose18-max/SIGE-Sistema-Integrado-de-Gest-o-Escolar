@@ -1080,7 +1080,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
     # QR Code e Autenticidade Digital
     cod = codigo_autenticidade or f"CERT-MZ-5001234567-{matricula}-{ano_letivo or 2026}"
-    qr_url = f"http://139.84.226.46:5173/verificar-certificado.html?codigo={cod}"
+    domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
+    qr_url = f"{domain_base}/verificar-certificado.html?codigo={cod}"
     qr_img = gerar_qr_code_image(qr_url)
     rl_qr = RLImage(qr_img, width=1.5 * cm, height=1.5 * cm)
 
