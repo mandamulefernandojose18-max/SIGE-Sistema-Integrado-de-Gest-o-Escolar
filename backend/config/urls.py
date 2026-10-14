@@ -23,6 +23,7 @@ api_v1_patterns = [
     re_path(r'^pagamentos/?', include('apps.pagamentos.urls')),
     re_path(r'^certificados/?', include('apps.certificados.urls')),
     re_path(r'^impressao/?', include('apps.documentos.urls')),
+    re_path(r'^documentos/?', include('apps.documentos.urls')),
     re_path(r'^dashboard/?', include('apps.dashboard.urls')),
     path('', include('apps.tenants.urls')),
 ]
