@@ -112,7 +112,7 @@ docker compose up -d frontend
 
 WEB_OK=false
 for i in $(seq 1 8); do
-    HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" "https://localhost/" || echo "000")
+    HTTP_CODE=$(curl -sk -H "Host: ${SSL_DOMAIN}" -o /dev/null -w "%{http_code}" "https://127.0.0.1/" || echo "000")
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
         WEB_OK=true
         log_success "Web (Frontend SPA HTTPS) está ativo! (HTTP ${HTTP_CODE} em https://${SSL_DOMAIN}/)"
@@ -130,7 +130,7 @@ log_info "[4/5] === LIGANDO E VALIDANDO API DA WEB (PROXY REVERSO HTTPS) ==="
 
 INTEGRATED_OK=false
 for i in $(seq 1 5); do
-    HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" "https://localhost/api/v1/health/" || echo "000")
+    HTTP_CODE=$(curl -sk -H "Host: ${SSL_DOMAIN}" -o /dev/null -w "%{http_code}" "https://127.0.0.1/api/v1/health/" || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
         INTEGRATED_OK=true
         log_success "Ligação Segura HTTPS da API com a Web confirmada com sucesso! (Web HTTPS -> API proxy HTTP 200 OK)"

@@ -18,6 +18,46 @@ def _safe_ascii_filename(nome: str) -> str:
     s = re.sub(r'[^A-Za-z0-9._-]+', '_', s).strip('_')
     return s or 'material.pdf'
 
+def get_tenant_escola_from_request(request):
+    """
+    Identifica a escola com isolamento estrito entre instituições:
+    1. Se for SUPERADMIN:
+       - Respeita o tenant ativo via header 'X-Tenant-ID' ou query/body 'escola_id'/'tenant_id'.
+       - Fallback para request.tenant ou request.user.escola (se houver).
+    2. Utilizadores de escola (ADMIN_ESCOLA, PROFESSOR, ALUNO, etc.):
+       - Ficam estritamente restritos à sua própria escola (request.tenant ou request.user.escola).
+       - NUNCA veem ou publicam dados de outras escolas.
+    """
+    user = getattr(request, 'user', None)
+    is_super = getattr(user, 'role', '') == 'SUPERADMIN'
+
+    if is_super:
+        tenant_id = (
+            request.headers.get('X-Tenant-ID')
+            or (hasattr(request, 'query_params') and (request.query_params.get('escola_id') or request.query_params.get('tenant_id')))
+            or (hasattr(request, 'GET') and (request.GET.get('escola_id') or request.GET.get('tenant_id')))
+            or (isinstance(getattr(request, 'data', None), dict) and (request.data.get('escola_id') or request.data.get('escola')))
+        )
+        if tenant_id:
+            return Escola.objects.filter(id=tenant_id).first()
+        return getattr(request, 'tenant', None) or getattr(user, 'escola', None)
+
+    escola = getattr(request, 'tenant', None)
+    if not escola and user and getattr(user, 'is_authenticated', False):
+        escola = getattr(user, 'escola', None)
+
+    if not escola:
+        tenant_id = (
+            request.headers.get('X-Tenant-ID')
+            or (hasattr(request, 'query_params') and (request.query_params.get('escola_id') or request.query_params.get('tenant_id')))
+            or (hasattr(request, 'GET') and (request.GET.get('escola_id') or request.GET.get('tenant_id')))
+            or (isinstance(getattr(request, 'data', None), dict) and (request.data.get('escola_id') or request.data.get('escola')))
+        )
+        if tenant_id:
+            escola = Escola.objects.filter(id=tenant_id).first()
+
+    return escola
+
 CLASSES_MOCAMBIQUE = [
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe',
     '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe',
@@ -34,14 +74,13 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        escola = getattr(self.request, 'tenant', None) or getattr(getattr(self.request, 'user', None), 'escola', None)
-        is_super = getattr(getattr(self.request, 'user', None), 'role', '') == 'SUPERADMIN'
+        escola = get_tenant_escola_from_request(self.request)
 
-        # Isolamento estrito entre instituições: publicações de uma escola NUNCA reflectem em outra
+        # Regra Inquebrável de Isolamento Multi-Escola:
+        # As publicações feitas numa escola NUNCA reflectem noutras escolas.
+        # Se a escola não estiver identificada, retorna vazio (.none()) impedindo vazamento entre escolas.
         if escola:
             qs = MaterialEscolar.objects.filter(escola=escola)
-        elif is_super:
-            qs = MaterialEscolar.objects.all()
         else:
             qs = MaterialEscolar.objects.none()
 
@@ -66,30 +105,30 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         return qs.select_related('disciplina', 'escola').order_by('-created_at')
 
     def perform_create(self, serializer):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        user = getattr(self.request, 'user', None)
+        escola = get_tenant_escola_from_request(self.request)
+
+        # Validação cruzada de integridade: a disciplina deve pertencer à mesma escola
         disc = serializer.validated_data.get('disciplina')
         if disc and getattr(disc, 'escola', None):
-            escola = disc.escola
+            if escola and disc.escola_id != escola.id:
+                raise serializers.ValidationError({
+                    'disciplina_id': 'A disciplina selecionada pertence a uma instituição de ensino diferente da escola ativa.'
+                })
+            if not escola:
+                escola = disc.escola
+
         if not escola:
-            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
-        publicado = getattr(self.request.user, 'nome', None) or 'Administração'
-        serializer.save(escola=escola, publicado_por=publicado)
+            raise serializers.ValidationError({
+                'detail': 'Instituição de ensino não identificada. Não é possível publicar material escolar sem vincular à escola.'
+            })
+
+        publicador = getattr(user, 'nome', None) or getattr(user, 'username', 'Administração')
+        serializer.save(escola=escola, publicado_por=publicador)
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
         return Response({'success': True, 'data': MaterialEscolarSerializer(qs, many=True).data})
-
-    def perform_create(self, serializer):
-        escola = getattr(self.request, 'tenant', None) or getattr(getattr(self.request, 'user', None), 'escola', None)
-        if not escola:
-            tenant_id = self.request.headers.get('X-Tenant-ID') or self.request.data.get('escola_id') or self.request.data.get('escola')
-            if tenant_id:
-                escola = Escola.objects.filter(id=tenant_id).first()
-        if not escola:
-            raise serializers.ValidationError({'detail': 'Instituição de ensino não identificada. Não é possível publicar material sem escola associada.'})
-        user = getattr(self.request, 'user', None)
-        publicador = getattr(user, 'nome', 'Administração') if user else 'Administração'
-        serializer.save(escola=escola, publicado_por=publicador)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -187,12 +226,9 @@ class ClassesMaterialView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-        is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
+        escola = get_tenant_escola_from_request(request)
         if escola:
             qs = MaterialEscolar.objects.filter(escola=escola)
-        elif is_super:
-            qs = MaterialEscolar.objects.all()
         else:
             qs = MaterialEscolar.objects.none()
 
