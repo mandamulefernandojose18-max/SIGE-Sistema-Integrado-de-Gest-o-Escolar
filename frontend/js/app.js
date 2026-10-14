@@ -430,8 +430,14 @@ function mostrarNotificacao(mensagem, tipo = 'info') {
 function formatarUrlApi(url) {
   if (!url || typeof url !== 'string') return url;
   let cleanUrl = url;
-  // Se não tem query param (?) e não tem extensão de ficheiro (.pdf, .xlsx, .json) e não termina em /
-  if (!cleanUrl.includes('?') && !cleanUrl.includes('#') && !/\.[a-zA-Z0-9]+$/.test(cleanUrl) && !cleanUrl.endsWith('/')) {
+  if (cleanUrl.includes('?')) {
+    const parts = cleanUrl.split('?');
+    const path = parts[0];
+    const query = parts.slice(1).join('?');
+    if (!path.endsWith('/') && !/\.[a-zA-Z0-9]+$/.test(path)) {
+      cleanUrl = `${path}/?${query}`;
+    }
+  } else if (!cleanUrl.includes('#') && !/\.[a-zA-Z0-9]+$/.test(cleanUrl) && !cleanUrl.endsWith('/')) {
     cleanUrl = cleanUrl + '/';
   }
   if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl;
@@ -1239,9 +1245,21 @@ async function carregarAnosLectivos() {
 function gerarAnosLectivosFallback() {
   const anoAtual = new Date().getFullYear();
   const anoAtivo = state.tenant?.ano_letivo_ativo || String(anoAtual);
-  const anosSet = new Set([String(anoAtual), anoAtivo, '2026', '2025', '2024', '2023']);
-  (state.todasTurmas || []).forEach(t => { if (t.ano_letivo) anosSet.add(String(t.ano_letivo)); });
-  (state.todosAlunos || []).forEach(a => { if (a.ano_ingresso) anosSet.add(String(a.ano_ingresso)); });
+  const ANO_INICIO = 2026;
+  const anoMax = Math.max(ANO_INICIO, anoAtual);
+  const anosSet = new Set();
+  for (let y = ANO_INICIO; y <= anoMax; y++) {
+    anosSet.add(String(y));
+  }
+  if (anoAtivo && anoAtivo.match(/^\d{4}$/) && parseInt(anoAtivo) >= ANO_INICIO) {
+    anosSet.add(anoAtivo);
+  }
+  (state.todasTurmas || []).forEach(t => { 
+    if (t.ano_letivo && parseInt(t.ano_letivo) >= ANO_INICIO) anosSet.add(String(t.ano_letivo)); 
+  });
+  (state.todosAlunos || []).forEach(a => { 
+    if (a.ano_ingresso && parseInt(a.ano_ingresso) >= ANO_INICIO) anosSet.add(String(a.ano_ingresso)); 
+  });
 
   const ordenados = Array.from(anosSet)
     .filter(y => y && y.match(/^\d{4}$/))
@@ -1257,10 +1275,7 @@ function gerarAnosLectivosFallback() {
 
 function renderizarSelectoresAnoLectivo(anoSelecionado) {
   const anos = (state.anosLectivos && state.anosLectivos.length > 0) ? state.anosLectivos : [
-    { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true },
-    { ano: '2025', descricao: 'Ano Lectivo de 2025', ativo: false },
-    { ano: '2024', descricao: 'Ano Lectivo de 2024', ativo: false },
-    { ano: '2023', descricao: 'Ano Lectivo de 2023', ativo: false }
+    { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true }
   ];
 
   const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
@@ -1270,9 +1285,6 @@ function renderizarSelectoresAnoLectivo(anoSelecionado) {
   // Montar as opções de acordo com o padrão exato da imagem:
   // -- Escolha ano Lectivo --
   // Ano Lectivo de 2026
-  // Ano Lectivo de 2025
-  // Ano Lectivo de 2024
-  // Ano Lectivo de 2023
   let htmlOpcoes = '<option value="">-- Escolha ano Lectivo --</option>';
   anos.forEach(item => {
     const anoStr = String(item.ano);
@@ -1313,6 +1325,26 @@ function renderizarSelectoresAnoLectivo(anoSelecionado) {
   }
 }
 
+function setCarregandoBuscaAno(carregando) {
+  const btns = document.querySelectorAll('.btn-sige-buscar-ano, #headerBtnBuscarAno');
+  btns.forEach(btn => {
+    if (carregando) {
+      if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" style="width: 0.85rem; height: 0.85rem;"></span><span style="font-size: 0.78rem;">A buscar...</span>';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset.origHtml || 'Buscar <i class="bi bi-search ms-1"></i>';
+    }
+  });
+
+  const selects = document.querySelectorAll('.sige-select-ano-lectivo');
+  selects.forEach(sel => {
+    sel.style.opacity = carregando ? '0.7' : '1';
+  });
+}
+window.setCarregandoBuscaAno = setCarregandoBuscaAno;
+
 window.aoMudarSelectAnoLectivoGlobal = function(valor) {
   state.anoLectivoVisualizacao = valor;
   if (valor) {
@@ -1320,9 +1352,11 @@ window.aoMudarSelectAnoLectivoGlobal = function(valor) {
   } else {
     localStorage.removeItem('sige_ano_letivo_selecionado');
   }
+  // Ao escolher o ano, executa automaticamente a busca e atualização dos dados do ano escolhido
+  executarBuscaAnoLectivoGlobal();
 };
 
-window.executarBuscaAnoLectivoGlobal = function() {
+window.executarBuscaAnoLectivoGlobal = async function() {
   const selHeader = document.getElementById('headerSelectAnoLectivo');
   const ano = (selHeader && selHeader.value) ? selHeader.value : (state.anoLectivoVisualizacao || state.anoLetivoAtivo || '2026');
 
@@ -1334,44 +1368,64 @@ window.executarBuscaAnoLectivoGlobal = function() {
   // Sincronizar em todos os selectores da interface
   renderizarSelectoresAnoLectivo(ano);
 
-  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
-  let tipoAno = 'Ano Actual';
-  if (parseInt(ano) < parseInt(anoAtivo)) {
-    tipoAno = 'Ano Findo (Arquivo Histórico)';
-  } else if (parseInt(ano) > parseInt(anoAtivo)) {
-    tipoAno = 'Ano Futuro / Em Planeamento';
-  }
+  // Ativar símbolo de carregamento visual no botão/seletor (sem mensagem toast)
+  setCarregandoBuscaAno(true);
 
-  if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao(`A buscar informações do Ano Lectivo de ${ano} [${tipoAno}].`, 'info');
+  try {
+    await atualizarDadosModuloPorAno(ano);
+  } catch (err) {
+    console.error('[BUSCA-ANO] Erro ao carregar dados do ano lectivo:', err);
+  } finally {
+    setCarregandoBuscaAno(false);
   }
-
-  atualizarDadosModuloPorAno(ano);
 };
 
-function atualizarDadosModuloPorAno(ano) {
-  const view = state.currentView || '';
+function obterViewAtiva() {
+  if (state.currentView) return state.currentView;
+  // Detecção pelo DOM da view que está visível
+  const views = document.querySelectorAll('.modulo-view');
+  for (const v of views) {
+    if (v.style.display !== 'none' && !v.classList.contains('d-none')) {
+      const vid = v.id.replace('view-', '');
+      state.currentView = vid;
+      return vid;
+    }
+  }
+  const linkAtivo = document.querySelector('#sidebar .nav-link.active');
+  if (linkAtivo) {
+    const fn = linkAtivo.getAttribute('onclick') || '';
+    const m = fn.match(/navegarPara\(['"]([^'"]+)['"]\)/);
+    if (m) {
+      state.currentView = m[1];
+      return m[1];
+    }
+  }
+  return 'dashboard';
+}
+
+async function atualizarDadosModuloPorAno(ano) {
+  const view = obterViewAtiva();
 
   if (view === 'turmas' && typeof carregarTurmas === 'function') {
-    carregarTurmas(ano);
+    await carregarTurmas(ano);
   } else if (view === 'alunos' && typeof carregarAlunos === 'function') {
     state.filtroAlunoAno = ano;
-    carregarAlunos(ano);
+    await carregarAlunos(ano);
   } else if (view === 'pautas') {
     const sel = document.getElementById('pautaAnoSelect');
     if (sel) sel.value = ano;
-    if (typeof carregarPautas === 'function') carregarPautas();
+    if (typeof carregarPautas === 'function') await carregarPautas(ano);
     else if (typeof alternarVisualizacaoPautaTurma === 'function') alternarVisualizacaoPautaTurma();
   } else if (view === 'estatisticas-aproveitamento') {
     const sel = document.getElementById('statAnoFiltro');
     if (sel) sel.value = ano;
-    if (typeof carregarEstatisticasAproveitamento === 'function') carregarEstatisticasAproveitamento();
+    if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento();
   } else if (view === 'caderneta' && typeof carregarCaderneta === 'function') {
-    carregarCaderneta();
+    await carregarCaderneta();
   } else if (view === 'pagamentos' && typeof carregarPagamentos === 'function') {
-    carregarPagamentos();
-  } else if (view === 'dashboard' && typeof carregarDashboard === 'function') {
-    carregarDashboard();
+    await carregarPagamentos();
+  } else if (view === 'dashboard' && typeof carregarDashboardGeral === 'function') {
+    await carregarDashboardGeral();
   }
 }
 
@@ -1594,6 +1648,8 @@ async function navegarPara(viewId) {
     mostrarToast('Acesso negado: Este painel não pertence ao seu nível de acesso.', 'danger');
     viewId = menusPermitidos[0] || (role === 'SUPERADMIN' ? 'saas' : 'dashboard');
   }
+
+  state.currentView = viewId;
 
   // Carregar ficheiro de página (HTML) e módulo (JS) separados correspondentes a este menu
   await carregarPaginaModulo(painel, viewId);

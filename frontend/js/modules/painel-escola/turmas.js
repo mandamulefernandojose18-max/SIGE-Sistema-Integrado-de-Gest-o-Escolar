@@ -30,19 +30,22 @@ async function carregarTurmas(anoParam) {
   }
 }
 
-window.aplicarFiltroAnoTurmas = function() {
+window.aplicarFiltroAnoTurmas = async function() {
   const sel = document.getElementById('filtroTurmasAno');
   const ano = sel ? sel.value : '';
   if (ano) {
     state.anoLectivoVisualizacao = ano;
     localStorage.setItem('sige_ano_letivo_selecionado', ano);
   }
-  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
-  const tipoAno = (!ano || ano === anoAtivo) ? 'Ano Actual' : (parseInt(ano) < parseInt(anoAtivo) ? 'Ano Findo' : 'Ano Futuro');
-  if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao(`A listar turmas do ${ano ? `Ano Lectivo de ${ano}` : 'Ano Activo'} [${tipoAno}].`, 'info');
+  const selHeader = document.getElementById('headerSelectAnoLectivo');
+  if (selHeader && ano) selHeader.value = ano;
+
+  if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
+  try {
+    await carregarTurmas(ano);
+  } finally {
+    if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
   }
-  carregarTurmas(ano);
 };
 
 function renderizarEstatisticasETabelaTurmas() {
@@ -126,7 +129,12 @@ function aplicarFiltrosTurmas() {
   const filtroTurno = document.getElementById('filtroTurmasTurno')?.value || 'TODOS';
   const filtroBusca = (document.getElementById('filtroTurmasBusca')?.value || '').toLowerCase().trim();
 
+  const anoFiltro = document.getElementById('filtroTurmasAno')?.value || state.anoLectivoVisualizacao || state.tenant?.ano_letivo_ativo || '2026';
+
   const filtradas = turmas.filter(t => {
+    if (anoFiltro && anoFiltro !== 'TODOS') {
+      if (t.ano_letivo && String(t.ano_letivo) !== String(anoFiltro)) return false;
+    }
     if (filtroClasse !== 'TODAS') {
       const clsTurma = typeof normalizarClasse === 'function' ? normalizarClasse(t.grau_ano) : (t.grau_ano || '');
       const clsFiltro = typeof normalizarClasse === 'function' ? normalizarClasse(filtroClasse) : filtroClasse;

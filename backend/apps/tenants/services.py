@@ -17,18 +17,26 @@ def garantir_anos_lectivos_escola(escola):
     ano_atual = timezone.now().year
     ano_ativo = str(escola.ano_letivo_ativo or ano_atual).strip()
 
-    # Base mínima histórica: do ano 2023 até ao ano actual
-    ano_inicio = min(2023, ano_atual - 3)
-    anos_set = {str(y) for y in range(ano_inicio, ano_atual + 1)}
-    if ano_ativo and ano_ativo.isdigit():
+    ANO_INICIO_SISTEMA = 2026
+    ano_limite = max(ANO_INICIO_SISTEMA, ano_atual)
+
+    # Base do sistema: inicia estritamente em 2026 (primeiro ano de uso) até ao ano actual
+    anos_set = {str(y) for y in range(ANO_INICIO_SISTEMA, ano_limite + 1)}
+    if ano_ativo and ano_ativo.isdigit() and int(ano_ativo) >= ANO_INICIO_SISTEMA:
         anos_set.add(ano_ativo)
+
+    # Limpar anos lectivos automáticos inferiores a 2026 (legados de testes)
+    try:
+        AnoLectivo.objects.filter(escola=escola, ano__lt=str(ANO_INICIO_SISTEMA)).delete()
+    except Exception:
+        pass
 
     # Adicionar anos detectados dinamicamente no banco para esta escola
     try:
         from apps.turmas.models import Turma
         turmas_anos = Turma.objects.filter(escola=escola).values_list('ano_letivo', flat=True).distinct()
         for y in turmas_anos:
-            if y and str(y).strip().isdigit():
+            if y and str(y).strip().isdigit() and int(str(y).strip()) >= ANO_INICIO_SISTEMA:
                 anos_set.add(str(y).strip())
     except Exception:
         pass
@@ -37,7 +45,7 @@ def garantir_anos_lectivos_escola(escola):
         from apps.alunos.models import Aluno
         alunos_anos = Aluno.objects.filter(escola=escola).values_list('ano_ingresso', flat=True).distinct()
         for y in alunos_anos:
-            if y and str(y).strip().isdigit():
+            if y and str(y).strip().isdigit() and int(str(y).strip()) >= ANO_INICIO_SISTEMA:
                 anos_set.add(str(y).strip())
     except Exception:
         pass
@@ -46,7 +54,7 @@ def garantir_anos_lectivos_escola(escola):
         from apps.pautas.models import Pauta
         pautas_anos = Pauta.objects.filter(escola=escola).values_list('ano_letivo', flat=True).distinct()
         for y in pautas_anos:
-            if y and str(y).strip().isdigit():
+            if y and str(y).strip().isdigit() and int(str(y).strip()) >= ANO_INICIO_SISTEMA:
                 anos_set.add(str(y).strip())
     except Exception:
         pass

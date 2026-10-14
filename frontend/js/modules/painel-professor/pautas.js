@@ -52,19 +52,22 @@ async function carregarPautas(anoParam) {
   }
 }
 
-window.aoClicarBuscarPautaAno = function() {
+window.aoClicarBuscarPautaAno = async function() {
   const sel = document.getElementById('pautaAnoSelect');
   const ano = sel ? sel.value : '';
   if (ano) {
     state.anoLectivoVisualizacao = ano;
     localStorage.setItem('sige_ano_letivo_selecionado', ano);
   }
-  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
-  const tipoAno = (!ano || ano === anoAtivo) ? 'Ano Actual' : (parseInt(ano) < parseInt(anoAtivo) ? 'Ano Findo' : 'Ano Futuro');
-  if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao(`A carregar pautas do ${ano ? `Ano Lectivo de ${ano}` : 'Ano Activo'} [${tipoAno}].`, 'info');
+  const selHeader = document.getElementById('headerSelectAnoLectivo');
+  if (selHeader && ano) selHeader.value = ano;
+
+  if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
+  try {
+    await carregarPautas(ano);
+  } finally {
+    if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
   }
-  carregarPautas(ano);
 };
 
 

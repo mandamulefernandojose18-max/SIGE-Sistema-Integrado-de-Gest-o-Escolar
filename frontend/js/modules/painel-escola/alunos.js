@@ -47,7 +47,7 @@ function atualizarSeletorAnosAlunos() {
   const anoAtivo = state.tenant?.ano_letivo_ativo || '2026';
   const anosList = (state.anosLectivos && state.anosLectivos.length > 0)
     ? state.anosLectivos.map(a => String(a.ano))
-    : ['2026', '2025', '2024', '2023'];
+    : ['2026'];
 
   const anosSet = new Set([anoAtivo, ...anosList]);
   (state.todosAlunos || []).forEach(a => {
@@ -61,7 +61,7 @@ function atualizarSeletorAnosAlunos() {
   });
 
   const anosOrdenados = Array.from(anosSet)
-    .filter(y => y && y.match(/^\d{4}$/))
+    .filter(y => y && y.match(/^\d{4}$/) && parseInt(y) >= 2026)
     .sort((a, b) => parseInt(b) - parseInt(a));
   const valorAtual = state.filtroAlunoAno || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || anoAtivo;
 
@@ -79,7 +79,7 @@ window.aoMudarFiltroAnoAlunos = function(ano) {
   state.filtroAlunoAno = ano;
 };
 
-window.aoClicarBuscarAlunosPorAno = function() {
+window.aoClicarBuscarAlunosPorAno = async function() {
   const sel = document.getElementById('filtroAnoAlunos');
   const ano = sel ? sel.value : '';
   state.filtroAlunoAno = ano;
@@ -87,12 +87,15 @@ window.aoClicarBuscarAlunosPorAno = function() {
     state.anoLectivoVisualizacao = ano;
     localStorage.setItem('sige_ano_letivo_selecionado', ano);
   }
-  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
-  const tipoAno = (!ano || ano === anoAtivo) ? 'Ano Actual' : (parseInt(ano) < parseInt(anoAtivo) ? 'Ano Findo' : 'Ano Futuro');
-  if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao(`A listar alunos do ${ano ? `Ano Lectivo de ${ano}` : 'Ano Activo'} [${tipoAno}].`, 'info');
+  const selHeader = document.getElementById('headerSelectAnoLectivo');
+  if (selHeader && ano) selHeader.value = ano;
+
+  if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
+  try {
+    await carregarAlunos(ano);
+  } finally {
+    if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
   }
-  carregarAlunos(ano);
 };
 
 function obterAlunosFiltradosPorAno() {
@@ -101,7 +104,11 @@ function obterAlunosFiltradosPorAno() {
     return state.todosAlunos || [];
   }
   return (state.todosAlunos || []).filter(a => {
-    const anoAluno = a.ano_ingresso || (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/) ? a.matricula.slice(0, 4) : null) || (getAlunoTurma(a)?.ano_letivo);
+    const t = getAlunoTurma(a);
+    const anoTurma = t?.ano_letivo ? String(t.ano_letivo) : null;
+    const anoIngresso = a.ano_ingresso ? String(a.ano_ingresso) : null;
+    const anoMatricula = (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/)) ? a.matricula.slice(0, 4) : null;
+    const anoAluno = anoTurma || anoIngresso || anoMatricula;
     return String(anoAluno) === String(anoFiltro);
   });
 }

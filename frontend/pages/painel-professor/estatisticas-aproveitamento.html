@@ -14,7 +14,7 @@
               <div>
                 <label class="form-label very-small text-muted mb-0">Ano Lectivo</label>
                 <div class="sige-seletor-ano-box d-flex align-items-center">
-                  <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo">
+                  <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo" onchange="carregarEstatisticasAproveitamento()">
                     <option value="">-- Escolha ano Lectivo --</option>
                   </select>
                   <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarEstatisticasAproveitamento()">

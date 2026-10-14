@@ -33,36 +33,32 @@ class TestAnosLectivos:
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token}")
 
     def test_criacao_automatica_anos_lectivos(self):
-        """O sistema deve criar automaticamente os anos lectivos (findos e actual) para a escola."""
+        """O sistema deve iniciar a partir de 2026 e criar automaticamente novos anos à medida que avançam."""
         anos = garantir_anos_lectivos_escola(self.escola)
         anos_codigos = [a.ano for a in anos]
         
-        # Garante que pelo menos 2026, 2025, 2024, 2023 foram gerados automaticamente
-        for y in ['2026', '2025', '2024', '2023']:
-            assert y in anos_codigos
+        # Garante que inicia em 2026
+        assert '2026' in anos_codigos
 
         # O ano activo deve ter descricao no formato oficial
         ano_2026 = AnoLectivo.objects.get(escola=self.escola, ano='2026')
         assert ano_2026.descricao == 'Ano Lectivo de 2026'
         assert ano_2026.ativo is True
 
-        # Anos findos não devem estar como activos
-        ano_2025 = AnoLectivo.objects.get(escola=self.escola, ano='2025')
-        assert ano_2025.descricao == 'Ano Lectivo de 2025'
-        assert ano_2025.ativo is False
+        # Não deve conter anos legados sem dados inferiores a 2026
+        assert not any(int(y) < 2026 for y in anos_codigos)
 
     def test_api_listagem_anos_lectivos(self):
-        """Endpoint /api/v1/anos-letivos deve retornar anos ordenados decrescentemente."""
+        """Endpoint /api/v1/anos-letivos deve retornar anos ordenados decrescentemente a partir de 2026."""
         res = self.client.get('/api/v1/anos-letivos/')
         assert res.status_code == 200
         assert res.data['success'] is True
         assert res.data['ano_ativo'] == '2026'
         
         anos_retornados = res.data['data']
-        assert len(anos_retornados) >= 4
-        # Primeiro ano deve ser o mais recente
-        assert int(anos_retornados[0]['ano']) >= int(anos_retornados[1]['ano'])
-        assert anos_retornados[0]['descricao'].startswith('Ano Lectivo de ')
+        assert len(anos_retornados) >= 1
+        assert anos_retornados[0]['ano'] == '2026'
+        assert anos_retornados[0]['descricao'] == 'Ano Lectivo de 2026'
 
     def test_busca_informacoes_ano_findo_vs_ano_actual(self):
         """Permitir busca de informações (turmas e alunos) em função do ano findo ou actual."""
