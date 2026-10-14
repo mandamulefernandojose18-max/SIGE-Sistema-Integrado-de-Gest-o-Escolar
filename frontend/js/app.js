@@ -891,6 +891,8 @@ function fazerLogout(e) {
   if (ultimoUsuario) {
     localStorage.setItem('sige_ultimo_usuario', ultimoUsuario);
   }
+  document.body.classList.remove('role-superadmin');
+  document.body.classList.remove('inspecionando-escola');
   state.token = null;
   state.refreshToken = null;
   state.user = null;
@@ -901,6 +903,8 @@ function fazerLogout(e) {
 
 function mostrarTelaLogin() {
   document.body.classList.remove('authenticated');
+  document.body.classList.remove('role-superadmin');
+  document.body.classList.remove('inspecionando-escola');
   document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
   const appEl = document.getElementById('appView');
   if (appEl) appEl.style.display = 'none';
@@ -953,36 +957,43 @@ async function iniciarApp() {
   const savedTenant = localStorage.getItem('sige_selected_tenant');
 
   if (state.user.role === 'SUPERADMIN') {
+    document.body.classList.add('role-superadmin');
     document.getElementById('superAdminTenantSelectWrapper').style.display = 'block';
     carregarEscolasSuperAdminSelect();
 
     if (savedTenant) {
       // SuperAdmin está dentro de uma escola específica (Modo Inspecção)
+      document.body.classList.add('inspecionando-escola');
       document.querySelectorAll('.escola-admin-only').forEach(el => el.style.display = 'flex');
       document.querySelectorAll('.ped-only').forEach(el => el.style.display = 'flex');
       document.querySelectorAll('.fin-only').forEach(el => el.style.display = 'flex');
       
-      const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
-      if (bannerInspecao) {
-        bannerInspecao.style.setProperty('display', 'flex', 'important');
-        const nomeEscola = state.tenant?.nome || 'Escola Seleccionada';
-        document.getElementById('superAdminInspecaoNome').textContent = `A Inspecionar: ${nomeEscola}`;
-        document.getElementById('superAdminInspecaoStatus').textContent = state.tenant?.status || 'ATIVA';
-      }
+      const nomeEscola = state.tenant?.nome || 'Escola Seleccionada';
+      const elNome = document.getElementById('superAdminInspecaoNome');
+      if (elNome) elNome.textContent = `A Inspecionar: ${nomeEscola}`;
+      const elStatus = document.getElementById('superAdminInspecaoStatus');
+      if (elStatus) elStatus.textContent = state.tenant?.status || 'ATIVA';
       navegarPara('dashboard');
     } else {
-      const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
-      if (bannerInspecao) bannerInspecao.style.setProperty('display', 'none', 'important');
+      document.body.classList.remove('inspecionando-escola');
       navegarPara('saas');
     }
-  } else if (state.user.role === 'ALUNO') {
-    navegarPara('aluno-perfil');
-  } else if (state.user.role === 'PROFESSOR') {
-    navegarPara('caderneta');
   } else {
-    // ADMIN_ESCOLA, DIRECTOR_ESCOLA, DAP, CHEFE_SECRETARIA
-    document.getElementById('btnComprovativoEscola')?.classList.remove('d-none');
-    navegarPara('dashboard');
+    // Utilizador Comum (Escolar, Docente, Aluno, Financeiro):
+    // RESTRIÇÃO ABSOLUTA: O botão e banner de inspeção são SÓ E SÓ PARA O SUPERADMIN!
+    document.body.classList.remove('role-superadmin');
+    document.body.classList.remove('inspecionando-escola');
+    localStorage.removeItem('sige_selected_tenant');
+
+    if (state.user.role === 'ALUNO') {
+      navegarPara('aluno-perfil');
+    } else if (state.user.role === 'PROFESSOR') {
+      navegarPara('caderneta');
+    } else {
+      // ADMIN_ESCOLA, DIRECTOR_ESCOLA, DAP, CHEFE_SECRETARIA
+      document.getElementById('btnComprovativoEscola')?.classList.remove('d-none');
+      navegarPara('dashboard');
+    }
   }
 
   if (state.tenant) {
@@ -1139,30 +1150,42 @@ function aplicarPermissoesVisualizacao(role) {
   renderizarSidebarPorNivel(role);
 
   if (role === 'SUPERADMIN') {
+    document.body.classList.add('role-superadmin');
+    const isSuperAdminInspecionando = !!localStorage.getItem('sige_selected_tenant');
+    if (isSuperAdminInspecionando) {
+      document.body.classList.add('inspecionando-escola');
+    } else {
+      document.body.classList.remove('inspecionando-escola');
+    }
     document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'block');
     document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
     document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
     document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
-  } else if (role === 'ALUNO') {
-    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
-    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
-    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
-    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'none');
-  } else if (role === 'PROFESSOR') {
-    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
-    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
-    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
-    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
-  } else if (role === 'FINANCEIRO') {
-    document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
-    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
-    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
-    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
   } else {
+    // RESTRIÇÃO TOTAL: O banner e o botão [Sair da Escola (Voltar ao SaaS)] NUNCA podem aparecer para outros papéis
+    document.body.classList.remove('role-superadmin');
+    document.body.classList.remove('inspecionando-escola');
+    localStorage.removeItem('sige_selected_tenant');
     document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'none');
-    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'flex');
-    document.getElementById('btnComprovativoEscola')?.classList.remove('d-none');
-    document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
+
+    if (role === 'ALUNO') {
+      document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+      document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+      document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'none');
+    } else if (role === 'PROFESSOR') {
+      document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+      document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+      document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
+    } else if (role === 'FINANCEIRO') {
+      document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
+      document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+      document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
+    } else {
+      // ADMIN_ESCOLA, DIRECTOR_ESCOLA, DAP, CHEFE_SECRETARIA
+      document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'flex');
+      document.getElementById('btnComprovativoEscola')?.classList.remove('d-none');
+      document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
+    }
   }
 }
 
@@ -1239,7 +1262,10 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
     }
 
-    // Activar o banner de inspeção no topo
+    // Activar o banner de inspeção no topo (SÓ E SÓ PARA O SUPERADMIN)
+    document.body.classList.add('role-superadmin');
+    document.body.classList.add('inspecionando-escola');
+
     const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
     if (bannerInspecao) {
       bannerInspecao.style.setProperty('display', 'flex', 'important');
@@ -1248,7 +1274,6 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       const elStatus = document.getElementById('superAdminInspecaoStatus');
       if (elStatus) elStatus.textContent = 'ATIVA';
     }
-
 
     // Re-renderizar sidebar para navegação escolar em modo inspeção
     renderizarSidebarPorNivel('ADMIN_ESCOLA');
@@ -1282,6 +1307,10 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
 }
 
 function sairModoInspecaoSuperAdmin() {
+  document.body.classList.remove('inspecionando-escola');
+  if (state.user?.role !== 'SUPERADMIN') {
+    document.body.classList.remove('role-superadmin');
+  }
   localStorage.removeItem('sige_selected_tenant');
   state.tenant = null;
 

@@ -197,7 +197,10 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
     }
 
-    // Activar banner de inspeção
+    // Activar banner de inspeção (SÓ E SÓ PARA O SUPERADMIN)
+    document.body.classList.add('role-superadmin');
+    document.body.classList.add('inspecionando-escola');
+
     const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
     if (bannerInspecao) {
       bannerInspecao.style.setProperty('display', 'flex', 'important');
@@ -233,6 +236,10 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
 }
 
 function sairModoInspecaoSuperAdmin() {
+  document.body.classList.remove('inspecionando-escola');
+  if (state.user?.role !== 'SUPERADMIN') {
+    document.body.classList.remove('role-superadmin');
+  }
   localStorage.removeItem('sige_selected_tenant');
   state.tenant = null;
 
