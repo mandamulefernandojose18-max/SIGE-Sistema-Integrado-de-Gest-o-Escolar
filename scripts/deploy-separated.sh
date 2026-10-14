@@ -105,6 +105,7 @@ if [ ! -f "${PROJECT_DIR}/certs/fullchain.pem" ] || [ ! -f "${PROJECT_DIR}/certs
             -subj "/CN=${SSL_DOMAIN}" >/dev/null 2>&1
     fi
 fi
+chmod 644 "${PROJECT_DIR}/certs"/*.pem 2>/dev/null || true
 
 docker compose build frontend
 docker rm -f $(docker ps -aq --filter "name=sige_frontend") >/dev/null 2>&1 || true
