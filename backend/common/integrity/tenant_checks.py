@@ -59,15 +59,17 @@ def verificar_pauta_permite_edicao_nota(escola, turma, disciplina, periodo, prof
     ).exists()
 
     if pauta_fechada:
+        from django.db.models import Q
         perm_qs = PermissaoEdicaoNotas.objects.filter(
             escola=escola,
             turma=turma,
-            disciplina=disciplina,
-            periodo=periodo,
+            periodo__in=[periodo, 'TODOS'],
             ativa=True
+        ).filter(
+            Q(disciplina=disciplina) | Q(disciplina__isnull=True)
         )
         if professor:
-            perm_qs = perm_qs.filter(professor=professor)
+            perm_qs = perm_qs.filter(Q(professor=professor) | Q(professor__isnull=True))
 
         if not perm_qs.exists():
             raise ImmutableRecordViolation(

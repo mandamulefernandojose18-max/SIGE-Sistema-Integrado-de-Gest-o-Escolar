@@ -8,51 +8,130 @@
           <!-- CARD 1: CALENDÁRIO OFICIAL DE PRAZOS POR TRIMESTRE -->
           <div class="col-lg-6">
             <div class="card p-4 h-100 shadow-sm border-0">
-              <h5 class="fw-bold mb-2 text-primary"><i class="bi bi-calendar-week me-2"></i>Calendário Oficial de Prazos de Lançamento</h5>
-              <p class="text-muted small mb-3">Defina as datas limites de lançamento de notas para cada trimestre lectivo. Professores que tentarem lançar notas fora destas datas serão bloqueados por atraso.</p>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-calendar-week me-2"></i>Calendário Oficial de Prazos de Lançamento</h5>
+                <span id="badgeModoAtivo" class="badge bg-primary">Modo: Manual</span>
+              </div>
+              <p class="text-muted small mb-3">Defina as regras e datas limites de lançamento de notas. Professores que tentarem lançar notas fora destas datas serão bloqueados por atraso ou período futuro, excepto com autorização expressa.</p>
 
               <form id="formPrazosTrimestrais" class="row g-3">
-                <!-- 1º Trimestre -->
-                <div class="col-12 p-3 bg-light rounded border">
-                  <span class="badge bg-primary mb-2">1º Trimestre Lectivo</span>
+                <!-- Seletor do Modo de Calendarização -->
+                <div class="col-12 p-3 bg-white rounded border border-primary border-opacity-25">
+                  <label class="form-label small fw-bold text-dark"><i class="bi bi-gear-fill text-primary me-1"></i>Regra de Calendarização</label>
+                  <select id="prazoModoSelect" class="form-select form-select-sm fw-semibold" onchange="alternarModoCalendarizacaoUI(this.value)">
+                    <option value="MANUAL">1. Manual: Datas explícitas de Início e Fim por Trimestre</option>
+                    <option value="AUTOMATICO">2. Automático: Duração em Dias, Semanas ou Meses (Campo Único)</option>
+                    <option value="SEMPRE">3. Permitir Sempre: Sem bloqueio por calendário (Lançamento Livre)</option>
+                  </select>
+                </div>
+
+                <!-- Painel Exclusivo para o Modo Automático / Campo Único -->
+                <div id="painelCalendarizacaoAutomatica" class="col-12 p-3 bg-light rounded border" style="display: none;">
+                  <span class="badge bg-success mb-2"><i class="bi bi-lightning-charge me-1"></i>Parâmetros de Cálculo Automático</span>
                   <div class="row g-2">
-                    <div class="col-6">
-                      <label class="form-label small fw-semibold">Data de Início</label>
-                      <input type="date" id="prazoT1Inicio" class="form-control form-control-sm" required>
+                    <div class="col-md-6">
+                      <label class="form-label small fw-semibold">Data Base Inicial (A partir de)</label>
+                      <input type="date" id="prazoDataBase" class="form-control form-control-sm">
+                      <small class="text-muted" style="font-size: 0.72rem;">Início do ano lectivo ou trimestre</small>
                     </div>
-                    <div class="col-6">
-                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
-                      <input type="date" id="prazoT1Fim" class="form-control form-control-sm" required>
+                    <div class="col-md-3">
+                      <label class="form-label small fw-semibold">Duração</label>
+                      <input type="number" id="prazoValorDuracao" class="form-control form-control-sm" value="4" min="1" max="365">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label small fw-semibold">Unidade</label>
+                      <select id="prazoTipoDuracao" class="form-select form-select-sm">
+                        <option value="DIAS">Dias</option>
+                        <option value="SEMANAS" selected>Semanas</option>
+                        <option value="MESES">Meses</option>
+                      </select>
+                    </div>
+                    <div class="col-12 text-end mt-2">
+                      <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="calcularPrazosAutomaticosUI()">
+                        <i class="bi bi-calculator me-1"></i> Calcular e Visualizar Prazos
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <!-- 2º Trimestre -->
-                <div class="col-12 p-3 bg-light rounded border">
-                  <span class="badge bg-info text-dark mb-2">2º Trimestre Lectivo</span>
-                  <div class="row g-2">
-                    <div class="col-6">
-                      <label class="form-label small fw-semibold">Data de Início</label>
-                      <input type="date" id="prazoT2Inicio" class="form-control form-control-sm" required>
-                    </div>
-                    <div class="col-6">
-                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
-                      <input type="date" id="prazoT2Fim" class="form-control form-control-sm" required>
+                <!-- Painel Informativo para o Modo Permitir Sempre -->
+                <div id="painelCalendarizacaoSempre" class="col-12 p-3 bg-success bg-opacity-10 rounded border border-success" style="display: none;">
+                  <div class="d-flex align-items-center gap-2 text-success">
+                    <i class="bi bi-check-circle-fill fs-5"></i>
+                    <div>
+                      <strong class="d-block small">Modo "Permitir Sempre" Selecionado</strong>
+                      <span class="small text-muted">Todos os docentes e secretarias poderão lançar e editar avaliações na caderneta livremente sem restrições de datas ou bloqueios automáticos.</span>
                     </div>
                   </div>
                 </div>
 
-                <!-- 3º Trimestre -->
-                <div class="col-12 p-3 bg-light rounded border">
-                  <span class="badge bg-secondary mb-2">3º Trimestre Lectivo</span>
-                  <div class="row g-2">
-                    <div class="col-6">
-                      <label class="form-label small fw-semibold">Data de Início</label>
-                      <input type="date" id="prazoT3Inicio" class="form-control form-control-sm" required>
+                <!-- Bloco de Datas dos Trimestres (Visível em Manual e Automático) -->
+                <div id="painelTrimestresDatas" class="col-12 p-0">
+                  <div class="row g-3">
+                    <!-- 1º Trimestre -->
+                    <div class="col-12 p-3 bg-light rounded border">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-primary">1º Trimestre Lectivo</span>
+                        <div class="form-check form-switch small mb-0">
+                          <input class="form-check-input" type="checkbox" id="prazoT1Sempre">
+                          <label class="form-check-label fw-semibold" for="prazoT1Sempre">Permitir sempre</label>
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data de Início</label>
+                          <input type="date" id="prazoT1Inicio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                          <input type="date" id="prazoT1Fim" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12" id="statusT1Msg"></div>
+                      </div>
                     </div>
-                    <div class="col-6">
-                      <label class="form-label small fw-semibold">Data Limite (Fim)</label>
-                      <input type="date" id="prazoT3Fim" class="form-control form-control-sm" required>
+
+                    <!-- 2º Trimestre -->
+                    <div class="col-12 p-3 bg-light rounded border">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-info text-dark">2º Trimestre Lectivo</span>
+                        <div class="form-check form-switch small mb-0">
+                          <input class="form-check-input" type="checkbox" id="prazoT2Sempre">
+                          <label class="form-check-label fw-semibold" for="prazoT2Sempre">Permitir sempre</label>
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data de Início</label>
+                          <input type="date" id="prazoT2Inicio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                          <input type="date" id="prazoT2Fim" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12" id="statusT2Msg"></div>
+                      </div>
+                    </div>
+
+                    <!-- 3º Trimestre -->
+                    <div class="col-12 p-3 bg-light rounded border">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-secondary">3º Trimestre Lectivo</span>
+                        <div class="form-check form-switch small mb-0">
+                          <input class="form-check-input" type="checkbox" id="prazoT3Sempre">
+                          <label class="form-check-label fw-semibold" for="prazoT3Sempre">Permitir sempre</label>
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data de Início</label>
+                          <input type="date" id="prazoT3Inicio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                          <input type="date" id="prazoT3Fim" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12" id="statusT3Msg"></div>
+                      </div>
                     </div>
                   </div>
                 </div>

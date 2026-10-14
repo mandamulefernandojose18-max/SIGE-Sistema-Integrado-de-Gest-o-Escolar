@@ -76,6 +76,21 @@ class Escola(models.Model):
     inscricoes_inicio = models.DateTimeField(null=True, blank=True)
     inscricoes_fim = models.DateTimeField(null=True, blank=True)
 
+    # Calendarização Oficial de Prazos de Notas (Manual, Automática ou Sempre)
+    modo_calendarizacao = models.CharField(max_length=20, default='MANUAL')  # MANUAL, AUTOMATICO, SEMPRE
+    tipo_duracao_automatica = models.CharField(max_length=20, default='SEMANAS')  # DIAS, SEMANAS, MESES
+    valor_duracao_automatica = models.IntegerField(default=4)
+    data_base_automatica = models.DateField(null=True, blank=True)
+    data_inicio_t1 = models.DateField(null=True, blank=True)
+    data_fim_t1 = models.DateField(null=True, blank=True)
+    data_inicio_t2 = models.DateField(null=True, blank=True)
+    data_fim_t2 = models.DateField(null=True, blank=True)
+    data_inicio_t3 = models.DateField(null=True, blank=True)
+    data_fim_t3 = models.DateField(null=True, blank=True)
+    permitir_sempre_t1 = models.BooleanField(default=False)
+    permitir_sempre_t2 = models.BooleanField(default=False)
+    permitir_sempre_t3 = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

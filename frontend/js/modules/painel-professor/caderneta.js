@@ -660,6 +660,21 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
 
   const periodoFiltro = document.getElementById('cadernetaPeriodoSelect')?.value;
   const periodo = (periodoFiltro && periodoFiltro !== 'TODOS') ? periodoFiltro : '1_TRIMESTRE';
+
+  // Validação oficial de prazos de calendarização (Expirado ou Futuro)
+  try {
+    const resPrazos = await apiFetch('/api/v1/notas/prazos-trimestres');
+    if (resPrazos.success && resPrazos.prazos && resPrazos.prazos[periodo]) {
+      const pInfo = resPrazos.prazos[periodo];
+      if (!pInfo.aberto && !pInfo.sempre && state.user?.role !== 'SUPERADMIN') {
+        alert(pInfo.mensagem || `Lançamento não permitido para o ${pInfo.nome}.`);
+        return;
+      }
+    }
+  } catch (errP) {
+    console.warn('Verificação de prazos:', errP);
+  }
+
   const resCaderneta = await apiFetch(`/api/v1/professores/caderneta/${state.alocacaoAtualId}/completa`);
   if (!resCaderneta.success || !resCaderneta.data.alunos?.length) {
     return alert('Não há alunos nesta turma');
@@ -817,7 +832,32 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
 
   const selectPeriodo = document.getElementById('mlnPeriodo');
   if (selectPeriodo) {
-    selectPeriodo.addEventListener('change', () => carregarNotasAlunoNoModal(selectAluno ? selectAluno.value : alunoIdInicial));
+    selectPeriodo.addEventListener('change', async () => {
+      const pSel = selectPeriodo.value;
+      try {
+        const resP = await apiFetch('/api/v1/notas/prazos-trimestres');
+        if (resP.success && resP.prazos && resP.prazos[pSel]) {
+          const info = resP.prazos[pSel];
+          const btnSalvar = document.querySelector('#formModalLancamentoNota button[type="submit"]');
+          let avisoEl = document.getElementById('avisoModalPrazoTrimestre');
+          if (!info.aberto && !info.sempre && state.user?.role !== 'SUPERADMIN') {
+            if (!avisoEl) {
+              avisoEl = document.createElement('div');
+              avisoEl.id = 'avisoModalPrazoTrimestre';
+              selectPeriodo.parentNode.appendChild(avisoEl);
+            }
+            avisoEl.className = 'alert alert-danger small mt-2 mb-0 py-1 px-2';
+            avisoEl.innerHTML = `<i class="bi bi-exclamation-octagon me-1"></i> ${info.mensagem}`;
+            if (btnSalvar) btnSalvar.disabled = true;
+            alert(info.mensagem);
+          } else {
+            if (avisoEl) avisoEl.remove();
+            if (btnSalvar) btnSalvar.disabled = false;
+          }
+        }
+      } catch (_) {}
+      carregarNotasAlunoNoModal(selectAluno ? selectAluno.value : alunoIdInicial);
+    });
   }
 
   if (selectAluno) {

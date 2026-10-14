@@ -131,12 +131,14 @@ class Nota(models.Model):
 class PermissaoEdicaoNotas(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='permissoes_edicao')
-    professor = models.ForeignKey('professores.Professor', on_delete=models.CASCADE, related_name='permissoes_edicao')
+    professor = models.ForeignKey('professores.Professor', on_delete=models.CASCADE, null=True, blank=True, related_name='permissoes_edicao')
     turma = models.ForeignKey('turmas.Turma', on_delete=models.CASCADE, related_name='permissoes_edicao')
-    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, related_name='permissoes_edicao')
-    periodo = models.CharField(max_length=20)  # 1_TRIMESTRE, 2_TRIMESTRE
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, null=True, blank=True, related_name='permissoes_edicao')
+    periodo = models.CharField(max_length=20)  # 1_TRIMESTRE, 2_TRIMESTRE, 3_TRIMESTRE, TODOS
     autorizado_por = models.CharField(max_length=255)
     motivo = models.TextField(blank=True, null=True)
+    duracao_horas = models.IntegerField(default=48)
+    data_expiracao = models.DateTimeField(null=True, blank=True)
     ativa = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -149,11 +151,23 @@ class PermissaoEdicaoNotas(models.Model):
             models.Index(fields=['ativa']),
         ]
 
+    @property
+    def expirada(self):
+        from django.utils import timezone
+        if self.data_expiracao and timezone.now() > self.data_expiracao:
+            return True
+        return False
+
     def clean(self):
         from common.integrity import validar_integridade_tenant, validar_periodo_academico
         validar_integridade_tenant(self, professor=self.professor, turma=self.turma, disciplina=self.disciplina)
-        validar_periodo_academico(self.periodo)
+        if self.periodo not in ('TODOS', 'ANUAL'):
+            validar_periodo_academico(self.periodo)
 
     def save(self, *args, **kwargs):
+        from django.utils import timezone
+        from datetime import timedelta
+        if not self.data_expiracao and self.duracao_horas:
+            self.data_expiracao = timezone.now() + timedelta(hours=self.duracao_horas)
         self.full_clean()
         super().save(*args, **kwargs)

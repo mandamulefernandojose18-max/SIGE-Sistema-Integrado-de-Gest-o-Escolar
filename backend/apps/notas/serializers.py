@@ -18,11 +18,22 @@ class SalvarNotasBulkSerializer(serializers.Serializer):
     notas = serializers.ListField(child=serializers.DictField())
 
 class PermissaoEdicaoNotasSerializer(serializers.ModelSerializer):
-    professor_nome = serializers.CharField(source='professor.nome', read_only=True)
+    professor_nome = serializers.SerializerMethodField()
     turma_nome = serializers.CharField(source='turma.nome', read_only=True)
-    disciplina_nome = serializers.CharField(source='disciplina.nome', read_only=True)
+    disciplina_nome = serializers.SerializerMethodField()
+    expirada = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = PermissaoEdicaoNotas
         fields = '__all__'
-        read_only_fields = ['id', 'escola', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'escola', 'created_at', 'updated_at', 'expirada']
+
+    def get_professor_nome(self, obj):
+        if obj.professor:
+            return obj.professor.nome
+        return '(Todos os Docentes da Turma)'
+
+    def get_disciplina_nome(self, obj):
+        if obj.disciplina:
+            return obj.disciplina.nome
+        return '(Todas as Disciplinas)'
