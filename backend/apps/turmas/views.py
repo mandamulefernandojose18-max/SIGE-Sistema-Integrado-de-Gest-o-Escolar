@@ -19,8 +19,8 @@ class TurmaViewSet(viewsets.ModelViewSet):
         else:
             qs = Turma.objects.none()
 
-        ano = self.request.query_params.get('ano_letivo')
-        if ano:
+        ano = self.request.query_params.get('ano_letivo') or self.request.query_params.get('ano')
+        if ano and str(ano).upper() != 'TODOS':
             qs = qs.filter(ano_letivo=ano)
         return qs.order_by('nome')
 

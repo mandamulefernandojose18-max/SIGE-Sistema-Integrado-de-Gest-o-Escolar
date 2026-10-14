@@ -958,6 +958,7 @@ async function iniciarApp() {
 
   // Carregar automaticamente todos os dados essenciais da instituição (turmas, disciplinas, docentes, alunos)
   carregarDadosGlobaisEscola();
+  carregarAnosLectivos();
 
   const savedTenant = localStorage.getItem('sige_selected_tenant');
 
@@ -1212,8 +1213,168 @@ function atualizarBadgeTenant(tenant) {
   const elAno = document.getElementById('headerAnoLetivo');
   if (elAno) elAno.textContent = `Ano Lectivo: ${tenant.ano_letivo_ativo || 2026}`;
 
-
+  // Sincronizar anos lectivos da instituição
+  carregarAnosLectivos();
 }
+
+// ==================== GESTÃO AUTOMÁTICA E BUSCA POR ANO LECTIVO ====================
+async function carregarAnosLectivos() {
+  try {
+    const res = await apiFetch('/api/v1/anos-letivos', { ignoreAuthRedirect: true });
+    if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+      state.anosLectivos = res.data;
+      state.anoLetivoAtivo = res.ano_ativo || state.tenant?.ano_letivo_ativo || '2026';
+    } else {
+      gerarAnosLectivosFallback();
+    }
+  } catch (err) {
+    console.warn('[ANOS-LECTIVOS] Falha ao carregar da API, gerando anos automaticamente:', err);
+    gerarAnosLectivosFallback();
+  }
+
+  // Preencher todos os selectores de Ano Lectivo na interface
+  renderizarSelectoresAnoLectivo();
+}
+
+function gerarAnosLectivosFallback() {
+  const anoAtual = new Date().getFullYear();
+  const anoAtivo = state.tenant?.ano_letivo_ativo || String(anoAtual);
+  const anosSet = new Set([String(anoAtual), anoAtivo, '2026', '2025', '2024', '2023']);
+  (state.todasTurmas || []).forEach(t => { if (t.ano_letivo) anosSet.add(String(t.ano_letivo)); });
+  (state.todosAlunos || []).forEach(a => { if (a.ano_ingresso) anosSet.add(String(a.ano_ingresso)); });
+
+  const ordenados = Array.from(anosSet)
+    .filter(y => y && y.match(/^\d{4}$/))
+    .sort((a, b) => parseInt(b) - parseInt(a));
+
+  state.anosLectivos = ordenados.map(ano => ({
+    ano: ano,
+    descricao: `Ano Lectivo de ${ano}`,
+    ativo: (ano === anoAtivo)
+  }));
+  state.anoLetivoAtivo = anoAtivo;
+}
+
+function renderizarSelectoresAnoLectivo(anoSelecionado) {
+  const anos = (state.anosLectivos && state.anosLectivos.length > 0) ? state.anosLectivos : [
+    { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true },
+    { ano: '2025', descricao: 'Ano Lectivo de 2025', ativo: false },
+    { ano: '2024', descricao: 'Ano Lectivo de 2024', ativo: false },
+    { ano: '2023', descricao: 'Ano Lectivo de 2023', ativo: false }
+  ];
+
+  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
+  const anoSalvo = localStorage.getItem('sige_ano_letivo_selecionado');
+  const valorAtivo = anoSelecionado || state.anoLectivoVisualizacao || anoSalvo || anoAtivo;
+
+  // Montar as opções de acordo com o padrão exato da imagem:
+  // -- Escolha ano Lectivo --
+  // Ano Lectivo de 2026
+  // Ano Lectivo de 2025
+  // Ano Lectivo de 2024
+  // Ano Lectivo de 2023
+  let htmlOpcoes = '<option value="">-- Escolha ano Lectivo --</option>';
+  anos.forEach(item => {
+    const anoStr = String(item.ano);
+    const desc = item.descricao || `Ano Lectivo de ${anoStr}`;
+    const sel = (anoStr === String(valorAtivo)) ? 'selected' : '';
+    htmlOpcoes += `<option value="${anoStr}" ${sel}>${desc}</option>`;
+  });
+
+  const idsSelectores = [
+    'headerSelectAnoLectivo',
+    'filtroAnoAlunos',
+    'filtroTurmasAno',
+    'pautaAnoSelect',
+    'statAnoFiltro',
+    'filtroPagamentosAno'
+  ];
+
+  idsSelectores.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.innerHTML = htmlOpcoes;
+      if (valorAtivo) el.value = valorAtivo;
+    }
+  });
+
+  // Selectores por classe
+  document.querySelectorAll('.sige-select-ano-lectivo').forEach(sel => {
+    if (!idsSelectores.includes(sel.id)) {
+      sel.innerHTML = htmlOpcoes;
+      if (valorAtivo) sel.value = valorAtivo;
+    }
+  });
+
+  // Atualizar badge de retrocompatibilidade
+  const elBadge = document.getElementById('headerAnoLetivo');
+  if (elBadge) {
+    elBadge.textContent = `Ano Lectivo: ${valorAtivo || anoAtivo}`;
+  }
+}
+
+window.aoMudarSelectAnoLectivoGlobal = function(valor) {
+  state.anoLectivoVisualizacao = valor;
+  if (valor) {
+    localStorage.setItem('sige_ano_letivo_selecionado', valor);
+  } else {
+    localStorage.removeItem('sige_ano_letivo_selecionado');
+  }
+};
+
+window.executarBuscaAnoLectivoGlobal = function() {
+  const selHeader = document.getElementById('headerSelectAnoLectivo');
+  const ano = (selHeader && selHeader.value) ? selHeader.value : (state.anoLectivoVisualizacao || state.anoLetivoAtivo || '2026');
+
+  state.anoLectivoVisualizacao = ano;
+  if (ano) {
+    localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  }
+
+  // Sincronizar em todos os selectores da interface
+  renderizarSelectoresAnoLectivo(ano);
+
+  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
+  let tipoAno = 'Ano Actual';
+  if (parseInt(ano) < parseInt(anoAtivo)) {
+    tipoAno = 'Ano Findo (Arquivo Histórico)';
+  } else if (parseInt(ano) > parseInt(anoAtivo)) {
+    tipoAno = 'Ano Futuro / Em Planeamento';
+  }
+
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`A buscar informações do Ano Lectivo de ${ano} [${tipoAno}].`, 'info');
+  }
+
+  atualizarDadosModuloPorAno(ano);
+};
+
+function atualizarDadosModuloPorAno(ano) {
+  const view = state.currentView || '';
+
+  if (view === 'turmas' && typeof carregarTurmas === 'function') {
+    carregarTurmas(ano);
+  } else if (view === 'alunos' && typeof carregarAlunos === 'function') {
+    state.filtroAlunoAno = ano;
+    carregarAlunos(ano);
+  } else if (view === 'pautas') {
+    const sel = document.getElementById('pautaAnoSelect');
+    if (sel) sel.value = ano;
+    if (typeof carregarPautas === 'function') carregarPautas();
+    else if (typeof alternarVisualizacaoPautaTurma === 'function') alternarVisualizacaoPautaTurma();
+  } else if (view === 'estatisticas-aproveitamento') {
+    const sel = document.getElementById('statAnoFiltro');
+    if (sel) sel.value = ano;
+    if (typeof carregarEstatisticasAproveitamento === 'function') carregarEstatisticasAproveitamento();
+  } else if (view === 'caderneta' && typeof carregarCaderneta === 'function') {
+    carregarCaderneta();
+  } else if (view === 'pagamentos' && typeof carregarPagamentos === 'function') {
+    carregarPagamentos();
+  } else if (view === 'dashboard' && typeof carregarDashboard === 'function') {
+    carregarDashboard();
+  }
+}
+
 
 async function carregarEscolasSuperAdminSelect() {
   try {
@@ -1466,6 +1627,9 @@ async function navegarPara(viewId) {
     }[painel] || 'SIGE';
     document.getElementById('subPageTitle').textContent = nomeNivel;
   }
+
+  // Sincronizar selectores de Ano Lectivo na view carregada
+  renderizarSelectoresAnoLectivo();
 
   // Gatilhos de carregamento específico
   if (viewId === 'dashboard') carregarDashboardGeral();

@@ -9,12 +9,17 @@ from .views import (
     EscolaAdminInfoView,
     ToggleNotasView,
     UsuariosCredenciaisView,
-    MinhaEscolaComprovativoView
+    MinhaEscolaComprovativoView,
+    AnoLectivoViewSet
 )
 
 router = OptionalSlashRouter()
 router.register(r'escolas', EscolaViewSet, basename='saas_escola')
 router.register(r'planos', PlanoViewSet, basename='saas_plano')
+router.register(r'anos-letivos', AnoLectivoViewSet, basename='saas_ano_letivo')
+
+escola_router = OptionalSlashRouter()
+escola_router.register(r'anos-letivos', AnoLectivoViewSet, basename='escola_ano_letivo')
 
 saas_admin_urls = [
     path('metrics', SaaSMetricsView.as_view(), name='saas_metrics_no_slash'),
@@ -33,6 +38,7 @@ escola_admin_urls = [
     path('toggle-notas/', ToggleNotasView.as_view(), name='escola_toggle_notas'),
     path('usuarios-credenciais', UsuariosCredenciaisView.as_view(), name='escola_usuarios_credenciais_no_slash'),
     path('usuarios-credenciais/', UsuariosCredenciaisView.as_view(), name='escola_usuarios_credenciais'),
+    path('', include(escola_router.urls)),
 ]
 
 urlpatterns = [

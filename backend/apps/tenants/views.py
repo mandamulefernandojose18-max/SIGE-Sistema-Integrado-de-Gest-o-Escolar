@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
 from django.db.models import Sum, Count
 
-from .models import Plano, Escola, AssinaturaEscola
-from .serializers import PlanoSerializer, EscolaSerializer, AssinaturaEscolaSerializer
+from .models import Plano, Escola, AssinaturaEscola, AnoLectivo
+from .serializers import PlanoSerializer, EscolaSerializer, AssinaturaEscolaSerializer, AnoLectivoSerializer
 from apps.accounts.models import Usuario
 from apps.accounts.serializers import UsuarioSerializer
 from apps.alunos.models import Aluno
@@ -639,4 +639,70 @@ class UsuariosCredenciaisView(APIView):
         return Response({
             'success': True,
             'data': UsuarioSerializer(usuarios, many=True).data
+        })
+
+class AnoLectivoViewSet(viewsets.ModelViewSet):
+    serializer_class = AnoLectivoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from common.utils.tenant import get_tenant_escola
+        from .services import garantir_anos_lectivos_escola
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            return AnoLectivo.objects.none()
+        garantir_anos_lectivos_escola(escola)
+        return AnoLectivo.objects.filter(escola=escola).order_by('-ano')
+
+    def list(self, request, *args, **kwargs):
+        from common.utils.tenant import get_tenant_escola
+        from .services import garantir_anos_lectivos_escola
+        escola = get_tenant_escola(request)
+        ano_atual = timezone.now().year
+
+        if not escola:
+            # Fallback para superadmin ou listagem inicial antes de carregar o tenant
+            anos_padrao = [
+                {'id': str(y), 'ano': str(y), 'descricao': f"Ano Lectivo de {y}", 'ativo': (y == ano_atual)}
+                for y in range(ano_atual, 2022, -1)
+            ]
+            return Response({
+                'success': True,
+                'ano_ativo': str(ano_atual),
+                'ano_atual': str(ano_atual),
+                'data': anos_padrao
+            })
+
+        garantir_anos_lectivos_escola(escola)
+        qs = AnoLectivo.objects.filter(escola=escola).order_by('-ano')
+        serializer = AnoLectivoSerializer(qs, many=True)
+        return Response({
+            'success': True,
+            'ano_ativo': escola.ano_letivo_ativo or str(ano_atual),
+            'ano_atual': str(ano_atual),
+            'data': serializer.data
+        })
+
+    @action(detail=False, methods=['post'], url_path='definir-ativo')
+    def definir_ativo(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ano = request.data.get('ano')
+        if not ano:
+            return Response({'success': False, 'message': 'Ano lectivo não informado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ano = str(ano).strip()
+        escola.ano_letivo_ativo = ano
+        escola.save(update_fields=['ano_letivo_ativo', 'updated_at'])
+
+        from .services import garantir_anos_lectivos_escola
+        garantir_anos_lectivos_escola(escola)
+
+        return Response({
+            'success': True,
+            'message': f'Ano Lectivo de {ano} definido como activo com sucesso.',
+            'ano_ativo': ano
         })

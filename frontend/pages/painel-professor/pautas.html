@@ -28,9 +28,14 @@
               </div>
               <div>
                 <label class="form-label small fw-semibold mb-1">Ano Lectivo</label>
-                <select id="pautaAnoSelect" class="form-select form-select-sm">
-                  <option value="2026">2026</option>
-                </select>
+                <div class="sige-seletor-ano-box d-flex align-items-center">
+                  <select id="pautaAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+                    <option value="">-- Escolha ano Lectivo --</option>
+                  </select>
+                  <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarPautaAno()">
+                    Buscar <i class="bi bi-search ms-1"></i>
+                  </button>
+                </div>
               </div>
               <div>
                 <label class="form-label small fw-semibold mb-1">Orientação da Página</label>

@@ -4,11 +4,14 @@
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
  */
 // ==================== 10. FINANCEIRO & MENSALIDADES ====================
-async function carregarPagamentos() {
+async function carregarPagamentos(anoParam) {
   try {
+    const ano = anoParam || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
+
     const [resP, resStats] = await Promise.all([
-      apiFetch('/api/v1/pagamentos'),
-      apiFetch('/api/v1/pagamentos/stats')
+      apiFetch(`/api/v1/pagamentos${queryAno}`),
+      apiFetch(`/api/v1/pagamentos/stats${queryAno}`)
     ]);
 
     if (resStats.success) {

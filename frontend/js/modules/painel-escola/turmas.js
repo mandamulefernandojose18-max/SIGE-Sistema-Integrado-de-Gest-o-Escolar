@@ -4,10 +4,14 @@
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
  */
 // ==================== 3.1 GESTÃO DEDICADA DE TURMAS & CAPACIDADE ====================
-async function carregarTurmas() {
+async function carregarTurmas(anoParam) {
   try {
+    const selAno = document.getElementById('filtroTurmasAno');
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
+
     const [resTurmas, resDisciplinas] = await Promise.all([
-      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch(`/api/v1/escola-admin/turmas${queryAno}`),
       apiFetch('/api/v1/disciplinas')
     ]);
     if (!resTurmas.success) return;
@@ -18,10 +22,28 @@ async function carregarTurmas() {
       state.todasDisciplinas = resDisciplinas.data || [];
     }
     renderizarEstatisticasETabelaTurmas();
+    if (typeof renderizarSelectoresAnoLectivo === 'function') {
+      renderizarSelectoresAnoLectivo(ano);
+    }
   } catch (err) {
     console.error('Erro ao carregar turmas:', err);
   }
 }
+
+window.aplicarFiltroAnoTurmas = function() {
+  const sel = document.getElementById('filtroTurmasAno');
+  const ano = sel ? sel.value : '';
+  if (ano) {
+    state.anoLectivoVisualizacao = ano;
+    localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  }
+  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
+  const tipoAno = (!ano || ano === anoAtivo) ? 'Ano Actual' : (parseInt(ano) < parseInt(anoAtivo) ? 'Ano Findo' : 'Ano Futuro');
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`A listar turmas do ${ano ? `Ano Lectivo de ${ano}` : 'Ano Activo'} [${tipoAno}].`, 'info');
+  }
+  carregarTurmas(ano);
+};
 
 function renderizarEstatisticasETabelaTurmas() {
   const turmas = state.turmasList || [];

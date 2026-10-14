@@ -135,6 +135,11 @@ class Escola(models.Model):
         else:
             self.codigo_escola = cod_atual
         super().save(*args, **kwargs)
+        try:
+            from .services import garantir_anos_lectivos_escola
+            garantir_anos_lectivos_escola(self)
+        except Exception:
+            pass
 
     def __str__(self):
         return f"{self.nome} [{self.codigo_escola or self.status}]"
@@ -182,3 +187,32 @@ class AssinaturaEscola(models.Model):
 
     def __str__(self):
         return f"{self.escola.nome} - {self.plano.nome} ({self.status})"
+
+class AnoLectivo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey(Escola, on_delete=models.CASCADE, related_name='anos_lectivos')
+    ano = models.CharField(max_length=10, db_index=True)
+    descricao = models.CharField(max_length=100, blank=True)
+    ativo = models.BooleanField(default=False)
+    data_inicio = models.DateField(null=True, blank=True)
+    data_fim = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_anos_lectivos'
+        verbose_name = 'Ano Lectivo'
+        verbose_name_plural = 'Anos Lectivos'
+        ordering = ['-ano']
+        constraints = [
+            models.UniqueConstraint(fields=['escola', 'ano'], name='unique_escola_ano_lectivo')
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.descricao:
+            self.descricao = f"Ano Lectivo de {self.ano}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.descricao} ({'Activo' if self.ativo else 'Findo'})"
+

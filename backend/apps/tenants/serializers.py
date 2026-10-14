@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Plano, Escola, AssinaturaEscola
+from .models import Plano, Escola, AssinaturaEscola, AnoLectivo
 
 class PlanoSerializer(serializers.ModelSerializer):
     preco = serializers.DecimalField(max_digits=12, decimal_places=2, coerce_to_string=False)
@@ -85,5 +85,10 @@ class EscolaSerializer(serializers.ModelSerializer):
             data['plano_id'] = None
             data['plano'] = None
         return data
+
+class AnoLectivoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnoLectivo
+        fields = ['id', 'ano', 'descricao', 'ativo', 'data_inicio', 'data_fim', 'created_at']
 
 

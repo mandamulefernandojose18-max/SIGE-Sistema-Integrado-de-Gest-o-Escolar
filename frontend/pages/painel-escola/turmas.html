@@ -87,7 +87,18 @@
         <!-- Filtros & Tabela de Turmas -->
         <div class="card p-4 border-0 shadow-sm">
           <div class="row g-2 align-items-center mb-3">
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-6">
+              <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-calendar-event me-1 text-primary"></i> Ano Lectivo</label>
+              <div class="sige-seletor-ano-box d-flex align-items-center w-100">
+                <select id="filtroTurmasAno" class="form-select form-select-sm sige-select-ano-lectivo flex-grow-1">
+                  <option value="">-- Escolha ano Lectivo --</option>
+                </select>
+                <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aplicarFiltroAnoTurmas()">
+                  Buscar <i class="bi bi-search ms-1"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-lg-2 col-md-6">
               <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-funnel me-1"></i> Filtrar por Classe</label>
               <select id="filtroTurmasClasse" class="form-select form-select-sm" onchange="atualizarFiltroAreasTurmas(); aplicarFiltrosTurmas();">
                 <option value="TODAS">Todas as Classes (7ª à 12ª)</option>
@@ -99,13 +110,13 @@
                 <option value="12ª Classe">12ª Classe</option>
               </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4">
               <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-tag me-1"></i> Secção / Área</label>
               <select id="filtroTurmasArea" class="form-select form-select-sm" onchange="aplicarFiltrosTurmas()">
                 <option value="TODAS">Todas as Secções / Áreas</option>
               </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-lg-2 col-md-4">
               <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-sun me-1"></i> Turno</label>
               <select id="filtroTurmasTurno" class="form-select form-select-sm" onchange="aplicarFiltrosTurmas()">
                 <option value="TODOS">Todos os Turnos</option>
@@ -114,7 +125,7 @@
                 <option value="NOITE">Noite</option>
               </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-lg-3 col-md-4">
               <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i> Pesquisar</label>
               <div class="input-group input-group-sm">
                 <input type="search" id="filtroTurmasBusca" class="form-control" placeholder="Buscar por turma, director ou sala..." oninput="aplicarFiltrosTurmas()">

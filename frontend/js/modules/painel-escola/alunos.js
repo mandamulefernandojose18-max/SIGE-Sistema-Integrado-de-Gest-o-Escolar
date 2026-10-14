@@ -4,16 +4,17 @@
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
  */
 // ==================== 4. ALUNOS ====================
-async function carregarAlunos() {
+async function carregarAlunos(anoParam) {
   try {
+    const selAno = document.getElementById('filtroAnoAlunos');
     const anoAtivo = state.tenant?.ano_letivo_ativo || '2026';
-    if (!state.filtroAlunoAno) {
-      state.filtroAlunoAno = anoAtivo;
-    }
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || anoAtivo;
+    state.filtroAlunoAno = ano;
 
+    const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
     const [resAlunos, resTurmas, resStats, resDisciplinas] = await Promise.all([
-      apiFetch('/api/v1/alunos'),
-      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch(`/api/v1/alunos${queryAno}`),
+      apiFetch(`/api/v1/escola-admin/turmas${queryAno}`),
       apiFetch('/api/v1/alunos/stats'),
       apiFetch('/api/v1/disciplinas')
     ]);
@@ -44,11 +45,11 @@ function atualizarSeletorAnosAlunos() {
   if (!selAno) return;
 
   const anoAtivo = state.tenant?.ano_letivo_ativo || '2026';
-  if (!state.filtroAlunoAno) {
-    state.filtroAlunoAno = anoAtivo;
-  }
+  const anosList = (state.anosLectivos && state.anosLectivos.length > 0)
+    ? state.anosLectivos.map(a => String(a.ano))
+    : ['2026', '2025', '2024', '2023'];
 
-  const anosSet = new Set([anoAtivo, '2026', '2025', '2024']);
+  const anosSet = new Set([anoAtivo, ...anosList]);
   (state.todosAlunos || []).forEach(a => {
     if (a.ano_ingresso) anosSet.add(String(a.ano_ingresso));
     else if (a.matricula && a.matricula.length >= 4 && a.matricula.slice(0, 4).match(/^\d{4}$/)) {
@@ -59,14 +60,16 @@ function atualizarSeletorAnosAlunos() {
     if (t.ano_letivo) anosSet.add(String(t.ano_letivo));
   });
 
-  const anosOrdenados = Array.from(anosSet).sort((a, b) => parseInt(b) - parseInt(a));
-  const valorAtual = state.filtroAlunoAno;
+  const anosOrdenados = Array.from(anosSet)
+    .filter(y => y && y.match(/^\d{4}$/))
+    .sort((a, b) => parseInt(b) - parseInt(a));
+  const valorAtual = state.filtroAlunoAno || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || anoAtivo;
 
   selAno.innerHTML = `
-    <option value="TODOS" ${valorAtual === 'TODOS' ? 'selected' : ''}>Todos os Anos</option>
+    <option value="">-- Escolha ano Lectivo --</option>
     ${anosOrdenados.map(ano => `
-      <option value="${ano}" ${valorAtual === ano ? 'selected' : ''}>
-        ${ano} ${ano === anoAtivo ? '(Activo)' : ''}
+      <option value="${ano}" ${String(valorAtual) === String(ano) ? 'selected' : ''}>
+        Ano Lectivo de ${ano}
       </option>
     `).join('')}
   `;
@@ -74,11 +77,26 @@ function atualizarSeletorAnosAlunos() {
 
 window.aoMudarFiltroAnoAlunos = function(ano) {
   state.filtroAlunoAno = ano;
-  renderizarBotoesClassesAlunos();
+};
+
+window.aoClicarBuscarAlunosPorAno = function() {
+  const sel = document.getElementById('filtroAnoAlunos');
+  const ano = sel ? sel.value : '';
+  state.filtroAlunoAno = ano;
+  if (ano) {
+    state.anoLectivoVisualizacao = ano;
+    localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  }
+  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
+  const tipoAno = (!ano || ano === anoAtivo) ? 'Ano Actual' : (parseInt(ano) < parseInt(anoAtivo) ? 'Ano Findo' : 'Ano Futuro');
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`A listar alunos do ${ano ? `Ano Lectivo de ${ano}` : 'Ano Activo'} [${tipoAno}].`, 'info');
+  }
+  carregarAlunos(ano);
 };
 
 function obterAlunosFiltradosPorAno() {
-  const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
+  const anoFiltro = state.filtroAlunoAno || state.anoLectivoVisualizacao || state.tenant?.ano_letivo_ativo || '2026';
   if (!anoFiltro || anoFiltro === 'TODOS') {
     return state.todosAlunos || [];
   }
@@ -87,6 +105,7 @@ function obterAlunosFiltradosPorAno() {
     return String(anoAluno) === String(anoFiltro);
   });
 }
+
 
 function getAlunoTurma(a) {
   if (!a) return null;

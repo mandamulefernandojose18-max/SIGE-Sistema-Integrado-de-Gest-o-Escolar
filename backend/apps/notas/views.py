@@ -43,6 +43,10 @@ class NotaViewSet(viewsets.ModelViewSet):
         if aluno_id:
             qs = qs.filter(aluno_id=aluno_id)
 
+        ano_param = self.request.query_params.get('ano_letivo') or self.request.query_params.get('ano')
+        if ano_param and str(ano_param).upper() != 'TODOS':
+            qs = qs.filter(turma__ano_letivo=ano_param)
+
         return qs.select_related('aluno', 'disciplina', 'turma').order_by('aluno__nome')
 
     def create(self, request, *args, **kwargs):

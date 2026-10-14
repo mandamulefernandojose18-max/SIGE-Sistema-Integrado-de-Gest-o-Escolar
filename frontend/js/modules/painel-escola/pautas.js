@@ -27,9 +27,13 @@ function mudarSubAbaPauta(aba) {
   alternarVisualizacaoPautaTurma();
 }
 
-async function carregarPautas() {
+async function carregarPautas(anoParam) {
   try {
-    const resTurmas = await apiFetch('/api/v1/escola-admin/turmas');
+    const selAno = document.getElementById('pautaAnoSelect');
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
+
+    const resTurmas = await apiFetch(`/api/v1/escola-admin/turmas${queryAno}`);
     const selectTurma = document.getElementById('pautaTurmaSelect');
     if (!selectTurma) return;
 
@@ -39,12 +43,30 @@ async function carregarPautas() {
       ).join('');
       alternarVisualizacaoPautaTurma();
     } else {
-      selectTurma.innerHTML = '<option value="">Nenhuma turma cadastrada</option>';
+      selectTurma.innerHTML = '<option value="">Nenhuma turma cadastrada neste ano lectivo</option>';
+      const corpoPauta = document.getElementById('tabelaPautaCorpo');
+      if (corpoPauta) corpoPauta.innerHTML = `<tr><td colspan="30" class="text-center py-4 text-muted">Nenhuma turma encontrada para o Ano Lectivo de ${ano}.</td></tr>`;
     }
   } catch (err) {
     console.error('Erro ao carregar turmas na pauta:', err);
   }
 }
+
+window.aoClicarBuscarPautaAno = function() {
+  const sel = document.getElementById('pautaAnoSelect');
+  const ano = sel ? sel.value : '';
+  if (ano) {
+    state.anoLectivoVisualizacao = ano;
+    localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  }
+  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
+  const tipoAno = (!ano || ano === anoAtivo) ? 'Ano Actual' : (parseInt(ano) < parseInt(anoAtivo) ? 'Ano Findo' : 'Ano Futuro');
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`A carregar pautas do ${ano ? `Ano Lectivo de ${ano}` : 'Ano Activo'} [${tipoAno}].`, 'info');
+  }
+  carregarPautas(ano);
+};
+
 
 async function alternarVisualizacaoPautaTurma() {
   const turmaId = document.getElementById('pautaTurmaSelect')?.value;

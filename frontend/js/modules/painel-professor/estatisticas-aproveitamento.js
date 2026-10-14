@@ -8,7 +8,9 @@ async function carregarEstatisticasAproveitamento() {
   const container = document.getElementById('containerEstatisticasDocumento');
   if (!container) return;
 
-  const ano = document.getElementById('statAnoFiltro')?.value || '2026';
+  const selAno = document.getElementById('statAnoFiltro');
+  const ano = (selAno && selAno.value) ? selAno.value : (state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026');
+  if (selAno && ano && selAno.value !== ano) selAno.value = ano;
   const periodo = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';
 
   container.innerHTML = `

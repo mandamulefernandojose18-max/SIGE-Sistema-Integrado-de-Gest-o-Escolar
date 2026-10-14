@@ -42,6 +42,15 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         if aluno_id:
             qs = qs.filter(aluno_id=aluno_id)
 
+        ano_param = self.request.query_params.get('ano_letivo') or self.request.query_params.get('ano')
+        if ano_param and str(ano_param).upper() != 'TODOS':
+            from django.db.models import Q
+            try:
+                ano_int = int(ano_param)
+                qs = qs.filter(Q(aluno__turma__ano_letivo=ano_param) | Q(aluno__ano_ingresso=ano_param) | Q(data_vencimento__year=ano_int))
+            except ValueError:
+                qs = qs.filter(Q(aluno__turma__ano_letivo=ano_param) | Q(aluno__ano_ingresso=ano_param))
+
         return qs.select_related('aluno', 'aluno__turma', 'escola').order_by('-data_vencimento')
 
     def perform_create(self, serializer):
