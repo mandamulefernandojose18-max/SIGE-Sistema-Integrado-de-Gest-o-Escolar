@@ -85,7 +85,7 @@ done
 log_info "[3/5] === INICIANDO DEPLOY SEPARADO: WEB (FRONTEND HTTPS) ==="
 DUCKDNS_TOKEN="1b67494d-fda0-411c-bf42-580288317db0"
 DUCKDNS_SUBDOMAIN="sigesaas"
-SSL_DOMAIN="${DUCKDNS_SUBDOMAIN}.duckdns.org"
+SSL_DOMAIN="sige.139-84-226-46.sslip.io"
 curl -sk "https://www.duckdns.org/update?domains=${DUCKDNS_SUBDOMAIN},sigesass&token=${DUCKDNS_TOKEN}&ip=${VM_IP}" >/dev/null 2>&1 || true
 mkdir -p "${PROJECT_DIR}/certs"
 
