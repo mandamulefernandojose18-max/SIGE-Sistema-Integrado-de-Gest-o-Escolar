@@ -37,10 +37,13 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         escola = getattr(self.request, 'tenant', None) or getattr(getattr(self.request, 'user', None), 'escola', None)
         is_super = getattr(getattr(self.request, 'user', None), 'role', '') == 'SUPERADMIN'
 
-        if is_super or not escola or self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'download']:
+        # Isolamento estrito entre instituições: publicações de uma escola NUNCA reflectem em outra
+        if escola:
+            qs = MaterialEscolar.objects.filter(escola=escola)
+        elif is_super:
             qs = MaterialEscolar.objects.all()
         else:
-            qs = MaterialEscolar.objects.filter(escola=escola)
+            qs = MaterialEscolar.objects.none()
 
         classe = self.request.query_params.get('classe')
         if classe:
@@ -75,6 +78,18 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
         return Response({'success': True, 'data': MaterialEscolarSerializer(qs, many=True).data})
+
+    def perform_create(self, serializer):
+        escola = getattr(self.request, 'tenant', None) or getattr(getattr(self.request, 'user', None), 'escola', None)
+        if not escola:
+            tenant_id = self.request.headers.get('X-Tenant-ID') or self.request.data.get('escola_id') or self.request.data.get('escola')
+            if tenant_id:
+                escola = Escola.objects.filter(id=tenant_id).first()
+        if not escola:
+            raise serializers.ValidationError({'detail': 'Instituição de ensino não identificada. Não é possível publicar material sem escola associada.'})
+        user = getattr(self.request, 'user', None)
+        publicador = getattr(user, 'nome', 'Administração') if user else 'Administração'
+        serializer.save(escola=escola, publicado_por=publicador)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -174,10 +189,12 @@ class ClassesMaterialView(APIView):
     def get(self, request):
         escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
         is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
-        if escola and not is_super:
+        if escola:
             qs = MaterialEscolar.objects.filter(escola=escola)
-        else:
+        elif is_super:
             qs = MaterialEscolar.objects.all()
+        else:
+            qs = MaterialEscolar.objects.none()
 
         contagens = dict(qs.values_list('classe').annotate(total=Count('id')))
         dados = [

@@ -172,8 +172,20 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError('Credenciais inválidas. Verifique o código/utilizador e a senha (no 1.º acesso, repita o seu código como senha).')
 
+        # Validação estrita do estado da conta do utilizador
         if not user.ativo or not user.is_active:
-            raise serializers.ValidationError('Conta de utilizador inativa ou desativada.')
+            raise serializers.ValidationError('Acesso bloqueado: A sua conta de utilizador encontra-se INACTIVA ou DESACTIVADA pelo Administrador da instituição.')
+
+        # Validação estrita do estado da escola (SUSPENSA, INACTIVA, EXPIRADA)
+        if getattr(user, 'role', '') != 'SUPERADMIN' and getattr(user, 'escola', None):
+            escola = user.escola
+            status_escola = str(getattr(escola, 'status', '') or '').strip().upper()
+            if status_escola in ['SUSPENSA', 'INACTIVA', 'INATIVA', 'EXPIRADA']:
+                motivo = 'SUSPENSA' if 'SUSP' in status_escola else ('EXPIRADA' if 'EXP' in status_escola else 'INACTIVA')
+                raise serializers.ValidationError(
+                    f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se {motivo}. '
+                    f'O acesso ao sistema está temporariamente vedado. Regularize a situação junto do Administrador do SIGE.'
+                )
 
         refresh = RefreshToken.for_user(user)
         # Custom claims para conformidade com JWT do SIGE

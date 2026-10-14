@@ -17,14 +17,13 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
             if escola_id:
                 from apps.tenants.models import Escola
                 escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
-        if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
 
-        qs = Disciplina.objects.filter(escola=escola)
+        if escola:
+            qs = Disciplina.objects.filter(escola=escola)
+        elif getattr(self.request.user, 'role', '') == 'SUPERADMIN':
+            qs = Disciplina.objects.all()
+        else:
+            qs = Disciplina.objects.none()
 
         classe = self.request.query_params.get('classe')
         if classe:

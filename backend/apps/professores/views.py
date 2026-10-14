@@ -32,7 +32,9 @@ class ProfessorViewSet(viewsets.ModelViewSet):
             return Professor.objects.all().prefetch_related('alocacoes__disciplina', 'alocacoes__turma')
 
         # Para listagem geral:
-        if is_super:
+        if escola:
+            return Professor.objects.filter(escola=escola).prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
+        elif is_super:
             escola_id = self.request.query_params.get('escola_id') or self.request.headers.get('X-Tenant-ID')
             if escola_id:
                 from apps.tenants.models import Escola
@@ -40,9 +42,7 @@ class ProfessorViewSet(viewsets.ModelViewSet):
                 if escola_obj:
                     return Professor.objects.filter(escola=escola_obj).prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
             return Professor.objects.all().prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
-        elif escola:
-            return Professor.objects.filter(escola=escola).prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
-        return Professor.objects.all().prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
+        return Professor.objects.none()
 
     def perform_create(self, serializer):
         escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)

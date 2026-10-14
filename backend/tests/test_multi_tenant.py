@@ -52,16 +52,12 @@ class TestMultiTenancy:
         res_delete = self.client.delete(f'/api/v1/alunos/{self.aluno_b.id}/')
         assert res_delete.status_code == 404
 
-    def test_bloqueio_automatico_tenant_expirado_http_402(self):
-        # User de Escola Expirada deve receber HTTP 402
+    def test_bloqueio_automatico_tenant_expirado(self):
+        # User de Escola Expirada tem login bloqueado com mensagem explícita
         login_res = self.client.post('/api/v1/auth/login/', {'email': 'admin.exp@sige.mz', 'password': 'PassExp123!'}, format='json')
-        assert login_res.status_code == 200  # Login é permitido para exibir mensagem no frontend
-
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_res.data['token']}")
-        res = self.client.get('/api/v1/alunos/')
-        assert res.status_code == 402
-        assert res.json()['code'] == 'TENANT_EXPIRED'
-        assert "expiração da assinatura" in res.json()['message']
+        assert login_res.status_code == 401
+        assert "Acesso bloqueado" in str(login_res.data)
+        assert "EXPIRADA" in str(login_res.data)
 
     def test_rota_publica_certificados_funciona_mesmo_escola_expirada(self):
         # Certificados públicos não sofrem bloqueio 402

@@ -474,17 +474,6 @@ async function apiFetch(endpoint, options = {}) {
     const res = await fetch(formatarUrlApi(endpoint), { ...options, headers });
     const json = await res.json();
 
-    // Interceptador de Assinatura Expirada (HTTP 402 - Payment Required)
-    if (res.status === 402) {
-      document.getElementById('alertaExpiracaoBanner').style.display = 'flex';
-      document.getElementById('alertaExpiracaoMensagem').textContent =
-        json.message || 'Assinatura expirada. Regularize o contrato de uso do SIGE.';
-      
-      if (state.user?.role === 'SUPERADMIN') {
-        document.getElementById('btnRenovarRapidoContainer').style.display = 'block';
-      }
-      return json;
-    }
 
     if (!res.ok) {
       if (res.status === 401 && !options._isRetry) {
@@ -1096,12 +1085,28 @@ const MENUS_POR_PAINEL = {
 };
 
 function renderizarSidebarPorNivel(role) {
+  const isSuperAdminInspecionando = (role === 'ADMIN_ESCOLA' && state.user?.role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
   const painel = MAPA_PAINEIS[role] || 'painel-escola';
   const menus = MENUS_POR_PAINEL[painel] || [];
   const navContainer = document.getElementById('sidebarNavItems');
   if (!navContainer) return;
 
   let html = '';
+  if (isSuperAdminInspecionando) {
+    const nomeEscola = state.tenant?.nome || 'Escola em Inspeção';
+    html += `
+      <div class="px-3 py-2 mb-3 bg-warning bg-opacity-25 border border-warning rounded text-dark small">
+        <div class="d-flex align-items-center gap-1 mb-1 fw-bold">
+          <i class="bi bi-eye-fill text-warning"></i> <span>A Inspecionar Escola:</span>
+        </div>
+        <div class="text-truncate fw-semibold mb-2" title="${nomeEscola}">${nomeEscola}</div>
+        <button class="btn btn-dark btn-sm w-100 py-1" onclick="sairModoInspecaoSuperAdmin()">
+          <i class="bi bi-box-arrow-left me-1"></i> Voltar ao SaaS
+        </button>
+      </div>
+    `;
+  }
+
   let categoriaAtual = '';
 
   menus.forEach(menu => {
@@ -1179,14 +1184,7 @@ function atualizarBadgeTenant(tenant) {
   const elAno = document.getElementById('headerAnoLetivo');
   if (elAno) elAno.textContent = `Ano Lectivo: ${tenant.ano_letivo_ativo || 2026}`;
 
-  const elBanner = document.getElementById('alertaExpiracaoBanner');
-  if (elBanner) {
-    if (tenant.status === 'EXPIRADA' && state.user?.role !== 'SUPERADMIN') {
-      elBanner.style.display = 'flex';
-    } else {
-      elBanner.style.display = 'none';
-    }
-  }
+
 }
 
 async function carregarEscolasSuperAdminSelect() {
@@ -1203,9 +1201,24 @@ async function carregarEscolasSuperAdminSelect() {
   } catch (err) {}
 }
 
-async function alternarEscolaSuperAdmin(escolaId, escolaNome = '') {
+async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus = '') {
   if (!escolaId) {
     sairModoInspecaoSuperAdmin();
+    return;
+  }
+
+  const st = (escolaStatus || '').toUpperCase();
+  // Bloqueio rigoroso: escolas suspensas, inactivas ou expiradas NÃO PODEM ABRIR nem acessar o sistema
+  if (st && st !== 'ATIVA') {
+    let motivo = 'encontra-se com acesso INACTIVO';
+    if (st === 'SUSPENSA') {
+      motivo = 'encontra-se SUSPENSA por irregularidades administrativas ou falta de liquidação';
+    } else if (st === 'EXPIRADA') {
+      motivo = 'está com a anuidade / período de subscrição EXPIRADO';
+    } else if (st === 'INACTIVA') {
+      motivo = 'está DESACTIVADA pelo Administrador do SIGE';
+    }
+    alert(`Acesso bloqueado: A instituição de ensino [${escolaNome || 'Escola'}] ${motivo}.\nO acesso ao painel escolar está totalmente vedado até à regularização do estado da conta.`);
     return;
   }
 
@@ -1226,17 +1239,6 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '') {
       atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
     }
 
-    // Habilitar todos os menus administrativos, pedagógicos e financeiros da escola
-    document.querySelectorAll('.escola-admin-only').forEach(el => {
-      el.style.display = el.classList.contains('nav-category') ? 'block' : 'flex';
-    });
-    document.querySelectorAll('.ped-only').forEach(el => {
-      el.style.display = el.classList.contains('nav-category') ? 'block' : 'flex';
-    });
-    document.querySelectorAll('.fin-only').forEach(el => {
-      el.style.display = el.classList.contains('nav-category') ? 'block' : 'flex';
-    });
-
     // Activar o banner de inspeção no topo
     const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
     if (bannerInspecao) {
@@ -1244,12 +1246,12 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '') {
       const elNome = document.getElementById('superAdminInspecaoNome');
       if (elNome) elNome.textContent = `A Inspecionar: ${state.tenant.nome}`;
       const elStatus = document.getElementById('superAdminInspecaoStatus');
-      if (elStatus) elStatus.textContent = state.tenant.status || 'ATIVA';
+      if (elStatus) elStatus.textContent = 'ATIVA';
     }
 
-    // Ocultar banner de expiração caso esteja visível
-    const bannerExp = document.getElementById('alertaExpiracaoBanner');
-    if (bannerExp) bannerExp.style.display = 'none';
+
+    // Re-renderizar sidebar para navegação escolar em modo inspeção
+    renderizarSidebarPorNivel('ADMIN_ESCOLA');
 
     mostrarNotificacao(`Acesso directo concedido à instituição [${state.tenant.nome}] como SuperAdmin. Sem necessidade de credenciais.`, 'success');
 
@@ -1267,7 +1269,9 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '') {
         const elStatus = document.getElementById('superAdminInspecaoStatus');
         if (elStatus) elStatus.textContent = state.tenant.status || 'ATIVA';
       }
-      carregarDadosGlobaisEscola();
+      if (typeof carregarDadosGlobaisEscola === 'function') {
+        carregarDadosGlobaisEscola();
+      }
     } catch (infoErr) {
       console.warn('Carregamento secundário de info da escola:', infoErr);
     }
@@ -1287,11 +1291,6 @@ function sairModoInspecaoSuperAdmin() {
   const bannerInspecao = document.getElementById('superAdminInspecaoBanner');
   if (bannerInspecao) bannerInspecao.style.setProperty('display', 'none', 'important');
 
-  // Ocultar menus da escola
-  document.querySelectorAll('.escola-admin-only').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.ped-only').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.fin-only').forEach(el => el.style.display = 'none');
-
   // Restaurar badge da sidebar para SIGE Master
   const elNome = document.getElementById('sidebarEscolaNome');
   if (elNome) elNome.textContent = 'SIGE';
@@ -1301,6 +1300,9 @@ function sairModoInspecaoSuperAdmin() {
   if (elProv) elProv.textContent = 'SaaS Master';
   const elAno = document.getElementById('headerAnoLetivo');
   if (elAno) elAno.textContent = 'Ano Lectivo: 2026';
+
+  // Restaurar menus do SuperAdmin
+  renderizarSidebarPorNivel('SUPERADMIN');
 
   mostrarNotificacao('Modo de inspeção encerrado. Retornou à Gestão Master SaaS.', 'info');
   navegarPara('saas');
@@ -1391,14 +1393,20 @@ async function navegarPara(viewId) {
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
-  const painel = MAPA_PAINEIS[role] || 'painel-escola';
-  const menusPermitidos = (MENUS_POR_PAINEL[painel] || []).map(m => m.id);
+  const isSuperAdminInspecionando = (role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
+  const painel = isSuperAdminInspecionando 
+    ? (['saas', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
+    : (MAPA_PAINEIS[role] || 'painel-escola');
+
+  const menusPermitidos = isSuperAdminInspecionando
+    ? [...(MENUS_POR_PAINEL['painel-superadmin'] || []).map(m => m.id), ...(MENUS_POR_PAINEL['painel-escola'] || []).map(m => m.id)]
+    : (MENUS_POR_PAINEL[painel] || []).map(m => m.id);
 
   // Isolamento estrito entre painéis: Não pode ter uma ligação entre os painéis!
   if (!menusPermitidos.includes(viewId)) {
     console.warn(`[SEGURANÇA] Bloqueio de ligação inter-painel: Utilizador com role '${role}' (Painel '${painel}') tentou aceder a view '${viewId}'.`);
     mostrarToast('Acesso negado: Este painel não pertence ao seu nível de acesso.', 'danger');
-    viewId = menusPermitidos[0] || 'dashboard';
+    viewId = menusPermitidos[0] || (role === 'SUPERADMIN' ? 'saas' : 'dashboard');
   }
 
   // Carregar ficheiro de página (HTML) e módulo (JS) separados correspondentes a este menu

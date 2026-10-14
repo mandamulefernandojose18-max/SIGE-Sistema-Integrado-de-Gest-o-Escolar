@@ -15,9 +15,20 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
+            errors = serializer.errors
+            msg = 'Credenciais inválidas'
+            if isinstance(errors, dict):
+                first_val = next(iter(errors.values()), None)
+                if isinstance(first_val, list) and len(first_val) > 0:
+                    msg = str(first_val[0])
+                elif isinstance(first_val, str):
+                    msg = first_val
+            elif isinstance(errors, list) and len(errors) > 0:
+                msg = str(errors[0])
             return Response({
                 'success': False,
-                'message': serializer.errors.get('non_field_errors', ['Credenciais inválidas'])[0]
+                'message': msg,
+                'detail': msg
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         data = serializer.validated_data

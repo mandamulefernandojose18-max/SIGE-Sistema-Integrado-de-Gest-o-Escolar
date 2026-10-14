@@ -463,7 +463,7 @@
         print-color-adjust: exact !important;
       }
 
-      #sidebar, .topbar, .no-print, .btn, .nav-tabs, #alertaExpiracaoBanner, .app-footer, .breadcrumb, header, aside, .sidebar {
+      #sidebar, .topbar, .no-print, .btn, .nav-tabs, .app-footer, .breadcrumb, header, aside, .sidebar {
         display: none !important;
       }
 
@@ -898,19 +898,6 @@
       </div>
     </header>
 
-    <!-- ALERTA DE ASSINATURA EXPIRADA (HTTP 402 BANNER) -->
-    <div id="alertaExpiracaoBanner" style="display: none;" class="alert alert-danger rounded-0 m-0 border-0 border-bottom border-danger d-flex align-items-center justify-content-between px-4 py-3">
-      <div class="d-flex align-items-center gap-3">
-        <i class="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
-        <div>
-          <strong class="d-block">Assinatura Expirada (HTTP 402 - Regularização de Contrato Necessária)</strong>
-          <span id="alertaExpiracaoMensagem">A assinatura desta instituição expirou. Regularize o contrato com o SuperAdmin SIGE.</span>
-        </div>
-      </div>
-      <div id="btnRenovarRapidoContainer" style="display: none;">
-        <button class="btn btn-danger btn-sm" onclick="navegarPara('saas')">Renovar no Painel SaaS</button>
-      </div>
-    </div>
 
     <!-- BANNER DE MODO INSPECÇÃO DE ESCOLA (SUPERADMIN) -->
     <div id="superAdminInspecaoBanner" style="display: none;" class="alert alert-info rounded-0 m-0 border-0 border-bottom border-info d-flex align-items-center justify-content-between px-4 py-2 no-print">
@@ -971,9 +958,9 @@
 
 <!-- SCRIPTS DO FRONTEND SPA -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/templates.js?v=20261013_2100"></script>
-<script src="/js/config.js?v=20261013_2100"></script>
+<script src="/js/templates.js?v=20261014_0715"></script>
+<script src="/js/config.js?v=20261014_0715"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
-<script src="/js/app.js?v=20261013_2100"></script>
+<script src="/js/app.js?v=20261014_0715"></script>
 </body>
 </html>

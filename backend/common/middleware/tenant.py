@@ -39,3 +39,14 @@ class TenantMiddleware(MiddlewareMixin):
                     request.tenant = getattr(request.user, 'escola', None)
             elif hasattr(request.user, 'escola') and request.user.escola is not None:
                 request.tenant = request.user.escola
+
+                # Bloquear acesso à API para utilizadores de escolas suspensas/inactivas/expiradas
+                st = str(getattr(request.tenant, 'status', '') or '').upper()
+                if st in ['SUSPENSA', 'INACTIVA', 'INATIVA', 'EXPIRADA']:
+                    from django.http import JsonResponse
+                    if request.path.startswith('/api/') and not request.path.startswith('/api/v1/auth/') and not request.path.startswith('/api/v1/health/'):
+                        motivo = 'SUSPENSA' if 'SUSP' in st else ('EXPIRADA' if 'EXP' in st else 'INACTIVA')
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se {motivo}. O acesso ao sistema está temporariamente vedado.'
+                        }, status=403)

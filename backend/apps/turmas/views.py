@@ -37,9 +37,6 @@ class TurmaViewSet(viewsets.ModelViewSet):
             if escola_id:
                 from apps.tenants.models import Escola
                 escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
 
         if not escola:
             from rest_framework import serializers as drf_serializers
