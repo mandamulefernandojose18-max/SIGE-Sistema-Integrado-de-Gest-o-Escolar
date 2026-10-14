@@ -28,7 +28,7 @@ Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "   SIGE - PIPELINE: COMMIT, PUSH E DEPLOY SEPARADO NA VM        " -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "  IP da VM: $VmIp | Branch: $Branch" -ForegroundColor Gray
+Write-Host "  Ambiente: Producao | Branch: $Branch" -ForegroundColor Gray
 Write-Host "  Mensagem: $Message" -ForegroundColor Gray
 Write-Host ""
 
@@ -49,7 +49,7 @@ git push origin "$Branch"
 Write-Host "  OK: Push concluido com sucesso!" -ForegroundColor Green
 
 # 3. DEPLOY SEPARADO NA VM
-Write-Host "[3/5] Disparando deploy desacoplado na VM ($VmIp)..." -ForegroundColor Blue
+Write-Host "[3/5] Disparando deploy desacoplado na VM de producao..." -ForegroundColor Blue
 $remoteCmd = "cd /var/www/sige && git fetch origin $Branch && git checkout $Branch && git reset --hard origin/$Branch && chmod +x scripts/*.sh && bash scripts/deploy-separated.sh $Branch"
 
 ssh -i $KeyPath -o StrictHostKeyChecking=no "${VmUser}@${VmIp}" "$remoteCmd"
@@ -60,8 +60,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "  OK: Deploy separado concluido com sucesso na VM!" -ForegroundColor Green
 
 # 4. CRIAR LINK PARA WEB CUJO NOME É 'sige' (HTTPS SEGURO DUCKDNS - IP OCULTO)
-Write-Host "[4/5] Criando atalho/link seguro HTTPS para a Web cujo nome e 'sige' (sige.139-84-226-46.sslip.io)..." -ForegroundColor Blue
-$sslDomain = "sige.139-84-226-46.sslip.io"
+Write-Host "[4/5] Criando atalho/link seguro HTTPS para a Web cujo nome e 'sige' (sigesaas.duckdns.org)..." -ForegroundColor Blue
+$sslDomain = "sigesaas.duckdns.org"
 $webUrl = "https://${sslDomain}/"
 
 $shortcutLines = @(
@@ -96,7 +96,7 @@ Write-Host "   PIPELINE SIGE CONCLUIDA COM SUCESSO (HTTPS SEGURO)!          " -F
 Write-Host "================================================================" -ForegroundColor Green
 Write-Host "  Link Web (sige): $webUrl" -ForegroundColor Cyan
 Write-Host "  Link API HTTPS:  ${webUrl}api/v1/" -ForegroundColor Cyan
-Write-Host "  Swagger Docs:    http://${VmIp}:8000/api/docs/" -ForegroundColor Cyan
+Write-Host "  Swagger Docs:    ${webUrl}api/docs/" -ForegroundColor Cyan
 Write-Host ""
 
 if ($OpenBrowser) {

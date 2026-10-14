@@ -19,7 +19,7 @@ Esta skill guia e automatiza o ciclo completo de entrega contínua do **SIGE**: 
      ├── 2. git push (origem GitHub)
      │
      ▼
-[VM de Produção - 139.84.226.46]
+[VM de Produção (sigesaas.duckdns.org)]
      │
      ├── 3. Deploy Isolado da API (Django REST + PostgreSQL + Migrations)
      │      └─► Health check: http://localhost:8000/health/ (200 OK)
@@ -70,7 +70,7 @@ git push origin chore/migracao-django-rest
 ```
 
 ### Passo 3: Deploy Isolado da API na VM
-Via SSH na VM (`139.84.226.46`):
+Via SSH na VM de produção:
 ```bash
 cd /var/www/sige
 git pull origin chore/migracao-django-rest

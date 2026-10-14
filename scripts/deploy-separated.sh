@@ -22,7 +22,7 @@ log_error()   { echo -e "${RED}[ERRO]${NC} $(date '+%Y-%m-%d %H:%M:%S') — $1";
 
 echo -e "${CYAN}====================================================================${NC}"
 echo -e "${CYAN}   🚀 SIGE — DEPLOY SEPARADO (API -> WEB -> LIGAÇÃO -> LINK SIGE)  ${NC}"
-echo -e "${CYAN}   Branch: ${DEPLOY_BRANCH} | IP: ${VM_IP}                          ${NC}"
+echo -e "${CYAN}   Branch: ${DEPLOY_BRANCH} | Domínio: https://sigesaas.duckdns.org/    ${NC}"
 echo -e "${CYAN}====================================================================${NC}"
 
 cd "${PROJECT_DIR}" || log_error "Diretório ${PROJECT_DIR} não encontrado!"
@@ -85,7 +85,7 @@ done
 log_info "[3/5] === INICIANDO DEPLOY SEPARADO: WEB (FRONTEND HTTPS) ==="
 DUCKDNS_TOKEN="1b67494d-fda0-411c-bf42-580288317db0"
 DUCKDNS_SUBDOMAIN="sigesaas"
-SSL_DOMAIN="sige.139-84-226-46.sslip.io"
+SSL_DOMAIN="sigesaas.duckdns.org"
 curl -sk "https://www.duckdns.org/update?domains=${DUCKDNS_SUBDOMAIN},sigesass&token=${DUCKDNS_TOKEN}&ip=${VM_IP}" >/dev/null 2>&1 || true
 mkdir -p "${PROJECT_DIR}/certs"
 
@@ -167,4 +167,5 @@ echo -e "${GREEN}===============================================================
 echo -e "${GREEN}   ✅ DEPLOY CONCLUÍDO COM SUCESSO (HTTPS OFICIAL LET'S ENCRYPT)!   ${NC}"
 echo -e "${GREEN}   🔒 Link Web SIGE: https://${SSL_DOMAIN}/                         ${NC}"
 echo -e "${GREEN}   🔌 API via HTTPS: https://${SSL_DOMAIN}/api/v1/                  ${NC}"
+echo -e "${GREEN}   📚 Swagger Docs:  https://${SSL_DOMAIN}/api/docs/                ${NC}"
 echo -e "${GREEN}====================================================================${NC}"
