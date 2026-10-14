@@ -427,12 +427,20 @@ def _safe_ascii_filename(nome: str) -> str:
     return s or 'documento'
 
 def _obter_turma_e_escola(request, turma_id):
-    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+    from common.utils.tenant import get_tenant_escola
+    from rest_framework.exceptions import PermissionDenied, NotFound
+
+    escola = get_tenant_escola(request)
     turma = Turma.objects.select_related('escola', 'director_turma').filter(id=turma_id).first()
     if not turma:
-        turma = get_object_or_404(Turma, id=turma_id)
-    escola = turma.escola or escola
-    return turma, escola
+        raise NotFound("Turma não encontrada.")
+
+    # Se a instituição foi resolvida a partir do tenant/usuário e não coincide com a turma, bloquear
+    if escola and turma.escola_id and turma.escola_id != escola.id:
+        raise PermissionDenied("Acesso negado: a turma pertence a outra instituição.")
+
+    escola_final = turma.escola or escola
+    return turma, escola_final
 
 class PautaGerarView(APIView):
     permission_classes = [IsAuthenticated]
@@ -699,9 +707,10 @@ def compilar_estatisticas_gerais_escola(escola, ano_letivo='2026', periodo='GLOB
     else:
         periodo_norm = 'ANUAL'
 
-    turmas_qs = Turma.objects.filter(ano_letivo=ano_letivo)
     if escola:
-        turmas_qs = turmas_qs.filter(escola=escola)
+        turmas_qs = Turma.objects.filter(ano_letivo=ano_letivo, escola=escola)
+    else:
+        turmas_qs = Turma.objects.none()
     turmas = list(turmas_qs.select_related('director_turma', 'escola').order_by('grau_ano', 'nome'))
 
     todos_alunos = list(Aluno.objects.filter(turma__in=turmas, status='ATIVO').order_by('nome', 'apelido'))
@@ -942,10 +951,10 @@ class PautasEstatisticasGeraisView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.first()
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=400)
 
         ano_letivo = request.query_params.get('anoLetivo', '2026')
         periodo = request.query_params.get('periodo', 'GLOBAL')
@@ -960,10 +969,10 @@ class PautasEstatisticasGeraisXLSXView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.first()
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=400)
 
         ano_letivo = request.query_params.get('anoLetivo', '2026')
         periodo = request.query_params.get('periodo', 'GLOBAL')

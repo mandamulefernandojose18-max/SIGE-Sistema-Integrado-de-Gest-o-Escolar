@@ -1,3 +1,4 @@
+import os
 import json
 import uuid
 from rest_framework.views import APIView
@@ -54,43 +55,51 @@ def _registrar_log_impressao(escola, request, tipo_documento, descricao):
 
 
 def _obter_aluno_e_escola(request, aluno_id):
-    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+    from common.utils.tenant import get_tenant_escola
+    from django.core.exceptions import PermissionDenied
+    escola = get_tenant_escola(request)
     aluno = Aluno.objects.select_related('turma', 'escola').filter(id=aluno_id).first()
     if not aluno:
         aluno = get_object_or_404(Aluno, id=aluno_id)
-    escola = aluno.escola or escola
-    return aluno, escola
+    if escola and aluno.escola_id != escola.id:
+        raise PermissionDenied("Acesso negado: o estudante pertence a outra instituição de ensino.")
+    return aluno, (escola or aluno.escola)
 
 
 def _obter_turma_e_escola(request, turma_id):
-    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
+    from common.utils.tenant import get_tenant_escola
+    from django.core.exceptions import PermissionDenied
+    escola = get_tenant_escola(request)
     turma = Turma.objects.select_related('escola', 'director_turma').filter(id=turma_id).first()
     if not turma:
         turma = get_object_or_404(Turma, id=turma_id)
-    escola = turma.escola or escola
-    return turma, escola
+    if escola and turma.escola_id != escola.id:
+        raise PermissionDenied("Acesso negado: a turma pertence a outra instituição de ensino.")
+    return turma, (escola or turma.escola)
 
 
 def _obter_pagamento_e_escola(request, pagamento_id):
-    escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
-    qs = Pagamento.objects.select_related('aluno', 'aluno__turma', 'escola')
+    from common.utils.tenant import get_tenant_escola
+    from rest_framework.exceptions import PermissionDenied, NotFound
+    escola = get_tenant_escola(request)
 
-    pagamento = qs.filter(id=pagamento_id).first()
+    pagamento = Pagamento.objects.select_related('aluno', 'aluno__turma', 'escola').filter(id=pagamento_id).first()
     if not pagamento:
-        # Fallback: pagamento_id pode ser o ID de um Aluno (ex: na Central de Impressão)
-        pagamento = qs.filter(aluno_id=pagamento_id).order_by('-status', '-data_pagamento', '-created_at').first()
+        pagamento = Pagamento.objects.select_related('aluno', 'aluno__turma', 'escola').filter(aluno_id=pagamento_id).order_by('-status', '-data_pagamento', '-created_at').first()
 
     if pagamento:
-        escola = pagamento.escola or escola
-        return pagamento, escola
+        if escola and pagamento.escola_id != escola.id:
+            raise PermissionDenied("Acesso negado: o registo financeiro pertence a outra instituição de ensino.")
+        return pagamento, (escola or pagamento.escola)
 
     # Fallback final: se for um Aluno válido sem pagamentos registados, sintetizar comprovativo padrão
     aluno = Aluno.objects.select_related('turma', 'escola').filter(id=pagamento_id).first()
     if aluno:
-        escola = aluno.escola or escola
+        if escola and aluno.escola_id != escola.id:
+            raise PermissionDenied("Acesso negado: o estudante pertence a outra instituição de ensino.")
         pagamento_sintetico = Pagamento(
             id=aluno.id,
-            escola=escola,
+            escola=aluno.escola or escola,
             aluno=aluno,
             descricao='Propina / Mensalidade Escolar',
             valor=1500,
@@ -103,11 +112,9 @@ def _obter_pagamento_e_escola(request, pagamento_id):
             recibo_numero=f"REC-{aluno.matricula or str(aluno.id)[:8].upper()}"
         )
         pagamento_sintetico.created_at = datetime.datetime.now()
-        return pagamento_sintetico, escola
+        return pagamento_sintetico, (aluno.escola or escola)
 
-    # Se não encontrou nem Pagamento nem Aluno, lança 404 oficial
-    pagamento = get_object_or_404(Pagamento, id=pagamento_id)
-    return pagamento, pagamento.escola or escola
+    raise NotFound("Registo de pagamento não encontrado.")
 
 
 def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_prefetched=None):
@@ -394,7 +401,7 @@ def calcular_desempenho_documento(dados_disc, grau_ano=None, tipo='BOLETIM'):
     total_disc = len(dados_disc)
     vals = [d['media_anual'] for d in dados_disc if isinstance(d.get('media_anual'), (int, float))]
 
-    if tipo == 'BOLETIM':
+    if tipo in ['BOLETIM', 'DECLARACAO']:
         media_global = round(sum(vals) / len(vals), 1) if vals else '-'
         if vals:
             avaliacao = avaliar_aprovacao_pauta(
@@ -405,7 +412,7 @@ def calcular_desempenho_documento(dados_disc, grau_ano=None, tipo='BOLETIM'):
             avaliacao = {'aprovado': False, 'resultado': 'Pendente', 'siglaResultado': '-', 'mediaGeral': '-'}
         return media_global, avaliacao
 
-    # Para CERTIFICADO e DECLARAÇÃO DE CONCLUSÃO:
+    # Para CERTIFICADO (Conclusão Oficial):
     # SÓ existe média global e resultado de aprovação se TODAS as disciplinas requeridas tiverem sido avaliadas.
     # Se o aluno foi avaliado apenas em parte das disciplinas (ex: só Matemática), não tem média global de conclusão nem resultado falso.
     todas_avaliadas = len(vals) > 0 and len(vals) == total_disc

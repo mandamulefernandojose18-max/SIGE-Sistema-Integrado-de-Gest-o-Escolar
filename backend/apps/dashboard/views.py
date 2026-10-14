@@ -10,12 +10,13 @@ from apps.turmas.models import Turma
 from apps.disciplinas.models import Disciplina
 from apps.pagamentos.models import Pagamento
 from apps.tenants.models import Escola
+from common.utils.tenant import get_tenant_escola
 
 class DashboardOverviewView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        escola = get_tenant_escola(request)
         is_super = getattr(request.user, 'role', '') == 'SUPERADMIN'
 
         if not escola and is_super:

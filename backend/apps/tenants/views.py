@@ -528,11 +528,10 @@ class MinhaEscolaComprovativoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-        if not escola and getattr(request.user, 'role', '') == 'SUPERADMIN':
-            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
-            return Response({'success': False, 'message': 'Nenhuma escola vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Nenhuma escola vinculada ao usuário ou selecionada.'}, status=status.HTTP_404_NOT_FOUND)
 
         return Response({
             'success': True,
@@ -567,7 +566,8 @@ class EscolaAdminInfoView(APIView):
     permission_classes = [IsAuthenticated, IsEscolaAdmin]
 
     def get(self, request):
-        escola = request.tenant or request.user.escola
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
         if not escola.codigo_escola:
@@ -576,7 +576,8 @@ class EscolaAdminInfoView(APIView):
         return Response({'success': True, 'data': EscolaSerializer(escola).data})
 
     def put(self, request):
-        escola = request.tenant or request.user.escola
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -607,7 +608,8 @@ class ToggleNotasView(APIView):
     permission_classes = [IsAuthenticated, IsEscolaAdmin]
 
     def post(self, request):
-        escola = request.tenant or request.user.escola
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Escola não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         escola.permitir_visualizacao_notas = not escola.permitir_visualizacao_notas
@@ -622,10 +624,18 @@ class UsuariosCredenciaisView(APIView):
     permission_classes = [IsAuthenticated, IsEscolaAdmin]
 
     def get(self, request):
-        escola = request.tenant or request.user.escola
-        if escola:
-            garantir_contas_institucionais_escola(escola)
-        usuarios = Usuario.objects.filter(escola=escola)
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+                usuarios = Usuario.objects.all().order_by('-data_criacao')[:500]
+                return Response({
+                    'success': True,
+                    'data': UsuarioSerializer(usuarios, many=True).data
+                })
+            return Response({'success': True, 'data': []})
+        garantir_contas_institucionais_escola(escola)
+        usuarios = Usuario.objects.filter(escola=escola).order_by('-data_criacao')
         return Response({
             'success': True,
             'data': UsuarioSerializer(usuarios, many=True).data

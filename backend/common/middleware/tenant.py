@@ -40,13 +40,37 @@ class TenantMiddleware(MiddlewareMixin):
             elif hasattr(request.user, 'escola') and request.user.escola is not None:
                 request.tenant = request.user.escola
 
-                # Bloquear acesso à API para utilizadores de escolas suspensas/inactivas/expiradas
-                st = str(getattr(request.tenant, 'status', '') or '').upper()
-                if st in ['SUSPENSA', 'INACTIVA', 'INATIVA', 'EXPIRADA']:
+                # SÓ E SÓ O SUPER ADMIN DEVE TER ACESSO SEMPRE INDEPENDENTEMENTE DE A ESCOLA ESTAR OU NÃO ACTIVA.
+                # Para todos os utilizadores comuns: bloquear acesso à API se a escola não estiver ATIVA ou estiver bloqueada.
+                st = str(getattr(request.tenant, 'status', '') or '').strip().upper()
+                bloqueada = bool(getattr(request.tenant, 'bloqueada_manualmente', False))
+                if st != 'ATIVA' or bloqueada:
                     from django.http import JsonResponse
-                    if request.path.startswith('/api/') and not request.path.startswith('/api/v1/auth/') and not request.path.startswith('/api/v1/health/'):
-                        motivo = 'SUSPENSA' if 'SUSP' in st else ('EXPIRADA' if 'EXP' in st else 'INACTIVA')
+                    is_exempt = (
+                        request.path.startswith('/api/v1/auth/')
+                        or request.path.startswith('/api/v1/health/')
+                        or request.path in ['/health', '/health/']
+                        or request.path.startswith('/api/v1/certificados/verificar/')
+                        or request.path.startswith('/api/docs/')
+                        or request.path.startswith('/api/schema/')
+                        or request.path.startswith('/api/redoc/')
+                    )
+                    if request.path.startswith('/api/') and not is_exempt:
+                        if bloqueada:
+                            motivo = 'BLOQUEADA MANUALMENTE'
+                        elif 'SUSP' in st:
+                            motivo = 'SUSPENSA'
+                        elif 'EXP' in st:
+                            motivo = 'EXPIRADA'
+                        elif 'PEND' in st:
+                            motivo = 'PENDENTE'
+                        else:
+                            motivo = 'INACTIVA'
+
                         return JsonResponse({
                             'success': False,
-                            'message': f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se {motivo}. O acesso ao sistema está temporariamente vedado.'
+                            'message': (
+                                f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se {motivo}. '
+                                f'O acesso ao sistema está temporariamente vedado. Apenas o Super Admin tem permissão de acesso a instituições inactivas.'
+                            )
                         }, status=403)

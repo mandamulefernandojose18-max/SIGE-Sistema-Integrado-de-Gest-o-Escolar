@@ -23,12 +23,12 @@ class PagamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
-        is_super = getattr(self.request.user, 'role', '') == 'SUPERADMIN'
-        if escola and not is_super:
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
+        if escola:
             qs = Pagamento.objects.filter(escola=escola)
         else:
-            qs = Pagamento.objects.all()
+            qs = Pagamento.objects.none()
 
         status_param = self.request.query_params.get('status')
         if status_param:
@@ -45,8 +45,14 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         return qs.select_related('aluno', 'aluno__turma', 'escola').order_by('-data_vencimento')
 
     def perform_create(self, serializer):
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
         aluno = serializer.validated_data.get('aluno')
-        escola = (getattr(aluno, 'escola', None) if aluno else None) or getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        escola = get_tenant_escola(self.request) or (getattr(aluno, 'escola', None) if aluno else None)
+        if not escola:
+            raise drf_serializers.ValidationError({'escola': 'Nenhuma escola identificada para registar o pagamento.'})
+        if aluno and aluno.escola_id != escola.id:
+            raise drf_serializers.ValidationError({'aluno': 'O aluno selecionado pertence a outra instituição de ensino.'})
         serializer.save(escola=escola)
 
     def create(self, request, *args, **kwargs):

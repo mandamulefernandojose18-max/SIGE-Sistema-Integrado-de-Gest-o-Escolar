@@ -77,9 +77,10 @@ class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from common.utils.tenant import get_tenant_escola
         user_data = UsuarioSerializer(request.user).data
         escola_data = None
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        escola = get_tenant_escola(request)
         if escola:
             from apps.tenants.serializers import EscolaSerializer
             escola_data = EscolaSerializer(escola).data
@@ -100,9 +101,13 @@ class UserStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         qs = Usuario.objects.all()
-        if getattr(request.user, 'role', '') != 'SUPERADMIN' and request.user.escola:
-            qs = qs.filter(escola=request.user.escola)
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif getattr(request.user, 'role', '') != 'SUPERADMIN':
+            qs = Usuario.objects.none()
 
         stats = qs.values('role').annotate(total=Count('id'))
         return Response({

@@ -15,13 +15,16 @@ from apps.alunos.models import Aluno
 from apps.professores.models import Professor
 from common.utils.avaliacoes_mocambique import calcular_media_trimestral
 from common.permissions.rbac import IsEscolaAdmin
+from common.utils.tenant import get_tenant_escola
 
 class NotaViewSet(viewsets.ModelViewSet):
     serializer_class = NotaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or self.request.user.escola
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            return Nota.objects.none()
         qs = Nota.objects.filter(escola=escola)
 
         turma_id = self.request.query_params.get('turma_id')
@@ -43,13 +46,16 @@ class NotaViewSet(viewsets.ModelViewSet):
         return qs.select_related('aluno', 'disciplina', 'turma').order_by('aluno__nome')
 
     def create(self, request, *args, **kwargs):
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Lançamento em lote ou individual
         if 'notas' in request.data:
             serializer = SalvarNotasBulkSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data
 
-            escola = request.tenant or request.user.escola
             turma = get_object_or_404(Turma, id=data['turma_id'], escola=escola)
             disciplina = get_object_or_404(Disciplina, id=data['disciplina_id'], escola=escola)
             periodo = data['periodo']
@@ -124,7 +130,9 @@ class NotaViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         if aluno_id and turma_id and disciplina_id and periodo:
-            escola = request.tenant or request.user.escola
+            escola = get_tenant_escola(request)
+            if not escola:
+                return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
             turma = get_object_or_404(Turma, id=turma_id, escola=escola)
             disciplina = get_object_or_404(Disciplina, id=disciplina_id, escola=escola)
             aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
@@ -197,7 +205,9 @@ class PrazosTrimestresView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = request.tenant or request.user.escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
         trimestre_ativo = escola.trimestre_ativo if escola else '1_TRIMESTRE'
         cfg = obter_configuracao_prazos(escola)
 
@@ -265,7 +275,7 @@ class PrazosTrimestresView(APIView):
         return self._salvar_prazos(request)
 
     def _salvar_prazos(self, request):
-        escola = request.tenant or request.user.escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -344,12 +354,16 @@ class AutorizacaoEdicaoView(APIView):
     permission_classes = [IsAuthenticated, IsEscolaAdmin]
 
     def get(self, request):
-        escola = request.tenant or request.user.escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': True, 'data': []})
         perms = PermissaoEdicaoNotas.objects.filter(escola=escola, ativa=True).select_related('turma', 'professor', 'disciplina').order_by('-created_at')
         return Response({'success': True, 'data': PermissaoEdicaoNotasSerializer(perms, many=True).data})
 
     def post(self, request):
-        escola = request.tenant or request.user.escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
         turma = get_object_or_404(Turma, id=request.data.get('turma_id'), escola=escola)
 
         prof_id = request.data.get('professor_id')
@@ -388,7 +402,9 @@ class AutorizacaoEdicaoView(APIView):
         }, status=status.HTTP_201_CREATED)
 
     def delete(self, request, perm_id=None):
-        escola = request.tenant or request.user.escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
         target_id = perm_id or request.data.get('id') or request.query_params.get('id')
         perm = get_object_or_404(PermissaoEdicaoNotas, id=target_id, escola=escola)
         perm.ativa = False

@@ -166,26 +166,15 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
   }
 
   const st = (escolaStatus || '').toUpperCase();
-  // Bloqueio rigoroso: escolas suspensas, inactivas ou expiradas NÃO PODEM ABRIR nem acessar o sistema
-  if (st && st !== 'ATIVA') {
-    let motivo = 'encontra-se com acesso INACTIVO';
-    if (st === 'SUSPENSA') {
-      motivo = 'encontra-se SUSPENSA por irregularidades administrativas ou falta de liquidação';
-    } else if (st === 'EXPIRADA') {
-      motivo = 'está com a anuidade / período de subscrição EXPIRADO';
-    } else if (st === 'INACTIVA') {
-      motivo = 'está DESACTIVADA pelo Administrador do SIGE';
-    }
-    alert(`Acesso bloqueado: A instituição de ensino [${escolaNome || 'Escola'}] ${motivo}.\nO acesso ao painel escolar está totalmente vedado até à regularização do estado da conta.`);
-    return;
-  }
+  // SÓ E SÓ O SUPER ADMIN DEVE TER ACESSO SEMPRE INDEPENDENTEMENTE DE A ESCOLA ESTAR OU NÃO ACTIVA.
+  // O SuperAdmin possui privilégios totais de auditoria e inspeciona qualquer instituição sem bloqueio.
 
   try {
     localStorage.setItem('sige_selected_tenant', escolaId);
     state.filtroAlunoClasse = 'TODAS';
     state.filtroAlunoTurma = 'TODAS';
     const nomeLimpo = (escolaNome || '').replace(/\\'/g, "'");
-    state.tenant = { id: escolaId, nome: nomeLimpo || 'Escola Seleccionada', status: 'ATIVA' };
+    state.tenant = { id: escolaId, nome: nomeLimpo || 'Escola Seleccionada', status: st || 'ATIVA' };
 
     // Sincronizar selector no topo
     const select = document.getElementById('superAdminTenantSelect');
@@ -207,7 +196,7 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       const elNome = document.getElementById('superAdminInspecaoNome');
       if (elNome) elNome.textContent = `A Inspecionar: ${state.tenant.nome}`;
       const elStatus = document.getElementById('superAdminInspecaoStatus');
-      if (elStatus) elStatus.textContent = 'ATIVA';
+      if (elStatus) elStatus.textContent = st || 'ATIVA';
     }
 
     // Re-renderizar sidebar para navegação escolar em modo inspeção

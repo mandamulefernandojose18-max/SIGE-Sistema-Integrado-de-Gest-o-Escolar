@@ -176,16 +176,41 @@ class LoginSerializer(serializers.Serializer):
         if not user.ativo or not user.is_active:
             raise serializers.ValidationError('Acesso bloqueado: A sua conta de utilizador encontra-se INACTIVA ou DESACTIVADA pelo Administrador da instituição.')
 
-        # Validação estrita do estado da escola (SUSPENSA, INACTIVA, EXPIRADA)
-        if getattr(user, 'role', '') != 'SUPERADMIN' and getattr(user, 'escola', None):
-            escola = user.escola
-            status_escola = str(getattr(escola, 'status', '') or '').strip().upper()
-            if status_escola in ['SUSPENSA', 'INACTIVA', 'INATIVA', 'EXPIRADA']:
-                motivo = 'SUSPENSA' if 'SUSP' in status_escola else ('EXPIRADA' if 'EXP' in status_escola else 'INACTIVA')
-                raise serializers.ValidationError(
-                    f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se {motivo}. '
-                    f'O acesso ao sistema está temporariamente vedado. Regularize a situação junto do Administrador do SIGE.'
-                )
+        # Validação estrita do estado da escola:
+        # SÓ E SÓ O SUPER ADMIN DEVE TER ACESSO SEMPRE INDEPENDENTEMENTE DE A ESCOLA ESTAR OU NÃO ACTIVA.
+        # Todos os outros perfis são rigorosamente bloqueados se a instituição não estiver ATIVA ou estiver bloqueada.
+        if getattr(user, 'role', '') != 'SUPERADMIN':
+            escola = getattr(user, 'escola', None)
+            if escola:
+                status_escola = str(getattr(escola, 'status', '') or '').strip().upper()
+                bloqueada = bool(getattr(escola, 'bloqueada_manualmente', False))
+                if status_escola != 'ATIVA' or bloqueada:
+                    if bloqueada:
+                        motivo = 'BLOQUEADA MANUALMENTE'
+                    elif 'SUSP' in status_escola:
+                        motivo = 'SUSPENSA'
+                    elif 'EXP' in status_escola:
+                        motivo = 'EXPIRADA'
+                    elif 'PEND' in status_escola:
+                        motivo = 'PENDENTE'
+                    else:
+                        motivo = 'INACTIVA'
+
+                    try:
+                        LogAcesso.objects.create(
+                            escola=escola,
+                            usuario=user,
+                            tipo='ACESSO_BLOQUEADO_EXPIRADO'
+                        )
+                    except Exception:
+                        pass
+
+                    raise serializers.ValidationError(
+                        f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se {motivo}. '
+                        f'O acesso ao sistema está temporariamente vedado. Apenas o Super Admin tem permissão de acesso a instituições inactivas.'
+                    )
+            else:
+                raise serializers.ValidationError('Acesso bloqueado: O seu utilizador não está vinculado a nenhuma instituição de ensino.')
 
         refresh = RefreshToken.for_user(user)
         # Custom claims para conformidade com JWT do SIGE

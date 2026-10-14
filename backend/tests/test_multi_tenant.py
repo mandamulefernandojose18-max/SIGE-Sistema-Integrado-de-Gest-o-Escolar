@@ -146,3 +146,148 @@ class TestMultiTenancy:
         res_super_none = self.client.get('/api/v1/material-escolar/')
         assert len(res_super_none.data['data']) == 0
 
+    def test_isolamento_absoluto_cadastros_notas_documentos_entre_escolas(self):
+        from apps.professores.models import Professor
+        from apps.disciplinas.models import Disciplina
+        from apps.notas.models import Nota
+        from apps.pagamentos.models import Pagamento
+
+        prof_a = Professor.objects.create(escola=self.escola_a, nome='Professor Alfa', email='prof.alfa@sige.mz')
+        prof_b = Professor.objects.create(escola=self.escola_b, nome='Professor Beta', email='prof.beta@sige.mz')
+
+        disc_a = Disciplina.objects.create(escola=self.escola_a, nome='Matemática Alfa', codigo='MAT_A')
+        disc_b = Disciplina.objects.create(escola=self.escola_b, nome='Matemática Beta', codigo='MAT_B')
+
+        nota_a = Nota.objects.create(
+            escola=self.escola_a, aluno=self.aluno_a, turma=self.turma_a,
+            disciplina=disc_a, periodo='1_TRIMESTRE', media_final=15.0, resultado='Aprovado'
+        )
+        nota_b = Nota.objects.create(
+            escola=self.escola_b, aluno=self.aluno_b, turma=self.turma_b,
+            disciplina=disc_b, periodo='1_TRIMESTRE', media_final=12.0, resultado='Aprovado'
+        )
+
+        pag_a = Pagamento.objects.create(
+            escola=self.escola_a, aluno=self.aluno_a, descricao='Propina Março',
+            mes_referencia='2026-03', valor=1500, valor_pago=1500,
+            status='PAGO', data_vencimento=timezone.now()
+        )
+        pag_b = Pagamento.objects.create(
+            escola=self.escola_b, aluno=self.aluno_b, descricao='Propina Março',
+            mes_referencia='2026-03', valor=2500, valor_pago=2500,
+            status='PAGO', data_vencimento=timezone.now()
+        )
+
+        # Autenticar como Admin da Escola A
+        login_a = self.client.post('/api/v1/auth/login/', {'email': 'admin.a@sige.mz', 'password': 'PassA123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_a.data['token']}")
+
+        # 1. Professores: vê apenas prof_a
+        res_profs = self.client.get('/api/v1/professores/')
+        assert res_profs.status_code == 200
+        nomes_profs = [p['nome'] for p in res_profs.data['data']]
+        assert 'Professor Alfa' in nomes_profs
+        assert 'Professor Beta' not in nomes_profs
+
+        # 2. Turmas: vê apenas turma_a
+        res_turmas = self.client.get('/api/v1/turmas/')
+        assert res_turmas.status_code == 200
+        nomes_turmas = [t['nome'] for t in res_turmas.data['data']]
+        assert '10ª A Alfa' in nomes_turmas
+        assert '10ª B Beta' not in nomes_turmas
+
+        # 3. Disciplinas: vê apenas disc_a
+        res_discs = self.client.get('/api/v1/disciplinas/')
+        assert res_discs.status_code == 200
+        nomes_discs = [d['nome'] for d in res_discs.data['data']]
+        assert 'Matemática Alfa' in nomes_discs
+        assert 'Matemática Beta' not in nomes_discs
+
+        # 4. Notas: vê apenas notas da Escola A
+        res_notas = self.client.get('/api/v1/notas/')
+        assert res_notas.status_code == 200
+        raw_notas = res_notas.data.get('results', res_notas.data.get('data', res_notas.data)) if isinstance(res_notas.data, dict) else res_notas.data
+        notas_ids = [str(n['id']) for n in raw_notas]
+        assert str(nota_a.id) in notas_ids
+        assert str(nota_b.id) not in notas_ids
+
+        # 5. Pagamentos: vê apenas pagamentos da Escola A
+        res_pags = self.client.get('/api/v1/pagamentos/')
+        assert res_pags.status_code == 200
+        pags_ids = [str(p['id']) for p in res_pags.data['data']]
+        assert str(pag_a.id) in pags_ids
+        assert str(pag_b.id) not in pags_ids
+
+        # 6. Tentativa de acessar Pauta da Escola B sendo utilizador da Escola A -> 403 Forbidden
+        res_pauta_cross = self.client.get(f'/api/v1/pautas/turma/{self.turma_b.id}/completa/')
+        assert res_pauta_cross.status_code == 403
+
+        # 7. Tentativa de obter Recibo de Pagamento da Escola B sendo utilizador da Escola A -> 403 Forbidden
+        res_recibo_cross = self.client.get(f'/api/v1/impressao/recibo/{pag_b.id}/')
+        assert res_recibo_cross.status_code == 403
+
+    def test_superadmin_acesso_irrestrito_escola_inactiva_suspensa_expirada(self):
+        # 1. SuperAdmin com escola EXPIRADA vinculada faz login normalmente
+        u_super = Usuario.objects.create_superuser(
+            email='super.irrestrito@sige.mz',
+            password='SuperPass123!',
+            escola=self.escola_expirada
+        )
+        login_super = self.client.post('/api/v1/auth/login/', {'email': 'super.irrestrito@sige.mz', 'password': 'SuperPass123!'}, format='json')
+        assert login_super.status_code == 200
+        assert login_super.data['user']['role'] == 'SUPERADMIN'
+        token = login_super.data['token']
+
+        # 2. SuperAdmin acede à API inspecionando escola expirada -> 200 OK
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}", HTTP_X_TENANT_ID=str(self.escola_expirada.id))
+        res = self.client.get('/api/v1/alunos/')
+        assert res.status_code == 200
+
+        # 3. Escola Suspensa: SuperAdmin acede livremente
+        escola_susp = Escola.objects.create(nome='Escola Suspensa Super', nif_cnpj='NIF_SUSP_S', email='susp_s@sige.mz', status='SUSPENSA', plano=self.plano)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}", HTTP_X_TENANT_ID=str(escola_susp.id))
+        res_susp = self.client.get('/api/v1/alunos/')
+        assert res_susp.status_code == 200
+
+        # 4. Escola Bloqueada Manualmente: SuperAdmin acede livremente
+        escola_bloq = Escola.objects.create(nome='Escola Bloqueada Super', nif_cnpj='NIF_BLOQ_S', email='bloq_s@sige.mz', status='ATIVA', bloqueada_manualmente=True, plano=self.plano)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}", HTTP_X_TENANT_ID=str(escola_bloq.id))
+        res_bloq = self.client.get('/api/v1/alunos/')
+        assert res_bloq.status_code == 200
+
+    def test_utilizador_comum_bloqueado_quando_escola_suspensa_ou_bloqueada_manualmente(self):
+        # 1. Escola Suspensa: Utilizador comum tem login bloqueado
+        escola_susp = Escola.objects.create(nome='Escola Suspensa Teste', nif_cnpj='NIF_SUSP_2', email='susp2@sige.mz', status='SUSPENSA', plano=self.plano)
+        user_susp = Usuario.objects.create_user(email='admin.susp@sige.mz', password='PassSusp123!', role='ADMIN_ESCOLA', escola=escola_susp)
+        login_susp = self.client.post('/api/v1/auth/login/', {'email': 'admin.susp@sige.mz', 'password': 'PassSusp123!'}, format='json')
+        assert login_susp.status_code == 401
+        assert "Acesso bloqueado" in str(login_susp.data)
+        assert "SUSPENSA" in str(login_susp.data)
+
+        # 2. Escola Bloqueada Manualmente: Utilizador comum tem login bloqueado
+        escola_bloq = Escola.objects.create(nome='Escola Bloqueada Teste', nif_cnpj='NIF_BLOQ_2', email='bloq2@sige.mz', status='ATIVA', bloqueada_manualmente=True, plano=self.plano)
+        user_bloq = Usuario.objects.create_user(email='admin.bloq@sige.mz', password='PassBloq123!', role='ADMIN_ESCOLA', escola=escola_bloq)
+        login_bloq = self.client.post('/api/v1/auth/login/', {'email': 'admin.bloq@sige.mz', 'password': 'PassBloq123!'}, format='json')
+        assert login_bloq.status_code == 401
+        assert "Acesso bloqueado" in str(login_bloq.data)
+        assert "BLOQUEADA MANUALMENTE" in str(login_bloq.data)
+
+        # 3. Escola PENDENTE: Utilizador comum tem login bloqueado
+        escola_pend = Escola.objects.create(nome='Escola Pendente Teste', nif_cnpj='NIF_PEND', email='pend@sige.mz', status='PENDENTE', plano=self.plano)
+        user_pend = Usuario.objects.create_user(email='admin.pend@sige.mz', password='PassPend123!', role='ADMIN_ESCOLA', escola=escola_pend)
+        login_pend = self.client.post('/api/v1/auth/login/', {'email': 'admin.pend@sige.mz', 'password': 'PassPend123!'}, format='json')
+        assert login_pend.status_code == 401
+        assert "Acesso bloqueado" in str(login_pend.data)
+        assert "PENDENTE" in str(login_pend.data)
+
+        # 4. Requisição à API com token de utilizador de escola suspensa -> 403 Forbidden
+        from rest_framework_simplejwt.tokens import RefreshToken
+        token_susp = str(RefreshToken.for_user(user_susp).access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token_susp}")
+        res_api = self.client.get('/api/v1/alunos/')
+        assert res_api.status_code == 403
+        content_str = res_api.content.decode('utf-8') if hasattr(res_api, 'content') else str(res_api.data)
+        assert "Acesso bloqueado" in content_str
+
+
+
