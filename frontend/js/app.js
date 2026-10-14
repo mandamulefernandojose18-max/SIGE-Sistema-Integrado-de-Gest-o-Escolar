@@ -464,10 +464,12 @@ async function apiFetch(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${state.token}`;
   }
 
-  // Se o SuperAdmin selecionou outra escola para inspecionar
-  const superAdminEscolaId = localStorage.getItem('sige_selected_tenant');
-  if (superAdminEscolaId && state.user?.role === 'SUPERADMIN') {
-    headers['X-Tenant-ID'] = superAdminEscolaId;
+  // Garantir isolamento rigoroso de tenant em todas as chamadas à API
+  const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id;
+  if (activeTenantId && !headers['X-Tenant-ID']) {
+    headers['X-Tenant-ID'] = activeTenantId;
   }
 
   try {
@@ -539,9 +541,11 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     const montarHeaders = () => {
       const h = {};
       if (state.token) h['Authorization'] = `Bearer ${state.token}`;
-      const superAdminEscolaId = localStorage.getItem('sige_selected_tenant');
-      if (superAdminEscolaId && state.user?.role === 'SUPERADMIN') {
-        h['X-Tenant-ID'] = superAdminEscolaId;
+      const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+        || state.tenant?.id
+        || state.user?.escola_id;
+      if (activeTenantId) {
+        h['X-Tenant-ID'] = activeTenantId;
       }
       return h;
     };
@@ -897,6 +901,7 @@ function fazerLogout(e) {
   state.refreshToken = null;
   state.user = null;
   state.tenant = null;
+  state.materialEscolar = { classeAtiva: 'TODAS', materiais: [], classes: [] };
   mostrarTelaLogin();
   window.location.reload();
 }
@@ -1247,6 +1252,7 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
 
   try {
     localStorage.setItem('sige_selected_tenant', escolaId);
+    state.materialEscolar = { classeAtiva: 'TODAS', materiais: [], classes: [] };
     state.filtroAlunoClasse = 'TODAS';
     state.filtroAlunoTurma = 'TODAS';
     const nomeLimpo = (escolaNome || '').replace(/\\'/g, "'");
@@ -1312,6 +1318,7 @@ function sairModoInspecaoSuperAdmin() {
     document.body.classList.remove('role-superadmin');
   }
   localStorage.removeItem('sige_selected_tenant');
+  state.materialEscolar = { classeAtiva: 'TODAS', materiais: [], classes: [] };
   state.tenant = null;
 
   const select = document.getElementById('superAdminTenantSelect');
@@ -12413,9 +12420,18 @@ async function carregarPainelMaterialEscolar(classeFiltro) {
     btnCarregar.style.display = isAluno ? 'none' : '';
   }
 
+  // Escola ativa do usuário / inspeção
+  const escolaAtivaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id;
+
+  // Limpar materiais em memória antes de carregar para evitar resquícios entre escolas
+  state.materialEscolar.materiais = [];
+
   try {
-    // 1. Obter contagens por classe (backend já filtra apenas a classe do aluno se role === 'ALUNO')
-    const resClasses = await apiFetch('/api/v1/material-escolar/classes');
+    // 1. Obter contagens por classe estritamente da escola ativa
+    const paramEscola = escolaAtivaId ? `?escola_id=${encodeURIComponent(escolaAtivaId)}` : '';
+    const resClasses = await apiFetch(`/api/v1/material-escolar/classes${paramEscola}`);
     if (resClasses.success) {
       state.materialEscolar.classes = resClasses.data || [];
       if (isAluno && state.materialEscolar.classes.length > 0) {
@@ -12428,8 +12444,15 @@ async function carregarPainelMaterialEscolar(classeFiltro) {
       badgeAtiva.textContent = state.materialEscolar.classeAtiva === 'TODAS' ? 'Todas as Classes' : state.materialEscolar.classeAtiva;
     }
 
-    // 2. Obter materiais da classe seleccionada
-    const query = state.materialEscolar.classeAtiva !== 'TODAS' ? `?classe=${encodeURIComponent(state.materialEscolar.classeAtiva)}` : '';
+    // 2. Obter materiais da classe seleccionada estritamente da escola ativa
+    const queryParts = [];
+    if (state.materialEscolar.classeAtiva !== 'TODAS') {
+      queryParts.push(`classe=${encodeURIComponent(state.materialEscolar.classeAtiva)}`);
+    }
+    if (escolaAtivaId) {
+      queryParts.push(`escola_id=${encodeURIComponent(escolaAtivaId)}`);
+    }
+    const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
     const resMat = await apiFetch(`/api/v1/material-escolar${query}`);
     if (resMat.success) {
       state.materialEscolar.materiais = resMat.data || [];
@@ -12493,8 +12516,16 @@ function filtrarMateriaisEscolares() {
 
   const termo = (document.getElementById('filtroMaterialBusca')?.value || '').toLowerCase().trim();
   const tipoFiltro = document.getElementById('filtroMaterialTipo')?.value || '';
+  const escolaAtivaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id;
 
   const filtrados = (state.materialEscolar.materiais || []).filter(m => {
+    // Isolamento estrito no cliente: nunca exibir publicações de outra escola
+    if (escolaAtivaId && m.escola_id && String(m.escola_id) !== String(escolaAtivaId)) {
+      return false;
+    }
+
     const matchTermo = !termo ||
       m.titulo.toLowerCase().includes(termo) ||
       (m.descricao && m.descricao.toLowerCase().includes(termo)) ||
@@ -12610,11 +12641,15 @@ function descarregarMaterialEscolarArquivo(id, nome) {
 
 async function modalCarregarMaterialEscolar() {
   const classePrevia = state.materialEscolar.classeAtiva !== 'TODAS' ? state.materialEscolar.classeAtiva : '10ª Classe';
+  const escolaAtivaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id;
   
-  // Buscar disciplinas da escola
+  // Buscar disciplinas da escola ativa
   let optDisciplinas = '<option value="">(Geral / Todas as Disciplinas)</option>';
   try {
-    const resD = await apiFetch('/api/v1/disciplinas');
+    const urlDisc = '/api/v1/disciplinas' + (escolaAtivaId ? `?escola_id=${encodeURIComponent(escolaAtivaId)}` : '');
+    const resD = await apiFetch(urlDisc);
     if (resD.success && Array.isArray(resD.data)) {
       optDisciplinas += resD.data.map(d => `<option value="${d.id}">${d.nome} (${d.classe || ''})</option>`).join('');
     }
@@ -12721,7 +12756,8 @@ async function modalCarregarMaterialEscolar() {
         disciplina_id,
         titulo,
         tipo,
-        descricao
+        descricao,
+        escola_id: escolaAtivaId
       };
 
       if (file) {

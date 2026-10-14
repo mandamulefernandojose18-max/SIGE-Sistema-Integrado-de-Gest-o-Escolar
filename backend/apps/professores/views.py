@@ -19,48 +19,18 @@ class ProfessorViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
-        is_super = getattr(self.request.user, 'role', '') == 'SUPERADMIN'
-
-        # Para acções individuais (retrieve, update, partial_update, destroy),
-        # permitir aceder ao professor em qualquer escola se for SuperAdmin
-        if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
-            if is_super:
-                return Professor.objects.all().prefetch_related('alocacoes__disciplina', 'alocacoes__turma')
-            elif escola:
-                return Professor.objects.filter(escola=escola).prefetch_related('alocacoes__disciplina', 'alocacoes__turma')
-            return Professor.objects.all().prefetch_related('alocacoes__disciplina', 'alocacoes__turma')
-
-        # Para listagem geral:
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
         if escola:
             return Professor.objects.filter(escola=escola).prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
-        elif is_super:
-            escola_id = self.request.query_params.get('escola_id') or self.request.headers.get('X-Tenant-ID')
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola_obj = Escola.objects.filter(id=escola_id).first()
-                if escola_obj:
-                    return Professor.objects.filter(escola=escola_obj).prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
-            return Professor.objects.all().prefetch_related('alocacoes__disciplina', 'alocacoes__turma').order_by('nome')
         return Professor.objects.none()
 
     def perform_create(self, serializer):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = (
-                self.request.data.get('escola_id') or
-                self.request.data.get('escola') or
-                self.request.headers.get('X-Tenant-ID')
-            )
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
+        escola = get_tenant_escola(self.request)
 
         if not escola:
-            from rest_framework import serializers as drf_serializers
             raise drf_serializers.ValidationError({
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de cadastrar o professor.'
             })

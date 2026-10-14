@@ -12,17 +12,24 @@ class CertificadoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
-        is_super = getattr(self.request.user, 'role', '') == 'SUPERADMIN'
-        if escola and not is_super:
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
+        if escola:
             qs = Certificado.objects.filter(escola=escola)
         else:
-            qs = Certificado.objects.all()
+            qs = Certificado.objects.none()
         return qs.select_related('aluno', 'escola').order_by('-emitido_em')
 
     def perform_create(self, serializer):
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
         aluno = serializer.validated_data.get('aluno')
-        escola = (getattr(aluno, 'escola', None) if aluno else None) or getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        escola = get_tenant_escola(self.request) or (getattr(aluno, 'escola', None) if aluno else None)
+        if not escola:
+            raise drf_serializers.ValidationError({'escola': 'Nenhuma instituição identificada para emissão do certificado.'})
+        if aluno and aluno.escola_id != escola.id:
+            raise drf_serializers.ValidationError({'aluno': 'O aluno selecionado pertence a uma escola diferente da ativa.'})
+
         codigo = f"CERT-{uuid.uuid4().hex[:10].upper()}"
         domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
         origin = self.request.META.get('HTTP_ORIGIN')

@@ -75,3 +75,74 @@ class TestMultiTenancy:
         assert res.status_code == 200
         assert res.data['autentico'] is True
         assert res.data['data']['codigo'] == 'AUTENTICIDADE_123'
+
+    def test_publicacoes_feitas_numa_escola_nao_reflectem_noutras_escolas(self):
+        from apps.material_escolar.models import MaterialEscolar
+
+        # Criar publicação na Escola A
+        mat_a = MaterialEscolar.objects.create(
+            escola=self.escola_a,
+            classe='10ª Classe',
+            titulo='Manual de Matemática - Escola Alfa',
+            tipo='MANUAL',
+            publicado_por='Admin Alfa'
+        )
+
+        # Criar publicação na Escola B
+        mat_b = MaterialEscolar.objects.create(
+            escola=self.escola_b,
+            classe='10ª Classe',
+            titulo='Ficha de Física - Escola Beta',
+            tipo='FICHA',
+            publicado_por='Admin Beta'
+        )
+
+        # 1. Utilizador da Escola A consulta materiais: vê apenas os da Escola A
+        login_res_a = self.client.post('/api/v1/auth/login/', {'email': 'admin.a@sige.mz', 'password': 'PassA123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_res_a.data['token']}")
+
+        res_a = self.client.get('/api/v1/material-escolar/')
+        assert res_a.status_code == 200
+        titulos_a = [m['titulo'] for m in res_a.data['data']]
+        assert 'Manual de Matemática - Escola Alfa' in titulos_a
+        assert 'Ficha de Física - Escola Beta' not in titulos_a
+
+        # Contagem de classes na Escola A: apenas 1 material na 10ª Classe
+        res_classes_a = self.client.get('/api/v1/material-escolar/classes/')
+        assert res_classes_a.status_code == 200
+        c10_a = next(item for item in res_classes_a.data['data'] if item['classe'] == '10ª Classe')
+        assert c10_a['totalMateriais'] == 1
+
+        # 2. Utilizador da Escola B consulta materiais: vê apenas os da Escola B
+        login_res_b = self.client.post('/api/v1/auth/login/', {'email': 'admin.b@sige.mz', 'password': 'PassB123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_res_b.data['token']}")
+
+        res_b = self.client.get('/api/v1/material-escolar/')
+        assert res_b.status_code == 200
+        titulos_b = [m['titulo'] for m in res_b.data['data']]
+        assert 'Ficha de Física - Escola Beta' in titulos_b
+        assert 'Manual de Matemática - Escola Alfa' not in titulos_b
+
+        # 3. SuperAdmin inspecionando Escola A vê apenas Escola A
+        u_super = Usuario.objects.create_superuser(email='super@sige.mz', password='PassSuper123!')
+        login_res_super = self.client.post('/api/v1/auth/login/', {'email': 'super@sige.mz', 'password': 'PassSuper123!'}, format='json')
+        
+        # Com header X-Tenant-ID da Escola A
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_res_super.data['token']}", HTTP_X_TENANT_ID=str(self.escola_a.id))
+        res_super_a = self.client.get('/api/v1/material-escolar/')
+        titulos_super_a = [m['titulo'] for m in res_super_a.data['data']]
+        assert 'Manual de Matemática - Escola Alfa' in titulos_super_a
+        assert 'Ficha de Física - Escola Beta' not in titulos_super_a
+
+        # Com header X-Tenant-ID da Escola B
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_res_super.data['token']}", HTTP_X_TENANT_ID=str(self.escola_b.id))
+        res_super_b = self.client.get('/api/v1/material-escolar/')
+        titulos_super_b = [m['titulo'] for m in res_super_b.data['data']]
+        assert 'Ficha de Física - Escola Beta' in titulos_super_b
+        assert 'Manual de Matemática - Escola Alfa' not in titulos_super_b
+
+        # SuperAdmin sem tenant selecionado não recebe vazamento de nenhuma escola
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_res_super.data['token']}")
+        res_super_none = self.client.get('/api/v1/material-escolar/')
+        assert len(res_super_none.data['data']) == 0
+

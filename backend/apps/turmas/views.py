@@ -12,10 +12,9 @@ class TurmaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            qs = Turma.objects.all()
-        elif escola:
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
+        if escola:
             qs = Turma.objects.filter(escola=escola)
         else:
             qs = Turma.objects.none()
@@ -27,19 +26,11 @@ class TurmaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         from django.utils import timezone
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = (
-                self.request.data.get('escola_id') or
-                self.request.data.get('escola') or
-                self.request.headers.get('X-Tenant-ID')
-            )
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
+        escola = get_tenant_escola(self.request)
 
         if not escola:
-            from rest_framework import serializers as drf_serializers
             raise drf_serializers.ValidationError({
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de criar a turma.'
             })

@@ -16,10 +16,9 @@ class AlunoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            qs = Aluno.objects.all()
-        elif escola:
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
+        if escola:
             qs = Aluno.objects.filter(escola=escola)
         else:
             qs = Aluno.objects.none()
@@ -59,27 +58,21 @@ class AlunoViewSet(viewsets.ModelViewSet):
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = (
-                self.request.data.get('escola_id') or
-                self.request.data.get('escola') or
-                self.request.query_params.get('escola_id') or
-                self.request.headers.get('X-Tenant-ID')
-            )
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
-            if not escola and serializer.validated_data.get('turma'):
-                escola = serializer.validated_data['turma'].escola
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
+        escola = get_tenant_escola(self.request)
+        if not escola and serializer.validated_data.get('turma'):
+            escola = serializer.validated_data['turma'].escola
 
         if not escola:
-            from rest_framework import serializers as drf_serializers
             raise drf_serializers.ValidationError({
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de matricular o aluno.'
+            })
+
+        turma = serializer.validated_data.get('turma')
+        if turma and turma.escola_id != escola.id:
+            raise drf_serializers.ValidationError({
+                'turma': 'A turma selecionada pertence a uma instituição de ensino diferente da escola ativa.'
             })
 
         ano_ingresso = (

@@ -11,17 +11,11 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = self.request.query_params.get('escola_id') or self.request.headers.get('X-Tenant-ID')
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
 
         if escola:
             qs = Disciplina.objects.filter(escola=escola)
-        elif getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            qs = Disciplina.objects.all()
         else:
             qs = Disciplina.objects.none()
 
@@ -52,7 +46,13 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
         return qs.order_by('nome')
 
     def perform_create(self, serializer):
-        escola = self.request.tenant or self.request.user.escola
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            raise drf_serializers.ValidationError({
+                'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de cadastrar a disciplina.'
+            })
         serializer.save(escola=escola)
 
     def list(self, request, *args, **kwargs):
