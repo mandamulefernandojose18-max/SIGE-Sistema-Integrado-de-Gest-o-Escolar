@@ -1197,7 +1197,7 @@ async function iniciarApp() {
   if (state.tenant) {
     atualizarBadgeTenant(state.tenant);
     if (typeof atualizarBotaoToggleNotasDap === 'function') {
-      atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
+      atualizarBotaoToggleNotasDap(state.tenant.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas !== false);
     }
   }
 
@@ -1665,7 +1665,7 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
     // Actualizar badges da escola activa na barra lateral
     atualizarBadgeTenant(state.tenant);
     if (typeof atualizarBotaoToggleNotasDap === 'function') {
-      atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
+      atualizarBotaoToggleNotasDap(state.tenant.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas !== false);
     }
 
     // Activar o banner de inspeção no topo (SÓ E SÓ PARA O SUPERADMIN)
@@ -3174,6 +3174,7 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       tipo_escola: document.getElementById('confEscolaTipo')?.value || 'S',
       ano_letivo_ativo: document.getElementById('confEscolaAnoLetivo').value,
       trimestre_ativo: document.getElementById('confEscolaTrimestreAtivo').value,
+      publicacao_notas_trimestre: document.getElementById('confEscolaPublicacaoNotas')?.value || 'TODOS',
       telefone: document.getElementById('confEscolaTelefone').value,
       email: document.getElementById('confEscolaEmail').value,
       director_nome: document.getElementById('confEscolaDirector').value,
@@ -3189,8 +3190,13 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       body: JSON.stringify(body)
     });
     if (res.success) {
+      if (state.tenant) {
+        state.tenant.publicacao_notas_trimestre = body.publicacao_notas_trimestre;
+        state.tenant.permitir_visualizacao_notas = body.publicacao_notas_trimestre !== 'NENHUM';
+        atualizarBotaoToggleNotasDap(body.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas);
+      }
       await carregarEscolaETurmas();
-      alert('Configurações da escola e códigos institucionais (GD, DP, SECR) actualizados com sucesso!');
+      alert('Configurações da escola e publicação de notas actualizadas com sucesso!');
     }
   } catch (err) {
     alert('Erro ao actualizar dados da escola');
@@ -11508,70 +11514,211 @@ async function carregarAlunoPerfil() {
   } catch (err) {}
 }
 
-async function carregarAlunoNotas() {
-  try {
-    const res = await apiFetch('/api/v1/alunos/me/notas');
-    if (res && res.success && res.data) {
-      const d = res.data;
+let stateAlunoNotas = {
+  periodoAtivo: 'TODOS',
+  dados: null
+};
 
-      const banner = document.getElementById('bannerNotasBloqueadas');
-      const tabelaContainer = document.getElementById('tabelaAlunoNotasCorpo')?.closest('.table-responsive');
-      const elMediaGeral = document.getElementById('alunoMediaGeral');
+async function alternarTrimestreAluno(periodo) {
+  stateAlunoNotas.periodoAtivo = periodo || 'TODOS';
+  
+  const botoes = {
+    'TODOS': 'btnAlunoTrimestreTodos',
+    '1_TRIMESTRE': 'btnAlunoTrimestre1',
+    '2_TRIMESTRE': 'btnAlunoTrimestre2',
+    '3_TRIMESTRE': 'btnAlunoTrimestre3'
+  };
 
-      if (d.permitirVisualizacaoNotas === false) {
-        if (banner) banner.style.display = 'block';
-        if (tabelaContainer) tabelaContainer.style.display = 'none';
-        if (elMediaGeral) elMediaGeral.textContent = '--';
-        return;
+  Object.entries(botoes).forEach(([p, id]) => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (p === stateAlunoNotas.periodoAtivo) {
+        el.classList.add('active', 'btn-primary');
+        el.classList.remove('btn-outline-primary');
       } else {
-        if (banner) banner.style.display = 'none';
-        if (tabelaContainer) tabelaContainer.style.display = 'block';
+        el.classList.remove('active', 'btn-primary');
+        el.classList.add('btn-outline-primary');
       }
+    }
+  });
 
-      if (elMediaGeral) {
-        elMediaGeral.textContent = d.mediaGeral ? `${Math.round(d.mediaGeral)} valores` : '--';
+  await carregarAlunoNotas(stateAlunoNotas.periodoAtivo);
+}
+
+async function carregarAlunoNotas(periodoParam) {
+  const periodo = periodoParam || stateAlunoNotas.periodoAtivo || 'TODOS';
+  stateAlunoNotas.periodoAtivo = periodo;
+
+  try {
+    const res = await apiFetch(`/api/v1/alunos/me/notas?periodo=${encodeURIComponent(periodo)}`);
+    if (!res || !res.success || !res.data) return;
+
+    const d = res.data;
+    stateAlunoNotas.dados = d;
+
+    const bannerBloqueado = document.getElementById('bannerNotasBloqueadas');
+    const bannerNaoPub = document.getElementById('bannerTrimestreNaoPublicado');
+    const tabelaContainer = document.getElementById('tabelaAlunoNotasCorpo')?.closest('.table-responsive');
+    const elMediaGeral = document.getElementById('alunoMediaGeral');
+    const elPub = document.getElementById('lblPublicacaoEscola');
+
+    // 1. Bloqueio total pela escola
+    if (d.permitirVisualizacaoNotas === false || d.publicacaoNotasTrimestre === 'NENHUM') {
+      if (bannerBloqueado) bannerBloqueado.classList.remove('d-none');
+      if (bannerNaoPub) bannerNaoPub.classList.add('d-none');
+      if (tabelaContainer) tabelaContainer.style.display = 'none';
+      if (elMediaGeral) elMediaGeral.textContent = '--';
+      if (elPub) elPub.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-lock-fill me-1"></i>Ocultas / Suspensas</span>';
+      return;
+    } else {
+      if (bannerBloqueado) bannerBloqueado.classList.add('d-none');
+      if (tabelaContainer) tabelaContainer.style.display = 'block';
+    }
+
+    // 2. Rótulo de publicação oficial da escola
+    if (elPub) {
+      const pubMap = {
+        '1_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-1-circle-fill me-1"></i>I Trimestre Publicado</span>',
+        '2_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-2-circle-fill me-1"></i>II Trimestre Publicado</span>',
+        '3_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-3-circle-fill me-1"></i>III Trimestre Publicado</span>',
+        'TODOS': '<span class="text-success fw-bold"><i class="bi bi-check-all me-1"></i>Todos os Trimestres Publicados (I, II e III)</span>'
+      };
+      elPub.innerHTML = pubMap[d.publicacaoNotasTrimestre] || '<span class="text-success fw-bold">Todos os Trimestres</span>';
+    }
+
+    // 3. Verificação de publicação do trimestre selecionado
+    const trimestresPublicados = d.trimestresPublicados || ['1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE'];
+    const periodoEstaPublicado = (periodo === 'TODOS') || trimestresPublicados.includes(periodo);
+
+    if (!periodoEstaPublicado) {
+      if (bannerNaoPub) {
+        bannerNaoPub.classList.remove('d-none');
+        const nomesT = { '1_TRIMESTRE': '1º Trimestre', '2_TRIMESTRE': '2º Trimestre', '3_TRIMESTRE': '3º Trimestre' };
+        bannerNaoPub.innerHTML = `<i class="bi bi-info-circle-fill me-2 fs-5"></i><strong>Trimestre em Consolidação:</strong> As notas do <strong>${nomesT[periodo] || periodo}</strong> ainda não foram publicadas pela Direcção Pedagógica.`;
       }
-      
-      const badgeSit = document.getElementById('alunoSituacaoBadge');
-      if (badgeSit) {
-        if (d.situacao === 'APROVADO') {
-          badgeSit.textContent = 'Aprovado';
-          badgeSit.className = 'badge badge-aprovado p-2 ms-2';
-        } else if (d.situacao === 'REPROVADO') {
-          badgeSit.textContent = 'Reprovado';
-          badgeSit.className = 'badge badge-reprovado p-2 ms-2';
-        } else {
-          badgeSit.textContent = d.situacao || 'Em Curso';
-          badgeSit.className = 'badge bg-secondary p-2 ms-2';
-        }
+    } else {
+      if (bannerNaoPub) bannerNaoPub.classList.add('d-none');
+    }
+
+    // 4. Média Geral e Situação
+    if (elMediaGeral) {
+      elMediaGeral.textContent = d.mediaGeral !== null && d.mediaGeral !== undefined ? `${d.mediaGeral} valores` : '--';
+    }
+
+    const badgeSit = document.getElementById('alunoSituacaoBadge');
+    if (badgeSit) {
+      if (d.situacao === 'APROVADO' || d.situacao === 'Aprovado') {
+        badgeSit.textContent = 'Aprovado';
+        badgeSit.className = 'badge bg-success p-2 ms-2';
+      } else if (d.situacao === 'REPROVADO' || d.situacao === 'Reprovado') {
+        badgeSit.textContent = 'Reprovado';
+        badgeSit.className = 'badge bg-danger p-2 ms-2';
+      } else {
+        badgeSit.textContent = d.situacao || 'Em Curso';
+        badgeSit.className = 'badge bg-secondary p-2 ms-2';
       }
+    }
 
-      const tbody = document.getElementById('tabelaAlunoNotasCorpo');
-      if (!tbody) return;
-
-      if (!d.disciplinas || d.disciplinas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Nenhuma avaliação lançada até ao momento.</td></tr>';
-        return;
+    // 5. Cabeçalho da Tabela
+    const thead = document.getElementById('tabelaAlunoNotasCabecalho');
+    if (thead) {
+      if (periodo === 'TODOS') {
+        thead.innerHTML = `
+          <tr>
+            <th class="text-start">Disciplina</th>
+            <th>1º Trimestre (T1)</th>
+            <th>2º Trimestre (T2)</th>
+            <th>3º Trimestre (T3)</th>
+            <th>Média Final (MFD)</th>
+            <th>Faltas Totais</th>
+            <th>Situação Anual</th>
+          </tr>
+        `;
+      } else {
+        const nomesPer = { '1_TRIMESTRE': 'I Trimestre', '2_TRIMESTRE': 'II Trimestre', '3_TRIMESTRE': 'III Trimestre' };
+        thead.innerHTML = `
+          <tr>
+            <th class="text-start">Disciplina</th>
+            <th>Teste 1 (ACS 1)</th>
+            <th>Teste 2 (ACS 2)</th>
+            <th>Trabalho (ACT)</th>
+            <th>Aval. Trimestral (APT)</th>
+            <th>Média ${nomesPer[periodo]}</th>
+            <th>Faltas</th>
+            <th>Situação</th>
+          </tr>
+        `;
       }
+    }
 
+    // 6. Corpo da Tabela
+    const tbody = document.getElementById('tabelaAlunoNotasCorpo');
+    if (!tbody) return;
+
+    if (!d.disciplinas || d.disciplinas.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Nenhuma avaliação registada para este aluno.</td></tr>';
+      return;
+    }
+
+    if (periodo === 'TODOS') {
       tbody.innerHTML = d.disciplinas.map(item => {
-        const medNum = item.mediaFinal !== null ? Number(item.mediaFinal) : null;
-        const cls = medNum !== null ? (medNum >= 9.5 ? 'nota-positiva' : 'nota-negativa') : 'text-muted';
+        const mfdVal = item.mfd !== null && item.mfd !== undefined ? item.mfd : (item.mediaFinal !== null ? item.mediaFinal : null);
+        const mfdCls = mfdVal !== null ? (Number(mfdVal) >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold') : 'text-muted';
+
+        const fmtNotaCol = (val, pub) => {
+          if (!pub) return '<span class="badge bg-light text-muted border" title="Não publicado pela escola"><i class="bi bi-lock me-1"></i>Oculto</span>';
+          if (val === null || val === undefined || val === '-') return '<span class="text-muted">-</span>';
+          const n = Number(val);
+          return `<span class="${n >= 9.5 ? 'fw-bold text-dark' : 'fw-bold text-danger'}">${n}</span>`;
+        };
+
+        const sitBadge = mfdVal !== null 
+          ? (Number(mfdVal) >= 9.5 ? '<span class="badge bg-success">Positiva</span>' : '<span class="badge bg-danger">Negativa</span>')
+          : '<span class="badge bg-light text-dark border">Pendente</span>';
 
         return `
           <tr>
-            <td class="text-start"><strong>${escapeHtml(item.nome)}</strong></td>
-            <td>${item.t1 !== null ? item.t1 : '-'}</td>
-            <td>${item.t2 !== null ? item.t2 : '-'}</td>
-            <td>${item.t3 !== null ? item.t3 : '-'}</td>
-            <td class="fw-bold fs-6 ${cls}">${medNum !== null ? Math.round(medNum) : '-'}</td>
+            <td class="text-start fw-bold text-dark">${escapeHtml(item.nome)}</td>
+            <td>${fmtNotaCol(item.t1, item.publicadoT1 !== false)}</td>
+            <td>${fmtNotaCol(item.t2, item.publicadoT2 !== false)}</td>
+            <td>${fmtNotaCol(item.t3, item.publicadoT3 !== false)}</td>
+            <td class="fs-6 ${mfdCls}">${mfdVal !== null ? mfdVal : '-'}</td>
             <td>${item.faltas || 0}</td>
-            <td>
-              ${medNum !== null 
-                ? (medNum >= 9.5 ? '<span class="badge badge-aprovado">Positiva</span>' : '<span class="badge badge-reprovado">Negativa</span>')
-                : '<span class="badge bg-light text-dark border">Pendente</span>'
-              }
-            </td>
+            <td>${sitBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = d.disciplinas.map(item => {
+        const det = (item.detalhes && item.detalhes[periodo]) || {};
+        if (det.publicado === false) {
+          return `
+            <tr>
+              <td class="text-start fw-bold text-dark">${escapeHtml(item.nome)}</td>
+              <td colspan="6" class="text-muted py-2"><i class="bi bi-lock me-1"></i>Notas deste trimestre ainda não publicadas pela escola.</td>
+            </tr>
+          `;
+        }
+
+        const medNum = det.media_final !== null && det.media_final !== undefined ? Number(det.media_final) : null;
+        const cls = medNum !== null ? (medNum >= 9.5 ? 'text-success fw-bold fs-6' : 'text-danger fw-bold fs-6') : 'text-muted';
+
+        const fmtVal = v => (v !== null && v !== undefined && v !== '') ? (Number(v) >= 9.5 ? `<strong>${v}</strong>` : `<strong class="text-danger">${v}</strong>`) : '-';
+
+        const sitBadge = medNum !== null 
+          ? (medNum >= 9.5 ? '<span class="badge bg-success">Aprovado</span>' : '<span class="badge bg-danger">Reprovado</span>')
+          : '<span class="badge bg-light text-dark border">Pendente</span>';
+
+        return `
+          <tr>
+            <td class="text-start fw-bold text-dark">${escapeHtml(item.nome)}</td>
+            <td>${fmtVal(det.teste1)}</td>
+            <td>${fmtVal(det.teste2)}</td>
+            <td>${fmtVal(det.trabalho)}</td>
+            <td>${fmtVal(det.avaliacao_trimestral)}</td>
+            <td class="${cls}">${medNum !== null ? medNum : '-'}</td>
+            <td>${det.faltas || 0}</td>
+            <td>${sitBadge}</td>
           </tr>
         `;
       }).join('');
@@ -11766,31 +11913,120 @@ async function filtrarTurmasPautaPorClasse() {
 
 async function toggleVisibilidadeNotasDap() {
   try {
-    const res = await apiFetch('/api/v1/escola-admin/toggle-notas', { method: 'PUT' });
-    if (res.success) {
-      const ativa = res.data.permitir_visualizacao_notas;
-      atualizarBotaoToggleNotasDap(ativa);
-      alert(res.message);
-    }
+    const res = await apiFetch('/api/v1/escola-admin/toggle-notas');
+    const pubAtual = (res.success && res.data?.publicacao_notas_trimestre) || state.tenant?.publicacao_notas_trimestre || 'TODOS';
+    const ativa = (res.success && res.data?.permitir_visualizacao_notas !== false) || (state.tenant?.permitir_visualizacao_notas !== false);
+
+    const htmlModal = `
+      <div class="p-2">
+        <div class="alert alert-info py-2 small mb-3">
+          <i class="bi bi-info-circle-fill me-1"></i> Escolha quais notas devem ficar visíveis no portal para os alunos e encarregados de educação.
+        </div>
+        <div class="list-group mb-3 shadow-sm">
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="1_TRIMESTRE" ${pubAtual === '1_TRIMESTRE' && ativa ? 'checked' : ''}>
+            <div class="flex-grow-1">
+              <strong class="text-primary d-block"><i class="bi bi-1-circle-fill me-1"></i> 1. I Trimestre (Apenas 1º Trimestre)</strong>
+              <small class="text-muted">Apenas as avaliações, testes e média do I Trimestre ficam visíveis para os alunos.</small>
+            </div>
+          </label>
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="2_TRIMESTRE" ${pubAtual === '2_TRIMESTRE' && ativa ? 'checked' : ''}>
+            <div class="flex-grow-1">
+              <strong class="text-primary d-block"><i class="bi bi-2-circle-fill me-1"></i> 2. II Trimestre (2º Trimestre)</strong>
+              <small class="text-muted">As avaliações do II Trimestre (e histórico do I) ficam disponíveis para consulta.</small>
+            </div>
+          </label>
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="3_TRIMESTRE" ${pubAtual === '3_TRIMESTRE' && ativa ? 'checked' : ''}>
+            <div class="flex-grow-1">
+              <strong class="text-primary d-block"><i class="bi bi-3-circle-fill me-1"></i> 3. III Trimestre (3º Trimestre)</strong>
+              <small class="text-muted">As avaliações do III Trimestre ficam disponíveis para consulta dos alunos.</small>
+            </div>
+          </label>
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="TODOS" ${pubAtual === 'TODOS' && ativa ? 'checked' : ''}>
+            <div class="flex-grow-1">
+              <strong class="text-success d-block"><i class="bi bi-check-all me-1"></i> 4. Todos os Trimestres (I, II e III)</strong>
+              <small class="text-muted">Publicação completa de todas as notas do ano (I, II, III trimestres e Média Final).</small>
+            </div>
+          </label>
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="NENHUM" ${!ativa || pubAtual === 'NENHUM' ? 'checked' : ''}>
+            <div class="flex-grow-1">
+              <strong class="text-danger d-block"><i class="bi bi-eye-slash-fill me-1"></i> 5. Ocultar / Suspender Visualização</strong>
+              <small class="text-muted">Suspender temporariamente a exibição de notas no portal (ex: para conselhos de notas).</small>
+            </div>
+          </label>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm fw-bold px-3 shadow-sm" onclick="salvarPublicacaoNotasDapModal()">
+            <i class="bi bi-check-circle-fill me-1"></i> Aplicar e Publicar
+          </button>
+        </div>
+      </div>
+    `;
+
+    abrirModal('Publicação de Notas aos Alunos (DAP / Direcção)', htmlModal);
   } catch (err) {
-    alert(err.message || 'Erro ao alterar visibilidade de notas');
+    alert(err.message || 'Erro ao carregar opções de publicação de notas');
   }
 }
 
-function atualizarBotaoToggleNotasDap(permitir) {
+async function salvarPublicacaoNotasDapModal() {
+  const selecionado = document.querySelector('input[name="radioPubNotasDap"]:checked')?.value || 'TODOS';
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/toggle-notas', {
+      method: 'PUT',
+      body: JSON.stringify({ publicacao_notas_trimestre: selecionado })
+    });
+    if (res.success) {
+      const pub = res.data?.publicacao_notas_trimestre || selecionado;
+      const ativa = res.data?.permitir_visualizacao_notas !== false;
+      if (state.tenant) {
+        state.tenant.publicacao_notas_trimestre = pub;
+        state.tenant.permitir_visualizacao_notas = ativa;
+      }
+      atualizarBotaoToggleNotasDap(pub, ativa);
+      fecharModal();
+      alert(res.message || 'Publicação de notas actualizada com sucesso!');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao salvar publicação de notas');
+  }
+}
+
+function atualizarBotaoToggleNotasDap(publicacao, permitir) {
   const btn = document.getElementById('btnToggleNotasDap');
   const icon = document.getElementById('iconToggleNotasDap');
   const label = document.getElementById('labelToggleNotasDap');
   if (!btn || !label) return;
 
-  if (permitir) {
-    btn.className = 'btn btn-outline-success btn-sm ped-only';
-    if (icon) icon.className = 'bi bi-eye-fill me-1';
-    label.textContent = 'Notas Alunos: Visíveis';
-  } else {
+  // Compatibilidade com chamadas legado com boolean
+  let pub = typeof publicacao === 'string' ? publicacao : (state.tenant?.publicacao_notas_trimestre || 'TODOS');
+  let ativa = typeof permitir === 'boolean' ? permitir : (typeof publicacao === 'boolean' ? publicacao : (state.tenant?.permitir_visualizacao_notas !== false));
+
+  if (!ativa || pub === 'NENHUM') {
     btn.className = 'btn btn-outline-danger btn-sm ped-only';
     if (icon) icon.className = 'bi bi-eye-slash-fill me-1';
-    label.textContent = 'Notas Alunos: Ocultas';
+    label.textContent = 'Notas: Ocultas';
+  } else if (pub === '1_TRIMESTRE') {
+    btn.className = 'btn btn-outline-info btn-sm ped-only';
+    if (icon) icon.className = 'bi bi-1-circle-fill me-1';
+    label.textContent = 'Notas: I Trimestre';
+  } else if (pub === '2_TRIMESTRE') {
+    btn.className = 'btn btn-outline-primary btn-sm ped-only';
+    if (icon) icon.className = 'bi bi-2-circle-fill me-1';
+    label.textContent = 'Notas: II Trimestre';
+  } else if (pub === '3_TRIMESTRE') {
+    btn.className = 'btn btn-outline-warning btn-sm ped-only';
+    if (icon) icon.className = 'bi bi-3-circle-fill me-1';
+    label.textContent = 'Notas: III Trimestre';
+  } else {
+    btn.className = 'btn btn-outline-success btn-sm ped-only';
+    if (icon) icon.className = 'bi bi-check-all me-1';
+    label.textContent = 'Notas: Todos (I, II, III)';
   }
 }
 
@@ -13049,13 +13285,16 @@ async function exportarBoletimAlunoPdf() {
   const table = document.getElementById('tabelaAlunoNotasCorpo')?.closest('table');
   if (window.SigeExport && table) {
     const nomeAluno = state.user?.nome || 'Aluno';
+    const mapNomes = { '1_TRIMESTRE': 'I Trimestre', '2_TRIMESTRE': 'II Trimestre', '3_TRIMESTRE': 'III Trimestre', 'TODOS': 'Todos os Trimestres (I, II e III)' };
+    const perTexto = mapNomes[stateAlunoNotas?.periodoAtivo] || 'Todos os Trimestres';
     await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
       titulo: 'Boletim Oficial de Notas & Avaliações',
-      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      subtitulo: `Aluno(a): ${nomeAluno} | Período: ${perTexto} | Ano Lectivo 2026`,
       orientacao: 'portrait',
-      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_2026.pdf`,
+      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_${stateAlunoNotas?.periodoAtivo || 'TODOS'}_2026.pdf`,
       metadadosExtras: {
         'Aluno': nomeAluno,
+        'Período': perTexto,
         'Ano Letivo': '2026'
       }
     });
@@ -13066,10 +13305,12 @@ async function exportarBoletimAlunoExcel() {
   const table = document.getElementById('tabelaAlunoNotasCorpo')?.closest('table');
   if (window.SigeExport && table) {
     const nomeAluno = state.user?.nome || 'Aluno';
+    const mapNomes = { '1_TRIMESTRE': 'I Trimestre', '2_TRIMESTRE': 'II Trimestre', '3_TRIMESTRE': 'III Trimestre', 'TODOS': 'Todos os Trimestres (I, II e III)' };
+    const perTexto = mapNomes[stateAlunoNotas?.periodoAtivo] || 'Todos os Trimestres';
     await window.SigeExport.exportarTabelaHtml(table, 'excel', {
       titulo: 'Boletim Oficial de Notas & Avaliações',
-      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
-      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_2026.xlsx`
+      subtitulo: `Aluno(a): ${nomeAluno} | Período: ${perTexto} | Ano Lectivo 2026`,
+      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_${stateAlunoNotas?.periodoAtivo || 'TODOS'}_2026.xlsx`
     });
   }
 }
@@ -13078,11 +13319,13 @@ async function exportarBoletimAlunoWord() {
   const table = document.getElementById('tabelaAlunoNotasCorpo')?.closest('table');
   if (window.SigeExport && table) {
     const nomeAluno = state.user?.nome || 'Aluno';
+    const mapNomes = { '1_TRIMESTRE': 'I Trimestre', '2_TRIMESTRE': 'II Trimestre', '3_TRIMESTRE': 'III Trimestre', 'TODOS': 'Todos os Trimestres (I, II e III)' };
+    const perTexto = mapNomes[stateAlunoNotas?.periodoAtivo] || 'Todos os Trimestres';
     await window.SigeExport.exportarTabelaHtml(table, 'word', {
       titulo: 'Boletim Oficial de Notas & Avaliações',
-      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      subtitulo: `Aluno(a): ${nomeAluno} | Período: ${perTexto} | Ano Lectivo 2026`,
       orientacao: 'portrait',
-      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_2026.docx`
+      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_${stateAlunoNotas?.periodoAtivo || 'TODOS'}_2026.docx`
     });
   }
 }

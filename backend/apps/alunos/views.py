@@ -196,22 +196,245 @@ class AlunoMeNotasView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.aluno_id:
-            return Response({'success': False, 'message': 'Não autorizado.'}, status=status.HTTP_403_FORBIDDEN)
-        notas = Nota.objects.filter(aluno_id=request.user.aluno_id).select_related('disciplina')
-        data = [{
-            'id': str(n.id),
-            'disciplina': n.disciplina.nome,
-            'periodo': n.periodo,
-            'teste1': n.teste1,
-            'teste2': n.teste2,
-            'trabalho': n.trabalho,
-            'avaliacao_trimestral': n.avaliacao_trimestral,
-            'media_final': n.media_final,
-            'resultado': n.resultado,
-            'comportamento': n.comportamento if ((n.media_final is not None and n.media_final > 0) or any(x is not None and x > 0 for x in [n.teste1, n.teste2, n.teste3, n.trabalho, n.avaliacao_trimestral])) else ''
-        } for n in notas]
-        return Response({'success': True, 'data': data})
+        target_aluno_id = getattr(request.user, 'aluno_id', None)
+        if not target_aluno_id:
+            # Permitir que utilizadores da escola / professores / superadmin consultem notas de aluno
+            target_aluno_id = request.query_params.get('aluno_id') or request.query_params.get('alunoId')
+            if not target_aluno_id:
+                return Response({'success': False, 'message': 'Não autorizado ou nenhum aluno especificado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        aluno = Aluno.objects.select_related('escola', 'turma').filter(id=target_aluno_id).first()
+        if not aluno:
+            return Response({'success': False, 'message': 'Aluno não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        escola = aluno.escola
+        permitir_vis = getattr(escola, 'permitir_visualizacao_notas', True) if escola else True
+        pub_trimestre = getattr(escola, 'publicacao_notas_trimestre', 'TODOS') if escola else 'TODOS'
+
+        # Período selecionado na consulta pelo utilizador (3 possibilidades de trimestres ou todos):
+        periodo_param = request.query_params.get('periodo')
+        if not periodo_param or str(periodo_param).upper() in ('TODOS', 'ALL', 'ANUAL', 'GERAL'):
+            periodo_solicitado = 'TODOS'
+        elif str(periodo_param).upper() in ('1', 'T1', '1_TRIMESTRE', 'I'):
+            periodo_solicitado = '1_TRIMESTRE'
+        elif str(periodo_param).upper() in ('2', 'T2', '2_TRIMESTRE', 'II'):
+            periodo_solicitado = '2_TRIMESTRE'
+        elif str(periodo_param).upper() in ('3', 'T3', '3_TRIMESTRE', 'III'):
+            periodo_solicitado = '3_TRIMESTRE'
+        else:
+            periodo_solicitado = 'TODOS'
+
+        if not permitir_vis or pub_trimestre == 'NENHUM':
+            return Response({
+                'success': True,
+                'data': {
+                    'permitirVisualizacaoNotas': False,
+                    'publicacaoNotasTrimestre': 'NENHUM',
+                    'periodoVisualizacao': periodo_solicitado,
+                    'mensagem': 'A visualização de notas está temporariamente suspensa pela Direcção da Escola.',
+                    'disciplinas': [],
+                    'mediaGeral': None,
+                    'situacao': 'Suspenso'
+                }
+            })
+
+        # Trimestres publicados oficialmente pela escola
+        if pub_trimestre == '1_TRIMESTRE':
+            trimestres_publicados = ['1_TRIMESTRE']
+        elif pub_trimestre == '2_TRIMESTRE':
+            trimestres_publicados = ['1_TRIMESTRE', '2_TRIMESTRE']
+        elif pub_trimestre == '3_TRIMESTRE':
+            trimestres_publicados = ['1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE']
+        elif pub_trimestre == 'TODOS':
+            trimestres_publicados = ['1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE']
+        else:
+            trimestres_publicados = ['1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE']
+
+        # Disciplinas aplicáveis
+        from apps.disciplinas.models import Disciplina
+        from apps.pautas.services import obter_disciplinas_pauta_turma
+
+        if aluno.turma:
+            disciplinas = list(obter_disciplinas_pauta_turma(aluno.turma))
+        else:
+            disciplinas = []
+
+        # Se a turma não tiver disciplinas pré-definidas, buscar disciplinas com notas cadastradas
+        notas_qs = list(Nota.objects.filter(aluno=aluno).select_related('disciplina'))
+        if not disciplinas:
+            disciplinas_vistas = {}
+            for n in notas_qs:
+                if n.disciplina and n.disciplina_id not in disciplinas_vistas:
+                    disciplinas_vistas[n.disciplina_id] = n.disciplina
+            disciplinas = list(disciplinas_vistas.values())
+
+        notas_map = {(n.disciplina_id, n.periodo): n for n in notas_qs}
+
+        disciplinas_data = []
+        t1_valores = []
+        t2_valores = []
+        t3_valores = []
+        mfd_valores = []
+
+        def extrair_nota(n_obj):
+            if not n_obj:
+                return None
+            tem_av = any(
+                getattr(n_obj, c, None) is not None and getattr(n_obj, c, 0) > 0
+                for c in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral']
+            )
+            if tem_av or (n_obj.media_final is not None and n_obj.media_final > 0) or n_obj.anotacao:
+                return n_obj.media_final
+            return None
+
+        for d in disciplinas:
+            n_t1 = notas_map.get((d.id, '1_TRIMESTRE'))
+            n_t2 = notas_map.get((d.id, '2_TRIMESTRE'))
+            n_t3 = notas_map.get((d.id, '3_TRIMESTRE'))
+
+            pub_t1 = '1_TRIMESTRE' in trimestres_publicados
+            pub_t2 = '2_TRIMESTRE' in trimestres_publicados
+            pub_t3 = '3_TRIMESTRE' in trimestres_publicados
+
+            v_t1 = extrair_nota(n_t1) if pub_t1 else None
+            v_t2 = extrair_nota(n_t2) if pub_t2 else None
+            v_t3 = extrair_nota(n_t3) if pub_t3 else None
+
+            if v_t1 is not None: t1_valores.append(v_t1)
+            if v_t2 is not None: t2_valores.append(v_t2)
+            if v_t3 is not None: t3_valores.append(v_t3)
+
+            # MFD calculada
+            if v_t1 is not None and v_t2 is not None and v_t3 is not None:
+                mfd = round((v_t1 + v_t2 + v_t3) / 3, 1)
+                mfd_final = int(round(mfd))
+                mfd_valores.append(mfd)
+            else:
+                mfd_final = None
+
+            # Determinar a nota em exibição de acordo com o período solicitado
+            if periodo_solicitado == '1_TRIMESTRE':
+                nota_exibicao = v_t1
+                faltas_exibicao = n_t1.faltas if n_t1 else 0
+                res_exibicao = n_t1.resultado if (n_t1 and v_t1 is not None) else ('Aguardando' if pub_t1 else 'Não Publicado')
+            elif periodo_solicitado == '2_TRIMESTRE':
+                nota_exibicao = v_t2
+                faltas_exibicao = n_t2.faltas if n_t2 else 0
+                res_exibicao = n_t2.resultado if (n_t2 and v_t2 is not None) else ('Aguardando' if pub_t2 else 'Não Publicado')
+            elif periodo_solicitado == '3_TRIMESTRE':
+                nota_exibicao = v_t3
+                faltas_exibicao = n_t3.faltas if n_t3 else 0
+                res_exibicao = n_t3.resultado if (n_t3 and v_t3 is not None) else ('Aguardando' if pub_t3 else 'Não Publicado')
+            else:  # TODOS
+                nota_exibicao = mfd_final
+                faltas_exibicao = (n_t1.faltas if (n_t1 and pub_t1) else 0) + (n_t2.faltas if (n_t2 and pub_t2) else 0) + (n_t3.faltas if (n_t3 and pub_t3) else 0)
+                if mfd_final is not None:
+                    res_exibicao = 'Aprovado' if mfd_final >= 9.5 else 'Reprovado'
+                else:
+                    res_exibicao = 'Em Curso'
+
+            def criar_detalhe(n_obj, pub):
+                if not pub:
+                    return {'publicado': False, 'mensagem': 'Não publicado'}
+                if not n_obj:
+                    return {
+                        'publicado': True, 'teste1': None, 'teste2': None, 'teste3': None, 'teste4': None,
+                        'trabalho': None, 'avaliacao_trimestral': None, 'media_final': None, 'faltas': 0,
+                        'comportamento': '', 'anotacao': None, 'resultado': 'Sem Nota'
+                    }
+                return {
+                    'publicado': True,
+                    'teste1': n_obj.teste1,
+                    'teste2': n_obj.teste2,
+                    'teste3': n_obj.teste3,
+                    'teste4': n_obj.teste4,
+                    'trabalho': n_obj.trabalho,
+                    'avaliacao_trimestral': n_obj.avaliacao_trimestral,
+                    'media_final': n_obj.media_final,
+                    'faltas': n_obj.faltas,
+                    'comportamento': n_obj.comportamento or '',
+                    'anotacao': n_obj.anotacao or '',
+                    'resultado': n_obj.resultado or ('Aprovado' if (n_obj.media_final or 0) >= 9.5 else 'Reprovado')
+                }
+
+            disciplinas_data.append({
+                'id': str(d.id),
+                'nome': d.nome,
+                'codigo': d.codigo or '',
+                't1': v_t1,
+                't2': v_t2,
+                't3': v_t3,
+                'mfd': mfd_final,
+                'mediaFinal': nota_exibicao,
+                'faltas': faltas_exibicao,
+                'resultado': res_exibicao,
+                'publicadoT1': pub_t1,
+                'publicadoT2': pub_t2,
+                'publicadoT3': pub_t3,
+                'detalhes': {
+                    '1_TRIMESTRE': criar_detalhe(n_t1, pub_t1),
+                    '2_TRIMESTRE': criar_detalhe(n_t2, pub_t2),
+                    '3_TRIMESTRE': criar_detalhe(n_t3, pub_t3),
+                }
+            })
+
+        # Média Geral e Situação Conforme Período Selecionado
+        if periodo_solicitado == '1_TRIMESTRE':
+            med_geral = round(sum(t1_valores) / len(t1_valores), 1) if t1_valores else None
+            sit_geral = ('APROVADO' if med_geral >= 9.5 else 'REPROVADO') if med_geral is not None else 'Pendente'
+        elif periodo_solicitado == '2_TRIMESTRE':
+            med_geral = round(sum(t2_valores) / len(t2_valores), 1) if t2_valores else None
+            sit_geral = ('APROVADO' if med_geral >= 9.5 else 'REPROVADO') if med_geral is not None else 'Pendente'
+        elif periodo_solicitado == '3_TRIMESTRE':
+            med_geral = round(sum(t3_valores) / len(t3_valores), 1) if t3_valores else None
+            sit_geral = ('APROVADO' if med_geral >= 9.5 else 'REPROVADO') if med_geral is not None else 'Pendente'
+        else:  # TODOS
+            if mfd_valores:
+                med_geral = round(sum(mfd_valores) / len(mfd_valores), 1)
+                sit_geral = 'APROVADO' if med_geral >= 9.5 else 'REPROVADO'
+            elif t1_valores or t2_valores or t3_valores:
+                todos_pts = t1_valores + t2_valores + t3_valores
+                med_geral = round(sum(todos_pts) / len(todos_pts), 1)
+                sit_geral = 'EM_CURSO'
+            else:
+                med_geral = None
+                sit_geral = 'Pendente'
+
+        med_t1_geral = round(sum(t1_valores) / len(t1_valores), 1) if t1_valores else None
+        med_t2_geral = round(sum(t2_valores) / len(t2_valores), 1) if t2_valores else None
+        med_t3_geral = round(sum(t3_valores) / len(t3_valores), 1) if t3_valores else None
+        med_anual_geral = round(sum(mfd_valores) / len(mfd_valores), 1) if mfd_valores else None
+
+        resumo_trimestres = {
+            '1_TRIMESTRE': {'media': med_t1_geral, 'publicado': '1_TRIMESTRE' in trimestres_publicados, 'nome': 'I Trimestre'},
+            '2_TRIMESTRE': {'media': med_t2_geral, 'publicado': '2_TRIMESTRE' in trimestres_publicados, 'nome': 'II Trimestre'},
+            '3_TRIMESTRE': {'media': med_t3_geral, 'publicado': '3_TRIMESTRE' in trimestres_publicados, 'nome': 'III Trimestre'},
+            'TODOS': {'media': med_anual_geral or med_geral, 'publicado': True, 'nome': 'Todos os Trimestres'}
+        }
+
+        retorno_payload = {
+            'permitirVisualizacaoNotas': True,
+            'publicacaoNotasTrimestre': pub_trimestre,
+            'trimestresPublicados': trimestres_publicados,
+            'periodoVisualizacao': periodo_solicitado,
+            'mediaGeral': med_geral,
+            'situacao': sit_geral,
+            'disciplinas': disciplinas_data,
+            'resumoTrimestres': resumo_trimestres,
+            'aluno': {
+                'id': str(aluno.id),
+                'nome': aluno.nome,
+                'apelido': aluno.apelido or '',
+                'matricula': aluno.matricula,
+                'turma': aluno.turma.nome if aluno.turma else '-',
+                'classe': aluno.classe or (aluno.turma.grau_ano if aluno.turma else '-')
+            }
+        }
+
+        return Response({
+            'success': True,
+            'data': retorno_payload
+        })
 
 class AlunoMePagamentosView(APIView):
     permission_classes = [IsAuthenticated]

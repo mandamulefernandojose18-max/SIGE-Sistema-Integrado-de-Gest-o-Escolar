@@ -70,6 +70,17 @@ class Escola(models.Model):
     logo_base64 = models.TextField(blank=True, null=True)
     bloqueada_manualmente = models.BooleanField(default=False)
     permitir_visualizacao_notas = models.BooleanField(default=True)
+    publicacao_notas_trimestre = models.CharField(
+        max_length=20,
+        default='TODOS',
+        choices=[
+            ('1_TRIMESTRE', '1º Trimestre (I)'),
+            ('2_TRIMESTRE', '2º Trimestre (II)'),
+            ('3_TRIMESTRE', '3º Trimestre (III)'),
+            ('TODOS', 'Todos os Trimestres (I, II e III)'),
+            ('NENHUM', 'Ocultar / Suspender Visualização')
+        ]
+    )
 
     # Inscrições Online
     inscricoes_abertas = models.BooleanField(default=False)

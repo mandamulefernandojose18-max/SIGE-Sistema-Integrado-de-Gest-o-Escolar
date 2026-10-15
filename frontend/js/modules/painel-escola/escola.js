@@ -44,6 +44,9 @@ async function carregarEscolaETurmas() {
       document.getElementById('confEscolaNome').value = e.nome;
       document.getElementById('confEscolaAnoLetivo').value = e.ano_letivo_ativo;
       document.getElementById('confEscolaTrimestreAtivo').value = e.trimestre_ativo || '1_TRIMESTRE';
+      if (document.getElementById('confEscolaPublicacaoNotas')) {
+        document.getElementById('confEscolaPublicacaoNotas').value = e.publicacao_notas_trimestre || 'TODOS';
+      }
       document.getElementById('confEscolaTelefone').value = e.telefone || '';
       document.getElementById('confEscolaEmail').value = e.email;
       document.getElementById('confEscolaDirector').value = e.director_nome || '';

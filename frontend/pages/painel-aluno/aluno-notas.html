@@ -1,21 +1,30 @@
 <!-- ===================================================================== -->
 <!-- SIGE - PAINEL-ALUNO | As Minhas Notas & Boletim Oficial -->
 <!-- Página independente do módulo: aluno-notas.html -->
-<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- 3 Possibilidades de Visualização / Publicação: I, II, III Trimestres e Todos -->
 <!-- ===================================================================== -->
       <section id="view-aluno-notas" class="modulo-view" style="display: none;">
-        <div id="bannerNotasBloqueadas" class="alert alert-warning d-none mb-3">
+        <!-- Banner de Notas Totalmente Bloqueadas/Suspensas -->
+        <div id="bannerNotasBloqueadas" class="alert alert-warning d-none mb-3 shadow-sm">
           <i class="bi bi-lock-fill me-2 fs-5"></i>
           <strong>Visualização Temporariamente Suspensa:</strong> A Direcção da Escola suspendeu a exibição de notas no portal para consolidação de pautas e conselhos pedagógicos. Os seus dados de matrícula, pagamentos e declarações continuam disponíveis.
         </div>
-        <div id="cardNotasAluno" class="card p-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <!-- Banner de Trimestre Específico Ainda Não Publicado -->
+        <div id="bannerTrimestreNaoPublicado" class="alert alert-info d-none mb-3 shadow-sm">
+          <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+          <strong>Trimestre em Consolidação:</strong> As notas deste trimestre ainda não foram homologadas nem publicadas pela Direcção Pedagógica da Escola.
+        </div>
+
+        <div id="cardNotasAluno" class="card p-4 shadow-sm">
+          <!-- Cabeçalho Principal -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 border-bottom pb-3">
             <div>
-              <h5 class="fw-bold mb-0"><i class="bi bi-card-checklist text-success me-2"></i>O Meu Histórico de Notas & Avaliações</h5>
+              <h5 class="fw-bold mb-1"><i class="bi bi-card-checklist text-success me-2"></i>O Meu Histórico de Notas & Avaliações</h5>
               <small class="text-muted">Classificações: 0 a 9.4 a Vermelho (Negativa), 9.5 a 20 a Preto (Positiva).</small>
             </div>
             <div class="d-flex align-items-center flex-wrap gap-2">
-              <span class="badge bg-light text-dark border p-2">Média Geral: <strong id="alunoMediaGeral" class="text-primary fs-6">--</strong></span>
+              <span class="badge bg-light text-dark border p-2">Média: <strong id="alunoMediaGeral" class="text-primary fs-6">--</strong></span>
               <span id="alunoSituacaoBadge" class="badge bg-secondary p-2">A Ponderar</span>
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-danger btn-sm" onclick="exportarBoletimAlunoPdf()" title="Descarregar boletim em PDF">
@@ -33,15 +42,43 @@
               </button>
             </div>
           </div>
+
+          <!-- Barra de Seleção das 3 Possibilidades de Trimestres e Todos -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 mb-3 rounded-3 bg-light border">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+              <span class="fw-bold small text-secondary"><i class="bi bi-funnel-fill me-1"></i> Visualização:</span>
+              <div class="btn-group btn-group-sm" role="group" id="grupoBotoesTrimestreAluno">
+                <button type="button" class="btn btn-outline-primary active" id="btnAlunoTrimestreTodos" onclick="alternarTrimestreAluno('TODOS')">
+                  <i class="bi bi-collection-fill me-1"></i> Todos (I, II e III)
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnAlunoTrimestre1" onclick="alternarTrimestreAluno('1_TRIMESTRE')">
+                  <i class="bi bi-1-circle me-1"></i> I Trimestre
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnAlunoTrimestre2" onclick="alternarTrimestreAluno('2_TRIMESTRE')">
+                  <i class="bi bi-2-circle me-1"></i> II Trimestre
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnAlunoTrimestre3" onclick="alternarTrimestreAluno('3_TRIMESTRE')">
+                  <i class="bi bi-3-circle me-1"></i> III Trimestre
+                </button>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="small text-muted" id="statusPublicacaoEscolaBadge">
+                <i class="bi bi-broadcast text-success me-1"></i> Publicação Oficial: <strong id="lblPublicacaoEscola" class="text-dark">A carregar...</strong>
+              </span>
+            </div>
+          </div>
+
+          <!-- Tabela de Avaliações -->
           <div class="table-responsive">
-            <table class="table table-bordered table-hover text-center align-middle">
-              <thead class="table-light">
+            <table class="table table-bordered table-hover text-center align-middle mb-0" id="tabelaAlunoNotas">
+              <thead class="table-light" id="tabelaAlunoNotasCabecalho">
                 <tr>
                   <th class="text-start">Disciplina</th>
                   <th>1º Trimestre</th>
                   <th>2º Trimestre</th>
                   <th>3º Trimestre</th>
-                  <th>Média Final</th>
+                  <th>Média Final (MFD)</th>
                   <th>Faltas</th>
                   <th>Situação</th>
                 </tr>

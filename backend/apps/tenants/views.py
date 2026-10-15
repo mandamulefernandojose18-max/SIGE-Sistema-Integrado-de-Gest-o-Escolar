@@ -607,17 +607,104 @@ class EscolaAdminInfoView(APIView):
 class ToggleNotasView(APIView):
     permission_classes = [IsAuthenticated, IsEscolaAdmin]
 
-    def post(self, request):
+    def get(self, request):
         from common.utils.tenant import get_tenant_escola
         escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Escola não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
-        escola.permitir_visualizacao_notas = not escola.permitir_visualizacao_notas
+        
+        pub = getattr(escola, 'publicacao_notas_trimestre', 'TODOS') or 'TODOS'
+        return Response({
+            'success': True,
+            'data': {
+                'permitir_visualizacao_notas': escola.permitir_visualizacao_notas,
+                'publicacao_notas_trimestre': pub,
+                'opcoes': [
+                    {'id': '1_TRIMESTRE', 'nome': 'I Trimestre', 'descricao': 'Visualização apenas do 1º Trimestre'},
+                    {'id': '2_TRIMESTRE', 'nome': 'II Trimestre', 'descricao': 'Visualização do 2º Trimestre (e 1º Trimestre)'},
+                    {'id': '3_TRIMESTRE', 'nome': 'III Trimestre', 'descricao': 'Visualização do 3º Trimestre'},
+                    {'id': 'TODOS', 'nome': 'Todos os Trimestres (I, II e III)', 'descricao': 'Visualização completa de todas as notas do ano'},
+                    {'id': 'NENHUM', 'nome': 'Ocultar / Suspender Visualização', 'descricao': 'Nenhuma nota visível aos alunos'}
+                ]
+            }
+        })
+
+    def post(self, request):
+        return self._atualizar_visibilidade(request)
+
+    def put(self, request):
+        return self._atualizar_visibilidade(request)
+
+    def _atualizar_visibilidade(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        pub_trimestre = request.data.get('publicacao_notas_trimestre') or request.data.get('trimestre') or request.data.get('periodo')
+        permitir = request.data.get('permitir_visualizacao_notas')
+
+        labels = {
+            '1_TRIMESTRE': 'I Trimestre',
+            '2_TRIMESTRE': 'II Trimestre',
+            '3_TRIMESTRE': 'III Trimestre',
+            'TODOS': 'Todos os Trimestres (I, II e III)',
+            'NENHUM': 'Ocultar / Suspender Visualização'
+        }
+
+        if pub_trimestre is not None:
+            pub_norm = str(pub_trimestre).upper()
+            if pub_norm in ('1', 'T1', '1_TRIMESTRE', 'I'):
+                escola.publicacao_notas_trimestre = '1_TRIMESTRE'
+                escola.permitir_visualizacao_notas = True
+            elif pub_norm in ('2', 'T2', '2_TRIMESTRE', 'II'):
+                escola.publicacao_notas_trimestre = '2_TRIMESTRE'
+                escola.permitir_visualizacao_notas = True
+            elif pub_norm in ('3', 'T3', '3_TRIMESTRE', 'III'):
+                escola.publicacao_notas_trimestre = '3_TRIMESTRE'
+                escola.permitir_visualizacao_notas = True
+            elif pub_norm in ('TODOS', 'ALL', 'ANUAL', 'GERAL'):
+                escola.publicacao_notas_trimestre = 'TODOS'
+                escola.permitir_visualizacao_notas = True
+            elif pub_norm in ('NENHUM', 'SUSPENSO', 'OCULTO', 'OFF'):
+                escola.publicacao_notas_trimestre = 'NENHUM'
+                escola.permitir_visualizacao_notas = False
+            else:
+                escola.publicacao_notas_trimestre = 'TODOS'
+                escola.permitir_visualizacao_notas = True
+
+        if permitir is not None:
+            escola.permitir_visualizacao_notas = bool(permitir)
+            if not escola.permitir_visualizacao_notas:
+                escola.publicacao_notas_trimestre = 'NENHUM'
+            elif escola.publicacao_notas_trimestre == 'NENHUM':
+                escola.publicacao_notas_trimestre = 'TODOS'
+
+        # Se chamada sem parâmetros (toggle legado)
+        if pub_trimestre is None and permitir is None:
+            escola.permitir_visualizacao_notas = not escola.permitir_visualizacao_notas
+            if not escola.permitir_visualizacao_notas:
+                escola.publicacao_notas_trimestre = 'NENHUM'
+            else:
+                escola.publicacao_notas_trimestre = 'TODOS'
+
         escola.save()
+
+        pub_atual = getattr(escola, 'publicacao_notas_trimestre', 'TODOS')
+        label_texto = labels.get(pub_atual, pub_atual)
+        if not escola.permitir_visualizacao_notas:
+            label_texto = 'Ocultas / Suspensas'
+
         return Response({
             'success': True,
             'permitir_visualizacao_notas': escola.permitir_visualizacao_notas,
-            'message': f"Visualização de notas agora está {'ativada' if escola.permitir_visualizacao_notas else 'desativada'}."
+            'publicacao_notas_trimestre': escola.publicacao_notas_trimestre,
+            'message': f"Publicação de notas atualizada para: {label_texto}.",
+            'data': {
+                'permitir_visualizacao_notas': escola.permitir_visualizacao_notas,
+                'publicacao_notas_trimestre': escola.publicacao_notas_trimestre,
+                'label': label_texto
+            }
         })
 
 class UsuariosCredenciaisView(APIView):
