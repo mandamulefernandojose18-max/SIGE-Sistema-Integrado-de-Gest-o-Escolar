@@ -175,10 +175,13 @@ async function carregarDadosTurmaDT() {
             </div>
             <div class="d-flex gap-2">
               <button class="btn btn-outline-success btn-sm fw-semibold" onclick="exportarPautaGeralExcel('${dtTurmaAtivaId}', '${d.turma.ano_letivo}')">
-                <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel (.xlsx)
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel
               </button>
               <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarPautaGeralPdf()">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <button class="btn btn-outline-primary btn-sm fw-semibold" onclick="descarregarPautaGeralDocx()">
+                <i class="bi bi-file-earmark-word me-1"></i> Word
               </button>
               <button class="btn btn-primary btn-sm fw-semibold" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i> Imprimir
@@ -204,10 +207,13 @@ async function carregarDadosTurmaDT() {
             </div>
             <div class="d-flex gap-2">
               <button class="btn btn-outline-success btn-sm fw-semibold" onclick="exportarActaConselhoExcel('${dtTurmaAtivaId}')">
-                <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel (.xlsx)
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel
               </button>
               <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarActaConselhoPdf()">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <button class="btn btn-outline-primary btn-sm fw-semibold" onclick="descarregarActaConselhoDocx()">
+                <i class="bi bi-file-earmark-word me-1"></i> Word
               </button>
               <button class="btn btn-primary btn-sm fw-semibold" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i> Imprimir

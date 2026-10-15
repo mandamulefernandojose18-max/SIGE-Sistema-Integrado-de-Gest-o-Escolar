@@ -40,7 +40,18 @@
               <h5 class="fw-bold mb-0"><i class="bi bi-cash-stack text-success me-2"></i>As Minhas Mensalidades & Propinas</h5>
               <small class="text-muted">Consulte os pagamentos efectuados e descarregue os seus recibos oficiais em PDF.</small>
             </div>
-            <div>
+            <div class="d-flex gap-2 align-items-center">
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-danger btn-sm" onclick="exportarExtratoAlunoPdf()" title="Descarregar extrato em PDF">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportarExtratoAlunoExcel()" title="Descarregar extrato em Excel">
+                  <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="exportarExtratoAlunoWord()" title="Descarregar extrato em Word">
+                  <i class="bi bi-file-earmark-word me-1"></i> Word
+                </button>
+              </div>
               <button class="btn btn-outline-primary btn-sm" onclick="carregarAlunoPagamentos()">
                 <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
               </button>

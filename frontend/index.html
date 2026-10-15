@@ -1031,11 +1031,38 @@
   </div>
 </div>
 
+<!-- BIBLIOTECAS SUPER AVANÇADAS DE EXPORTAÇÃO E GERAÇÃO DE DOCUMENTOS (jsPDF, Excel.js, docx.js) -->
+<script src="/js/libs/jspdf.umd.min.js"></script>
+<script>
+  if (!window.jspdf && !window.jsPDF) {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\\/script>');
+  }
+</script>
+<script src="/js/libs/jspdf.plugin.autotable.min.js"></script>
+<script>
+  if (!window.jspdf?.autoTable && !window.jsPDF?.API?.autoTable) {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"><\\/script>');
+  }
+</script>
+<script src="/js/libs/exceljs.min.js"></script>
+<script>
+  if (!window.ExcelJS) {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"><\\/script>');
+  }
+</script>
+<script src="/js/libs/docx.iife.js"></script>
+<script>
+  if (!window.docx) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"><\\/script>');
+  }
+</script>
+<script src="/js/sige-document-export.js?v=20261014_2145"></script>
+
 <!-- SCRIPTS DO FRONTEND SPA -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/templates.js?v=20261014_1050"></script>
-<script src="/js/config.js?v=20261014_1050"></script>
+<script src="/js/templates.js?v=20261014_2145"></script>
+<script src="/js/config.js?v=20261014_2145"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
-<script src="/js/app.js?v=20261014_1050"></script>
+<script src="/js/app.js?v=20261014_2145"></script>
 </body>
 </html>

@@ -41,21 +41,35 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
 
   inicializarPatchHtml2Pdf();
 
-  // Assegurar visibilidade no DOM caso o container esteja com display: none
-  const displayOriginal = el.style.display;
-  let foiExibido = false;
-  try {
-    if (displayOriginal === 'none' || window.getComputedStyle(el).display === 'none') {
-      el.style.display = 'block';
-      foiExibido = true;
-    }
-  } catch (_) {}
+  let containerTemporario = null;
+  let alvoParaRender = el;
 
-  // Assegurar estilo de fundo branco e cor de texto escura no elemento durante a captura
   const bgOriginal = el.style.backgroundColor;
   const colorOriginal = el.style.color;
-  el.style.backgroundColor = '#ffffff';
-  el.style.color = '#000000';
+  const displayOriginal = el.style.display;
+  let foiExibido = false;
+
+  try {
+    const estaOculto = (el.offsetParent === null) || displayOriginal === 'none' || (window.getComputedStyle && window.getComputedStyle(el).display === 'none');
+    if (estaOculto) {
+      containerTemporario = el.cloneNode(true);
+      containerTemporario.style.position = 'fixed';
+      containerTemporario.style.left = '-9999px';
+      containerTemporario.style.top = '0';
+      containerTemporario.style.width = '1000px';
+      containerTemporario.style.display = 'block';
+      containerTemporario.style.visibility = 'visible';
+      containerTemporario.style.backgroundColor = '#ffffff';
+      containerTemporario.style.color = '#000000';
+      document.body.appendChild(containerTemporario);
+      alvoParaRender = containerTemporario;
+    } else {
+      el.style.backgroundColor = '#ffffff';
+      el.style.color = '#000000';
+    }
+  } catch (errCheck) {
+    console.warn('Verificação de visibilidade para exportação PDF:', errCheck);
+  }
 
   const safeFilename = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
 
@@ -96,7 +110,7 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
 
           // Remover ícones e botões nos documentos exportados (sem icons)
           const elementosRemover = clonedDoc.querySelectorAll('i, svg, .bi, [class*="bi-"], [class^="bi-"], .fa, [class*="fa-"], [class^="fa-"], button, .btn, .no-print');
-          elementosRemover.forEach(el => el.remove());
+          elementosRemover.forEach(elRem => elRem.remove());
 
           const overlays = clonedDoc.querySelectorAll('.html2pdf__overlay');
           overlays.forEach(ov => {
@@ -129,11 +143,14 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
     };
 
     try {
-      await window.html2pdf().set(opt).from(el).save();
+      await window.html2pdf().set(opt).from(alvoParaRender).save();
     } catch (err) {
-      console.error('Erro ao gerar PDF:', err);
+      console.error('Erro ao gerar PDF com html2pdf:', err);
       window.print();
     } finally {
+      if (containerTemporario && containerTemporario.parentNode) {
+        containerTemporario.remove();
+      }
       el.style.backgroundColor = bgOriginal;
       el.style.color = colorOriginal;
       if (foiExibido) {
@@ -141,6 +158,9 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
       }
     }
   } else {
+    if (containerTemporario && containerTemporario.parentNode) {
+      containerTemporario.remove();
+    }
     el.style.backgroundColor = bgOriginal;
     el.style.color = colorOriginal;
     if (foiExibido) {
@@ -229,6 +249,28 @@ async function descarregarCadernetaDocx() {
   const alocId = await obterAlocacaoAtivaOuPrimeira();
   if (!alocId) return;
   await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/docx`, `Caderneta_Oficial_2026.docx`);
+}
+
+async function exportarCadernetaWord() {
+  const table = document.querySelector('.caderneta-tabela');
+  if (window.SigeExport && table && table.querySelectorAll('tbody tr').length > 0 && !table.innerText.includes('Selecione uma turma')) {
+    const disciplina = document.getElementById('cadBoxDisciplina')?.innerText || 'Disciplina';
+    const turma = document.getElementById('cadBoxTurmaDirector')?.innerText || 'Turma';
+    const ano = document.getElementById('cadHeaderAno')?.innerText || '2026';
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Caderneta Escolar Oficial — Registo de Avaliações',
+      subtitulo: `${disciplina} | ${turma} | Ano Lectivo ${ano}`,
+      orientacao: 'landscape',
+      nomeFicheiro: `Caderneta_${disciplina}_${turma}_${ano}.docx`,
+      metadadosExtras: {
+        'Disciplina': disciplina,
+        'Turma': turma,
+        'Ano': ano
+      }
+    });
+    return;
+  }
+  await descarregarCadernetaDocx();
 }
 
 async function descarregarPautaGeralPdf(turmaIdExplicit = null, orientacaoExplicit = null) {
@@ -394,7 +436,19 @@ window.formatarMoeda = formatarMoeda;
 window.formatarMoedaTexto = formatarMoedaTexto;
 window.aplicarResponsividadeUniversalTabelas = aplicarResponsividadeUniversalTabelas;
 
-// ==================== NOTIFICAÇÕES TOAST ====================
+// ==================== UTILITÁRIOS DE SEGURANÇA E ESCAPE ====================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+
+// ==================== NOTIFICAÇÕES TOAST (PROTEÇÃO TOTAL CONTRA XSS) ====================
 function mostrarNotificacao(mensagem, tipo = 'info') {
   let container = document.getElementById('sigeToastContainer');
   if (!container) {
@@ -411,22 +465,45 @@ function mostrarNotificacao(mensagem, tipo = 'info') {
   const toastEl = document.createElement('div');
   toastEl.className = `toast align-items-center ${bgClass} border-0 shadow show mb-2`;
   toastEl.setAttribute('role', 'alert');
-  toastEl.innerHTML = `
-    <div class="d-flex">
-      <div class="toast-body d-flex align-items-center gap-2">
-        <i class="bi ${icon} fs-5"></i>
-        <span>${mensagem}</span>
-      </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" onclick="this.closest('.toast').remove()"></button>
-    </div>
-  `;
+
+  const dFlex = document.createElement('div');
+  dFlex.className = 'd-flex align-items-center';
+
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'toast-body d-flex align-items-center gap-2 flex-grow-1';
+
+  const iconEl = document.createElement('i');
+  iconEl.className = `bi ${icon} fs-5 flex-shrink-0`;
+
+  const spanEl = document.createElement('span');
+  spanEl.textContent = String(mensagem || '');
+
+  bodyDiv.appendChild(iconEl);
+  bodyDiv.appendChild(spanEl);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
+  closeBtn.setAttribute('data-bs-dismiss', 'toast');
+  closeBtn.onclick = () => {
+    if (toastEl.parentNode) toastEl.remove();
+  };
+
+  dFlex.appendChild(bodyDiv);
+  dFlex.appendChild(closeBtn);
+  toastEl.appendChild(dFlex);
+
   container.appendChild(toastEl);
   setTimeout(() => {
     if (toastEl.parentNode) toastEl.remove();
-  }, 4000);
+  }, 4500);
 }
 
-// ==================== API FETCH & INTERCEPTADORES ====================
+window.mostrarNotificacao = mostrarNotificacao;
+window.showToast = mostrarNotificacao;
+window.mostrarToast = mostrarNotificacao;
+
+// ==================== API FETCH, RENOVAÇÃO UNIFICADA E INTERCEPTADORES ====================
 function formatarUrlApi(url) {
   if (!url || typeof url !== 'string') return url;
   let cleanUrl = url;
@@ -459,6 +536,59 @@ function formatarUrlApi(url) {
   return baseUrl.replace(/\/+$/, '') + '/' + cleanUrl.replace(/^\/+/, '');
 }
 
+// ==================== RENOVAÇÃO UNIFICADA DE TOKEN (DEDICADA E SEM CONCORRÊNCIA) ====================
+let refreshPromiseEmAndamento = null;
+
+async function renovarTokenAcesso() {
+  if (refreshPromiseEmAndamento) {
+    return refreshPromiseEmAndamento;
+  }
+
+  const storedRefresh = state.refreshToken || sessionStorage.getItem('sige_refresh_token');
+  if (!storedRefresh) {
+    return null;
+  }
+
+  refreshPromiseEmAndamento = (async () => {
+    try {
+      const resp = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ refresh: storedRefresh, refreshToken: storedRefresh })
+      });
+
+      if (!resp.ok) {
+        return null;
+      }
+
+      const data = await resp.json().catch(() => ({}));
+      const newAccessToken = data.access || data.accessToken || data.token || data.data?.tokens?.accessToken || data.data?.token;
+      const newRefreshToken = data.refresh || data.refreshToken || data.data?.tokens?.refreshToken;
+
+      if (newAccessToken) {
+        state.token = newAccessToken;
+        sessionStorage.setItem('sige_token', newAccessToken);
+        if (newRefreshToken) {
+          state.refreshToken = newRefreshToken;
+          sessionStorage.setItem('sige_refresh_token', newRefreshToken);
+        }
+        return newAccessToken;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[AUTH] Falha ao renovar token de acesso:', err);
+      return null;
+    } finally {
+      refreshPromiseEmAndamento = null;
+    }
+  })();
+
+  return refreshPromiseEmAndamento;
+}
+window.renovarTokenAcesso = renovarTokenAcesso;
 
 async function apiFetch(endpoint, options = {}) {
   const headers = {
@@ -480,37 +610,47 @@ async function apiFetch(endpoint, options = {}) {
 
   try {
     const res = await fetch(formatarUrlApi(endpoint), { ...options, headers });
-    const json = await res.json();
-
+    
+    // Tratamento seguro de tipo de conteúdo (JSON, texto ou corpo vazio)
+    let json = null;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      try {
+        json = await res.json();
+      } catch (_) {
+        json = null;
+      }
+    } else {
+      try {
+        const txt = await res.text();
+        json = { message: txt };
+      } catch (_) {
+        json = null;
+      }
+    }
+    if (!json || typeof json !== 'object') json = {};
 
     if (!res.ok) {
       if (res.status === 401 && !options._isRetry) {
-        const storedRefresh = sessionStorage.getItem('sige_refresh_token');
-        if (storedRefresh) {
-          try {
-            const refreshResp = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ refresh: storedRefresh })
-            });
-            if (refreshResp.ok) {
-              const refreshJson = await refreshResp.json();
-              const newAccessToken = refreshJson.access || refreshJson.accessToken || refreshJson.data?.tokens?.accessToken;
-              if (newAccessToken) {
-                sessionStorage.setItem('sige_token', newAccessToken);
-                state.token = newAccessToken;
-                const retryHeaders = { ...headers, Authorization: `Bearer ${newAccessToken}` };
-                return apiFetch(endpoint, { ...options, headers: retryHeaders, _isRetry: true });
-              }
-            }
-          } catch (refreshErr) {
-            console.warn('Falha silenciosa ao renovar token de acesso:', refreshErr);
-          }
+        const newAccessToken = await renovarTokenAcesso();
+        if (newAccessToken) {
+          const retryHeaders = { ...headers, Authorization: `Bearer ${newAccessToken}` };
+          return apiFetch(endpoint, { ...options, headers: retryHeaders, _isRetry: true });
         }
         if (!options.ignoreAuthRedirect && state.user?.role !== 'SUPERADMIN') {
           fazerLogout();
         }
       }
+
+      // Tratamento seguro de expiração de assinatura institucional (HTTP 402)
+      if (res.status === 402) {
+        const alertaExpiracaoBanner = document.getElementById('alertaExpiracaoBanner');
+        if (alertaExpiracaoBanner) {
+          alertaExpiracaoBanner.style.display = 'block';
+        }
+        mostrarNotificacao(json.message || 'Assinatura institucional pendente ou expirada.', 'warning');
+      }
+
       let msg = json.message || json.detail || json.error;
       if (!msg && json.non_field_errors) {
         msg = Array.isArray(json.non_field_errors) ? json.non_field_errors.join(', ') : String(json.non_field_errors);
@@ -540,46 +680,38 @@ async function apiFetch(endpoint, options = {}) {
   }
 }
 
-// Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh de Token, MIME estrito e fallback direto sem bloqueio
+// Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh Unificado e Tratamento Seguro de Erros (sem expor token no URL)
 async function downloadFicheiroBinario(url, defaultFilename) {
   const fullUrl = formatarUrlApi(url);
-  try {
-    const montarHeaders = () => {
-      const h = {};
-      if (state.token) h['Authorization'] = `Bearer ${state.token}`;
-      const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
-        || state.tenant?.id
-        || state.user?.escola_id;
-      if (activeTenantId) {
-        h['X-Tenant-ID'] = activeTenantId;
-      }
-      return h;
-    };
+  const montarHeaders = () => {
+    const h = {};
+    if (state.token) h['Authorization'] = `Bearer ${state.token}`;
+    const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+      || state.tenant?.id
+      || state.user?.escola_id;
+    if (activeTenantId) {
+      h['X-Tenant-ID'] = activeTenantId;
+    }
+    return h;
+  };
 
+  try {
     let res = await fetch(fullUrl, { headers: montarHeaders() });
 
     if (res.status === 401) {
-      const refresh = state.refreshToken || sessionStorage.getItem('sige_refresh_token');
-      if (refresh) {
-        const refreshRes = await fetch(formatarUrlApi('/api/v1/auth/refresh'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: refresh, refresh })
-        }).catch(() => null);
-        if (refreshRes && refreshRes.ok) {
-          const rData = await refreshRes.json().catch(() => ({}));
-          const newToken = rData.token || rData.access || rData.data?.token;
-          if (newToken) {
-            state.token = newToken;
-            sessionStorage.setItem('sige_token', newToken);
-            res = await fetch(fullUrl, { headers: montarHeaders() });
-          }
-        }
+      const newToken = await renovarTokenAcesso();
+      if (newToken) {
+        res = await fetch(fullUrl, { headers: montarHeaders() });
       }
     }
 
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      if (res.status === 401) throw new Error('Sessão expirada. Por favor, autentique-se novamente.');
+      if (res.status === 403) throw new Error('Acesso negado: sem permissão para descarregar este ficheiro.');
+      if (res.status === 404) throw new Error('O ficheiro solicitado não foi encontrado no servidor.');
+      if (res.status === 402) throw new Error('Download bloqueado: conta institucional pendente ou suspensa.');
+      if (res.status >= 500) throw new Error('Erro interno no servidor ao processar o ficheiro.');
+      throw new Error(`Falha no descarregamento (HTTP ${res.status})`);
     }
 
     const disposition = res.headers.get('content-disposition');
@@ -610,17 +742,11 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     a.click();
     a.remove();
     setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 5000);
+    return true;
   } catch (err) {
-    // Fallback direto via link nativo do navegador para nunca bloquear o descarregamento
-    const sep = fullUrl.includes('?') ? '&' : '?';
-    const tokenParam = state.token ? `${sep}token=${encodeURIComponent(state.token)}` : '';
-    const a = document.createElement('a');
-    a.href = `${fullUrl}${tokenParam}`;
-    a.download = defaultFilename || 'documento';
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    console.error('[DOWNLOAD] Falha no download do documento:', err);
+    mostrarNotificacao(err.message || 'Falha ao descarregar documento.', 'danger');
+    return false;
   }
 }
 
@@ -646,51 +772,52 @@ function formatarDataParaExibicao(val, anoFallback = '2026') {
   return val;
 }
 
-// Abrir automaticamente o calendário nativo ao clicar em qualquer campo de data do sistema
+let ultimoPickerAberto = null;
+let ultimoTimestampPicker = 0;
+
+function abrirSeletorDataSeguro(input) {
+  if (!input || typeof input.showPicker !== 'function' || input.disabled || input.readOnly) return;
+  const agora = Date.now();
+  if (ultimoPickerAberto === input && (agora - ultimoTimestampPicker) < 500) {
+    return;
+  }
+  ultimoPickerAberto = input;
+  ultimoTimestampPicker = agora;
+  try {
+    input.showPicker();
+  } catch (err) {
+    // Silencioso se o browser rejeitar chamada programática
+  }
+}
+
+// Abrir com segurança o calendário nativo ao interagir com inputs date ou seus botões/labels
 document.addEventListener('click', (e) => {
   const target = e.target;
   if (!target) return;
 
-  // 1. Clicou directamente num input[type="date"] ou elemento filho
-  const dateInput = target.matches('input[type="date"]') ? target : target.closest('input[type="date"]');
-  if (dateInput && typeof dateInput.showPicker === 'function') {
-    try {
-      dateInput.showPicker();
-    } catch (err) {
-      // Ignora se o calendário já estiver aberto ou bloqueado pelo navegador
-    }
-    return;
-  }
-
-  // 2. Clicou num label associado a um input type="date"
+  // 1. Clicou num label associado a um input type="date"
   if (target.tagName === 'LABEL' && target.htmlFor) {
     const associatedInput = document.getElementById(target.htmlFor);
-    if (associatedInput && associatedInput.type === 'date' && typeof associatedInput.showPicker === 'function') {
-      try {
-        associatedInput.showPicker();
-      } catch (err) {}
+    if (associatedInput && associatedInput.type === 'date') {
+      abrirSeletorDataSeguro(associatedInput);
       return;
     }
   }
 
-  // 3. Clicou num ícone ou container de um input-group que contém um input date
+  // 2. Clicou num ícone ou botão dentro de um input-group que contém um input date
   const group = target.closest('.input-group');
   if (group) {
     const groupDateInput = group.querySelector('input[type="date"]');
-    if (groupDateInput && target !== groupDateInput && typeof groupDateInput.showPicker === 'function') {
-      try {
-        groupDateInput.showPicker();
-      } catch (err) {}
+    if (groupDateInput && target !== groupDateInput) {
+      abrirSeletorDataSeguro(groupDateInput);
+      return;
     }
   }
-}, true);
 
-// Suporte adicional ao receber foco por ponteiro
-document.addEventListener('focusin', (e) => {
-  if (e.target && e.target.matches('input[type="date"]') && typeof e.target.showPicker === 'function') {
-    try {
-      e.target.showPicker();
-    } catch (err) {}
+  // 3. Clicou directamente no input[type="date"]
+  const dateInput = target.matches('input[type="date"]') ? target : target.closest('input[type="date"]');
+  if (dateInput) {
+    abrirSeletorDataSeguro(dateInput);
   }
 });
 
@@ -896,11 +1023,35 @@ async function realizarLogin(e) {
 function fazerLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
   const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario');
-  localStorage.clear();
-  sessionStorage.clear();
+
+  // Limpar especificamente as chaves de sessão do SIGE em sessionStorage
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k && (k.startsWith('sige_') || k.startsWith('sigesaas_'))) {
+        sessionStorage.removeItem(k);
+      }
+    }
+  } catch (_) {}
+  sessionStorage.removeItem('sige_token');
+  sessionStorage.removeItem('sige_refresh_token');
+
+  // Limpar chaves da aplicação em localStorage sem violar dados de terceiros, preservando último utilizador
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('sige_') || k.startsWith('sigesaas_')) && k !== 'sige_ultimo_usuario') {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch (_) {}
+
   if (ultimoUsuario) {
-    localStorage.setItem('sige_ultimo_usuario', ultimoUsuario);
+    try {
+      localStorage.setItem('sige_ultimo_usuario', ultimoUsuario);
+    } catch (_) {}
   }
+
   document.body.classList.remove('role-superadmin');
   document.body.classList.remove('inspecionando-escola');
   state.token = null;
@@ -927,35 +1078,43 @@ async function iniciarApp() {
   // Ocultar todas as vistas antes de activar o módulo correspondente ao perfil autenticado
   document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
 
-  // Cabeçalho e Utilizador Activo
-  document.getElementById('topbarUserName').textContent = state.user.nome;
-  document.getElementById('topbarUserRole').textContent = state.user.role;
-  document.getElementById('dropdownUserEmail').textContent = state.user.email;
+  if (!state.user) return;
 
-  // Formatação do Último Acesso e Quem Acessou
+  // Cabeçalho e Utilizador Activo com verificação segura de existência de elementos
+  const elUserName = document.getElementById('topbarUserName');
+  if (elUserName) elUserName.textContent = state.user.nome || '';
+  const elUserRole = document.getElementById('topbarUserRole');
+  if (elUserRole) elUserRole.textContent = state.user.role || '';
+  const elUserEmail = document.getElementById('dropdownUserEmail');
+  if (elUserEmail) elUserEmail.textContent = state.user.email || '';
+
+  // Formatação segura do Último Acesso e Quem Acessou (sem risco XSS)
   const elUltimoAcesso = document.getElementById('topbarUltimoAcesso');
   const elDropdownDetalhe = document.getElementById('dropdownUltimoAcessoDetalhe');
   const rawData = state.user.ultimo_acesso || state.user.last_login;
   const quemAcessou = state.user.ultimo_acesso_quem || state.user.nome || state.user.email || 'Utilizador';
+  const quemEscapado = escapeHtml(quemAcessou);
 
   if (rawData) {
     const dtAcesso = new Date(rawData);
     const dataFormatada = dtAcesso.toLocaleDateString('pt-PT') + ' às ' + dtAcesso.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    const dataEscapada = escapeHtml(dataFormatada);
     if (elUltimoAcesso) {
-      elUltimoAcesso.innerHTML = `<i class="bi bi-clock-history me-1"></i>Último acesso: <strong>${dataFormatada}</strong> por <strong>${quemAcessou}</strong>`;
+      elUltimoAcesso.innerHTML = `<i class="bi bi-clock-history me-1"></i>Último acesso: <strong>${dataEscapada}</strong> por <strong>${quemEscapado}</strong>`;
       elUltimoAcesso.title = `Último acesso ao sistema por ${quemAcessou} em ${dataFormatada}`;
     }
     if (elDropdownDetalhe) {
-      elDropdownDetalhe.innerHTML = `<i class="bi bi-shield-check text-success me-1"></i>Último acesso: <strong>${dataFormatada}</strong> por <strong>${quemAcessou}</strong>`;
+      elDropdownDetalhe.innerHTML = `<i class="bi bi-shield-check text-success me-1"></i>Último acesso: <strong>${dataEscapada}</strong> por <strong>${quemEscapado}</strong>`;
     }
   } else {
     const agora = new Date();
     const dataFormatada = agora.toLocaleDateString('pt-PT') + ' às ' + agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    const dataEscapada = escapeHtml(dataFormatada);
     if (elUltimoAcesso) {
-      elUltimoAcesso.innerHTML = `<i class="bi bi-clock-history me-1"></i>Acesso actual: <strong>${dataFormatada}</strong> por <strong>${quemAcessou}</strong>`;
+      elUltimoAcesso.innerHTML = `<i class="bi bi-clock-history me-1"></i>Acesso actual: <strong>${dataEscapada}</strong> por <strong>${quemEscapado}</strong>`;
     }
     if (elDropdownDetalhe) {
-      elDropdownDetalhe.innerHTML = `<i class="bi bi-shield-check text-success me-1"></i>Primeiro acesso por <strong>${quemAcessou}</strong>`;
+      elDropdownDetalhe.innerHTML = `<i class="bi bi-shield-check text-success me-1"></i>Primeiro acesso por <strong>${quemEscapado}</strong>`;
     }
   }
 
@@ -970,7 +1129,8 @@ async function iniciarApp() {
 
   if (state.user.role === 'SUPERADMIN') {
     document.body.classList.add('role-superadmin');
-    document.getElementById('superAdminTenantSelectWrapper').style.display = 'block';
+    const elSelectWrapper = document.getElementById('superAdminTenantSelectWrapper');
+    if (elSelectWrapper) elSelectWrapper.style.display = 'block';
     carregarEscolasSuperAdminSelect();
 
     if (savedTenant) {
@@ -1017,8 +1177,10 @@ async function iniciarApp() {
 
   // Exibir a aplicação principal apenas após a sessão estar autenticada e a página inicial do perfil estar activa
   document.body.classList.add('authenticated');
-  document.getElementById('loginView').style.display = 'none';
-  document.getElementById('appView').style.display = 'flex';
+  const loginView = document.getElementById('loginView');
+  if (loginView) loginView.style.display = 'none';
+  const appView = document.getElementById('appView');
+  if (appView) appView.style.display = 'flex';
 }
 
 async function carregarDadosGlobaisEscola() {
@@ -1431,20 +1593,28 @@ async function atualizarDadosModuloPorAno(ano) {
 
 
 async function carregarEscolasSuperAdminSelect() {
+  const select = document.getElementById('superAdminTenantSelect');
+  if (!select) return;
   try {
     const res = await apiFetch('/api/v1/saas-admin/escolas');
-    if (res.success) {
-      const select = document.getElementById('superAdminTenantSelect');
+    if (res && res.success && Array.isArray(res.data)) {
       select.innerHTML = '<option value="">(Visão Master SaaS)</option>' +
-        res.data.map(e => `<option value="${e.id}">${e.nome} [${e.status}]</option>`).join('');
+        res.data.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.nome)} [${escapeHtml(e.status)}]</option>`).join('');
 
       const saved = localStorage.getItem('sige_selected_tenant');
       if (saved) select.value = saved;
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[SAAS] Falha ao carregar escolas no selector do SuperAdmin:', err);
+  }
 }
 
 async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus = '') {
+  if (state.user?.role !== 'SUPERADMIN') {
+    console.warn('[SEGURANÇA] Tentativa não autorizada de entrar em modo de inspeção.');
+    return;
+  }
+
   if (!escolaId) {
     sairModoInspecaoSuperAdmin();
     return;
@@ -1861,7 +2031,7 @@ async function carregarPainelSaaS() {
             const planoNome = e.plano?.nome || e.plano_nome || 'MENSAL';
             const totalAlunos = e._count?.alunos ?? e.total_alunos ?? 0;
             const totalProfs = e._count?.professores ?? e.total_professores ?? 0;
-            const nomeEscapado = (e.nome || '').replace(/'/g, "\\'");
+            const nomeEscapado = (e.nome || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             const codEscola = e.codigo_escola || '0101S0001';
             const codGD = e.codigo_gabinete_director || `GD${codEscola}`;
             const codDP = e.codigo_direccao_pedagogica || `DP${codEscola}`;
@@ -1872,41 +2042,41 @@ async function carregarPainelSaaS() {
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <div>
-                      <span class="badge bg-primary font-monospace me-1" title="Código Único Oficial da Escola">${codEscola}</span>
-                      <strong>${e.nome}</strong> ${emblemaIcon}
-                      <br><small class="text-muted">${e.email} | ${e.telefone || '-'}</small>
+                      <span class="badge bg-primary font-monospace me-1" title="Código Único Oficial da Escola">${escapeHtml(codEscola)}</span>
+                      <strong>${escapeHtml(e.nome)}</strong> ${emblemaIcon}
+                      <br><small class="text-muted">${escapeHtml(e.email)} | ${escapeHtml(e.telefone || '-')}</small>
                       <div class="mt-1 d-flex flex-wrap gap-1">
-                        <span class="badge bg-light text-primary border font-monospace" style="font-size: 0.68rem;" title="Gabinete do Director (Admin Geral)">${codGD}</span>
-                        <span class="badge bg-light text-info border font-monospace" style="font-size: 0.68rem;" title="Direcção Pedagógica (Sub-Admin)">${codDP}</span>
-                        <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.68rem;" title="Chefe da Secretaria">${codSECR}</span>
+                        <span class="badge bg-light text-primary border font-monospace" style="font-size: 0.68rem;" title="Gabinete do Director (Admin Geral)">${escapeHtml(codGD)}</span>
+                        <span class="badge bg-light text-info border font-monospace" style="font-size: 0.68rem;" title="Direcção Pedagógica (Sub-Admin)">${escapeHtml(codDP)}</span>
+                        <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.68rem;" title="Chefe da Secretaria">${escapeHtml(codSECR)}</span>
                       </div>
                     </div>
                   </div>
                 </td>
-                <td><small>${e.provincia || '-'}<br><span class="text-muted">${e.distrito || '-'}</span></small></td>
-                <td><code>${e.nif_cnpj}</code></td>
+                <td><small>${escapeHtml(e.provincia || '-')}<br><span class="text-muted">${escapeHtml(e.distrito || '-')}</span></small></td>
+                <td><code>${escapeHtml(e.nif_cnpj)}</code></td>
                 <td>
-                  <span class="badge bg-light text-dark border">${planoNome}</span>
+                  <span class="badge bg-light text-dark border">${escapeHtml(planoNome)}</span>
                   <br><strong class="small text-success">${valorContrato}</strong>
                 </td>
-                <td><small>${dataFim}</small></td>
-                <td><span class="badge badge-${(e.status || 'ativa').toLowerCase()}">${e.status}</span></td>
+                <td><small>${escapeHtml(dataFim)}</small></td>
+                <td><span class="badge badge-${escapeHtml((e.status || 'ativa').toLowerCase())}">${escapeHtml(e.status)}</span></td>
                 <td><small>${totalAlunos} alunos<br>${totalProfs} profs</small></td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
                     <!-- Botão Entrar como Escola -->
-                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin (Acesso Imediato sem Credenciais)" onclick="alternarEscolaSuperAdmin('${e.id}', '${nomeEscapado}')">
+                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin (Acesso Imediato sem Credenciais)" onclick="alternarEscolaSuperAdmin('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}')">
                       <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
                     </button>
                     <!-- Botão Toggle Ativar / Desativar -->
                     <button class="btn ${isAtiva ? 'btn-outline-danger' : 'btn-outline-success'}" 
                             title="${isAtiva ? 'Desactivar Escola' : 'Activar Escola'}"
-                            onclick="toggleStatusEscola('${e.id}', '${nomeEscapado}', '${e.status}')">
+                            onclick="toggleStatusEscola('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}', '${escapeHtml(e.status)}')">
                       <i class="bi ${isAtiva ? 'bi-toggle-on text-success' : 'bi-toggle-off text-danger'}"></i>
                       ${isAtiva ? 'Activa' : 'Inactiva'}
                     </button>
                     <!-- Botão Editar Dados e Prazo -->
-                    <button class="btn btn-outline-primary" title="Editar Dados & Prazo" onclick="modalEditarEscolaSuperAdmin('${e.id}')">
+                    <button class="btn btn-outline-primary" title="Editar Dados & Prazo" onclick="modalEditarEscolaSuperAdmin('${escapeHtml(e.id)}')">
                       <i class="bi bi-pencil"></i>
                     </button>
                     <!-- Botão Descarregar Extrato / Contrato -->
@@ -2396,15 +2566,18 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
         alert(err.message || 'Erro ao actualizar dados');
       }
     });
-  } catch (err) {}
+  } catch (err) {
+    console.error('Erro ao abrir modal de edição da escola:', err);
+    mostrarNotificacao(err.message || 'Falha ao carregar dados da escola', 'danger');
+  }
 }
 
 function atualizarDistritosEdicaoEscola(provincia, distritoSelecionado = '') {
-  const distritos = state.geografia.distritos[provincia] || [];
+  const distritos = (state.geografia && state.geografia.distritos && state.geografia.distritos[provincia]) || [];
   const select = document.getElementById('editEscolaDistrito');
   if (select) {
     select.innerHTML = distritos.map(d => 
-      `<option value="${d}" ${d === distritoSelecionado ? 'selected' : ''}>${d}</option>`
+      `<option value="${escapeHtml(d)}" ${d === distritoSelecionado ? 'selected' : ''}>${escapeHtml(d)}</option>`
     ).join('');
   }
 }
@@ -5056,14 +5229,16 @@ async function modalNovoAluno() {
     try {
       const resEscolas = await apiFetch('/api/v1/saas-admin/escolas');
       escolas = resEscolas.data || [];
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Falha ao carregar escolas no modal de matrícula:', e);
+    }
 
     seletorEscolaHtml = `
       <div class="col-md-12">
         <label class="form-label small fw-bold text-primary"><i class="bi bi-building me-1"></i> Escola de Destino (SuperAdmin)</label>
         <select id="maEscola" class="form-select border-primary" onchange="atualizarTurmasModalAluno(this.value)">
           <option value="">Selecione a Escola para Matricular</option>
-          ${escolas.map(e => `<option value="${e.id}" ${e.id === escolaSelecionadaId ? 'selected' : ''}>${e.nome} [${e.status}]</option>`).join('')}
+          ${escolas.map(e => `<option value="${escapeHtml(e.id)}" ${e.id === escolaSelecionadaId ? 'selected' : ''}>${escapeHtml(e.nome)} [${escapeHtml(e.status)}]</option>`).join('')}
         </select>
       </div>
     `;
@@ -5076,7 +5251,9 @@ async function modalNovoAluno() {
       : '/api/v1/escola-admin/turmas';
     const turmasRes = await apiFetch(urlTurmas);
     turmas = turmasRes.data || [];
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Falha ao carregar turmas no modal de matrícula:', e);
+  }
 
   if (!turmas || turmas.length === 0) {
     turmas = state.turmasList || [];
@@ -9089,23 +9266,24 @@ async function modalGerarPauta() {
 async function carregarCertificados() {
   try {
     const res = await apiFetch('/api/v1/certificados');
-    if (res.success) {
+    if (res && res.success && Array.isArray(res.data)) {
       const tbody = document.getElementById('tabelaCertificados');
+      if (!tbody) return;
       tbody.innerHTML = res.data.map(c => `
         <tr>
-          <td><code class="text-primary">${c.codigo_autenticidade}</code></td>
-          <td><strong>${c.aluno.nome}</strong></td>
-          <td><span class="badge bg-light text-dark border">${c.tipo}</span></td>
-          <td>${new Date(c.emitido_em).toLocaleDateString('pt-PT')}</td>
+          <td><code class="text-primary">${escapeHtml(c.codigo_autenticidade)}</code></td>
+          <td><strong>${escapeHtml(c.aluno ? c.aluno.nome : 'Aluno')}</strong></td>
+          <td><span class="badge bg-light text-dark border">${escapeHtml(c.tipo)}</span></td>
+          <td>${c.emitido_em ? new Date(c.emitido_em).toLocaleDateString('pt-PT') : '-'}</td>
           <td>
-            <img src="${c.qrcode_data}" alt="QR" width="38" height="38" class="border rounded" style="cursor: pointer;" onclick="verQrCodeGrande('${c.qrcode_data}', '${c.codigo_autenticidade}')">
+            <img src="${c.qrcode_data || ''}" alt="QR" width="38" height="38" class="border rounded" style="cursor: pointer;" onclick="verQrCodeGrande('${c.qrcode_data || ''}', '${escapeHtml(c.codigo_autenticidade)}')">
           </td>
           <td class="text-end">
             <div class="btn-group btn-group-sm">
-              <button class="btn btn-primary" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${c.aluno.id}')" title="Descarregar Certificado Oficial em PDF">
+              <button class="btn btn-primary" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${escapeHtml(c.aluno ? c.aluno.id : '')}')" title="Descarregar Certificado Oficial em PDF">
                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF
               </button>
-              <a href="/verificar-certificado.html?codigo=${c.codigo_autenticidade}" target="_blank" class="btn btn-outline-primary">
+              <a href="/verificar-certificado.html?codigo=${encodeURIComponent(c.codigo_autenticidade || '')}" target="_blank" class="btn btn-outline-primary">
                 <i class="bi bi-shield-check me-1"></i> Validar
               </a>
             </div>
@@ -9113,7 +9291,9 @@ async function carregarCertificados() {
         </tr>
       `).join('');
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[CERTIFICADOS] Falha ao carregar lista de certificados:', err);
+  }
 }
 
 function verQrCodeGrande(qrSrc, codigo) {
@@ -9130,7 +9310,7 @@ function verQrCodeGrande(qrSrc, codigo) {
 
 async function modalEmitirCertificado() {
   const alunosRes = await apiFetch('/api/v1/alunos');
-  const optAlunos = (alunosRes.data || []).map(a => `<option value="${a.id}">${a.nome} (${a.matricula})</option>`).join('');
+  const optAlunos = (alunosRes.data || []).map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.nome)} (${escapeHtml(a.matricula || '-')})</option>`).join('');
 
   abrirModal('Emitir Certificado com QR Code', `
     <form id="formModalCert">
@@ -9165,7 +9345,7 @@ async function modalEmitirCertificado() {
         carregarCertificados();
       }
     } catch (err) {
-      alert('Erro ao emitir certificado');
+      alert('Erro ao emitir certificado: ' + (err.message || ''));
     }
   });
 }
@@ -9178,39 +9358,44 @@ async function carregarPagamentos() {
       apiFetch('/api/v1/pagamentos/stats')
     ]);
 
-    if (resStats.success) {
+    if (resStats && resStats.success && resStats.data) {
       const s = resStats.data;
-      document.getElementById('finFaturadoCard').innerHTML = formatarMoeda(s.totalFaturado);
-      document.getElementById('finAtrasadoCard').innerHTML = formatarMoeda(s.totalAtrasado);
-      document.getElementById('finInadimplenciaCard').textContent = s.taxaInadimplencia + '%';
-      document.getElementById('finAdimplentesCard').textContent = s.percentualAdimplentes + '%';
+      const elFat = document.getElementById('finFaturadoCard');
+      if (elFat) elFat.innerHTML = formatarMoeda(s.totalFaturado || 0);
+      const elAtr = document.getElementById('finAtrasadoCard');
+      if (elAtr) elAtr.innerHTML = formatarMoeda(s.totalAtrasado || 0);
+      const elInad = document.getElementById('finInadimplenciaCard');
+      if (elInad) elInad.textContent = (s.taxaInadimplencia ?? 0) + '%';
+      const elAdimp = document.getElementById('finAdimplentesCard');
+      if (elAdimp) elAdimp.textContent = (s.percentualAdimplentes ?? 0) + '%';
     }
 
-    if (resP.success) {
+    if (resP && resP.success && Array.isArray(resP.data)) {
       const tbody = document.getElementById('tabelaPagamentos');
+      if (!tbody) return;
       tbody.innerHTML = resP.data.map(p => `
         <tr>
-          <td><strong>${p.aluno.nome}</strong></td>
-          <td>${p.descricao}</td>
-          <td><code>${p.mes_referencia}</code></td>
-          <td><strong class="text-success">${formatarMoeda(p.valor)}</strong></td>
-          <td>${new Date(p.data_vencimento).toLocaleDateString('pt-PT')}</td>
+          <td><strong>${escapeHtml(p.aluno ? p.aluno.nome : 'Aluno')}</strong></td>
+          <td>${escapeHtml(p.descricao || 'Mensalidade')}</td>
+          <td><code>${escapeHtml(p.mes_referencia || '-')}</code></td>
+          <td><strong class="text-success">${formatarMoeda(p.valor || 0)}</strong></td>
+          <td>${p.data_vencimento ? new Date(p.data_vencimento).toLocaleDateString('pt-PT') : '-'}</td>
           <td>
             <span class="badge ${p.status === 'PAGO' ? 'bg-success' : 'bg-warning text-dark'}">
-              ${p.status}
+              ${escapeHtml(p.status || 'PENDENTE')}
             </span>
           </td>
           <td class="text-end">
             <div class="btn-group btn-group-sm">
               ${p.status === 'PENDENTE' ? `
-                <button class="btn btn-outline-success" onclick="liquidarPagamento('${p.id}', ${p.valor})">
+                <button class="btn btn-outline-success" onclick="liquidarPagamento('${escapeHtml(p.id)}', ${Number(p.valor || 0)})">
                   <i class="bi bi-cash me-1"></i> Liquidar
                 </button>
               ` : ''}
-              <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
+              <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${escapeHtml(p.id)}')" title="Visualizar e Imprimir Recibo">
                 <i class="bi bi-receipt me-1"></i> Recibo
               </button>
-              <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF">
+              <button class="btn btn-primary" onclick="descarregarReciboPdf('${escapeHtml(p.id)}')" title="Descarregar Recibo Oficial em PDF">
                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF
               </button>
             </div>
@@ -9218,7 +9403,9 @@ async function carregarPagamentos() {
         </tr>
       `).join('');
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[FINANCEIRO] Falha ao carregar mensalidades e estatísticas:', err);
+  }
 }
 
 async function liquidarPagamento(id, valor) {
@@ -9459,14 +9646,16 @@ async function prepararCentralImpressao() {
     const selectTurma = document.getElementById('printSelectTurma');
     if (selectTurma) {
       selectTurma.innerHTML = '<option value="">Selecione uma turma...</option>' + 
-        (resTurmas.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
+        (resTurmas && Array.isArray(resTurmas.data) ? resTurmas.data : []).map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nome)} (${escapeHtml(t.grau_ano || '')})</option>`).join('');
       
-      if (resTurmas.data && resTurmas.data.length > 0) {
+      if (resTurmas && resTurmas.data && resTurmas.data.length > 0) {
         selectTurma.value = resTurmas.data[0].id;
         await aoSelecionarTurmaImpressao();
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[IMPRESSAO] Falha ao preparar central de impressão:', err);
+  }
 }
 
 async function aoSelecionarTurmaImpressao() {
@@ -11251,37 +11440,44 @@ async function carregarAlunoPerfil() {
 async function carregarAlunoNotas() {
   try {
     const res = await apiFetch('/api/v1/alunos/me/notas');
-    if (res.success) {
+    if (res && res.success && res.data) {
       const d = res.data;
 
       const banner = document.getElementById('bannerNotasBloqueadas');
       const tabelaContainer = document.getElementById('tabelaAlunoNotasCorpo')?.closest('.table-responsive');
+      const elMediaGeral = document.getElementById('alunoMediaGeral');
 
       if (d.permitirVisualizacaoNotas === false) {
         if (banner) banner.style.display = 'block';
         if (tabelaContainer) tabelaContainer.style.display = 'none';
-        document.getElementById('alunoMediaGeral').textContent = '--';
+        if (elMediaGeral) elMediaGeral.textContent = '--';
         return;
       } else {
         if (banner) banner.style.display = 'none';
         if (tabelaContainer) tabelaContainer.style.display = 'block';
       }
 
-      document.getElementById('alunoMediaGeral').textContent = d.mediaGeral ? `${Math.round(d.mediaGeral)} valores` : '--';
+      if (elMediaGeral) {
+        elMediaGeral.textContent = d.mediaGeral ? `${Math.round(d.mediaGeral)} valores` : '--';
+      }
       
       const badgeSit = document.getElementById('alunoSituacaoBadge');
-      if (d.situacao === 'APROVADO') {
-        badgeSit.textContent = 'Aprovado';
-        badgeSit.className = 'badge badge-aprovado p-2 ms-2';
-      } else if (d.situacao === 'REPROVADO') {
-        badgeSit.textContent = 'Reprovado';
-        badgeSit.className = 'badge badge-reprovado p-2 ms-2';
-      } else {
-        badgeSit.textContent = d.situacao || 'Em Curso';
-        badgeSit.className = 'badge bg-secondary p-2 ms-2';
+      if (badgeSit) {
+        if (d.situacao === 'APROVADO') {
+          badgeSit.textContent = 'Aprovado';
+          badgeSit.className = 'badge badge-aprovado p-2 ms-2';
+        } else if (d.situacao === 'REPROVADO') {
+          badgeSit.textContent = 'Reprovado';
+          badgeSit.className = 'badge badge-reprovado p-2 ms-2';
+        } else {
+          badgeSit.textContent = d.situacao || 'Em Curso';
+          badgeSit.className = 'badge bg-secondary p-2 ms-2';
+        }
       }
 
       const tbody = document.getElementById('tabelaAlunoNotasCorpo');
+      if (!tbody) return;
+
       if (!d.disciplinas || d.disciplinas.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Nenhuma avaliação lançada até ao momento.</td></tr>';
         return;
@@ -11293,7 +11489,7 @@ async function carregarAlunoNotas() {
 
         return `
           <tr>
-            <td class="text-start"><strong>${item.nome}</strong></td>
+            <td class="text-start"><strong>${escapeHtml(item.nome)}</strong></td>
             <td>${item.t1 !== null ? item.t1 : '-'}</td>
             <td>${item.t2 !== null ? item.t2 : '-'}</td>
             <td>${item.t3 !== null ? item.t3 : '-'}</td>
@@ -11309,7 +11505,9 @@ async function carregarAlunoNotas() {
         `;
       }).join('');
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[NOTAS] Falha ao carregar notas do aluno:', err);
+  }
 }
 
 async function carregarAlunoPagamentos() {
@@ -11397,35 +11595,48 @@ async function carregarAlunoPagamentos() {
 async function carregarLogsAcesso() {
   try {
     const res = await apiFetch('/api/v1/auth/stats');
-    if (res.success) {
+    if (res && res.success && res.data && Array.isArray(res.data.logsRecentes)) {
       const tbody = document.getElementById('tabelaLogsAcesso');
-      tbody.innerHTML = res.data.logsRecentes.map(l => `
-        <tr>
-          <td>${new Date(l.createdAt).toLocaleDateString('pt-PT')} às ${new Date(l.createdAt).toLocaleTimeString('pt-PT')}</td>
-          <td><strong>${l.usuario ? l.usuario.nome : 'Anónimo / Convidado'}</strong></td>
-          <td><code>${l.ip}</code></td>
-          <td class="small text-muted">${l.user_agent || '-'}</td>
-          <td>
-            <span class="badge ${l.tipo === 'LOGIN_SUCESSO' ? 'bg-success' : l.tipo === 'ACESSO_BLOQUEADO_EXPIRADO' ? 'bg-danger' : 'bg-warning text-dark'}">
-              ${l.tipo}
-            </span>
-          </td>
-        </tr>
-      `).join('');
+      if (!tbody) return;
+      tbody.innerHTML = res.data.logsRecentes.map(l => {
+        const dtStr = l.createdAt ? (new Date(l.createdAt).toLocaleDateString('pt-PT') + ' às ' + new Date(l.createdAt).toLocaleTimeString('pt-PT')) : '-';
+        const usuarioNome = l.usuario ? l.usuario.nome : 'Anónimo / Convidado';
+        const tipoLog = l.tipo || 'DESCONHECIDO';
+        return `
+          <tr>
+            <td>${escapeHtml(dtStr)}</td>
+            <td><strong>${escapeHtml(usuarioNome)}</strong></td>
+            <td><code>${escapeHtml(l.ip || '-')}</code></td>
+            <td class="small text-muted">${escapeHtml(l.user_agent || '-')}</td>
+            <td>
+              <span class="badge ${tipoLog === 'LOGIN_SUCESSO' ? 'bg-success' : tipoLog === 'ACESSO_BLOQUEADO_EXPIRADO' ? 'bg-danger' : 'bg-warning text-dark'}">
+                ${escapeHtml(tipoLog)}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('[ACESSOS] Falha ao carregar logs de acesso:', err);
+  }
 }
 
 // ==================== HELPERS DE MODAL ====================
 let modalInstancia = null;
 function abrirModal(titulo, htmlCorpo) {
-  document.getElementById('modalGenericoTitulo').textContent = titulo;
+  const elTitulo = document.getElementById('modalGenericoTitulo');
+  if (elTitulo) elTitulo.textContent = titulo;
   const corpo = document.getElementById('modalGenericoCorpo');
-  corpo.innerHTML = htmlCorpo;
-  aplicarResponsividadeUniversalTabelas(corpo);
+  if (corpo) {
+    corpo.innerHTML = htmlCorpo;
+    aplicarResponsividadeUniversalTabelas(corpo);
+  }
   const el = document.getElementById('modalGenerico');
-  modalInstancia = new bootstrap.Modal(el);
-  modalInstancia.show();
+  if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+    modalInstancia = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modalInstancia.show();
+  }
 }
 
 function fecharModal() {
@@ -12562,13 +12773,394 @@ async function descarregarEstatisticasPdf() {
   const container = document.getElementById('containerEstatisticasDocumento');
   if (!container) return alert('Carregue as estatísticas primeiro');
   const ano = document.getElementById('statAnoFiltro')?.value || '2026';
+  const table = container.querySelector('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Estatísticas de Aproveitamento Pedagógico',
+      subtitulo: `Ano Lectivo ${ano}`,
+      orientacao: 'landscape',
+      nomeFicheiro: `Estatisticas_Aproveitamento_${ano}.pdf`
+    });
+    return;
+  }
   await exportarElementoParaPdf(container, `Estatisticas_Aproveitamento_Pedagogico_${ano}.pdf`, 'landscape');
 }
 
-function exportarEstatisticasExcel() {
+async function exportarEstatisticasExcel() {
+  const container = document.getElementById('containerEstatisticasDocumento');
   const ano = document.getElementById('statAnoFiltro')?.value || '2026';
   const periodo = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';
-  downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=${ano}&periodo=${periodo}`, `Estatisticas_Aproveitamento_${ano}.xlsx`);
+  const table = container?.querySelector('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Estatísticas de Aproveitamento Pedagógico',
+      subtitulo: `Ano Lectivo ${ano} | Período: ${periodo}`,
+      nomeFicheiro: `Estatisticas_Aproveitamento_${ano}.xlsx`
+    });
+    return;
+  }
+  await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=${ano}&periodo=${periodo}`, `Estatisticas_Aproveitamento_${ano}.xlsx`);
+}
+
+async function exportarEstatisticasWord() {
+  const container = document.getElementById('containerEstatisticasDocumento');
+  const ano = document.getElementById('statAnoFiltro')?.value || '2026';
+  const periodo = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';
+  const table = container?.querySelector('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Estatísticas de Aproveitamento Pedagógico',
+      subtitulo: `Ano Lectivo ${ano} | Período: ${periodo}`,
+      orientacao: 'landscape',
+      nomeFicheiro: `Estatisticas_Aproveitamento_${ano}.docx`
+    });
+    return;
+  }
+  await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/docx?anoLetivo=${ano}&periodo=${periodo}`, `Estatisticas_Aproveitamento_${ano}.docx`);
+}
+
+// =========================================================================
+// EXPORTAÇÕES SUPER AVANÇADAS EM CADA PAINEL (jsPDF, Excel.js, docx.js)
+// =========================================================================
+
+// 1. Alunos (painel-escola)
+async function exportarAlunosPdf() {
+  const table = document.getElementById('tabelaAlunos')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Relação Nominal de Alunos & Matrículas Oficiais',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Alunos_Matriculados_2026.pdf'
+    });
+  } else {
+    mostrarToast('Nenhum dado de alunos disponível para exportar.', 'warning');
+  }
+}
+
+async function exportarAlunosExcel() {
+  const table = document.getElementById('tabelaAlunos')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Relação Nominal de Alunos & Matrículas Oficiais',
+      subtitulo: 'Ano Lectivo 2026',
+      nomeFicheiro: 'Alunos_Matriculados_2026.xlsx'
+    });
+  } else {
+    mostrarToast('Nenhum dado de alunos disponível para exportar.', 'warning');
+  }
+}
+
+async function exportarAlunosWord() {
+  const table = document.getElementById('tabelaAlunos')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Relação Nominal de Alunos & Matrículas Oficiais',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Alunos_Matriculados_2026.docx'
+    });
+  } else {
+    mostrarToast('Nenhum dado de alunos disponível para exportar.', 'warning');
+  }
+}
+
+// 2. Professores (painel-escola)
+async function exportarProfessoresPdf() {
+  const table = document.getElementById('tabelaProfessores')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Quadro Geral do Corpo Docente & Alocações',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Corpo_Docente_2026.pdf'
+    });
+  }
+}
+
+async function exportarProfessoresExcel() {
+  const table = document.getElementById('tabelaProfessores')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Quadro Geral do Corpo Docente & Alocações',
+      subtitulo: 'Ano Lectivo 2026',
+      nomeFicheiro: 'Corpo_Docente_2026.xlsx'
+    });
+  }
+}
+
+async function exportarProfessoresWord() {
+  const table = document.getElementById('tabelaProfessores')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Quadro Geral do Corpo Docente & Alocações',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Corpo_Docente_2026.docx'
+    });
+  }
+}
+
+// 3. Turmas (painel-escola)
+async function exportarTurmasPdf() {
+  const table = document.getElementById('tabelaTurmasView')?.closest('table') || document.getElementById('tabelaTurmas')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Mapa Geral de Turmas & Ocupação Escolar',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Mapa_Turmas_2026.pdf'
+    });
+  }
+}
+
+async function exportarTurmasExcel() {
+  const table = document.getElementById('tabelaTurmasView')?.closest('table') || document.getElementById('tabelaTurmas')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Mapa Geral de Turmas & Ocupação Escolar',
+      subtitulo: 'Ano Lectivo 2026',
+      nomeFicheiro: 'Mapa_Turmas_2026.xlsx'
+    });
+  }
+}
+
+async function exportarTurmasWord() {
+  const table = document.getElementById('tabelaTurmasView')?.closest('table') || document.getElementById('tabelaTurmas')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Mapa Geral de Turmas & Ocupação Escolar',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Mapa_Turmas_2026.docx'
+    });
+  }
+}
+
+// 4. Pagamentos & Mensalidades (painel-escola e painel-financeiro)
+async function exportarPagamentosPdf() {
+  const table = document.getElementById('tabelaPagamentos')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Relatório Financeiro de Cobranças & Propinas',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Relatorio_Pagamentos_2026.pdf'
+    });
+  }
+}
+
+async function exportarPagamentosExcel() {
+  const table = document.getElementById('tabelaPagamentos')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Relatório Financeiro de Cobranças & Propinas',
+      subtitulo: 'Ano Lectivo 2026',
+      nomeFicheiro: 'Relatorio_Pagamentos_2026.xlsx'
+    });
+  }
+}
+
+async function exportarPagamentosWord() {
+  const table = document.getElementById('tabelaPagamentos')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Relatório Financeiro de Cobranças & Propinas',
+      subtitulo: 'Ano Lectivo 2026',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Relatorio_Pagamentos_2026.docx'
+    });
+  }
+}
+
+// 5. Aluno: Boletim de Notas (painel-aluno)
+async function exportarBoletimAlunoPdf() {
+  const table = document.getElementById('tabelaAlunoNotasCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    const nomeAluno = state.user?.nome || 'Aluno';
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Boletim Oficial de Notas & Avaliações',
+      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      orientacao: 'portrait',
+      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_2026.pdf`,
+      metadadosExtras: {
+        'Aluno': nomeAluno,
+        'Ano Letivo': '2026'
+      }
+    });
+  }
+}
+
+async function exportarBoletimAlunoExcel() {
+  const table = document.getElementById('tabelaAlunoNotasCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    const nomeAluno = state.user?.nome || 'Aluno';
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Boletim Oficial de Notas & Avaliações',
+      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_2026.xlsx`
+    });
+  }
+}
+
+async function exportarBoletimAlunoWord() {
+  const table = document.getElementById('tabelaAlunoNotasCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    const nomeAluno = state.user?.nome || 'Aluno';
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Boletim Oficial de Notas & Avaliações',
+      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      orientacao: 'portrait',
+      nomeFicheiro: `Boletim_Notas_${nomeAluno.replace(/\\s+/g, '_')}_2026.docx`
+    });
+  }
+}
+
+// 6. Aluno: Extrato de Mensalidades (painel-aluno)
+async function exportarExtratoAlunoPdf() {
+  const table = document.getElementById('tabelaAlunoPagamentosCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    const nomeAluno = state.user?.nome || 'Aluno';
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Extrato Oficial de Propinas & Mensalidades',
+      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      orientacao: 'portrait',
+      nomeFicheiro: `Extrato_Propinas_${nomeAluno.replace(/\\s+/g, '_')}_2026.pdf`
+    });
+  }
+}
+
+async function exportarExtratoAlunoExcel() {
+  const table = document.getElementById('tabelaAlunoPagamentosCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    const nomeAluno = state.user?.nome || 'Aluno';
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Extrato Oficial de Propinas & Mensalidades',
+      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      nomeFicheiro: `Extrato_Propinas_${nomeAluno.replace(/\\s+/g, '_')}_2026.xlsx`
+    });
+  }
+}
+
+async function exportarExtratoAlunoWord() {
+  const table = document.getElementById('tabelaAlunoPagamentosCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    const nomeAluno = state.user?.nome || 'Aluno';
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Extrato Oficial de Propinas & Mensalidades',
+      subtitulo: `Aluno(a): ${nomeAluno} | Ano Lectivo 2026`,
+      orientacao: 'portrait',
+      nomeFicheiro: `Extrato_Propinas_${nomeAluno.replace(/\\s+/g, '_')}_2026.docx`
+    });
+  }
+}
+
+// 7. SuperAdmin: Escolas SaaS (painel-superadmin)
+async function exportarRelatorioSaasPdf() {
+  const table = document.getElementById('tabelaSaasEscolas')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Relatório SaaS — Rede de Instituições & Tenants',
+      subtitulo: 'SIGE Cloud Multi-tenant',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Relatorio_Escolas_SaaS_2026.pdf'
+    });
+  }
+}
+
+async function exportarRelatorioSaasExcel() {
+  const table = document.getElementById('tabelaSaasEscolas')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Relatório SaaS — Rede de Instituições & Tenants',
+      subtitulo: 'SIGE Cloud Multi-tenant',
+      nomeFicheiro: 'Relatorio_Escolas_SaaS_2026.xlsx'
+    });
+  }
+}
+
+async function exportarRelatorioSaasWord() {
+  const table = document.getElementById('tabelaSaasEscolas')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Relatório SaaS — Rede de Instituições & Tenants',
+      subtitulo: 'SIGE Cloud Multi-tenant',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Relatorio_Escolas_SaaS_2026.docx'
+    });
+  }
+}
+
+// 8. SuperAdmin & Escola: Cofre de Utilizadores e Senhas
+async function exportarUsuariosPdf() {
+  const table = document.getElementById('tabelaCofreUsuariosCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Registo Confidencial de Contas & Códigos de Acesso',
+      subtitulo: 'Acesso Restrito — Direcção & SuperAdmin',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Contas_Utilizadores_2026.pdf'
+    });
+  }
+}
+
+async function exportarUsuariosExcel() {
+  const table = document.getElementById('tabelaCofreUsuariosCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Registo Confidencial de Contas & Códigos de Acesso',
+      subtitulo: 'Acesso Restrito — Direcção & SuperAdmin',
+      nomeFicheiro: 'Contas_Utilizadores_2026.xlsx'
+    });
+  }
+}
+
+async function exportarUsuariosWord() {
+  const table = document.getElementById('tabelaCofreUsuariosCorpo')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Registo Confidencial de Contas & Códigos de Acesso',
+      subtitulo: 'Acesso Restrito — Direcção & SuperAdmin',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Contas_Utilizadores_2026.docx'
+    });
+  }
+}
+
+// 9. SuperAdmin & Escola: Logs de Acesso e Auditoria
+async function exportarAcessosPdf() {
+  const table = document.getElementById('tabelaLogsAcesso')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Relatório de Auditoria de Acessos & Segurança',
+      subtitulo: 'Trilha de Auditoria do Sistema',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Auditoria_Acessos_2026.pdf'
+    });
+  }
+}
+
+async function exportarAcessosExcel() {
+  const table = document.getElementById('tabelaLogsAcesso')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Relatório de Auditoria de Acessos & Segurança',
+      subtitulo: 'Trilha de Auditoria do Sistema',
+      nomeFicheiro: 'Auditoria_Acessos_2026.xlsx'
+    });
+  }
+}
+
+async function exportarAcessosWord() {
+  const table = document.getElementById('tabelaLogsAcesso')?.closest('table');
+  if (window.SigeExport && table) {
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Relatório de Auditoria de Acessos & Segurança',
+      subtitulo: 'Trilha de Auditoria do Sistema',
+      orientacao: 'landscape',
+      nomeFicheiro: 'Auditoria_Acessos_2026.docx'
+    });
+  }
 }
 
 // ==================== LOGÓTIPO SAAS CADASTRO ====================
@@ -12864,10 +13456,12 @@ async function modalCarregarMaterialEscolar() {
   try {
     const urlDisc = '/api/v1/disciplinas' + (escolaAtivaId ? `?escola_id=${encodeURIComponent(escolaAtivaId)}` : '');
     const resD = await apiFetch(urlDisc);
-    if (resD.success && Array.isArray(resD.data)) {
-      optDisciplinas += resD.data.map(d => `<option value="${d.id}">${d.nome} (${d.classe || ''})</option>`).join('');
+    if (resD && resD.success && Array.isArray(resD.data)) {
+      optDisciplinas += resD.data.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.nome)} (${escapeHtml(d.classe || '')})</option>`).join('');
     }
-  } catch (_) {}
+  } catch (errDisc) {
+    console.warn('[MATERIAL] Falha ao carregar disciplinas no modal:', errDisc);
+  }
 
   const optClasses = CLASSES_SISTEMA_ORDEM.map(c => 
     `<option value="${c}" ${c === classePrevia ? 'selected' : ''}>${c}</option>`

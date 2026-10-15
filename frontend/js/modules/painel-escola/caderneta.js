@@ -643,17 +643,80 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
 }
 
 async function exportarCadernetaExcel() {
+  const table = document.querySelector('.caderneta-tabela');
+  if (window.SigeExport && table && table.querySelectorAll('tbody tr').length > 0 && !table.innerText.includes('Selecione uma turma')) {
+    const disciplina = document.getElementById('cadBoxDisciplina')?.innerText || 'Disciplina';
+    const turma = document.getElementById('cadBoxTurmaDirector')?.innerText || 'Turma';
+    const ano = document.getElementById('cadHeaderAno')?.innerText || '2026';
+    await window.SigeExport.exportarTabelaHtml(table, 'excel', {
+      titulo: 'Caderneta Escolar Oficial — Registo de Avaliações',
+      subtitulo: `${disciplina} | ${turma} | Ano Lectivo ${ano}`,
+      nomeFicheiro: `Caderneta_${disciplina}_${turma}_${ano}.xlsx`,
+      metadadosExtras: {
+        'Disciplina': disciplina,
+        'Turma': turma,
+        'Ano': ano
+      }
+    });
+    return;
+  }
   const alocId = await obterAlocacaoAtivaOuPrimeira();
   if (!alocId) return;
   const url = `/api/v1/professores/caderneta/${alocId}/xlsx`;
   await downloadFicheiroBinario(url, `Caderneta_Oficial_2026.xlsx`);
 }
 
+async function descarregarCadernetaPdf() {
+  const table = document.querySelector('.caderneta-tabela');
+  if (window.SigeExport && table && table.querySelectorAll('tbody tr').length > 0 && !table.innerText.includes('Selecione uma turma')) {
+    const disciplina = document.getElementById('cadBoxDisciplina')?.innerText || 'Disciplina';
+    const turma = document.getElementById('cadBoxTurmaDirector')?.innerText || 'Turma';
+    const ano = document.getElementById('cadHeaderAno')?.innerText || '2026';
+    await window.SigeExport.exportarTabelaHtml(table, 'pdf', {
+      titulo: 'Caderneta Escolar Oficial — Registo de Avaliações',
+      subtitulo: `${disciplina} | ${turma} | Ano Lectivo ${ano}`,
+      orientacao: 'landscape',
+      nomeFicheiro: `Caderneta_${disciplina}_${turma}_${ano}.pdf`,
+      metadadosExtras: {
+        'Disciplina': disciplina,
+        'Turma': turma,
+        'Ano': ano
+      }
+    });
+    return;
+  }
+  const alocId = await obterAlocacaoAtivaOuPrimeira();
+  if (!alocId) return;
+  await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/pdf`, `Caderneta_Oficial_2026.pdf`);
+}
+
+async function exportarCadernetaWord() {
+  const table = document.querySelector('.caderneta-tabela');
+  if (window.SigeExport && table && table.querySelectorAll('tbody tr').length > 0 && !table.innerText.includes('Selecione uma turma')) {
+    const disciplina = document.getElementById('cadBoxDisciplina')?.innerText || 'Disciplina';
+    const turma = document.getElementById('cadBoxTurmaDirector')?.innerText || 'Turma';
+    const ano = document.getElementById('cadHeaderAno')?.innerText || '2026';
+    await window.SigeExport.exportarTabelaHtml(table, 'word', {
+      titulo: 'Caderneta Escolar Oficial — Registo de Avaliações',
+      subtitulo: `${disciplina} | ${turma} | Ano Lectivo ${ano}`,
+      orientacao: 'landscape',
+      nomeFicheiro: `Caderneta_${disciplina}_${turma}_${ano}.docx`,
+      metadadosExtras: {
+        'Disciplina': disciplina,
+        'Turma': turma,
+        'Ano': ano
+      }
+    });
+    return;
+  }
+  const alocId = await obterAlocacaoAtivaOuPrimeira();
+  if (!alocId) return;
+  await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/docx`, `Caderneta_Oficial_2026.docx`);
+}
+
 function imprimirCadernetaOficial() {
   window.print();
 }
-
-// descarregarCadernetaPdf já está definido globalmente chamando /api/v1/professores/caderneta/:id/pdf
 
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
   if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina');

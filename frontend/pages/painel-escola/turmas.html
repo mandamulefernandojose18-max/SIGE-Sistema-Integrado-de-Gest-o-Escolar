@@ -15,7 +15,18 @@
               <h4 class="fw-bold text-dark mb-1">Painel de Turmas & Capacidade Máxima</h4>
               <p class="text-muted small mb-0">Controle de ocupação, criação em lote (Turmas 1, 2, 3...) e formação automática com critérios pedagógicos.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-danger btn-sm" onclick="exportarTurmasPdf()" title="Exportar turmas em PDF">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportarTurmasExcel()" title="Exportar turmas em Excel">
+                  <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="exportarTurmasWord()" title="Exportar turmas em Word">
+                  <i class="bi bi-file-earmark-word me-1"></i> Word
+                </button>
+              </div>
               <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="modalFormacaoAutomaticaTurmas()">
                 <i class="bi bi-magic me-1"></i> Formação Automática de Turmas (1, 2, 3...)
               </button>
