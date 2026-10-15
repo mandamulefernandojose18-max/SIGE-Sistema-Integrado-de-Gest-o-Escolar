@@ -186,15 +186,11 @@ class LoginSerializer(serializers.Serializer):
                 bloqueada = bool(getattr(escola, 'bloqueada_manualmente', False))
                 if status_escola != 'ATIVA' or bloqueada:
                     if bloqueada:
-                        motivo = 'BLOQUEADA MANUALMENTE'
-                    elif 'SUSP' in status_escola:
-                        motivo = 'SUSPENSA'
-                    elif 'EXP' in status_escola:
-                        motivo = 'EXPIRADA'
+                        motivo = 'bloqueada manualmente'
                     elif 'PEND' in status_escola:
-                        motivo = 'PENDENTE'
+                        motivo = 'com o registo pendente de activação'
                     else:
-                        motivo = 'INACTIVA'
+                        motivo = 'com a subscrição expirada'
 
                     try:
                         LogAcesso.objects.create(
@@ -207,7 +203,8 @@ class LoginSerializer(serializers.Serializer):
 
                     raise serializers.ValidationError(
                         f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se {motivo}. '
-                        f'O acesso ao sistema está temporariamente vedado. Apenas o Super Admin tem permissão de acesso a instituições inactivas.'
+                        f'Por esse motivo, o acesso ao sistema está temporariamente vedado. '
+                        f'Para restabelecer o acesso, contacte o Engenheiro do Sistema, responsável pela gestão das instituições e pela renovação das respectivas subscrições.'
                     )
             else:
                 raise serializers.ValidationError('Acesso bloqueado: O seu utilizador não está vinculado a nenhuma instituição de ensino.')

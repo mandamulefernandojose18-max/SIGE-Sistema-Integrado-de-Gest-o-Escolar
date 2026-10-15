@@ -1004,13 +1004,13 @@ async function realizarLogin(e) {
       await iniciarApp();
     } else {
       const msgErro = (json && (json.message || json.detail)) || 'Credenciais inválidas! Utilizador ou senha incorretos.';
-      alert(msgErro + '\nA atualizar a página imediatamente...');
+      alert(msgErro);
       window.location.reload();
       return;
     }
   } catch (err) {
     console.error('Erro de conexão no login:', err);
-    alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.') + '\nA atualizar a página imediatamente...');
+    alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.'));
     window.location.reload();
     return;
   } finally {

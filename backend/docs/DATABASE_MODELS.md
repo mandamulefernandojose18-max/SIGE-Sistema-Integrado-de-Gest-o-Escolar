@@ -8,7 +8,7 @@
 
 ### Modelo: `Usuario`
 
-Usuario(password, last_login, is_superuser, first_name, last_name, is_staff, is_active, date_joined, id, email, nome, role, escola, ativo, telefone, avatar_url, aluno_id, professor_id, username)
+Usuario(password, last_login, is_superuser, first_name, last_name, is_staff, is_active, date_joined, id, email, nome, role, escola, ativo, telefone, avatar_url, aluno_id, professor_id, codigo_acesso, senha_redefinida, username)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
@@ -30,6 +30,8 @@ Usuario(password, last_login, is_superuser, first_name, last_name, is_staff, is_
 | `avatar_url` | `CharField` | Sim |  |
 | `aluno_id` | `UUIDField` | Sim |  |
 | `professor_id` | `UUIDField` | Sim |  |
+| `codigo_acesso` | `CharField` | Sim |  |
+| `senha_redefinida` | `BooleanField` | Não |  |
 | `username` | `CharField` | Não |  |
 | `groups` | `ManyToManyField` | Não |  -> `Group` |
 | `user_permissions` | `ManyToManyField` | Não |  -> `Permission` |
@@ -72,7 +74,7 @@ Plano(id, nome, descricao, preco, duracao_dias, max_alunos, max_professores, ati
 
 ### Modelo: `Escola`
 
-Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_letivo_ativo, trimestre_ativo, plano, data_adesao, provincia, distrito, director_nome, director_carreira, dap_nome, chefe_secretaria_nome, usar_emblema_nacional, codigo_escola, logo_base64, bloqueada_manualmente, permitir_visualizacao_notas, inscricoes_abertas, inscricoes_inicio, inscricoes_fim, created_at, updated_at)
+Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_letivo_ativo, trimestre_ativo, plano, data_adesao, provincia, distrito, tipo_escola, director_nome, director_carreira, dap_nome, chefe_secretaria_nome, usar_emblema_nacional, codigo_escola, logo_base64, bloqueada_manualmente, permitir_visualizacao_notas, inscricoes_abertas, inscricoes_inicio, inscricoes_fim, modo_calendarizacao, tipo_duracao_automatica, valor_duracao_automatica, data_base_automatica, data_inicio_t1, data_fim_t1, data_inicio_t2, data_fim_t2, data_inicio_t3, data_fim_t3, permitir_sempre_t1, permitir_sempre_t2, permitir_sempre_t3, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
@@ -90,6 +92,7 @@ Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_leti
 | `data_adesao` | `DateTimeField` | Não |  |
 | `provincia` | `CharField` | Não |  |
 | `distrito` | `CharField` | Não |  |
+| `tipo_escola` | `CharField` | Não |  |
 | `director_nome` | `CharField` | Não |  |
 | `director_carreira` | `CharField` | Não |  |
 | `dap_nome` | `CharField` | Não |  |
@@ -102,6 +105,19 @@ Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_leti
 | `inscricoes_abertas` | `BooleanField` | Não |  |
 | `inscricoes_inicio` | `DateTimeField` | Sim |  |
 | `inscricoes_fim` | `DateTimeField` | Sim |  |
+| `modo_calendarizacao` | `CharField` | Não |  |
+| `tipo_duracao_automatica` | `CharField` | Não |  |
+| `valor_duracao_automatica` | `IntegerField` | Não |  |
+| `data_base_automatica` | `DateField` | Sim |  |
+| `data_inicio_t1` | `DateField` | Sim |  |
+| `data_fim_t1` | `DateField` | Sim |  |
+| `data_inicio_t2` | `DateField` | Sim |  |
+| `data_fim_t2` | `DateField` | Sim |  |
+| `data_inicio_t3` | `DateField` | Sim |  |
+| `data_fim_t3` | `DateField` | Sim |  |
+| `permitir_sempre_t1` | `BooleanField` | Não |  |
+| `permitir_sempre_t2` | `BooleanField` | Não |  |
+| `permitir_sempre_t3` | `BooleanField` | Não |  |
 | `created_at` | `DateTimeField` | Não |  |
 | `updated_at` | `DateTimeField` | Não |  |
 
@@ -124,17 +140,37 @@ AssinaturaEscola(id, escola, plano, data_inicio, data_fim, valor, status, metodo
 | `updated_at` | `DateTimeField` | Não |  |
 
 
+### Modelo: `AnoLectivo`
+
+AnoLectivo(id, escola, ano, descricao, ativo, data_inicio, data_fim, created_at, updated_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `escola` | `ForeignKey` | Não |  -> `Escola` |
+| `ano` | `CharField` | Não |  |
+| `descricao` | `CharField` | Não |  |
+| `ativo` | `BooleanField` | Não |  |
+| `data_inicio` | `DateField` | Sim |  |
+| `data_fim` | `DateField` | Sim |  |
+| `created_at` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
 ## Aplicação: `apps.alunos`
 
 ### Modelo: `Aluno`
 
-Aluno(id, escola, turma, matricula, nome, apelido, data_nascimento, genero, tipo_documento, numero_documento, nuit, nacionalidade, provincia, distrito, pai, mae, nome_responsavel, contato_responsavel, email_responsavel, status, created_at, updated_at)
+Aluno(id, escola, turma, classe, area, ano_ingresso, matricula, nome, apelido, data_nascimento, genero, tipo_documento, numero_documento, nuit, nacionalidade, provincia, distrito, pai, mae, nome_responsavel, contato_responsavel, email_responsavel, status, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
 | `id` | `UUIDField` | Não |  |
 | `escola` | `ForeignKey` | Não |  -> `Escola` |
 | `turma` | `ForeignKey` | Sim |  -> `Turma` |
+| `classe` | `CharField` | Sim |  |
+| `area` | `CharField` | Sim |  |
+| `ano_ingresso` | `CharField` | Sim |  |
 | `matricula` | `CharField` | Não |  |
 | `nome` | `CharField` | Não |  |
 | `apelido` | `CharField` | Sim |  |
@@ -160,12 +196,13 @@ Aluno(id, escola, turma, matricula, nome, apelido, data_nascimento, genero, tipo
 
 ### Modelo: `Professor`
 
-Professor(id, escola, nome, apelido, genero, email, telefone, tipo_documento, numero_documento, nuit, nacionalidade, provincia, distrito, carreira, especialidade, carga_horaria_semanal, ativo, created_at, updated_at)
+Professor(id, escola, codigo, nome, apelido, genero, email, telefone, tipo_documento, numero_documento, nuit, nacionalidade, provincia, distrito, carreira, especialidade, carga_horaria_semanal, carga_maxima_por_classe, ativo, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
 | `id` | `UUIDField` | Não |  |
 | `escola` | `ForeignKey` | Não |  -> `Escola` |
+| `codigo` | `CharField` | Sim |  |
 | `nome` | `CharField` | Não |  |
 | `apelido` | `CharField` | Sim |  |
 | `genero` | `CharField` | Não |  |
@@ -180,6 +217,7 @@ Professor(id, escola, nome, apelido, genero, email, telefone, tipo_documento, nu
 | `carreira` | `CharField` | Não |  |
 | `especialidade` | `CharField` | Não |  |
 | `carga_horaria_semanal` | `IntegerField` | Não |  |
+| `carga_maxima_por_classe` | `JSONField` | Sim |  |
 | `ativo` | `BooleanField` | Não |  |
 | `created_at` | `DateTimeField` | Não |  |
 | `updated_at` | `DateTimeField` | Não |  |
@@ -203,7 +241,7 @@ AlocacaoDocente(id, escola, professor, disciplina, turma, created_at)
 
 ### Modelo: `Turma`
 
-Turma(id, escola, nome, grau_ano, turno, sala, ano_letivo, area, director_turma, director_classe, created_at, updated_at)
+Turma(id, escola, nome, grau_ano, turno, sala, capacidade_maxima, ano_letivo, area, director_turma, dt_status_homologacao, dt_nomeado_por, dt_data_nomeacao, dt_homologado_por, dt_data_homologacao, codigo_director_turma, director_classe, dc_status_homologacao, dc_nomeado_por, dc_data_nomeacao, dc_homologado_por, dc_data_homologacao, codigo_director_classe, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
@@ -213,10 +251,23 @@ Turma(id, escola, nome, grau_ano, turno, sala, ano_letivo, area, director_turma,
 | `grau_ano` | `CharField` | Não |  |
 | `turno` | `CharField` | Não |  |
 | `sala` | `CharField` | Sim |  |
+| `capacidade_maxima` | `PositiveIntegerField` | Não |  |
 | `ano_letivo` | `CharField` | Não |  |
 | `area` | `CharField` | Não |  |
 | `director_turma` | `ForeignKey` | Sim |  -> `Professor` |
+| `dt_status_homologacao` | `CharField` | Não |  |
+| `dt_nomeado_por` | `CharField` | Sim |  |
+| `dt_data_nomeacao` | `DateTimeField` | Sim |  |
+| `dt_homologado_por` | `CharField` | Sim |  |
+| `dt_data_homologacao` | `DateTimeField` | Sim |  |
+| `codigo_director_turma` | `CharField` | Sim |  |
 | `director_classe` | `ForeignKey` | Sim |  -> `Professor` |
+| `dc_status_homologacao` | `CharField` | Não |  |
+| `dc_nomeado_por` | `CharField` | Sim |  |
+| `dc_data_nomeacao` | `DateTimeField` | Sim |  |
+| `dc_homologado_por` | `CharField` | Sim |  |
+| `dc_data_homologacao` | `DateTimeField` | Sim |  |
+| `codigo_director_classe` | `CharField` | Sim |  |
 | `created_at` | `DateTimeField` | Não |  |
 | `updated_at` | `DateTimeField` | Não |  |
 
@@ -264,7 +315,7 @@ Nota(id, escola, aluno, disciplina, turma, periodo, teste1, teste2, teste3, test
 | `media_final` | `FloatField` | Não |  |
 | `faltas` | `IntegerField` | Não |  |
 | `anotacao` | `CharField` | Sim |  |
-| `comportamento` | `CharField` | Não |  |
+| `comportamento` | `CharField` | Sim |  |
 | `resultado` | `CharField` | Não |  |
 | `created_at` | `DateTimeField` | Não |  |
 | `updated_at` | `DateTimeField` | Não |  |
@@ -272,18 +323,20 @@ Nota(id, escola, aluno, disciplina, turma, periodo, teste1, teste2, teste3, test
 
 ### Modelo: `PermissaoEdicaoNotas`
 
-PermissaoEdicaoNotas(id, escola, professor, turma, disciplina, periodo, autorizado_por, motivo, ativa, created_at, updated_at)
+PermissaoEdicaoNotas(id, escola, professor, turma, disciplina, periodo, autorizado_por, motivo, duracao_horas, data_expiracao, ativa, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
 | `id` | `UUIDField` | Não |  |
 | `escola` | `ForeignKey` | Não |  -> `Escola` |
-| `professor` | `ForeignKey` | Não |  -> `Professor` |
+| `professor` | `ForeignKey` | Sim |  -> `Professor` |
 | `turma` | `ForeignKey` | Não |  -> `Turma` |
-| `disciplina` | `ForeignKey` | Não |  -> `Disciplina` |
+| `disciplina` | `ForeignKey` | Sim |  -> `Disciplina` |
 | `periodo` | `CharField` | Não |  |
 | `autorizado_por` | `CharField` | Não |  |
 | `motivo` | `TextField` | Sim |  |
+| `duracao_horas` | `IntegerField` | Não |  |
+| `data_expiracao` | `DateTimeField` | Sim |  |
 | `ativa` | `BooleanField` | Não |  |
 | `created_at` | `DateTimeField` | Não |  |
 | `updated_at` | `DateTimeField` | Não |  |

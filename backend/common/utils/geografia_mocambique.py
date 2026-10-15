@@ -544,6 +544,8 @@ def sincronizar_todos_codigos_oficiais() -> dict:
             turma=a.turma,
             ano=a.ano_ingresso,
             area=a.area,
+            aluno_id=a.id,
+            matricula_existente=a.matricula,
         )
         if a.matricula != novo_cod:
             Aluno.objects.filter(id=a.id).update(matricula=novo_cod)

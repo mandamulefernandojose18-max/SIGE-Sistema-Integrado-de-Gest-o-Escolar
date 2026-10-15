@@ -57,7 +57,7 @@ class TestMultiTenancy:
         login_res = self.client.post('/api/v1/auth/login/', {'email': 'admin.exp@sige.mz', 'password': 'PassExp123!'}, format='json')
         assert login_res.status_code == 401
         assert "Acesso bloqueado" in str(login_res.data)
-        assert "EXPIRADA" in str(login_res.data)
+        assert "subscrição expirada" in str(login_res.data)
 
     def test_rota_publica_certificados_funciona_mesmo_escola_expirada(self):
         # Certificados públicos não sofrem bloqueio 402
@@ -262,7 +262,7 @@ class TestMultiTenancy:
         login_susp = self.client.post('/api/v1/auth/login/', {'email': 'admin.susp@sige.mz', 'password': 'PassSusp123!'}, format='json')
         assert login_susp.status_code == 401
         assert "Acesso bloqueado" in str(login_susp.data)
-        assert "SUSPENSA" in str(login_susp.data)
+        assert "subscrição expirada" in str(login_susp.data)
 
         # 2. Escola Bloqueada Manualmente: Utilizador comum tem login bloqueado
         escola_bloq = Escola.objects.create(nome='Escola Bloqueada Teste', nif_cnpj='NIF_BLOQ_2', email='bloq2@sige.mz', status='ATIVA', bloqueada_manualmente=True, plano=self.plano)
@@ -270,7 +270,7 @@ class TestMultiTenancy:
         login_bloq = self.client.post('/api/v1/auth/login/', {'email': 'admin.bloq@sige.mz', 'password': 'PassBloq123!'}, format='json')
         assert login_bloq.status_code == 401
         assert "Acesso bloqueado" in str(login_bloq.data)
-        assert "BLOQUEADA MANUALMENTE" in str(login_bloq.data)
+        assert "bloqueada manualmente" in str(login_bloq.data).lower()
 
         # 3. Escola PENDENTE: Utilizador comum tem login bloqueado
         escola_pend = Escola.objects.create(nome='Escola Pendente Teste', nif_cnpj='NIF_PEND', email='pend@sige.mz', status='PENDENTE', plano=self.plano)
@@ -278,7 +278,7 @@ class TestMultiTenancy:
         login_pend = self.client.post('/api/v1/auth/login/', {'email': 'admin.pend@sige.mz', 'password': 'PassPend123!'}, format='json')
         assert login_pend.status_code == 401
         assert "Acesso bloqueado" in str(login_pend.data)
-        assert "PENDENTE" in str(login_pend.data)
+        assert "pendente" in str(login_pend.data).lower()
 
         # 4. Requisição à API com token de utilizador de escola suspensa -> 403 Forbidden
         from rest_framework_simplejwt.tokens import RefreshToken

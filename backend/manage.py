@@ -7,8 +7,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 def main():
-    """Run administrative tasks."""
-    load_dotenv(Path(__file__).resolve().parent / '.env')
+    env_local = Path(__file__).resolve().parent / '.env'
+    env_root = Path(__file__).resolve().parent.parent / '.env'
+    if env_local.exists():
+        load_dotenv(env_local)
+    elif env_root.exists():
+        load_dotenv(env_root)
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
     try:
         from django.core.management import execute_from_command_line

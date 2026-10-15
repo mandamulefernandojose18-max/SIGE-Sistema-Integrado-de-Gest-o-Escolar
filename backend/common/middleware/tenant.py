@@ -57,20 +57,17 @@ class TenantMiddleware(MiddlewareMixin):
                     )
                     if request.path.startswith('/api/') and not is_exempt:
                         if bloqueada:
-                            motivo = 'BLOQUEADA MANUALMENTE'
-                        elif 'SUSP' in st:
-                            motivo = 'SUSPENSA'
-                        elif 'EXP' in st:
-                            motivo = 'EXPIRADA'
+                            motivo = 'bloqueada manualmente'
                         elif 'PEND' in st:
-                            motivo = 'PENDENTE'
+                            motivo = 'com o registo pendente de activação'
                         else:
-                            motivo = 'INACTIVA'
+                            motivo = 'com a subscrição expirada'
 
                         return JsonResponse({
                             'success': False,
                             'message': (
                                 f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se {motivo}. '
-                                f'O acesso ao sistema está temporariamente vedado. Apenas o Super Admin tem permissão de acesso a instituições inactivas.'
+                                f'Por esse motivo, o acesso ao sistema está temporariamente vedado. '
+                                f'Para restabelecer o acesso, contacte o Engenheiro do Sistema, responsável pela gestão das instituições e pela renovação das respectivas subscrições.'
                             )
                         }, status=403)
