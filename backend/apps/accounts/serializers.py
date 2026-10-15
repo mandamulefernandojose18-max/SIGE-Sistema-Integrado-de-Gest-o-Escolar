@@ -188,7 +188,7 @@ class LoginSerializer(serializers.Serializer):
                     user = u
 
         if not user:
-            raise serializers.ValidationError('Credenciais inválidas. Verifique o código/utilizador e a senha (no 1.º acesso, repita o seu código como senha).')
+            raise serializers.ValidationError('Credenciais inválidas.')
 
         # Validação estrita do estado da conta do utilizador
         if not user.ativo or not user.is_active:

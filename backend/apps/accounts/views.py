@@ -16,7 +16,7 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
             errors = serializer.errors
-            msg = 'Credenciais inválidas'
+            msg = 'Credenciais inválidas.'
             if isinstance(errors, dict):
                 first_val = next(iter(errors.values()), None)
                 if isinstance(first_val, list) and len(first_val) > 0:

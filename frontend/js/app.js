@@ -991,11 +991,16 @@ async function realizarLogin(e) {
 
   if (!email || !senha) {
     if (feedbackEl) {
-      feedbackEl.className = 'alert alert-warning mb-3 py-2 px-3 small';
-      feedbackEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Por favor, introduza o código de utilizador e a palavra-passe.';
+      feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
+      feedbackEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i> Credenciais invalidas.';
       feedbackEl.classList.remove('d-none');
     } else {
-      alert('Por favor, introduza o utilizador e a palavra-passe.');
+      alert('Credenciais invalidas.');
+    }
+    const inpSenha = document.getElementById('loginSenha');
+    if (inpSenha) {
+      inpSenha.value = '';
+      setTimeout(() => inpSenha.focus(), 80);
     }
     return;
   }
@@ -1042,7 +1047,14 @@ async function realizarLogin(e) {
       state.tenant = json.data.escola;
       await iniciarApp();
     } else {
-      const msgErro = (json && (json.message || json.detail)) || 'Credenciais inválidas! Utilizador ou senha incorretos.';
+      const rawDetail = (json && (json.message || json.detail)) || '';
+      let msgErro = 'Credenciais invalidas.';
+      if (rawDetail && (rawDetail.toLowerCase().includes('bloque') || rawDetail.toLowerCase().includes('inactiv') || rawDetail.toLowerCase().includes('desactiv'))) {
+        msgErro = rawDetail;
+      } else {
+        msgErro = 'Credenciais invalidas.';
+      }
+
       if (feedbackEl) {
         feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
         feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(msgErro)}`;
@@ -1050,10 +1062,14 @@ async function realizarLogin(e) {
       } else {
         alert(msgErro);
       }
+
       const inpSenha = document.getElementById('loginSenha');
       if (inpSenha) {
         inpSenha.value = '';
-        setTimeout(() => inpSenha.focus(), 100);
+        inpSenha.type = 'password';
+        const ico = document.getElementById('iconToggleLoginSenha');
+        if (ico) ico.className = 'bi bi-eye fs-5';
+        setTimeout(() => inpSenha.focus(), 80);
       }
       return;
     }
