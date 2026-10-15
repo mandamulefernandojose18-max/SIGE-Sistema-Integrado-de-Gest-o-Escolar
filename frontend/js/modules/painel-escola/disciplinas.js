@@ -173,13 +173,36 @@ async function carregarDisciplinas() {
     if (buscaVal) qParams.set('search', buscaVal);
 
     const url = '/api/v1/disciplinas' + (qParams.toString() ? '?' + qParams.toString() : '');
-    const [resD, resStats] = await Promise.all([
-      apiFetch(url),
-      apiFetch('/api/v1/disciplinas/stats').catch(() => ({ success: false }))
-    ]);
+    let resD = null;
+    let resStats = null;
+    try {
+      const [rD, rS] = await Promise.all([
+        apiFetch(url),
+        apiFetch('/api/v1/disciplinas/stats').catch(() => ({ success: false }))
+      ]);
+      resD = rD;
+      resStats = rS;
+    } catch (fetchErr) {
+      console.warn('Erro na requisição à API de disciplinas, verificando contingência offline:', fetchErr);
+      const cacheLocal = localStorage.getItem('sige_cache_disciplinas');
+      if (state.todasDisciplinas && state.todasDisciplinas.length > 0) {
+        resD = { success: true, data: state.todasDisciplinas, _fromCache: true };
+      } else if (cacheLocal) {
+        try {
+          const parsed = JSON.parse(cacheLocal);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            resD = { success: true, data: parsed, _fromCache: true };
+          }
+        } catch (_) {}
+      }
+      if (!resD) throw fetchErr;
+    }
 
     if (resD && resD.success) {
       let lista = resD.data || [];
+      if (!resD._fromCache) {
+        try { localStorage.setItem('sige_cache_disciplinas', JSON.stringify(lista)); } catch(_) {}
+      }
 
       // Filtro defensivo no client-side para garantir 100% de consistência imediata
       if (state.filtroDisciplinaClasse) {
@@ -281,7 +304,24 @@ async function carregarDisciplinas() {
   } catch (err) {
     console.error('Erro ao carregar disciplinas:', err);
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas: ${err.message || 'Falha de comunicação'}</td></tr>`;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <div class="text-danger mb-2">
+              <i class="bi bi-exclamation-triangle-fill fs-3 text-danger d-block mb-2"></i>
+              <div class="fw-semibold">Falha de comunicação ao carregar disciplinas</div>
+              <div class="small text-muted mt-1">
+                ${err.message || 'Verifique a ligação à rede ou confirme se o servidor SIGE está ativo.'}
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="btn btn-outline-primary btn-sm px-3" onclick="carregarDisciplinas()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
     }
   }
 }

@@ -504,7 +504,7 @@ window.showToast = mostrarNotificacao;
 window.mostrarToast = mostrarNotificacao;
 
 // ==================== API FETCH, RENOVAÇÃO UNIFICADA E INTERCEPTADORES ====================
-function formatarUrlApi(url) {
+function formatarUrlApi(url, baseUrlOverride = null) {
   if (!url || typeof url !== 'string') return url;
   let cleanUrl = url;
   if (cleanUrl.includes('?')) {
@@ -519,14 +519,18 @@ function formatarUrlApi(url) {
   }
   if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl;
 
-  const baseUrl = (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL) || '/api/v1';
+  const isFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+  const isHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+  const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || isFile);
+
+  const baseUrl = baseUrlOverride || (window.SIGE_CONFIG && window.SIGE_CONFIG.API_BASE_URL) || (isFile ? 'http://127.0.0.1:8000/api/v1' : '/api/v1');
 
   // Se a aplicação estiver a correr via HTTPS ou domínio web remoto,
   // nunca retornar URLs 'http://' (Mixed Content) nem tentar ligar a 127.0.0.1 que não existe no cliente.
-  const isHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
-  const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
   if (cleanUrl.startsWith('/api/v1')) {
+    if (isFile && !baseUrl.startsWith('http')) {
+      return 'http://127.0.0.1:8000' + cleanUrl;
+    }
     if (baseUrl.startsWith('https://') || (baseUrl.startsWith('http://') && isLocalHost && !isHttps)) {
       return baseUrl.replace(/\/api\/v1\/?$/, '') + cleanUrl;
     }
@@ -608,8 +612,9 @@ async function apiFetch(endpoint, options = {}) {
     headers['X-Tenant-ID'] = activeTenantId;
   }
 
+  const targetUrl = options._fallbackUrl || formatarUrlApi(endpoint);
   try {
-    const res = await fetch(formatarUrlApi(endpoint), { ...options, headers });
+    const res = await fetch(targetUrl, { ...options, headers });
     
     // Tratamento seguro de tipo de conteúdo (JSON, texto ou corpo vazio)
     let json = null;
@@ -675,6 +680,27 @@ async function apiFetch(endpoint, options = {}) {
 
     return json;
   } catch (err) {
+    if (!options._isFallback) {
+      const isFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+      const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || isFile);
+      const isHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+
+      let fallbackUrl = null;
+      if (targetUrl.startsWith('https://sigesaas.duckdns.org') && isLocalHost) {
+        fallbackUrl = targetUrl.replace('https://sigesaas.duckdns.org', 'http://127.0.0.1:8000');
+      } else if (targetUrl.startsWith('http://127.0.0.1:8000') && !isFile && !isHttps) {
+        fallbackUrl = targetUrl.replace('http://127.0.0.1:8000', 'https://sigesaas.duckdns.org');
+      } else if (targetUrl.startsWith('/api/v1') && isFile) {
+        fallbackUrl = 'http://127.0.0.1:8000' + targetUrl;
+      }
+
+      if (fallbackUrl && fallbackUrl !== targetUrl) {
+        console.warn(`[API FETCH] Falha de comunicação (${err.message || 'rede'}). Tentando rota alternativa: ${fallbackUrl}`);
+        try {
+          return await apiFetch(endpoint, { ...options, _isFallback: true, _fallbackUrl: fallbackUrl });
+        } catch (_) {}
+      }
+    }
     console.error('API Error:', err);
     throw err;
   }
@@ -7146,13 +7172,36 @@ async function carregarDisciplinas() {
     if (buscaVal) qParams.set('search', buscaVal);
 
     const url = '/api/v1/disciplinas' + (qParams.toString() ? '?' + qParams.toString() : '');
-    const [resD, resStats] = await Promise.all([
-      apiFetch(url),
-      apiFetch('/api/v1/disciplinas/stats').catch(() => ({ success: false }))
-    ]);
+    let resD = null;
+    let resStats = null;
+    try {
+      const [rD, rS] = await Promise.all([
+        apiFetch(url),
+        apiFetch('/api/v1/disciplinas/stats').catch(() => ({ success: false }))
+      ]);
+      resD = rD;
+      resStats = rS;
+    } catch (fetchErr) {
+      console.warn('Erro na requisição à API de disciplinas, verificando contingência offline:', fetchErr);
+      const cacheLocal = localStorage.getItem('sige_cache_disciplinas');
+      if (state.todasDisciplinas && state.todasDisciplinas.length > 0) {
+        resD = { success: true, data: state.todasDisciplinas, _fromCache: true };
+      } else if (cacheLocal) {
+        try {
+          const parsed = JSON.parse(cacheLocal);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            resD = { success: true, data: parsed, _fromCache: true };
+          }
+        } catch (_) {}
+      }
+      if (!resD) throw fetchErr;
+    }
 
     if (resD && resD.success) {
       let lista = resD.data || [];
+      if (!resD._fromCache) {
+        try { localStorage.setItem('sige_cache_disciplinas', JSON.stringify(lista)); } catch(_) {}
+      }
 
       // Filtro defensivo no client-side para garantir 100% de consistência imediata
       if (state.filtroDisciplinaClasse) {
@@ -7254,7 +7303,24 @@ async function carregarDisciplinas() {
   } catch (err) {
     console.error('Erro ao carregar disciplinas:', err);
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas: ${err.message || 'Falha de comunicação'}</td></tr>`;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <div class="text-danger mb-2">
+              <i class="bi bi-exclamation-triangle-fill fs-3 text-danger d-block mb-2"></i>
+              <div class="fw-semibold">Falha de comunicação ao carregar disciplinas</div>
+              <div class="small text-muted mt-1">
+                ${err.message || 'Verifique a ligação à rede ou confirme se o servidor SIGE está ativo.'}
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="btn btn-outline-primary btn-sm px-3" onclick="carregarDisciplinas()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
     }
   }
 }
