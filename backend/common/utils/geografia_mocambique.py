@@ -336,11 +336,12 @@ def obter_sigla_area_estudo(area: str, classe: str = '') -> str:
     return 'eg'
 
 
-def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano: str = None, area: str = None) -> str:
+def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano: str = None, area: str = None, aluno_id=None, numero=None, matricula_existente: str = None) -> str:
     """
-    Gera o código oficial do aluno associando:
-    CodigoEscola + Classe + Turma + Ano + Area/Secção de estudo
-    Exemplo: 0101S0001.12.01.2026.cg
+    Gera o código oficial único do aluno associando:
+    CodigoEscola + Classe + Turma + Ano + Area/Secção de estudo + Número sequencial do aluno na turma
+    Exemplo: 0101S0001.12.01.2026.cg.01
+    Garante que nenhum aluno tenha código duplicado na mesma turma/escola.
     """
     import datetime
     cod_escola = '0101S0001'
@@ -379,7 +380,36 @@ def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano:
             area_str = turma.area
     sigla_area = obter_sigla_area_estudo(area_str or 'Geral', cls_str)
 
-    return f"{cod_escola}.{cod_classe}.{cod_turma}.{ano_str}.{sigla_area}"
+    base_prefix = f"{cod_escola}.{cod_classe}.{cod_turma}.{ano_str}.{sigla_area}"
+
+    # Se a matrícula existente já possui o base_prefix e sufixo numérico de ordem, preserva
+    if matricula_existente and matricula_existente.startswith(base_prefix + '.'):
+        partes = matricula_existente.split('.')
+        if len(partes) >= 6 and partes[-1].isdigit():
+            return matricula_existente
+
+    if numero is not None and int(numero) > 0:
+        return f"{base_prefix}.{int(numero):02d}"
+
+    # Buscar próximo número sequencial na turma/escola para garantir unicidade absoluta
+    try:
+        from apps.alunos.models import Aluno
+        qs = Aluno.objects.filter(escola=escola, matricula__startswith=base_prefix)
+        if aluno_id:
+            qs = qs.exclude(id=aluno_id)
+
+        numeros_usados = set()
+        for mat in qs.values_list('matricula', flat=True):
+            partes = (mat or '').split('.')
+            if len(partes) >= 6 and partes[-1].isdigit():
+                numeros_usados.add(int(partes[-1]))
+
+        prox = 1
+        while prox in numeros_usados:
+            prox += 1
+        return f"{base_prefix}.{prox:02d}"
+    except Exception:
+        return f"{base_prefix}.01"
 
 
 def gerar_codigo_director_turma(turma) -> str:

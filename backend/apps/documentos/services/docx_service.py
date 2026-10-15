@@ -1281,45 +1281,59 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
     dt_info = caderneta_data.get('directorTurma') or {}
     ef_info = caderneta_data.get('efectivo') or {}
     alunos = caderneta_data.get('alunos') or []
+    estatisticas = caderneta_data.get('estatisticasColunas') or {}
 
     esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()
+    prov = escola_info.get('provincia') or 'Inhambane'
+    dist = escola_info.get('distrito') or 'Massinga'
     disc_nome = (disc_info.get('nome') or 'Disciplina').upper()
     disc_cod = disc_info.get('codigo') or disc_nome[:3]
     ano_letivo = turma_info.get('ano_letivo') or '2026'
     turma_nome = turma_info.get('nome') or 'Turma'
     grau_ano = turma_info.get('grau_ano') or ''
     turno = turma_info.get('turno') or 'MANHÃ'
+    sala = turma_info.get('sala') or '-'
     ef_h = ef_info.get('h', 0)
     ef_m = ef_info.get('m', 0)
     ef_tot = ef_info.get('total', len(alunos))
     prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
+    prof_tel = prof_info.get('telefone') or '-'
     dt_nome = dt_info.get('nome') or '-'
 
+    # Cabeçalho Institucional Oficial
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p1.paragraph_format.space_after = Pt(2)
-    r1 = p1.add_run(f"REPÚBLICA DE MOÇAMBIQUE — {esc_nome}")
-    aplicar_fonte_times(r1, pt_size=11, bold=True)
+    p1.paragraph_format.space_after = Pt(1)
+    r1 = p1.add_run("REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    aplicar_fonte_times(r1, pt_size=10.5, bold=True)
 
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p2.paragraph_format.space_after = Pt(2)
-    r2 = p2.add_run(f"CADERNETA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod}) | ANO LECTIVO: {ano_letivo}")
-    aplicar_fonte_times(r2, pt_size=10.5, bold=True)
+    p2.paragraph_format.space_after = Pt(1)
+    r2 = p2.add_run(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov.upper()} | SDEJT DE {dist.upper()} — {esc_nome}")
+    aplicar_fonte_times(r2, pt_size=9.5, bold=True)
 
     p3 = doc.add_paragraph()
     p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p3.paragraph_format.space_after = Pt(6)
-    r3 = p3.add_run(
-        f"Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Efectivo: H={ef_h}, M={ef_m}, HM={ef_tot} | Docente: {prof_nome} | DT: {dt_nome}"
-    )
-    aplicar_fonte_times(r3, pt_size=8.5)
+    p3.paragraph_format.space_after = Pt(1)
+    r3 = p3.add_run(f"CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod})")
+    aplicar_fonte_times(r3, pt_size=10, bold=True)
 
+    p4 = doc.add_paragraph()
+    p4.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p4.paragraph_format.space_after = Pt(4)
+    r4 = p4.add_run(
+        f"Ano Lectivo: {ano_letivo} | Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Sala: {sala} | "
+        f"Efectivo: H={ef_h}, M={ef_m}, HM={ef_tot} | Docente: {prof_nome} ({prof_tel}) | DT: {dt_nome}"
+    )
+    aplicar_fonte_times(r4, pt_size=8.0)
+
+    # 28 colunas
     headers = [
-        'Nº', 'Nome Completo', 'Gén',
-        '1º 1A', '1º 2A', '1º 3A', '1º AT', '1º MT',
-        '2º 1A', '2º 2A', '2º 3A', '2º AT', '2º MT',
-        '3º 1A', '3º 2A', '3º 3A', '3º AT', '3º MT',
+        'Nº', 'Nome Completo do Aluno', 'Gén',
+        '1º 1ªA', '1º 2ªA', '1º 3ªA', '1º MAP', '1º MAS', '1º AT', '1º MT', '1º Cp',
+        '2º 1ªA', '2º 2ªA', '2º 3ªA', '2º MAP', '2º MAS', '2º AT', '2º MT', '2º Cp',
+        '3º 1ªA', '3º 2ªA', '3º 3ªA', '3º MAP', '3º MAS', '3º AT', '3º MT', '3º Cp',
         'MFD'
     ]
     t = doc.add_table(rows=1, cols=len(headers))
@@ -1331,7 +1345,7 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
         p = t.rows[0].cells[c_i].paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r = p.add_run(h)
-        aplicar_fonte_times(r, pt_size=7.0, bold=True)
+        aplicar_fonte_times(r, pt_size=6.0, bold=True)
         set_cell_shading(t.rows[0].cells[c_i], '1E3A8A')
         r.font.color.rgb = RGBColor(0xff, 0xff, 0xff)
 
@@ -1354,16 +1368,133 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
             str(al.get('numero') or idx),
             nome_c,
             str(al.get('genero') or 'M'),
-            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')),
-            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')),
-            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')),
+            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')), str(t1.get('comportamento') or '-'),
+            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')), str(t2.get('comportamento') or '-'),
+            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')), str(t3.get('comportamento') or '-'),
             fmt_n(al.get('mfd'))
         ]
         for c_i, v in enumerate(vals):
             p = row.cells[c_i].paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 1 else WD_ALIGN_PARAGRAPH.CENTER
             r = p.add_run(v)
-            aplicar_fonte_times(r, pt_size=7.0, bold=(c_i in (7, 12, 17, 18)))
+            is_bold = (c_i in (9, 17, 25, 27))
+            aplicar_fonte_times(r, pt_size=6.0, bold=is_bold)
+            if c_i in (9, 17, 25, 27):
+                set_cell_shading(row.cells[c_i], 'F8FAFC')
+
+    stat_cols = [
+        't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', None,
+        't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', None,
+        't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', None,
+        'mfd'
+    ]
+
+    def _v_doc(col_k, getter, default='-'):
+        if not col_k or col_k not in estatisticas:
+            return default
+        col_st = estatisticas[col_k]
+        if (col_st.get('avaliados') or {}).get('total', 0) == 0:
+            return default
+        return getter(col_st)
+
+    # 1. Linha: Parametro estatistico
+    r_hdr = t.add_row()
+    r_hdr.cells[0].merge(r_hdr.cells[27])
+    p_hdr = r_hdr.cells[0].paragraphs[0]
+    p_hdr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    r_run = p_hdr.add_run("Parametro estatistico")
+    aplicar_fonte_times(r_run, pt_size=6.5, bold=True)
+    set_cell_shading(r_hdr.cells[0], 'E2E8F0')
+
+    # Helper para adicionar linhas estatísticas
+    def add_stat_block(lbl, sub_gen, data_vals, text_color=None, bg_color=None, bold=False):
+        row = t.add_row()
+        row.cells[0].merge(row.cells[1])
+        p0 = row.cells[0].paragraphs[0]
+        p0.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        r0 = p0.add_run(lbl)
+        aplicar_fonte_times(r0, pt_size=6.0, bold=True)
+        if text_color:
+            r0.font.color.rgb = text_color
+
+        p2 = row.cells[2].paragraphs[0]
+        p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r2 = p2.add_run(sub_gen)
+        aplicar_fonte_times(r2, pt_size=6.0, bold=bold)
+        if text_color:
+            r2.font.color.rgb = text_color
+
+        for c_idx, val in enumerate(data_vals, start=3):
+            p = row.cells[c_idx].paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(str(val))
+            aplicar_fonte_times(r, pt_size=6.0, bold=bold)
+            if text_color:
+                r.font.color.rgb = text_color
+
+        if bg_color:
+            for c_i in range(len(row.cells)):
+                set_cell_shading(row.cells[c_i], bg_color)
+
+    COLOR_GREEN = RGBColor(0x05, 0x96, 0x69)
+    COLOR_RED = RGBColor(0xDC, 0x26, 0x26)
+
+    # 2. Avaliados (M, F, M+F)
+    add_stat_block("Avaliados", "M", [_v_doc(k, lambda s: (s.get('avaliados') or {}).get('h', 0)) for k in stat_cols])
+    add_stat_block("", "F", [_v_doc(k, lambda s: (s.get('avaliados') or {}).get('m', 0)) for k in stat_cols])
+    add_stat_block("", "M+F", [_v_doc(k, lambda s: (s.get('avaliados') or {}).get('total', 0)) for k in stat_cols], bg_color='E5E7EB', bold=True)
+
+    # 3. Positivos (M, F, M+F)
+    add_stat_block("Positivos", "M", [_v_doc(k, lambda s: (s.get('positivas') or {}).get('h', 0)) for k in stat_cols], text_color=COLOR_GREEN)
+    add_stat_block("", "F", [_v_doc(k, lambda s: (s.get('positivas') or {}).get('m', 0)) for k in stat_cols], text_color=COLOR_GREEN)
+    add_stat_block("", "M+F", [_v_doc(k, lambda s: (s.get('positivas') or {}).get('total', 0)) for k in stat_cols], text_color=COLOR_GREEN, bg_color='D1FAE5', bold=True)
+
+    # 4. % Positivos (M, F, M+F)
+    add_stat_block("% Positivos", "M", [_v_doc(k, lambda s: f"{(s.get('positivas') or {}).get('pctH', 0)}%") for k in stat_cols], text_color=COLOR_GREEN)
+    add_stat_block("", "F", [_v_doc(k, lambda s: f"{(s.get('positivas') or {}).get('pctM', 0)}%") for k in stat_cols], text_color=COLOR_GREEN)
+    add_stat_block("", "M+F", [_v_doc(k, lambda s: f"{(s.get('positivas') or {}).get('pct', 0)}%") for k in stat_cols], text_color=COLOR_GREEN, bg_color='D1FAE5', bold=True)
+
+    # 5. Negativos (M, F, M+F)
+    add_stat_block("Negativos", "M", [_v_doc(k, lambda s: (s.get('negativas') or {}).get('h', 0)) for k in stat_cols], text_color=COLOR_RED)
+    add_stat_block("", "F", [_v_doc(k, lambda s: (s.get('negativas') or {}).get('m', 0)) for k in stat_cols], text_color=COLOR_RED)
+    add_stat_block("", "M+F", [_v_doc(k, lambda s: (s.get('negativas') or {}).get('total', 0)) for k in stat_cols], text_color=COLOR_RED, bg_color='FEE2E2', bold=True)
+
+    # 6. % Negativos (M, F, M+F)
+    add_stat_block("% Negativos", "M", [_v_doc(k, lambda s: f"{(s.get('negativas') or {}).get('pctH', 0)}%") for k in stat_cols], text_color=COLOR_RED)
+    add_stat_block("", "F", [_v_doc(k, lambda s: f"{(s.get('negativas') or {}).get('pctM', 0)}%") for k in stat_cols], text_color=COLOR_RED)
+    add_stat_block("", "M+F", [_v_doc(k, lambda s: f"{(s.get('negativas') or {}).get('pct', 0)}%") for k in stat_cols], text_color=COLOR_RED, bg_color='FEE2E2', bold=True)
+
+    # 7. Faixas
+    def add_single_row_stat(lbl, data_vals, bg_color=None, bold=True):
+        row = t.add_row()
+        row.cells[0].merge(row.cells[2])
+        p0 = row.cells[0].paragraphs[0]
+        p0.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        r0 = p0.add_run(lbl)
+        aplicar_fonte_times(r0, pt_size=6.0, bold=bold)
+
+        for c_idx, val in enumerate(data_vals, start=3):
+            p = row.cells[c_idx].paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(str(val))
+            aplicar_fonte_times(r, pt_size=6.0, bold=bold)
+
+        if bg_color:
+            for c_i in range(len(row.cells)):
+                set_cell_shading(row.cells[c_i], bg_color)
+
+    faixas_defs = [
+        ('0 a 9,4', 'f0_94'),
+        ('9,5 a 13,4', 'f95_134'),
+        ('13,5 a 16,4', 'f135_164'),
+        ('16,5 a 18,4', 'f165_184'),
+        ('18,5 a 20', 'f185_20'),
+    ]
+    for f_lbl, f_prop in faixas_defs:
+        add_single_row_stat(f_lbl, [_v_doc(k, lambda s: ((s.get('faixas') or {}).get(f_prop) or {}).get('total', 0)) for k in stat_cols])
+
+    # 8. Média da Coluna
+    add_single_row_stat("Média da Coluna", [_v_doc(k, lambda s: s.get('media', 0)) for k in stat_cols], bg_color='DBEAFE', bold=True)
 
     buffer = io.BytesIO()
     doc.save(buffer)

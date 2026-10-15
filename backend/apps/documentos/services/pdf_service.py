@@ -1887,30 +1887,134 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         ]
         data_table.append(r)
 
-    # Linhas Estatísticas Resumidas (HM)
+    # Linhas de Parâmetros Estatísticos Oficiais Conforme Modelo Padronizado (Foto Oficial)
     stat_cols = [
         't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', None,
         't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', None,
         't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', None,
         'mfd'
     ]
+
     stat_rows_start = len(data_table)
-    resumo_linhas = [
-        ('Avaliados (HM)', lambda st: str((st.get('avaliados') or {}).get('total', 0))),
-        ('Positivas (HM)', lambda st: str((st.get('positivas') or {}).get('total', 0))),
-        ('% Positivas', lambda st: f"{(st.get('positivas') or {}).get('pct', 0)}%"),
-        ('Negativas (HM)', lambda st: str((st.get('negativas') or {}).get('total', 0))),
-        ('% Negativas', lambda st: f"{(st.get('negativas') or {}).get('pct', 0)}%"),
-        ('Média da Coluna', lambda st: str(st.get('media', 0))),
+
+    st_param_title = ParagraphStyle('StatParamTitle', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=0, textColor=colors.HexColor('#0f172a'))
+    st_stat_lbl_dark = ParagraphStyle('StatLblDark', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=0, textColor=colors.HexColor('#0f172a'))
+    st_stat_lbl_green = ParagraphStyle('StatLblGreen', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=0, textColor=colors.HexColor('#059669'))
+    st_stat_lbl_red = ParagraphStyle('StatLblRed', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=0, textColor=colors.HexColor('#dc2626'))
+
+    st_stat_gen_dark = ParagraphStyle('StatGenDark', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_stat_gen_dark_bold = ParagraphStyle('StatGenDarkB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_stat_gen_green = ParagraphStyle('StatGenGreen', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
+    st_stat_gen_green_bold = ParagraphStyle('StatGenGreenB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
+    st_stat_gen_red = ParagraphStyle('StatGenRed', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_stat_gen_red_bold = ParagraphStyle('StatGenRedB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+
+    st_val_dark = ParagraphStyle('StatValDark', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_val_dark_bold = ParagraphStyle('StatValDarkB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_val_green = ParagraphStyle('StatValGreen', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
+    st_val_green_bold = ParagraphStyle('StatValGreenB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
+    st_val_red = ParagraphStyle('StatValRed', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_val_red_bold = ParagraphStyle('StatValRedB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+
+    def _val_cad(col_k, getter, default='-'):
+        if not col_k or col_k not in estatisticas:
+            return default
+        col_st = estatisticas[col_k]
+        if (col_st.get('avaliados') or {}).get('total', 0) == 0:
+            return default
+        return getter(col_st)
+
+    # 1. Linha: Parametro estatistico
+    row_param = [Paragraph('Parametro estatistico', st_param_title)] + [''] * 27
+    r_param_idx = len(data_table)
+    data_table.append(row_param)
+
+    # 2. Avaliados (M, F, M+F)
+    r_av_idx = len(data_table)
+    row_av_m = [Paragraph('Avaliados', st_stat_lbl_dark), '', Paragraph('M', st_stat_gen_dark)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('avaliados') or {}).get('h', 0))), st_val_dark) for k in stat_cols
     ]
-    for s_label, fn_extr in resumo_linhas:
-        r_st = ['', s_label, 'HM']
-        for sk in stat_cols:
-            if sk and sk in estatisticas:
-                r_st.append(fn_extr(estatisticas[sk]))
-            else:
-                r_st.append('-')
-        data_table.append(r_st)
+    row_av_f = ['', '', Paragraph('F', st_stat_gen_dark)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('avaliados') or {}).get('m', 0))), st_val_dark) for k in stat_cols
+    ]
+    row_av_mf = ['', '', Paragraph('M+F', st_stat_gen_dark_bold)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('avaliados') or {}).get('total', 0))), st_val_dark_bold) for k in stat_cols
+    ]
+    data_table.extend([row_av_m, row_av_f, row_av_mf])
+
+    # 3. Positivos (M, F, M+F)
+    r_pos_idx = len(data_table)
+    row_pos_m = [Paragraph('Positivos', st_stat_lbl_green), '', Paragraph('M', st_stat_gen_green)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('positivas') or {}).get('h', 0))), st_val_green) for k in stat_cols
+    ]
+    row_pos_f = ['', '', Paragraph('F', st_stat_gen_green)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('positivas') or {}).get('m', 0))), st_val_green) for k in stat_cols
+    ]
+    row_pos_mf = ['', '', Paragraph('M+F', st_stat_gen_green_bold)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('positivas') or {}).get('total', 0))), st_val_green_bold) for k in stat_cols
+    ]
+    data_table.extend([row_pos_m, row_pos_f, row_pos_mf])
+
+    # 4. % Positivos (M, F, M+F)
+    r_pct_pos_idx = len(data_table)
+    row_pct_pos_m = [Paragraph('% Positivos', st_stat_lbl_green), '', Paragraph('M', st_stat_gen_green)] + [
+        Paragraph(str(_val_cad(k, lambda s: f"{(s.get('positivas') or {}).get('pctH', 0)}%")), st_val_green) for k in stat_cols
+    ]
+    row_pct_pos_f = ['', '', Paragraph('F', st_stat_gen_green)] + [
+        Paragraph(str(_val_cad(k, lambda s: f"{(s.get('positivas') or {}).get('pctM', 0)}%")), st_val_green) for k in stat_cols
+    ]
+    row_pct_pos_mf = ['', '', Paragraph('M+F', st_stat_gen_green_bold)] + [
+        Paragraph(str(_val_cad(k, lambda s: f"{(s.get('positivas') or {}).get('pct', 0)}%")), st_val_green_bold) for k in stat_cols
+    ]
+    data_table.extend([row_pct_pos_m, row_pct_pos_f, row_pct_pos_mf])
+
+    # 5. Negativos (M, F, M+F)
+    r_neg_idx = len(data_table)
+    row_neg_m = [Paragraph('Negativos', st_stat_lbl_red), '', Paragraph('M', st_stat_gen_red)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('negativas') or {}).get('h', 0))), st_val_red) for k in stat_cols
+    ]
+    row_neg_f = ['', '', Paragraph('F', st_stat_gen_red)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('negativas') or {}).get('m', 0))), st_val_red) for k in stat_cols
+    ]
+    row_neg_mf = ['', '', Paragraph('M+F', st_stat_gen_red_bold)] + [
+        Paragraph(str(_val_cad(k, lambda s: (s.get('negativas') or {}).get('total', 0))), st_val_red_bold) for k in stat_cols
+    ]
+    data_table.extend([row_neg_m, row_neg_f, row_neg_mf])
+
+    # 6. % Negativos (M, F, M+F)
+    r_pct_neg_idx = len(data_table)
+    row_pct_neg_m = [Paragraph('% Negativos', st_stat_lbl_red), '', Paragraph('M', st_stat_gen_red)] + [
+        Paragraph(str(_val_cad(k, lambda s: f"{(s.get('negativas') or {}).get('pctH', 0)}%")), st_val_red) for k in stat_cols
+    ]
+    row_pct_neg_f = ['', '', Paragraph('F', st_stat_gen_red)] + [
+        Paragraph(str(_val_cad(k, lambda s: f"{(s.get('negativas') or {}).get('pctM', 0)}%")), st_val_red) for k in stat_cols
+    ]
+    row_pct_neg_mf = ['', '', Paragraph('M+F', st_stat_gen_red_bold)] + [
+        Paragraph(str(_val_cad(k, lambda s: f"{(s.get('negativas') or {}).get('pct', 0)}%")), st_val_red_bold) for k in stat_cols
+    ]
+    data_table.extend([row_pct_neg_m, row_pct_neg_f, row_pct_neg_mf])
+
+    # 7. Faixas Oficiais (0 a 9,4 | 9,5 a 13,4 | 13,5 a 16,4 | 16,5 a 18,4 | 18,5 a 20)
+    faixas_defs = [
+        ('0 a 9,4', 'f0_94'),
+        ('9,5 a 13,4', 'f95_134'),
+        ('13,5 a 16,4', 'f135_164'),
+        ('16,5 a 18,4', 'f165_184'),
+        ('18,5 a 20', 'f185_20'),
+    ]
+    r_faixas_start = len(data_table)
+    for f_lbl, f_prop in faixas_defs:
+        r_f = [Paragraph(f_lbl, st_stat_lbl_dark), '', ''] + [
+            Paragraph(str(_val_cad(k, lambda s: ((s.get('faixas') or {}).get(f_prop) or {}).get('total', 0))), st_val_dark_bold) for k in stat_cols
+        ]
+        data_table.append(r_f)
+
+    # 8. Média da Coluna
+    r_media_idx = len(data_table)
+    row_med = [Paragraph('Média da Coluna', st_stat_lbl_dark), '', ''] + [
+        Paragraph(str(_val_cad(k, lambda s: s.get('media', 0))), st_val_dark_bold) for k in stat_cols
+    ]
+    data_table.append(row_med)
 
     col_widths = [0.65 * cm, 4.35 * cm, 0.65 * cm] + ([0.86 * cm] * 24) + [0.95 * cm]
     t_cad = Table(data_table, colWidths=col_widths, repeatRows=2)
@@ -1936,15 +2040,54 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         ('SPAN', (19, 0), (26, 0)),
         ('SPAN', (27, 0), (27, 1)),
     ]
-    # Destacar colunas MT (9, 17, 25) e MFD (27)
+    # Destacar colunas MT (9, 17, 25) e MFD (27) nas linhas de alunos
     for col_mt in (9, 17, 25, 27):
-        t_styles.append(('BACKGROUND', (col_mt, 2), (col_mt, len(data_table) - 1), colors.HexColor('#f8fafc')))
-        t_styles.append(('FONTNAME', (col_mt, 2), (col_mt, len(data_table) - 1), 'Times-Bold'))
+        t_styles.append(('BACKGROUND', (col_mt, 2), (col_mt, stat_rows_start - 1), colors.HexColor('#f8fafc')))
+        t_styles.append(('FONTNAME', (col_mt, 2), (col_mt, stat_rows_start - 1), 'Times-Bold'))
 
-    # Destacar linhas estatísticas no fundo
-    for r_i in range(stat_rows_start, len(data_table)):
-        t_styles.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor('#f1f5f9')))
-        t_styles.append(('FONTNAME', (0, r_i), (-1, r_i), 'Times-Bold'))
+    # Estilização das Linhas Estatísticas Oficiais
+    t_styles.extend([
+        # Linha Parametro estatistico
+        ('SPAN', (0, r_param_idx), (-1, r_param_idx)),
+        ('BACKGROUND', (0, r_param_idx), (-1, r_param_idx), colors.HexColor('#e2e8f0')),
+        ('ALIGN', (0, r_param_idx), (-1, r_param_idx), 'LEFT'),
+        ('LEFTPADDING', (0, r_param_idx), (-1, r_param_idx), 4),
+        ('FONTNAME', (0, r_param_idx), (-1, r_param_idx), 'Times-Bold'),
+
+        # Spans dos Blocos
+        ('SPAN', (0, r_av_idx), (1, r_av_idx + 2)),
+        ('BACKGROUND', (0, r_av_idx + 2), (-1, r_av_idx + 2), colors.HexColor('#e5e7eb')),
+
+        ('SPAN', (0, r_pos_idx), (1, r_pos_idx + 2)),
+        ('BACKGROUND', (0, r_pos_idx + 2), (-1, r_pos_idx + 2), colors.HexColor('#d1fae5')),
+
+        ('SPAN', (0, r_pct_pos_idx), (1, r_pct_pos_idx + 2)),
+        ('BACKGROUND', (0, r_pct_pos_idx + 2), (-1, r_pct_pos_idx + 2), colors.HexColor('#d1fae5')),
+
+        ('SPAN', (0, r_neg_idx), (1, r_neg_idx + 2)),
+        ('BACKGROUND', (0, r_neg_idx + 2), (-1, r_neg_idx + 2), colors.HexColor('#fee2e2')),
+
+        ('SPAN', (0, r_pct_neg_idx), (1, r_pct_neg_idx + 2)),
+        ('BACKGROUND', (0, r_pct_neg_idx + 2), (-1, r_pct_neg_idx + 2), colors.HexColor('#fee2e2')),
+
+        # Média da Coluna
+        ('SPAN', (0, r_media_idx), (2, r_media_idx)),
+        ('BACKGROUND', (0, r_media_idx), (-1, r_media_idx), colors.HexColor('#dbeafe')),
+    ])
+
+    for r_f_idx in range(r_faixas_start, r_media_idx):
+        t_styles.append(('SPAN', (0, r_f_idx), (2, r_f_idx)))
+        t_styles.append(('ALIGN', (0, r_f_idx), (0, r_f_idx), 'LEFT'))
+        t_styles.append(('LEFTPADDING', (0, r_f_idx), (0, r_f_idx), 4))
+
+    t_styles.append(('ALIGN', (0, r_media_idx), (0, r_media_idx), 'LEFT'))
+    t_styles.append(('LEFTPADDING', (0, r_media_idx), (0, r_media_idx), 4))
+
+    # Padding compacto e grid para todas as linhas estatísticas
+    t_styles.append(('VALIGN', (0, stat_rows_start), (-1, len(data_table) - 1), 'MIDDLE'))
+    t_styles.append(('TOPPADDING', (0, stat_rows_start), (-1, len(data_table) - 1), 0.7))
+    t_styles.append(('BOTTOMPADDING', (0, stat_rows_start), (-1, len(data_table) - 1), 0.7))
+    t_styles.append(('GRID', (0, stat_rows_start), (-1, len(data_table) - 1), 0.4, colors.HexColor('#94a3b8')))
 
     t_cad.setStyle(TableStyle(t_styles))
     elements.append(t_cad)

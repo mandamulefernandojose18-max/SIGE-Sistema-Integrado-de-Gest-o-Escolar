@@ -47,9 +47,15 @@ FONT_HEADER_SM = Font(name='Times New Roman', size=8.5, bold=True, color='FFFFFF
 FONT_MUTED_ITALIC = Font(name='Times New Roman', size=8.5, italic=True, color='64748B')
 FONT_SUCCESS_SM = Font(name='Times New Roman', size=8.5, bold=True, color='166534')
 FONT_DANGER_SM = Font(name='Times New Roman', size=8.5, bold=True, color='DC2626')
+FONT_GREEN_SM = Font(name='Times New Roman', size=8.5, bold=True, color='059669')
+FONT_RED_SM = Font(name='Times New Roman', size=8.5, bold=True, color='DC2626')
 
 FILL_SUCCESS = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
 FILL_ROW_HM = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
+FILL_ROW_SUCCESS = PatternFill(start_color='D1FAE5', end_color='D1FAE5', fill_type='solid')
+FILL_ROW_DANGER = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
+FILL_ROW_BLUE = PatternFill(start_color='DBEAFE', end_color='DBEAFE', fill_type='solid')
+FILL_ROW_GRAY = PatternFill(start_color='E5E7EB', end_color='E5E7EB', fill_type='solid')
 
 def aplicar_estilo_intervalo(ws, min_col, min_row, max_col, max_row, font=None, fill=None, border=THIN_BORDER, alignment=None):
     for r in range(min_row, max_row + 1):
@@ -108,30 +114,48 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     total_cols = len(disciplinas) + 4
     end_col_letter = get_column_letter(total_cols)
 
-    # 1. Cabeçalho Oficial da República
+    prov_str = (getattr(escola, 'provincia', '') or 'Inhambane').upper()
+    dist_str = (getattr(escola, 'distrito', '') or 'Morrumbene').upper()
+    esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundária').upper()
+    dt_nome = turma.director_turma.nome if getattr(turma, 'director_turma', None) else "Manuel"
+    turma_nome = turma.nome if getattr(turma, 'nome', None) else '10ª Classe A'
+    grau_ano = turma.grau_ano if getattr(turma, 'grau_ano', None) else '10ª Classe'
+    turno = turma.turno if getattr(turma, 'turno', None) else 'MANHA'
+
+    # 1. Cabeçalho Oficial Idêntico ao de PDF
     ws.merge_cells(f'A1:{end_col_letter}1')
-    ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO"
+    ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
     ws['A1'].font = FONT_SUBTITLE
     ws['A1'].alignment = ALIGN_CENTER
-    ws.row_dimensions[1].height = 24
+    ws.row_dimensions[1].height = 20
 
     ws.merge_cells(f'A2:{end_col_letter}2')
-    periodo_str = periodo.replace('_', ' ').upper() if periodo else 'GERAL'
-    ws['A2'] = f"{escola.nome.upper()} — PAUTA OFICIAL DE APROVEITAMENTO ({periodo_str} / {ano_letivo})"
-    ws['A2'].font = FONT_TITLE
+    ws['A2'] = f"GOVERNO DA PROVÍNCIA DE {prov_str} | DISTRITO DE {dist_str}"
+    ws['A2'].font = FONT_REGULAR
     ws['A2'].alignment = ALIGN_CENTER
-    ws.row_dimensions[2].height = 26
+    ws.row_dimensions[2].height = 18
 
-    area_desc = f" | Área/Secção: {turma.area}" if getattr(turma, 'area', None) and str(turma.area).strip().lower() not in ('geral', 'ensino geral', 'tronco comum', '') else ""
     ws.merge_cells(f'A3:{end_col_letter}3')
-    ws['A3'] = f"Turma: {turma.nome} | Grau/Classe: {turma.grau_ano}{area_desc} | Turno: {turma.turno}"
-    ws['A3'].font = FONT_REGULAR
+    ws['A3'] = esc_nome
+    ws['A3'].font = FONT_TITLE
     ws['A3'].alignment = ALIGN_CENTER
-    ws.row_dimensions[3].height = 20
+    ws.row_dimensions[3].height = 22
+
+    ws.merge_cells(f'A4:{end_col_letter}4')
+    ws['A4'] = f"PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO {ano_letivo or 2026}"
+    ws['A4'].font = FONT_TITLE
+    ws['A4'].alignment = ALIGN_CENTER
+    ws.row_dimensions[4].height = 24
+
+    ws.merge_cells(f'A5:{end_col_letter}5')
+    ws['A5'] = f"Turma: {turma_nome} | Classe: {grau_ano} | Turno: {turno} | Director de Turma: {dt_nome}"
+    ws['A5'].font = FONT_REGULAR
+    ws['A5'].alignment = ALIGN_CENTER
+    ws.row_dimensions[5].height = 20
 
     # 2. Cabeçalho da Tabela
     headers = ['Nº', 'Nome Completo do Aluno'] + [(getattr(d, 'codigo', None) or getattr(d, 'nome', str(d))) for d in disciplinas] + ['Média Geral', 'Resultado']
-    header_row_idx = 5
+    header_row_idx = 7
     ws.row_dimensions[header_row_idx].height = 26
 
     for col_idx, text in enumerate(headers, start=1):
@@ -611,32 +635,41 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     num_d = len(discs)
     max_cols_total = max(24, 1 + num_d * 3 if num_d > 0 else 24)
 
-    # 1. Cabeçalho Oficial MINEDH
+    # 1. Cabeçalho Oficial MINEDH (idêntico ao PDF)
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
+    esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundária').upper()
 
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_cols_total)
     ws.cell(row=1, column=1, value="REPÚBLICA DE MOÇAMBIQUE")
     aplicar_estilo_intervalo(ws, 1, 1, max_cols_total, 1, font=FONT_TITLE, border=None, alignment=ALIGN_CENTER)
 
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=max_cols_total)
-    ws.cell(row=2, column=1, value=f"GOVERNO DA PROVÍNCIA DE {prov} — SDEJT DE {dist} — {escola.nome.upper()}")
+    ws.cell(row=2, column=1, value="MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
     aplicar_estilo_intervalo(ws, 1, 2, max_cols_total, 2, font=FONT_SUBTITLE, border=None, alignment=ALIGN_CENTER)
 
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=max_cols_total)
-    ws.cell(row=3, column=1, value=f"ACTA DO CONSELHO DE AVALIAÇÃO DA TURMA {turma.nome} — ANO LECTIVO {ano_letivo or 2026}")
-    aplicar_estilo_intervalo(ws, 1, 3, max_cols_total, 3, font=FONT_TITLE, border=None, alignment=ALIGN_CENTER)
+    ws.cell(row=3, column=1, value=f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov} | SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist}")
+    aplicar_estilo_intervalo(ws, 1, 3, max_cols_total, 3, font=FONT_REGULAR, border=None, alignment=ALIGN_CENTER)
 
     ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=max_cols_total)
-    ws.cell(row=4, column=1, value=f"SECTOR PEDAGÓGICO — {turma.grau_ano} | CURSO {curso_txt.upper()}")
-    aplicar_estilo_intervalo(ws, 1, 4, max_cols_total, 4, font=FONT_REGULAR_BOLD, border=None, alignment=ALIGN_CENTER)
+    ws.cell(row=4, column=1, value=esc_nome)
+    aplicar_estilo_intervalo(ws, 1, 4, max_cols_total, 4, font=FONT_TITLE, border=None, alignment=ALIGN_CENTER)
+
+    ws.merge_cells(start_row=5, start_column=1, end_row=5, end_column=max_cols_total)
+    ws.cell(row=5, column=1, value=f"ACTA DO CONSELHO DE AVALIAÇÃO DA TURMA {turma.nome} — {ano_letivo or 2026}")
+    aplicar_estilo_intervalo(ws, 1, 5, max_cols_total, 5, font=FONT_TITLE, border=None, alignment=ALIGN_CENTER)
+
+    ws.merge_cells(start_row=6, start_column=1, end_row=6, end_column=max_cols_total)
+    ws.cell(row=6, column=1, value=f"SECTOR PEDAGÓGICO — {turma.grau_ano} | CURSO {curso_txt.upper()}")
+    aplicar_estilo_intervalo(ws, 1, 6, max_cols_total, 6, font=FONT_REGULAR_BOLD, border=None, alignment=ALIGN_CENTER)
 
     # 2. Texto Protocolar Oficial em bloco de destaque
-    ws.merge_cells(start_row=6, start_column=1, end_row=7, end_column=max_cols_total)
-    ws.cell(row=6, column=1, value=texto_protocolar)
-    aplicar_estilo_intervalo(ws, 1, 6, max_cols_total, 7, font=FONT_SMALL, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_LEFT)
-    ws.row_dimensions[6].height = 25
+    ws.merge_cells(start_row=7, start_column=1, end_row=8, end_column=max_cols_total)
+    ws.cell(row=7, column=1, value=texto_protocolar)
+    aplicar_estilo_intervalo(ws, 1, 7, max_cols_total, 8, font=FONT_SMALL, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_LEFT)
     ws.row_dimensions[7].height = 25
+    ws.row_dimensions[8].height = 25
 
     # 3. Título das Tabelas 1 e 2 Lado a Lado
     ws.merge_cells('A9:J9')
@@ -1368,30 +1401,45 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     prof_tel = prof_info.get('telefone') or '-'
     dt_nome = dt_info.get('nome') or '-'
 
-    # 1. Cabeçalho Institucional (A1:AF4)
+    # 1. Cabeçalho Institucional Oficial Idêntico ao de PDF (A1:AF6)
     ws.merge_cells('A1:AF1')
-    ws['A1'] = f"REPÚBLICA DE MOÇAMBIQUE — {esc_nome} ({prov} - {dist})"
+    ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
     ws['A1'].font = FONT_SUBTITLE
     ws['A1'].alignment = ALIGN_CENTER
     ws.row_dimensions[1].height = 20
 
     ws.merge_cells('A2:AF2')
-    ws['A2'] = f"CADERNETA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod}) | ANO LECTIVO: {ano_letivo}"
-    ws['A2'].font = FONT_TITLE
+    ws['A2'] = "MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO"
+    ws['A2'].font = FONT_SUBTITLE
     ws['A2'].alignment = ALIGN_CENTER
-    ws.row_dimensions[2].height = 24
+    ws.row_dimensions[2].height = 20
 
     ws.merge_cells('A3:AF3')
-    ws['A3'] = f"Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Sala: {sala} | Efectivo: H={ef_h} | M={ef_m} | HM={ef_tot}"
-    ws['A3'].font = FONT_SMALL_BOLD
+    ws['A3'] = f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov.upper()} | SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist.upper()}"
+    ws['A3'].font = FONT_REGULAR
     ws['A3'].alignment = ALIGN_CENTER
     ws.row_dimensions[3].height = 18
 
     ws.merge_cells('A4:AF4')
-    ws['A4'] = f"Docente: {prof_nome} | Contacto: {prof_tel} | Director de Turma: {dt_nome}"
-    ws['A4'].font = FONT_SMALL
+    ws['A4'] = esc_nome
+    ws['A4'].font = FONT_TITLE
     ws['A4'].alignment = ALIGN_CENTER
-    ws.row_dimensions[4].height = 18
+    ws.row_dimensions[4].height = 22
+
+    ws.merge_cells('A5:AF5')
+    ws['A5'] = f"CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod})"
+    ws['A5'].font = FONT_TITLE
+    ws['A5'].alignment = ALIGN_CENTER
+    ws.row_dimensions[5].height = 24
+
+    ws.merge_cells('A6:AF6')
+    ws['A6'] = (
+        f"Ano Lectivo: {ano_letivo} | Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Sala: {sala} | "
+        f"Efectivo: H={ef_h}, M={ef_m}, HM={ef_tot} | Docente: {prof_nome} ({prof_tel}) | Director de Turma: {dt_nome}"
+    )
+    ws['A6'].font = FONT_REGULAR
+    ws['A6'].alignment = ALIGN_CENTER
+    ws.row_dimensions[6].height = 20
 
     # 2. Cabeçalhos das 32 colunas da Caderneta
     headers = [
@@ -1401,7 +1449,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         '3º 1ªACS', '3º 2ªACS', '3º 3ªACS', '3º MAP', '3º MAS', '3º AT', '3º MT', '3º Comp', '3º Obs',
         'MFD'
     ]
-    row = 6
+    row = 8
     ws.row_dimensions[row].height = 24
     for col_idx, h in enumerate(headers, start=1):
         c = ws.cell(row=row, column=col_idx, value=h)
@@ -1455,7 +1503,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
             else:
                 c.font = FONT_TINY
 
-    # 4. Linhas Estatísticas da Caderneta
+    # 4. Linhas de Parâmetros Estatísticos Oficiais Conforme Modelo Padronizado (Foto Oficial)
     col_stat_map = {
         5: 't1_t1', 6: 't1_t2', 7: 't1_t3', 8: 't1_map', 9: 't1_mas', 10: 't1_at', 11: 't1_mt',
         14: 't2_t1', 15: 't2_t2', 16: 't2_t3', 17: 't2_map', 18: 't2_mas', 19: 't2_at', 20: 't2_mt',
@@ -1463,70 +1511,175 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         32: 'mfd'
     }
 
-    blocos_estatisticos = [
-        ('Avaliados', 'avaliados', False, None),
-        ('Positivos', 'positivas', False, None),
-        ('% Positivas', 'positivas', True, None),
-        ('Negativos', 'negativas', False, None),
-        ('% Negativas', 'negativas', True, None),
-        ('Notas [0 - 9.4]', 'faixas', False, 'f0_94'),
-        ('Notas [9.5 - 13.4]', 'faixas', False, 'f95_134'),
-        ('Notas [13.5 - 16.4]', 'faixas', False, 'f135_164'),
-        ('Notas [16.5 - 18.4]', 'faixas', False, 'f165_184'),
-        ('Notas [18.5 - 20]', 'faixas', False, 'f185_20'),
+    # 1. Linha: Parametro estatistico
+    row += 1
+    ws.row_dimensions[row].height = 20
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=32)
+    ws.cell(row=row, column=1, value='Parametro estatistico')
+    aplicar_estilo_intervalo(ws, 1, row, 32, row, font=FONT_REGULAR_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_LEFT)
+
+    def _val_cel(s_k, getter, default='-'):
+        if not s_k or s_k not in estatisticas:
+            return default
+        st_c = estatisticas[s_k]
+        if (st_c.get('avaliados') or {}).get('total', 0) == 0:
+            return default
+        return getter(st_c)
+
+    # 2. Avaliados (M, F, M+F)
+    r_av_start = row + 1
+    for gen_idx, (g_lbl, g_k) in enumerate([('M', 'h'), ('F', 'm'), ('M+F', 'total')]):
+        row += 1
+        ws.row_dimensions[row].height = 17
+        if gen_idx == 0:
+            ws.cell(row=row, column=1, value='Avaliados')
+        ws.cell(row=row, column=4, value=g_lbl)
+        is_mf = (g_lbl == 'M+F')
+        fill_row = FILL_ROW_GRAY if is_mf else None
+        font_row = FONT_TINY_BOLD if is_mf else FONT_TINY
+        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(5, 33):
+            s_key = col_stat_map.get(col_idx)
+            val = _val_cel(s_key, lambda st: (st.get('avaliados') or {}).get(g_k, 0))
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.font = font_row
+            if fill_row:
+                c.fill = fill_row
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_CENTER
+    ws.merge_cells(start_row=r_av_start, start_column=1, end_row=row, end_column=3)
+
+    # 3. Positivos (M, F, M+F)
+    r_pos_start = row + 1
+    for gen_idx, (g_lbl, g_k) in enumerate([('M', 'h'), ('F', 'm'), ('M+F', 'total')]):
+        row += 1
+        ws.row_dimensions[row].height = 17
+        if gen_idx == 0:
+            ws.cell(row=row, column=1, value='Positivos')
+        ws.cell(row=row, column=4, value=g_lbl)
+        is_mf = (g_lbl == 'M+F')
+        fill_row = FILL_ROW_SUCCESS if is_mf else None
+        font_row = FONT_GREEN_SM
+        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_GREEN_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(5, 33):
+            s_key = col_stat_map.get(col_idx)
+            val = _val_cel(s_key, lambda st: (st.get('positivas') or {}).get(g_k, 0))
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.font = font_row
+            if fill_row:
+                c.fill = fill_row
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_CENTER
+    ws.merge_cells(start_row=r_pos_start, start_column=1, end_row=row, end_column=3)
+
+    # 4. % Positivos (M, F, M+F)
+    r_pct_pos_start = row + 1
+    for gen_idx, (g_lbl, g_k) in enumerate([('M', 'pctH'), ('F', 'pctM'), ('M+F', 'pct')]):
+        row += 1
+        ws.row_dimensions[row].height = 17
+        if gen_idx == 0:
+            ws.cell(row=row, column=1, value='% Positivos')
+        ws.cell(row=row, column=4, value=g_lbl)
+        is_mf = (g_lbl == 'M+F')
+        fill_row = FILL_ROW_SUCCESS if is_mf else None
+        font_row = FONT_GREEN_SM
+        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_GREEN_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(5, 33):
+            s_key = col_stat_map.get(col_idx)
+            val = _val_cel(s_key, lambda st: f"{(st.get('positivas') or {}).get(g_k, 0)}%")
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.font = font_row
+            if fill_row:
+                c.fill = fill_row
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_CENTER
+    ws.merge_cells(start_row=r_pct_pos_start, start_column=1, end_row=row, end_column=3)
+
+    # 5. Negativos (M, F, M+F)
+    r_neg_start = row + 1
+    for gen_idx, (g_lbl, g_k) in enumerate([('M', 'h'), ('F', 'm'), ('M+F', 'total')]):
+        row += 1
+        ws.row_dimensions[row].height = 17
+        if gen_idx == 0:
+            ws.cell(row=row, column=1, value='Negativos')
+        ws.cell(row=row, column=4, value=g_lbl)
+        is_mf = (g_lbl == 'M+F')
+        fill_row = FILL_ROW_DANGER if is_mf else None
+        font_row = FONT_RED_SM
+        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_RED_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(5, 33):
+            s_key = col_stat_map.get(col_idx)
+            val = _val_cel(s_key, lambda st: (st.get('negativas') or {}).get(g_k, 0))
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.font = font_row
+            if fill_row:
+                c.fill = fill_row
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_CENTER
+    ws.merge_cells(start_row=r_neg_start, start_column=1, end_row=row, end_column=3)
+
+    # 6. % Negativos (M, F, M+F)
+    r_pct_neg_start = row + 1
+    for gen_idx, (g_lbl, g_k) in enumerate([('M', 'pctH'), ('F', 'pctM'), ('M+F', 'pct')]):
+        row += 1
+        ws.row_dimensions[row].height = 17
+        if gen_idx == 0:
+            ws.cell(row=row, column=1, value='% Negativos')
+        ws.cell(row=row, column=4, value=g_lbl)
+        is_mf = (g_lbl == 'M+F')
+        fill_row = FILL_ROW_DANGER if is_mf else None
+        font_row = FONT_RED_SM
+        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_RED_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(5, 33):
+            s_key = col_stat_map.get(col_idx)
+            val = _val_cel(s_key, lambda st: f"{(st.get('negativas') or {}).get(g_k, 0)}%")
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.font = font_row
+            if fill_row:
+                c.fill = fill_row
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_CENTER
+    ws.merge_cells(start_row=r_pct_neg_start, start_column=1, end_row=row, end_column=3)
+
+    # 7. Faixas Oficiais (Linhas Únicas Mesclando A:D)
+    faixas_defs = [
+        ('0 a 9,4', 'f0_94'),
+        ('9,5 a 13,4', 'f95_134'),
+        ('13,5 a 16,4', 'f135_164'),
+        ('16,5 a 18,4', 'f165_184'),
+        ('18,5 a 20', 'f185_20'),
     ]
+    for f_lbl, f_prop in faixas_defs:
+        row += 1
+        ws.row_dimensions[row].height = 17
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+        ws.cell(row=row, column=1, value=f_lbl)
+        aplicar_estilo_intervalo(ws, 1, row, 4, row, font=FONT_TINY_BOLD, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        for col_idx in range(5, 33):
+            s_key = col_stat_map.get(col_idx)
+            val = _val_cel(s_key, lambda st: ((st.get('faixas') or {}).get(f_prop) or {}).get('total', 0))
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.font = FONT_TINY_BOLD
+            c.border = THIN_BORDER
+            c.alignment = ALIGN_CENTER
 
-    for label, prop_key, is_pct, sub_faixa in blocos_estatisticos:
-        for gen_label, gen_key in [('H', 'h'), ('M', 'm'), ('HM', 'total')]:
-            row += 1
-            ws.row_dimensions[row].height = 16
-            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
-            ws.cell(row=row, column=1, value=label if gen_label == 'H' else '')
-            ws.cell(row=row, column=4, value=gen_label)
-
-            fill_r = FILL_ROW_HM if gen_label == 'HM' else None
-            font_r = FONT_TINY_BOLD if gen_label == 'HM' else FONT_TINY
-            aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=fill_r, border=THIN_BORDER, alignment=ALIGN_LEFT)
-            aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_r, fill=fill_r, border=THIN_BORDER, alignment=ALIGN_CENTER)
-
-            for col_idx in range(5, 33):
-                s_key = col_stat_map.get(col_idx)
-                val_cel = ''
-                if s_key and s_key in estatisticas:
-                    st_col = estatisticas[s_key]
-                    if sub_faixa:
-                        bloco = (st_col.get('faixas') or {}).get(sub_faixa) or {}
-                        val_cel = bloco.get(gen_key, 0)
-                    elif is_pct:
-                        bloco = st_col.get(prop_key) or {}
-                        pct_k = 'pctH' if gen_label == 'H' else ('pctM' if gen_label == 'M' else 'pct')
-                        val_cel = f"{bloco.get(pct_k, 0)}%"
-                    else:
-                        bloco = st_col.get(prop_key) or {}
-                        val_cel = bloco.get(gen_key, 0)
-                c = ws.cell(row=row, column=col_idx, value=val_cel)
-                c.font = font_r
-                if fill_r:
-                    c.fill = fill_r
-                c.border = THIN_BORDER
-                c.alignment = ALIGN_CENTER
-
-    # Linha final: Média da Coluna
+    # 8. Linha final: Média da Coluna
     row += 1
     ws.row_dimensions[row].height = 18
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
     ws.cell(row=row, column=1, value='Média da Coluna')
-    ws.cell(row=row, column=4, value='HM')
-    aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=FILL_ROW_HM, border=THIN_BORDER, alignment=ALIGN_LEFT)
-    aplicar_estilo_intervalo(ws, 4, row, 4, row, font=FONT_TINY_BOLD, fill=FILL_ROW_HM, border=THIN_BORDER, alignment=ALIGN_CENTER)
+    aplicar_estilo_intervalo(ws, 1, row, 4, row, font=FONT_TINY_BOLD, fill=FILL_ROW_BLUE, border=THIN_BORDER, alignment=ALIGN_LEFT)
     for col_idx in range(5, 33):
         s_key = col_stat_map.get(col_idx)
-        val_cel = ''
-        if s_key and s_key in estatisticas:
-            val_cel = estatisticas[s_key].get('media', 0)
-        c = ws.cell(row=row, column=col_idx, value=val_cel)
+        val = _val_cel(s_key, lambda st: st.get('media', 0))
+        c = ws.cell(row=row, column=col_idx, value=val)
         c.font = FONT_TINY_BOLD
-        c.fill = FILL_ROW_HM
+        c.fill = FILL_ROW_BLUE
         c.border = THIN_BORDER
         c.alignment = ALIGN_CENTER
 

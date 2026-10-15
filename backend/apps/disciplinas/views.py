@@ -77,9 +77,7 @@ class DisciplinaStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-        if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         total = Disciplina.objects.filter(escola=escola).count() if escola else 0
         return Response({'success': True, 'data': {'totalDisciplinas': total}})

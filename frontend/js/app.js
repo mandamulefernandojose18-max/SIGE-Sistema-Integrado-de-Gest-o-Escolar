@@ -8025,6 +8025,11 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       };
 
       tfoot.innerHTML = `
+        <!-- Linha Parametro estatistico conforme a foto -->
+        <tr class="table-secondary fw-bold text-center text-uppercase" style="letter-spacing: 0.5px;">
+          <td colspan="${4 + chavesColunas.length}">Parametro estatistico</td>
+        </tr>
+
         <!-- 1. Avaliados: M, F, M+F (3 Linhas Separadas Oficial Imagem 2) -->
         <tr>
           <td rowspan="3" class="text-start ps-2 fw-bold align-middle bg-light border-end">Avaliados</td>

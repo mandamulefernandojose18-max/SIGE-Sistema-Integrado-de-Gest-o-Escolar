@@ -2,7 +2,7 @@ import uuid
 import datetime
 from django.db import models
 
-def gerar_proxima_matricula(escola=None, ano_ingresso=None, classe=None, turma=None, area=None):
+def gerar_proxima_matricula(escola=None, ano_ingresso=None, classe=None, turma=None, area=None, aluno_id=None, numero=None, matricula_existente=None):
     from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
     return gerar_codigo_aluno_oficial(
         escola=escola,
@@ -10,6 +10,9 @@ def gerar_proxima_matricula(escola=None, ano_ingresso=None, classe=None, turma=N
         turma=turma,
         ano=ano_ingresso,
         area=area,
+        aluno_id=aluno_id,
+        numero=numero,
+        matricula_existente=matricula_existente,
     )
 
 class Aluno(models.Model):
@@ -52,6 +55,12 @@ class Aluno(models.Model):
             models.Index(fields=['matricula']),
             models.Index(fields=['status']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'matricula'],
+                name='unique_aluno_escola_matricula'
+            ),
+        ]
 
     def clean(self):
         from common.integrity import validar_integridade_tenant
@@ -87,7 +96,7 @@ class Aluno(models.Model):
                 else:
                     self.area = 'Ensino Geral'
 
-        # O Código do Aluno depende sempre da Escola + Classe + Turma + Ano + Área/Secção (ex: 0101S0001.12.01.2026.cg)
+        # O Código do Aluno depende da Escola + Classe + Turma + Ano + Área + Número Sequencial único
         from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
         self.matricula = gerar_codigo_aluno_oficial(
             escola=self.escola,
@@ -95,6 +104,8 @@ class Aluno(models.Model):
             turma=self.turma,
             ano=self.ano_ingresso,
             area=self.area,
+            aluno_id=self.id,
+            matricula_existente=self.matricula,
         )
 
         self.full_clean()

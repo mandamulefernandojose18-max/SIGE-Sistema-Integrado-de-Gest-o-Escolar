@@ -109,14 +109,15 @@ class AlunoSerializer(serializers.ModelSerializer):
         ret['grupo'] = area_final
         ret['turma_area'] = turma_area or area_final
 
-        # Garantir que o código do aluno exibido segue sempre o formato oficial (ex: 0101S0001.12.01.2026.cg)
-        from common.utils.geografia_mocambique import gerar_codigo_aluno_oficial
-        ret['matricula'] = gerar_codigo_aluno_oficial(
+        # Preservar o código oficial único da matrícula do aluno (com sufixo sequencial único)
+        ret['matricula'] = instance.matricula or gerar_codigo_aluno_oficial(
             escola=instance.escola,
             classe=ret['classe'],
             turma=instance.turma,
             ano=instance.ano_ingresso,
             area=area_final,
+            aluno_id=instance.id,
+            matricula_existente=instance.matricula,
         )
 
         if instance.turma:
