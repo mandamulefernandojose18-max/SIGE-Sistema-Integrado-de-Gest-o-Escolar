@@ -983,18 +983,31 @@ async function realizarLogin(e) {
   if (e && e.preventDefault) e.preventDefault();
   const email = (document.getElementById('loginEmail')?.value || '').trim();
   const senha = document.getElementById('loginSenha')?.value || '';
+  const feedbackEl = document.getElementById('loginFeedback');
+  if (feedbackEl) {
+    feedbackEl.className = 'mb-3 d-none';
+    feedbackEl.innerHTML = '';
+  }
 
   if (!email || !senha) {
-    alert('Por favor, introduza o utilizador e a palavra-passe.');
+    if (feedbackEl) {
+      feedbackEl.className = 'alert alert-warning mb-3 py-2 px-3 small';
+      feedbackEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Por favor, introduza o código de utilizador e a palavra-passe.';
+      feedbackEl.classList.remove('d-none');
+    } else {
+      alert('Por favor, introduza o utilizador e a palavra-passe.');
+    }
     return;
   }
 
   // Memoriza o utilizador para preenchimento exclusivo após atualização da página
   localStorage.setItem('sige_ultimo_usuario', email);
 
-  const submitBtn = document.querySelector('#loginForm button[type="submit"]') || document.querySelector('button[onclick*="realizarLogin"]');
+  const submitBtn = document.getElementById('btnLoginSubmit') || document.querySelector('#loginForm button[type="submit"]') || document.querySelector('button[onclick*="realizarLogin"]');
+  const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
   if (submitBtn) {
     submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> A autenticar...';
   }
 
   try {
@@ -1030,18 +1043,34 @@ async function realizarLogin(e) {
       await iniciarApp();
     } else {
       const msgErro = (json && (json.message || json.detail)) || 'Credenciais inválidas! Utilizador ou senha incorretos.';
-      alert(msgErro);
-      window.location.reload();
+      if (feedbackEl) {
+        feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
+        feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(msgErro)}`;
+        feedbackEl.classList.remove('d-none');
+      } else {
+        alert(msgErro);
+      }
+      const inpSenha = document.getElementById('loginSenha');
+      if (inpSenha) {
+        inpSenha.value = '';
+        setTimeout(() => inpSenha.focus(), 100);
+      }
       return;
     }
   } catch (err) {
     console.error('Erro de conexão no login:', err);
-    alert('Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.'));
-    window.location.reload();
-    return;
+    const msgConexao = 'Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.');
+    if (feedbackEl) {
+      feedbackEl.className = 'alert alert-warning mb-3 py-2 px-3 small';
+      feedbackEl.innerHTML = `<i class="bi bi-wifi-off me-1"></i> ${escapeHtml(msgConexao)}`;
+      feedbackEl.classList.remove('d-none');
+    } else {
+      alert(msgConexao);
+    }
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
+      if (originalBtnHtml) submitBtn.innerHTML = originalBtnHtml;
     }
   }
 }
@@ -1101,10 +1130,17 @@ function mostrarTelaLogin() {
 }
 
 async function iniciarApp() {
+  if (!state.user) return;
+
+  // Imediatamente exibir a aplicação principal e ocultar a tela de login
+  document.body.classList.add('authenticated');
+  const loginView = document.getElementById('loginView');
+  if (loginView) loginView.style.display = 'none';
+  const appView = document.getElementById('appView');
+  if (appView) appView.style.display = 'flex';
+
   // Ocultar todas as vistas antes de activar o módulo correspondente ao perfil autenticado
   document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
-
-  if (!state.user) return;
 
   // Cabeçalho e Utilizador Activo com verificação segura de existência de elementos
   const elUserName = document.getElementById('topbarUserName');
@@ -1200,13 +1236,6 @@ async function iniciarApp() {
       atualizarBotaoToggleNotasDap(state.tenant.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas !== false);
     }
   }
-
-  // Exibir a aplicação principal apenas após a sessão estar autenticada e a página inicial do perfil estar activa
-  document.body.classList.add('authenticated');
-  const loginView = document.getElementById('loginView');
-  if (loginView) loginView.style.display = 'none';
-  const appView = document.getElementById('appView');
-  if (appView) appView.style.display = 'flex';
 }
 
 async function carregarDadosGlobaisEscola() {

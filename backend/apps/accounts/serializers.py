@@ -184,6 +184,16 @@ class LoginSerializer(serializers.Serializer):
             if escola:
                 status_escola = str(getattr(escola, 'status', '') or '').strip().upper()
                 bloqueada = bool(getattr(escola, 'bloqueada_manualmente', False))
+
+                # Auto-recuperação de integridade: se a escola possui assinatura válida não expirada e não está bloqueada manualmente
+                if not bloqueada and 'PEND' not in status_escola and status_escola != 'ATIVA':
+                    from django.utils import timezone
+                    ass_valida = escola.assinaturas.filter(data_fim__gt=timezone.now()).order_by('-data_fim').first()
+                    if ass_valida:
+                        escola.status = 'ATIVA'
+                        escola.save(update_fields=['status'])
+                        status_escola = 'ATIVA'
+
                 if status_escola != 'ATIVA' or bloqueada:
                     if bloqueada:
                         motivo = 'bloqueada manualmente'

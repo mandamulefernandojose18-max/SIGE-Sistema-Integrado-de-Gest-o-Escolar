@@ -32,7 +32,7 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
     elif 'supabase' in hostname or hostname not in ('localhost', '127.0.0.1', 'postgres'):
         options['sslmode'] = 'require'
 
-    options['connect_timeout'] = 5
+    options['connect_timeout'] = 15
     options['keepalives'] = 1
     options['keepalives_idle'] = 30
     options['keepalives_interval'] = 10
