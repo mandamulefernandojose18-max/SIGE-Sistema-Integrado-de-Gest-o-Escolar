@@ -22,7 +22,7 @@ class Command(BaseCommand):
                 nome=p['nome'],
                 defaults=p
             )
-        self.stdout.write(self.style.SUCCESS('✔ Planos do SaaS configurados em MZN.'))
+        self.stdout.write(self.style.SUCCESS('[OK] Planos do SaaS configurados em MZN.'))
 
         # 2. SuperAdmin do SaaS
         super_admins = [
@@ -42,6 +42,6 @@ class Command(BaseCommand):
             u.escola = None  # SuperAdmin não pertence a uma escola específica (gerencia a plataforma)
             u.set_password(sa['pass'])
             u.save()
-        self.stdout.write(self.style.SUCCESS('✔ SuperAdmins configurados.'))
+        self.stdout.write(self.style.SUCCESS('[OK] SuperAdmins configurados.'))
 
         self.stdout.write(self.style.SUCCESS('[OK] Inicialização concluída. Nenhum dado fictício foi inserido no sistema.'))
