@@ -151,11 +151,12 @@ class AlunoStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-        if not escola and getattr(request.user, 'role', '') == 'SUPERADMIN':
-            qs = Aluno.objects.all()
-        elif escola:
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if escola:
             qs = Aluno.objects.filter(escola=escola)
+        elif getattr(request.user, 'role', '') == 'SUPERADMIN':
+            qs = Aluno.objects.all()
         else:
             qs = Aluno.objects.none()
 

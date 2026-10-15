@@ -303,19 +303,8 @@ class TurmaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='criar-lote')
     def criar_lote(self, request):
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = (
-                request.data.get('escola_id') or
-                request.headers.get('X-Tenant-ID')
-            )
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
-
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola seleccionada.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -401,19 +390,8 @@ class TurmaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='distribuir-automaticamente')
     def distribuir_automaticamente(self, request):
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = (
-                request.data.get('escola_id') or
-                request.headers.get('X-Tenant-ID')
-            )
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
-
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola seleccionada.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -478,16 +456,8 @@ class TurmaViewSet(viewsets.ModelViewSet):
         from apps.alunos.models import Aluno
         from django.db.models import Q
 
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = request.query_params.get('escola_id') or request.headers.get('X-Tenant-ID')
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
-
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola seleccionada.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -608,16 +578,8 @@ class TurmaViewSet(viewsets.ModelViewSet):
         from apps.alunos.models import Aluno
         from django.db.models import Q
 
-        escola = self.request.tenant or getattr(self.request.user, 'escola', None)
-        if not escola and getattr(self.request.user, 'role', '') == 'SUPERADMIN':
-            escola_id = request.data.get('escola_id') or request.headers.get('X-Tenant-ID')
-            if escola_id:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(id=escola_id).first()
-            if not escola:
-                from apps.tenants.models import Escola
-                escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
-
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma escola seleccionada.'}, status=status.HTTP_400_BAD_REQUEST)
 
