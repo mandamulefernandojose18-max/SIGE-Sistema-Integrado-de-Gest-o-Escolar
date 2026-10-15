@@ -67,21 +67,21 @@ class AlocarProfessorView(APIView):
         serializer = CriarAlocacaoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
         if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+            return Response({'success': False, 'message': 'Nenhuma instituição seleccionada.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        prof = get_object_or_404(Professor, id=serializer.validated_data['professor_id'])
-        disc = get_object_or_404(Disciplina, id=serializer.validated_data['disciplina_id'])
-        turma = get_object_or_404(Turma, id=serializer.validated_data['turma_id'])
+        prof = get_object_or_404(Professor, id=serializer.validated_data['professor_id'], escola=escola)
+        disc = get_object_or_404(Disciplina, id=serializer.validated_data['disciplina_id'], escola=escola)
+        turma = get_object_or_404(Turma, id=serializer.validated_data['turma_id'], escola=escola)
 
         aloc = AlocacaoDocente.objects.filter(professor=prof, disciplina=disc, turma=turma).first()
         created = False
         if not aloc:
             try:
                 aloc = AlocacaoDocente.objects.create(
-                    escola=prof.escola or escola,
+                    escola=escola,
                     professor=prof,
                     disciplina=disc,
                     turma=turma
@@ -114,14 +114,12 @@ class ProfessorStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
-        if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.filter(status='ATIVA').first() or Escola.objects.first()
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
 
-        qs = Professor.objects.filter(escola=escola) if escola else Professor.objects.all()
-        aloc_qs = AlocacaoDocente.objects.filter(escola=escola) if escola else AlocacaoDocente.objects.all()
-        alunos_qs = Aluno.objects.filter(escola=escola, status='ATIVO') if escola else Aluno.objects.filter(status='ATIVO')
+        qs = Professor.objects.filter(escola=escola) if escola else Professor.objects.none()
+        aloc_qs = AlocacaoDocente.objects.filter(escola=escola) if escola else AlocacaoDocente.objects.none()
+        alunos_qs = Aluno.objects.filter(escola=escola, status='ATIVO') if escola else Aluno.objects.none()
 
         total = qs.count()
         ativos = qs.filter(ativo=True).count()
