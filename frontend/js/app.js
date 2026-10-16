@@ -674,6 +674,11 @@ async function apiFetch(endpoint, options = {}) {
       }
       if (!msg) {
         msg = `Erro no processamento da requisição (HTTP ${res.status})`;
+      } else if (typeof msg === 'string') {
+        const trimmed = msg.trim();
+        if (trimmed.startsWith('<') || trimmed.includes('<html') || trimmed.includes('Server Error')) {
+          msg = `Erro interno do servidor (HTTP ${res.status})`;
+        }
       }
       throw new Error(msg);
     }
@@ -12725,7 +12730,8 @@ async function carregarCofreUsuarios() {
     cacheUsuariosCofre = res.data;
     renderizarTabelaCofre(cacheUsuariosCofre);
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4"><i class="bi bi-shield-x me-1"></i>${err.message || 'Acesso não autorizado ao cofre'}</td></tr>`;
+    const safeMsg = (err.message || 'Acesso não autorizado ao cofre').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4"><i class="bi bi-shield-x me-1"></i>${safeMsg}</td></tr>`;
   }
 }
 

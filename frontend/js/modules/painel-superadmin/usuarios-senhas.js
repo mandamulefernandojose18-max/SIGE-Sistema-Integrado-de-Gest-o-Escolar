@@ -19,7 +19,8 @@ async function carregarCofreUsuarios() {
       container.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Falha ao carregar credenciais.</td></tr>';
     }
   } catch (err) {
-    container.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Erro: ' + (err.message || 'Falha de rede') + '</td></tr>';
+    const safeMsg = (err.message || 'Falha de rede').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    container.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Erro: ' + safeMsg + '</td></tr>';
   }
 }
 

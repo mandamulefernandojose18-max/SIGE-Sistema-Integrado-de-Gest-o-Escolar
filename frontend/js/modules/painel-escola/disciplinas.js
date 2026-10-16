@@ -3,6 +3,164 @@
  * Ficheiro de código independente do menu: disciplinas.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
  */
+// ==================== GESTÃO DE NÍVEIS CURRICULARES DA INSTITUIÇÃO ====================
+window.obterNiveisInstituicao = function() {
+  const padrao = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id
+    || 'padrao';
+  const chave = `sige_niveis_instituicao_${escolaId}`;
+
+  let salvos = [];
+  try {
+    salvos = JSON.parse(localStorage.getItem(chave) || '[]');
+  } catch (_) {}
+
+  const setNiveis = new Set([...padrao, ...salvos]);
+  (state.todasDisciplinas || []).forEach(d => {
+    const c = (d.classe || '').trim();
+    if (c.toLowerCase().includes('nível') || c.toLowerCase().includes('nivel')) {
+      setNiveis.add(c);
+    }
+  });
+  (state.todasTurmas || []).forEach(t => {
+    const g = (t.grau_ano || '').trim();
+    if (g.toLowerCase().includes('nível') || g.toLowerCase().includes('nivel')) {
+      setNiveis.add(g);
+    }
+  });
+
+  return Array.from(setNiveis).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+};
+
+window.adicionarNivelInstituicao = function(novoNivel) {
+  if (!novoNivel) return null;
+  let normalizado = novoNivel.trim();
+  if (!normalizado) return null;
+  if (/^\d+$/.test(normalizado)) {
+    normalizado = `Nível ${normalizado}`;
+  } else if (!normalizado.toLowerCase().startsWith('nível') && !normalizado.toLowerCase().startsWith('nivel')) {
+    normalizado = `Nível ${normalizado}`;
+  }
+
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id
+    || 'padrao';
+  const chave = `sige_niveis_instituicao_${escolaId}`;
+
+  let salvos = [];
+  try {
+    salvos = JSON.parse(localStorage.getItem(chave) || '[]');
+  } catch (_) {}
+
+  if (!salvos.includes(normalizado)) {
+    salvos.push(normalizado);
+    localStorage.setItem(chave, JSON.stringify(salvos));
+  }
+  return normalizado;
+};
+
+window.promptAdicionarNivelModal = function(selectId, callback) {
+  const nome = prompt('Digite o Nível que deseja adicionar à instituição (ex: Nível 1, Nível 2, Nível 3...):', 'Nível ');
+  if (!nome || !nome.trim()) {
+    const sel = document.getElementById(selectId);
+    if (sel && sel.value === '__NOVO_NIVEL__') {
+      const niveis = window.obterNiveisInstituicao();
+      sel.value = niveis[0] || 'Nível 1';
+    }
+    return;
+  }
+  const adicionado = window.adicionarNivelInstituicao(nome);
+  if (adicionado) {
+    const sel = document.getElementById(selectId);
+    if (sel) {
+      const niveis = window.obterNiveisInstituicao();
+      sel.innerHTML = niveis.map(n => `<option value="${n}" ${n === adicionado ? 'selected' : ''}>${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      sel.value = adicionado;
+      if (typeof callback === 'function') callback(adicionado);
+    }
+  }
+};
+
+window.modalAdicionarNivelCurricular = function() {
+  const niveisAtuais = window.obterNiveisInstituicao();
+  const listaNiveisHtml = niveisAtuais.map(n => `
+    <span class="badge bg-success bg-opacity-10 text-success border border-success p-2 fs-6">
+      <i class="bi bi-layers-fill me-1"></i>${n}
+    </span>
+  `).join('');
+
+  abrirModal('Gerir & Adicionar Níveis Curriculares da Instituição', `
+    <form id="formAdicionarNivelInst">
+      <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-info-circle-fill me-1"></i> Se a sua instituição oferece ensino técnico, profissionalizante ou superior baseado em <strong>Níveis</strong> em vez de classes, adicione aqui os níveis curriculares utilizados (ex: Nível 1, Nível 2, Nível 3, Nível 4, Nível 5...).
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-uppercase text-secondary">Níveis Actualmente Activos na Instituição:</label>
+        <div class="d-flex flex-wrap gap-2 p-3 bg-light rounded border">
+          ${listaNiveisHtml}
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3 align-items-end">
+        <div class="col-md-8">
+          <label class="form-label small fw-semibold">Novo Nível Curricular *</label>
+          <input type="text" id="inputNovoNivelNome" class="form-control" placeholder="Ex: Nível 1, Nível 2, Nível 3... ou apenas o número (1, 2...)" required autofocus>
+          <small class="text-muted" style="font-size: 0.73rem;">Se digitar apenas "1", será salvo automaticamente como "Nível 1".</small>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-success w-100 fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i> Adicionar Nível
+          </button>
+        </div>
+      </div>
+
+      <div class="p-3 bg-light rounded border mb-3">
+        <div class="small fw-bold text-muted text-uppercase mb-2">Adição Rápida de Níveis Padrão:</div>
+        <div class="d-flex flex-wrap gap-2">
+          ${[1, 2, 3, 4, 5, 6].map(i => `
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="adicionarNivelRapido('Nível ${i}')">
+              + Nível ${i}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-primary px-4" onclick="fecharModal(); carregarDisciplinas(); if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();">
+          <i class="bi bi-check-lg me-1"></i> Concluído
+        </button>
+      </div>
+    </form>
+  `);
+
+  window.adicionarNivelRapido = function(nivelNome) {
+    window.adicionarNivelInstituicao(nivelNome);
+    fecharModal();
+    window.modalAdicionarNivelCurricular();
+  };
+
+  document.getElementById('formAdicionarNivelInst').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = document.getElementById('inputNovoNivelNome').value;
+    const add = window.adicionarNivelInstituicao(val);
+    if (add) {
+      fecharModal();
+      window.modalAdicionarNivelCurricular();
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+    }
+  });
+};
+
 // ==================== 6. DISCIPLINAS ====================
 function filtrarDisciplinasClasse(classe) {
   state.filtroDisciplinaClasse = classe || '';
@@ -92,12 +250,15 @@ function modalNovaSeccaoArea() {
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
     '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
   ];
-  const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+  const niveisOficiais = window.obterNiveisInstituicao();
 
   const classeAtiva = (state.filtroDisciplinaClasse || '10ª Classe').trim();
   const isNivel = classeAtiva.toLowerCase().includes('nível') || classeAtiva.toLowerCase().includes('nivel');
   const listaInicial = isNivel ? niveisOficiais : classesOficiais;
-  const optClasses = listaInicial.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
+  let optClasses = listaInicial.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
+  if (isNivel) {
+    optClasses += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+  }
 
   abrirModal('Cadastrar Secção / Área de Estudo', `
     <form id="formModalSeccaoArea">
@@ -121,14 +282,19 @@ function modalNovaSeccaoArea() {
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold" id="labelMsaClasse">${isNivel ? 'Nível Correspondente *' : 'Classe Correspondente *'}</label>
-        <select id="msaClasse" class="form-select" required>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label small fw-semibold mb-0" id="labelMsaClasse">${isNivel ? 'Nível Correspondente *' : 'Classe Correspondente *'}</label>
+          <button type="button" id="btnAdicionarNivelSeccao" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${isNivel ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('msaClasse')">
+            <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+          </button>
+        </div>
+        <select id="msaClasse" class="form-select" required onchange="if(this.value==='__NOVO_NIVEL__') window.promptAdicionarNivelModal('msaClasse')">
           ${optClasses}
         </select>
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Nome da Secção ou Área de Estudo *</label>
-        <input type="text" id="msaNome" class="form-control" placeholder="Ex: Ciências com Geografia, Ciências com Biologia..." required>
+        <input type="text" id="msaNome" class="form-control" placeholder="Ex: Ciências com Geografia, Ciências com Biologia, Contabilidade, Eletricidade..." required>
         <small class="text-muted">A nova secção/área aparecerá automaticamente em todas as listas de filtros, turmas e disciplinas.</small>
       </div>
       <button type="submit" class="btn btn-primary w-100 fw-semibold">
@@ -140,18 +306,18 @@ function modalNovaSeccaoArea() {
   window.alternarRegimeModalSeccao = function(regime) {
     const sel = document.getElementById('msaClasse');
     const lbl = document.getElementById('labelMsaClasse');
+    const btnAdd = document.getElementById('btnAdicionarNivelSeccao');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Correspondente *';
-      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'inline-block';
+      const niveis = window.obterNiveisInstituicao();
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
     } else {
       if (lbl) lbl.textContent = 'Classe Correspondente *';
-      const classes = [
-        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-      ];
-      sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'none';
+      sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
     }
   };
 

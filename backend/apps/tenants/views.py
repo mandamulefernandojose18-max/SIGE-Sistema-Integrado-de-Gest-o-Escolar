@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -5,6 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
 from django.db.models import Sum, Count
+
+logger = logging.getLogger(__name__)
 
 from .models import Plano, Escola, AssinaturaEscola, AnoLectivo
 from .serializers import PlanoSerializer, EscolaSerializer, AssinaturaEscolaSerializer, AnoLectivoSerializer
@@ -774,14 +777,17 @@ class UsuariosCredenciaisView(APIView):
         escola = get_tenant_escola(request)
         if not escola:
             if getattr(request.user, 'role', '') == 'SUPERADMIN':
-                usuarios = Usuario.objects.all().order_by('-data_criacao')[:500]
+                usuarios = Usuario.objects.all().order_by('-date_joined')[:500]
                 return Response({
                     'success': True,
                     'data': UsuarioSerializer(usuarios, many=True).data
                 })
             return Response({'success': True, 'data': []})
-        garantir_contas_institucionais_escola(escola)
-        usuarios = Usuario.objects.filter(escola=escola).order_by('-data_criacao')
+        try:
+            garantir_contas_institucionais_escola(escola)
+        except Exception as e:
+            logger.warning(f"Erro ao sincronizar contas institucionais da escola {escola}: {e}")
+        usuarios = Usuario.objects.filter(escola=escola).order_by('-date_joined')
         return Response({
             'success': True,
             'data': UsuarioSerializer(usuarios, many=True).data
