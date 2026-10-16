@@ -2865,13 +2865,20 @@ async function carregarEscolaETurmas() {
       setTxt('labelBadgeDP', codDP);
       setTxt('labelBadgeSECR', codSECR);
 
-      // Logótipo da Escola
+      // Logótipo da Escola & Catálogo de Identidade Visual
+      if (e.galeria_logos && Array.isArray(e.galeria_logos)) {
+        state.escolaAtual.galeria_logos = e.galeria_logos;
+        if (state.tenant) state.tenant.galeria_logos = e.galeria_logos;
+      }
       const logoVal = e.logo_url || e.logo_base64 || '';
       const finalLogoInput = document.getElementById('confEscolaLogoFinalValue');
       if (finalLogoInput) finalLogoInput.value = logoVal;
       const urlInput = document.getElementById('confEscolaLogoUrl');
-      if (urlInput) urlInput.value = logoVal.startsWith('data:') ? '' : logoVal;
-      atualizarVisualizacaoLogo(logoVal, e.usar_emblema_nacional);
+      if (urlInput) urlInput.value = '';
+      window.atualizarVisualizacaoLogo(logoVal, e.usar_emblema_nacional);
+      if (typeof window.renderizarGaleriaLogos === 'function') {
+        window.renderizarGaleriaLogos();
+      }
 
       // Províncias
       const selectProv = document.getElementById('confEscolaProvincia');
@@ -3180,14 +3187,268 @@ function abrirAlunosDaTurma(turmaId, grauAno) {
   }, 100);
 }
 
+function obterGaleriaLogosEscola() {
+  const e = state.escolaAtual || state.tenant || {};
+  let galeria = Array.isArray(e.galeria_logos) ? [...e.galeria_logos] : [];
+
+  const chaveLocal = `sige_galeria_logos_${e.id || 'default'}`;
+  try {
+    const salvoLocal = JSON.parse(localStorage.getItem(chaveLocal) || '[]');
+    if (Array.isArray(salvoLocal)) {
+      salvoLocal.forEach(item => {
+        if (item && item.url && !galeria.some(g => g.id === item.id || g.url === item.url)) {
+          galeria.push(item);
+        }
+      });
+    }
+  } catch (_) {}
+
+  const logoAtual = e.logo_url || e.logo_base64;
+  if (logoAtual && !logoAtual.includes('emblema-mocambique.png')) {
+    if (!galeria.some(g => g.url === logoAtual)) {
+      galeria.unshift({
+        id: 'logo_anterior_' + Date.now(),
+        nome: 'Logótipo da Escola',
+        url: logoAtual,
+        tipo: 'SALVO',
+        criado_em: new Date().toISOString()
+      });
+    }
+  }
+
+  const mapa = new Map();
+  galeria.forEach(item => {
+    if (item && item.url && !mapa.has(item.url)) {
+      mapa.set(item.url, item);
+    }
+  });
+
+  return Array.from(mapa.values());
+}
+window.obterGaleriaLogosEscola = obterGaleriaLogosEscola;
+
+function renderizarGaleriaLogos() {
+  const container = document.getElementById('galeriaLogosContainer');
+  if (!container) return;
+
+  const galeria = obterGaleriaLogosEscola();
+  const e = state.escolaAtual || state.tenant || {};
+  const logoAtivoAtual = document.getElementById('confEscolaLogoFinalValue')?.value ?? (e.logo_url || e.logo_base64 || '');
+  const checkEmblema = document.getElementById('confEscolaEmblema');
+  const usarEmblema = checkEmblema ? checkEmblema.checked : (e.usar_emblema_nacional !== false);
+
+  const contadorEl = document.getElementById('contadorGaleriaLogos');
+  if (contadorEl) {
+    const total = galeria.length + 1;
+    contadorEl.textContent = `${total} disponível${total > 1 ? 'is' : ''}`;
+  }
+
+  const isEmblemaAtivo = Boolean(usarEmblema || !logoAtivoAtual || logoAtivoAtual === 'img/emblema-mocambique.png');
+
+  let html = `
+    <!-- 1. Emblema Nacional Oficial (Permanente e sempre disponível) -->
+    <div class="col-6 col-sm-6 col-md-6 col-lg-6">
+      <div class="card h-100 p-2 text-center logo-card-item cursor-pointer ${isEmblemaAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+           onclick="selecionarLogotipoGaleria('emblema_nacional')"
+           title="Clique para usar o Emblema Nacional Oficial"
+           style="cursor: pointer; transition: all 0.2s; min-height: 120px;">
+        <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 mb-1" style="height: 60px;">
+          <img src="img/emblema-mocambique.png" alt="Emblema Nacional" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+        </div>
+        <div class="small fw-bold text-truncate text-dark" style="font-size: 0.74rem;" title="Emblema Nacional (Padrão Oficial)">
+          Emblema Nacional
+        </div>
+        <div class="mt-1">
+          ${isEmblemaAtivo 
+            ? '<span class="badge bg-primary text-white" style="font-size: 0.68rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
+            : '<span class="badge bg-light text-secondary border" style="font-size: 0.68rem;"><i class="bi bi-hand-index-thumb me-1"></i>Usar este</span>'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  galeria.forEach((item, idx) => {
+    const isAtivo = !isEmblemaAtivo && (logoAtivoAtual === item.url);
+    const nomeExibicao = item.nome || `Logótipo ${idx + 1}`;
+    html += `
+      <div class="col-6 col-sm-6 col-md-6 col-lg-6">
+        <div class="card h-100 p-2 text-center logo-card-item cursor-pointer position-relative ${isAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+             onclick="selecionarLogotipoGaleria('${item.id}')"
+             title="Clique para alternar para este logótipo"
+             style="cursor: pointer; transition: all 0.2s; min-height: 120px;">
+          <button type="button" class="btn btn-sm btn-danger py-0 px-1 position-absolute top-0 end-0 m-1 rounded-circle shadow-sm"
+                  style="font-size: 0.65rem; width: 22px; height: 22px; line-height: 1; padding: 0; z-index: 2;"
+                  onclick="event.stopPropagation(); removerLogotipoDaGaleria('${item.id}')"
+                  title="Eliminar este logótipo da galeria">
+            <i class="bi bi-trash"></i>
+          </button>
+          <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 mb-1" style="height: 60px;">
+            <img src="${item.url}" alt="${nomeExibicao}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+          </div>
+          <div class="small fw-bold text-truncate text-dark" style="font-size: 0.74rem;" title="${nomeExibicao}">
+            ${nomeExibicao}
+          </div>
+          <div class="mt-1">
+            ${isAtivo 
+              ? '<span class="badge bg-primary text-white" style="font-size: 0.68rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
+              : '<span class="badge bg-light text-secondary border" style="font-size: 0.68rem;"><i class="bi bi-hand-index-thumb me-1"></i>Usar este</span>'}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+window.renderizarGaleriaLogos = renderizarGaleriaLogos;
+
+async function selecionarLogotipoGaleria(id) {
+  const finalInput = document.getElementById('confEscolaLogoFinalValue');
+  const checkEmblema = document.getElementById('confEscolaEmblema');
+  const e = state.escolaAtual || state.tenant || {};
+
+  let logoUrlParaSalvar = '';
+  let usarEmblemaParaSalvar = false;
+
+  if (id === 'emblema_nacional') {
+    if (finalInput) finalInput.value = '';
+    if (checkEmblema) checkEmblema.checked = true;
+    logoUrlParaSalvar = '';
+    usarEmblemaParaSalvar = true;
+    atualizarVisualizacaoLogo('', true);
+  } else {
+    const galeria = obterGaleriaLogosEscola();
+    const item = galeria.find(g => g.id === id);
+    if (!item) return;
+
+    if (finalInput) finalInput.value = item.url;
+    if (checkEmblema) checkEmblema.checked = false;
+    logoUrlParaSalvar = item.url;
+    usarEmblemaParaSalvar = false;
+    atualizarVisualizacaoLogo(item.url, false);
+  }
+
+  renderizarGaleriaLogos();
+
+  if (state.escolaAtual) {
+    state.escolaAtual.logo_url = logoUrlParaSalvar || null;
+    state.escolaAtual.usar_emblema_nacional = usarEmblemaParaSalvar;
+  }
+  if (state.tenant) {
+    state.tenant.logo_url = logoUrlParaSalvar || null;
+    state.tenant.usar_emblema_nacional = usarEmblemaParaSalvar;
+  }
+
+  try {
+    const galeria = obterGaleriaLogosEscola();
+    const body = {
+      usar_emblema_nacional: usarEmblemaParaSalvar,
+      logo_url: logoUrlParaSalvar,
+      galeria_logos: galeria
+    };
+    await apiFetch('/api/v1/escola-admin/info', {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+    if (typeof mostrarToast === 'function') {
+      mostrarToast(
+        usarEmblemaParaSalvar 
+          ? 'Emblema Nacional oficial activado com sucesso!' 
+          : 'Logótipo alterado e activado com sucesso!',
+        'success'
+      );
+    }
+  } catch (err) {
+    console.warn('Erro ao auto-salvar permuta de logótipo:', err);
+  }
+}
+window.selecionarLogotipoGaleria = selecionarLogotipoGaleria;
+
+async function adicionarLogotipoAGaleria(url, nome = '') {
+  if (!url || !url.trim()) return;
+  const urlLimpo = url.trim();
+  const galeria = obterGaleriaLogosEscola();
+  const e = state.escolaAtual || state.tenant || {};
+
+  const existente = galeria.find(g => g.url === urlLimpo);
+  if (existente) {
+    await selecionarLogotipoGaleria(existente.id);
+    return;
+  }
+
+  const novoId = 'logo_' + Date.now();
+  const novoItem = {
+    id: novoId,
+    nome: nome || `Logótipo ${galeria.length + 1}`,
+    url: urlLimpo,
+    tipo: 'UPLOAD',
+    criado_em: new Date().toISOString()
+  };
+
+  galeria.push(novoItem);
+
+  const chaveLocal = `sige_galeria_logos_${e.id || 'default'}`;
+  try {
+    localStorage.setItem(chaveLocal, JSON.stringify(galeria));
+  } catch (_) {}
+
+  if (state.escolaAtual) state.escolaAtual.galeria_logos = galeria;
+  if (state.tenant) state.tenant.galeria_logos = galeria;
+
+  await selecionarLogotipoGaleria(novoId);
+}
+window.adicionarLogotipoAGaleria = adicionarLogotipoAGaleria;
+
+async function removerLogotipoDaGaleria(id) {
+  if (id === 'emblema_nacional') {
+    alert('O Emblema Nacional Oficial é padrão do sistema e não pode ser eliminado.');
+    return;
+  }
+  if (!confirm('Deseja realmente eliminar este logótipo da galeria?')) {
+    return;
+  }
+
+  let galeria = obterGaleriaLogosEscola();
+  const itemRemovido = galeria.find(g => g.id === id);
+  galeria = galeria.filter(g => g.id !== id);
+
+  const e = state.escolaAtual || state.tenant || {};
+  const chaveLocal = `sige_galeria_logos_${e.id || 'default'}`;
+  try {
+    localStorage.setItem(chaveLocal, JSON.stringify(galeria));
+  } catch (_) {}
+
+  if (state.escolaAtual) state.escolaAtual.galeria_logos = galeria;
+  if (state.tenant) state.tenant.galeria_logos = galeria;
+
+  const finalInput = document.getElementById('confEscolaLogoFinalValue');
+  if (itemRemovido && finalInput && finalInput.value === itemRemovido.url) {
+    await selecionarLogotipoGaleria('emblema_nacional');
+  } else {
+    renderizarGaleriaLogos();
+    try {
+      await apiFetch('/api/v1/escola-admin/info', {
+        method: 'PUT',
+        body: JSON.stringify({ galeria_logos: galeria })
+      });
+      if (typeof mostrarToast === 'function') {
+        mostrarToast('Logótipo removido da galeria.', 'info');
+      }
+    } catch (_) {}
+  }
+}
+window.removerLogotipoDaGaleria = removerLogotipoDaGaleria;
+
 function atualizarVisualizacaoLogo(logoSrc, usarEmblema = true) {
   const img = document.getElementById('confEscolaLogoPreview');
   const statusEl = document.getElementById('confEscolaLogoStatus');
   const btnRemover = document.getElementById('btnRemoverLogo');
 
-  if (logoSrc && logoSrc.trim()) {
+  if (!usarEmblema && logoSrc && logoSrc.trim() && !logoSrc.includes('emblema-mocambique.png')) {
     if (img) img.src = logoSrc;
-    if (statusEl) statusEl.textContent = 'Logótipo Próprio Activo';
+    const galeria = (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : [];
+    const item = galeria.find(g => g.url === logoSrc);
+    if (statusEl) statusEl.textContent = item?.nome ? `Logótipo: ${item.nome}` : 'Logótipo Próprio Activo';
     if (btnRemover) btnRemover.style.display = 'inline-block';
   } else {
     if (img) img.src = 'img/emblema-mocambique.png';
@@ -3195,6 +3456,7 @@ function atualizarVisualizacaoLogo(logoSrc, usarEmblema = true) {
     if (btnRemover) btnRemover.style.display = 'none';
   }
 }
+window.atualizarVisualizacaoLogo = atualizarVisualizacaoLogo;
 
 function processarUploadLogoLocal(input) {
   const file = input.files?.[0];
@@ -3211,37 +3473,44 @@ function processarUploadLogoLocal(input) {
   }
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     const dataUrl = e.target.result;
-    const finalInput = document.getElementById('confEscolaLogoFinalValue');
-    if (finalInput) finalInput.value = dataUrl;
-    atualizarVisualizacaoLogo(dataUrl, false);
+    const nomeFicheiro = file.name ? file.name.replace(/\.[^/.]+$/, "") : `Logótipo`;
+    await adicionarLogotipoAGaleria(dataUrl, nomeFicheiro);
+    input.value = '';
   };
   reader.readAsDataURL(file);
 }
+window.processarUploadLogoLocal = processarUploadLogoLocal;
 
-function processarUrlLogo(url) {
-  if (!url || !url.trim()) return;
-  const finalInput = document.getElementById('confEscolaLogoFinalValue');
-  if (finalInput) finalInput.value = url.trim();
-  atualizarVisualizacaoLogo(url.trim(), false);
+async function processarUrlLogo(url) {
+  if (!url || !url.trim()) {
+    alert('Por favor, insira um link / URL válido da imagem.');
+    return;
+  }
+  const urlLimpo = url.trim();
+  await adicionarLogotipoAGaleria(urlLimpo, 'Logótipo Web');
+  const inputEl = document.getElementById('confEscolaLogoUrl');
+  if (inputEl) inputEl.value = '';
 }
+window.processarUrlLogo = processarUrlLogo;
 
-function removerLogotipoEscola() {
-  const finalInput = document.getElementById('confEscolaLogoFinalValue');
-  if (finalInput) finalInput.value = '';
-  const urlInput = document.getElementById('confEscolaLogoUrl');
-  if (urlInput) urlInput.value = '';
-  const fileInput = document.getElementById('confEscolaLogoFile');
-  if (fileInput) fileInput.value = '';
-  atualizarVisualizacaoLogo('', true);
+async function removerLogotipoEscola() {
+  await selecionarLogotipoGaleria('emblema_nacional');
 }
+window.removerLogotipoEscola = removerLogotipoEscola;
 
-function alternarEmblemaCheck(checked) {
+async function alternarEmblemaCheck(checked) {
   if (checked) {
-    // Mantém emblema nacional
+    await selecionarLogotipoGaleria('emblema_nacional');
+  } else {
+    const galeria = obterGaleriaLogosEscola();
+    if (galeria.length > 0) {
+      await selecionarLogotipoGaleria(galeria[0].id);
+    }
   }
 }
+window.alternarEmblemaCheck = alternarEmblemaCheck;
 
 function atualizarDistritosEscola(provincia, distritoSelecionado = '') {
   const distritos = state.geografia.distritos[provincia] || [];
@@ -3270,7 +3539,8 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       provincia: document.getElementById('confEscolaProvincia').value,
       distrito: document.getElementById('confEscolaDistrito').value,
       usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked,
-      logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || null
+      logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || '',
+      galeria_logos: (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : []
     };
     const res = await apiFetch('/api/v1/escola-admin/info', {
       method: 'PUT',
@@ -3280,10 +3550,12 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       if (state.tenant) {
         state.tenant.publicacao_notas_trimestre = body.publicacao_notas_trimestre;
         state.tenant.permitir_visualizacao_notas = body.publicacao_notas_trimestre !== 'NENHUM';
-        atualizarBotaoToggleNotasDap(body.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas);
+        if (typeof atualizarBotaoToggleNotasDap === 'function') {
+          atualizarBotaoToggleNotasDap(body.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas);
+        }
       }
       await carregarEscolaETurmas();
-      alert('Configurações da escola e publicação de notas actualizadas com sucesso!');
+      alert('Configurações da escola e logótipo oficial actualizados com sucesso!');
     }
   } catch (err) {
     alert('Erro ao actualizar dados da escola');
@@ -3416,8 +3688,13 @@ async function modalCriarTurma() {
           <small class="text-muted" style="font-size: 0.72rem;">Sugerido automaticamente com base na sequência.</small>
         </div>
         <div class="col-md-4">
-          <label class="form-label small fw-semibold" id="labelMtGrau">Classe / Grau *</label>
-          <select id="mtGrau" class="form-select" required onchange="atualizarAssistenteCriarTurma()">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label small fw-semibold mb-0" id="labelMtGrau">Classe / Grau *</label>
+            <button type="button" id="btnAdicionarNivelTurma" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="display: none;" onclick="window.promptAdicionarNivelModal('mtGrau')">
+              <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+            </button>
+          </div>
+          <select id="mtGrau" class="form-select" required onchange="if(this.value==='__NOVO_NIVEL__'){ window.promptAdicionarNivelModal('mtGrau'); } else { atualizarAssistenteCriarTurma(); }">
             <option value="1ª Classe">1ª Classe</option>
             <option value="2ª Classe">2ª Classe</option>
             <option value="3ª Classe">3ª Classe</option>
@@ -3479,13 +3756,17 @@ async function modalCriarTurma() {
   window.alternarRegimeModalTurma = function(regime) {
     const sel = document.getElementById('mtGrau');
     const lbl = document.getElementById('labelMtGrau');
+    const btnAdd = document.getElementById('btnAdicionarNivelTurma');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
-      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'inline-block';
+      const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
+      if (btnAdd) btnAdd.style.display = 'none';
       const classes = [
         '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
         '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
@@ -3586,8 +3867,13 @@ async function modalCriarTurmasEmLote() {
         </div>
 
         <div class="col-md-4">
-          <label class="form-label small fw-semibold" id="labelMlGrau">Classe / Grau</label>
-          <select id="mlGrau" class="form-select" required onchange="document.getElementById('mlArea').innerHTML = window.obterTodasAreasOficiais(this.value).map(a => '<option value=\\'' + a + '\\'>' + a + '</option>').join('')">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label small fw-semibold mb-0" id="labelMlGrau">Classe / Grau</label>
+            <button type="button" id="btnAdicionarNivelLote" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="display: none;" onclick="window.promptAdicionarNivelModal('mlGrau')">
+              <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+            </button>
+          </div>
+          <select id="mlGrau" class="form-select" required onchange="if(this.value==='__NOVO_NIVEL__'){ window.promptAdicionarNivelModal('mlGrau'); } else { document.getElementById('mlArea').innerHTML = window.obterTodasAreasOficiais(this.value).map(a => '<option value=\\'' + a + '\\'>' + a + '</option>').join(''); }">
             ${optGraus}
           </select>
         </div>
@@ -3651,13 +3937,17 @@ async function modalCriarTurmasEmLote() {
   window.alternarRegimeLote = function(regime) {
     const sel = document.getElementById('mlGrau');
     const lbl = document.getElementById('labelMlGrau');
+    const btnAdd = document.getElementById('btnAdicionarNivelLote');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
-      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'inline-block';
+      const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
+      if (btnAdd) btnAdd.style.display = 'none';
       const classes = [
         '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
         '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
@@ -3920,7 +4210,7 @@ async function modalEditarTurma(turmaId) {
       '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
       '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
     ];
-    const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+    const niveisOficiais = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
 
     const grauAtual = (turma.grau_ano || '').trim();
     const isNivel = grauAtual.toLowerCase().includes('nível') || grauAtual.toLowerCase().includes('nivel');
@@ -3929,7 +4219,10 @@ async function modalEditarTurma(turmaId) {
     if (!listaGraus.includes(grauAtual) && grauAtual) {
       listaGraus.push(grauAtual);
     }
-    const optGraus = listaGraus.map(g => `<option value="${g}" ${g === grauAtual ? 'selected' : ''}>${g}</option>`).join('');
+    let optGraus = listaGraus.map(g => `<option value="${g}" ${g === grauAtual ? 'selected' : ''}>${g}</option>`).join('');
+    if (isNivel) {
+      optGraus += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+    }
 
     const podeHomologar = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'].includes(state.user?.role);
     const dtBadgeStatus = turma.dt_status_homologacao === 'HOMOLOGADO' && turma.codigo_director_turma
@@ -3965,8 +4258,13 @@ async function modalEditarTurma(turmaId) {
             <input type="text" id="mtEditNome" class="form-control" required value="${turma.nome || ''}">
           </div>
           <div class="col-md-3">
-            <label class="form-label small fw-semibold" id="labelMtEditGrau">${isNivel ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
-            <select id="mtEditGrau" class="form-select" required>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label small fw-semibold mb-0" id="labelMtEditGrau">${isNivel ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+              <button type="button" id="btnAdicionarNivelEditTurma" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${isNivel ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mtEditGrau')">
+                <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+              </button>
+            </div>
+            <select id="mtEditGrau" class="form-select" required onchange="if(this.value==='__NOVO_NIVEL__') window.promptAdicionarNivelModal('mtEditGrau')">
               ${optGraus}
             </select>
           </div>
@@ -4056,13 +4354,17 @@ async function modalEditarTurma(turmaId) {
     window.alternarRegimeEditTurma = function(regimeSel) {
       const sel = document.getElementById('mtEditGrau');
       const lbl = document.getElementById('labelMtEditGrau');
+      const btnAdd = document.getElementById('btnAdicionarNivelEditTurma');
       if (!sel) return;
       if (regimeSel === 'NIVEL') {
         if (lbl) lbl.textContent = 'Nível Curricular *';
-        const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+        if (btnAdd) btnAdd.style.display = 'inline-block';
+        const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+          `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
       } else {
         if (lbl) lbl.textContent = 'Classe / Grau *';
+        if (btnAdd) btnAdd.style.display = 'none';
         const classes = [
           '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
           '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
@@ -7325,17 +7627,178 @@ function filtrarDisciplinasTabelaTexto() {
   }
 }
 
+// ==================== GESTÃO DE NÍVEIS CURRICULARES DA INSTITUIÇÃO ====================
+window.obterNiveisInstituicao = function() {
+  const padrao = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id
+    || 'padrao';
+  const chave = `sige_niveis_instituicao_${escolaId}`;
+
+  let salvos = [];
+  try {
+    salvos = JSON.parse(localStorage.getItem(chave) || '[]');
+  } catch (_) {}
+
+  const setNiveis = new Set([...padrao, ...salvos]);
+  (state.todasDisciplinas || []).forEach(d => {
+    const c = (d.classe || '').trim();
+    if (c.toLowerCase().includes('nível') || c.toLowerCase().includes('nivel')) {
+      setNiveis.add(c);
+    }
+  });
+  (state.todasTurmas || []).forEach(t => {
+    const g = (t.grau_ano || '').trim();
+    if (g.toLowerCase().includes('nível') || g.toLowerCase().includes('nivel')) {
+      setNiveis.add(g);
+    }
+  });
+
+  return Array.from(setNiveis).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+};
+
+window.adicionarNivelInstituicao = function(novoNivel) {
+  if (!novoNivel) return null;
+  let normalizado = novoNivel.trim();
+  if (!normalizado) return null;
+  if (/^\d+$/.test(normalizado)) {
+    normalizado = `Nível ${normalizado}`;
+  } else if (!normalizado.toLowerCase().startsWith('nível') && !normalizado.toLowerCase().startsWith('nivel')) {
+    normalizado = `Nível ${normalizado}`;
+  }
+
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id
+    || 'padrao';
+  const chave = `sige_niveis_instituicao_${escolaId}`;
+
+  let salvos = [];
+  try {
+    salvos = JSON.parse(localStorage.getItem(chave) || '[]');
+  } catch (_) {}
+
+  if (!salvos.includes(normalizado)) {
+    salvos.push(normalizado);
+    localStorage.setItem(chave, JSON.stringify(salvos));
+  }
+  return normalizado;
+};
+
+window.promptAdicionarNivelModal = function(selectId, callback) {
+  const nome = prompt('Digite o Nível que deseja adicionar à instituição (ex: Nível 1, Nível 2, Nível 3...):', 'Nível ');
+  if (!nome || !nome.trim()) {
+    const sel = document.getElementById(selectId);
+    if (sel && sel.value === '__NOVO_NIVEL__') {
+      const niveis = window.obterNiveisInstituicao();
+      sel.value = niveis[0] || 'Nível 1';
+    }
+    return;
+  }
+  const adicionado = window.adicionarNivelInstituicao(nome);
+  if (adicionado) {
+    const sel = document.getElementById('selectId' === selectId ? selectId : selectId);
+    if (sel) {
+      const niveis = window.obterNiveisInstituicao();
+      sel.innerHTML = niveis.map(n => `<option value="${n}" ${n === adicionado ? 'selected' : ''}>${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      sel.value = adicionado;
+      if (typeof callback === 'function') callback(adicionado);
+    }
+  }
+};
+
+window.modalAdicionarNivelCurricular = function() {
+  const niveisAtuais = window.obterNiveisInstituicao();
+  const listaNiveisHtml = niveisAtuais.map(n => `
+    <span class="badge bg-success bg-opacity-10 text-success border border-success p-2 fs-6">
+      <i class="bi bi-layers-fill me-1"></i>${n}
+    </span>
+  `).join('');
+
+  abrirModal('Gerir & Adicionar Níveis Curriculares da Instituição', `
+    <form id="formAdicionarNivelInst">
+      <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-info-circle-fill me-1"></i> Se a sua instituição oferece ensino técnico, profissionalizante ou superior baseado em <strong>Níveis</strong> em vez de classes, adicione aqui os níveis curriculares utilizados (ex: Nível 1, Nível 2, Nível 3, Nível 4, Nível 5...).
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-uppercase text-secondary">Níveis Actualmente Activos na Instituição:</label>
+        <div class="d-flex flex-wrap gap-2 p-3 bg-light rounded border">
+          ${listaNiveisHtml}
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3 align-items-end">
+        <div class="col-md-8">
+          <label class="form-label small fw-semibold">Novo Nível Curricular *</label>
+          <input type="text" id="inputNovoNivelNome" class="form-control" placeholder="Ex: Nível 1, Nível 2, Nível 3... ou apenas o número (1, 2...)" required autofocus>
+          <small class="text-muted" style="font-size: 0.73rem;">Se digitar apenas "1", será salvo automaticamente como "Nível 1".</small>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-success w-100 fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i> Adicionar Nível
+          </button>
+        </div>
+      </div>
+
+      <div class="p-3 bg-light rounded border mb-3">
+        <div class="small fw-bold text-muted text-uppercase mb-2">Adição Rápida de Níveis Padrão:</div>
+        <div class="d-flex flex-wrap gap-2">
+          ${[1, 2, 3, 4, 5, 6].map(i => `
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="adicionarNivelRapido('Nível ${i}')">
+              + Nível ${i}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-primary px-4" onclick="fecharModal(); carregarDisciplinas(); if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();">
+          <i class="bi bi-check-lg me-1"></i> Concluído
+        </button>
+      </div>
+    </form>
+  `);
+
+  window.adicionarNivelRapido = function(nivelNome) {
+    window.adicionarNivelInstituicao(nivelNome);
+    fecharModal();
+    window.modalAdicionarNivelCurricular();
+  };
+
+  document.getElementById('formAdicionarNivelInst').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = document.getElementById('inputNovoNivelNome').value;
+    const add = window.adicionarNivelInstituicao(val);
+    if (add) {
+      fecharModal();
+      window.modalAdicionarNivelCurricular();
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+    }
+  });
+};
+
 function modalNovaSeccaoArea() {
   const classesOficiais = [
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
     '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
   ];
-  const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+  const niveisOficiais = window.obterNiveisInstituicao();
 
   const classeAtiva = (state.filtroDisciplinaClasse || '10ª Classe').trim();
   const isNivel = classeAtiva.toLowerCase().includes('nível') || classeAtiva.toLowerCase().includes('nivel');
   const listaInicial = isNivel ? niveisOficiais : classesOficiais;
-  const optClasses = listaInicial.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
+  let optClasses = listaInicial.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
+  if (isNivel) {
+    optClasses += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+  }
 
   abrirModal('Cadastrar Secção / Área de Estudo', `
     <form id="formModalSeccaoArea">
@@ -7359,14 +7822,19 @@ function modalNovaSeccaoArea() {
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold" id="labelMsaClasse">${isNivel ? 'Nível Correspondente *' : 'Classe Correspondente *'}</label>
-        <select id="msaClasse" class="form-select" required>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label small fw-semibold mb-0" id="labelMsaClasse">${isNivel ? 'Nível Correspondente *' : 'Classe Correspondente *'}</label>
+          <button type="button" id="btnAdicionarNivelSeccao" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${isNivel ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('msaClasse')">
+            <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+          </button>
+        </div>
+        <select id="msaClasse" class="form-select" required onchange="if(this.value==='__NOVO_NIVEL__') window.promptAdicionarNivelModal('msaClasse')">
           ${optClasses}
         </select>
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Nome da Secção ou Área de Estudo *</label>
-        <input type="text" id="msaNome" class="form-control" placeholder="Ex: Ciências com Geografia, Ciências com Biologia..." required>
+        <input type="text" id="msaNome" class="form-control" placeholder="Ex: Ciências com Geografia, Ciências com Biologia, Contabilidade, Eletricidade..." required>
         <small class="text-muted">A nova secção/área aparecerá automaticamente em todas as listas de filtros, turmas e disciplinas.</small>
       </div>
       <button type="submit" class="btn btn-primary w-100 fw-semibold">
@@ -7378,18 +7846,18 @@ function modalNovaSeccaoArea() {
   window.alternarRegimeModalSeccao = function(regime) {
     const sel = document.getElementById('msaClasse');
     const lbl = document.getElementById('labelMsaClasse');
+    const btnAdd = document.getElementById('btnAdicionarNivelSeccao');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Correspondente *';
-      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'inline-block';
+      const niveis = window.obterNiveisInstituicao();
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
     } else {
       if (lbl) lbl.textContent = 'Classe Correspondente *';
-      const classes = [
-        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-      ];
-      sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'none';
+      sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
     }
   };
 
@@ -7685,7 +8153,7 @@ function modalNovaDisciplina() {
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
     '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
   ];
-  const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+  const niveisOficiais = window.obterNiveisInstituicao();
 
   const classeFiltroAtiva = (state.filtroDisciplinaClasse || '').trim();
   const isNivelInicial = classeFiltroAtiva.toLowerCase().includes('nível') || classeFiltroAtiva.toLowerCase().includes('nivel');
@@ -7702,9 +8170,12 @@ function modalNovaDisciplina() {
     `<option value="${a}" ${state.filtroDisciplinaArea === a ? 'selected' : ''}>${a}</option>`
   ).join('');
 
-  const optOpcoesHtml = opcoesIniciais.map(o => 
+  let optOpcoesHtml = opcoesIniciais.map(o => 
     `<option value="${o}" ${itemInicial === o ? 'selected' : ''}>${o}</option>`
   ).join('');
+  if (isNivelInicial) {
+    optOpcoesHtml += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+  }
 
   abrirModal('Nova Disciplina Curricular', `
     <form id="formModalDisc">
@@ -7740,7 +8211,12 @@ function modalNovaDisciplina() {
         </div>
 
         <div class="col-md-6">
-          <label class="form-label small fw-semibold" id="labelMdClasse">${regimeInicial === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label small fw-semibold mb-0" id="labelMdClasse">${regimeInicial === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+            <button type="button" id="btnAdicionarNivelNovaDisc" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${regimeInicial === 'NIVEL' ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc)">
+              <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+            </button>
+          </div>
           <select id="mdClasse" class="form-select" required onchange="aoMudarClasseModalNovaDisc(this.value)">
             ${optOpcoesHtml}
           </select>
@@ -7767,12 +8243,17 @@ function modalNovaDisciplina() {
   window.alternarRegimeModalNovaDisc = function(regime) {
     const sel = document.getElementById('mdClasse');
     const lbl = document.getElementById('labelMdClasse');
+    const btnAdd = document.getElementById('btnAdicionarNivelNovaDisc');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
-      sel.innerHTML = niveisOficiais.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'inline-block';
+      const niveis = window.obterNiveisInstituicao();
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
+      if (btnAdd) btnAdd.style.display = 'none';
       sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
     }
     if (typeof window.aoMudarClasseModalNovaDisc === 'function') {
@@ -7781,6 +8262,9 @@ function modalNovaDisciplina() {
   };
 
   window.aoMudarClasseModalNovaDisc = function(novaClasse) {
+    if (novaClasse === '__NOVO_NIVEL__') {
+      return window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc);
+    }
     const selArea = document.getElementById('mdArea');
     if (!selArea) return;
     const areas = typeof window.obterTodasAreasOficiais === 'function'
@@ -7835,17 +8319,20 @@ async function modalEditarDisciplina(disciplinaId) {
       '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
       '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
     ];
-    const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+    const niveisOficiais = window.obterNiveisInstituicao();
 
     const classeVal = (d.classe || '').trim();
     const isNivel = classeVal.toLowerCase().includes('nível') || classeVal.toLowerCase().includes('nivel');
     const regime = isNivel ? 'NIVEL' : 'CLASSE';
-    const listaOpcoes = isNivel ? niveisOficiais : classesOficiais;
+    const listaOpcoes = isNivel ? [...niveisOficiais] : [...classesOficiais];
 
     if (!listaOpcoes.includes(classeVal) && classeVal) {
       listaOpcoes.push(classeVal);
     }
-    const optOpcoes = listaOpcoes.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
+    let optOpcoes = listaOpcoes.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
+    if (isNivel) {
+      optOpcoes += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+    }
 
     const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(d.classe)
@@ -7888,7 +8375,12 @@ async function modalEditarDisciplina(disciplinaId) {
             <input type="text" id="mdeCodigo" class="form-control" required value="${d.codigo || ''}">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold" id="labelMdeClasse">${regime === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label small fw-semibold mb-0" id="labelMdeClasse">${regime === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+              <button type="button" id="btnAdicionarNivelEditDisc" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${regime === 'NIVEL' ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc)">
+                <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+              </button>
+            </div>
             <select id="mdeClasse" class="form-select" required onchange="aoMudarClasseModalEditarDisc(this.value)">
               ${optOpcoes}
             </select>
@@ -7918,12 +8410,17 @@ async function modalEditarDisciplina(disciplinaId) {
     window.alternarRegimeModalEditarDisc = function(novoRegime) {
       const sel = document.getElementById('mdeClasse');
       const lbl = document.getElementById('labelMdeClasse');
+      const btnAdd = document.getElementById('btnAdicionarNivelEditDisc');
       if (!sel) return;
       if (novoRegime === 'NIVEL') {
         if (lbl) lbl.textContent = 'Nível Curricular *';
-        sel.innerHTML = niveisOficiais.map(n => `<option value="${n}">${n}</option>`).join('');
+        if (btnAdd) btnAdd.style.display = 'inline-block';
+        const niveis = window.obterNiveisInstituicao();
+        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+          `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
       } else {
         if (lbl) lbl.textContent = 'Classe / Grau *';
+        if (btnAdd) btnAdd.style.display = 'none';
         sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
       }
       if (typeof window.aoMudarClasseModalEditarDisc === 'function') {
@@ -7932,6 +8429,9 @@ async function modalEditarDisciplina(disciplinaId) {
     };
 
     window.aoMudarClasseModalEditarDisc = function(novaClasse) {
+      if (novaClasse === '__NOVO_NIVEL__') {
+        return window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc);
+      }
       const selArea = document.getElementById('mdeArea');
       if (!selArea) return;
       const areas = typeof window.obterTodasAreasOficiais === 'function'

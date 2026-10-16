@@ -113,7 +113,7 @@
                   </label>
                 </div>
 
-                <!-- Secção de Logótipo da Escola (Upload Local ou Link) -->
+                <!-- Secção de Logótipo da Escola (Catálogo de Logótipos & Permutação) -->
                 <div class="card border-primary border-opacity-25 bg-light p-3 mb-3 shadow-sm">
                   <div class="d-flex align-items-center justify-content-between mb-2">
                     <label class="form-label small fw-bold mb-0 text-primary">
@@ -122,34 +122,62 @@
                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">Identidade Visual</span>
                   </div>
                   <p class="x-small text-muted mb-3" style="font-size: 0.8rem;">
-                    O logótipo carregado aqui será automaticamente renderizado com precisão nos cabeçalhos de <strong>Pautas, Cadernetas, Boletins e Certificados</strong> desta escola.
+                    O logótipo activo será automaticamente renderizado com precisão nos cabeçalhos de <strong>Pautas, Cadernetas, Boletins e Certificados</strong> desta escola.
                   </p>
 
-                  <div class="d-flex align-items-center gap-3 mb-3 p-2 bg-white rounded border">
-                    <div id="previewLogoContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-sm" style="width: 76px; height: 76px; overflow: hidden;">
+                  <!-- Logótipo Activo em Uso -->
+                  <div class="d-flex align-items-center gap-3 mb-3 p-2 bg-white rounded border border-primary shadow-sm">
+                    <div id="previewLogoContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-sm" style="width: 76px; height: 76px; overflow: hidden; min-width: 76px;">
                       <img id="confEscolaLogoPreview" src="img/emblema-mocambique.png" alt="Logótipo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
                     </div>
                     <div class="flex-grow-1">
-                      <div class="small fw-bold text-dark" id="confEscolaLogoStatus">Emblema Nacional (Padrão Oficial)</div>
-                      <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Formato PNG com fundo transparente ou JPG</small>
-                      <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="removerLogotipoEscola()" id="btnRemoverLogo" style="display: none; font-size: 0.75rem;">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Emblema Nacional
-                      </button>
+                      <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-success" style="font-size: 0.7rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo em Uso</span>
+                        <div class="small fw-bold text-dark text-truncate" id="confEscolaLogoStatus" style="max-width: 220px;">Emblema Nacional (Padrão Oficial)</div>
+                      </div>
+                      <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Para alternar, clique em qualquer logótipo da galeria abaixo.</small>
                     </div>
                   </div>
 
-                  <!-- 1. Carregar Ficheiro de Imagem do Computador -->
-                  <div class="mb-2">
-                    <label class="form-label x-small text-dark mb-1 fw-bold">1. Carregar Imagem do Computador (PNG, JPG, WebP)</label>
-                    <input type="file" id="confEscolaLogoFile" accept="image/*" class="form-control form-control-sm" onchange="processarUploadLogoLocal(this)">
+                  <!-- Galeria / Catálogo de Logótipos Disponíveis -->
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span class="x-small fw-bold text-dark text-uppercase" style="font-size: 0.75rem;">
+                        <i class="bi bi-grid-fill text-primary me-1"></i> Logótipos Disponíveis no Sistema:
+                      </span>
+                      <small class="text-muted fw-semibold" id="contadorGaleriaLogos">1 disponível</small>
+                    </div>
+                    <div class="alert alert-primary py-1 px-2 mb-2 d-flex align-items-center gap-2" style="font-size: 0.75rem;">
+                      <i class="bi bi-cursor-fill text-primary"></i>
+                      <span><strong>Clique no logótipo desejado</strong> para trocar imediatamente ou permutar o uso.</span>
+                    </div>
+                    <div id="galeriaLogosContainer" class="row g-2 mb-2" style="max-height: 290px; overflow-y: auto;">
+                      <!-- Itens gerados dinamicamente via JS -->
+                    </div>
                   </div>
 
-                  <!-- 2. Ou Link / URL -->
-                  <div class="mb-2">
-                    <label class="form-label x-small text-dark mb-1 fw-bold">2. Ou Insira o Link / URL da Imagem</label>
-                    <div class="input-group input-group-sm">
-                      <input type="url" id="confEscolaLogoUrl" class="form-control" placeholder="https://escola.edu.mz/logo.png" onchange="processarUrlLogo(this.value)">
-                      <button type="button" class="btn btn-outline-primary" onclick="processarUrlLogo(document.getElementById('confEscolaLogoUrl').value)">Aplicar</button>
+                  <!-- Carregar Novo Logótipo para a Galeria -->
+                  <div class="p-2 rounded bg-white border">
+                    <div class="fw-bold text-primary small mb-2 d-flex align-items-center justify-content-between">
+                      <span><i class="bi bi-cloud-arrow-up-fill me-1"></i> Carregar Novo Logótipo para a Galeria</span>
+                      <span class="badge bg-light text-muted border" style="font-size: 0.65rem;">PNG, JPG, WebP</span>
+                    </div>
+
+                    <!-- 1. Carregar Ficheiro de Imagem do Computador -->
+                    <div class="mb-2">
+                      <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.76rem;">1. Carregar do Computador</label>
+                      <input type="file" id="confEscolaLogoFile" accept="image/*" class="form-control form-control-sm" onchange="processarUploadLogoLocal(this)">
+                    </div>
+
+                    <!-- 2. Ou Link / URL -->
+                    <div class="mb-1">
+                      <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.76rem;">2. Ou Insira o Link / URL da Imagem</label>
+                      <div class="input-group input-group-sm">
+                        <input type="url" id="confEscolaLogoUrl" class="form-control" placeholder="https://escola.edu.mz/logo.png">
+                        <button type="button" class="btn btn-outline-primary fw-semibold" onclick="processarUrlLogo(document.getElementById('confEscolaLogoUrl').value)">
+                          <i class="bi bi-plus-lg me-1"></i> Adicionar
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <input type="hidden" id="confEscolaLogoFinalValue" value="">

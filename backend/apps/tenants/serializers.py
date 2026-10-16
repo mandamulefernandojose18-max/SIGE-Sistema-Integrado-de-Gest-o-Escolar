@@ -23,6 +23,7 @@ class EscolaSerializer(serializers.ModelSerializer):
     assinaturas = AssinaturaEscolaSerializer(many=True, read_only=True)
     _count = serializers.SerializerMethodField()
     logo_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    galeria_logos = serializers.JSONField(required=False, allow_null=True)
     codigo_gabinete_director = serializers.ReadOnlyField()
     codigo_direccao_pedagogica = serializers.ReadOnlyField()
     codigo_secretaria = serializers.ReadOnlyField()
@@ -42,6 +43,12 @@ class EscolaSerializer(serializers.ModelSerializer):
         if logo_val and str(logo_val).startswith('data:'):
             attrs['logo_base64'] = logo_val
             attrs['logo_url'] = None
+        elif 'logo_url' in attrs and (logo_val == '' or logo_val is None):
+            attrs['logo_url'] = None
+            attrs['logo_base64'] = None
+        galeria = attrs.get('galeria_logos')
+        if galeria is not None and not isinstance(galeria, list):
+            attrs['galeria_logos'] = []
         return super().validate(attrs)
 
     def get_assinatura_ativa(self, obj):
@@ -70,6 +77,7 @@ class EscolaSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['logo_url'] = instance.logo_url or instance.logo_base64 or None
+        data['galeria_logos'] = instance.galeria_logos if isinstance(instance.galeria_logos, list) else []
         data['codigo_gabinete_director'] = instance.codigo_gabinete_director
         data['codigo_direccao_pedagogica'] = instance.codigo_direccao_pedagogica
         data['codigo_secretaria'] = instance.codigo_secretaria

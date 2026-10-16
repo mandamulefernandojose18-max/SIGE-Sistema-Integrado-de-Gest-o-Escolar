@@ -68,6 +68,7 @@ class Escola(models.Model):
     usar_emblema_nacional = models.BooleanField(default=True)
     codigo_escola = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     logo_base64 = models.TextField(blank=True, null=True)
+    galeria_logos = models.JSONField(default=list, blank=True)
     bloqueada_manualmente = models.BooleanField(default=False)
     permitir_visualizacao_notas = models.BooleanField(default=True)
     modo_publicacao_notas = models.CharField(
