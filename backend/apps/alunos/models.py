@@ -63,9 +63,15 @@ class Aluno(models.Model):
         ]
 
     def clean(self):
-        from common.integrity import validar_integridade_tenant
+        super().clean()
+        from common.integrity import validar_integridade_tenant, IntegrityRuleViolation
+        from common.utils.geografia_mocambique import codigo_ja_existe_globalmente
         if self.turma:
             validar_integridade_tenant(self, turma=self.turma)
+        if self.matricula and codigo_ja_existe_globalmente(self.matricula, exclude_aluno_id=self.id):
+            raise IntegrityRuleViolation(
+                f"O código de aluno/matrícula '{self.matricula}' já está em uso ou coincide com o código de um funcionário ou outro aluno."
+            )
 
     def save(self, *args, **kwargs):
         if not self.ano_ingresso:

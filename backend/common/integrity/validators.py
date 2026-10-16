@@ -85,3 +85,24 @@ def validar_anotacao_minedh(anotacao):
         raise InvalidDomainValueViolation(
             f"Anotação '{anotacao}' inválida. Siglas normativas do MINEDH aceitas: {', '.join(sorted(ANOTACOES_VALIDAS))}."
         )
+
+def validar_unicidade_codigo_sistema(codigo, exclude_aluno_id=None, exclude_prof_id=None, exclude_usuario_id=None, exclude_turma_id=None):
+    """
+    Garante a unicidade global absoluta do código de acesso/identificação.
+    Nunca permite coincidência entre os códigos de alunos ou de qualquer funcionário
+    (Direcção Geral, Direcção Pedagógica, Chefia de Secretaria, Professores, DT, DC).
+    """
+    if not codigo:
+        return
+    from common.utils.geografia_mocambique import codigo_ja_existe_globalmente
+    if codigo_ja_existe_globalmente(
+        codigo=codigo,
+        exclude_aluno_id=exclude_aluno_id,
+        exclude_prof_id=exclude_prof_id,
+        exclude_usuario_id=exclude_usuario_id,
+        exclude_turma_id=exclude_turma_id,
+    ):
+        raise InvalidDomainValueViolation(
+            f"O código '{codigo}' viola a regra de unicidade global do SIGE. "
+            "Não pode haver coincidência entre códigos de alunos e de qualquer funcionário."
+        )

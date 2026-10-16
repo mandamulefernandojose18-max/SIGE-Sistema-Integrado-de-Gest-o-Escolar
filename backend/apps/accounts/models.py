@@ -63,9 +63,25 @@ class Usuario(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['nome']
 
+    def clean(self):
+        super().clean()
+        from common.integrity import IntegrityRuleViolation
+        from common.utils.geografia_mocambique import codigo_ja_existe_globalmente
+        if self.codigo_acesso:
+            if codigo_ja_existe_globalmente(
+                self.codigo_acesso,
+                exclude_usuario_id=self.id,
+                exclude_aluno_id=self.aluno_id,
+                exclude_prof_id=self.professor_id,
+            ):
+                raise IntegrityRuleViolation(
+                    f"O código de acesso '{self.codigo_acesso}' já está atribuído a outro utilizador, aluno ou funcionário no sistema."
+                )
+
     def save(self, *args, **kwargs):
         if not self.username and self.email:
             self.username = self.email
+        self.full_clean()
         super().save(*args, **kwargs)
 
     class Meta:

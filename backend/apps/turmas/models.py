@@ -85,6 +85,17 @@ class Turma(models.Model):
                 exclude_id=self.id
             )
 
+        from common.integrity import IntegrityRuleViolation
+        from common.utils.geografia_mocambique import codigo_ja_existe_globalmente
+        if self.codigo_director_turma and codigo_ja_existe_globalmente(self.codigo_director_turma, exclude_turma_id=self.id):
+            raise IntegrityRuleViolation(
+                f"O código de director de turma '{self.codigo_director_turma}' coincide com o código de outro registo no sistema."
+            )
+        if self.codigo_director_classe and codigo_ja_existe_globalmente(self.codigo_director_classe, exclude_turma_id=self.id):
+            raise IntegrityRuleViolation(
+                f"O código de director de classe '{self.codigo_director_classe}' coincide com o código de outro registo no sistema."
+            )
+
     def save(self, *args, **kwargs):
         from django.utils import timezone
         from common.utils.geografia_mocambique import (

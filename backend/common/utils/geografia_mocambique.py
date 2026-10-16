@@ -382,14 +382,17 @@ def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano:
 
     base_prefix = f"{cod_escola}.{cod_classe}.{cod_turma}.{ano_str}.{sigla_area}"
 
-    # Se a matrícula existente já possui o base_prefix e sufixo numérico de ordem, preserva
+    # Se a matrícula existente já possui o base_prefix e sufixo numérico de ordem, preserva (desde que não colida globalmente)
     if matricula_existente and matricula_existente.startswith(base_prefix + '.'):
         partes = matricula_existente.split('.')
         if len(partes) >= 6 and partes[-1].isdigit():
-            return matricula_existente
+            if not codigo_ja_existe_globalmente(matricula_existente, exclude_aluno_id=aluno_id):
+                return matricula_existente
 
     if numero is not None and int(numero) > 0:
-        return f"{base_prefix}.{int(numero):02d}"
+        cand_num = f"{base_prefix}.{int(numero):02d}"
+        if not codigo_ja_existe_globalmente(cand_num, exclude_aluno_id=aluno_id):
+            return cand_num
 
     # Buscar próximo número sequencial na turma/escola para garantir unicidade absoluta
     try:
@@ -405,7 +408,7 @@ def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano:
                 numeros_usados.add(int(partes[-1]))
 
         prox = 1
-        # Garantir que o código não colide com NENHUM funcionário (professor, director, admin, etc.)
+        # Garantir que o código não colide com NENHUM funcionário (professor, director, admin, etc.) nem outro aluno
         while prox in numeros_usados or codigo_ja_existe_globalmente(
             f"{base_prefix}.{prox:02d}",
             exclude_aluno_id=aluno_id,
@@ -416,25 +419,28 @@ def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano:
         return f"{base_prefix}.01"
 
 
-def codigo_ja_existe_globalmente(codigo: str, exclude_aluno_id=None, exclude_prof_id=None, exclude_usuario_id=None) -> bool:
+def codigo_ja_existe_globalmente(codigo: str, exclude_aluno_id=None, exclude_prof_id=None, exclude_usuario_id=None, exclude_turma_id=None) -> bool:
     """
-    Verifica se um código já existe em QUALQUER tabela do sistema (Aluno, Professor ou Usuario).
+    Verifica se um código já existe em QUALQUER tabela do sistema (Aluno, Professor, Usuario ou Turma).
     Garante que nunca haja coincidência de código entre alunos e funcionários de qualquer tipo.
 
     Args:
         codigo: O código a verificar (case-insensitive).
-        exclude_aluno_id:   UUID do aluno a excluir da verificação (quando se está a gerar o código do próprio aluno).
+        exclude_aluno_id:   UUID do aluno a excluir da verificação.
         exclude_prof_id:    UUID do professor a excluir da verificação.
         exclude_usuario_id: UUID do utilizador a excluir da verificação.
+        exclude_turma_id:   UUID da turma a excluir da verificação (DT ou DC).
 
     Returns:
         True se o código já existe noutro registo; False se está disponível.
     """
     if not codigo:
         return False
+    cod_clean = str(codigo).strip()
+
     try:
         from apps.alunos.models import Aluno
-        qs_aluno = Aluno.objects.filter(matricula__iexact=codigo)
+        qs_aluno = Aluno.objects.filter(matricula__iexact=cod_clean)
         if exclude_aluno_id:
             qs_aluno = qs_aluno.exclude(id=exclude_aluno_id)
         if qs_aluno.exists():
@@ -444,7 +450,7 @@ def codigo_ja_existe_globalmente(codigo: str, exclude_aluno_id=None, exclude_pro
 
     try:
         from apps.professores.models import Professor
-        qs_prof = Professor.objects.filter(codigo__iexact=codigo)
+        qs_prof = Professor.objects.filter(codigo__iexact=cod_clean)
         if exclude_prof_id:
             qs_prof = qs_prof.exclude(id=exclude_prof_id)
         if qs_prof.exists():
@@ -454,10 +460,27 @@ def codigo_ja_existe_globalmente(codigo: str, exclude_aluno_id=None, exclude_pro
 
     try:
         from apps.accounts.models import Usuario
-        qs_user = Usuario.objects.filter(codigo_acesso__iexact=codigo)
+        qs_user = Usuario.objects.filter(codigo_acesso__iexact=cod_clean)
         if exclude_usuario_id:
             qs_user = qs_user.exclude(id=exclude_usuario_id)
+        if exclude_aluno_id:
+            qs_user = qs_user.exclude(aluno_id=exclude_aluno_id)
+        if exclude_prof_id:
+            qs_user = qs_user.exclude(professor_id=exclude_prof_id)
         if qs_user.exists():
+            return True
+    except Exception:
+        pass
+
+    try:
+        from apps.turmas.models import Turma
+        from django.db.models import Q
+        qs_turma = Turma.objects.filter(
+            Q(codigo_director_turma__iexact=cod_clean) | Q(codigo_director_classe__iexact=cod_clean)
+        )
+        if exclude_turma_id:
+            qs_turma = qs_turma.exclude(id=exclude_turma_id)
+        if qs_turma.exists():
             return True
     except Exception:
         pass

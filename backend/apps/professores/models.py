@@ -35,11 +35,21 @@ class Professor(models.Model):
             models.Index(fields=['codigo']),
         ]
 
+    def clean(self):
+        super().clean()
+        from common.integrity import IntegrityRuleViolation
+        from common.utils.geografia_mocambique import codigo_ja_existe_globalmente
+        if self.codigo and codigo_ja_existe_globalmente(self.codigo, exclude_prof_id=self.id):
+            raise IntegrityRuleViolation(
+                f"O código de funcionário/professor '{self.codigo}' já está em uso ou coincide com o código de um aluno ou outro funcionário."
+            )
+
     def save(self, *args, **kwargs):
         # O código do Professor é FIXO: só é gerado uma única vez no registo (ou se estiver vazio)
         if not self.codigo:
             from common.utils.geografia_mocambique import gerar_codigo_fixo_professor
             self.codigo = gerar_codigo_fixo_professor(self.escola, exclude_prof_id=self.id)
+        self.full_clean()
         super().save(*args, **kwargs)
 
         # Sincronizar conta de acesso (Usuario) com o código fixo do professor
