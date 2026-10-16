@@ -70,11 +70,15 @@ async function carregarAlunoNotas(periodoParam) {
     if (elPub) {
       const pubMap = {
         '1_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-1-circle-fill me-1"></i>I Trimestre Publicado</span>',
-        '2_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-2-circle-fill me-1"></i>II Trimestre Publicado</span>',
+        '2_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-2-circle-fill me-1"></i>I e II Trimestres Publicados</span>',
         '3_TRIMESTRE': '<span class="text-primary fw-bold"><i class="bi bi-3-circle-fill me-1"></i>III Trimestre Publicado</span>',
         'TODOS': '<span class="text-success fw-bold"><i class="bi bi-check-all me-1"></i>Todos os Trimestres Publicados (I, II e III)</span>'
       };
-      elPub.innerHTML = pubMap[d.publicacaoNotasTrimestre] || '<span class="text-success fw-bold">Todos os Trimestres</span>';
+      let txtPub = pubMap[d.publicacaoNotasTrimestre] || '<span class="text-success fw-bold">Todos os Trimestres</span>';
+      if (d.modoPublicacaoNotas === 'DATAS' && d.infoPeriodo && d.infoPeriodo.inicio) {
+        txtPub += ` <span class="badge bg-info-subtle text-info-emphasis border ms-1"><i class="bi bi-calendar-event me-1"></i>Período: ${d.infoPeriodo.inicio} até ${d.infoPeriodo.fim}</span>`;
+      }
+      elPub.innerHTML = txtPub;
     }
 
     // 3. Verificação de publicação do trimestre selecionado

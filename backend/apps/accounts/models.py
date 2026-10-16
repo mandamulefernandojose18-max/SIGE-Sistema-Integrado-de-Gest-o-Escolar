@@ -77,6 +77,15 @@ class Usuario(AbstractUser):
             models.Index(fields=['role']),
             models.Index(fields=['codigo_acesso']),
         ]
+        constraints = [
+            # Garante unicidade global de código de acesso — nunca pode haver
+            # coincidência entre o código de um aluno e o de qualquer funcionário.
+            models.UniqueConstraint(
+                fields=['codigo_acesso'],
+                condition=models.Q(codigo_acesso__isnull=False),
+                name='unique_usuario_codigo_acesso_non_null',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.nome} ({self.codigo_acesso or self.email}) - {self.role}"

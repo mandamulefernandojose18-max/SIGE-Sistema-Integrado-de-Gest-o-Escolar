@@ -11968,57 +11968,184 @@ async function filtrarTurmasPautaPorClasse() {
 
 
 
+window.alternarAbaPublicacaoNotasDap = function(modo) {
+  window._sigeModoPubNotasModal = modo;
+  const painelManual = document.getElementById('painelPubNotasManual');
+  const painelDatas = document.getElementById('painelPubNotasDatas');
+  const btnManual = document.getElementById('btnAbaPubManual');
+  const btnDatas = document.getElementById('btnAbaPubDatas');
+
+  if (modo === 'DATAS') {
+    if (painelManual) painelManual.classList.add('d-none');
+    if (painelDatas) painelDatas.classList.remove('d-none');
+    if (btnManual) {
+      btnManual.className = 'btn btn-sm flex-fill fw-bold btn-light text-muted border-0';
+      btnManual.style.backgroundColor = 'transparent';
+      btnManual.style.color = '#6c757d';
+    }
+    if (btnDatas) {
+      btnDatas.className = 'btn btn-sm flex-fill fw-bold text-white shadow-sm';
+      btnDatas.style.backgroundColor = '#6200ea';
+      btnDatas.style.borderColor = '#6200ea';
+    }
+  } else {
+    if (painelManual) painelManual.classList.remove('d-none');
+    if (painelDatas) painelDatas.classList.add('d-none');
+    if (btnManual) {
+      btnManual.className = 'btn btn-sm flex-fill fw-bold text-white shadow-sm';
+      btnManual.style.backgroundColor = '#6200ea';
+      btnManual.style.borderColor = '#6200ea';
+    }
+    if (btnDatas) {
+      btnDatas.className = 'btn btn-sm flex-fill fw-bold btn-light text-muted border-0';
+      btnDatas.style.backgroundColor = 'transparent';
+      btnDatas.style.color = '#6c757d';
+    }
+  }
+};
+
 async function toggleVisibilidadeNotasDap() {
   try {
     const res = await apiFetch('/api/v1/escola-admin/toggle-notas');
-    const pubAtual = (res.success && res.data?.publicacao_notas_trimestre) || state.tenant?.publicacao_notas_trimestre || 'TODOS';
-    const ativa = (res.success && res.data?.permitir_visualizacao_notas !== false) || (state.tenant?.permitir_visualizacao_notas !== false);
+    const d = res.data || {};
+    const pubAtual = d.publicacao_notas_trimestre || state.tenant?.publicacao_notas_trimestre || 'TODOS';
+    const ativa = (d.permitir_visualizacao_notas !== false) && (state.tenant?.permitir_visualizacao_notas !== false);
+    const modoAtual = (d.modo_publicacao_notas || state.tenant?.modo_publicacao_notas || 'MANUAL').toUpperCase();
+    window._sigeModoPubNotasModal = modoAtual;
+
+    const dataInicioT1 = d.data_inicio_pub_t1 || '';
+    const dataFimT1 = d.data_fim_pub_t1 || '';
+    const dataInicioT2 = d.data_inicio_pub_t2 || '';
+    const dataFimT2 = d.data_fim_pub_t2 || '';
+    const dataInicioTodos = d.data_inicio_pub_todos || '';
+    const dataFimTodos = d.data_fim_pub_todos || '';
 
     const htmlModal = `
       <div class="p-2">
-        <div class="alert alert-info py-2 small mb-3">
-          <i class="bi bi-info-circle-fill me-1"></i> Escolha quais notas devem ficar visíveis no portal para os alunos e encarregados de educação.
+        <!-- Alternador Superior das Duas Possibilidades -->
+        <div class="d-flex p-1 bg-light rounded-pill border mb-3">
+          <button type="button" class="btn btn-sm flex-fill fw-bold ${modoAtual === 'MANUAL' ? 'text-white shadow-sm' : 'btn-light text-muted border-0'}" 
+                  id="btnAbaPubManual" 
+                  style="${modoAtual === 'MANUAL' ? 'background-color: #6200ea; border-color: #6200ea;' : 'background-color: transparent;'}"
+                  onclick="alternarAbaPublicacaoNotasDap('MANUAL')">
+            <i class="bi bi-hand-index-thumb me-1"></i> 1ª Opção: Modo Imediato / Manual
+          </button>
+          <button type="button" class="btn btn-sm flex-fill fw-bold ${modoAtual === 'DATAS' ? 'text-white shadow-sm' : 'btn-light text-muted border-0'}" 
+                  id="btnAbaPubDatas" 
+                  style="${modoAtual === 'DATAS' ? 'background-color: #6200ea; border-color: #6200ea;' : 'background-color: transparent;'}"
+                  onclick="alternarAbaPublicacaoNotasDap('DATAS')">
+            <i class="bi bi-calendar-range me-1"></i> 2ª Opção: Programado por Datas
+          </button>
         </div>
-        <div class="list-group mb-3 shadow-sm">
-          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
-            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="1_TRIMESTRE" ${pubAtual === '1_TRIMESTRE' && ativa ? 'checked' : ''}>
-            <div class="flex-grow-1">
-              <strong class="text-primary d-block"><i class="bi bi-1-circle-fill me-1"></i> 1. I Trimestre (Apenas 1º Trimestre)</strong>
-              <small class="text-muted">Apenas as avaliações, testes e média do I Trimestre ficam visíveis para os alunos.</small>
-            </div>
-          </label>
-          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
-            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="2_TRIMESTRE" ${pubAtual === '2_TRIMESTRE' && ativa ? 'checked' : ''}>
-            <div class="flex-grow-1">
-              <strong class="text-primary d-block"><i class="bi bi-2-circle-fill me-1"></i> 2. II Trimestre (2º Trimestre)</strong>
-              <small class="text-muted">As avaliações do II Trimestre (e histórico do I) ficam disponíveis para consulta.</small>
-            </div>
-          </label>
-          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
-            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="3_TRIMESTRE" ${pubAtual === '3_TRIMESTRE' && ativa ? 'checked' : ''}>
-            <div class="flex-grow-1">
-              <strong class="text-primary d-block"><i class="bi bi-3-circle-fill me-1"></i> 3. III Trimestre (3º Trimestre)</strong>
-              <small class="text-muted">As avaliações do III Trimestre ficam disponíveis para consulta dos alunos.</small>
-            </div>
-          </label>
-          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
-            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="TODOS" ${pubAtual === 'TODOS' && ativa ? 'checked' : ''}>
-            <div class="flex-grow-1">
-              <strong class="text-success d-block"><i class="bi bi-check-all me-1"></i> 4. Todos os Trimestres (I, II e III)</strong>
-              <small class="text-muted">Publicação completa de todas as notas do ano (I, II, III trimestres e Média Final).</small>
-            </div>
-          </label>
-          <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
-            <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="NENHUM" ${!ativa || pubAtual === 'NENHUM' ? 'checked' : ''}>
-            <div class="flex-grow-1">
-              <strong class="text-danger d-block"><i class="bi bi-eye-slash-fill me-1"></i> 5. Ocultar / Suspender Visualização</strong>
-              <small class="text-muted">Suspender temporariamente a exibição de notas no portal (ex: para conselhos de notas).</small>
-            </div>
-          </label>
+
+        <!-- 1ª Possibilidade: Modo Manual / Directo -->
+        <div id="painelPubNotasManual" class="${modoAtual === 'DATAS' ? 'd-none' : ''}">
+          <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle-fill me-1"></i> Escolha quais notas devem ficar visíveis no portal para os alunos e encarregados de educação.
+          </div>
+          <div class="list-group mb-3 shadow-sm">
+            <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+              <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="1_TRIMESTRE" ${pubAtual === '1_TRIMESTRE' && ativa ? 'checked' : ''}>
+              <div class="flex-grow-1">
+                <strong class="text-primary d-block"><i class="bi bi-1-circle-fill me-1"></i> 1. I Trimestre (Apenas 1º Trimestre)</strong>
+                <small class="text-muted">Apenas as avaliações, testes e média do I Trimestre ficam visíveis para os alunos.</small>
+              </div>
+            </label>
+            <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+              <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="2_TRIMESTRE" ${pubAtual === '2_TRIMESTRE' && ativa ? 'checked' : ''}>
+              <div class="flex-grow-1">
+                <strong class="text-primary d-block"><i class="bi bi-2-circle-fill me-1"></i> 2. I e II Trimestre (1º e 2º Trimestre)</strong>
+                <small class="text-muted">Avaliações do II Trimestre (e histórico do I) ficam disponíveis para consulta.</small>
+              </div>
+            </label>
+            <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+              <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="TODOS" ${pubAtual === 'TODOS' && ativa ? 'checked' : ''}>
+              <div class="flex-grow-1">
+                <strong class="text-success d-block"><i class="bi bi-check-all me-1"></i> 4. Todos os Trimestres (I, II e III)</strong>
+                <small class="text-muted">Publicação completa de todas as notas do ano (I, II, III trimestres e Média Final).</small>
+              </div>
+            </label>
+            <label class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3 cursor-pointer">
+              <input class="form-check-input flex-shrink-0" type="radio" name="radioPubNotasDap" value="NENHUM" ${!ativa || pubAtual === 'NENHUM' ? 'checked' : ''}>
+              <div class="flex-grow-1">
+                <strong class="text-danger d-block"><i class="bi bi-eye-slash-fill me-1"></i> 5. Ocultar / Suspender Visualização</strong>
+                <small class="text-muted">Suspender temporariamente a exibição de notas no portal (ex: para conselhos de notas).</small>
+              </div>
+            </label>
+          </div>
         </div>
+
+        <!-- 2ª Possibilidade: Modo Baseado em Datas (Agendado) -->
+        <div id="painelPubNotasDatas" class="${modoAtual === 'DATAS' ? '' : 'd-none'}">
+          <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-calendar-event-fill me-1"></i> Defina os intervalos de datas oficiais para visualização automática das notas no portal.
+          </div>
+          <div class="list-group mb-3 shadow-sm">
+            <!-- 1. I Trimestre -->
+            <div class="list-group-item p-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <strong class="text-primary"><i class="bi bi-1-circle-fill me-1"></i> 1. I Trimestre (Apenas 1º Trimestre)</strong>
+                <small class="text-muted">Apenas I Trimestre visível no período</small>
+              </div>
+              <p class="small text-muted mb-2">Dentro deste período, apenas notas, testes e média do I Trimestre ficam visíveis para os alunos.</p>
+              <div class="row g-2 align-items-center">
+                <div class="col-6">
+                  <label class="form-label small text-muted mb-1">Data Início:</label>
+                  <input type="date" id="pubDataInicioT1" class="form-control form-control-sm" value="${dataInicioT1}">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small text-muted mb-1">Data Fim:</label>
+                  <input type="date" id="pubDataFimT1" class="form-control form-control-sm" value="${dataFimT1}">
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. I e II Trimestre -->
+            <div class="list-group-item p-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <strong class="text-primary"><i class="bi bi-2-circle-fill me-1"></i> 2. I e II Trimestre (1º e 2º Trimestre)</strong>
+                <small class="text-muted">Avaliações do I e II Trimestres visíveis</small>
+              </div>
+              <p class="small text-muted mb-2">Dentro deste período, as avaliações do I e II Trimestres ficam disponíveis para consulta.</p>
+              <div class="row g-2 align-items-center">
+                <div class="col-6">
+                  <label class="form-label small text-muted mb-1">Data Início:</label>
+                  <input type="date" id="pubDataInicioT2" class="form-control form-control-sm" value="${dataInicioT2}">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small text-muted mb-1">Data Fim:</label>
+                  <input type="date" id="pubDataFimT2" class="form-control form-control-sm" value="${dataFimT2}">
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Todos os Trimestres -->
+            <div class="list-group-item p-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <strong class="text-success"><i class="bi bi-check-all me-1"></i> 4. Todos os Trimestres (I, II e III)</strong>
+                <small class="text-muted">Todas as notas e Média Final visíveis</small>
+              </div>
+              <p class="small text-muted mb-2">Publicação completa de todas as notas do ano (I, II, III trimestres e Média Final).</p>
+              <div class="row g-2 align-items-center">
+                <div class="col-6">
+                  <label class="form-label small text-muted mb-1">Data Início:</label>
+                  <input type="date" id="pubDataInicioTodos" class="form-control form-control-sm" value="${dataInicioTodos}">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small text-muted mb-1">Data Fim:</label>
+                  <input type="date" id="pubDataFimTodos" class="form-control form-control-sm" value="${dataFimTodos}">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="alert alert-light border py-2 px-3 small text-muted mb-3">
+            <i class="bi bi-clock-history me-1 text-primary"></i> <strong>Controlo Automático:</strong> Fora dos períodos definidos acima, as notas dos alunos ficarão automaticamente ocultas / suspensas.
+          </div>
+        </div>
+
         <div class="d-flex justify-content-end gap-2">
           <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Cancelar</button>
-          <button type="button" class="btn btn-primary btn-sm fw-bold px-3 shadow-sm" onclick="salvarPublicacaoNotasDapModal()">
+          <button type="button" class="btn btn-primary btn-sm fw-bold px-3 shadow-sm" style="background-color: #6200ea; border-color: #6200ea;" onclick="salvarPublicacaoNotasDapModal()">
             <i class="bi bi-check-circle-fill me-1"></i> Aplicar e Publicar
           </button>
         </div>
@@ -12032,20 +12159,35 @@ async function toggleVisibilidadeNotasDap() {
 }
 
 async function salvarPublicacaoNotasDapModal() {
-  const selecionado = document.querySelector('input[name="radioPubNotasDap"]:checked')?.value || 'TODOS';
+  const modoAtivo = window._sigeModoPubNotasModal || 'MANUAL';
+  let payload = { modo_publicacao_notas: modoAtivo };
+
+  if (modoAtivo === 'MANUAL') {
+    const selecionado = document.querySelector('input[name="radioPubNotasDap"]:checked')?.value || 'TODOS';
+    payload.publicacao_notas_trimestre = selecionado;
+    payload.permitir_visualizacao_notas = (selecionado !== 'NENHUM');
+  } else {
+    payload.data_inicio_pub_t1 = document.getElementById('pubDataInicioT1')?.value || null;
+    payload.data_fim_pub_t1 = document.getElementById('pubDataFimT1')?.value || null;
+    payload.data_inicio_pub_t2 = document.getElementById('pubDataInicioT2')?.value || null;
+    payload.data_fim_pub_t2 = document.getElementById('pubDataFimT2')?.value || null;
+    payload.data_inicio_pub_todos = document.getElementById('pubDataInicioTodos')?.value || null;
+    payload.data_fim_pub_todos = document.getElementById('pubDataFimTodos')?.value || null;
+  }
+
   try {
     const res = await apiFetch('/api/v1/escola-admin/toggle-notas', {
       method: 'PUT',
-      body: JSON.stringify({ publicacao_notas_trimestre: selecionado })
+      body: JSON.stringify(payload)
     });
     if (res.success) {
-      const pub = res.data?.publicacao_notas_trimestre || selecionado;
-      const ativa = res.data?.permitir_visualizacao_notas !== false;
+      const d = res.data;
       if (state.tenant) {
-        state.tenant.publicacao_notas_trimestre = pub;
-        state.tenant.permitir_visualizacao_notas = ativa;
+        state.tenant.publicacao_notas_trimestre = d.publicacao_notas_trimestre;
+        state.tenant.permitir_visualizacao_notas = d.permitir_visualizacao_notas;
+        state.tenant.modo_publicacao_notas = d.modo_publicacao_notas;
       }
-      atualizarBotaoToggleNotasDap(pub, ativa);
+      atualizarBotaoToggleNotasDap(d);
       fecharModal();
       alert(res.message || 'Publicação de notas actualizada com sucesso!');
     }
@@ -12054,36 +12196,75 @@ async function salvarPublicacaoNotasDapModal() {
   }
 }
 
-function atualizarBotaoToggleNotasDap(publicacao, permitir) {
+function atualizarBotaoToggleNotasDap(dadosOuPublicacao, permitir) {
   const btn = document.getElementById('btnToggleNotasDap');
   const icon = document.getElementById('iconToggleNotasDap');
   const label = document.getElementById('labelToggleNotasDap');
   if (!btn || !label) return;
 
-  // Compatibilidade com chamadas legado com boolean
-  let pub = typeof publicacao === 'string' ? publicacao : (state.tenant?.publicacao_notas_trimestre || 'TODOS');
-  let ativa = typeof permitir === 'boolean' ? permitir : (typeof publicacao === 'boolean' ? publicacao : (state.tenant?.permitir_visualizacao_notas !== false));
+  let pub = 'TODOS';
+  let ativa = true;
+  let modo = 'MANUAL';
+  let resolucao = null;
 
-  if (!ativa || pub === 'NENHUM') {
-    btn.className = 'btn btn-outline-danger btn-sm ped-only';
-    if (icon) icon.className = 'bi bi-eye-slash-fill me-1';
-    label.textContent = 'Notas: Ocultas';
-  } else if (pub === '1_TRIMESTRE') {
-    btn.className = 'btn btn-outline-info btn-sm ped-only';
-    if (icon) icon.className = 'bi bi-1-circle-fill me-1';
-    label.textContent = 'Notas: I Trimestre';
-  } else if (pub === '2_TRIMESTRE') {
-    btn.className = 'btn btn-outline-primary btn-sm ped-only';
-    if (icon) icon.className = 'bi bi-2-circle-fill me-1';
-    label.textContent = 'Notas: II Trimestre';
-  } else if (pub === '3_TRIMESTRE') {
-    btn.className = 'btn btn-outline-warning btn-sm ped-only';
-    if (icon) icon.className = 'bi bi-3-circle-fill me-1';
-    label.textContent = 'Notas: III Trimestre';
+  if (typeof dadosOuPublicacao === 'object' && dadosOuPublicacao !== null) {
+    pub = dadosOuPublicacao.publicacao_notas_trimestre || (dadosOuPublicacao.resolvido?.publicacao) || 'TODOS';
+    ativa = dadosOuPublicacao.permitir_visualizacao_notas !== false;
+    modo = dadosOuPublicacao.modo_publicacao_notas || 'MANUAL';
+    resolucao = dadosOuPublicacao.resolvido;
+  } else if (typeof dadosOuPublicacao === 'string') {
+    pub = dadosOuPublicacao;
+    ativa = typeof permitir === 'boolean' ? permitir : (state.tenant?.permitir_visualizacao_notas !== false);
+    modo = state.tenant?.modo_publicacao_notas || 'MANUAL';
   } else {
-    btn.className = 'btn btn-outline-success btn-sm ped-only';
-    if (icon) icon.className = 'bi bi-check-all me-1';
-    label.textContent = 'Notas: Todos (I, II, III)';
+    pub = state.tenant?.publicacao_notas_trimestre || 'TODOS';
+    ativa = state.tenant?.permitir_visualizacao_notas !== false;
+    modo = state.tenant?.modo_publicacao_notas || 'MANUAL';
+  }
+
+  if (modo === 'DATAS') {
+    const resPub = resolucao?.publicacao || pub;
+    const resPerm = resolucao?.permitir !== false && ativa && resPub !== 'NENHUM';
+    if (!resPerm || resPub === 'NENHUM') {
+      btn.className = 'btn btn-outline-secondary btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-calendar-x me-1';
+      label.textContent = 'Notas: Fora de Prazo (Datas)';
+    } else if (resPub === '1_TRIMESTRE') {
+      btn.className = 'btn btn-outline-info btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-calendar-check me-1';
+      label.textContent = 'Notas: I Trimestre (Datas)';
+    } else if (resPub === '2_TRIMESTRE') {
+      btn.className = 'btn btn-outline-primary btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-calendar-check me-1';
+      label.textContent = 'Notas: I e II (Datas)';
+    } else {
+      btn.className = 'btn btn-outline-success btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-calendar2-check-fill me-1';
+      label.textContent = 'Notas: Todos (Datas)';
+    }
+  } else {
+    // Modo MANUAL
+    if (!ativa || pub === 'NENHUM') {
+      btn.className = 'btn btn-outline-danger btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-eye-slash-fill me-1';
+      label.textContent = 'Notas: Ocultas';
+    } else if (pub === '1_TRIMESTRE') {
+      btn.className = 'btn btn-outline-info btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-1-circle-fill me-1';
+      label.textContent = 'Notas: I Trimestre';
+    } else if (pub === '2_TRIMESTRE') {
+      btn.className = 'btn btn-outline-primary btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-2-circle-fill me-1';
+      label.textContent = 'Notas: I e II Trimestre';
+    } else if (pub === '3_TRIMESTRE') {
+      btn.className = 'btn btn-outline-warning btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-3-circle-fill me-1';
+      label.textContent = 'Notas: III Trimestre';
+    } else {
+      btn.className = 'btn btn-outline-success btn-sm ped-only';
+      if (icon) icon.className = 'bi bi-check-all me-1';
+      label.textContent = 'Notas: Todos (I, II e III)';
+    }
   }
 }
 
