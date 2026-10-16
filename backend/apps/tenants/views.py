@@ -614,17 +614,32 @@ class ToggleNotasView(APIView):
             return Response({'success': False, 'message': 'Escola não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         
         pub = getattr(escola, 'publicacao_notas_trimestre', 'TODOS') or 'TODOS'
+        modo = getattr(escola, 'modo_publicacao_notas', 'MANUAL') or 'MANUAL'
+        res_pub, res_perm, res_modo, res_det = escola.resolver_publicacao_notas()
+
         return Response({
             'success': True,
             'data': {
                 'permitir_visualizacao_notas': escola.permitir_visualizacao_notas,
                 'publicacao_notas_trimestre': pub,
+                'modo_publicacao_notas': modo,
+                'data_inicio_pub_t1': escola.data_inicio_pub_t1,
+                'data_fim_pub_t1': escola.data_fim_pub_t1,
+                'data_inicio_pub_t2': escola.data_inicio_pub_t2,
+                'data_fim_pub_t2': escola.data_fim_pub_t2,
+                'data_inicio_pub_todos': escola.data_inicio_pub_todos,
+                'data_fim_pub_todos': escola.data_fim_pub_todos,
+                'resolvido': {
+                    'publicacao': res_pub,
+                    'permitir': res_perm,
+                    'modo': res_modo,
+                    'detalhe': res_det
+                },
                 'opcoes': [
-                    {'id': '1_TRIMESTRE', 'nome': 'I Trimestre', 'descricao': 'Visualização apenas do 1º Trimestre'},
-                    {'id': '2_TRIMESTRE', 'nome': 'II Trimestre', 'descricao': 'Visualização do 2º Trimestre (e 1º Trimestre)'},
-                    {'id': '3_TRIMESTRE', 'nome': 'III Trimestre', 'descricao': 'Visualização do 3º Trimestre'},
-                    {'id': 'TODOS', 'nome': 'Todos os Trimestres (I, II e III)', 'descricao': 'Visualização completa de todas as notas do ano'},
-                    {'id': 'NENHUM', 'nome': 'Ocultar / Suspender Visualização', 'descricao': 'Nenhuma nota visível aos alunos'}
+                    {'id': '1_TRIMESTRE', 'nome': '1. I Trimestre (Apenas 1º Trimestre)', 'descricao': 'Apenas notas e médias do I Trimestre visíveis para os alunos.'},
+                    {'id': '2_TRIMESTRE', 'nome': '2. I e II Trimestre (1º e 2º Trimestre)', 'descricao': 'Avaliações do I e II Trimestre ficam disponíveis para consulta.'},
+                    {'id': 'TODOS', 'nome': '4. Todos os Trimestres (I, II e III)', 'descricao': 'Publicação completa de todas as notas do ano (I, II, III trimestres e Média Final).'},
+                    {'id': 'NENHUM', 'nome': '5. Ocultar / Suspender Visualização', 'descricao': 'Suspender temporariamente a exibição de notas no portal (ex: para conselhos de notas).'}
                 ]
             }
         })
@@ -641,12 +656,36 @@ class ToggleNotasView(APIView):
         if not escola:
             return Response({'success': False, 'message': 'Escola não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
-        pub_trimestre = request.data.get('publicacao_notas_trimestre') or request.data.get('trimestre') or request.data.get('periodo')
-        permitir = request.data.get('permitir_visualizacao_notas')
+        data = request.data
+        modo_pub = data.get('modo_publicacao_notas') or data.get('modo')
+        if modo_pub:
+            escola.modo_publicacao_notas = 'DATAS' if str(modo_pub).upper() == 'DATAS' else 'MANUAL'
+
+        def parse_data(val):
+            if not val or str(val).strip() == '':
+                return None
+            return str(val).strip()
+
+        # Atualizar datas de agendamento se fornecidas
+        if 'data_inicio_pub_t1' in data:
+            escola.data_inicio_pub_t1 = parse_data(data.get('data_inicio_pub_t1'))
+        if 'data_fim_pub_t1' in data:
+            escola.data_fim_pub_t1 = parse_data(data.get('data_fim_pub_t1'))
+        if 'data_inicio_pub_t2' in data:
+            escola.data_inicio_pub_t2 = parse_data(data.get('data_inicio_pub_t2'))
+        if 'data_fim_pub_t2' in data:
+            escola.data_fim_pub_t2 = parse_data(data.get('data_fim_pub_t2'))
+        if 'data_inicio_pub_todos' in data:
+            escola.data_inicio_pub_todos = parse_data(data.get('data_inicio_pub_todos'))
+        if 'data_fim_pub_todos' in data:
+            escola.data_fim_pub_todos = parse_data(data.get('data_fim_pub_todos'))
+
+        pub_trimestre = data.get('publicacao_notas_trimestre') or data.get('trimestre') or data.get('periodo')
+        permitir = data.get('permitir_visualizacao_notas')
 
         labels = {
             '1_TRIMESTRE': 'I Trimestre',
-            '2_TRIMESTRE': 'II Trimestre',
+            '2_TRIMESTRE': 'I e II Trimestre',
             '3_TRIMESTRE': 'III Trimestre',
             'TODOS': 'Todos os Trimestres (I, II e III)',
             'NENHUM': 'Ocultar / Suspender Visualização'
@@ -657,7 +696,7 @@ class ToggleNotasView(APIView):
             if pub_norm in ('1', 'T1', '1_TRIMESTRE', 'I'):
                 escola.publicacao_notas_trimestre = '1_TRIMESTRE'
                 escola.permitir_visualizacao_notas = True
-            elif pub_norm in ('2', 'T2', '2_TRIMESTRE', 'II'):
+            elif pub_norm in ('2', 'T2', '2_TRIMESTRE', 'II', '1_E_2', '1_E_2_TRIMESTRE'):
                 escola.publicacao_notas_trimestre = '2_TRIMESTRE'
                 escola.permitir_visualizacao_notas = True
             elif pub_norm in ('3', 'T3', '3_TRIMESTRE', 'III'):
@@ -681,7 +720,7 @@ class ToggleNotasView(APIView):
                 escola.publicacao_notas_trimestre = 'TODOS'
 
         # Se chamada sem parâmetros (toggle legado)
-        if pub_trimestre is None and permitir is None:
+        if pub_trimestre is None and permitir is None and not modo_pub and 'data_inicio_pub_t1' not in data:
             escola.permitir_visualizacao_notas = not escola.permitir_visualizacao_notas
             if not escola.permitir_visualizacao_notas:
                 escola.publicacao_notas_trimestre = 'NENHUM'
@@ -690,20 +729,40 @@ class ToggleNotasView(APIView):
 
         escola.save()
 
+        res_pub, res_perm, res_modo, res_det = escola.resolver_publicacao_notas()
         pub_atual = getattr(escola, 'publicacao_notas_trimestre', 'TODOS')
         label_texto = labels.get(pub_atual, pub_atual)
         if not escola.permitir_visualizacao_notas:
             label_texto = 'Ocultas / Suspensas'
 
+        if res_modo == 'DATAS':
+            msg = f"Publicação programada por datas activada. (Estado actual: {res_det.get('rotulo') if res_det else 'Activo'})"
+        else:
+            msg = f"Publicação manual actualizada para: {label_texto}."
+
         return Response({
             'success': True,
             'permitir_visualizacao_notas': escola.permitir_visualizacao_notas,
             'publicacao_notas_trimestre': escola.publicacao_notas_trimestre,
-            'message': f"Publicação de notas atualizada para: {label_texto}.",
+            'modo_publicacao_notas': escola.modo_publicacao_notas,
+            'message': msg,
             'data': {
                 'permitir_visualizacao_notas': escola.permitir_visualizacao_notas,
                 'publicacao_notas_trimestre': escola.publicacao_notas_trimestre,
-                'label': label_texto
+                'modo_publicacao_notas': escola.modo_publicacao_notas,
+                'label': label_texto,
+                'data_inicio_pub_t1': escola.data_inicio_pub_t1,
+                'data_fim_pub_t1': escola.data_fim_pub_t1,
+                'data_inicio_pub_t2': escola.data_inicio_pub_t2,
+                'data_fim_pub_t2': escola.data_fim_pub_t2,
+                'data_inicio_pub_todos': escola.data_inicio_pub_todos,
+                'data_fim_pub_todos': escola.data_fim_pub_todos,
+                'resolvido': {
+                    'publicacao': res_pub,
+                    'permitir': res_perm,
+                    'modo': res_modo,
+                    'detalhe': res_det
+                }
             }
         })
 

@@ -56,17 +56,10 @@ class TenantMiddleware(MiddlewareMixin):
                         or request.path.startswith('/api/redoc/')
                     )
                     if request.path.startswith('/api/') and not is_exempt:
-                        if bloqueada:
-                            motivo = 'bloqueada manualmente'
-                        elif 'PEND' in st:
-                            motivo = 'com o registo pendente de activação'
-                        else:
-                            motivo = 'com a subscrição expirada'
-
                         return JsonResponse({
                             'success': False,
                             'message': (
-                                f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se {motivo}. '
+                                f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se com a subscrição expirada. '
                                 f'Por esse motivo, o acesso ao sistema está temporariamente vedado. '
                                 f'Para restabelecer o acesso, contacte o Engenheiro do Sistema, responsável pela gestão das instituições e pela renovação das respectivas subscrições.'
                             )

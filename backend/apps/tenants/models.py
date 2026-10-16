@@ -70,17 +70,33 @@ class Escola(models.Model):
     logo_base64 = models.TextField(blank=True, null=True)
     bloqueada_manualmente = models.BooleanField(default=False)
     permitir_visualizacao_notas = models.BooleanField(default=True)
+    modo_publicacao_notas = models.CharField(
+        max_length=20,
+        default='MANUAL',
+        choices=[
+            ('MANUAL', '1ª Opção: Modo Imediato / Manual'),
+            ('DATAS', '2ª Opção: Modo Programado por Datas')
+        ]
+    )
     publicacao_notas_trimestre = models.CharField(
         max_length=20,
         default='TODOS',
         choices=[
-            ('1_TRIMESTRE', '1º Trimestre (I)'),
-            ('2_TRIMESTRE', '2º Trimestre (II)'),
-            ('3_TRIMESTRE', '3º Trimestre (III)'),
-            ('TODOS', 'Todos os Trimestres (I, II e III)'),
-            ('NENHUM', 'Ocultar / Suspender Visualização')
+            ('1_TRIMESTRE', '1. I Trimestre (Apenas 1º Trimestre)'),
+            ('2_TRIMESTRE', '2. I e II Trimestre (1º e 2º Trimestre)'),
+            ('3_TRIMESTRE', '3. III Trimestre (3º Trimestre)'),
+            ('TODOS', '4. Todos os Trimestres (I, II e III)'),
+            ('NENHUM', '5. Ocultar / Suspender Visualização')
         ]
     )
+    # Intervalos de datas para publicação programada (2ª Opção):
+    data_inicio_pub_t1 = models.DateField(null=True, blank=True)
+    data_fim_pub_t1 = models.DateField(null=True, blank=True)
+    data_inicio_pub_t2 = models.DateField(null=True, blank=True)
+    data_fim_pub_t2 = models.DateField(null=True, blank=True)
+    data_inicio_pub_todos = models.DateField(null=True, blank=True)
+    data_fim_pub_todos = models.DateField(null=True, blank=True)
+
 
     # Inscrições Online
     inscricoes_abertas = models.BooleanField(default=False)
@@ -152,8 +168,60 @@ class Escola(models.Model):
         except Exception:
             pass
 
+    def resolver_publicacao_notas(self, hoje=None):
+        """
+        Resolve a publicação activa de notas aos alunos.
+        Retorna tupla: (publicacao_trimestre, permitir_visualizacao, modo_ativo, info_detalhe)
+        """
+        from django.utils import timezone
+        if hoje is None:
+            hoje = timezone.localdate()
+
+        modo = (self.modo_publicacao_notas or 'MANUAL').upper()
+        if modo == 'DATAS':
+            # 1. Todos os Trimestres (I, II e III)
+            if self.data_inicio_pub_todos and self.data_fim_pub_todos:
+                if self.data_inicio_pub_todos <= hoje <= self.data_fim_pub_todos:
+                    return 'TODOS', True, 'DATAS', {
+                        'periodo': 'TODOS',
+                        'inicio': str(self.data_inicio_pub_todos),
+                        'fim': str(self.data_fim_pub_todos),
+                        'rotulo': 'Todos os Trimestres (I, II e III)'
+                    }
+            # 2. I e II Trimestre (1º e 2º Trimestre)
+            if self.data_inicio_pub_t2 and self.data_fim_pub_t2:
+                if self.data_inicio_pub_t2 <= hoje <= self.data_fim_pub_t2:
+                    return '2_TRIMESTRE', True, 'DATAS', {
+                        'periodo': '2_TRIMESTRE',
+                        'inicio': str(self.data_inicio_pub_t2),
+                        'fim': str(self.data_fim_pub_t2),
+                        'rotulo': 'I e II Trimestre (1º e 2º Trimestre)'
+                    }
+            # 3. I Trimestre (Apenas 1º Trimestre)
+            if self.data_inicio_pub_t1 and self.data_fim_pub_t1:
+                if self.data_inicio_pub_t1 <= hoje <= self.data_fim_pub_t1:
+                    return '1_TRIMESTRE', True, 'DATAS', {
+                        'periodo': '1_TRIMESTRE',
+                        'inicio': str(self.data_inicio_pub_t1),
+                        'fim': str(self.data_fim_pub_t1),
+                        'rotulo': 'I Trimestre (Apenas 1º Trimestre)'
+                    }
+            # Fora de qualquer intervalo programado
+            return 'NENHUM', False, 'DATAS', {
+                'periodo': 'NENHUM',
+                'inicio': None,
+                'fim': None,
+                'rotulo': 'Fora do Período Programado'
+            }
+
+        # Modo MANUAL
+        pub = self.publicacao_notas_trimestre or 'TODOS'
+        ativa = bool(self.permitir_visualizacao_notas) and (pub != 'NENHUM')
+        return pub if ativa else 'NENHUM', ativa, 'MANUAL', None
+
     def __str__(self):
         return f"{self.nome} [{self.codigo_escola or self.status}]"
+
 
 class AssinaturaEscola(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

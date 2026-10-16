@@ -208,16 +208,21 @@ class AlunoMeNotasView(APIView):
             return Response({'success': False, 'message': 'Aluno não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         escola = aluno.escola
-        permitir_vis = getattr(escola, 'permitir_visualizacao_notas', True) if escola else True
-        pub_trimestre = getattr(escola, 'publicacao_notas_trimestre', 'TODOS') if escola else 'TODOS'
+        if escola and hasattr(escola, 'resolver_publicacao_notas'):
+            pub_trimestre, permitir_vis, modo_pub, info_periodo = escola.resolver_publicacao_notas()
+        else:
+            permitir_vis = getattr(escola, 'permitir_visualizacao_notas', True) if escola else True
+            pub_trimestre = getattr(escola, 'publicacao_notas_trimestre', 'TODOS') if escola else 'TODOS'
+            modo_pub = 'MANUAL'
+            info_periodo = None
 
-        # Período selecionado na consulta pelo utilizador (3 possibilidades de trimestres ou todos):
+        # Período selecionado na consulta pelo utilizador:
         periodo_param = request.query_params.get('periodo')
         if not periodo_param or str(periodo_param).upper() in ('TODOS', 'ALL', 'ANUAL', 'GERAL'):
             periodo_solicitado = 'TODOS'
         elif str(periodo_param).upper() in ('1', 'T1', '1_TRIMESTRE', 'I'):
             periodo_solicitado = '1_TRIMESTRE'
-        elif str(periodo_param).upper() in ('2', 'T2', '2_TRIMESTRE', 'II'):
+        elif str(periodo_param).upper() in ('2', 'T2', '2_TRIMESTRE', 'II', '1_E_2', '1_E_2_TRIMESTRE'):
             periodo_solicitado = '2_TRIMESTRE'
         elif str(periodo_param).upper() in ('3', 'T3', '3_TRIMESTRE', 'III'):
             periodo_solicitado = '3_TRIMESTRE'
@@ -225,20 +230,30 @@ class AlunoMeNotasView(APIView):
             periodo_solicitado = 'TODOS'
 
         if not permitir_vis or pub_trimestre == 'NENHUM':
+            msg_suspensao = (
+                'A visualização de notas está fora do período programado pela Direcção da Escola.'
+                if modo_pub == 'DATAS'
+                else 'A visualização de notas está temporariamente suspensa pela Direcção da Escola.'
+            )
             return Response({
                 'success': True,
                 'data': {
                     'permitirVisualizacaoNotas': False,
                     'publicacaoNotasTrimestre': 'NENHUM',
+                    'modoPublicacaoNotas': modo_pub,
+                    'infoPeriodo': info_periodo,
                     'periodoVisualizacao': periodo_solicitado,
-                    'mensagem': 'A visualização de notas está temporariamente suspensa pela Direcção da Escola.',
+                    'mensagem': msg_suspensao,
                     'disciplinas': [],
                     'mediaGeral': None,
                     'situacao': 'Suspenso'
                 }
             })
 
-        # Trimestres publicados oficialmente pela escola
+        # Trimestres publicados oficialmente pela escola:
+        # 1. I Trimestre -> ['1_TRIMESTRE']
+        # 2. I e II Trimestre -> ['1_TRIMESTRE', '2_TRIMESTRE']
+        # 4. Todos os Trimestres -> ['1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE']
         if pub_trimestre == '1_TRIMESTRE':
             trimestres_publicados = ['1_TRIMESTRE']
         elif pub_trimestre == '2_TRIMESTRE':
@@ -415,6 +430,8 @@ class AlunoMeNotasView(APIView):
         retorno_payload = {
             'permitirVisualizacaoNotas': True,
             'publicacaoNotasTrimestre': pub_trimestre,
+            'modoPublicacaoNotas': modo_pub,
+            'infoPeriodo': info_periodo,
             'trimestresPublicados': trimestres_publicados,
             'periodoVisualizacao': periodo_solicitado,
             'mediaGeral': med_geral,

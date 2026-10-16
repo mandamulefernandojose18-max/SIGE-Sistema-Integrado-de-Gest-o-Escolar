@@ -990,23 +990,22 @@ async function realizarLogin(e) {
   }
 
   if (!email || !senha) {
+    const inpEmail = document.getElementById('loginEmail');
+    const inpSenha = document.getElementById('loginSenha');
+    if (inpEmail) inpEmail.value = '';
+    if (inpSenha) inpSenha.value = '';
+    localStorage.removeItem('sige_ultimo_usuario');
+
     if (feedbackEl) {
       feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
       feedbackEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i> Credenciais invalidas.';
       feedbackEl.classList.remove('d-none');
-    } else {
-      alert('Credenciais invalidas.');
     }
-    const inpSenha = document.getElementById('loginSenha');
-    if (inpSenha) {
-      inpSenha.value = '';
-      setTimeout(() => inpSenha.focus(), 80);
-    }
+    alert('Credenciais invalidas.');
+
+    if (inpEmail) setTimeout(() => inpEmail.focus(), 80);
     return;
   }
-
-  // Memoriza o utilizador para preenchimento exclusivo após atualização da página
-  localStorage.setItem('sige_ultimo_usuario', email);
 
   const submitBtn = document.getElementById('btnLoginSubmit') || document.querySelector('#loginForm button[type="submit"]') || document.querySelector('button[onclick*="realizarLogin"]');
   const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
@@ -1036,6 +1035,7 @@ async function realizarLogin(e) {
     } catch (_) {}
 
     if (res.ok && json && json.success) {
+      localStorage.setItem('sige_ultimo_usuario', email);
       sessionStorage.setItem('sige_token', json.data.tokens.accessToken);
       sessionStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
       if (json.data.user.role !== 'SUPERADMIN') {
@@ -1048,29 +1048,41 @@ async function realizarLogin(e) {
       await iniciarApp();
     } else {
       const rawDetail = (json && (json.message || json.detail)) || '';
+      const isBlocked = rawDetail && (
+        rawDetail.toLowerCase().includes('bloque') ||
+        rawDetail.toLowerCase().includes('inactiv') ||
+        rawDetail.toLowerCase().includes('desactiv') ||
+        rawDetail.toLowerCase().includes('subscri') ||
+        rawDetail.toLowerCase().includes('expir')
+      );
+
       let msgErro = 'Credenciais invalidas.';
-      if (rawDetail && (rawDetail.toLowerCase().includes('bloque') || rawDetail.toLowerCase().includes('inactiv') || rawDetail.toLowerCase().includes('desactiv'))) {
+      if (isBlocked) {
         msgErro = rawDetail;
       } else {
         msgErro = 'Credenciais invalidas.';
       }
 
-      if (feedbackEl) {
-        feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
-        feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(msgErro)}`;
-        feedbackEl.classList.remove('d-none');
-      } else {
-        alert(msgErro);
-      }
-
+      // Limpar logo/imediatamente o utilizador e a senha em caso de erro
+      const inpEmail = document.getElementById('loginEmail');
       const inpSenha = document.getElementById('loginSenha');
+      if (inpEmail) inpEmail.value = '';
       if (inpSenha) {
         inpSenha.value = '';
         inpSenha.type = 'password';
         const ico = document.getElementById('iconToggleLoginSenha');
         if (ico) ico.className = 'bi bi-eye fs-5';
-        setTimeout(() => inpSenha.focus(), 80);
       }
+      localStorage.removeItem('sige_ultimo_usuario');
+
+      if (feedbackEl) {
+        feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
+        feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(msgErro)}`;
+        feedbackEl.classList.remove('d-none');
+      }
+      alert(msgErro);
+
+      if (inpEmail) setTimeout(() => inpEmail.focus(), 80);
       return;
     }
   } catch (err) {

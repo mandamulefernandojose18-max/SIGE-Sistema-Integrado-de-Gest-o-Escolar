@@ -63,12 +63,46 @@ with transaction.atomic():
         count_m = disc_m.count()
         disc_m.delete()
         print(f"    - Escola Secundária de Massinga: {count_m} disciplinas não cadastradas removidas (total agora: 0).")
-        
+
         # Remover turmas duplicadas terminadas em '(1)' em Massinga
         t_dup = Turma.objects.filter(escola=massinga, nome__contains='(1)')
         count_t_dup = t_dup.count()
         t_dup.delete()
         print(f"    - Escola Secundária de Massinga: {count_t_dup} turmas duplicadas com sufixo (1) removidas.")
+
+    # -------------------------------------------------------------
+    # 2B. REMOVER CLASSES/TURMAS FICTÍCIAS EM TODAS AS INSTITUIÇÕES
+    #     QUE NÃO CADASTRARAM DISCIPLINAS
+    #
+    #     Política: Cada instituição de ensino tem as suas próprias
+    #     políticas (classes, turmas, plano curricular, secções, etc).
+    #     Turmas sem disciplinas associadas são resquícios de dados
+    #     fictícios/demo e devem ser eliminadas para não causar
+    #     inconsistências no sistema.
+    # -------------------------------------------------------------
+    print("\n[2B] Removendo classes/turmas fictícias em instituições sem disciplinas cadastradas...")
+    todas_escolas = Escola.objects.all()
+    total_turmas_removidas = 0
+
+    for escola in todas_escolas:
+        tem_disciplinas = Disciplina.objects.filter(escola=escola).exists()
+        if not tem_disciplinas:
+            turmas_ficticias = Turma.objects.filter(escola=escola)
+            qtd = turmas_ficticias.count()
+            if qtd > 0:
+                turmas_ficticias.delete()
+                total_turmas_removidas += qtd
+                print(f"    - '{escola.nome}': {qtd} classe(s)/turma(s) fictícia(s) removidas "
+                      f"(instituição sem disciplinas cadastradas).")
+            else:
+                print(f"    - '{escola.nome}': sem disciplinas e sem turmas — nada a remover.")
+        else:
+            disc_count = Disciplina.objects.filter(escola=escola).count()
+            turma_count = Turma.objects.filter(escola=escola).count()
+            print(f"    - '{escola.nome}': {disc_count} disciplina(s) e {turma_count} turma(s) mantidas "
+                  f"(instituição com disciplinas cadastradas).")
+
+    print(f"\n    [RESUMO 2B] Total de classes/turmas fictícias removidas: {total_turmas_removidas}")
 
     # -------------------------------------------------------------
     # 3. LIMPAR DISCIPLINAS INJETADAS EM LOTE EM CAMBINE (MANTER APENAS AS REAIS)

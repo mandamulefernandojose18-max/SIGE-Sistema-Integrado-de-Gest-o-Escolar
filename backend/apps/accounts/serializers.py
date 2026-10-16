@@ -188,7 +188,7 @@ class LoginSerializer(serializers.Serializer):
                     user = u
 
         if not user:
-            raise serializers.ValidationError('Credenciais inválidas.')
+            raise serializers.ValidationError('Credenciais invalidas.')
 
         # Validação estrita do estado da conta do utilizador
         if not user.ativo or not user.is_active:
@@ -203,23 +203,7 @@ class LoginSerializer(serializers.Serializer):
                 status_escola = str(getattr(escola, 'status', '') or '').strip().upper()
                 bloqueada = bool(getattr(escola, 'bloqueada_manualmente', False))
 
-                # Auto-recuperação de integridade: se a escola possui assinatura válida não expirada e não está bloqueada manualmente
-                if not bloqueada and 'PEND' not in status_escola and status_escola != 'ATIVA':
-                    from django.utils import timezone
-                    ass_valida = escola.assinaturas.filter(data_fim__gt=timezone.now()).order_by('-data_fim').first()
-                    if ass_valida:
-                        escola.status = 'ATIVA'
-                        escola.save(update_fields=['status'])
-                        status_escola = 'ATIVA'
-
                 if status_escola != 'ATIVA' or bloqueada:
-                    if bloqueada:
-                        motivo = 'bloqueada manualmente'
-                    elif 'PEND' in status_escola:
-                        motivo = 'com o registo pendente de activação'
-                    else:
-                        motivo = 'com a subscrição expirada'
-
                     try:
                         LogAcesso.objects.create(
                             escola=escola,
@@ -230,7 +214,7 @@ class LoginSerializer(serializers.Serializer):
                         pass
 
                     raise serializers.ValidationError(
-                        f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se {motivo}. '
+                        f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se com a subscrição expirada. '
                         f'Por esse motivo, o acesso ao sistema está temporariamente vedado. '
                         f'Para restabelecer o acesso, contacte o Engenheiro do Sistema, responsável pela gestão das instituições e pela renovação das respectivas subscrições.'
                     )

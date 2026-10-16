@@ -270,7 +270,7 @@ class TestMultiTenancy:
         login_bloq = self.client.post('/api/v1/auth/login/', {'email': 'admin.bloq@sige.mz', 'password': 'PassBloq123!'}, format='json')
         assert login_bloq.status_code == 401
         assert "Acesso bloqueado" in str(login_bloq.data)
-        assert "bloqueada manualmente" in str(login_bloq.data).lower()
+        assert "subscrição expirada" in str(login_bloq.data)
 
         # 3. Escola PENDENTE: Utilizador comum tem login bloqueado
         escola_pend = Escola.objects.create(nome='Escola Pendente Teste', nif_cnpj='NIF_PEND', email='pend@sige.mz', status='PENDENTE', plano=self.plano)
@@ -278,7 +278,7 @@ class TestMultiTenancy:
         login_pend = self.client.post('/api/v1/auth/login/', {'email': 'admin.pend@sige.mz', 'password': 'PassPend123!'}, format='json')
         assert login_pend.status_code == 401
         assert "Acesso bloqueado" in str(login_pend.data)
-        assert "pendente" in str(login_pend.data).lower()
+        assert "subscrição expirada" in str(login_pend.data)
 
         # 4. Requisição à API com token de utilizador de escola suspensa -> 403 Forbidden
         from rest_framework_simplejwt.tokens import RefreshToken
