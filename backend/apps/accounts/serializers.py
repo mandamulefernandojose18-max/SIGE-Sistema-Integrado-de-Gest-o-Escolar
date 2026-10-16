@@ -163,12 +163,12 @@ class LoginSerializer(serializers.Serializer):
         # Fallback para aliases de demonstração e variações comuns
         if not user:
             aliases = {
-                'mandamule': 'mandamulefj.@sige.com',
-                'mandamulefj': 'mandamulefj.@sige.com',
+                'mandamule': 'mandamulefj@sige.com',
+                'mandamulefj': 'mandamulefj@sige.com',
                 'admin': 'admin.master@sige.com',
                 'admin.master': 'admin.master@sige.com',
-                'mandamulefj@sige.com': 'mandamulefj.@sige.com',
-                'mandamulefj.@sige.com': 'mandamulefj.@sige.com',
+                'mandamulefj@sige.com': 'mandamulefj@sige.com',
+                'mandamulefj.@sige.com': 'mandamulefj@sige.com',
                 'mandamulefernandojose18': 'mandamulefernandojose18@gmail.com',
                 'mandamulefernandojose18@gmail.com': 'mandamulefernandojose18@gmail.com',
                 'antonio.costa@escola.edu.mz': 'costa@sige.com',

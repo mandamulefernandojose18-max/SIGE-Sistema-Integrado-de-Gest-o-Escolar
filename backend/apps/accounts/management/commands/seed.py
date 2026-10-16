@@ -26,22 +26,35 @@ class Command(BaseCommand):
 
         # 2. SuperAdmin do SaaS
         super_admins = [
-            {'email': 'mandamulefj.@sige.com', 'nome': 'Eng. Fernando Mandamule', 'pass': 'Deusamo8'},
+            {'email': 'mandamulefj@sige.com', 'nome': 'Eng. Fernando Mandamule', 'pass': 'Deusamo8'},
             {'email': 'admin.master@sige.com', 'nome': 'Eng. Fernando Mandamule (Master)', 'pass': 'Deusamo8'},
         ]
         for sa in super_admins:
-            u, created = Usuario.objects.get_or_create(
-                email=sa['email'],
-                defaults={'nome': sa['nome'], 'username': sa['email'], 'role': 'SUPERADMIN'}
-            )
+            email_valido = sa['email'].replace('.@sige.com', '@sige.com')
+            try:
+                conta_antiga = Usuario.objects.filter(email='mandamulefj.@sige.com').first()
+                if conta_antiga and email_valido == 'mandamulefj@sige.com':
+                    conta_antiga.email = 'mandamulefj@sige.com'
+                    conta_antiga.username = 'mandamulefj@sige.com'
+                    conta_antiga.save()
+            except Exception:
+                pass
+
+            u = Usuario.objects.filter(email=email_valido).first()
+            if not u:
+                u = Usuario(email=email_valido, username=email_valido)
             u.nome = sa['nome']
-            u.username = sa['email']
+            u.username = email_valido
+            u.email = email_valido
             u.role = 'SUPERADMIN'
             u.is_superuser = True
             u.is_staff = True
             u.escola = None  # SuperAdmin não pertence a uma escola específica (gerencia a plataforma)
             u.set_password(sa['pass'])
-            u.save()
+            try:
+                u.save()
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'[AVISO] Falha ao salvar SuperAdmin {email_valido}: {e}'))
         self.stdout.write(self.style.SUCCESS('[OK] SuperAdmins configurados.'))
 
         self.stdout.write(self.style.SUCCESS('[OK] Inicialização concluída. Nenhum dado fictício foi inserido no sistema.'))

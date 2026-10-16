@@ -613,7 +613,7 @@ function modalNovaDisciplina() {
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
     '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
   ];
-  const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+  const niveisOficiais = window.obterNiveisInstituicao();
 
   const classeFiltroAtiva = (state.filtroDisciplinaClasse || '').trim();
   const isNivelInicial = classeFiltroAtiva.toLowerCase().includes('nível') || classeFiltroAtiva.toLowerCase().includes('nivel');
@@ -630,9 +630,12 @@ function modalNovaDisciplina() {
     `<option value="${a}" ${state.filtroDisciplinaArea === a ? 'selected' : ''}>${a}</option>`
   ).join('');
 
-  const optOpcoesHtml = opcoesIniciais.map(o => 
+  let optOpcoesHtml = opcoesIniciais.map(o => 
     `<option value="${o}" ${itemInicial === o ? 'selected' : ''}>${o}</option>`
   ).join('');
+  if (isNivelInicial) {
+    optOpcoesHtml += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+  }
 
   abrirModal('Nova Disciplina Curricular', `
     <form id="formModalDisc">
@@ -668,7 +671,12 @@ function modalNovaDisciplina() {
         </div>
 
         <div class="col-md-6">
-          <label class="form-label small fw-semibold" id="labelMdClasse">${regimeInicial === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label small fw-semibold mb-0" id="labelMdClasse">${regimeInicial === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+            <button type="button" id="btnAdicionarNivelNovaDisc" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${regimeInicial === 'NIVEL' ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc)">
+              <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+            </button>
+          </div>
           <select id="mdClasse" class="form-select" required onchange="aoMudarClasseModalNovaDisc(this.value)">
             ${optOpcoesHtml}
           </select>
@@ -695,12 +703,17 @@ function modalNovaDisciplina() {
   window.alternarRegimeModalNovaDisc = function(regime) {
     const sel = document.getElementById('mdClasse');
     const lbl = document.getElementById('labelMdClasse');
+    const btnAdd = document.getElementById('btnAdicionarNivelNovaDisc');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
-      sel.innerHTML = niveisOficiais.map(n => `<option value="${n}">${n}</option>`).join('');
+      if (btnAdd) btnAdd.style.display = 'inline-block';
+      const niveis = window.obterNiveisInstituicao();
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
+      if (btnAdd) btnAdd.style.display = 'none';
       sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
     }
     if (typeof window.aoMudarClasseModalNovaDisc === 'function') {
@@ -709,6 +722,9 @@ function modalNovaDisciplina() {
   };
 
   window.aoMudarClasseModalNovaDisc = function(novaClasse) {
+    if (novaClasse === '__NOVO_NIVEL__') {
+      return window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc);
+    }
     const selArea = document.getElementById('mdArea');
     if (!selArea) return;
     const areas = typeof window.obterTodasAreasOficiais === 'function'
@@ -763,17 +779,20 @@ async function modalEditarDisciplina(disciplinaId) {
       '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
       '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
     ];
-    const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+    const niveisOficiais = window.obterNiveisInstituicao();
 
     const classeVal = (d.classe || '').trim();
     const isNivel = classeVal.toLowerCase().includes('nível') || classeVal.toLowerCase().includes('nivel');
     const regime = isNivel ? 'NIVEL' : 'CLASSE';
-    const listaOpcoes = isNivel ? niveisOficiais : classesOficiais;
+    const listaOpcoes = isNivel ? [...niveisOficiais] : [...classesOficiais];
 
     if (!listaOpcoes.includes(classeVal) && classeVal) {
       listaOpcoes.push(classeVal);
     }
-    const optOpcoes = listaOpcoes.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
+    let optOpcoes = listaOpcoes.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
+    if (isNivel) {
+      optOpcoes += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+    }
 
     const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(d.classe)
@@ -816,7 +835,12 @@ async function modalEditarDisciplina(disciplinaId) {
             <input type="text" id="mdeCodigo" class="form-control" required value="${d.codigo || ''}">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold" id="labelMdeClasse">${regime === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label small fw-semibold mb-0" id="labelMdeClasse">${regime === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
+              <button type="button" id="btnAdicionarNivelEditDisc" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${regime === 'NIVEL' ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc)">
+                <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
+              </button>
+            </div>
             <select id="mdeClasse" class="form-select" required onchange="aoMudarClasseModalEditarDisc(this.value)">
               ${optOpcoes}
             </select>
@@ -846,12 +870,17 @@ async function modalEditarDisciplina(disciplinaId) {
     window.alternarRegimeModalEditarDisc = function(novoRegime) {
       const sel = document.getElementById('mdeClasse');
       const lbl = document.getElementById('labelMdeClasse');
+      const btnAdd = document.getElementById('btnAdicionarNivelEditDisc');
       if (!sel) return;
       if (novoRegime === 'NIVEL') {
         if (lbl) lbl.textContent = 'Nível Curricular *';
-        sel.innerHTML = niveisOficiais.map(n => `<option value="${n}">${n}</option>`).join('');
+        if (btnAdd) btnAdd.style.display = 'inline-block';
+        const niveis = window.obterNiveisInstituicao();
+        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
+          `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
       } else {
         if (lbl) lbl.textContent = 'Classe / Grau *';
+        if (btnAdd) btnAdd.style.display = 'none';
         sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
       }
       if (typeof window.aoMudarClasseModalEditarDisc === 'function') {
@@ -860,6 +889,9 @@ async function modalEditarDisciplina(disciplinaId) {
     };
 
     window.aoMudarClasseModalEditarDisc = function(novaClasse) {
+      if (novaClasse === '__NOVO_NIVEL__') {
+        return window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc);
+      }
       const selArea = document.getElementById('mdeArea');
       if (!selArea) return;
       const areas = typeof window.obterTodasAreasOficiais === 'function'
