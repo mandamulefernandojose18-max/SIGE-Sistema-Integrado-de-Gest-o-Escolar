@@ -271,10 +271,6 @@ function renderizarFiltrosAlunos() {
     return numA - numB;
   });
 
-  if (classesOrdenadas.length === 0) {
-    classesOrdenadas.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
-  }
-
   if (!state.filtroAlunoClasse) state.filtroAlunoClasse = 'TODAS';
   if (!state.filtroAlunoArea) state.filtroAlunoArea = 'TODAS';
   if (!state.filtroAlunoTurma) state.filtroAlunoTurma = 'TODAS';
@@ -284,12 +280,15 @@ function renderizarFiltrosAlunos() {
 
   const contagemClassesEl = document.getElementById('contagemClassesAlunos');
   if (contagemClassesEl) {
-    contagemClassesEl.textContent = `${classesOrdenadas.length} classe(s)`;
+    contagemClassesEl.textContent = `${classesOrdenadas.length} classe(s)/nível(eis)`;
   }
 
-  let htmlClasse = `<option value="TODAS">Todas as Classes (${totalGeralAlunos})</option>`;
+  let htmlClasse = `<option value="TODAS">Todas as Classes / Níveis (${totalGeralAlunos})</option>`;
   if (semTurmaCount > 0) {
     htmlClasse += `<option value="SEM_TURMA">⚠️ Sem Turma Atribuída (${semTurmaCount})</option>`;
+  }
+  if (classesOrdenadas.length === 0) {
+    htmlClasse += `<option value="" disabled>-- Nenhuma classe/nível com alunos cadastrados --</option>`;
   }
 
   classesOrdenadas.forEach(cls => {

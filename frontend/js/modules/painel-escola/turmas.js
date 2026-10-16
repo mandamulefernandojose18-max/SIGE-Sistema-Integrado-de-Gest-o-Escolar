@@ -96,6 +96,31 @@ function renderizarEstatisticasETabelaTurmas() {
     }
   }
 
+  // Sincronizar dinamicamente o select de filtro apenas com as Classes ou Níveis reais das turmas da escola
+  const elFiltroClasse = document.getElementById('filtroTurmasClasse');
+  if (elFiltroClasse) {
+    const classesTurmas = Array.from(new Set(turmas.map(t => (t.grau_ano || '').trim()).filter(Boolean))).sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.replace(/\D/g, '')) || 0;
+      return numA - numB;
+    });
+
+    const valorSelecionado = elFiltroClasse.value || 'TODAS';
+    if (classesTurmas.length === 0) {
+      elFiltroClasse.innerHTML = '<option value="TODAS">-- Nenhuma classe/nível cadastrado --</option>';
+    } else {
+      let optCls = '<option value="TODAS">Todas as Classes / Níveis</option>';
+      classesTurmas.forEach(c => {
+        const isSel = (valorSelecionado === c) ? 'selected' : '';
+        optCls += `<option value="${c}" ${isSel}>${c}</option>`;
+      });
+      elFiltroClasse.innerHTML = optCls;
+      if (classesTurmas.includes(valorSelecionado)) {
+        elFiltroClasse.value = valorSelecionado;
+      }
+    }
+  }
+
   if (typeof atualizarFiltroAreasTurmas === 'function') {
     atualizarFiltroAreasTurmas();
   }
@@ -503,13 +528,34 @@ async function modalCriarTurma() {
 
     <form id="formModalTurma">
       <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label small fw-semibold">Nome da Turma</label>
-          <input type="text" id="mtNome" class="form-control" required placeholder="Ex: 11ª Classe Turma 1">
+        <!-- MODALIDADE: CLASSE OU NÍVEL -->
+        <div class="col-md-12">
+          <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+            <i class="bi bi-sliders me-1 text-primary"></i> Modalidade Curricular da Turma:
+          </label>
+          <div class="d-flex gap-4 p-2 bg-light rounded border">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="modalRegimeTurma" id="regimeTurmaClasse" value="CLASSE" checked onchange="window.alternarRegimeModalTurma(this.value)">
+              <label class="form-check-label fw-semibold" for="regimeTurmaClasse">
+                <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª Classe)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="modalRegimeTurma" id="regimeTurmaNivel" value="NIVEL" onchange="window.alternarRegimeModalTurma(this.value)">
+              <label class="form-check-label fw-semibold" for="regimeTurmaNivel">
+                <i class="bi bi-layers me-1 text-success"></i> Nível (Nível 1, Nível 2...)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-5">
+          <label class="form-label small fw-semibold">Nome da Turma *</label>
+          <input type="text" id="mtNome" class="form-control" required placeholder="Ex: Turma 1">
           <small class="text-muted" style="font-size: 0.72rem;">Sugerido automaticamente com base na sequência.</small>
         </div>
-        <div class="col-md-3">
-          <label class="form-label small fw-semibold">Classe / Grau</label>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold" id="labelMtGrau">Classe / Grau *</label>
           <select id="mtGrau" class="form-select" required onchange="atualizarAssistenteCriarTurma()">
             <option value="1ª Classe">1ª Classe</option>
             <option value="2ª Classe">2ª Classe</option>
@@ -568,6 +614,27 @@ async function modalCriarTurma() {
       </div>
     </form>
   `);
+
+  window.alternarRegimeModalTurma = function(regime) {
+    const sel = document.getElementById('mtGrau');
+    const lbl = document.getElementById('labelMtGrau');
+    if (!sel) return;
+    if (regime === 'NIVEL') {
+      if (lbl) lbl.textContent = 'Nível Curricular *';
+      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+    } else {
+      if (lbl) lbl.textContent = 'Classe / Grau *';
+      const classes = [
+        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+      ];
+      sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+    if (typeof atualizarAssistenteCriarTurma === 'function') {
+      atualizarAssistenteCriarTurma();
+    }
+  };
 
   setTimeout(() => {
     if (typeof atualizarAssistenteCriarTurma === 'function') {
@@ -633,11 +700,32 @@ async function modalCriarTurmasEmLote() {
   abrirModal('Gerar Turmas em Lote (1, 2, 3...)', `
     <form id="formModalTurmasLote">
       <div class="alert alert-info py-2 small mb-3">
-        <i class="bi bi-layers-fill me-1"></i> Crie rapidamente as turmas da classe sequencialmente com capacidade máxima definida e distribuição automática imediata dos alunos.
+        <i class="bi bi-layers-fill me-1"></i> Crie rapidamente as turmas da classe ou nível sequencialmente com capacidade máxima definida e distribuição automática imediata dos alunos.
       </div>
       <div class="row g-3">
+        <!-- MODALIDADE: CLASSE OU NÍVEL -->
+        <div class="col-md-12">
+          <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+            <i class="bi bi-sliders me-1 text-primary"></i> Modalidade Curricular:
+          </label>
+          <div class="d-flex gap-4 p-2 bg-light rounded border">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="loteRegime" id="loteRegimeClasse" value="CLASSE" checked onchange="window.alternarRegimeLote(this.value)">
+              <label class="form-check-label fw-semibold" for="loteRegimeClasse">
+                <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª Classe)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="loteRegime" id="loteRegimeNivel" value="NIVEL" onchange="window.alternarRegimeLote(this.value)">
+              <label class="form-check-label fw-semibold" for="loteRegimeNivel">
+                <i class="bi bi-layers me-1 text-success"></i> Nível (Nível 1, Nível 2...)
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div class="col-md-4">
-          <label class="form-label small fw-semibold">Classe / Grau</label>
+          <label class="form-label small fw-semibold" id="labelMlGrau">Classe / Grau</label>
           <select id="mlGrau" class="form-select" required onchange="document.getElementById('mlArea').innerHTML = window.obterTodasAreasOficiais(this.value).map(a => '<option value=\\'' + a + '\\'>' + a + '</option>').join('')">
             ${optGraus}
           </select>
@@ -698,6 +786,25 @@ async function modalCriarTurmasEmLote() {
       <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-plus-circle me-1"></i> Gerar Turmas da Classe</button>
     </form>
   `);
+
+  window.alternarRegimeLote = function(regime) {
+    const sel = document.getElementById('mlGrau');
+    const lbl = document.getElementById('labelMlGrau');
+    if (!sel) return;
+    if (regime === 'NIVEL') {
+      if (lbl) lbl.textContent = 'Nível Curricular *';
+      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+    } else {
+      if (lbl) lbl.textContent = 'Classe / Grau *';
+      const classes = [
+        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+      ];
+      sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+    document.getElementById('mlArea').innerHTML = window.obterTodasAreasOficiais(sel.value).map(a => '<option value="' + a + '">' + a + '</option>').join('');
+  };
 
   document.getElementById('formModalTurmasLote').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -811,11 +918,17 @@ window.modalFormacaoAutomaticaTurmas = async function(classeFiltro = 'TODAS', ar
       `;
     }
 
-    const classesSet = new Set(['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe']);
-    (state.todosAlunos || []).forEach(a => { if (a.classe) classesSet.add(a.classe); });
-    const optClasses = ['<option value="TODAS">Todas as Classes da Escola</option>']
-      .concat(Array.from(classesSet).map(c => `<option value="${c}" ${c === classeFiltro ? 'selected' : ''}>${c}</option>`))
-      .join('');
+    const classesSet = new Set();
+    (state.todosAlunos || []).forEach(a => { if (a.classe) classesSet.add(a.classe.trim()); });
+    (state.todasTurmas || []).forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+    (state.todasDisciplinas || []).forEach(d => { if (d.classe) classesSet.add(d.classe.trim()); });
+    const classesList = Array.from(classesSet).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
+
+    const optClasses = classesList.length > 0
+      ? ['<option value="TODAS">Todas as Classes / Níveis da Escola</option>']
+          .concat(classesList.map(c => `<option value="${c}" ${c === classeFiltro ? 'selected' : ''}>${c}</option>`))
+          .join('')
+      : '<option value="" disabled>-- Nenhuma classe/nível cadastrado nesta instituição --</option>';
 
     abrirModal('Formação Automática de Turmas & Enturmação (1, 2, 3...)', `
       <form id="formModalFormacaoAuto">
@@ -942,8 +1055,20 @@ async function modalEditarTurma(turmaId) {
     const optDirClasse = '<option value="">(Nenhum seleccionado)</option>' +
       professores.map(p => `<option value="${p.id}" ${p.id === turma.director_classe_id ? 'selected' : ''}>${p.nome} ${p.apelido || ''} [${p.codigo || 'Docente'}]</option>`).join('');
 
-    const graus = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
-    const optGraus = graus.map(g => `<option value="${g}" ${g === turma.grau_ano ? 'selected' : ''}>${g}</option>`).join('');
+    const classesOficiais = [
+      '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+      '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+    ];
+    const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+
+    const grauAtual = (turma.grau_ano || '').trim();
+    const isNivel = grauAtual.toLowerCase().includes('nível') || grauAtual.toLowerCase().includes('nivel');
+    const regime = isNivel ? 'NIVEL' : 'CLASSE';
+    const listaGraus = isNivel ? [...niveisOficiais] : [...classesOficiais];
+    if (!listaGraus.includes(grauAtual) && grauAtual) {
+      listaGraus.push(grauAtual);
+    }
+    const optGraus = listaGraus.map(g => `<option value="${g}" ${g === grauAtual ? 'selected' : ''}>${g}</option>`).join('');
 
     const podeHomologar = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'].includes(state.user?.role);
     const dtBadgeStatus = turma.dt_status_homologacao === 'HOMOLOGADO' && turma.codigo_director_turma
@@ -957,12 +1082,29 @@ async function modalEditarTurma(turmaId) {
     abrirModal(`Editar Turma: ${turma.nome}`, `
       <form id="formModalEditarTurma">
         <div class="row g-3">
+          <div class="col-12">
+            <div class="d-flex gap-4 p-2 bg-light rounded border align-items-center">
+              <span class="small fw-bold text-uppercase text-secondary"><i class="bi bi-sliders me-1 text-primary"></i> Modalidade:</span>
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="radio" name="editRegimeTurma" id="editRegimeClasse" value="CLASSE" ${!isNivel ? 'checked' : ''} onchange="window.alternarRegimeEditTurma(this.value)">
+                <label class="form-check-label fw-semibold small" for="editRegimeClasse">
+                  <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª)
+                </label>
+              </div>
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="radio" name="editRegimeTurma" id="editRegimeNivel" value="NIVEL" ${isNivel ? 'checked' : ''} onchange="window.alternarRegimeEditTurma(this.value)">
+                <label class="form-check-label fw-semibold small" for="editRegimeNivel">
+                  <i class="bi bi-layers-fill me-1 text-success"></i> Nível (Nível 1, 2, ...)
+                </label>
+              </div>
+            </div>
+          </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Nome da Turma</label>
             <input type="text" id="mtEditNome" class="form-control" required value="${turma.nome || ''}">
           </div>
           <div class="col-md-3">
-            <label class="form-label small fw-semibold">Classe / Grau</label>
+            <label class="form-label small fw-semibold" id="labelMtEditGrau">${isNivel ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
             <select id="mtEditGrau" class="form-select" required>
               ${optGraus}
             </select>
@@ -1049,6 +1191,24 @@ async function modalEditarTurma(turmaId) {
         </div>
       </form>
     `);
+
+    window.alternarRegimeEditTurma = function(regimeSel) {
+      const sel = document.getElementById('mtEditGrau');
+      const lbl = document.getElementById('labelMtEditGrau');
+      if (!sel) return;
+      if (regimeSel === 'NIVEL') {
+        if (lbl) lbl.textContent = 'Nível Curricular *';
+        const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+      } else {
+        if (lbl) lbl.textContent = 'Classe / Grau *';
+        const classes = [
+          '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+          '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+        ];
+        sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+      }
+    };
 
     window.nomearDirectoresNoModal = async function(tId) {
       try {

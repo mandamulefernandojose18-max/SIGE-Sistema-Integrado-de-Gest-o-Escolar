@@ -62,9 +62,6 @@ function obterClassesDocentes() {
     return numA - numB;
   });
 
-  if (ordenadas.length === 0) {
-    ordenadas.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
-  }
   return ordenadas;
 }
 
@@ -387,12 +384,14 @@ async function modalNovoProfessor() {
 
   // Classes disponíveis
   const classesDisponiveis = obterClassesDocentes();
-  const checkboxesClassesHtml = classesDisponiveis.map(cls => `
-    <div class="form-check form-check-inline">
-      <input class="form-check-input check-classe-novo-prof" type="checkbox" value="${cls}" id="chkCls_${cls.replace(/\s+/g, '')}" onchange="aoMudarClassesModalNovoProf()">
-      <label class="form-check-label small fw-semibold" for="chkCls_${cls.replace(/\s+/g, '')}">${cls}</label>
-    </div>
-  `).join('');
+  const checkboxesClassesHtml = classesDisponiveis.length > 0
+    ? classesDisponiveis.map(cls => `
+      <div class="form-check form-check-inline">
+        <input class="form-check-input check-classe-novo-prof" type="checkbox" value="${cls}" id="chkCls_${cls.replace(/\s+/g, '')}" onchange="aoMudarClassesModalNovoProf()">
+        <label class="form-check-label small fw-semibold" for="chkCls_${cls.replace(/\s+/g, '')}">${cls}</label>
+      </div>
+    `).join('')
+    : '<span class="text-muted small fst-italic">Nenhuma classe ou nível cadastrado nesta instituição ainda.</span>';
 
   // Disciplinas disponíveis
   const disciplinas = state.todasDisciplinas || [];
@@ -707,20 +706,32 @@ async function modalEditarProfessor(profId) {
                 Defina o teto normal de aulas semanais para cada classe lecionada. Aulas atribuídas acima destes valores serão contabilizadas automaticamente como <strong>Horas Extras</strong>.
               </div>
               <div class="row g-2">
-                ${['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'].map(c => {
-                  const val = (p.carga_maxima_por_classe && p.carga_maxima_por_classe[c])
-                    ? p.carga_maxima_por_classe[c]
-                    : (p.carga_horaria_semanal || 16);
-                  return `
-                    <div class="col-md-4 col-sm-6">
-                      <label class="form-label small fw-semibold mb-1"><i class="bi bi-mortarboard me-1 text-primary"></i>${c}</label>
-                      <div class="input-group input-group-sm">
-                        <input type="number" class="form-control mpeCargaClasseItem text-center fw-bold" data-classe="${c}" value="${val}" min="1" max="40">
-                        <span class="input-group-text bg-white">h/sem</span>
+                ${(() => {
+                  const classesEdicao = Array.from(new Set([
+                    ...obterClassesDocentes(),
+                    ...Object.keys(p.carga_maxima_por_classe || {}),
+                    ...(p.alocacoes || []).map(a => a.turma_grau || a.turma?.grau_ano || a.disciplina?.classe).filter(Boolean)
+                  ])).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
+
+                  if (classesEdicao.length === 0) {
+                    return `<div class="col-12 text-muted small fst-italic py-2"><i class="bi bi-info-circle me-1"></i>Nenhuma classe ou nível cadastrado nesta instituição ainda. Cadastre turmas ou disciplinas primeiro.</div>`;
+                  }
+
+                  return classesEdicao.map(c => {
+                    const val = (p.carga_maxima_por_classe && p.carga_maxima_por_classe[c])
+                      ? p.carga_maxima_por_classe[c]
+                      : (p.carga_horaria_semanal || 16);
+                    return `
+                      <div class="col-md-4 col-sm-6">
+                        <label class="form-label small fw-semibold mb-1"><i class="bi bi-mortarboard me-1 text-primary"></i>${c}</label>
+                        <div class="input-group input-group-sm">
+                          <input type="number" class="form-control mpeCargaClasseItem text-center fw-bold" data-classe="${c}" value="${val}" min="1" max="40">
+                          <span class="input-group-text bg-white">h/sem</span>
+                        </div>
                       </div>
-                    </div>
-                  `;
-                }).join('')}
+                    `;
+                  }).join('');
+                })()}
               </div>
             </div>
           </div>
@@ -823,9 +834,10 @@ async function modalAlocarProfessor(professorIdPadrao = '') {
   turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
   disciplinas.forEach(d => { if (d.classe) classesSet.add(d.classe.trim()); });
   const classesList = Array.from(classesSet).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
-  if (classesList.length === 0) classesList.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
 
-  const optClasses = classesList.map(c => `<option value="${c}">${c}</option>`).join('');
+  const optClasses = classesList.length > 0
+    ? classesList.map(c => `<option value="${c}">${c}</option>`).join('')
+    : '<option value="" disabled>-- Nenhuma classe/nível cadastrado nesta instituição --</option>';
 
   abrirModal('Atribuir Turma & Carga Horária Docente', `
     <form id="formModalAloc">
@@ -1155,10 +1167,12 @@ async function modalTransferirProfessor(profId) {
 
     const classesSet = new Set();
     turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+    disciplinas.forEach(d => { if (d.classe) classesSet.add(d.classe.trim()); });
     const classesList = Array.from(classesSet).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
-    if (classesList.length === 0) classesList.push('7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe');
 
-    const optClasses = classesList.map(c => `<option value="${c}">${c}</option>`).join('');
+    const optClasses = classesList.length > 0
+      ? classesList.map(c => `<option value="${c}">${c}</option>`).join('')
+      : '<option value="" disabled>-- Nenhuma classe/nível cadastrado nesta instituição --</option>';
 
     const alocacoesAtuaisHtml = (prof.alocacoes && prof.alocacoes.length > 0)
       ? prof.alocacoes.map(a => `

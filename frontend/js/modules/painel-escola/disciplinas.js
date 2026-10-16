@@ -88,14 +88,40 @@ function filtrarDisciplinasTabelaTexto() {
 }
 
 function modalNovaSeccaoArea() {
-  const classeAtiva = state.filtroDisciplinaClasse || '10ª Classe';
-  const classesList = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
-  const optClasses = classesList.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
+  const classesOficiais = [
+    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+  ];
+  const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+
+  const classeAtiva = (state.filtroDisciplinaClasse || '10ª Classe').trim();
+  const isNivel = classeAtiva.toLowerCase().includes('nível') || classeAtiva.toLowerCase().includes('nivel');
+  const listaInicial = isNivel ? niveisOficiais : classesOficiais;
+  const optClasses = listaInicial.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
 
   abrirModal('Cadastrar Secção / Área de Estudo', `
     <form id="formModalSeccaoArea">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Classe Correspondente *</label>
+        <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+          <i class="bi bi-sliders me-1 text-primary"></i> Modalidade Curricular:
+        </label>
+        <div class="d-flex gap-4 p-2 bg-light rounded border">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="msaRegime" id="msaRegimeClasse" value="CLASSE" ${!isNivel ? 'checked' : ''} onchange="window.alternarRegimeModalSeccao(this.value)">
+            <label class="form-check-label fw-semibold" for="msaRegimeClasse">
+              <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª)
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="msaRegime" id="msaRegimeNivel" value="NIVEL" ${isNivel ? 'checked' : ''} onchange="window.alternarRegimeModalSeccao(this.value)">
+            <label class="form-check-label fw-semibold" for="msaRegimeNivel">
+              <i class="bi bi-layers-fill me-1 text-success"></i> Nível (Nível 1, 2, ...)
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold" id="labelMsaClasse">${isNivel ? 'Nível Correspondente *' : 'Classe Correspondente *'}</label>
         <select id="msaClasse" class="form-select" required>
           ${optClasses}
         </select>
@@ -110,6 +136,24 @@ function modalNovaSeccaoArea() {
       </button>
     </form>
   `);
+
+  window.alternarRegimeModalSeccao = function(regime) {
+    const sel = document.getElementById('msaClasse');
+    const lbl = document.getElementById('labelMsaClasse');
+    if (!sel) return;
+    if (regime === 'NIVEL') {
+      if (lbl) lbl.textContent = 'Nível Correspondente *';
+      const niveis = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
+    } else {
+      if (lbl) lbl.textContent = 'Classe Correspondente *';
+      const classes = [
+        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+      ];
+      sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+  };
 
   document.getElementById('formModalSeccaoArea').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -243,33 +287,79 @@ async function carregarDisciplinas() {
         state.todasDisciplinas = exist;
       }
 
+      // Sincronizar dinamicamente o seletor de filtro apenas com as Classes ou Níveis reais da instituição
+      const selClasseEl = document.getElementById('filtroDisciplinasClasseSelect');
+      if (selClasseEl) {
+        const classesUnicas = Array.from(new Set(
+          (state.todasDisciplinas || []).map(d => (d.classe || '').trim()).filter(Boolean)
+        )).sort((a, b) => {
+          const numA = parseInt(a.replace(/\D/g, '')) || 0;
+          const numB = parseInt(b.replace(/\D/g, '')) || 0;
+          return numA - numB;
+        });
+
+        if (classesUnicas.length === 0) {
+          selClasseEl.innerHTML = '<option value="">-- Nenhuma classe/nível cadastrado --</option>';
+        } else {
+          let optHtml = '<option value="">Todas as Classes / Níveis</option>';
+          classesUnicas.forEach(c => {
+            const isAct = (state.filtroDisciplinaClasse === c) ? 'selected' : '';
+            optHtml += `<option value="${c}" ${isAct}>${c}</option>`;
+          });
+          selClasseEl.innerHTML = optHtml;
+        }
+      }
+
       if (!tbody) return;
 
       if (lista.length === 0) {
-        const descClasse = state.filtroDisciplinaClasse || 'Todas as Classes';
-        const descArea = state.filtroDisciplinaArea ? `na área "${state.filtroDisciplinaArea}"` : '';
-        const descBusca = buscaVal ? `com o termo "${buscaVal}"` : '';
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" class="text-center py-5">
-              <div class="text-muted">
-                <i class="bi bi-info-circle fs-3 text-secondary d-block mb-2"></i>
-                <div class="fw-semibold">Nenhuma disciplina encontrada</div>
-                <div class="small text-muted mt-1">
-                  Não foram encontradas disciplinas cadastradas para <strong>${descClasse}</strong> ${descArea} ${descBusca}.
+        const totalInstituicao = (state.todasDisciplinas || []).length;
+        if (totalInstituicao === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" class="text-center py-5">
+                <div class="text-muted">
+                  <i class="bi bi-mortarboard fs-2 text-primary d-block mb-2"></i>
+                  <div class="fw-semibold">Nenhuma disciplina cadastrada nesta instituição</div>
+                  <div class="small text-muted mt-1">
+                    Cada instituição define as suas políticas curriculares (<strong>Classe da 1ª à 12ª</strong> ou <strong>Nível 1, 2...</strong>).<br>
+                    Cadastre as disciplinas em função das políticas e critérios que a sua instituição define.
+                  </div>
+                  <div class="mt-3">
+                    <button class="btn btn-primary btn-sm px-4" onclick="modalNovaDisciplina()">
+                      <i class="bi bi-plus-circle me-1"></i> Cadastrar Primeira Disciplina
+                    </button>
+                  </div>
                 </div>
-                <div class="mt-3">
-                  <button class="btn btn-outline-primary btn-sm me-2" onclick="modalNovaDisciplina()">
-                    <i class="bi bi-plus-circle me-1"></i> Cadastrar Disciplina
-                  </button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="filtrarDisciplinasClasse(''); filtrarDisciplinasArea('');">
-                    <i class="bi bi-arrow-repeat me-1"></i> Limpar Filtros
-                  </button>
+              </td>
+            </tr>
+          `;
+        } else {
+          const descClasse = state.filtroDisciplinaClasse || 'Todas as Classes / Níveis';
+          const descArea = state.filtroDisciplinaArea ? `na área "${state.filtroDisciplinaArea}"` : '';
+          const descBusca = buscaVal ? `com o termo "${buscaVal}"` : '';
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" class="text-center py-5">
+                <div class="text-muted">
+                  <i class="bi bi-info-circle fs-3 text-secondary d-block mb-2"></i>
+                  <div class="fw-semibold">Nenhuma disciplina encontrada com estes filtros</div>
+                  <div class="small text-muted mt-1">
+                    Não foram encontradas disciplinas cadastradas para <strong>${descClasse}</strong> ${descArea} ${descBusca}.
+                  </div>
+                  <div class="mt-3">
+                    <button class="btn btn-outline-primary btn-sm me-2" onclick="modalNovaDisciplina()">
+                      <i class="bi bi-plus-circle me-1"></i> Cadastrar Disciplina
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="filtrarDisciplinasClasse(''); filtrarDisciplinasArea('');">
+                      <i class="bi bi-arrow-repeat me-1"></i> Limpar Filtros
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </td>
-          </tr>
-        `;
+              </td>
+            </tr>
+          `;
+        }
       } else {
         tbody.innerHTML = lista.map(d => `
           <tr>
@@ -353,35 +443,68 @@ function renderizarGraficoReprovacao(ranking) {
 }
 
 function modalNovaDisciplina() {
-  const classeInicial = state.filtroDisciplinaClasse || '10ª Classe';
+  const classesOficiais = [
+    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+  ];
+  const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+
+  const classeFiltroAtiva = (state.filtroDisciplinaClasse || '').trim();
+  const isNivelInicial = classeFiltroAtiva.toLowerCase().includes('nível') || classeFiltroAtiva.toLowerCase().includes('nivel');
+  const regimeInicial = isNivelInicial ? 'NIVEL' : 'CLASSE';
+
+  const opcoesIniciais = isNivelInicial ? niveisOficiais : classesOficiais;
+  const itemInicial = opcoesIniciais.includes(classeFiltroAtiva) ? classeFiltroAtiva : opcoesIniciais[0];
+
   const areasIniciais = typeof window.obterTodasAreasOficiais === 'function'
-    ? window.obterTodasAreasOficiais(classeInicial)
+    ? window.obterTodasAreasOficiais(itemInicial)
     : ['Ensino Geral', 'Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História'];
 
   const optAreas = areasIniciais.map(a => 
     `<option value="${a}" ${state.filtroDisciplinaArea === a ? 'selected' : ''}>${a}</option>`
   ).join('');
 
+  const optOpcoesHtml = opcoesIniciais.map(o => 
+    `<option value="${o}" ${itemInicial === o ? 'selected' : ''}>${o}</option>`
+  ).join('');
+
   abrirModal('Nova Disciplina Curricular', `
     <form id="formModalDisc">
       <div class="row g-3">
+        <!-- SELETOR DE MODALIDADE: CLASSE OU NÍVEL -->
+        <div class="col-md-12">
+          <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+            <i class="bi bi-sliders me-1 text-primary"></i> 1. Modalidade Curricular:
+          </label>
+          <div class="d-flex gap-4 p-2 bg-light rounded border">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="modalRegimeCurricular" id="regimeClasse" value="CLASSE" ${regimeInicial === 'CLASSE' ? 'checked' : ''} onchange="window.alternarRegimeModalNovaDisc(this.value)">
+              <label class="form-check-label fw-semibold" for="regimeClasse">
+                <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª Classe)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="modalRegimeCurricular" id="regimeNivel" value="NIVEL" ${regimeInicial === 'NIVEL' ? 'checked' : ''} onchange="window.alternarRegimeModalNovaDisc(this.value)">
+              <label class="form-check-label fw-semibold" for="regimeNivel">
+                <i class="bi bi-layers me-1 text-success"></i> Nível (Nível 1, Nível 2...)
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div class="col-md-8">
           <label class="form-label small fw-semibold">Nome da Disciplina *</label>
-          <input type="text" id="mdNome" class="form-control" required placeholder="Ex: Matemática, Física, Português...">
+          <input type="text" id="mdNome" class="form-control" required placeholder="Ex: Matemática, Física, Português, Desenho Técnico...">
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Código Curricular *</label>
-          <input type="text" id="mdCodigo" class="form-control" required placeholder="Ex: MAT-10">
+          <input type="text" id="mdCodigo" class="form-control" required placeholder="Ex: MAT-10 ou TEC-N1">
         </div>
+
         <div class="col-md-6">
-          <label class="form-label small fw-semibold">Grupo de Classe *</label>
+          <label class="form-label small fw-semibold" id="labelMdClasse">${regimeInicial === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
           <select id="mdClasse" class="form-select" required onchange="aoMudarClasseModalNovaDisc(this.value)">
-            <option value="7ª Classe" ${classeInicial === '7ª Classe' ? 'selected' : ''}>7ª Classe</option>
-            <option value="8ª Classe" ${classeInicial === '8ª Classe' ? 'selected' : ''}>8ª Classe</option>
-            <option value="9ª Classe" ${classeInicial === '9ª Classe' ? 'selected' : ''}>9ª Classe</option>
-            <option value="10ª Classe" ${classeInicial === '10ª Classe' ? 'selected' : ''}>10ª Classe</option>
-            <option value="11ª Classe" ${classeInicial === '11ª Classe' ? 'selected' : ''}>11ª Classe</option>
-            <option value="12ª Classe" ${classeInicial === '12ª Classe' ? 'selected' : ''}>12ª Classe</option>
+            ${optOpcoesHtml}
           </select>
         </div>
         <div class="col-md-6">
@@ -392,7 +515,7 @@ function modalNovaDisciplina() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Carga Horária (Aulas/Semana)</label>
-          <input type="number" id="mdCarga" class="form-control" value="5" min="1" max="20" required>
+          <input type="number" id="mdCarga" class="form-control" value="5" min="1" max="40" required>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Ano Lectivo</label>
@@ -402,6 +525,22 @@ function modalNovaDisciplina() {
       <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-plus-circle me-1"></i> Criar Disciplina no Plano Curricular</button>
     </form>
   `);
+
+  window.alternarRegimeModalNovaDisc = function(regime) {
+    const sel = document.getElementById('mdClasse');
+    const lbl = document.getElementById('labelMdClasse');
+    if (!sel) return;
+    if (regime === 'NIVEL') {
+      if (lbl) lbl.textContent = 'Nível Curricular *';
+      sel.innerHTML = niveisOficiais.map(n => `<option value="${n}">${n}</option>`).join('');
+    } else {
+      if (lbl) lbl.textContent = 'Classe / Grau *';
+      sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+    if (typeof window.aoMudarClasseModalNovaDisc === 'function') {
+      window.aoMudarClasseModalNovaDisc(sel.value);
+    }
+  };
 
   window.aoMudarClasseModalNovaDisc = function(novaClasse) {
     const selArea = document.getElementById('mdArea');
@@ -429,7 +568,6 @@ function modalNovaDisciplina() {
         body: JSON.stringify(body)
       });
       if (res.success) {
-        // Garantir que a área cadastrada fique salva no catálogo e apareça no filtro
         if (areaVal) {
           const chAll = 'sige_custom_areas_all';
           const exAll = JSON.parse(localStorage.getItem(chAll) || '[]');
@@ -455,8 +593,21 @@ async function modalEditarDisciplina(disciplinaId) {
     if (!res.success || !res.data) return alert('Disciplina não encontrada');
     const d = res.data;
 
-    const classes = ['7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'];
-    const optClasses = classes.map(c => `<option value="${c}" ${c === d.classe ? 'selected' : ''}>${c}</option>`).join('');
+    const classesOficiais = [
+      '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+      '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+    ];
+    const niveisOficiais = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+
+    const classeVal = (d.classe || '').trim();
+    const isNivel = classeVal.toLowerCase().includes('nível') || classeVal.toLowerCase().includes('nivel');
+    const regime = isNivel ? 'NIVEL' : 'CLASSE';
+    const listaOpcoes = isNivel ? niveisOficiais : classesOficiais;
+
+    if (!listaOpcoes.includes(classeVal) && classeVal) {
+      listaOpcoes.push(classeVal);
+    }
+    const optOpcoes = listaOpcoes.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
 
     const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(d.classe)
@@ -469,6 +620,27 @@ async function modalEditarDisciplina(disciplinaId) {
     abrirModal(`Editar Disciplina: ${d.nome}`, `
       <form id="formModalEditarDisc">
         <div class="row g-3">
+          <!-- MODALIDADE: CLASSE OU NÍVEL -->
+          <div class="col-md-12">
+            <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+              <i class="bi bi-sliders me-1 text-primary"></i> Modalidade Curricular:
+            </label>
+            <div class="d-flex gap-4 p-2 bg-light rounded border">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="editRegimeCurricular" id="editRegimeClasse" value="CLASSE" ${regime === 'CLASSE' ? 'checked' : ''} onchange="window.alternarRegimeModalEditarDisc(this.value)">
+                <label class="form-check-label fw-semibold" for="editRegimeClasse">
+                  <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª Classe)
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="editRegimeCurricular" id="editRegimeNivel" value="NIVEL" ${regime === 'NIVEL' ? 'checked' : ''} onchange="window.alternarRegimeModalEditarDisc(this.value)">
+                <label class="form-check-label fw-semibold" for="editRegimeNivel">
+                  <i class="bi bi-layers me-1 text-success"></i> Nível (Nível 1, Nível 2...)
+                </label>
+              </div>
+            </div>
+          </div>
+
           <div class="col-md-8">
             <label class="form-label small fw-semibold">Nome da Disciplina *</label>
             <input type="text" id="mdeNome" class="form-control" required value="${d.nome || ''}">
@@ -478,9 +650,9 @@ async function modalEditarDisciplina(disciplinaId) {
             <input type="text" id="mdeCodigo" class="form-control" required value="${d.codigo || ''}">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Grupo de Classe *</label>
+            <label class="form-label small fw-semibold" id="labelMdeClasse">${regime === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
             <select id="mdeClasse" class="form-select" required onchange="aoMudarClasseModalEditarDisc(this.value)">
-              ${optClasses}
+              ${optOpcoes}
             </select>
           </div>
           <div class="col-md-6">
@@ -504,6 +676,22 @@ async function modalEditarDisciplina(disciplinaId) {
         </div>
       </form>
     `);
+
+    window.alternarRegimeModalEditarDisc = function(novoRegime) {
+      const sel = document.getElementById('mdeClasse');
+      const lbl = document.getElementById('labelMdeClasse');
+      if (!sel) return;
+      if (novoRegime === 'NIVEL') {
+        if (lbl) lbl.textContent = 'Nível Curricular *';
+        sel.innerHTML = niveisOficiais.map(n => `<option value="${n}">${n}</option>`).join('');
+      } else {
+        if (lbl) lbl.textContent = 'Classe / Grau *';
+        sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
+      }
+      if (typeof window.aoMudarClasseModalEditarDisc === 'function') {
+        window.aoMudarClasseModalEditarDisc(sel.value);
+      }
+    };
 
     window.aoMudarClasseModalEditarDisc = function(novaClasse) {
       const selArea = document.getElementById('mdeArea');

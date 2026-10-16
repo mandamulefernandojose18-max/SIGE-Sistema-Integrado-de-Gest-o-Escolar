@@ -1,7 +1,7 @@
 /**
- * SIGE - PAINEL-PROFESSOR | Material Did�tico & Escolar
- * Ficheiro de c�digo independente do menu: material-escolar.js
- * Isolamento estrito de painel: Nenhuma liga��o entre pain�is de n�veis distintos.
+ * SIGE - PAINEL-PROFESSOR | Material Did�tico & Escolar
+ * Ficheiro de c�digo independente do menu: material-escolar.js
+ * Isolamento estrito de painel: Nenhuma liga��o entre pain�is de n�veis distintos.
  */
 // ==================== MATERIAL ESCOLAR POR CLASSE ====================
 state.materialEscolar = {
@@ -12,7 +12,8 @@ state.materialEscolar = {
 
 const CLASSES_SISTEMA_ORDEM = [
   '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-  '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+  '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe',
+  'Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'
 ];
 
 async function carregarPainelMaterialEscolar(classeFiltro) {
