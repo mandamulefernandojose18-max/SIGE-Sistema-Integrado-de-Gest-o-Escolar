@@ -93,7 +93,19 @@ Em produção com PostgreSQL 16 (`backend/supabase_schema_rls.sql`), a seguranç
 - Habilita-se `ROW LEVEL SECURITY` em todas as tabelas `sige_*`.
 - Políticas SQL garantem que qualquer comando `SELECT`, `INSERT`, `UPDATE` ou `DELETE` filtre automaticamente por `escola_id = auth.user_escola_id()`, a menos que `auth.is_superadmin()` seja verdadeiro.
 
+### 2.5. Desacoplamento Financeiro B2B SaaS vs. B2C Escola
+A plataforma aplica uma regra inquebrável de segregação de responsabilidades financeiras:
+1. **Governança SaaS B2B (`tenants.Plano` / `SaasPlano`):**
+   - Os planos comerciais do SaaS destinam-se exclusivamente à gestão de contratos e quotas entre o **Super Admin** e as **Instituições de Ensino**.
+   - Os endpoints de planos SaaS (`/api/v1/planos/`) são estritamente restritos a `SUPERADMIN` (`IsSuperAdmin`). Utilizadores de escolas comuns recebem imediatamente `HTTP 403 Forbidden`.
+   - As visualizações de assinatura de escola (`MinhaAssinaturaView` e `RegistarPagamentoInstituicaoView`) rejeitam terminantemente utilizadores dos perfis `ALUNO` e `PROFESSOR`.
+2. **Finanças Académicas B2C (`pagamentos.PlanoPagamentoEscola`):**
+   - Cada escola tem autonomia plena para criar os seus próprios planos de pagamento, tabelas de propinas e taxas escolares (`sige_planos_pagamento_escola`), associando-os aos seus estudantes.
+   - O isolamento multi-tenant impede qualquer contaminação: o que a Escola A configura ou fatura jamais é visto, editado ou refletido na Escola B.
+   - Qualquer tentativa de criar uma cobrança (`Pagamento`) associando um plano de pagamento de outra escola é barrada no `clean()` e na API com erro de integridade multi-tenant.
+
 ---
+
 
 ## 3. Os 6 Pilares de Integridade (Defesa em Profundidade)
 

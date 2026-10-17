@@ -86,7 +86,8 @@ Auditoria cronológica e rastreabilidade de acessos e tentativas.
 ---
 
 ### 2.3. `sige_planos` (`apps.tenants.models.Plano`)
-Catálogo de planos comerciais da plataforma SaaS.
+Catálogo de planos comerciais da plataforma SaaS (Subscrições B2B geridas exclusivamente pelo Super Admin para contratos com as escolas). Não é acessível a utilizadores comuns das instituições.
+
 
 | Campo | Tipo SQL | Nulo? | Descrição / Restrição |
 | :--- | :--- | :---: | :--- |
@@ -314,22 +315,48 @@ Biblioteca pedagógica de conteúdos didáticos.
 ---
 
 ### 2.15. `sige_pagamentos` (`apps.pagamentos.models.Pagamento`)
-Gestão financeira de propinas e emissão de recibos oficiais.
+Gestão financeira de propinas e emissão de recibos oficiais escolares.
 
 | Campo | Tipo SQL | Nulo? | Descrição / Restrição |
 | :--- | :--- | :---: | :--- |
 | `id` | `UUID` (PK) | Não | Identificador da cobrança. |
 | `escola_id` | `UUID` (FK) | Não | Escola credora. |
 | `aluno_id` | `UUID` (FK) | Não | Aluno devedor/titular. |
-| `mes_referencia` | `INTEGER` | Não | Mês da mensalidade (1 a 12). |
+| `plano_pagamento_id` | `UUID` (FK) | Sim | Chave estrangeira para `sige_planos_pagamento_escola` (validação multi-tenant no mesmo `escola_id`). |
+| `tipo_pagamento` | `VARCHAR(30)` | Não | `MENSALIDADE`, `MATRICULA`, `EXAME`, `CERTIFICADO`, `OUTRO`. |
+| `mes_referencia` | `INTEGER` | Sim | Mês da mensalidade (1 a 12). |
 | `ano_referencia` | `INTEGER` | Não | Ano da propina (ex: 2026). |
 | `valor` | `DECIMAL(10,2)`| Não | Valor da propina em Meticais (`MZN`). |
 | `valor_pago` | `DECIMAL(10,2)`| Não | Quantia liquidada. |
+| `data_vencimento` | `DATE` | Não | Data limite para pagamento sem juros/multa. |
 | `status` | `VARCHAR(20)` | Não | `PENDENTE`, `PAGO`, `ATRASADO`, `CANCELADO`. |
 | `metodo_pagamento`| `VARCHAR(30)` | Sim | `MPESA`, `EMOLA`, `POS`, `TRANSFERENCIA`, `NUMERARIO`. |
 | `numero_recibo` | `VARCHAR(50)` | Sim | Identificador único de recibo (`REC-2026-00001`). |
 | `data_pagamento` | `TIMESTAMPTZ` | Sim | Data e hora da quitação. |
+| `observacoes` | `TEXT` | Sim | Descrição ou anotações complementares. |
 | *Check Constraints*| SQL | — | `CHECK (valor > 0)` e `CHECK (valor_pago >= 0)`. |
+
+---
+
+### 2.15.1. `sige_planos_pagamento_escola` (`apps.pagamentos.models.PlanoPagamentoEscola`)
+Tabela de planos de propinas e emolumentos próprios de cada instituição escolar (B2C), com total isolamento multi-tenant.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador do plano escolar. |
+| `escola_id` | `UUID` (FK) | Não | Escola proprietária do plano de propina. |
+| `nome` | `VARCHAR(150)` | Não | Designação do plano (ex: *Propina Geral 10ª Classe*). |
+| `descricao` | `TEXT` | Sim | Descrição dos serviços, taxas e condições incluídas. |
+| `valor` | `DECIMAL(10,2)`| Não | Valor base da propina ou emolumento em Meticais (`MZN`). |
+| `periodicidade` | `VARCHAR(20)` | Não | `MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`, `UNICA`. |
+| `dia_vencimento_padrao` | `INTEGER` | Não | Dia padrão de vencimento todo mês (1 a 31, default 10). |
+| `multa_atraso_percentual` | `DECIMAL(5,2)` | Não | Percentual de penalização por atraso (default 0.00%). |
+| `multa_atraso_fixo` | `DECIMAL(10,2)` | Não | Valor fixo de penalização por atraso em MZN (default 0.00). |
+| `ativo` | `BOOLEAN` | Não | Se o plano está disponível para novas emissões (default True). |
+| `created_at` | `TIMESTAMPTZ` | Não | Data/hora de criação do registo. |
+| `updated_at` | `TIMESTAMPTZ` | Não | Data/hora da última alteração. |
+| *Integridade Multi-Tenant* | Validação Python | — | `validar_integridade_tenant(self, aluno, plano)` garante que planos e alunos pertencem à mesma escola. |
+
 
 ---
 

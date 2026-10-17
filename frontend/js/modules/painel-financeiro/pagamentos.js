@@ -27,8 +27,11 @@ async function carregarPagamentos(anoParam) {
       const tbody = document.getElementById('tabelaPagamentos');
       tbody.innerHTML = resP.data.map(p => `
         <tr>
-          <td><strong>${p.aluno.nome}</strong></td>
+          <td><strong>${p.aluno?.nome || (p.aluno_nome || '-')}</strong></td>
           <td>${p.descricao}</td>
+          <td>
+            ${p.plano ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-tag me-1"></i>${p.plano.nome}</span>` : '<span class="text-muted small">Avulso</span>'}
+          </td>
           <td><code>${p.mes_referencia}</code></td>
           <td><strong class="text-success">${formatarMoeda(p.valor)}</strong></td>
           <td>${new Date(p.data_vencimento).toLocaleDateString('pt-PT')}</td>
@@ -54,6 +57,7 @@ async function carregarPagamentos(anoParam) {
           </td>
         </tr>
       `).join('');
+      carregarPlanosEscola();
     }
   } catch (err) {}
 }
@@ -76,42 +80,71 @@ async function liquidarPagamento(id, valor) {
 }
 
 async function modalNovoPagamento() {
-  const alunosRes = await apiFetch('/api/v1/alunos');
+  const [alunosRes, planosRes] = await Promise.all([
+    apiFetch('/api/v1/alunos'),
+    apiFetch('/api/v1/pagamentos/planos-escola?ativo=true')
+  ]);
+
   const optAlunos = (alunosRes.data || []).map(a => `<option value="${a.id}">${a.nome} (${a.matricula})</option>`).join('');
+  const planos = (planosRes.data || []);
+  const optPlanos = `<option value="">-- Personalizado / Sem Plano Vinculado --</option>` +
+    planos.map(p => `<option value="${p.id}" data-valor="${p.valor}" data-nome="${p.nome}" data-dia="${p.dia_vencimento_padrao}">${p.nome} (${formatarMoeda(p.valor)})</option>`).join('');
 
   abrirModal('Lançar Cobrança Individual de Mensalidade', `
     <form id="formModalPag">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Aluno</label>
+        <label class="form-label small fw-semibold">Aluno *</label>
         <select id="mpagAluno" class="form-select" required>${optAlunos}</select>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Descrição</label>
+        <label class="form-label small fw-semibold">Plano de Propinas da Escola (Opcional)</label>
+        <select id="mpagPlano" class="form-select">${optPlanos}</select>
+        <small class="text-muted">Seleccione um plano criado por esta escola para preenchimento automático.</small>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Descrição *</label>
         <input type="text" id="mpagDesc" class="form-control" value="Mensalidade Escolar" required>
       </div>
       <div class="row g-2 mb-3">
         <div class="col-6">
-          <label class="form-label small fw-semibold">Mês Ref.</label>
+          <label class="form-label small fw-semibold">Mês Ref. *</label>
           <input type="text" id="mpagMes" class="form-control" value="2026-03" required>
         </div>
         <div class="col-6">
-          <label class="form-label small fw-semibold">Valor em Meticais (MZN)</label>
+          <label class="form-label small fw-semibold">Valor em Meticais (MZN) *</label>
           <input type="number" id="mpagValor" class="form-control" value="2500" required>
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Data de Vencimento</label>
+        <label class="form-label small fw-semibold">Data de Vencimento *</label>
         <input type="date" id="mpagVenc" class="form-control" required>
       </div>
       <button type="submit" class="btn btn-primary w-100">Gerar Cobrança</button>
     </form>
   `);
 
+  const selPlano = document.getElementById('mpagPlano');
+  if (selPlano) {
+    selPlano.addEventListener('change', () => {
+      const opt = selPlano.options[selPlano.selectedIndex];
+      if (opt && opt.value) {
+        document.getElementById('mpagDesc').value = opt.getAttribute('data-nome') || '';
+        document.getElementById('mpagValor').value = opt.getAttribute('data-valor') || '';
+        const dia = opt.getAttribute('data-dia') || '10';
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        document.getElementById('mpagVenc').value = `${ano}-${mes}-${String(dia).padStart(2, '0')}`;
+      }
+    });
+  }
+
   document.getElementById('formModalPag').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
       const alunoId = document.getElementById('mpagAluno').value;
       const mesRef = document.getElementById('mpagMes').value.trim();
+      const planoId = document.getElementById('mpagPlano').value || null;
 
       // Verificação preventiva local se a fatura já existe no sistema para este mês
       if (window.listaUltimosPagamentos && window.listaUltimosPagamentos.some(p => {
@@ -126,6 +159,7 @@ async function modalNovoPagamento() {
         method: 'POST',
         body: JSON.stringify({
           aluno_id: alunoId,
+          plano_pagamento_id: planoId,
           descricao: document.getElementById('mpagDesc').value,
           mes_referencia: mesRef,
           valor: Number(document.getElementById('mpagValor').value),
@@ -145,47 +179,83 @@ async function modalNovoPagamento() {
 }
 
 async function modalGerarMensalidadesTurma() {
-  const turmasRes = await apiFetch('/api/v1/escola-admin/turmas');
+  const [turmasRes, planosRes] = await Promise.all([
+    apiFetch('/api/v1/escola-admin/turmas'),
+    apiFetch('/api/v1/pagamentos/planos-escola?ativo=true')
+  ]);
+
   const optTurmas = (turmasRes.data || []).map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+  const planos = (planosRes.data || []);
+  const optPlanos = `<option value="">-- Personalizado / Sem Plano Vinculado --</option>` +
+    planos.map(p => `<option value="${p.id}" data-valor="${p.valor}" data-nome="${p.nome}" data-dia="${p.dia_vencimento_padrao}">${p.nome} (${formatarMoeda(p.valor)})</option>`).join('');
 
   abrirModal('Gerar Mensalidades em Lote para a Turma', `
     <form id="formModalLotePag">
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Turma</label>
+        <label class="form-label small fw-semibold">Turma *</label>
         <select id="mlotTurma" class="form-select" required>${optTurmas}</select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Plano de Propinas da Escola (Opcional)</label>
+        <select id="mlotPlano" class="form-select">${optPlanos}</select>
+        <small class="text-muted">Seleccione um plano criado por esta escola para preenchimento automático.</small>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Descrição da Cobrança *</label>
+        <input type="text" id="mlotDesc" class="form-control" value="Propina de 2026-03" required>
       </div>
       <div class="row g-2 mb-3">
         <div class="col-6">
-          <label class="form-label small fw-semibold">Mês Ref. (AAAA-MM)</label>
+          <label class="form-label small fw-semibold">Mês Ref. (AAAA-MM) *</label>
           <input type="text" id="mlotMes" class="form-control" value="2026-03" required>
         </div>
         <div class="col-6">
-          <label class="form-label small fw-semibold">Valor da Propina (MZN)</label>
+          <label class="form-label small fw-semibold">Valor da Propina (MZN) *</label>
           <input type="number" id="mlotValor" class="form-control" value="2500" required>
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label small fw-semibold">Data de Vencimento</label>
+        <label class="form-label small fw-semibold">Data de Vencimento *</label>
         <input type="date" id="mlotVenc" class="form-control" required>
       </div>
       <button type="submit" class="btn btn-primary w-100">Gerar Mensalidades para Todos os Alunos</button>
     </form>
   `);
 
+  const selPlano = document.getElementById('mlotPlano');
+  if (selPlano) {
+    selPlano.addEventListener('change', () => {
+      const opt = selPlano.options[selPlano.selectedIndex];
+      if (opt && opt.value) {
+        document.getElementById('mlotValor').value = opt.getAttribute('data-valor') || '';
+        const nomePlano = opt.getAttribute('data-nome') || '';
+        const mesRef = document.getElementById('mlotMes').value || '';
+        document.getElementById('mlotDesc').value = `${nomePlano} - ${mesRef}`;
+        const dia = opt.getAttribute('data-dia') || '10';
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        document.getElementById('mlotVenc').value = `${ano}-${mes}-${String(dia).padStart(2, '0')}`;
+      }
+    });
+  }
+
   document.getElementById('formModalLotePag').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
       const turmaId = document.getElementById('mlotTurma').value;
       const mesRef = document.getElementById('mlotMes').value.trim();
+      const planoId = document.getElementById('mlotPlano').value || null;
 
       const res = await apiFetch('/api/v1/pagamentos/gerar-turma', {
         method: 'POST',
         body: JSON.stringify({
           turma_id: turmaId,
+          plano_id: planoId,
           mes_referencia: mesRef,
           valor: Number(document.getElementById('mlotValor').value),
           data_vencimento: document.getElementById('mlotVenc').value,
-          descricao: `Propina de ${mesRef}`
+          descricao: document.getElementById('mlotDesc').value
         })
       });
       if (res.success) {
@@ -199,6 +269,219 @@ async function modalGerarMensalidadesTurma() {
       mostrarAlerta(msg, 'warning', 'Aviso');
     }
   });
+}
+
+// ==================== GESTÃO DE PLANOS PRÓPRIOS DA ESCOLA ====================
+async function carregarPlanosEscola() {
+  const tbody = document.getElementById('tabelaPlanosEscola');
+  if (!tbody) return;
+  try {
+    const res = await apiFetch('/api/v1/pagamentos/planos-escola');
+    if (res && res.success && Array.isArray(res.data)) {
+      window.listaPlanosEscola = res.data;
+      if (res.data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center py-4 text-muted">
+              <i class="bi bi-info-circle me-1"></i>Nenhum plano ou emolumento criado ainda por esta instituição.
+              <br><small>Clique em <strong>Novo Plano Escolar</strong> para definir a tabela oficial de propinas e taxas da escola.</small>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = res.data.map(plano => `
+        <tr>
+          <td>
+            <strong>${plano.nome}</strong>
+            ${plano.descricao ? `<br><small class="text-muted">${plano.descricao}</small>` : ''}
+          </td>
+          <td>
+            <span class="badge bg-info bg-opacity-10 text-info border border-info">
+              ${plano.periodicidade_display || plano.periodicidade}
+            </span>
+          </td>
+          <td><strong class="text-success">${formatarMoeda(plano.valor)}</strong></td>
+          <td>Dia <strong>${plano.dia_vencimento_padrao}</strong></td>
+          <td><span class="badge bg-secondary">${plano.total_faturas || 0} faturas</span></td>
+          <td>
+            <span class="badge ${plano.ativo ? 'bg-success' : 'bg-secondary'}">
+              ${plano.ativo ? 'Activo' : 'Inactivo'}
+            </span>
+          </td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-primary btn-sm" onclick="modalEditarPlanoEscola('${plano.id}')" title="Editar Plano">
+                <i class="bi bi-pencil me-1"></i> Editar
+              </button>
+              <button class="btn btn-outline-${plano.ativo ? 'danger' : 'success'} btn-sm" onclick="toggleStatusPlanoEscola('${plano.id}', ${plano.ativo})" title="${plano.ativo ? 'Desactivar' : 'Activar'}">
+                <i class="bi bi-${plano.ativo ? 'slash-circle' : 'check-circle'} me-1"></i> ${plano.ativo ? 'Desactivar' : 'Activar'}
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Erro ao carregar planos de pagamento: ${err.message || ''}</td></tr>`;
+  }
+}
+
+async function modalNovoPlanoEscola() {
+  abrirModal('Novo Plano de Propinas / Taxa da Escola', `
+    <form id="formModalPlanoEscola">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Nome do Plano / Emolumento *</label>
+        <input type="text" id="planoNome" class="form-control" placeholder="ex: Propina Regular 10ª Classe, Taxa de Matrícula" required>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Valor em Meticais (MZN) *</label>
+          <input type="number" id="planoValor" class="form-control" min="0" step="0.01" placeholder="2500" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Periodicidade *</label>
+          <select id="planoPeriodicidade" class="form-select" required>
+            <option value="MENSAL" selected>Mensal</option>
+            <option value="TRIMESTRAL">Trimestral</option>
+            <option value="SEMESTRAL">Semestral</option>
+            <option value="ANUAL">Anual</option>
+            <option value="UNICA">Taxa Única / Emolumento</option>
+          </select>
+        </div>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Dia de Vencimento Padrão *</label>
+          <input type="number" id="planoDiaVenc" class="form-control" min="1" max="31" value="10" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Multa por Atraso (%)</label>
+          <input type="number" id="planoMulta" class="form-control" min="0" step="0.01" value="0">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Descrição / Observações</label>
+        <textarea id="planoDescricao" class="form-control" rows="2" placeholder="Informações adicionais aplicáveis a esta propina ou taxa"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Criar Plano de Propinas</button>
+    </form>
+  `);
+
+  document.getElementById('formModalPlanoEscola').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        nome: document.getElementById('planoNome').value.trim(),
+        valor: Number(document.getElementById('planoValor').value),
+        periodicidade: document.getElementById('planoPeriodicidade').value,
+        dia_vencimento_padrao: Number(document.getElementById('planoDiaVenc').value),
+        multa_atraso_percentual: Number(document.getElementById('planoMulta').value || 0),
+        descricao: document.getElementById('planoDescricao').value.trim(),
+      };
+      const res = await apiFetch('/api/v1/pagamentos/planos-escola', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (res.success) {
+        mostrarNotificacao('Plano de pagamento escolar criado com sucesso!', 'success');
+        fecharModal();
+        await carregarPlanosEscola();
+      }
+    } catch (err) {
+      mostrarAlerta(err.message || 'Erro ao criar plano', 'danger', 'Erro');
+    }
+  });
+}
+
+async function modalEditarPlanoEscola(planoId) {
+  const plano = (window.listaPlanosEscola || []).find(p => String(p.id) === String(planoId));
+  if (!plano) return;
+
+  abrirModal('Editar Plano de Propinas da Escola', `
+    <form id="formModalEditPlanoEscola">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Nome do Plano / Emolumento *</label>
+        <input type="text" id="editPlanoNome" class="form-control" value="${plano.nome}" required>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Valor em Meticais (MZN) *</label>
+          <input type="number" id="editPlanoValor" class="form-control" min="0" step="0.01" value="${plano.valor}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Periodicidade *</label>
+          <select id="editPlanoPeriodicidade" class="form-select" required>
+            <option value="MENSAL" ${plano.periodicidade === 'MENSAL' ? 'selected' : ''}>Mensal</option>
+            <option value="TRIMESTRAL" ${plano.periodicidade === 'TRIMESTRAL' ? 'selected' : ''}>Trimestral</option>
+            <option value="SEMESTRAL" ${plano.periodicidade === 'SEMESTRAL' ? 'selected' : ''}>Semestral</option>
+            <option value="ANUAL" ${plano.periodicidade === 'ANUAL' ? 'selected' : ''}>Anual</option>
+            <option value="UNICA" ${plano.periodicidade === 'UNICA' ? 'selected' : ''}>Taxa Única / Emolumento</option>
+          </select>
+        </div>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Dia de Vencimento Padrão *</label>
+          <input type="number" id="editPlanoDiaVenc" class="form-control" min="1" max="31" value="${plano.dia_vencimento_padrao || 10}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label small fw-semibold">Multa por Atraso (%)</label>
+          <input type="number" id="editPlanoMulta" class="form-control" min="0" step="0.01" value="${plano.multa_atraso_percentual || 0}">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Descrição / Observações</label>
+        <textarea id="editPlanoDescricao" class="form-control" rows="2">${plano.descricao || ''}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Guardar Alterações</button>
+    </form>
+  `);
+
+  document.getElementById('formModalEditPlanoEscola').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        nome: document.getElementById('editPlanoNome').value.trim(),
+        valor: Number(document.getElementById('editPlanoValor').value),
+        periodicidade: document.getElementById('editPlanoPeriodicidade').value,
+        dia_vencimento_padrao: Number(document.getElementById('editPlanoDiaVenc').value),
+        multa_atraso_percentual: Number(document.getElementById('editPlanoMulta').value || 0),
+        descricao: document.getElementById('editPlanoDescricao').value.trim(),
+      };
+      const res = await apiFetch(`/api/v1/pagamentos/planos-escola/${planoId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+      if (res.success) {
+        mostrarNotificacao('Plano actualizado com sucesso!', 'success');
+        fecharModal();
+        await carregarPlanosEscola();
+      }
+    } catch (err) {
+      mostrarAlerta(err.message || 'Erro ao actualizar plano', 'danger', 'Erro');
+    }
+  });
+}
+
+async function toggleStatusPlanoEscola(planoId, estadoAtual) {
+  const novoEstado = !estadoAtual;
+  const acaoTexto = novoEstado ? 'activar' : 'desactivar';
+  if (!confirm(`Tem a certeza que deseja ${acaoTexto} este plano de pagamento escolar?`)) return;
+
+  try {
+    const res = await apiFetch(`/api/v1/pagamentos/planos-escola/${planoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ativo: novoEstado })
+    });
+    if (res.success) {
+      mostrarNotificacao(`Plano ${novoEstado ? 'activado' : 'desactivado'} com sucesso!`, 'success');
+      await carregarPlanosEscola();
+    }
+  } catch (err) {
+    mostrarAlerta(err.message || 'Erro ao alterar estado do plano', 'danger', 'Erro');
+  }
 }
 
 async function abrirModalReciboPagamento(pagamentoId) {
@@ -307,4 +590,3 @@ async function descarregarReciboPdf(pagamentoId) {
     alert('Erro ao descarregar recibo em PDF: ' + (err.message || ''));
   }
 }
-

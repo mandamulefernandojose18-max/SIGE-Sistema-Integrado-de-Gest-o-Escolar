@@ -331,7 +331,7 @@ class TestPautasEDocumentos:
 
     def test_mfd_somente_quando_3_trimestres_disponiveis(self):
         from apps.professores.models import Professor, AlocacaoDocente
-        prof = Professor.objects.create(escola=self.escola, nome='Prof', apelido='Docente', especialidade='Matemática')
+        prof = Professor.objects.create(escola=self.escola, nome='Prof', apelido='Docente', email='prof.docente@sige.mz', especialidade='Matemática')
         aloc = AlocacaoDocente.objects.create(escola=self.escola, professor=prof, turma=self.turma, disciplina=self.disc1)
 
         # 1. Aluno apenas com 1º trimestre lançado: MFD deve ser None na caderneta e '-' na pauta

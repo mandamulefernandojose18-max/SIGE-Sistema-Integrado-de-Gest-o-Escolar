@@ -115,18 +115,19 @@ flowchart TD
 4. **Row-Level Security (RLS) no PostgreSQL (`backend/supabase_schema_rls.sql`):**
    - Em ambientes PostgreSQL/Supabase, políticas nativas de RLS garantem ao nível do motor SQL que nenhuma query possa ler ou alterar linhas cujo `escola_id` difira de `auth.user_escola_id()`, exceto quando `auth.is_superadmin()` é verdadeiro.
 
-### 3.2 Planos de Subscrição e Bloqueio Automático (HTTP 402)
-- **Planos Disponíveis (`tenants.Plano`):**
-  - `MENSAL` (30 dias — padrão 2.500,00 MZN)
-  - `TRIMESTRAL` (90 dias — padrão 6.500,00 MZN)
-  - `SEMESTRAL` (180 dias — padrão 12.000,00 MZN)
-  - `ANUAL` (365 dias — padrão 20.000,00 MZN)
-  - Cada plano define limites contratados de `max_alunos` e `max_professores`, validados antes de novas matrículas ou contratações.
-- **Verificação em Tempo Real (`common/middleware/tenant_expiration.py`):**
-  - O `TenantExpirationMiddleware` interceta todas as requisições às rotas privadas.
-  - Se a data atual ultrapassar `assinatura.data_fim`, o sistema atualiza automaticamente o estado da assinatura e da escola para `EXPIRADA`, grava um evento `ACESSO_BLOQUEADO_EXPIRADO` em `LogAcesso` e devolve o código **HTTP 402 (Payment Required)**.
-  - Se a escola estiver `SUSPENSA`, `PENDENTE` ou com `bloqueada_manualmente = True`, o acesso é igualmente bloqueado com mensagem explicativa.
-  - **Rotas Isentas de Bloqueio:** `/health/`, `/api/v1/auth/*`, `/api/v1/saas-admin/*` e `/api/v1/public/*` (garantindo que a verificação pública de certificados via QR Code continue sempre operacional).
+### 3.2 Planos de Subscrição SaaS vs. Planos de Pagamento Próprios da Escola (Isolamento B2B vs. B2C)
+O sistema aplica uma distinção arquitetural e de negócio estrita e inquebrável entre pagamentos da plataforma SaaS e cobranças de propinas escolares:
+
+1. **Planos de Subscrição SaaS B2B (`tenants.Plano` & `tenants.SaasPlano`):**
+   - **Exclusividade Super Admin:** Geridos e aplicados unicamente pelo Super Administrador da plataforma para governar as instituições escolares (licenciamento, quotas e contratos SaaS).
+   - **Isolamento Total:** As definições e valores dos planos SaaS **jamais refletem para os utilizadores finais das escolas** (alunos, encarregados, professores). O endpoint `/api/v1/planos/` é protegido por `[IsAuthenticated, IsSuperAdmin]`, retornando `HTTP 403 Forbidden` a qualquer utilizador de escola comum.
+   - **Vigências Disponíveis:** `MENSAL` (30 dias — padrão 2.500,00 MZN), `TRIMESTRAL` (90 dias), `SEMESTRAL` (180 dias) e `ANUAL` (365 dias), com limites contratados de `max_alunos` e `max_professores`.
+   - **Verificação em Tempo Real (`common/middleware/tenant_expiration.py`):** Interceta todas as requisições privadas. Se a data atual ultrapassar `assinatura.data_fim`, retorna **HTTP 402 (Payment Required)**. Rotas isentas: `/health/`, `/api/v1/auth/*`, `/api/v1/saas-admin/*` e `/api/v1/public/*`.
+
+2. **Planos de Pagamento e Propinas Próprios da Escola B2C (`pagamentos.PlanoPagamentoEscola`):**
+   - **Autonomia da Instituição:** Cada escola cria, configura e gere a sua própria tabela de propinas, taxas de matrícula e emolumentos a aplicar aos seus respetivos alunos.
+   - **Isolamento Absoluto entre Instituições:** O que uma instituição cria e gere no seu sistema vigora estrita e exclusivamente dentro do seu perímetro (`escola_id`), sem interferir, comprometer ou refletir em nenhuma outra escola da rede.
+
 
 ---
 
@@ -375,11 +376,22 @@ Motor analítico completo (`GET /api/v1/dashboard/estatisticas-aproveitamento`) 
 - Qualquer entidade externa (outra escola, universidade, empregador ou ministério) pode ler o QR Code com a câmara do telemóvel e validar a autenticidade pública do documento em tempo real sem precisar de login.
 
 ### Módulo 14: Gestão Financeira, Propinas e Tesouraria (`#view-pagamentos`)
-- **Planos de Pagamento Próprios da Escola (`PlanoPagamentoEscola` / `/api/v1/pagamentos/planos-escola/`):**
-  - Permite que a gestão e tesouraria de cada escola defina os seus próprios planos de pagamento, mensalidades e tabelas de propinas para os alunos, com total isolamento multi-tenant.
-  - O plano de subscrição do Super Admin (`SaasPlano`) é estritamente B2B (Super Admin -> Escola) e não reflete para os alunos nem colide com a tabela de propinas da instituição.
+O módulo financeiro do SIGE implementa a gestão completa da tesouraria da instituição, operando com total autonomia em relação aos planos de assinatura da plataforma:
+- **Separação Rígida SaaS vs. Escola:**
+  - O catálogo de assinaturas do Super Admin (`SaasPlano`) é restrito à governança B2B entre a plataforma e as escolas.
+  - Cada escola cria e mantém a sua própria tabela de propinas e emolumentos (`PlanoPagamentoEscola`), que se aplica estritamente aos seus próprios alunos. Nenhuma instituição tem visibilidade sobre os planos ou dados financeiros de outra.
+- **Estrutura dos Planos Próprios da Escola (`PlanoPagamentoEscola` / `/api/v1/pagamentos/planos-escola/`):**
+  - **Parâmetros Parametrizáveis:** Nome do plano (ex: *Propina Geral 10ª Classe*, *Taxa de Matrícula*), Valor em Meticais (`MZN`), Periodicidade (`MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`, `UNICA`), Dia de Vencimento Padrão (1 a 31), Multa por Atraso (%) e Descrição.
+  - **Controlo de Ciclo de Vida:** Criação, edição e ativação/desativação de planos com contagem de faturas associadas. Planos desativados são preservados para histórico contábil sem permitir novas vinculações.
+  - **Permissões de Acesso:** Apenas perfis autorizados da instituição (`ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `CHEFE_SECRETARIA`, `FINANCEIRO`) podem criar ou alterar planos de pagamento escolares.
+- **Interface em Abas Duplas (`frontend/pages/painel-escola/pagamentos.html` e `painel-financeiro/pagamentos.html`):**
+  - **Aba 1 (Cobranças & Mensalidades aos Alunos):** Gestão operacional de faturas, filtros por turma, aluno, mês de referência e estado, liquidação com emissão imediata de recibo e emissão individual/em lote.
+  - **Aba 2 (Planos & Tabela de Propinas da Escola):** Tabela de emolumentos e propinas vigentes na instituição, com badges de periodicidade, dia de vencimento, percentual de multa e ações de edição/estado.
 - **Emissão Individual e Geração em Lote por Turma (`/pagamentos/gerar-turma`):**
-  - Permite lançar uma cobrança para um aluno específico ou gerar de uma só vez a mensalidade/propina de um mês de referência (Janeiro a Dezembro) para **todos os alunos ativos de uma turma**, associando opcionalmente o plano de pagamento da escola.
+  - Permite selecionar um plano de pagamento escolar existente para preenchimento automático inteligente do valor, descrição e dia de vencimento, ou introduzir valores customizados.
+  - Gera simultaneamente cobranças para todos os estudantes ativos da turma no mês de referência selecionado (Janeiro a Dezembro), prevenindo duplicidade de faturas.
+- **Validação de Integridade Multi-Tenant (`validar_integridade_tenant`):**
+  - O sistema impede em nível de modelo (`clean()`) e API que uma cobrança vincule um plano de pagamento ou aluno pertencente a outra escola.
 - **Deteção Automática de Atrasos:** Cobranças `PENDENTE` cuja `data_vencimento` já passou são automaticamente classificadas como `ATRASADO`.
 - **Liquidação Multicanal e Recibo Oficial (`/pagamentos/<id>/liquidar`):**
   - Regista o pagamento através dos métodos oficiais de Moçambique: **M-Pesa (`MPESA`)**, **e-Mola (`EMOLA`)**, **POS (`POS`)**, **Transferência Bancária (`TRANSFERENCIA`)** ou **Numerário (`NUMERARIO`)**.

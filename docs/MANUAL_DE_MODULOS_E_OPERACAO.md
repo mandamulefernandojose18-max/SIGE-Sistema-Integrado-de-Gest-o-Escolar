@@ -150,12 +150,20 @@
 
 ---
 
-### Módulo 14: Gestão Financeira e Propinas (`#view-pagamentos`)
-- **Quem usa:** `FINANCEIRO` e `CHEFE_SECRETARIA`.
-- **Geração em Lote:** Criação de faturas mensais de propina para todos os estudantes de uma turma simultaneamente.
-- **Liquidação Multicanal:** Suporte a M-Pesa, e-Mola, POS, Transferência Bancária e Dinheiro vivo, com emissão de recibo numerado oficial (`REC-...`).
-- **Dashboard de Inadimplência:** Controlo de adimplência, total pendente e gráfico de receitas mês a mês.
-- **Validação e Notificações In-App:** Bloqueio preventivo e no backend contra faturas duplicadas (*"A factura já foi gerada no sistema."*), utilizando modais e avisos in-app estilizados (`mostrarAlerta`) sem exibir qualquer link ou cabeçalho do navegador (*"sigesaas.duckdns.org diz"*).
+### Módulo 14: Gestão Financeira, Propinas e Planos da Escola (`#view-pagamentos`)
+- **Quem usa:** `FINANCEIRO`, `CHEFE_SECRETARIA`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
+- **Separação Rígida SaaS vs. Escola:** Os planos de assinatura do Super Admin (`SaasPlano`) gerenciam contratos institucionais e nunca refletem para os alunos. Cada escola cria e gere a sua própria tabela de propinas e taxas escolares (`PlanoPagamentoEscola`), com isolamento absoluto entre instituições.
+- **Navegação em Abas Duplas:**
+  - **Aba 1: Cobranças & Mensalidades aos Alunos:**
+    - *Geração Individual:* Lançamento pontual para um estudante, selecionando opcionalmente um plano escolar que preenche automaticamente o valor, descrição e vencimento.
+    - *Geração em Lote:* Faturação automática para todos os alunos matriculados de uma turma no mês de referência selecionado (Janeiro a Dezembro).
+    - *Liquidação Multicanal:* Quitação com M-Pesa, e-Mola, POS, Transferência Bancária ou Numerário, emitindo recibo oficial numerado (`REC-...`).
+    - *Filtros e Histórico:* Busca por turma, aluno, mês de referência e estado (`PENDENTE`, `PAGO`, `ATRASADO`).
+  - **Aba 2: Planos & Tabela de Propinas da Escola:**
+    - *Criação de Planos:* Definição de planos com Nome, Valor em Meticais (`MZN`), Periodicidade (`Mensal`, `Trimestral`, `Semestral`, `Anual`, `Única/Emolumento`), Dia de Vencimento Padrão (ex: 10), Multa por atraso (%) e Descrição.
+    - *Ações Rápidas:* Edição de termos, ativação/desativação dinâmica e contagem em tempo real de faturas geradas.
+- **Dashboard de Indicadores:** Controlo de adimplência, valor total recebido, pendente, atrasado e faturamento mensal.
+- **Validação e Notificações In-App:** Bloqueio preventivo contra faturas duplicadas e proteção contra vinculações cruzadas entre escolas, exibindo alertas estilizados sem expor URLs ou cabeçalhos de sistema.
 
 ---
 

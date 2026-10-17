@@ -231,15 +231,21 @@
 
 ---
 
-### 2.13. Gestão Financeira e Propinas (`apps.pagamentos`)
+### 2.13. Gestão Financeira, Propinas e Planos Escolares (`apps.pagamentos`)
 
 | Método | Endpoint | Permissão | Descrição |
 | :---: | :--- | :---: | :--- |
+| `GET` | `/api/v1/pagamentos/planos-escola/` | Financeiro / Admin / Secr | Lista planos de pagamento e propinas criados pela instituição logada. |
+| `POST`| `/api/v1/pagamentos/planos-escola/` | Financeiro / Admin / Secr | Cria novo plano de pagamento/propina da escola com valor em MZN, periodicidade e vencimento. |
+| `GET` | `/api/v1/pagamentos/planos-escola/<uuid:pk>/` | Financeiro / Admin / Secr | Detalhes de um plano de pagamento da escola. |
+| `PATCH`| `/api/v1/pagamentos/planos-escola/<uuid:pk>/` | Financeiro / Admin / Secr | Atualiza dados ou ativa/desativa plano de propina da instituição. |
+| `DELETE`| `/api/v1/pagamentos/planos-escola/<uuid:pk>/` | Financeiro / Admin / Secr | Desativação lógica segura do plano escolar (preserva histórico financeiro). |
 | `GET` | `/api/v1/pagamentos/` | Financeiro / Aluno | Lista mensalidades e faturas com filtros por aluno, turma e status. |
-| `POST`| `/api/v1/pagamentos/` | Financeiro | Cria cobrança individual de propina para um aluno. |
+| `POST`| `/api/v1/pagamentos/` | Financeiro | Cria cobrança individual para um aluno (opcionalmente vinculada a um plano escolar). |
 | `GET` | `/api/v1/pagamentos/stats/` | Financeiro / Admin | KPIs de receita: Total Recebido, Pendente, Atrasado e taxa de adimplência. |
 | `POST`| `/api/v1/pagamentos/<uuid:pk>/liquidar/` | Financeiro / Secr | Quita propina (M-Pesa, e-Mola, POS, Banco) e emite recibo `REC-...`. |
-| `POST`| `/api/v1/pagamentos/gerar-turma/` | Financeiro | Gera cobranças de um mês de referência para todos os alunos de uma turma. |
+| `POST`| `/api/v1/pagamentos/gerar-turma/` | Financeiro | Gera cobranças de um mês para toda a turma, permitindo vincular plano escolar. |
+
 
 ---
 
