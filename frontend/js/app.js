@@ -617,14 +617,34 @@ function escapeHtml(str) {
 }
 window.escapeHtml = escapeHtml;
 
-// ==================== NOTIFICAÇÕES TOAST (PROTEÇÃO TOTAL CONTRA XSS) ====================
+// ==================== LIMPEZA DE TEXTO E HIGIENIZAÇÃO DE MENSAGENS ====================
+// Garante que nenhuma mensagem, notificação ou alerta exiba domínios, URLs ou links do sistema
+function limparTextoMensagem(msg) {
+  if (msg === null || msg === undefined) return '';
+  let str = String(msg);
+  // Remove prefixos de diálogos do navegador como "sigesaas.duckdns.org diz:" ou qualquer domínio
+  str = str.replace(/https?:\/\/sigesaas\.duckdns\.org(\/api\/v1)?\/?/gi, '')
+           .replace(/sigesaas\.duckdns\.org\s*(diz|says)?:?/gi, '')
+           .replace(/^https?:\/\/[^\s/$.?#].[^\s]*\s*(diz|says)?:?/gi, '')
+           .replace(/https?:\/\/127\.0\.0\.1(:8000)?(\/api\/v1)?\/?/gi, '')
+           .replace(/https?:\/\/localhost(:8000)?(\/api\/v1)?\/?/gi, '')
+           .replace(/\b139\.84\.226\.46\b/g, '')
+           .trim();
+  return str;
+}
+window.limparTextoMensagem = limparTextoMensagem;
+
+// ==================== NOTIFICAÇÕES TOAST (PROTEÇÃO TOTAL CONTRA XSS E SEM LINKS) ====================
 function mostrarNotificacao(mensagem, tipo = 'info') {
+  const msgLimpa = limparTextoMensagem(mensagem);
+  if (!msgLimpa) return;
+
   let container = document.getElementById('sigeToastContainer');
   if (!container) {
     container = document.createElement('div');
     container.id = 'sigeToastContainer';
     container.className = 'toast-container position-fixed top-0 end-0 p-3';
-    container.style.zIndex = '9999';
+    container.style.zIndex = '10070';
     document.body.appendChild(container);
   }
 
@@ -645,7 +665,7 @@ function mostrarNotificacao(mensagem, tipo = 'info') {
   iconEl.className = `bi ${icon} fs-5 flex-shrink-0`;
 
   const spanEl = document.createElement('span');
-  spanEl.textContent = String(mensagem || '');
+  spanEl.textContent = msgLimpa;
 
   bodyDiv.appendChild(iconEl);
   bodyDiv.appendChild(spanEl);
@@ -671,6 +691,175 @@ function mostrarNotificacao(mensagem, tipo = 'info') {
 window.mostrarNotificacao = mostrarNotificacao;
 window.showToast = mostrarNotificacao;
 window.mostrarToast = mostrarNotificacao;
+
+// ==================== MODAL DE ALERTA DO SISTEMA (SUBSTITUTO DO ALERT NATIVO) ====================
+let modalAlertaInstancia = null;
+let ultimoAlertaMensagem = '';
+let ultimoAlertaTimestamp = 0;
+
+function mostrarAlerta(mensagem, tipo = 'info', titulo = '') {
+  const msgLimpa = limparTextoMensagem(mensagem);
+  if (!msgLimpa) return;
+
+  // Prevenção contra chamadas duplicadas idênticas em curto intervalo
+  const agora = Date.now();
+  if (msgLimpa === ultimoAlertaMensagem && (agora - ultimoAlertaTimestamp) < 1000) {
+    return;
+  }
+  ultimoAlertaMensagem = msgLimpa;
+  ultimoAlertaTimestamp = agora;
+
+  const modalEl = document.getElementById('modalAlertaSistema');
+  if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+    mostrarNotificacao(msgLimpa, tipo);
+    return;
+  }
+
+  const elTitulo = document.getElementById('modalAlertaTitulo');
+  const elMsg = document.getElementById('modalAlertaMensagem');
+  const elIcone = document.getElementById('modalAlertaIcone');
+  const btnOk = document.getElementById('modalAlertaBtnOk');
+
+  let tituloPadrao = 'Informação';
+  let iconeHtml = '<i class="bi bi-info-circle-fill text-primary" style="font-size: 2.8rem;"></i>';
+  let btnClass = 'btn btn-primary px-4 py-2 fw-semibold rounded-pill shadow-sm';
+
+  const tipoStr = String(tipo || 'info').toLowerCase();
+  if (tipoStr === 'warning' || tipoStr === 'aviso' || tipoStr === 'alerta') {
+    tituloPadrao = 'Aviso';
+    iconeHtml = '<i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 2.8rem;"></i>';
+    btnClass = 'btn btn-warning text-dark px-4 py-2 fw-semibold rounded-pill shadow-sm';
+  } else if (tipoStr === 'danger' || tipoStr === 'erro' || tipoStr === 'error') {
+    tituloPadrao = 'Atenção';
+    iconeHtml = '<i class="bi bi-x-circle-fill text-danger" style="font-size: 2.8rem;"></i>';
+    btnClass = 'btn btn-danger px-4 py-2 fw-semibold rounded-pill shadow-sm';
+  } else if (tipoStr === 'success' || tipoStr === 'sucesso') {
+    tituloPadrao = 'Sucesso';
+    iconeHtml = '<i class="bi bi-check-circle-fill text-success" style="font-size: 2.8rem;"></i>';
+    btnClass = 'btn btn-success px-4 py-2 fw-semibold rounded-pill shadow-sm';
+  }
+
+  if (elTitulo) elTitulo.textContent = titulo ? limparTextoMensagem(titulo) : tituloPadrao;
+  if (elMsg) elMsg.textContent = msgLimpa;
+  if (elIcone) elIcone.innerHTML = iconeHtml;
+  if (btnOk) {
+    btnOk.className = btnClass;
+    btnOk.textContent = 'OK';
+  }
+
+  // Ajuste dinâmico de z-index para empilhamento harmonioso sobre outros modais
+  const modaisAbertos = document.querySelectorAll('.modal.show').length;
+  const zIndexBase = 10060 + (modaisAbertos * 10);
+  modalEl.style.zIndex = zIndexBase;
+
+  modalAlertaInstancia = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  modalAlertaInstancia.show();
+
+  setTimeout(() => {
+    btnOk?.focus();
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    if (backdrops.length > 0) {
+      backdrops[backdrops.length - 1].style.zIndex = zIndexBase - 1;
+    }
+  }, 100);
+}
+
+window.mostrarAlerta = mostrarAlerta;
+
+// ==================== MODAL DE CONFIRMAÇÃO DO SISTEMA ====================
+let modalConfirmacaoInstancia = null;
+let callbackConfirmacaoAtual = null;
+let callbackCancelamentoAtual = null;
+
+function mostrarConfirmacao(mensagem, onConfirm, onCancel = null, titulo = 'Confirmação') {
+  const msgLimpa = limparTextoMensagem(mensagem);
+  const modalEl = document.getElementById('modalConfirmacaoSistema');
+  if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+    if (window._nativeConfirm ? window._nativeConfirm(msgLimpa) : true) {
+      if (typeof onConfirm === 'function') onConfirm();
+    } else {
+      if (typeof onCancel === 'function') onCancel();
+    }
+    return;
+  }
+
+  callbackConfirmacaoAtual = onConfirm;
+  callbackCancelamentoAtual = onCancel;
+
+  const elTitulo = document.getElementById('modalConfirmacaoTitulo');
+  const elMsg = document.getElementById('modalConfirmacaoMensagem');
+  if (elTitulo) elTitulo.textContent = titulo ? limparTextoMensagem(titulo) : 'Confirmação';
+  if (elMsg) elMsg.textContent = msgLimpa;
+
+  const modaisAbertos = document.querySelectorAll('.modal.show').length;
+  const zIndexBase = 10060 + (modaisAbertos * 10);
+  modalEl.style.zIndex = zIndexBase;
+
+  modalConfirmacaoInstancia = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  modalConfirmacaoInstancia.show();
+
+  setTimeout(() => {
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    if (backdrops.length > 0) {
+      backdrops[backdrops.length - 1].style.zIndex = zIndexBase - 1;
+    }
+  }, 100);
+}
+
+window.mostrarConfirmacao = mostrarConfirmacao;
+
+// Listeners dos botões de confirmação
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('modalConfirmacaoBtnConfirmar')?.addEventListener('click', () => {
+    if (modalConfirmacaoInstancia) modalConfirmacaoInstancia.hide();
+    if (typeof callbackConfirmacaoAtual === 'function') {
+      const fn = callbackConfirmacaoAtual;
+      callbackConfirmacaoAtual = null;
+      fn();
+    }
+  });
+
+  document.getElementById('modalConfirmacaoBtnCancelar')?.addEventListener('click', () => {
+    if (typeof callbackCancelamentoAtual === 'function') {
+      const fn = callbackCancelamentoAtual;
+      callbackCancelamentoAtual = null;
+      fn();
+    }
+  });
+
+  document.getElementById('modalConfirmacaoSistema')?.addEventListener('hidden.bs.modal', () => {
+    if (typeof callbackCancelamentoAtual === 'function') {
+      const fn = callbackCancelamentoAtual;
+      callbackCancelamentoAtual = null;
+      fn();
+    }
+  });
+});
+
+// ==================== INTERCEPTAÇÃO GLOBAL DO ALERT NATIVO ====================
+// Substituição total para garantir que NENHUMA chamada em nenhum ficheiro mostre o domínio do sistema
+window.alert = function(mensagem) {
+  const msgLimpa = limparTextoMensagem(mensagem);
+  if (!msgLimpa) return;
+
+  const str = msgLimpa.toLowerCase();
+  let tipo = 'info';
+  if (str.includes('erro') || str.includes('falha') || str.includes('rejeit') || str.includes('não foi possível')) {
+    tipo = 'danger';
+  } else if (str.includes('atenção') || str.includes('aviso') || str.includes('já foi gerada') || str.includes('selecione') || str.includes('preencha') || str.includes('obrigatório')) {
+    tipo = 'warning';
+  } else if (str.includes('sucesso') || str.includes('salvo') || str.includes('atualizado') || str.includes('cadastrado') || str.includes('eliminado')) {
+    tipo = 'success';
+  }
+  mostrarAlerta(msgLimpa, tipo);
+};
+
+// Drenagem de alertas enfileirados antes do carregamento do app.js
+if (Array.isArray(window._sigeAlertQueue) && window._sigeAlertQueue.length > 0) {
+  const queue = [...window._sigeAlertQueue];
+  window._sigeAlertQueue = [];
+  queue.forEach(msg => window.alert(msg));
+}
 
 // ==================== API FETCH, RENOVAÇÃO UNIFICADA E INTERCEPTADORES ====================
 function formatarUrlApi(url, baseUrlOverride = null) {
@@ -11461,8 +11650,7 @@ async function modalNovoPagamento() {
         const pAlunoId = p.aluno?.id || p.aluno_id || (typeof p.aluno === 'string' ? p.aluno : null);
         return String(pAlunoId) === String(alunoId) && String(p.mes_referencia).trim() === mesRef && p.status !== 'CANCELADO';
       })) {
-        mostrarNotificacao('A factura já foi gerada no sistema.', 'warning');
-        alert('A factura já foi gerada no sistema.');
+        mostrarAlerta('A factura já foi gerada no sistema.', 'warning', 'Aviso');
         return;
       }
 
@@ -11483,8 +11671,7 @@ async function modalNovoPagamento() {
       }
     } catch (err) {
       const msg = err.message || 'Erro ao criar cobrança';
-      mostrarNotificacao(msg, 'warning');
-      alert(msg);
+      mostrarAlerta(msg, 'warning', 'Aviso');
     }
   });
 }
@@ -11536,14 +11723,12 @@ async function modalGerarMensalidadesTurma() {
       if (res.success) {
         const msg = res.message || 'Mensalidades geradas com sucesso para a turma!';
         mostrarNotificacao(msg, 'success');
-        alert(msg);
         fecharModal();
         carregarPagamentos();
       }
     } catch (err) {
       const msg = err.message || 'Erro ao gerar cobranças';
-      mostrarNotificacao(msg, 'warning');
-      alert(msg);
+      mostrarAlerta(msg, 'warning', 'Aviso');
     }
   });
 }

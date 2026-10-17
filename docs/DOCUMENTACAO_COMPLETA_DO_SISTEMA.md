@@ -602,6 +602,7 @@ O SIGE implementa **6 Pilares de Integridade** (`backend/docs/REGRAS_DE_INTEGRID
 4. **Imutabilidade Pós-Homologação:** Quando uma `Pauta` é fechada (`status = 'FECHADA'`), qualquer tentativa de edição de notas é bloqueada ao nível do serviço e do modelo, exceto mediante registo explícito e auditado em `PermissaoEdicaoNotas` dentro do prazo.
 5. **Governança Financeira e Contratual:** Bloqueio automático `HTTP 402` para assinaturas vencidas e verificação dos limites do plano (`max_alunos`, `max_professores`).
 6. **Não-Repúdio e Verificação Pública:** Registo de `LogAcesso`, `LogImpressao`, arquivo binário em `DocumentoSalvo` e validação pública de certificados por QR Code sem necessidade de autenticação.
+7. **Privacidade e Isenção Total de Exposição de Origens/Links:** Todas as notificações, avisos e confirmações da interface SPA utilizam estritamente o sistema in-app (`mostrarAlerta`, `mostrarNotificacao`, `mostrarConfirmacao`), com higienização prévia via `limparTextoMensagem()`. O `window.alert` nativo do navegador foi interceptado para impedir terminantemente a exibição de cabeçalhos de domínio ou URLs (como *"sigesaas.duckdns.org diz"*) em qualquer caixa de diálogo.
 
 ---
 

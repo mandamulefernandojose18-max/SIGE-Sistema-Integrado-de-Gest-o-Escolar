@@ -9,8 +9,24 @@
       window.location.replace('https://sigesaas.duckdns.org' + window.location.pathname + window.location.search + window.location.hash);
     }
   </script>
+  <script>
+    // Interceptador global precoce para eliminar qualquer popup nativo com exibição de domínio/link do sistema
+    window._sigeAlertQueue = [];
+    if (typeof window.alert === 'function') {
+      window._nativeAlert = window.alert;
+      window.alert = function(msg) {
+        if (typeof window.mostrarAlerta === 'function') {
+          window.mostrarAlerta(msg);
+        } else if (typeof window.mostrarNotificacao === 'function') {
+          window.mostrarNotificacao(msg, 'warning');
+        } else {
+          window._sigeAlertQueue.push(msg);
+        }
+      };
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="sige-build" content="20261017_1425">
+  <meta name="sige-build" content="20261017_1440">
   <title>SIGE — Sistema Integrado de Gestão Escolar</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/img/logo-sige.png">
@@ -1077,6 +1093,45 @@
   </div>
 </div>
 
+<!-- MODAL DE NOTIFICAÇÃO E ALERTA DO SISTEMA (SEM EXPOSIÇÃO DE DOMÍNIO OU LINKS) -->
+<div class="modal fade" id="modalAlertaSistema" tabindex="-1" aria-hidden="true" style="z-index: 10060;">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+    <div class="modal-content border-0 shadow-lg text-center p-4" style="border-radius: 18px;">
+      <div class="mb-3" id="modalAlertaIcone">
+        <i class="bi bi-info-circle-fill text-primary" style="font-size: 2.8rem;"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-2" id="modalAlertaTitulo">Informação</h5>
+      <p class="text-secondary mb-4 px-2" id="modalAlertaMensagem" style="font-size: 0.95rem; line-height: 1.5; white-space: pre-line; word-break: break-word;"></p>
+      <div class="d-flex justify-content-center">
+        <button type="button" class="btn btn-primary px-4 py-2 fw-semibold rounded-pill shadow-sm" data-bs-dismiss="modal" id="modalAlertaBtnOk" style="min-width: 120px;">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO DO SISTEMA (SEM EXPOSIÇÃO DE DOMÍNIO OU LINKS) -->
+<div class="modal fade" id="modalConfirmacaoSistema" tabindex="-1" aria-hidden="true" style="z-index: 10060;">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
+    <div class="modal-content border-0 shadow-lg text-center p-4" style="border-radius: 18px;">
+      <div class="mb-3" id="modalConfirmacaoIcone">
+        <i class="bi bi-question-circle-fill text-warning" style="font-size: 2.8rem;"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-2" id="modalConfirmacaoTitulo">Confirmação</h5>
+      <p class="text-secondary mb-4 px-2" id="modalConfirmacaoMensagem" style="font-size: 0.95rem; line-height: 1.5; white-space: pre-line; word-break: break-word;"></p>
+      <div class="d-flex justify-content-center gap-2">
+        <button type="button" class="btn btn-light px-4 py-2 fw-semibold rounded-pill" data-bs-dismiss="modal" id="modalConfirmacaoBtnCancelar" style="min-width: 110px;">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-primary px-4 py-2 fw-semibold rounded-pill shadow-sm" id="modalConfirmacaoBtnConfirmar" style="min-width: 110px;">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- BIBLIOTECAS SUPER AVANÇADAS DE EXPORTAÇÃO E GERAÇÃO DE DOCUMENTOS (jsPDF, Excel.js, docx.js) -->
 <script src="/js/libs/jspdf.umd.min.js"></script>
 <script>
@@ -1141,6 +1196,6 @@
 <script src="/js/templates.js?v=20261017_1200"></script>
 <script src="/js/config.js?v=20261017_1200"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
-<script src="/js/app.js?v=20261017_1359"></script>
+<script src="/js/app.js?v=20261017_1440"></script>
 </body>
 </html>

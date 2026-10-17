@@ -118,8 +118,7 @@ async function modalNovoPagamento() {
         const pAlunoId = p.aluno?.id || p.aluno_id || (typeof p.aluno === 'string' ? p.aluno : null);
         return String(pAlunoId) === String(alunoId) && String(p.mes_referencia).trim() === mesRef && p.status !== 'CANCELADO';
       })) {
-        mostrarNotificacao('A factura já foi gerada no sistema.', 'warning');
-        alert('A factura já foi gerada no sistema.');
+        mostrarAlerta('A factura já foi gerada no sistema.', 'warning', 'Aviso');
         return;
       }
 
@@ -140,8 +139,7 @@ async function modalNovoPagamento() {
       }
     } catch (err) {
       const msg = err.message || 'Erro ao criar cobrança';
-      mostrarNotificacao(msg, 'warning');
-      alert(msg);
+      mostrarAlerta(msg, 'warning', 'Aviso');
     }
   });
 }
@@ -193,14 +191,12 @@ async function modalGerarMensalidadesTurma() {
       if (res.success) {
         const msg = res.message || 'Mensalidades geradas com sucesso para a turma!';
         mostrarNotificacao(msg, 'success');
-        alert(msg);
         fecharModal();
         carregarPagamentos();
       }
     } catch (err) {
       const msg = err.message || 'Erro ao gerar cobranças';
-      mostrarNotificacao(msg, 'warning');
-      alert(msg);
+      mostrarAlerta(msg, 'warning', 'Aviso');
     }
   });
 }

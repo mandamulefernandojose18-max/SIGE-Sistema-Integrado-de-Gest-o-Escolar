@@ -153,6 +153,7 @@
 - **Geração em Lote:** Criação de faturas mensais de propina para todos os estudantes de uma turma simultaneamente.
 - **Liquidação Multicanal:** Suporte a M-Pesa, e-Mola, POS, Transferência Bancária e Dinheiro vivo, com emissão de recibo numerado oficial (`REC-...`).
 - **Dashboard de Inadimplência:** Controlo de adimplência, total pendente e gráfico de receitas mês a mês.
+- **Validação e Notificações In-App:** Bloqueio preventivo e no backend contra faturas duplicadas (*"A factura já foi gerada no sistema."*), utilizando modais e avisos in-app estilizados (`mostrarAlerta`) sem exibir qualquer link ou cabeçalho do navegador (*"sigesaas.duckdns.org diz"*).
 
 ---
 
