@@ -1245,13 +1245,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => inpSenha.focus(), 150);
   }
 
-  // Pré-aplicar tema e fundo salvos para evitar flicker
+  // Garantir isolamento visual multi-tenant estrito: tela de login e master SaaS nunca herdam temas de outras instituições
   try {
-    const temaSalvo = localStorage.getItem('sige_tema_ativo');
-    if (temaSalvo) {
-      const parsed = JSON.parse(temaSalvo);
-      if (typeof aplicarTemaEFundoInstituicao === 'function') {
-        aplicarTemaEFundoInstituicao(parsed);
+    localStorage.removeItem('sige_tema_ativo');
+    const token = sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token');
+    const tenantSalvoId = localStorage.getItem('sige_selected_tenant');
+    if (token && tenantSalvoId) {
+      const temaTenantSalvo = localStorage.getItem(`sige_tema_escola_${tenantSalvoId}`);
+      if (temaTenantSalvo && typeof aplicarTemaEFundoInstituicao === 'function') {
+        aplicarTemaEFundoInstituicao(JSON.parse(temaTenantSalvo));
+      }
+    } else {
+      if (typeof restaurarPadraoTemaEFundo === 'function') {
+        restaurarPadraoTemaEFundo();
       }
     }
   } catch (_) {}
@@ -1525,6 +1531,11 @@ function fazerLogout(e) {
   state.user = null;
   state.tenant = null;
   state.materialEscolar = { classeAtiva: 'TODAS', materiais: [], classes: [] };
+  
+  if (typeof restaurarPadraoTemaEFundo === 'function') {
+    restaurarPadraoTemaEFundo();
+  }
+  
   mostrarTelaLogin();
   window.location.reload();
 }
@@ -1538,6 +1549,10 @@ function mostrarTelaLogin() {
   if (appEl) appEl.style.display = 'none';
   const loginEl = document.getElementById('loginView');
   if (loginEl) loginEl.style.display = 'flex';
+
+  if (typeof restaurarPadraoTemaEFundo === 'function') {
+    restaurarPadraoTemaEFundo();
+  }
 }
 
 async function iniciarApp() {
@@ -1648,6 +1663,11 @@ async function iniciarApp() {
     }
     if (typeof atualizarBotaoToggleNotasDap === 'function') {
       atualizarBotaoToggleNotasDap(state.tenant.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas !== false);
+    }
+  } else {
+    // Se for SuperAdmin na Visão Master SaaS (sem tenant activo), garantir tema institucional oficial do SIGE
+    if (typeof restaurarPadraoTemaEFundo === 'function') {
+      restaurarPadraoTemaEFundo();
     }
   }
 }
@@ -1851,6 +1871,18 @@ function atualizarBadgeTenant(tenant) {
 
   const elAno = document.getElementById('headerAnoLetivo');
   if (elAno) elAno.textContent = `Ano Lectivo: ${tenant.ano_letivo_ativo || 2026}`;
+
+  const elEmblema = document.getElementById('sidebarEmblemaContainer');
+  if (elEmblema) {
+    if (tenant.usar_emblema_nacional) {
+      elEmblema.innerHTML = '<img src="img/emblema-mocambique.png" alt="Emblema Nacional" style="width: 24px; height: 24px; object-fit: contain;">';
+    } else if (tenant.logo_url || tenant.logo_base64) {
+      const logoSrc = tenant.logo_url || tenant.logo_base64;
+      elEmblema.innerHTML = `<img src="${escapeHtml(logoSrc)}" alt="Logo" style="width: 24px; height: 24px; object-fit: contain; border-radius: 4px;">`;
+    } else {
+      elEmblema.innerHTML = '<i class="bi bi-building text-warning fs-5"></i>';
+    }
+  }
 
   // Sincronizar anos lectivos da instituição
   carregarAnosLectivos();
@@ -2091,6 +2123,11 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
     return;
   }
 
+  // Limpar imediatamente estilos da escola anterior para garantir isolamento visual
+  if (typeof restaurarPadraoTemaEFundo === 'function') {
+    restaurarPadraoTemaEFundo();
+  }
+
   const st = (escolaStatus || '').toUpperCase();
   // SÓ E SÓ O SUPER ADMIN DEVE TER ACESSO SEMPRE INDEPENDENTEMENTE DE A ESCOLA ESTAR OU NÃO ACTIVA.
   // O SuperAdmin possui privilégios totais de auditoria e inspeciona qualquer instituição sem bloqueio.
@@ -2188,6 +2225,8 @@ function sairModoInspecaoSuperAdmin() {
   if (elProv) elProv.textContent = 'SaaS Master';
   const elAno = document.getElementById('headerAnoLetivo');
   if (elAno) elAno.textContent = 'Ano Lectivo: 2026';
+  const elEmblema = document.getElementById('sidebarEmblemaContainer');
+  if (elEmblema) elEmblema.innerHTML = '<i class="bi bi-shield-lock text-warning fs-5"></i>';
 
   // Restaurar menus do SuperAdmin
   renderizarSidebarPorNivel('SUPERADMIN');
@@ -2323,6 +2362,12 @@ async function navegarPara(viewId) {
   }
 
   state.currentView = viewId;
+
+  if (viewId === 'saas' && !isSuperAdminInspecionando) {
+    if (typeof restaurarPadraoTemaEFundo === 'function') {
+      restaurarPadraoTemaEFundo();
+    }
+  }
 
   // Carregar ficheiro de página (HTML) e módulo (JS) separados correspondentes a este menu
   await carregarPaginaModulo(painel, viewId);
@@ -4079,7 +4124,10 @@ window.SIGE_TEMAS = {
 };
 
 function aplicarTemaEFundoInstituicao(escola, opcoes = {}) {
-  if (!escola) return;
+  if (!escola) {
+    if (typeof restaurarPadraoTemaEFundo === 'function') restaurarPadraoTemaEFundo();
+    return;
+  }
   const temaCodigo = escola.tema_codigo || 'padrao_azul';
   const temaConfig = window.SIGE_TEMAS[temaCodigo] || window.SIGE_TEMAS.padrao_azul;
 
@@ -4227,18 +4275,24 @@ function aplicarTemaEFundoInstituicao(escola, opcoes = {}) {
     }
   }
 
+  // Cache estritamente isolado por Tenant ID - JAMAIS usar chave global sige_tema_ativo
+  if (escola && escola.id && escola.id !== 'escola_atual') {
+    try {
+      localStorage.setItem(`sige_tema_escola_${escola.id}`, JSON.stringify({
+        escolaId: escola.id,
+        tema_codigo: temaCodigo,
+        tema_cor_primaria: primaria,
+        tema_cor_hover: hover,
+        tema_cor_sidebar: sidebar,
+        tema_cor_sidebar_ativa: sidebarAtiva,
+        imagem_fundo_modo: modoFundo,
+        imagem_fundo_opacidade: opacidade,
+        imagem_fundo_url: imgFundo.startsWith('data:') ? 'base64' : imgFundo
+      }));
+    } catch (_) {}
+  }
   try {
-    localStorage.setItem('sige_tema_ativo', JSON.stringify({
-      escolaId: escola.id,
-      tema_codigo: temaCodigo,
-      tema_cor_primaria: primaria,
-      tema_cor_hover: hover,
-      tema_cor_sidebar: sidebar,
-      tema_cor_sidebar_ativa: sidebarAtiva,
-      imagem_fundo_modo: modoFundo,
-      imagem_fundo_opacidade: opacidade,
-      imagem_fundo_url: imgFundo.startsWith('data:') ? 'base64' : imgFundo
-    }));
+    localStorage.removeItem('sige_tema_ativo');
   } catch (_) {}
 }
 window.aplicarTemaEFundoInstituicao = aplicarTemaEFundoInstituicao;
@@ -4869,10 +4923,41 @@ function aplicarTemaEFundoAoVivo() {
 window.aplicarTemaEFundoAoVivo = aplicarTemaEFundoAoVivo;
 
 function restaurarPadraoTemaEFundo() {
+  const root = document.documentElement;
+  const t = window.SIGE_TEMAS?.padrao_azul || {
+    primaria: '#1e3a8a',
+    hover: '#172554',
+    sidebar: '#0f172a',
+    sidebarAtiva: '#38bdf8'
+  };
+
+  root.style.setProperty('--primary-color', t.primaria);
+  root.style.setProperty('--primary-hover', t.hover);
+  root.style.setProperty('--sidebar-bg', t.sidebar);
+  root.style.setProperty('--sidebar-active', t.sidebarAtiva);
+
+  // Remover folha de estilos dinâmicos injectados de escolas específicas
+  const styleTag = document.getElementById('sige-tema-dinamico');
+  if (styleTag) {
+    styleTag.remove();
+  }
+
+  // Ocultar marca de água e repor para modo padrão institucional
+  const elMarcaDagua = document.querySelector('.marca-dagua-sistema');
+  if (elMarcaDagua) {
+    elMarcaDagua.style.display = 'none';
+    elMarcaDagua.style.backgroundImage = '';
+  }
+
+  // Limpar qualquer resquício de chave global antiga
+  try {
+    localStorage.removeItem('sige_tema_ativo');
+  } catch (_) {}
+
+  // Se os campos do formulário de configuração da escola existirem na DOM, repô-los
   const inputTema = document.getElementById('confEscolaTemaCodigo');
   if (inputTema) inputTema.value = 'padrao_azul';
 
-  const t = window.SIGE_TEMAS.padrao_azul;
   const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setV('confEscolaCorPrimaria', t.primaria);
   setV('confEscolaCorPrimariaHex', t.primaria);
@@ -4889,9 +4974,12 @@ function restaurarPadraoTemaEFundo() {
   const lbl = document.getElementById('lblFundoOpacidade');
   if (lbl) lbl.textContent = '15%';
 
-  renderizarSeletorTemas();
-  renderizarGaleriaFundos();
-  aplicarTemaEFundoAoVivo();
+  if (typeof renderizarSeletorTemas === 'function') {
+    renderizarSeletorTemas();
+  }
+  if (typeof renderizarGaleriaFundos === 'function') {
+    renderizarGaleriaFundos();
+  }
 }
 window.restaurarPadraoTemaEFundo = restaurarPadraoTemaEFundo;
 

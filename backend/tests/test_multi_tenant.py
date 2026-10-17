@@ -152,8 +152,8 @@ class TestMultiTenancy:
         from apps.notas.models import Nota
         from apps.pagamentos.models import Pagamento
 
-        prof_a = Professor.objects.create(escola=self.escola_a, nome='Professor Alfa', email='prof.alfa@sige.mz')
-        prof_b = Professor.objects.create(escola=self.escola_b, nome='Professor Beta', email='prof.beta@sige.mz')
+        prof_a = Professor.objects.create(escola=self.escola_a, nome='Professor Alfa', email='prof.alfa@sige.mz', especialidade='Matemática')
+        prof_b = Professor.objects.create(escola=self.escola_b, nome='Professor Beta', email='prof.beta@sige.mz', especialidade='Física')
 
         disc_a = Disciplina.objects.create(escola=self.escola_a, nome='Matemática Alfa', codigo='MAT_A')
         disc_b = Disciplina.objects.create(escola=self.escola_b, nome='Matemática Beta', codigo='MAT_B')
