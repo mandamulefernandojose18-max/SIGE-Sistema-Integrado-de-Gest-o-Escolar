@@ -51,6 +51,14 @@ npm start
 ```
 Acesse no navegador: `http://localhost:5173`
 
+### Execução de Testes Automatizados (node:test)
+```bash
+# Executar a suite de testes da aplicação web e rotas protegidas
+npm test
+# ou diretamente via Node.js
+node --test tests/prompt-gateway.test.js
+```
+
 ### Modo Produção (Docker / Nginx)
 ```bash
 docker build -t sige-frontend .

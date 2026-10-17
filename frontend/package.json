@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "test": "node --test tests/prompt-gateway.test.js",
     "docs": "node scripts/update_docs.js"
   },
   "keywords": [

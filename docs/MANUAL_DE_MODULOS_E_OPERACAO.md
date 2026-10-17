@@ -26,6 +26,7 @@
 17. [Módulo 17: Cofre de Credenciais e Gestão de Senhas](#módulo-17-cofre-de-credenciais-e-gestão-de-senhas-view-usuarios-senhas)
 18. [Módulo 18: Auditoria e Registo de Acessos](#módulo-18-auditoria-e-registo-de-acessos-view-acessos)
 19. [Módulo 19: Assinatura e Pagamentos SaaS da Escola](#módulo-19-assinatura-e-pagamentos-saas-da-escola-view-assinatura-escola)
+20. [Módulo 20: Ferramentas & Prompt do Gateway](#módulo-20-ferramentas--prompt-do-gateway-view-prompt-gateway)
 
 ---
 
@@ -205,4 +206,17 @@
   - **Plano Contratado:** Apresentação clara e oficial como **Plano Básico** (com periodicidade e valor mensal em Meticais `MZN`).
   - **Próximo Vencimento & Faturas:** Cronograma de faturação com botão para envio de comprovativos de liquidação.
   - **Coordenadas Oficiais em Moçambique:** Carteiras móveis M-Pesa (Vodacom) e e-Mola (Movitel), e contas bancárias Millennium BIM e BCI com validação pelo SuperAdmin.
+
+---
+
+### Módulo 20: Ferramentas & Prompt do Gateway (`#view-prompt-gateway` / `/ferramentas/prompt-gateway`)
+- **Quem usa:** `SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP` e `CHEFE_SECRETARIA`.
+- **Objetivo:** Disponibilizar à equipa técnica e aos administradores o prompt estruturado para integração do Gateway de SMS, USSD e Pagamentos Móveis (M-Pesa e e-Mola) em Node.js.
+- **Funcionalidades:**
+  - **Visualização Segura:** Leitura do ficheiro `conteudo/prompt-gateway.txt` através de cache dinâmico em memória com recarregamento em tempo real via `fs.watch`.
+  - **Proteção XSS Rigorosa:** Escape integral e automático de entidades HTML antes da renderização no elemento `<pre>`.
+  - **Botão "Copiar prompt":** Cópia assistida e acessível para a área de transferência via `navigator.clipboard` com fallback para `Range + execCommand`, anunciando o estado na região `aria-live="polite"` por ~2,5 segundos.
+  - **Botão "Descarregar .txt":** Rota dedicada (`/ferramentas/prompt-gateway/descarregar`) com cabeçalhos `Content-Type: text/plain; charset=utf-8` e `Content-Disposition: attachment; filename="prompt-gateway-sms-ussd.txt"`.
+  - **Segurança & RBAC:** Acesso condicionado a utilizadores autenticados com papéis diretivos; bloqueio estrito (403) a perfis não autorizados e redirecionamento (ou 401) para utilizadores sem sessão.
+  - **Políticas de Cache e Indexação:** Cabeçalhos `Cache-Control: no-store` e `X-Robots-Tag: noindex` com meta tag de proteção `<meta name="robots" content="noindex">`.
 

@@ -8,6 +8,8 @@
     "prod:frontend": "npm --prefix frontend start",
     "dev:backend": "cd backend && python manage.py runserver 0.0.0.0:8000",
     "dev:frontend": "npm --prefix frontend start",
+    "test:frontend": "npm --prefix frontend test",
+    "test": "npm --prefix frontend test",
     "test:backend": "cd backend && pytest",
     "migrate:backend": "cd backend && python manage.py migrate",
     "seed:backend": "cd backend && python manage.py seed",

@@ -277,3 +277,12 @@
 | Método | Endpoint | Permissão | Descrição |
 | :---: | :--- | :---: | :--- |
 | `GET` | `/api/v1/dashboard/overview/` | Autenticado | Indicadores resumidos do dashboard e dias restantes da assinatura da escola. |
+
+---
+
+### 2.17. Ferramentas & Integrações — Gateway SMS, USSD e Pagamentos Móveis
+
+| Método | Endpoint | Permissão | Cabeçalhos & Resposta | Descrição |
+| :---: | :--- | :---: | :---: | :--- |
+| `GET` | `/ferramentas/prompt-gateway` | `SUPERADMIN` / Admin / Direcção | `Cache-Control: no-store`<br>`X-Robots-Tag: noindex`<br>HTML | Retorna a página Web completa com o layout do sistema, visualização segura do prompt em `<pre>` (XSS escapado) e botões de cópia e descarregamento. Redireciona para login (302) se não autenticado. |
+| `GET` | `/ferramentas/prompt-gateway/descarregar` | `SUPERADMIN` / Admin / Direcção | `Content-Type: text/plain; charset=utf-8`<br>`Content-Disposition: attachment; filename="prompt-gateway-sms-ussd.txt"`<br>`Cache-Control: no-store` | Devolve o ficheiro de conteúdo limpo para download direto pelo utilizador ou assistente de código. Retorna 401 se sem sessão e 403 se sem perfil diretivo. |

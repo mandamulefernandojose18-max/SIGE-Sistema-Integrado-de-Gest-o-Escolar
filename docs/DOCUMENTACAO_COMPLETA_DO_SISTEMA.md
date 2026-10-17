@@ -454,6 +454,13 @@ Acessível apenas a Administradores, Director da Escola, DAP e Chefe de Secretar
   - **Faturação & Submissão de Comprovativos:** Visualização das faturas emitidas e modal de registo de pagamentos com upload de talão/comprovativo bancário.
   - **Coordenadas Oficiais em Moçambique (Sem Dados Fictícios):** Carteiras móveis M-Pesa (Vodacom 84) e e-Mola (Movitel 86), além de contas e NIB no Millennium BIM e BCI com dados dinâmicos configuráveis pelo Super Administrador (iniciando estritamente em branco para evitar números simulados ou falsos).
 
+### Módulo 20: Ferramentas & Integrações — Prompt do Gateway (`#view-prompt-gateway` / `/ferramentas/prompt-gateway`)
+- **Acesso Restrito:** Exclusivo para perfis diretivos e de administração (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`).
+- **Página de Prompt com Layout Completo:** Rota `/ferramentas/prompt-gateway` servida com o layout, sidebar, cabeçalho e variáveis de estilo do sistema, com cabeçalhos anti-indexação (`X-Robots-Tag: noindex`, `<meta name="robots" content="noindex">`) e `Cache-Control: no-store`.
+- **Leitura em Cache e Sincronização Dinâmica:** Carregamento do ficheiro `conteudo/prompt-gateway.txt` (UTF-8) em memória com recarregamento em tempo real via `fs.watch`.
+- **Cópia Acessível e Descarregamento Direto:** Botão "Copiar prompt" via `navigator.clipboard` (com fallback de selecção `Range` + `execCommand`) e região acessível `aria-live="polite"` de confirmação (~2,5 s), acompanhado do botão "Descarregar .txt" com download via `/ferramentas/prompt-gateway/descarregar`.
+- **Segurança Anti-XSS e CSP:** Escape integral e sanitização automática de caracteres especiais (`<`, `>`, `&`) e execução via ficheiro estático próprio (`/js/prompt-gateway.js`), sem scripts inline.
+
 ---
 
 ## 7. Motor de Geração Documental (PDF, Word DOCX, Excel XLSX) e Cofre de Documentos

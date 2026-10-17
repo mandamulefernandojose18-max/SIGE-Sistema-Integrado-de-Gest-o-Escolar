@@ -1,0 +1,49 @@
+<!-- ===================================================================== -->
+<!-- SIGE - Módulo Ferramentas | Prompt: Gateway SMS, USSD e Pagamentos Móveis -->
+<!-- Página independente do módulo: prompt-gateway.html (SuperAdmin) -->
+<!-- Acesso restrito: Administradores e Direcção -->
+<!-- ===================================================================== -->
+<section id="view-prompt-gateway" class="modulo-view" style="display: none;">
+  <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-4 prompt-header-box">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 small fw-semibold">
+          <i class="bi bi-cpu-fill me-1"></i> Ferramentas de Desenvolvimento
+        </span>
+        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 small">
+          Node.js & Integrações
+        </span>
+      </div>
+      <h3 class="fw-bold mb-1 text-dark" style="letter-spacing: -0.3px;">Prompt: Gateway SMS, USSD e Pagamentos Móveis</h3>
+      <p class="text-muted mb-0 small">Para Node.js. Copia e cola no teu assistente de código.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 prompt-actions-box">
+      <button type="button" id="btnCopiarPrompt" class="btn btn-primary d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2 fw-semibold" title="Copiar texto do prompt para a área de transferência">
+        <i class="bi bi-clipboard me-1"></i> <span>Copiar prompt</span>
+      </button>
+      <a id="btnDescarregarPrompt" href="/ferramentas/prompt-gateway/descarregar" download="prompt-gateway-sms-ussd.txt" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1 px-3 py-2 fw-semibold" title="Descarregar o ficheiro de texto limpo">
+        <i class="bi bi-download me-1"></i> <span>Descarregar .txt</span>
+      </a>
+      <span id="statusCopiado" aria-live="polite" class="visually-hidden text-success fw-bold ms-2 small d-inline-flex align-items-center">
+        <i class="bi bi-check-circle-fill me-1"></i> Copiado!
+      </span>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+    <div class="card-header bg-white border-bottom py-3 px-4 d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-file-earmark-code text-primary fs-5"></i>
+        <strong class="text-dark small text-uppercase" style="letter-spacing: 0.5px;">conteudo/prompt-gateway.txt</strong>
+      </div>
+      <small class="text-muted">Codificação UTF-8 &bull; Leitura em cache dinâmico</small>
+    </div>
+    <div class="card-body p-0">
+      <pre id="conteudoPrompt" class="prompt-pre-box mb-0" tabindex="0" aria-label="Conteúdo do prompt do gateway">[A carregar prompt...]</pre>
+    </div>
+    <div class="card-footer bg-light border-top py-2 px-4 d-flex align-items-center justify-content-between text-muted small">
+      <span><i class="bi bi-shield-check text-success me-1"></i> Acesso seguro para perfis de administração e direcção.</span>
+      <span>Totalmente responsivo &bull; Quebra de linha automática</span>
+    </div>
+  </div>
+</section>

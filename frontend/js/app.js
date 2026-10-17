@@ -1716,6 +1716,7 @@ const MENUS_POR_PAINEL = {
   'painel-superadmin': [
     { id: 'saas', titulo: 'Gestão de Escolas & Planos', icone: 'bi-buildings-fill text-warning', categoria: 'Administração Geral SaaS' },
     { id: 'pagamentos-saas', titulo: 'Assinaturas & Pagamentos SaaS', icone: 'bi-credit-card-2-front-fill text-warning', categoria: 'Administração Geral SaaS' },
+    { id: 'prompt-gateway', titulo: 'Prompt do Gateway', icone: 'bi-terminal-fill text-warning', categoria: 'Ferramentas' },
     { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais Master', icone: 'bi-key-fill text-warning', categoria: 'Segurança' },
     { id: 'acessos', titulo: 'Auditoria & Acessos Globais', icone: 'bi-shield-check', categoria: 'Segurança' }
   ],
@@ -1736,6 +1737,7 @@ const MENUS_POR_PAINEL = {
     { id: 'certificados', titulo: 'Certificados (QR Code)', icone: 'bi-award-fill', categoria: 'Financeiro & Secretaria' },
     { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Secretaria' },
     { id: 'impressao', titulo: 'Central de Impressão', icone: 'bi-printer-fill', categoria: 'Financeiro & Secretaria' },
+    { id: 'prompt-gateway', titulo: 'Prompt do Gateway', icone: 'bi-terminal-fill text-warning', categoria: 'Ferramentas' },
     { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais', icone: 'bi-key-fill text-warning', categoria: 'Segurança & Cofre' },
     { id: 'acessos', titulo: 'Auditoria & Acessos', icone: 'bi-shield-check', categoria: 'Segurança & Cofre' }
   ],
@@ -2347,7 +2349,7 @@ async function navegarPara(viewId) {
   const role = state.user?.role || 'ADMIN_ESCOLA';
   const isSuperAdminInspecionando = (role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
   const painel = isSuperAdminInspecionando 
-    ? (['saas', 'pagamentos-saas', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
+    ? (['saas', 'pagamentos-saas', 'prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
     : (MAPA_PAINEIS[role] || 'painel-escola');
 
   const menusPermitidos = isSuperAdminInspecionando
@@ -2428,6 +2430,7 @@ async function navegarPara(viewId) {
   if (viewId === 'professor-perfil') carregarPerfilDocenteIndividual();
   if (viewId === 'usuarios-senhas') carregarCofreUsuarios();
   if (viewId === 'acessos') carregarLogsAcesso();
+  if (viewId === 'prompt-gateway') carregarPromptGateway();
 
   setTimeout(() => aplicarResponsividadeUniversalTabelas(viewEl || document), 50);
 }
