@@ -3362,12 +3362,22 @@ async function carregarEscolaETurmas() {
       setInpVal('confEscolaCorSidebarAtiva', corSideAtiva);
       setInpVal('confEscolaCorSidebarAtivaHex', corSideAtiva);
 
-      const fundoVal = e.imagem_fundo_url || e.imagem_fundo_base64 || '';
+      const modoFundo = e.imagem_fundo_modo || 'marca_dagua';
+      setInpVal('confEscolaFundoModo', modoFundo);
+
+      let fundoVal = e.imagem_fundo_url || e.imagem_fundo_base64 || '';
+      if (!fundoVal && modoFundo !== 'nenhum') {
+        if (e.usar_emblema_nacional !== false) {
+          fundoVal = 'img/emblema-mocambique.png';
+        } else if (e.logo_url || e.logo_base64) {
+          fundoVal = e.logo_url || e.logo_base64;
+        } else {
+          fundoVal = 'img/logo-sige.png';
+        }
+      }
       setInpVal('confEscolaFundoFinalValue', fundoVal);
       const urlFundoInput = document.getElementById('confEscolaFundoUrl');
       if (urlFundoInput) urlFundoInput.value = '';
-      const modoFundo = e.imagem_fundo_modo || 'marca_dagua';
-      setInpVal('confEscolaFundoModo', modoFundo);
       const opacFundo = (typeof e.imagem_fundo_opacidade === 'number') ? e.imagem_fundo_opacidade : 15;
       setInpVal('confEscolaFundoOpacidade', opacFundo);
       const lblOpac = document.getElementById('lblFundoOpacidade');
@@ -3695,25 +3705,34 @@ function abrirAlunosDaTurma(turmaId, grauAno) {
 
 function obterGaleriaLogosEscola() {
   const e = state.escolaAtual || state.tenant || {};
-  let galeria = Array.isArray(e.galeria_logos) ? [...e.galeria_logos] : [];
+  const eId = (e.id || '').toString().trim();
+  let galeria = Array.isArray(e.galeria_logos) 
+    ? e.galeria_logos.filter(item => item && item.id !== 'emblema_nacional') 
+    : [];
 
-  const chaveLocal = `sige_galeria_logos_${e.id || 'default'}`;
   try {
-    const salvoLocal = JSON.parse(localStorage.getItem(chaveLocal) || '[]');
-    if (Array.isArray(salvoLocal)) {
-      salvoLocal.forEach(item => {
-        if (item && item.url && !galeria.some(g => g.id === item.id || g.url === item.url)) {
-          galeria.push(item);
-        }
-      });
-    }
+    localStorage.removeItem('sige_galeria_logos_default');
   } catch (_) {}
+
+  if (eId && eId !== 'default' && eId !== 'escola_atual') {
+    const chaveLocal = `sige_galeria_logos_${eId}`;
+    try {
+      const salvoLocal = JSON.parse(localStorage.getItem(chaveLocal) || '[]');
+      if (Array.isArray(salvoLocal)) {
+        salvoLocal.forEach(item => {
+          if (item && item.url && !galeria.some(g => g.id === item.id || g.url === item.url)) {
+            galeria.push(item);
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   const logoAtual = e.logo_url || e.logo_base64;
   if (logoAtual && !logoAtual.includes('emblema-mocambique.png')) {
     if (!galeria.some(g => g.url === logoAtual)) {
       galeria.unshift({
-        id: 'logo_anterior_' + Date.now(),
+        id: 'logo_anterior_' + (eId || Date.now()),
         nome: 'Logótipo da Escola',
         url: logoAtual,
         tipo: 'SALVO',
@@ -3893,10 +3912,13 @@ async function adicionarLogotipoAGaleria(url, nome = '') {
 
   galeria.push(novoItem);
 
-  const chaveLocal = `sige_galeria_logos_${e.id || 'default'}`;
-  try {
-    localStorage.setItem(chaveLocal, JSON.stringify(galeria));
-  } catch (_) {}
+  const eId = (e.id || '').toString().trim();
+  if (eId && eId !== 'default' && eId !== 'escola_atual') {
+    const chaveLocal = `sige_galeria_logos_${eId}`;
+    try {
+      localStorage.setItem(chaveLocal, JSON.stringify(galeria));
+    } catch (_) {}
+  }
 
   if (state.escolaAtual) state.escolaAtual.galeria_logos = galeria;
   if (state.tenant) state.tenant.galeria_logos = galeria;
@@ -3919,10 +3941,13 @@ async function removerLogotipoDaGaleria(id) {
   galeria = galeria.filter(g => g.id !== id);
 
   const e = state.escolaAtual || state.tenant || {};
-  const chaveLocal = `sige_galeria_logos_${e.id || 'default'}`;
-  try {
-    localStorage.setItem(chaveLocal, JSON.stringify(galeria));
-  } catch (_) {}
+  const eId = (e.id || '').toString().trim();
+  if (eId && eId !== 'default' && eId !== 'escola_atual') {
+    const chaveLocal = `sige_galeria_logos_${eId}`;
+    try {
+      localStorage.setItem(chaveLocal, JSON.stringify(galeria));
+    } catch (_) {}
+  }
 
   if (state.escolaAtual) state.escolaAtual.galeria_logos = galeria;
   if (state.tenant) state.tenant.galeria_logos = galeria;
@@ -4103,6 +4128,16 @@ window.SIGE_TEMAS = {
   },
   oceano_petroleo: {
     codigo: 'oceano_petroleo',
+    nome: 'Petróleo & Ciano Índico',
+    primaria: '#0f766e',
+    hover: '#115e59',
+    sidebar: '#042f2e',
+    sidebarAtiva: '#2dd4bf',
+    acento: '#5eead4',
+    descricao: 'Sereno, contemporâneo e elegante'
+  },
+  petroleo_ciano: {
+    codigo: 'petroleo_ciano',
     nome: 'Petróleo & Ciano Índico',
     primaria: '#0f766e',
     hover: '#115e59',
@@ -4417,11 +4452,11 @@ function selecionarCorEspectro(hexPrimaria, nomeCor = '') {
   const pickerManual = document.getElementById('pickerEspectroManual');
   if (pickerManual) pickerManual.value = paleta.primaria;
 
-  // Atualiza indicadores visuais do espectro
-  atualizarIndicadoresEspectro(paleta.primaria, nomeCor);
+  // Atualiza indicadores visuais do espectro preservando o nome da cor clicada
+  atualizarIndicadoresEspectro(paleta.primaria, nomeCor || (codigoTema === 'personalizado' ? 'Cor Personalizada' : (window.SIGE_TEMAS[codigoTema]?.nome || '')));
 
-  // Atualiza cartões de temas pré-definidos
-  renderizarSeletorTemas();
+  // Atualiza cartões de temas pré-definidos sem sobrescrever o nome do espectro
+  renderizarSeletorTemas(false);
 
   // Aplica ao vivo imediatamente em todo o ecrã
   aplicarTemaEFundoAoVivo();
@@ -4483,12 +4518,13 @@ function atualizarIndicadoresEspectro(hexPrimaria, nomeCor) {
 }
 window.atualizarIndicadoresEspectro = atualizarIndicadoresEspectro;
 
-function renderizarSeletorTemas() {
+function renderizarSeletorTemas(atualizarIndicadores = true) {
   const container = document.getElementById('gradeTemasDisponiveis');
   if (!container) return;
 
   const codigoAtual = document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul';
   const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a';
+  const corSidebar = document.getElementById('confEscolaCorSidebar')?.value || '#0f172a';
 
   const painelCustom = document.getElementById('painelCoresPersonalizadas');
   if (painelCustom) {
@@ -4517,6 +4553,12 @@ function renderizarSeletorTemas() {
       }
     }
   });
+
+  // Atualizar gradiente do preview do card personalizado caso esteja ativo
+  const gradPersonalizado = document.getElementById('gradienteCardPersonalizado');
+  if (gradPersonalizado && codigoAtual === 'personalizado') {
+    gradPersonalizado.style.background = `linear-gradient(135deg, ${corSidebar} 0%, ${corSidebar} 40%, ${corPrimaria} 40%, ${corPrimaria} 100%)`;
+  }
 
   // Se por algum motivo os cartões não estiverem pré-renderizados no DOM, gera-os dinamicamente como fallback
   if (!temCardPreRenderizado && window.SIGE_TEMAS) {
@@ -4552,9 +4594,11 @@ function renderizarSeletorTemas() {
     container.innerHTML = html;
   }
 
-  // Atualizar indicadores visuais do espectro
-  const nomeAtivo = (window.SIGE_TEMAS[codigoAtual]?.nome) || 'Personalizado';
-  atualizarIndicadoresEspectro(corPrimaria, nomeAtivo);
+  // Atualizar indicadores visuais do espectro se solicitado
+  if (atualizarIndicadores) {
+    const nomeAtivo = (window.SIGE_TEMAS[codigoAtual]?.nome) || 'Personalizado';
+    atualizarIndicadoresEspectro(corPrimaria, nomeAtivo);
+  }
 }
 window.renderizarSeletorTemas = renderizarSeletorTemas;
 
@@ -4621,21 +4665,70 @@ function aoMudarHexColor(idColor, val) {
 window.aoMudarHexColor = aoMudarHexColor;
 window.aoMudarHexColor = aoMudarHexColor;
 
+function fundosSaoIguais(urlA, urlB) {
+  if (!urlA || !urlB) return false;
+  if (urlA === urlB) return true;
+  const limpa = u => String(u).trim().replace(/^https?:\/\/[^\/]+/, '').replace(/^\/+/, '');
+  return limpa(urlA) === limpa(urlB);
+}
+window.fundosSaoIguais = fundosSaoIguais;
+
 function obterGaleriaFundosEscola() {
   const e = state.escolaAtual || state.tenant || {};
-  let galeria = Array.isArray(e.galeria_fundos) ? [...e.galeria_fundos] : [];
+  const eId = (e.id || '').toString().trim();
+  let galeria = Array.isArray(e.galeria_fundos) 
+    ? e.galeria_fundos.filter(item => item && !['fundo_logo_escola', 'fundo_emblema_nacional', 'fundo_logo_sige', 'fundo_sem_imagem'].includes(item.id))
+    : [];
 
-  const chaveLocal = `sige_galeria_fundos_${e.id || 'default'}`;
   try {
-    const salvoLocal = JSON.parse(localStorage.getItem(chaveLocal) || '[]');
-    if (Array.isArray(salvoLocal)) {
-      salvoLocal.forEach(item => {
-        if (item && item.url && !galeria.some(g => g.id === item.id || g.url === item.url)) {
-          galeria.push(item);
+    localStorage.removeItem('sige_galeria_fundos_default');
+  } catch (_) {}
+
+  if (eId && eId !== 'default' && eId !== 'escola_atual') {
+    const chaveLocal = `sige_galeria_fundos_${eId}`;
+    try {
+      const salvoLocal = JSON.parse(localStorage.getItem(chaveLocal) || '[]');
+      if (Array.isArray(salvoLocal)) {
+        salvoLocal.forEach(item => {
+          if (item && item.url && !galeria.some(g => g.id === item.id || fundosSaoIguais(g.url, item.url))) {
+            galeria.push(item);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  // Se a escola possuir imagem de fundo ativa própria que não está nos padrões nem na lista, adiciona-a como item na galeria
+  const fundoAtual = e.imagem_fundo_url || e.imagem_fundo_base64 || '';
+  if (fundoAtual && fundoAtual !== 'SEM_IMAGEM') {
+    const jaExiste = galeria.some(g => fundosSaoIguais(g.url, fundoAtual))
+      || fundosSaoIguais(fundoAtual, 'img/emblema-mocambique.png')
+      || fundosSaoIguais(fundoAtual, 'img/logo-sige.png')
+      || fundosSaoIguais(fundoAtual, e.logo_url)
+      || fundosSaoIguais(fundoAtual, e.logo_base64);
+
+    if (!jaExiste) {
+      let nomeFundo = 'Imagem de Fundo';
+      try {
+        const partes = fundoAtual.split('/');
+        const ultima = partes[partes.length - 1].split('?')[0];
+        if (ultima && ultima.length > 2 && !ultima.startsWith('data:')) {
+          nomeFundo = decodeURIComponent(ultima);
+        } else {
+          nomeFundo = 'Fundo Oficial da Escola';
         }
+      } catch (_) {
+        nomeFundo = 'Fundo Oficial da Escola';
+      }
+      galeria.unshift({
+        id: 'fundo_custom_ativo',
+        nome: nomeFundo,
+        url: fundoAtual,
+        tipo: 'UPLOAD',
+        criado_em: new Date().toISOString()
       });
     }
-  } catch (_) {}
+  }
 
   const padroes = [];
   const logoEscola = e.logo_url || e.logo_base64;
@@ -4688,6 +4781,7 @@ function renderizarGaleriaFundos() {
   const container = document.getElementById('galeriaFundosContainer');
   if (!container) return;
 
+  const e = state.escolaAtual || state.tenant || {};
   const galeria = obterGaleriaFundosEscola();
   const fundoAtivoAtual = document.getElementById('confEscolaFundoFinalValue')?.value || '';
   const modoAtual = document.getElementById('confEscolaFundoModo')?.value || 'marca_dagua';
@@ -4700,10 +4794,30 @@ function renderizarGaleriaFundos() {
   let html = '';
   galeria.forEach(item => {
     let isAtivo = false;
-    if (item.url === 'SEM_IMAGEM') {
-      isAtivo = (modoAtual === 'nenhum' || !fundoAtivoAtual || fundoAtivoAtual === 'SEM_IMAGEM');
+    if (modoAtual === 'nenhum' || fundoAtivoAtual === 'SEM_IMAGEM') {
+      isAtivo = (item.url === 'SEM_IMAGEM' || item.id === 'fundo_sem_imagem');
     } else {
-      isAtivo = (modoAtual !== 'nenhum') && (fundoAtivoAtual === item.url);
+      if (item.url === 'SEM_IMAGEM' || item.id === 'fundo_sem_imagem') {
+        isAtivo = false;
+      } else if (fundoAtivoAtual) {
+        if (fundosSaoIguais(item.url, fundoAtivoAtual)) {
+          isAtivo = true;
+        } else if (item.id === 'fundo_emblema_nacional' && (fundoAtivoAtual.includes('emblema-mocambique') || fundosSaoIguais(fundoAtivoAtual, 'img/emblema-mocambique.png'))) {
+          isAtivo = true;
+        } else if (item.id === 'fundo_logo_escola' && (fundosSaoIguais(fundoAtivoAtual, e.logo_url) || fundosSaoIguais(fundoAtivoAtual, e.logo_base64))) {
+          isAtivo = true;
+        } else if (item.id === 'fundo_logo_sige' && (fundoAtivoAtual.includes('logo-sige') || fundosSaoIguais(fundoAtivoAtual, 'img/logo-sige.png'))) {
+          isAtivo = true;
+        }
+      } else {
+        if (e.usar_emblema_nacional !== false) {
+          isAtivo = (item.id === 'fundo_emblema_nacional');
+        } else if (e.logo_url || e.logo_base64) {
+          isAtivo = (item.id === 'fundo_logo_escola');
+        } else {
+          isAtivo = (item.id === 'fundo_logo_sige');
+        }
+      }
     }
 
     const previewThumb = (item.url === 'SEM_IMAGEM')
@@ -4742,8 +4856,8 @@ function selecionarFundoGaleria(fundoId) {
   const inputFundo = document.getElementById('confEscolaFundoFinalValue');
   const selModo = document.getElementById('confEscolaFundoModo');
 
-  if (item.url === 'SEM_IMAGEM') {
-    if (inputFundo) inputFundo.value = '';
+  if (item.url === 'SEM_IMAGEM' || item.id === 'fundo_sem_imagem') {
+    if (inputFundo) inputFundo.value = 'SEM_IMAGEM';
     if (selModo) selModo.value = 'nenhum';
   } else {
     if (inputFundo) inputFundo.value = item.url;
@@ -4790,7 +4904,7 @@ function atualizarVisualizacaoFundo(fundoSrc, modo = 'marca_dagua', opacidade = 
       imgPreview.style.opacity = '1';
     }
     const galeria = obterGaleriaFundosEscola();
-    const item = galeria.find(g => g.url === fundoSrc);
+    const item = galeria.find(g => fundosSaoIguais(g.url, fundoSrc) || (g.id === 'fundo_emblema_nacional' && fundoSrc.includes('emblema-mocambique')));
     if (statusEl) statusEl.textContent = item?.nome ? `Fundo: ${item.nome}` : 'Imagem Própria Activa';
     if (btnRemover) btnRemover.style.display = 'inline-block';
   }
@@ -4815,11 +4929,11 @@ window.aoMudarModoFundo = aoMudarModoFundo;
 
 function removerImagemFundoEscola() {
   const inputFundo = document.getElementById('confEscolaFundoFinalValue');
-  if (inputFundo) inputFundo.value = '';
+  if (inputFundo) inputFundo.value = 'SEM_IMAGEM';
   const selModo = document.getElementById('confEscolaFundoModo');
   if (selModo) selModo.value = 'nenhum';
   const opacidade = parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15');
-  atualizarVisualizacaoFundo('', 'nenhum', opacidade);
+  atualizarVisualizacaoFundo('SEM_IMAGEM', 'nenhum', opacidade);
   renderizarGaleriaFundos();
   aplicarTemaEFundoAoVivo();
 }
@@ -4837,10 +4951,13 @@ async function adicionarFundoAGaleria(url, nome) {
   });
 
   const e = state.escolaAtual || state.tenant || {};
-  const chaveLocal = `sige_galeria_fundos_${e.id || 'default'}`;
-  try {
-    localStorage.setItem(chaveLocal, JSON.stringify(galeria));
-  } catch (_) {}
+  const eId = (e.id || '').toString().trim();
+  if (eId && eId !== 'default' && eId !== 'escola_atual') {
+    const chaveLocal = `sige_galeria_fundos_${eId}`;
+    try {
+      localStorage.setItem(chaveLocal, JSON.stringify(galeria));
+    } catch (_) {}
+  }
 
   if (state.escolaAtual) state.escolaAtual.galeria_fundos = galeria;
   if (state.tenant) state.tenant.galeria_fundos = galeria;
@@ -4850,6 +4967,9 @@ async function adicionarFundoAGaleria(url, nome) {
   const selModo = document.getElementById('confEscolaFundoModo');
   if (selModo && selModo.value === 'nenhum') selModo.value = 'marca_dagua';
 
+  const modo = selModo?.value || 'marca_dagua';
+  const opacidade = parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15');
+  atualizarVisualizacaoFundo(url, modo, opacidade);
   renderizarGaleriaFundos();
   aplicarTemaEFundoAoVivo();
 }
@@ -5002,7 +5122,9 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       distrito: document.getElementById('confEscolaDistrito').value,
       usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked,
       logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || '',
-      galeria_logos: (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : [],
+      galeria_logos: (typeof obterGaleriaLogosEscola === 'function') 
+        ? obterGaleriaLogosEscola().filter(g => g && g.tipo === 'UPLOAD') 
+        : [],
       tema_codigo: document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul',
       tema_cor_primaria: document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a',
       tema_cor_hover: document.getElementById('confEscolaCorHover')?.value || '#172554',
@@ -5011,7 +5133,9 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       imagem_fundo_url: document.getElementById('confEscolaFundoFinalValue')?.value || '',
       imagem_fundo_modo: document.getElementById('confEscolaFundoModo')?.value || 'marca_dagua',
       imagem_fundo_opacidade: parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15'),
-      galeria_fundos: (typeof obterGaleriaFundosEscola === 'function') ? obterGaleriaFundosEscola() : []
+      galeria_fundos: (typeof obterGaleriaFundosEscola === 'function') 
+        ? obterGaleriaFundosEscola().filter(g => g && g.tipo === 'UPLOAD') 
+        : []
     };
     const res = await apiFetch('/api/v1/escola-admin/info', {
       method: 'PUT',

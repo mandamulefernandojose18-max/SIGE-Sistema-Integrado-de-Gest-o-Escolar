@@ -128,6 +128,23 @@ O sistema aplica uma distinção arquitetural e de negócio estrita e inquebráv
    - **Autonomia da Instituição:** Cada escola cria, configura e gere a sua própria tabela de propinas, taxas de matrícula e emolumentos a aplicar aos seus respetivos alunos.
    - **Isolamento Absoluto entre Instituições:** O que uma instituição cria e gere no seu sistema vigora estrita e exclusivamente dentro do seu perímetro (`escola_id`), sem interferir, comprometer ou refletir em nenhuma outra escola da rede.
 
+### 3.3 Isolamento Estrito de Identidade Visual, Temas de Cores, Logótipos e Definições Institucionais
+A identidade visual, paleta cromática, marcas d'água e configurações operacionais de cada escola são 100% independentes e isoladas:
+
+1. **Camada de Dados Relacional (`tenants.Escola`):**
+   - Cada escola armazena em colunas dedicadas o seu `tema_codigo`, `tema_cor_primaria`, `tema_cor_hover`, `tema_cor_sidebar`, `tema_cor_sidebar_ativa`, `imagem_fundo_url`, `imagem_fundo_modo`, `imagem_fundo_opacidade`, `galeria_fundos` e `galeria_logos`.
+   - Apenas ficheiros e itens de upload próprios da escola (`tipo: 'UPLOAD'`) são persistidos nos campos JSON, enquanto opções padrão de sistema (Emblema Nacional, Marca SIGE, Sem Imagem) são providas dinamicamente pelo motor do sistema.
+   - As alterações realizadas nas **Definições da Escola** e logótipos vigoram exclusivamente na instituição ativa e jamais contaminam outras escolas.
+
+2. **Isolamento no Frontend e Armazenamento Local (`localStorage`):**
+   - Chaves de galeria e cache visual no browser utilizam estritamente o identificador da instituição (`sige_galeria_fundos_<id>`, `sige_galeria_logos_<id>`, `sige_tema_escola_<id>`).
+   - Não são permitidos nem utilizados fallbacks globais ou genéricos (`default`). Qualquer resquício legado é imediatamente removido.
+   - Seleção em tempo real: ao utilizar o espectro de cores (paleta rápida, slider contínuo de 0° a 360° ou seletor nativo), o sistema recalcula harmonicamente a paleta completa e sincroniza os cartões de temas pré-configurados. Quando uma cor customizada é escolhida, o cartão "Personalizado" é destacado como ativo, desmarcando os presets pré-definidos.
+   - Na secção de Imagem de Fundo & Marca de Água, o cartão "Sem Imagem (Liso)" é ativo exclusivamente quando o modo for "Sem Imagem de Fundo", permanecendo em rigorosa harmonia com a pré-visualização superior.
+
+3. **Separação Visual Entre Escolas e o Super Admin (SaaS Master):**
+   - O painel Master SaaS do Super Administrador opera sempre sob a identidade institucional oficial do SIGE (`img/logo-sige.png`, cor azul `#1e3a8a`, sem marcas d'água de escolas).
+   - Ao inspecionar uma escola, o Super Admin carrega isoladamente a identidade daquela instituição para efeitos de auditoria e suporte. Ao sair do modo de inspeção ou retornar à visão SaaS (`#view-saas`), o sistema executa a reposição imediata de estilos e marcas d'água (`restaurarPadraoTemaEFundo()`), garantindo isolamento total.
 
 ---
 

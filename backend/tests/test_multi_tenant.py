@@ -289,5 +289,70 @@ class TestMultiTenancy:
         content_str = res_api.content.decode('utf-8') if hasattr(res_api, 'content') else str(res_api.data)
         assert "Acesso bloqueado" in content_str
 
+    def test_isolamento_absoluto_temas_logotipos_fundos_e_definicoes_entre_escolas_e_superadmin(self):
+        # Configurar Escola A com identidade visual e definições personalizadas
+        self.escola_a.tema_codigo = 'verde_esmeralda'
+        self.escola_a.tema_cor_primaria = '#065f46'
+        self.escola_a.logo_url = 'https://sigesaas.duckdns.org/media/logos/alfa.png'
+        self.escola_a.imagem_fundo_url = 'https://sigesaas.duckdns.org/media/fundos/alfa_fundo.png'
+        self.escola_a.imagem_fundo_modo = 'cobertura_total'
+        self.escola_a.director_nome = 'Director Alfa 2026'
+        self.escola_a.save()
+
+        # Configurar Escola B com padrão institucional
+        self.escola_b.tema_codigo = 'padrao_azul'
+        self.escola_b.tema_cor_primaria = '#1e3a8a'
+        self.escola_b.logo_url = None
+        self.escola_b.usar_emblema_nacional = True
+        self.escola_b.imagem_fundo_url = None
+        self.escola_b.imagem_fundo_modo = 'marca_dagua'
+        self.escola_b.director_nome = 'Director Beta Original'
+        self.escola_b.save()
+
+        # 1. Escola A altera suas configurações via PUT /api/v1/escola-admin/info
+        login_a = self.client.post('/api/v1/auth/login/', {'email': 'admin.a@sige.mz', 'password': 'PassA123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_a.data['token']}")
+
+        res_put_a = self.client.put('/api/v1/escola-admin/info', {
+            'nome': 'Escola Alfa Atualizada',
+            'tema_codigo': 'purpura_real',
+            'tema_cor_primaria': '#7e22ce',
+            'tema_cor_sidebar': '#2e1065',
+            'logo_url': 'https://sigesaas.duckdns.org/media/logos/alfa_novo.png',
+            'imagem_fundo_url': 'https://sigesaas.duckdns.org/media/fundos/alfa_wallpaper.png',
+            'imagem_fundo_modo': 'padrao_textura',
+            'director_nome': 'Novo Director Alfa'
+        }, format='json')
+        assert res_put_a.status_code == 200
+        assert res_put_a.data['data']['tema_codigo'] == 'purpura_real'
+        assert res_put_a.data['data']['director_nome'] == 'Novo Director Alfa'
+
+        # 2. Escola B consulta suas próprias configurações -> NADA da Escola A foi refletido na Escola B
+        login_b = self.client.post('/api/v1/auth/login/', {'email': 'admin.b@sige.mz', 'password': 'PassB123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_b.data['token']}")
+
+        res_get_b = self.client.get('/api/v1/escola-admin/info')
+        assert res_get_b.status_code == 200
+        dados_b = res_get_b.data['data']
+        assert dados_b['nome'] == 'Escola Beta'
+        assert dados_b['tema_codigo'] == 'padrao_azul'
+        assert dados_b['tema_cor_primaria'] == '#1e3a8a'
+        assert dados_b['director_nome'] == 'Director Beta Original'
+        assert dados_b['imagem_fundo_modo'] == 'marca_dagua'
+        assert dados_b['logo_url'] is None
+
+        # 3. SuperAdmin sem tenant selecionado não altera nenhuma escola
+        u_super = Usuario.objects.create_superuser(email='super.temas@sige.mz', password='PassSuper123!')
+        login_super = self.client.post('/api/v1/auth/login/', {'email': 'super.temas@sige.mz', 'password': 'PassSuper123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_super.data['token']}")
+
+        # 4. SuperAdmin inspeciona Escola B e valida que Escola B continua intocada
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_super.data['token']}", HTTP_X_TENANT_ID=str(self.escola_b.id))
+        res_super_b = self.client.get('/api/v1/escola-admin/info')
+        assert res_super_b.status_code == 200
+        assert res_super_b.data['data']['tema_codigo'] == 'padrao_azul'
+        assert res_super_b.data['data']['director_nome'] == 'Director Beta Original'
+
+
 
 

@@ -377,6 +377,7 @@
                       <div class="d-flex align-items-center gap-2">
                         <input type="color" id="pickerEspectroManual" class="form-control form-control-color border-2 p-0" 
                                value="#1e3a8a" title="Clique para abrir o espectro completo" 
+                               oninput="selecionarCorEspectro(this.value, 'Cor do Espectro')"
                                onchange="selecionarCorEspectro(this.value, 'Cor do Espectro')" 
                                style="width: 44px; height: 30px; cursor: pointer;">
                         <button type="button" class="btn btn-outline-secondary btn-sm px-2 py-0" style="font-size: 0.74rem; height: 30px;" onclick="restaurarPadraoTemaEFundo()">
@@ -398,7 +399,7 @@
                   <div class="row g-2 mb-3" id="gradeTemasDisponiveis">
                     <!-- 1. Azul SIGE -->
                     <div class="col-6 col-sm-4">
-                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-primary border-2 bg-primary-subtle shadow-sm"
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
                            id="cardTema_padrao_azul"
                            onclick="selecionarTemaEscola('padrao_azul')"
                            style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
@@ -408,7 +409,7 @@
                         </div>
                         <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Azul SIGE</div>
                         <div class="mt-auto" id="badgeTema_padrao_azul">
-                          <span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
                         </div>
                       </div>
                     </div>
@@ -538,7 +539,7 @@
                            id="cardTema_personalizado"
                            onclick="selecionarTemaEscola('personalizado')"
                            style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
-                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                        <div id="gradienteCardPersonalizado" class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
                              style="height: 36px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);">
                           <i class="bi bi-sliders text-white fs-6"></i>
                         </div>
