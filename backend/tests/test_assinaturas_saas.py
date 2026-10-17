@@ -315,3 +315,41 @@ class TestAssinaturasSaaS:
 
         with pytest.raises(IntegrityError):
             fatura.delete()
+
+    def test_coordenadas_oficiais_pagamento_em_branco_e_configuracao(self):
+        """Valida que coordenadas iniciam em branco sem dados fictícios e podem ser configuradas pelo superadmin"""
+        # 1. Admin escola consulta coordenadas - devem vir em branco
+        self.client.force_authenticate(user=self.admin_escola)
+        res = self.client.get('/api/v1/saas/coordenadas/')
+        assert res.status_code == 200
+        assert res.data['success'] is True
+        dados = res.data['data']
+        # Sem dados fictícios: campos em branco
+        assert dados['mpesa_numero'] == ''
+        assert dados['emola_numero'] == ''
+        assert dados['bim_conta'] == ''
+        assert dados['bci_conta'] == ''
+
+        # 2. Minha Assinatura também expõe coordenadas
+        res_minha = self.client.get('/api/v1/saas/minha-assinatura/')
+        assert res_minha.status_code == 200
+        assert 'coordenadas' in res_minha.data['data']
+        assert res_minha.data['data']['coordenadas']['mpesa_numero'] == ''
+
+        # 3. Superadmin configura dados oficiais
+        self.client.force_authenticate(user=self.superadmin)
+        res_salvar = self.client.post('/api/v1/saas/coordenadas/', {
+            'mpesa_numero': '841112233',
+            'mpesa_titular': 'SIGE Oficial',
+            'bim_conta': '555444333',
+            'nuit_entidade': '999111222'
+        }, format='json')
+        assert res_salvar.status_code == 200
+        assert res_salvar.data['success'] is True
+        assert res_salvar.data['data']['mpesa_numero'] == '841112233'
+
+        # 4. Consulta subsequente reflecte dados actualizados
+        self.client.force_authenticate(user=self.admin_escola)
+        res_depois = self.client.get('/api/v1/saas/coordenadas/')
+        assert res_depois.data['data']['mpesa_numero'] == '841112233'
+        assert res_depois.data['data']['bim_conta'] == '555444333'
