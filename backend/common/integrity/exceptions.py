@@ -20,5 +20,5 @@ class ImmutableRecordViolation(IntegrityRuleViolation):
 
 class InvalidDomainValueViolation(IntegrityRuleViolation):
     """Lançada quando um valor numérico ou categórico excede o domínio regulamentar."""
-    def __init__(self, message="Valor fora dos limites regulamentares estabelecidos pelo MINEDH/SIGE."):
+    def __init__(self, message="Valor fora dos limites regulamentares estabelecidos pelo MEC/SIGE."):
         super().__init__(message, code='invalid_domain_value')

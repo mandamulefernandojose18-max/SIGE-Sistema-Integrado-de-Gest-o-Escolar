@@ -1,9 +1,9 @@
 # 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
-### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MINEDH — Moçambique)
+### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
 > **Versão do Sistema:** `2.5.0`  
-> **Conformidade Normativa:** Ministério da Educação e Desenvolvimento Humano da República de Moçambique (MINEDH)  
+> **Conformidade Normativa:** Ministério da Educação e Desenvolvimento Humano da República de Moçambique (MEC)  
 > **Arquitetura:** Backend Django 5.1 + Django REST Framework (Python 3.12) | Frontend SPA/PWA Vanilla JS + Bootstrap 5 | PostgreSQL 16 (RLS) / SQLite3
 
 ---
@@ -14,7 +14,7 @@
 2. [Arquitetura Técnica e Stack Tecnológica](#2-arquitetura-técnica-e-stack-tecnológica)
 3. [Arquitetura Multi-Tenant, Assinaturas SaaS e Isolamento de Dados](#3-arquitetura-multi-tenant-assinaturas-saas-e-isolamento-de-dados)
 4. [Autenticação Inteligente, Perfis de Acesso (RBAC) e Códigos Oficiais](#4-autenticação-inteligente-perfis-de-acesso-rbac-e-códigos-oficiais)
-5. [Regras Pedagógicas e Curriculares Oficiais do MINEDH](#5-regras-pedagógicas-e-curriculares-oficiais-do-minedh)
+5. [Regras Pedagógicas e Curriculares Oficiais do MEC](#5-regras-pedagógicas-e-curriculares-oficiais-do-minedh)
 6. [O Que Faz Cada Módulo do Sistema (18 Módulos e Fluxos Operacionais)](#6-o-que-faz-cada-módulo-do-sistema-18-módulos-e-fluxos-operacionais)
 7. [Motor de Geração Documental (PDF, Word DOCX, Excel XLSX) e Cofre de Documentos](#7-motor-de-geração-documental-pdf-word-docx-excel-xlsx-e-cofre-de-documentos)
 8. [Modelo de Dados Completo (17 Tabelas e Restrições de Integridade)](#8-modelo-de-dados-completo-17-tabelas-e-restrições-de-integridade)
@@ -30,7 +30,7 @@ O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa 
 
 ### Principais Capacidades do Sistema:
 - **Gestão Multi-Escolar Isolada (Multi-Tenancy):** Múltiplas escolas operam na mesma infraestrutura em nuvem com isolamento absoluto de dados (`escola_id`), planos de subscrição em Meticais (`MZN`) e controlo automático de validade contratual.
-- **Conformidade Integral com o MINEDH:** Implementa nativamente o Plano Curricular Nacional (7ª à 12ª Classe, incluindo todas as secções/áreas do 2º Ciclo), fórmulas oficiais de cálculo de médias (`MAC`, `MT`, `MFD`), regras distintas de transição/aprovação para 7ª–11ª Classe e 12ª Classe, escala qualitativa (`E`, `MB`, `B`, `S`, `NS`) e anotações regulamentares (`D`, `T`, `VT`, `F`, `AM`, `PPF`, `PDF`).
+- **Conformidade Integral com o MEC:** Implementa nativamente o Plano Curricular Nacional (7ª à 12ª Classe, incluindo todas as secções/áreas do 2º Ciclo), fórmulas oficiais de cálculo de médias (`MAC`, `MT`, `MFD`), regras distintas de transição/aprovação para 7ª–11ª Classe e 12ª Classe, escala qualitativa (`E`, `MB`, `B`, `S`, `NS`) e anotações regulamentares (`D`, `T`, `VT`, `F`, `AM`, `PPF`, `PDF`).
 - **Geração Automática de Códigos Oficiais de Acesso:** Cada ator institucional (Director da Escola, DAP, Chefe da Secretaria, Director de Turma, Director de Classe, Professor e Estudante) recebe um código único estruturado segundo a codificação da escola, classe, turma, ano e área.
 - **Portal Público de Auto-Inscrição Online:** Permite que candidatos e encarregados realizem a inscrição/matrícula diretamente pela internet nas escolas com vagas abertas, gerando imediatamente o número de matrícula e as credenciais de acesso do estudante.
 - **Emissão Oficial Multiformato (PDF, Word `.docx`, Excel `.xlsx`) em Retrato/Paisagem:** Geração individual e em lote de Boletins, Declarações, Certificados com QR Code, Recibos, Fichas Biográficas, Cadernetas do Professor, Pautas Gerais da Turma, Actas do Conselho de Avaliação (com números por extenso) e Mapas Estatísticos do Aproveitamento Pedagógico.
@@ -147,7 +147,7 @@ No ecrã de login (`POST /api/v1/auth/login`), o campo de identificação aceita
 
 ---
 
-## 5. Regras Pedagógicas e Curriculares Oficiais do MINEDH
+## 5. Regras Pedagógicas e Curriculares Oficiais do MEC
 
 Toda a lógica pedagógica encontra-se centralizada em `backend/common/utils/avaliacoes_mocambique.py` e `backend/apps/pautas/services.py`, garantindo rigor normativo em todos os ecrãs e documentos impressos.
 
@@ -155,7 +155,7 @@ Toda a lógica pedagógica encontra-se centralizada em `backend/common/utils/ava
 O sistema inclui a base oficial das **11 Províncias** (*Niassa, Cabo Delgado, Nampula, Zambézia, Tete, Manica, Sofala, Inhambane, Gaza, Maputo Província e Maputo Cidade*) e todos os respetivos **161 Distritos**, utilizada no registo de escolas, naturalidade/residência de alunos e professores, e no Portal Público de Inscrições.
 
 ### 5.2 Plano Curricular Nacional do Ensino Secundário Geral (7ª à 12ª Classe)
-Quando uma escola acede ao módulo de disciplinas ou é criada no sistema, o SIGE semeia automaticamente (`auto-seed`) a matriz oficial do MINEDH:
+Quando uma escola acede ao módulo de disciplinas ou é criada no sistema, o SIGE semeia automaticamente (`auto-seed`) a matriz oficial do MEC:
 
 - **1º Ciclo — 7ª, 8ª e 9ª Classes (Tronco Comum — 11 Disciplinas):**
   1. Língua Portuguesa (`5h`)
@@ -296,7 +296,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 
 ### Módulo 7: Disciplinas e Plano Curricular (`#view-disciplinas`)
 - Gestão do catálogo de disciplinas por Classe (7ª à 12ª) e Secção/Área de Estudo, com códigos canónicos (`LP-10`, `MAT-12CB`, `DGD-11CD`, etc.) e carga horária semanal.
-- Botão para **Sincronizar Currículo Nacional MINEDH** (`seed-curriculo`) a qualquer momento.
+- Botão para **Sincronizar Currículo Nacional MEC** (`seed-curriculo`) a qualquer momento.
 - **Gráfico de Ranking de Reprovação (`/disciplinas/ranking-reprovacao`):** Calcula e exibe em gráfico Chart.js as disciplinas com maior índice percentual de notas negativas na escola.
 
 ### Módulo 8: Biblioteca Digital de Material Escolar (`#view-material-escolar`)
@@ -329,7 +329,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - Consolida num único mapa todas as disciplinas oficiais da secção/área da turma, apresentando para cada aluno as médias do `1ºT`, `2ºT`, `3ºT` e `MFD` em cada disciplina, Faltas acumuladas, Média Geral Global, Comportamento e Observação Final (`Aprovado`, `Reprovado`, `Transferido`, `Desistente`, etc.).
   - Inclui o **Quadro Estatístico Oficial da Pauta** com apuramento de Matriculados, Avaliados, Positivos (`%`) e Negativos (`%`) discriminados por `H`, `M` e `HM` para os 3 trimestres e final anual.
 - **Sub-aba 2 — Acta Oficial do Conselho de Avaliação:**
-  - Gera automaticamente o documento formal da reunião do Conselho de Turma segundo o modelo do MINEDH:
+  - Gera automaticamente o documento formal da reunião do Conselho de Turma segundo o modelo do MEC:
     - Cabeçalho com Emblema da República, Governo da Província, Direção Distrital e Nome da Escola.
     - Narrativa oficial com **conversão automática de números e percentagens por extenso em português** (ex.: *"vinte e cinco alunos, correspondente a oitenta e três vírgula três por cento..."*).
     - Tabela demográfica consolidada (`H`, `M`, `HM`, `%`) de Matriculados, Desistentes, Transferidos, Avaliados, Em Situação Positiva e Em Situação Negativa.
@@ -536,7 +536,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET/PUT/PATCH/DELETE` | `/api/v1/professores/<pk>` | Admin / `DAP` | Consulta, edita (incluindo `carga_maxima_por_classe`) ou remove docente. |
 | `GET/POST` | `/api/v1/professores/alocacoes` e `/alocar` | Autenticado / `DAP` | Lista ou cria alocações de Professor a Turma + Disciplina. |
 | `DELETE` | `/api/v1/professores/alocacoes/<alocacao_id>` | `DAP` / Admin | Remove uma alocação docente. |
-| `GET/POST` | `/api/v1/disciplinas` | Autenticado / `DAP` | Lista disciplinas (com auto-seed do currículo MINEDH) ou cria nova disciplina. |
+| `GET/POST` | `/api/v1/disciplinas` | Autenticado / `DAP` | Lista disciplinas (com auto-seed do currículo MEC) ou cria nova disciplina. |
 | `POST` | `/api/v1/disciplinas/seed-curriculo` | `DAP` / Admin | Força a sincronização do Plano Curricular Nacional da 7ª à 12ª Classe. |
 | `GET` | `/api/v1/disciplinas/ranking-reprovacao` | Autenticado | Devolve o ranking de disciplinas com maior taxa de reprovação (%). |
 | `GET/PUT/PATCH/DELETE` | `/api/v1/disciplinas/<pk>` | `DAP` / Admin | Consulta, edita ou elimina uma disciplina. |
@@ -569,7 +569,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 
 O SIGE implementa **6 Pilares de Integridade** (`backend/docs/REGRAS_DE_INTEGRIDADE.md`):
 1. **Isolamento Multi-Tenant:** `TenantIsolationMiddleware`, `TenantQuerySetMixin`, validação cruzada `validar_integridade_tenant()` e políticas RLS no PostgreSQL.
-2. **Domínio Pedagógico MINEDH:** Validação estrita da escala `0.0` a `20.0`, arredondamentos regulamentares, proibição de faltas negativas e filtro rigoroso de disciplinas por secção/área na 11ª e 12ª Classe.
+2. **Domínio Pedagógico MEC:** Validação estrita da escala `0.0` a `20.0`, arredondamentos regulamentares, proibição de faltas negativas e filtro rigoroso de disciplinas por secção/área na 11ª e 12ª Classe.
 3. **Unicidade e Integridade Referencial:** Restrições SQL (`UniqueConstraint` e `CheckConstraint`) impedindo notas duplicadas no mesmo trimestre, alocações duplicadas, turmas com nomes repetidos na mesma classe ou pagamentos negativos.
 4. **Imutabilidade Pós-Homologação:** Quando uma `Pauta` é fechada (`status = 'FECHADA'`), qualquer tentativa de edição de notas é bloqueada ao nível do serviço e do modelo, exceto mediante registo explícito e auditado em `PermissaoEdicaoNotas` dentro do prazo.
 5. **Governança Financeira e Contratual:** Bloqueio automático `HTTP 402` para assinaturas vencidas e verificação dos limites do plano (`max_alunos`, `max_professores`).
@@ -614,7 +614,7 @@ docker compose up -d --build
 Sobe os 4 contentores orquestrados (`sige_postgres` na porta `5432`, `sige_backend` na porta `8000`, `sige_frontend` Nginx nas portas `80/443/5173` e `sige_pgadmin` na porta `5050`).
 
 ### 11.4 Testes Automatizados, CI/CD e Deploy na Cloud
-- **Suite de Testes (`pytest`):** Localizada em `backend/tests/test_sige_api.py`, valida autenticação JWT, isolamento multi-tenant, bloqueio HTTP 402, regras pedagógicas do MINEDH e geração documental:
+- **Suite de Testes (`pytest`):** Localizada em `backend/tests/test_sige_api.py`, valida autenticação JWT, isolamento multi-tenant, bloqueio HTTP 402, regras pedagógicas do MEC e geração documental:
   ```bash
   cd backend
   pytest -v

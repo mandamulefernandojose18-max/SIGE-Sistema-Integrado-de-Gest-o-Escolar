@@ -23,7 +23,7 @@ flowchart TD
         Acc[apps.accounts: Auth & RBAC]
         Ten[apps.tenants: Escolas & Planos]
         Acad[apps.alunos, professores, turmas, disciplinas]
-        Grades[apps.notas & pautas: Regras MINEDH]
+        Grades[apps.notas & pautas: Regras MEC]
         Docs[apps.documentos: ReportLab, openpyxl, python-docx]
         Fin[apps.pagamentos & certificados]
     end

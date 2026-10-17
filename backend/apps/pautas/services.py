@@ -5,7 +5,7 @@ from apps.disciplinas.models import Disciplina
 from apps.professores.models import AlocacaoDocente
 from apps.notas.models import Nota
 
-# Nomes oficiais completos das disciplinas (MINEDH - Moçambique)
+# Nomes oficiais completos das disciplinas (MEC - Moçambique)
 # REGRA: Não abreviar os nomes das disciplinas nas pautas
 MATERIA_NOMES_OFICIAIS = {
     'LP': 'Língua Portuguesa',
@@ -48,7 +48,7 @@ ORDEM_CURRICULAR_CANONICA = [
     'TIC',   # Informática / TIC
 ]
 
-# Matrizes curriculares oficiais do MINEDH por secção/área
+# Matrizes curriculares oficiais do MEC por secção/área
 CURRICULO_REGRAS_AREAS = {
     'CIENCIAS_GEOGRAFIA': {
         'permitidas': {'LP', 'ING', 'FILO', 'EF', 'MAT', 'GEO', 'FIS', 'QUI', 'AGRO'},
@@ -252,7 +252,7 @@ def categorizar_disciplina(d):
     nome_norm = normalizar_texto(d.nome or '')
     area_norm = normalizar_texto(d.area or '')
 
-    # 1. Códigos curriculares nacionais do MINEDH (ex: LP-11CB, FIS-11CD, FRAN-11LG)
+    # 1. Códigos curriculares nacionais do MEC (ex: LP-11CB, FIS-11CD, FRAN-11LG)
     if 'CB' in cod_norm:
         return 'CIENCIAS', 'CIENCIAS_BIOLOGIA'
     if 'CD' in cod_norm:
@@ -373,7 +373,7 @@ def obter_disciplinas_pauta_turma(turma):
     Retorna única e exclusivamente as disciplinas pertencentes ao plano curricular da secção/área da turma,
     carregando estritamente as disciplinas cadastradas e disponíveis para aquela escola, classe e área,
     com os nomes completos e oficiais (sem abreviações), deduplicadas e ordenadas
-    rigorosamente conforme o currículo oficial do MINEDH.
+    rigorosamente conforme o currículo oficial do MEC.
     """
     escola = turma.escola
     grau_turma = (turma.grau_ano or '').strip()

@@ -84,7 +84,7 @@ async function descarregarDocumento(endpoint, nomeArquivo) {
 | **Alunos** | `/api/v1/alunos/` | GET, POST | Matrículas e gestão de dados biográficos |
 | **Professores** | `/api/v1/professores/` | GET, POST | Registo docente e alocações de turmas |
 | **Caderneta** | `/api/v1/professores/caderneta/:id/completa/` | GET | Lançamento e consulta de notas contínuas |
-| **Pautas** | `/api/v1/pautas/turma/:id/completa/` | GET | Visualização das médias e aprovações MINEDH |
+| **Pautas** | `/api/v1/pautas/turma/:id/completa/` | GET | Visualização das médias e aprovações MEC |
 | **Pauta em PDF** | `/api/v1/pautas/turma/:id/pdf/` | GET | Download da pauta oficial em PDF com QR Code |
 | **Pauta em Excel** | `/api/v1/pautas/turma/:id/export-xlsx/` | GET | Download da pauta em folha de cálculo XLSX |
 | **Acta em Word** | `/api/v1/pautas/turma/:id/docx/` | GET | Download da acta de conselho em DOCX |

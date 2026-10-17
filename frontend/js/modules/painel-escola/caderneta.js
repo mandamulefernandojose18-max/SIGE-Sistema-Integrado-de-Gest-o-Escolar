@@ -959,7 +959,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
       if (vT3 !== null && !isNaN(vT3)) testes.push(vT3);
       if (vMAP !== null && !isNaN(vMAP)) testes.push(vMAP);
 
-      // Regra Oficial MINEDH: Só forma e exibe MT quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
+      // Regra Oficial MEC: Só forma e exibe MT quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
       const temRequisitosMT = (vT1 !== null && !isNaN(vT1)) && (vT2 !== null && !isNaN(vT2)) && (vAT !== null && !isNaN(vAT));
 
       let masVal = null;

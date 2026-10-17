@@ -81,7 +81,7 @@ class TestIntegrityRulesSIGE:
         )
 
     # -------------------------------------------------------------
-    # 1. Regras de Integridade de Domínio (Normas MINEDH)
+    # 1. Regras de Integridade de Domínio (Normas MEC)
     # -------------------------------------------------------------
     def test_nota_acima_do_limite_maximo_rejeitada(self):
         """Notas > 20.0 devem ser categoricamente rejeitadas pelo sistema."""

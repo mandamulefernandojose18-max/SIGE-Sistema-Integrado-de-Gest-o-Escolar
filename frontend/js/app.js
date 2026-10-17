@@ -4134,7 +4134,7 @@ window.modalFormacaoAutomaticaTurmas = async function(classeFiltro = 'TODAS', ar
           <div class="col-md-4">
             <label class="form-label small fw-semibold">Capacidade Máxima por Turma</label>
             <input type="number" id="mfaCapacidade" class="form-control" value="50" min="10" max="150" required>
-            <small class="text-muted" style="font-size: 0.72rem;">Padrão MINEDH: 50 alunos por sala.</small>
+            <small class="text-muted" style="font-size: 0.72rem;">Padrão MEC: 50 alunos por sala.</small>
           </div>
         </div>
 
@@ -9341,7 +9341,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
       if (vT3 !== null && !isNaN(vT3)) testes.push(vT3);
       if (vMAP !== null && !isNaN(vMAP)) testes.push(vMAP);
 
-      // Regra Oficial MINEDH: Só forma e exibe MT quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
+      // Regra Oficial MEC: Só forma e exibe MT quando o aluno tiver no mínimo 2 ACS sendo (1ª, 2ª) e AT
       const temRequisitosMT = (vT1 !== null && !isNaN(vT1)) && (vT2 !== null && !isNaN(vT2)) && (vAT !== null && !isNaN(vAT));
 
       let masVal = null;
@@ -11160,7 +11160,7 @@ function obterNomeCompletoDisciplina(str) {
   return mapa[id] || String(str).trim();
 }
 
-const PLANO_CURRICULAR_MINEDH_FRONTEND = {
+const PLANO_CURRICULAR_MEC_FRONTEND = {
   '7': {
     'Geral': ['Português', 'Inglês', 'História', 'Geografia', 'Ciências Naturais', 'Matemática', 'Educação Visual', 'Educação Física', 'Tecnologias de Informação e Comunicação']
   },
@@ -11203,7 +11203,7 @@ function obterDisciplinasPlanoCurricularAlunoDoc(d) {
   }
 
   const areaRaw = String(d.area || alunoObj.area || turmaObj.area || turmaObj.nome || '').toLowerCase();
-  const opcoesClasse = PLANO_CURRICULAR_MINEDH_FRONTEND[numClasse] || PLANO_CURRICULAR_MINEDH_FRONTEND['10'];
+  const opcoesClasse = PLANO_CURRICULAR_MEC_FRONTEND[numClasse] || PLANO_CURRICULAR_MEC_FRONTEND['10'];
   let nomesPlano = null;
 
   if (['7', '8', '9', '10'].includes(numClasse)) {
@@ -14918,7 +14918,7 @@ async function modalCarregarMaterialEscolar() {
 
         <div class="col-12">
           <label class="form-label small fw-semibold">Descrição ou Instruções aos Alunos (Opcional)</label>
-          <textarea id="matUploadDescricao" class="form-control" rows="2" placeholder="Ex: Manual oficial adoptado pelo MINEDH. Exercícios dos capítulos 1 a 4."></textarea>
+          <textarea id="matUploadDescricao" class="form-control" rows="2" placeholder="Ex: Manual oficial adoptado pelo MEC. Exercícios dos capítulos 1 a 4."></textarea>
         </div>
 
         <!-- Abas de Opções: Ficheiro Local ou Link -->
@@ -14931,7 +14931,7 @@ async function modalCarregarMaterialEscolar() {
             </li>
             <li class="nav-item">
               <button class="nav-link py-1 small fw-semibold" id="tab-link-btn" type="button" onclick="alternarAbaUploadMaterial('link')">
-                <i class="bi bi-link-45deg me-1"></i> Importar via Link Web (Google Drive, MINEDH...)
+                <i class="bi bi-link-45deg me-1"></i> Importar via Link Web (Google Drive, MEC...)
               </button>
             </li>
           </ul>
@@ -14945,7 +14945,7 @@ async function modalCarregarMaterialEscolar() {
 
           <div id="blocoUploadLink" class="border rounded p-3 bg-light" style="display: none;">
             <label class="form-label small fw-semibold mb-1">Endereço Web / URL do Ficheiro ou Pasta</label>
-            <input type="url" id="matUploadUrl" class="form-control form-control-sm" placeholder="https://drive.google.com/... ou https://minedh.gov.mz/...">
+            <input type="url" id="matUploadUrl" class="form-control form-control-sm" placeholder="https://drive.google.com/... ou https://mec.gov.mz/...">
             <small class="text-muted d-block mt-1">Insira um link público directo para os alunos consultarem e descarregarem.</small>
           </div>
         </div>
@@ -15065,3 +15065,6 @@ async function eliminarMaterialEscolar(id, titulo) {
     alert(`Erro ao eliminar material: ${err.message}`);
   }
 }
+
+// Compatibilidade retroativa:
+const PLANO_CURRICULAR_MINEDH_FRONTEND = PLANO_CURRICULAR_MEC_FRONTEND;

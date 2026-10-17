@@ -57,7 +57,7 @@ class Escola(models.Model):
     plano = models.ForeignKey(Plano, on_delete=models.SET_NULL, null=True, blank=True, related_name='escolas')
     data_adesao = models.DateTimeField(default=timezone.now)
 
-    # Dados Oficiais para Documentação MINEDH
+    # Dados Oficiais para Documentação MEC
     provincia = models.CharField(max_length=100, default='Maputo')
     distrito = models.CharField(max_length=100, default='Cidade de Maputo')
     tipo_escola = models.CharField(max_length=10, default='S')  # P=Primária, B=Básica, S=Secundária

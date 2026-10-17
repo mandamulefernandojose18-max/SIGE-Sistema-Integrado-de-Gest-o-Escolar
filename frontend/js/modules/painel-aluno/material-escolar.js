@@ -301,7 +301,7 @@ async function modalCarregarMaterialEscolar() {
 
         <div class="col-12">
           <label class="form-label small fw-semibold">Descrição ou Instruções aos Alunos (Opcional)</label>
-          <textarea id="matUploadDescricao" class="form-control" rows="2" placeholder="Ex: Manual oficial adoptado pelo MINEDH. Exercícios dos capítulos 1 a 4."></textarea>
+          <textarea id="matUploadDescricao" class="form-control" rows="2" placeholder="Ex: Manual oficial adoptado pelo MEC. Exercícios dos capítulos 1 a 4."></textarea>
         </div>
 
         <!-- Abas de Opções: Ficheiro Local ou Link -->
@@ -314,7 +314,7 @@ async function modalCarregarMaterialEscolar() {
             </li>
             <li class="nav-item">
               <button class="nav-link py-1 small fw-semibold" id="tab-link-btn" type="button" onclick="alternarAbaUploadMaterial('link')">
-                <i class="bi bi-link-45deg me-1"></i> Importar via Link Web (Google Drive, MINEDH...)
+                <i class="bi bi-link-45deg me-1"></i> Importar via Link Web (Google Drive, MEC...)
               </button>
             </li>
           </ul>
@@ -328,7 +328,7 @@ async function modalCarregarMaterialEscolar() {
 
           <div id="blocoUploadLink" class="border rounded p-3 bg-light" style="display: none;">
             <label class="form-label small fw-semibold mb-1">Endereço Web / URL do Ficheiro ou Pasta</label>
-            <input type="url" id="matUploadUrl" class="form-control form-control-sm" placeholder="https://drive.google.com/... ou https://minedh.gov.mz/...">
+            <input type="url" id="matUploadUrl" class="form-control form-control-sm" placeholder="https://drive.google.com/... ou https://mec.gov.mz/...">
             <small class="text-muted d-block mt-1">Insira um link público directo para os alunos consultarem e descarregarem.</small>
           </div>
         </div>

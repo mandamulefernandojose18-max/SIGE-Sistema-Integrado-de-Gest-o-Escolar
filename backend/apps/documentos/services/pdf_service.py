@@ -1,6 +1,6 @@
 """
 Serviço de Geração de PDFs Oficiais com ReportLab — SIGE
-Gera PDFs com fidelidade absoluta às normas oficiais do MINEDH (Moçambique)
+Gera PDFs com fidelidade absoluta às normas oficiais do MEC (Moçambique)
 e ao layout padrão oficial (Certificados, Declarações, Boletins e Pautas).
 Tipografia estritamente em Times-Roman, Times-Bold e Times-Italic,
 molduras oficiais da página (dupla para certificados, simples para declarações/boletins),
@@ -1150,7 +1150,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     styles = getSampleStyleSheet()
     elements = []
 
-    # 1. Cabeçalho Oficial MINEDH (Compacto para permitir fluxo contínuo das tabelas na Página 1)
+    # 1. Cabeçalho Oficial MEC (Compacto para permitir fluxo contínuo das tabelas na Página 1)
     if os.path.exists(EMBLEMA_PATH):
         try:
             elements.append(RLImage(EMBLEMA_PATH, width=0.9 * cm, height=0.9 * cm))
@@ -1610,7 +1610,7 @@ def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
     styles = getSampleStyleSheet()
     elements = []
 
-    # 1. Cabeçalho Oficial MINEDH
+    # 1. Cabeçalho Oficial MEC
     elements.extend(gerar_cabecalho_minedh(styles, escola.nome, escola.provincia, escola.distrito))
 
     style_title = ParagraphStyle('FichaTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')

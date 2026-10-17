@@ -524,7 +524,7 @@ function obterNomeCompletoDisciplina(str) {
   return mapa[id] || String(str).trim();
 }
 
-const PLANO_CURRICULAR_MINEDH_FRONTEND = {
+const PLANO_CURRICULAR_MEC_FRONTEND = {
   '7': {
     'Geral': ['Português', 'Inglês', 'História', 'Geografia', 'Ciências Naturais', 'Matemática', 'Educação Visual', 'Educação Física', 'Tecnologias de Informação e Comunicação']
   },
@@ -567,7 +567,7 @@ function obterDisciplinasPlanoCurricularAlunoDoc(d) {
   }
 
   const areaRaw = String(d.area || alunoObj.area || turmaObj.area || turmaObj.nome || '').toLowerCase();
-  const opcoesClasse = PLANO_CURRICULAR_MINEDH_FRONTEND[numClasse] || PLANO_CURRICULAR_MINEDH_FRONTEND['10'];
+  const opcoesClasse = PLANO_CURRICULAR_MEC_FRONTEND[numClasse] || PLANO_CURRICULAR_MEC_FRONTEND['10'];
   let nomesPlano = null;
 
   if (['7', '8', '9', '10'].includes(numClasse)) {
@@ -1478,3 +1478,6 @@ function imprimirDocumentoComTitulo(titulo) {
   document.title = originalTitle;
 }
 
+
+// Compatibilidade retroativa:
+const PLANO_CURRICULAR_MINEDH_FRONTEND = PLANO_CURRICULAR_MEC_FRONTEND;

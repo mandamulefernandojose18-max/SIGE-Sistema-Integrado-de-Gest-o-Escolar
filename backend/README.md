@@ -1,7 +1,7 @@
 # SIGE — Backend Django REST Framework (SaaS Multi-Tenant)
 
 ## Visão Geral
-Backend oficial do **SIGE — Sistema Integrado de Gestão Escolar**, reestruturado em **Python 3.12**, **Django 5.1** e **Django REST Framework (DRF)** com suporte a **PostgreSQL**, arquitetura **SaaS Multi-Tenant** e conformidade integral com as normas e avaliações do **MINEDH (Ministério da Educação e Desenvolvimento Humano de Moçambique)**.
+Backend oficial do **SIGE — Sistema Integrado de Gestão Escolar**, reestruturado em **Python 3.12**, **Django 5.1** e **Django REST Framework (DRF)** com suporte a **PostgreSQL**, arquitetura **SaaS Multi-Tenant** e conformidade integral com as normas e avaliações do **MEC (Ministério da Educação e Desenvolvimento Humano de Moçambique)**.
 
 ---
 
@@ -27,7 +27,7 @@ backend/
 │   ├── middleware/        # TenantMiddleware e TenantExpirationMiddleware (HTTP 402)
 │   ├── permissions/       # RBAC (SuperAdmin, EscolaAdmin, Professor, Aluno)
 │   ├── pagination/        # Paginação padronizada DRF
-│   └── utils/             # Regras oficiais do MINEDH e Geografia de Moçambique
+│   └── utils/             # Regras oficiais do MEC e Geografia de Moçambique
 ├── config/
 │   ├── settings/          # Configurações base, desenvolvimento e produção
 │   ├── urls.py            # Roteamento centralizado (/api/v1/ e Swagger)
@@ -44,10 +44,10 @@ backend/
 A documentação detalhada e gerada automaticamente está organizada no diretório `docs/`:
 
 - 📐 **[Arquitetura do Sistema](docs/ARCHITECTURE.md):** Padrões de design, fluxo de requisições, middlewares e isolamento multi-tenant.
-- 🛡️ **[Regras de Integridade do Sistema](docs/REGRAS_DE_INTEGRIDADE.md):** Os 6 Pilares de Integridade, isolamento multi-tenant hermético, constraints de banco, imutabilidade de pautas e conformidade MINEDH.
+- 🛡️ **[Regras de Integridade do Sistema](docs/REGRAS_DE_INTEGRIDADE.md):** Os 6 Pilares de Integridade, isolamento multi-tenant hermético, constraints de banco, imutabilidade de pautas e conformidade MEC.
 - 📡 **[Referência Oficial de Endpoints da API](docs/API_REFERENCE.md):** Lista completa de rotas, métodos HTTP, permissões e requisitos de autenticação.
 - 🗄️ **[Catálogo de Modelos de Dados](docs/DATABASE_MODELS.md):** Dicionário de dados, tipos de campos, chaves estrangeiras e relações do Django ORM.
-- 🇲🇿 **[Regras Oficiais do MINEDH](docs/MINEDH_RULES.md):** Fórmulas de cálculo de médias, critérios de aprovação, regra da 12ª classe e anotações administrativas.
+- 🇲🇿 **[Regras Oficiais do MEC](docs/MEC_RULES.md):** Fórmulas de cálculo de médias, critérios de aprovação, regra da 12ª classe e anotações administrativas.
 - 📑 **[OpenAPI 3.0 Schema](schema.yml):** Especificação OpenAPI em formato YAML para importação no Swagger, Postman ou Insomnia.
 
 ### Atualização Automática da Documentação (Gatilho)
@@ -124,7 +124,7 @@ pytest -v
 
 ---
 
-## Regras Oficiais MINEDH (Moçambique)
+## Regras Oficiais MEC (Moçambique)
 - **Média Trimestral:** $MT = \text{round}\left(\frac{2 \times MAC + AT}{3}\right)$, arredondado para número inteiro (0 a 20).
 - **Aprovação na Pauta (Classes Gerais):** Requer 100% de positivas (0 negativas).
 - **Aprovação na 12ª Classe:** Requer média geral $\ge 9.5$, até no máximo 2 negativas e nenhuma negativa inferior a 8 valores.

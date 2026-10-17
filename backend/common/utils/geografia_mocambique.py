@@ -1,5 +1,5 @@
 """
-Constantes e Geografia Oficial da República de Moçambique (MINEDH)
+Constantes e Geografia Oficial da República de Moçambique (MEC)
 """
 
 PROVINCIAS_MOCAMBIQUE = [

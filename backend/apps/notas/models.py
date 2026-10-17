@@ -93,7 +93,7 @@ class Nota(models.Model):
             if val is not None:
                 validar_escala_nota(val)
 
-        # 3. Cálculo rigoroso e sincronização automática da média e resultado conforme regras oficiais do MINEDH
+        # 3. Cálculo rigoroso e sincronização automática da média e resultado conforme regras oficiais do MEC
         from common.utils.avaliacoes_mocambique import calcular_media_trimestral
         tem_avaliacoes = any(
             getattr(self, campo, None) is not None and getattr(self, campo, 0) > 0

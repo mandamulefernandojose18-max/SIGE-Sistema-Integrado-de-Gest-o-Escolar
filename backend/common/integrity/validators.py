@@ -1,5 +1,5 @@
 """
-Validadores de Domínio e Normas Oficiais — SIGE / MINEDH (Moçambique)
+Validadores de Domínio e Normas Oficiais — SIGE / MEC (Moçambique)
 """
 import re
 from .exceptions import InvalidDomainValueViolation
@@ -11,7 +11,7 @@ RESULTADOS_VALIDOS = {'Aprovado', 'Reprovado', 'Excluido', 'Dispensado', 'Admiti
 
 def validar_escala_nota(valor):
     """
-    Garante que a nota escolar esteja estritamente dentro da escala oficial do MINEDH (0.0 a 20.0).
+    Garante que a nota escolar esteja estritamente dentro da escala oficial do MEC (0.0 a 20.0).
     """
     if valor is None:
         return
@@ -22,7 +22,7 @@ def validar_escala_nota(valor):
 
     if val < 0.0 or val > 20.0:
         raise InvalidDomainValueViolation(
-            f"A nota {val} viola a escala regulamentar do MINEDH. O valor deve estar compreendido entre 0.0 e 20.0."
+            f"A nota {val} viola a escala regulamentar do MEC. O valor deve estar compreendido entre 0.0 e 20.0."
         )
 
 def validar_faltas(valor):
@@ -75,7 +75,7 @@ def validar_comportamento(comportamento):
 
 def validar_anotacao_minedh(anotacao):
     """
-    Valida as siglas oficiais de anotações em pautas e cadernetas do MINEDH:
+    Valida as siglas oficiais de anotações em pautas e cadernetas do MEC:
     D=Dispensado, T=Transferido, VT=Vindo de Transferência, F=Falecido,
     AM=Anulação de Matrícula, PPF=Pede Prova Final, PDF=Prova de Fim de Ciclo.
     """
@@ -83,7 +83,7 @@ def validar_anotacao_minedh(anotacao):
         return
     if anotacao not in ANOTACOES_VALIDAS:
         raise InvalidDomainValueViolation(
-            f"Anotação '{anotacao}' inválida. Siglas normativas do MINEDH aceitas: {', '.join(sorted(ANOTACOES_VALIDAS))}."
+            f"Anotação '{anotacao}' inválida. Siglas normativas do MEC aceitas: {', '.join(sorted(ANOTACOES_VALIDAS))}."
         )
 
 def validar_unicidade_codigo_sistema(codigo, exclude_aluno_id=None, exclude_prof_id=None, exclude_usuario_id=None, exclude_turma_id=None):

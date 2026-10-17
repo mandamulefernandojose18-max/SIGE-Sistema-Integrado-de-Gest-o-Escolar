@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SIGE API — Sistema Integrado de Gestão Escolar (Moçambique)
   version: 1.0.0
-  description: API RESTful corporativa SaaS Multi-Tenant conforme as normas do MINEDH
+  description: API RESTful corporativa SaaS Multi-Tenant conforme as normas do MEC
     de Moçambique.
 paths:
   /api/v1/auth/login:

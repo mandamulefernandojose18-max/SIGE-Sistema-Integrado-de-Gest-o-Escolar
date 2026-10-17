@@ -1,6 +1,6 @@
 # 🛡️ Regras de Integridade do Sistema SIGE
 
-### Plataforma SaaS Multi-Tenant de Gestão Escolar (MINEDH - Moçambique)
+### Plataforma SaaS Multi-Tenant de Gestão Escolar (MEC - Moçambique)
 
 > **Documento Oficial de Engenharia e Conformidade Normativa**  
 > **Status:** Em Vigor  
@@ -28,7 +28,7 @@ flowchart TD
 
     subgraph L3 ["3. Camada de Negócio e ORM (Python / Django)"]
         Clean_Val[Model clean: Validação Cruzada de Tenant & Imutabilidade]
-        Domain_Val[common.integrity.validators: Escala 0-20, MINEDH, NUIT]
+        Domain_Val[common.integrity.validators: Escala 0-20, MEC, NUIT]
         Service_Check[tenant_checks: Bloqueio de Pauta Fechada]
     end
 
@@ -49,7 +49,7 @@ flowchart TD
 | Pilar | Dimensão | Mecanismos de Aplicação | Severidade de Violação |
 | :---: | :--- | :--- | :---: |
 | **I** | **Isolamento Multi-Tenant** | `escola_id` obrigatório, validação cruzada no `clean()`, RLS no Postgres, filtros automáticos no `get_queryset()` | **CRÍTICA** (Vazamento de dados) |
-| **II** | **Domínio Pedagógico MINEDH** | Escala 0–20, arredondamento oficial, catálogo fechado de siglas (`NS/S/B/MB/E`, faltas $\ge 0$, períodos canônicos) | **ALTA** (Erro normativo) |
+| **II** | **Domínio Pedagógico MEC** | Escala 0–20, arredondamento oficial, catálogo fechado de siglas (`NS/S/B/MB/E`, faltas $\ge 0$, períodos canônicos) | **ALTA** (Erro normativo) |
 | **III** | **Entidade e Unicidade** | `UniqueConstraint` compostas (Nota por período, Pauta por turma/ano, Alocação docente, Matrícula) | **ALTA** (Duplicação / inconsistência) |
 | **IV** | **Estado e Imutabilidade** | Pauta Fechada bloqueia edição de notas; exceção rastreada por `PermissaoEdicaoNotas`; recibos emitidos imutáveis | **CRÍTICA** (Fraude acadêmica) |
 | **V** | **Financeira e Contratos SaaS** | `valor >= 0`, `valor_pago >= 0`, datas de assinatura coerentes (`data_fim >= data_inicio`), cotas de plano (`max_alunos`, `max_professores`) | **ALTA** (Inconsistência contábil) |
@@ -78,7 +78,7 @@ Cada registro de domínio no banco de dados deve conter uma chave estrangeira n�
 
 ---
 
-## 4. Pilar II — Integridade de Domínio Pedagógico (Normativo MINEDH)
+## 4. Pilar II — Integridade de Domínio Pedagógico (Normativo MEC)
 
 Todas as operações de notas, faltas e avaliações devem seguir a regulamentação do **Sistema Nacional de Educação de Moçambique**:
 
@@ -99,7 +99,7 @@ Apenas os seguintes identificadores de período são aceitos pelo sistema:
 - `ANUAL`: Consolidação Final de Pauta Anual
 
 ### 4.4. Escala Qualitativa de Comportamento
-O campo `comportamento` está restrito aos 5 códigos oficiais do MINEDH:
+O campo `comportamento` está restrito aos 5 códigos oficiais do MEC:
 
 | Sigla | Denominação | Intervalo de Média Equivalente |
 | :---: | :--- | :---: |

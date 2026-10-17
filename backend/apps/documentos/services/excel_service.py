@@ -635,7 +635,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     num_d = len(discs)
     max_cols_total = max(24, 1 + num_d * 3 if num_d > 0 else 24)
 
-    # 1. Cabeçalho Oficial MINEDH (idêntico ao PDF)
+    # 1. Cabeçalho Oficial MEC (idêntico ao PDF)
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
     esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundária').upper()

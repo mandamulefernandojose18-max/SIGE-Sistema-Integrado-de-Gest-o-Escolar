@@ -947,7 +947,7 @@ window.modalFormacaoAutomaticaTurmas = async function(classeFiltro = 'TODAS', ar
           <div class="col-md-4">
             <label class="form-label small fw-semibold">Capacidade Máxima por Turma</label>
             <input type="number" id="mfaCapacidade" class="form-control" value="50" min="10" max="150" required>
-            <small class="text-muted" style="font-size: 0.72rem;">Padrão MINEDH: 50 alunos por sala.</small>
+            <small class="text-muted" style="font-size: 0.72rem;">Padrão MEC: 50 alunos por sala.</small>
           </div>
         </div>
 

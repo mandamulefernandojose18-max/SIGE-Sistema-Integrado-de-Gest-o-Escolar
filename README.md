@@ -1,5 +1,5 @@
 # 🏫 SIGE — Sistema Integrado de Gestão Escolar (v2.5.0)
-### Plataforma SaaS Multi-Tenant Corporativa de Gestão Educacional (MINEDH — Moçambique)
+### Plataforma SaaS Multi-Tenant Corporativa de Gestão Educacional (MEC — Moçambique)
 
 [![SIGE CI/CD Pipeline](https://github.com/empresa/sige/actions/workflows/ci.yml/badge.svg)](https://github.com/empresa/sige/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://www.python.org/)
@@ -12,7 +12,7 @@
 
 ## 📖 Visão Geral
 
-O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa **SaaS Multi-Tenant** projetada para centralizar, padronizar e automatizar integralmente as operações pedagógicas, curriculares, administrativas, financeiras e de certificação digital de instituições de ensino público e privado em **Moçambique**, em estrita conformidade com as normas do **MINEDH (Ministério da Educação e Desenvolvimento Humano)**.
+O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa **SaaS Multi-Tenant** projetada para centralizar, padronizar e automatizar integralmente as operações pedagógicas, curriculares, administrativas, financeiras e de certificação digital de instituições de ensino público e privado em **Moçambique**, em estrita conformidade com as normas do **MEC (Ministério da Educação e Desenvolvimento Humano)**.
 
 > 📘 **Quer consultar tudo o que o sistema faz em detalhe?**  
 > Leia a **[Documentação Completa do Sistema (`docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`)](docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md)**.
@@ -53,7 +53,7 @@ O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa 
 | **4** | 🏛️ **Gestão de Turmas & Lotação** | Controlo de capacidade máxima (padrão 50 alunos), barras de ocupação, numeração contínua (`Turma 1, 2, 3...`), criação em lote, **Formação/Distribuição Automática de Alunos** e **Homologação de DT/DC** pelo Director da Escola. |
 | **5** | 👨‍🎓 **Alunos & Matrículas** | Cadastro biográfico e filiação, geração automática de número de matrícula (`2026001`), transferência interna de turma com migração automática de notas e estatísticas demográficas (retenção, evasão, género). |
 | **6** | 👨‍🏫 **Professores & Carreiras MEC** | Carreiras oficiais (`DN4` a `Professor Doutor`), limite de carga horária por classe, cálculo automático de **Horas Normais vs. Horas Extras** e alocação a Turma/Disciplina. |
-| **7** | 📚 **Disciplinas & Currículo MINEDH** | Auto-seed do Plano Curricular Nacional da **7ª à 12ª Classe** (incluindo as 5 secções específicas da 11ª e 12ª: *Ciências com Biologia, Desenho, Geografia* e *Letras com Geografia, História*) e ranking de reprovação. |
+| **7** | 📚 **Disciplinas & Currículo MEC** | Auto-seed do Plano Curricular Nacional da **7ª à 12ª Classe** (incluindo as 5 secções específicas da 11ª e 12ª: *Ciências com Biologia, Desenho, Geografia* e *Letras com Geografia, História*) e ranking de reprovação. |
 | **8** | 📖 **Material Escolar Digital** | Biblioteca digital da **1ª à 12ª Classe** com 34 manuais oficiais pré-carregados e upload de manuais, fichas, guias e livros até 15 MB. |
 | **9** | 📝 **Caderneta do Professor** | Grelha com os **3 Trimestres lado a lado** (`1ª ACS`, `2ª ACS`, `3ª ACS`, `MAP`, `MAS`, `AT`, `MT`, `COM`, `Obs`) + `MFD`, estatísticas demográficas no rodapé por coluna (`H`, `M`, `HM`, `%`) e exportação PDF/Excel. |
 | **10** | 🔓 **Prazos & Desbloqueio de Notas** | Definição de calendário de abertura/fecho de lançamento por trimestre e concessão de autorizações temporárias de desbloqueio (`PermissaoEdicaoNotas`) pelo DAP/Direção. |
@@ -128,9 +128,9 @@ pytest -v
 ## 📚 Índice de Documentação Técnica do Repositório
 
 - 📘 **[Documentação Completa do Sistema](docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md):** Manual exaustivo de todos os módulos, fluxos, fórmulas, tabelas e rotas do SIGE.
-- 🛡️ **[Regras de Integridade do Sistema](backend/docs/REGRAS_DE_INTEGRIDADE.md):** Os 6 Pilares de Integridade (Isolamento Multi-Tenant, Domínio MINEDH, Unicidade, Imutabilidade de Pautas, Finanças e Auditoria).
+- 🛡️ **[Regras de Integridade do Sistema](backend/docs/REGRAS_DE_INTEGRIDADE.md):** Os 6 Pilares de Integridade (Isolamento Multi-Tenant, Domínio MEC, Unicidade, Imutabilidade de Pautas, Finanças e Auditoria).
 - 📐 **[Arquitetura do Backend](backend/docs/ARCHITECTURE.md):** Padrões arquiteturais, cadeia de middlewares e RBAC no Django REST Framework.
-- 🇲🇿 **[Regras Oficiais do MINEDH](backend/docs/MINEDH_RULES.md):** Critérios de aprovação (7ª–11ª vs. 12ª Classe) e fórmulas pedagógicas de Moçambique.
+- 🇲🇿 **[Regras Oficiais do MEC](backend/docs/MEC_RULES.md):** Critérios de aprovação (7ª–11ª vs. 12ª Classe) e fórmulas pedagógicas de Moçambique.
 - 🗄️ **[Modelos de Dados do Backend](backend/docs/DATABASE_MODELS.md):** Catálogo de modelos e campos do Django ORM.
 - 🖥️ **[Arquitetura do Frontend SPA/PWA](frontend/docs/ARCHITECTURE.md)**, **[Guia de Integração](frontend/docs/INTEGRATION_GUIDE.md)** e **[Catálogo de Páginas e Módulos](frontend/docs/PAGES_AND_MODULES.md)**.
 - 🚀 **[Guia de Deploy Automatizado na Cloud/VM](docs/DEPLOY_AUTOMATIZADO.md)**.

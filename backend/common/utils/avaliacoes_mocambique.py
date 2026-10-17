@@ -1,5 +1,5 @@
 """
-Regras Oficiais de Avaliação e Aprovação - Sistema Nacional de Educação de Moçambique (MINEDH)
+Regras Oficiais de Avaliação e Aprovação - Sistema Nacional de Educação de Moçambique (MEC)
 """
 from typing import Dict, Any, List, Optional
 import math
@@ -7,7 +7,7 @@ import re
 
 def calcular_media_trimestral(dados: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Calcula a média trimestral conforme normas do MINEDH:
+    Calcula a média trimestral conforme normas do MEC:
     MAC = média aritmética das avaliações contínuas (testes e trabalhos)
     MT = (2 * MAC + AT) / 3 arredondado para número inteiro (escala 0-20)
     """
@@ -99,7 +99,7 @@ def avaliar_aprovacao_pauta(
     grau_ano: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Critério Oficial de Aprovação na Pauta Anual do Aluno (MINEDH):
+    Critério Oficial de Aprovação na Pauta Anual do Aluno (MEC):
     - Excepto a 12ª classe: O aluno SÓ APROVA se tiver em TODAS as disciplinas notas positivas (zero negativas).
     - Na 12ª classe: O aluno aprova se tiver Média geral >= 9.5 valores, no máximo 2 negativas e nenhuma negativa < 8.
     """
@@ -227,9 +227,9 @@ def avaliar_aprovacao_pauta(
         'motivo': f'Aprovado na 12ª classe com {total_negativas} negativa(s) tolerada(s) (>= 8 valores) e média {media_geral}.' if total_negativas > 0 else f'Aprovado na 12ª classe com aproveitamento pleno e média {media_geral}.'
     }
 
-# ==================== PLANO CURRICULAR OFICIAL MINEDH ====================
+# ==================== PLANO CURRICULAR OFICIAL MEC ====================
 
-PLANO_CURRICULAR_NACIONAL_MINEDH: Dict[str, Any] = {
+PLANO_CURRICULAR_NACIONAL_MEC: Dict[str, Any] = {
     '7ª Classe': [
         ('Língua Portuguesa', 'LP-07', '5h'),
         ('Matemática', 'MAT-07', '5h'),
@@ -471,8 +471,8 @@ def obter_disciplinas_plano_curricular(aluno: Any, escola: Any = None) -> List[D
         if not _is_especifica(area):
             area = 'Ciências com Biologia'
 
-    # Obter o plano curricular oficial do MINEDH para esta Classe e Área/Secção
-    plano_bloco = PLANO_CURRICULAR_NACIONAL_MINEDH.get(chave_classe, PLANO_CURRICULAR_NACIONAL_MINEDH.get('10ª Classe', []))
+    # Obter o plano curricular oficial do MEC para esta Classe e Área/Secção
+    plano_bloco = PLANO_CURRICULAR_NACIONAL_MEC.get(chave_classe, PLANO_CURRICULAR_NACIONAL_MEC.get('10ª Classe', []))
     lista_padrao = []
 
     if isinstance(plano_bloco, dict):
@@ -546,3 +546,6 @@ def obter_disciplinas_plano_curricular(aluno: Any, escola: Any = None) -> List[D
     return lista_final
 
 
+
+# Compatibilidade retroativa:
+PLANO_CURRICULAR_NACIONAL_MINEDH = PLANO_CURRICULAR_NACIONAL_MEC

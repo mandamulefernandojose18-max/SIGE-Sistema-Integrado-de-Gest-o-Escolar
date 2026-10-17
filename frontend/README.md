@@ -1,6 +1,6 @@
 # SIGE Frontend — Interface Web SPA Autônoma
 
-Aplicação Web Single-Page Application (SPA / PWA) oficial para gestão escolar em Moçambique (MINEDH).
+Aplicação Web Single-Page Application (SPA / PWA) oficial para gestão escolar em Moçambique (MEC).
 
 ---
 

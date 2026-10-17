@@ -716,7 +716,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
                     if idx < len(masc): alunos_ordenados.append(masc[idx])
             elif criterio == 'ALFABETICO':
                 alunos_ordenados = sorted(alunos_grupo, key=lambda a: (a.nome or '').lower())
-            else: # EQUILIBRIO_IDADE_GENERO (Padrão MINEDH)
+            else: # EQUILIBRIO_IDADE_GENERO (Padrão MEC)
                 fem = sorted([a for a in alunos_grupo if a.genero == 'F'], key=lambda a: (a.data_nascimento or datetime.date(1900, 1, 1)), reverse=True)
                 masc = sorted([a for a in alunos_grupo if a.genero == 'M'], key=lambda a: (a.data_nascimento or datetime.date(1900, 1, 1)), reverse=True)
                 alunos_ordenados = []

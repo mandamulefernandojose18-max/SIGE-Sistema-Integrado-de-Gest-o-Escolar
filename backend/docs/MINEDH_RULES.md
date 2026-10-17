@@ -1,4 +1,4 @@
-# Regras Oficiais de Avaliação Pedagógica — MINEDH (Moçambique)
+# Regras Oficiais de Avaliação Pedagógica — MEC (Moçambique)
 
 > **Documento Normativo**: Sistema Nacional de Educação de Moçambique  
 > **Implementação**: `backend/common/utils/avaliacoes_mocambique.py` e `backend/apps/notas/models.py`
