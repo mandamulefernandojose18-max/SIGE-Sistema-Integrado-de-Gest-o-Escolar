@@ -1,5 +1,5 @@
 // SIGE - Service Worker com Estratégia Network-First (Garante Atualizações Imediatas)
-const CACHE_NAME = 'sige-cache-v3.1.0-20261016_0910';
+const CACHE_NAME = 'sige-cache-v3.2.0-20261017_1200';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -8,6 +8,12 @@ const ASSETS_TO_CACHE = [
   '/img/logo-sige.png',
   '/img/logo-sige.jpg'
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.action === 'skipWaiting' || event.data === 'skipWaiting')) {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -34,10 +40,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignora requisições de API e métodos que não sejam GET
+  // Ignora requisições de API, healthcheck e version.json para garantir deteccao imediata de atualizacoes
   if (event.request.method !== 'GET' || 
       event.request.url.includes('/api/') || 
-      event.request.url.includes('/health/')) {
+      event.request.url.includes('/health/') ||
+      event.request.url.includes('version.json')) {
     return;
   }
 

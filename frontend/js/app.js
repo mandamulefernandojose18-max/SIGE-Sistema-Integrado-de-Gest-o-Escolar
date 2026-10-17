@@ -367,13 +367,277 @@ function filtrarAlunosCaderneta() {
 // SIGE — Sistema Integrado de Gestão Escolar (SaaS Multi-Tenant Moçambique)
 // Lógica Principal do Frontend SPA em Português de Moçambique
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js?v=20261013_2100').then((reg) => {
-      reg.update().catch(() => {});
-    }).catch(() => {});
-  });
+// ==================== GESTÃO DE ACTUALIZAÇÕES PENDENTES DO SISTEMA (SIGE UPDATER) ====================
+window.SIGE_APP_VERSION = {
+  version: '2.5.0',
+  build: '20261017_1200'
+};
+
+const sigeUpdateState = {
+  pendente: false,
+  detalhes: null,
+  registration: null,
+  workerEsperando: null,
+  bannerFechadoPeloUsuario: false,
+  verificando: false
+};
+
+// Notificar visualmente que há uma actualização pendente
+window.sigeNotificarActualizacaoPendente = function(detalhes = {}) {
+  sigeUpdateState.pendente = true;
+  sigeUpdateState.detalhes = detalhes;
+
+  console.log('[SIGE UPDATER] Actualização pendente detectada:', detalhes);
+
+  // 1. Botão na Topbar
+  const btnTopbar = document.getElementById('btnActualizacaoPendente');
+  if (btnTopbar) {
+    btnTopbar.classList.remove('d-none');
+    if (detalhes.novaVersao) {
+      btnTopbar.title = `Actualização pendente para a versão ${detalhes.novaVersao}. Clique para actualizar.`;
+    }
+  }
+
+  // 2. Badge no Footer
+  const footerBadge = document.getElementById('sigeFooterBadgeActualizacao');
+  if (footerBadge) {
+    footerBadge.classList.remove('d-none');
+    if (detalhes.novaVersao) {
+      footerBadge.innerHTML = `<i class="bi bi-arrow-repeat me-1"></i> Actualização v${detalhes.novaVersao} pendente`;
+    }
+  }
+
+  // 3. Badge no Login
+  const loginBadge = document.getElementById('loginUpdateBadge');
+  if (loginBadge) {
+    loginBadge.classList.remove('d-none');
+  }
+
+  // 4. Badge no Menu Perfil
+  const menuBadge = document.getElementById('badgeMenuActualizacaoPendente');
+  if (menuBadge) {
+    menuBadge.classList.remove('d-none');
+  }
+
+  // 5. Banner Flutuante (se o usuário não fechou nesta sessão)
+  if (!sigeUpdateState.bannerFechadoPeloUsuario) {
+    const banner = document.getElementById('sigeBannerActualizacaoPendente');
+    const titulo = document.getElementById('sigeTituloActualizacao');
+    const desc = document.getElementById('sigeDescricaoActualizacao');
+    if (banner) {
+      if (titulo && detalhes.novaVersao) {
+        titulo.textContent = `Nova Versão Disponível (v${detalhes.novaVersao})`;
+      }
+      if (desc && (detalhes.novidades || detalhes.descricao)) {
+        desc.textContent = detalhes.novidades || detalhes.descricao || 'O sistema SIGE tem uma actualização pendente pronta a instalar.';
+      }
+      banner.classList.remove('d-none');
+    }
+  }
+};
+
+// Fechar banner temporariamente mantendo os botões de actualização visíveis
+window.sigeFecharBannerActualizacao = function() {
+  sigeUpdateState.bannerFechadoPeloUsuario = true;
+  const banner = document.getElementById('sigeBannerActualizacaoPendente');
+  if (banner) {
+    banner.classList.add('d-none');
+  }
+};
+
+// Aplicar actualização imediatamente (limpa cache, ativa novo service worker e recarrega)
+window.sigeAplicarActualizacao = async function() {
+  const modalEl = document.getElementById('modalActualizandoSige');
+  let modalInst = null;
+  if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+    modalInst = new bootstrap.Modal(modalEl);
+    modalInst.show();
+  } else if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao('A aplicar actualização do SIGE...', 'info');
+  }
+
+  try {
+    // 1. Enviar mensagem de ativação para o Service Worker
+    if (sigeUpdateState.workerEsperando) {
+      sigeUpdateState.workerEsperando.postMessage({ action: 'skipWaiting' });
+    } else if (sigeUpdateState.registration && sigeUpdateState.registration.waiting) {
+      sigeUpdateState.registration.waiting.postMessage({ action: 'skipWaiting' });
+    }
+
+    // 2. Limpar CacheStorage do navegador
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        console.log('[SIGE UPDATER] Cache do navegador limpa.');
+      } catch (err) {
+        console.warn('[SIGE UPDATER] Erro ao limpar caches:', err);
+      }
+    }
+
+    // 3. Forçar recarregamento completo sem cache
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 700);
+  } catch (e) {
+    console.error('[SIGE UPDATER] Erro ao aplicar actualização:', e);
+    window.location.reload(true);
+  }
+};
+
+// Verificação contra o ficheiro version.json
+async function sigeChecarVersaoServidor(silencioso = true) {
+  try {
+    const timestamp = Date.now();
+    const resp = await fetch(`/version.json?_t=${timestamp}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      const versaoLocal = window.SIGE_APP_VERSION.version;
+      const buildLocal = window.SIGE_APP_VERSION.build;
+
+      const mudouVersao = Boolean(data.version && data.version !== versaoLocal);
+      const mudouBuild = Boolean(data.build && data.build !== buildLocal);
+
+      if (mudouVersao || mudouBuild) {
+        window.sigeNotificarActualizacaoPendente({
+          tipo: 'versao_remota',
+          novaVersao: data.version || versaoLocal,
+          novoBuild: data.build || '',
+          novidades: data.novidades || data.descricao || ''
+        });
+        return true;
+      }
+    }
+  } catch (e) {
+    if (!silencioso) {
+      console.warn('[SIGE UPDATER] Falha ao consultar version.json:', e);
+    }
+  }
+  return false;
 }
+
+// Verificação manual solicitada pelo utilizador
+window.sigeVerificarActualizacaoManual = async function() {
+  if (sigeUpdateState.verificando) return;
+  sigeUpdateState.verificando = true;
+
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao('A verificar se existem actualizações do sistema...', 'info');
+  }
+
+  let encontrou = false;
+
+  // 1. Checar Service Worker
+  if (sigeUpdateState.registration) {
+    try {
+      await sigeUpdateState.registration.update();
+      if (sigeUpdateState.registration.waiting) {
+        sigeUpdateState.workerEsperando = sigeUpdateState.registration.waiting;
+        window.sigeNotificarActualizacaoPendente({ tipo: 'service-worker' });
+        encontrou = true;
+      }
+    } catch (e) {
+      console.warn('[SIGE UPDATER] Erro no update do SW:', e);
+    }
+  }
+
+  // 2. Checar version.json
+  const encontrouVersao = await sigeChecarVersaoServidor(false);
+  if (encontrouVersao) {
+    encontrou = true;
+  }
+
+  sigeUpdateState.verificando = false;
+
+  if (!encontrou && !sigeUpdateState.pendente) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao(`O seu SIGE já está na versão mais recente (v${window.SIGE_APP_VERSION.version}).`, 'success');
+    }
+  } else if (encontrou) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Existe uma actualização pendente pronta a instalar!', 'warning');
+    }
+  }
+};
+
+// Função para simular actualização pendente (para testes ou suporte)
+window.sigeSimularActualizacaoPendente = function(novaVersao = '2.6.0') {
+  window.sigeNotificarActualizacaoPendente({
+    tipo: 'simulacao',
+    novaVersao: novaVersao,
+    novidades: 'Actualização pendente simulada com sucesso para verificação visual da interface.'
+  });
+};
+
+// Inicialização completa dos detectores de Service Worker e Polling
+function inicializarDetectorActualizacoes() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js?v=20261017_1200').then((reg) => {
+        sigeUpdateState.registration = reg;
+
+        // Se já havia um worker esperando
+        if (reg.waiting) {
+          sigeUpdateState.workerEsperando = reg.waiting;
+          window.sigeNotificarActualizacaoPendente({ tipo: 'service-worker-waiting' });
+        }
+
+        // Detectar novo worker em instalação
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              sigeUpdateState.workerEsperando = newWorker;
+              window.sigeNotificarActualizacaoPendente({ tipo: 'service-worker-installed' });
+            }
+          });
+        });
+
+        // Trigger inicial de checagem
+        reg.update().catch(() => {});
+      }).catch((err) => {
+        console.warn('[SW SIGE] Erro ao registrar Service Worker:', err);
+      });
+    });
+  }
+
+  // Checar version.json logo após carregamento inicial
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      sigeChecarVersaoServidor(true);
+    }, 2500);
+  });
+
+  // Checar ao alternar abas (quando o utilizador foca a aplicação novamente)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (sigeUpdateState.registration) {
+        sigeUpdateState.registration.update().catch(() => {});
+      }
+      sigeChecarVersaoServidor(true);
+    }
+  });
+
+  // Polling silencioso a cada 10 minutos
+  setInterval(() => {
+    if (sigeUpdateState.registration) {
+      sigeUpdateState.registration.update().catch(() => {});
+    }
+    sigeChecarVersaoServidor(true);
+  }, 10 * 60 * 1000);
+}
+
+inicializarDetectorActualizacoes();
+
 
 // Garantir que ao abrir ou atualizar a página não haja auto-login nem persistência automática de sessão
 sessionStorage.removeItem('sige_token');
@@ -1862,9 +2126,11 @@ async function carregarPaginaModulo(painel, viewId) {
       const novaSecao = tempWrapper.querySelector('section') || tempWrapper.firstElementChild;
       if (novaSecao) {
         novaSecao.style.display = 'none';
-        container.appendChild(novaSecao);
-        return novaSecao;
       }
+      while (tempWrapper.firstChild) {
+        container.appendChild(tempWrapper.firstChild);
+      }
+      return novaSecao;
     }
   } catch (err) {
     console.warn(`[ROUTER] Falha ao carregar página modular ${urlPagina}:`, err);
@@ -1875,9 +2141,11 @@ async function carregarPaginaModulo(painel, viewId) {
       const novaSecao = tempWrapper.querySelector('section') || tempWrapper.firstElementChild;
       if (novaSecao) {
         novaSecao.style.display = 'none';
-        container.appendChild(novaSecao);
-        return novaSecao;
       }
+      while (tempWrapper.firstChild) {
+        container.appendChild(tempWrapper.firstChild);
+      }
+      return novaSecao;
     }
   }
 

@@ -8,6 +8,7 @@ class UsuarioManager(BaseUserManager):
             raise ValueError('O email é obrigatório.')
         email = self.normalize_email(email)
         extra_fields.setdefault('username', email)
+        extra_fields.setdefault('nome', extra_fields.get('first_name') or (email.split('@')[0].replace('.', ' ').title() if email else 'Utilizador'))
         codigo_acesso = extra_fields.get('codigo_acesso')
         user = self.model(email=email, **extra_fields)
         if password:
@@ -81,6 +82,8 @@ class Usuario(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.username and self.email:
             self.username = self.email
+        if not self.nome and self.email:
+            self.nome = self.email.split('@')[0].replace('.', ' ').title()
         self.full_clean()
         super().save(*args, **kwargs)
 

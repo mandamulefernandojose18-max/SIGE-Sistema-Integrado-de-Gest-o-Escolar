@@ -6,7 +6,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 def health_check(request):
     return JsonResponse({
         'status': 'ok',
-        'service': 'SIGE — Sistema Integrado de Gestão Escolar (Django REST Framework SaaS)'
+        'service': 'SIGE — Sistema Integrado de Gestão Escolar (Django REST Framework SaaS)',
+        'version': '2.5.0',
+        'build': '20261017_1200'
     })
 
 api_v1_patterns = [

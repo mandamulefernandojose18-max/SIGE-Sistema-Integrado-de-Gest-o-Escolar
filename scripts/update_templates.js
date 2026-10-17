@@ -10,17 +10,14 @@ if (fs.existsSync(superHtmlPath) && fs.existsSync(escolaHtmlPath) && fs.existsSy
   const pEscola = fs.readFileSync(escolaHtmlPath, 'utf8');
   let tpl = fs.readFileSync(templatesPath, 'utf8');
 
-  // Remove existing keys if already present
-  if (tpl.includes('"painel-superadmin/pagamentos-saas"')) {
-    console.log('Template already present, skipping.');
-    process.exit(0);
-  }
+  // Remove existing keys if already present to overwrite with updated HTML
+  tpl = tpl.replace(/,\s*"painel-superadmin\/pagamentos-saas":[\s\S]*?"painel-escola\/assinatura-escola":[\s\S]*?\n(?=};)/, '');
 
   const idx = tpl.lastIndexOf('};');
   if (idx !== -1) {
     const injection = ',\n  "painel-superadmin/pagamentos-saas": ' + JSON.stringify(pSuper) + ',\n  "painel-escola/assinatura-escola": ' + JSON.stringify(pEscola) + '\n';
     tpl = tpl.slice(0, idx) + injection + tpl.slice(idx);
     fs.writeFileSync(templatesPath, tpl, 'utf8');
-    console.log('TEMPLATES INJECTED SUCCESSFULLY');
+    console.log('TEMPLATES REFRESHED SUCCESSFULLY');
   }
 }

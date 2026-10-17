@@ -22,13 +22,17 @@ class SaasAssinaturaSerializer(serializers.ModelSerializer):
 
 class SaasFaturaSerializer(serializers.ModelSerializer):
     instituicao_nome = serializers.CharField(source='instituicao.nome', read_only=True)
-    data_limite_efectiva = serializers.DateField(read_only=True)
+    data_limite_efectiva = serializers.SerializerMethodField()
     total_devido = serializers.SerializerMethodField()
     saldo_devedor = serializers.SerializerMethodField()
 
     class Meta:
         model = SaasFatura
         fields = '__all__'
+
+    def get_data_limite_efectiva(self, obj):
+        from .saas_services import calcular_data_limite_efectiva_python
+        return calcular_data_limite_efectiva_python(obj)
 
     def get_total_devido(self, obj):
         return float(obj.valor + obj.multa_aplicada)

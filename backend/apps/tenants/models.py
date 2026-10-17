@@ -414,6 +414,11 @@ class SaasFatura(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def data_limite_efectiva(self):
+        from .saas_services import calcular_data_limite_efectiva_python
+        return calcular_data_limite_efectiva_python(self)
+
     class Meta:
         db_table = 'sige_saas_faturas'
         verbose_name = 'Fatura SaaS'

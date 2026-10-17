@@ -73,6 +73,21 @@ COMMIT_HASH=$(git rev-parse --short HEAD)
 COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
 log_info "Código atualizado para o commit ${COMMIT_HASH}: \"${COMMIT_MSG}\""
 
+# Sincronizar automaticamente frontend/version.json com o commit e timestamp da VM
+if [ -f "frontend/version.json" ]; then
+    cat <<EOF > frontend/version.json
+{
+  "version": "2.5.0",
+  "build": "${COMMIT_HASH}",
+  "data": "$(date '+%Y-%m-%d %H:%M:%S')",
+  "nome": "SIGE SaaS",
+  "commit": "${COMMIT_HASH}",
+  "novidades": "Melhorias e actualizações automáticas de sistema."
+}
+EOF
+    log_info "frontend/version.json sincronizado com o commit ${COMMIT_HASH}."
+fi
+
 # 4. Validar arquivos de configuração de ambiente (.env)
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
     log_warn "Arquivo .env raiz não encontrado. Criando cópia a partir de .env.example..."

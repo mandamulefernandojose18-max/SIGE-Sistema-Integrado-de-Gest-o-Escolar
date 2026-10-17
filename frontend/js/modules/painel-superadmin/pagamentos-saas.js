@@ -205,92 +205,113 @@ async function abrirFichaInstituicao(assinaturaId) {
     const d = res.data;
     assinaturaAtualSelecionada = d.assinatura;
 
-    document.getElementById('modalFichaInstituicaoTitulo').innerText = `Ficha de Faturação: ${assinaturaAtualSelecionada.instituicao_nome}`;
-    document.getElementById('fichaEscolaNome').innerText = assinaturaAtualSelecionada.instituicao_nome;
-    document.getElementById('fichaEscolaCodigo').innerText = assinaturaAtualSelecionada.instituicao_codigo || '-';
-    document.getElementById('fichaEscolaNuit').innerText = assinaturaAtualSelecionada.instituicao_nuit || '-';
-    document.getElementById('fichaEscolaProvincia').innerText = assinaturaAtualSelecionada.instituicao_provincia || 'Maputo';
-    document.getElementById('fichaEscolaEstadoBadge').innerHTML = obterBadgeEstadoAssinatura(assinaturaAtualSelecionada.estado);
+    const elTitulo = document.getElementById('modalFichaInstituicaoTitulo');
+    if (elTitulo) elTitulo.innerText = `Ficha de Faturação: ${assinaturaAtualSelecionada.instituicao_nome || ''}`;
+    const elEscolaNome = document.getElementById('fichaEscolaNome');
+    if (elEscolaNome) elEscolaNome.innerText = assinaturaAtualSelecionada.instituicao_nome || '-';
+    const elEscolaCodigo = document.getElementById('fichaEscolaCodigo');
+    if (elEscolaCodigo) elEscolaCodigo.innerText = assinaturaAtualSelecionada.instituicao_codigo || '-';
+    const elEscolaNuit = document.getElementById('fichaEscolaNuit');
+    if (elEscolaNuit) elEscolaNuit.innerText = assinaturaAtualSelecionada.instituicao_nuit || '-';
+    const elEscolaProvincia = document.getElementById('fichaEscolaProvincia');
+    if (elEscolaProvincia) elEscolaProvincia.innerText = assinaturaAtualSelecionada.instituicao_provincia || 'Maputo';
+    const elEscolaEstado = document.getElementById('fichaEscolaEstadoBadge');
+    if (elEscolaEstado) elEscolaEstado.innerHTML = obterBadgeEstadoAssinatura(assinaturaAtualSelecionada.estado);
 
-    document.getElementById('fichaPlanoNome').innerText = assinaturaAtualSelecionada.plano_detalhes?.nome || 'Plano Base';
-    document.getElementById('fichaPlanoPreco').innerText = formatarValorMZN(assinaturaAtualSelecionada.plano_detalhes?.preco_mensal || 0);
-    document.getElementById('fichaPeriodicidade').innerText = assinaturaAtualSelecionada.periodicidade.toUpperCase();
-    document.getElementById('fichaModoDataLimite').innerText = `${assinaturaAtualSelecionada.modo_data_limite.toUpperCase()} ${assinaturaAtualSelecionada.dia_limite ? '(Dia ' + assinaturaAtualSelecionada.dia_limite + ')' : ''}`;
-    document.getElementById('fichaToleranciaInfo').innerText = `${assinaturaAtualSelecionada.dias_tolerancia} dias tolerância | ${assinaturaAtualSelecionada.dias_ate_suspensao} dias até suspensão`;
+    const elPlanoNome = document.getElementById('fichaPlanoNome');
+    if (elPlanoNome) elPlanoNome.innerText = assinaturaAtualSelecionada.plano_detalhes?.nome || 'Plano Base';
+    const elPlanoPreco = document.getElementById('fichaPlanoPreco');
+    if (elPlanoPreco) elPlanoPreco.innerText = formatarValorMZN(assinaturaAtualSelecionada.plano_detalhes?.preco_mensal || 0);
+    const elPeriodicidade = document.getElementById('fichaPeriodicidade');
+    if (elPeriodicidade) elPeriodicidade.innerText = (assinaturaAtualSelecionada.periodicidade || '').toUpperCase();
+    const elModoDataLimite = document.getElementById('fichaModoDataLimite');
+    if (elModoDataLimite) elModoDataLimite.innerText = `${(assinaturaAtualSelecionada.modo_data_limite || '').toUpperCase()} ${assinaturaAtualSelecionada.dia_limite ? '(Dia ' + assinaturaAtualSelecionada.dia_limite + ')' : ''}`;
+    const elTolerancia = document.getElementById('fichaToleranciaInfo');
+    if (elTolerancia) elTolerancia.innerText = `${assinaturaAtualSelecionada.dias_tolerancia} dias tolerância | ${assinaturaAtualSelecionada.dias_ate_suspensao} dias até suspensão`;
     
     const multaStr = assinaturaAtualSelecionada.multa_tipo === 'nenhuma' 
       ? 'Nenhuma' 
       : `${assinaturaAtualSelecionada.multa_tipo === 'fixo' ? formatarValorMZN(assinaturaAtualSelecionada.multa_valor) + ' MZN' : assinaturaAtualSelecionada.multa_valor + '%'}`;
-    document.getElementById('fichaMultaInfo').innerText = multaStr;
+    const elMulta = document.getElementById('fichaMultaInfo');
+    if (elMulta) elMulta.innerText = multaStr;
 
     // 1. Tabela Faturas
     const tbodyFat = document.getElementById('tabelaFichaFaturas');
-    if (d.faturas && d.faturas.length > 0) {
-      tbodyFat.innerHTML = d.faturas.map(f => {
-        const estadoFat = f.estado === 'paga' 
-          ? '<span class="badge bg-success">Paga</span>' 
-          : (f.estado === 'em_atraso' ? '<span class="badge bg-danger">Em Atraso</span>' : '<span class="badge bg-warning text-dark">Aberta</span>');
+    if (tbodyFat) {
+      if (d.faturas && d.faturas.length > 0) {
+        tbodyFat.innerHTML = d.faturas.map(f => {
+          const estadoFat = f.estado === 'paga' 
+            ? '<span class="badge bg-success">Paga</span>' 
+            : (f.estado === 'em_atraso' ? '<span class="badge bg-danger">Em Atraso</span>' : '<span class="badge bg-warning text-dark">Aberta</span>');
 
-        return `
-          <tr>
-            <td><strong>${f.numero_fatura}</strong></td>
-            <td><small>${formatarDataPt(f.periodo_inicio)} a ${formatarDataPt(f.periodo_fim)}</small></td>
-            <td>${formatarValorMZN(f.valor)} MZN</td>
-            <td><span class="text-danger">${formatarValorMZN(f.multa_aplicada)} MZN</span></td>
-            <td class="text-success fw-bold">${formatarValorMZN(f.valor_pago)} MZN</td>
-            <td><span class="badge bg-light text-dark border">${formatarDataPt(f.data_limite_efectiva)}</span></td>
-            <td>${estadoFat}</td>
-            <td class="text-end">
-              ${f.estado !== 'paga' ? `<button class="btn btn-sm btn-outline-info" onclick="abrirModalProrrogarFatura('${f.id}', '${f.numero_fatura}', '${f.data_limite_efectiva}')"><i class="bi bi-calendar-plus me-1"></i> Prorrogar</button>` : '<span class="text-muted small">Liquidada</span>'}
-            </td>
-          </tr>
-        `;
-      }).join('');
-    } else {
-      tbodyFat.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted">Nenhuma fatura emitida para este período.</td></tr>';
+          return `
+            <tr>
+              <td><strong>${f.numero_fatura}</strong></td>
+              <td><small>${formatarDataPt(f.periodo_inicio)} a ${formatarDataPt(f.periodo_fim)}</small></td>
+              <td>${formatarValorMZN(f.valor)} MZN</td>
+              <td><span class="text-danger">${formatarValorMZN(f.multa_aplicada)} MZN</span></td>
+              <td class="text-success fw-bold">${formatarValorMZN(f.valor_pago)} MZN</td>
+              <td><span class="badge bg-light text-dark border">${formatarDataPt(f.data_limite_efectiva)}</span></td>
+              <td>${estadoFat}</td>
+              <td class="text-end">
+                ${f.estado !== 'paga' ? `<button class="btn btn-sm btn-outline-info" onclick="abrirModalProrrogarFatura('${f.id}', '${f.numero_fatura}', '${f.data_limite_efectiva}')"><i class="bi bi-calendar-plus me-1"></i> Prorrogar</button>` : '<span class="text-muted small">Liquidada</span>'}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        tbodyFat.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted">Nenhuma fatura emitida para este período.</td></tr>';
+      }
     }
 
     // 2. Tabela Pagamentos
     const tbodyPag = document.getElementById('tabelaFichaPagamentos');
-    if (d.pagamentos && d.pagamentos.length > 0) {
-      tbodyPag.innerHTML = d.pagamentos.map(p => `
-        <tr>
-          <td><small>${formatarDataHoraPt(p.criado_em)}</small></td>
-          <td><span class="badge bg-light text-dark border">${p.metodo}</span></td>
-          <td><code>${p.referencia}</code></td>
-          <td class="fw-bold text-success">${formatarValorMZN(p.valor)} MZN</td>
-          <td><span class="badge ${p.estado === 'confirmado' ? 'bg-success' : (p.estado === 'rejeitado' ? 'bg-danger' : 'bg-warning text-dark')}">${p.estado}</span></td>
-          <td><small>${p.confirmado_por || '-'}</small></td>
-          <td class="text-end">
-            ${p.comprovativo_url ? `<a href="${p.comprovativo_url}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i></a>` : '-'}
-          </td>
-        </tr>
-      `).join('');
-    } else {
-      tbodyPag.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted">Nenhum pagamento registado.</td></tr>';
+    if (tbodyPag) {
+      if (d.pagamentos && d.pagamentos.length > 0) {
+        tbodyPag.innerHTML = d.pagamentos.map(p => `
+          <tr>
+            <td><small>${formatarDataHoraPt(p.criado_em)}</small></td>
+            <td><span class="badge bg-light text-dark border">${p.metodo}</span></td>
+            <td><code>${p.referencia}</code></td>
+            <td class="fw-bold text-success">${formatarValorMZN(p.valor)} MZN</td>
+            <td><span class="badge ${p.estado === 'confirmado' ? 'bg-success' : (p.estado === 'rejeitado' ? 'bg-danger' : 'bg-warning text-dark')}">${p.estado}</span></td>
+            <td><small>${p.confirmado_por || '-'}</small></td>
+            <td class="text-end">
+              ${p.comprovativo_url ? `<a href="${p.comprovativo_url}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i></a>` : '-'}
+            </td>
+          </tr>
+        `).join('');
+      } else {
+        tbodyPag.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted">Nenhum pagamento registado.</td></tr>';
+      }
     }
 
     // 3. Tabela Auditoria
     const tbodyAud = document.getElementById('tabelaFichaAuditoria');
-    if (d.auditoria && d.auditoria.length > 0) {
-      tbodyAud.innerHTML = d.auditoria.map(l => `
-        <tr>
-          <td><small>${formatarDataHoraPt(l.criado_em)}</small></td>
-          <td><span class="badge bg-light text-dark border">${l.accao}</span></td>
-          <td><small>${l.estado_anterior || '-'} ➔ <strong>${l.estado_novo || '-'}</strong></small></td>
-          <td><small>${l.feito_por}</small></td>
-          <td><small class="text-muted">${l.motivo || '-'}</small></td>
-        </tr>
-      `).join('');
-    } else {
-      tbodyAud.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">Sem registos de auditoria adicionais.</td></tr>';
+    if (tbodyAud) {
+      if (d.auditoria && d.auditoria.length > 0) {
+        tbodyAud.innerHTML = d.auditoria.map(l => `
+          <tr>
+            <td><small>${formatarDataHoraPt(l.criado_em)}</small></td>
+            <td><span class="badge bg-light text-dark border">${l.accao}</span></td>
+            <td><small>${l.estado_anterior || '-'} ➔ <strong>${l.estado_novo || '-'}</strong></small></td>
+            <td><small>${l.feito_por}</small></td>
+            <td><small class="text-muted">${l.motivo || '-'}</small></td>
+          </tr>
+        `).join('');
+      } else {
+        tbodyAud.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">Sem registos de auditoria adicionais.</td></tr>';
+      }
     }
 
-    const modal = new bootstrap.Modal(document.getElementById('modalFichaInstituicao'));
-    modal.show();
+    const modalEl = document.getElementById('modalFichaInstituicao');
+    if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+      const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      modal.show();
+    }
   } catch (err) {
     console.error('[SAAS] Erro ao abrir ficha:', err);
-    mostrarToast('Erro ao carregar dados da instituição.', 'danger');
+    mostrarToast('Erro ao carregar dados da instituição: ' + (err.message || 'Falha de renderização'), 'danger');
   }
 }
 
