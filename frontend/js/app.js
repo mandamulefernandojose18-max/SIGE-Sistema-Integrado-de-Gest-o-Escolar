@@ -647,13 +647,22 @@ async function apiFetch(endpoint, options = {}) {
         }
       }
 
-      // Tratamento seguro de expiração de assinatura institucional (HTTP 402)
+      // Tratamento seguro de expiração de assinatura institucional (HTTP 402 ou 403)
       if (res.status === 402) {
         const alertaExpiracaoBanner = document.getElementById('alertaExpiracaoBanner');
         if (alertaExpiracaoBanner) {
           alertaExpiracaoBanner.style.display = 'block';
         }
         mostrarNotificacao(json.message || 'Assinatura institucional pendente ou expirada.', 'warning');
+      }
+
+      if (res.status === 403 && json && (json.codigo === 'ASSINATURA_SUSPENSA' || json.codigo === 'ASSINATURA_RESTRITA')) {
+        tratarAcessoRestritoOuSuspenso(json.codigo, json.message);
+      }
+
+      const alertaHeader = res.headers.get('X-Assinatura-Alerta');
+      if (alertaHeader) {
+        atualizarFaixaAlertaSaaS(alertaHeader);
       }
 
       let msg = json.message || json.detail || json.error;
@@ -1314,12 +1323,14 @@ const MAPA_PAINEIS = {
 const MENUS_POR_PAINEL = {
   'painel-superadmin': [
     { id: 'saas', titulo: 'Gestão de Escolas & Planos', icone: 'bi-buildings-fill text-warning', categoria: 'Administração Geral SaaS' },
+    { id: 'pagamentos-saas', titulo: 'Assinaturas & Pagamentos SaaS', icone: 'bi-credit-card-2-front-fill text-warning', categoria: 'Administração Geral SaaS' },
     { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais Master', icone: 'bi-key-fill text-warning', categoria: 'Segurança' },
     { id: 'acessos', titulo: 'Auditoria & Acessos Globais', icone: 'bi-shield-check', categoria: 'Segurança' }
   ],
   'painel-escola': [
     { id: 'dashboard', titulo: 'Painel Principal', icone: 'bi-grid-1x2-fill', categoria: 'Geral' },
     { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão Escolar' },
+    { id: 'assinatura-escola', titulo: 'Assinatura do Sistema', icone: 'bi-shield-lock-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
     { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
@@ -1887,13 +1898,53 @@ async function carregarScriptModulo(painel, viewId) {
   });
 }
 
+function atualizarFaixaAlertaSaaS(estado) {
+  const faixa = document.getElementById('faixaAlertaAssinaturaGlobal');
+  if (!faixa) return;
+  if (state.user?.role === 'SUPERADMIN') {
+    faixa.style.display = 'none';
+    return;
+  }
+  if (estado === 'em_atraso') {
+    faixa.className = 'alert alert-warning rounded-0 m-0 border-0 border-bottom d-flex align-items-center justify-content-between px-4 py-2 no-print';
+    const b = document.getElementById('badgeAlertaAssinatura');
+    if (b) { b.className = 'badge bg-warning text-dark ms-2'; b.innerText = 'EM ATRASO'; }
+    const m = document.getElementById('mensagemAlertaAssinatura');
+    if (m) m.innerText = 'A subscrição do sistema encontra-se com fatura pendente. Regularize o pagamento para evitar restrição de acesso.';
+    faixa.style.display = 'flex';
+  } else if (estado === 'restrita') {
+    faixa.className = 'alert alert-danger rounded-0 m-0 border-0 border-bottom d-flex align-items-center justify-content-between px-4 py-2 no-print';
+    const b = document.getElementById('badgeAlertaAssinatura');
+    if (b) { b.className = 'badge bg-danger ms-2'; b.innerText = 'MODO RESTRITO'; }
+    const m = document.getElementById('mensagemAlertaAssinatura');
+    if (m) m.innerText = 'A subscrição ultrapassou a tolerância e encontra-se em modo de apenas leitura. Regularize a fatura para restabelecer permissão de escrita.';
+    faixa.style.display = 'flex';
+  } else {
+    faixa.style.display = 'none';
+  }
+}
+
+function tratarAcessoRestritoOuSuspenso(codigo, mensagem) {
+  if (state.user?.role === 'SUPERADMIN') return;
+  if (codigo === 'ASSINATURA_SUSPENSA') {
+    const tela = document.getElementById('telaBloqueioSuspensao');
+    if (tela) {
+      tela.style.display = 'block';
+      document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
+    }
+    mostrarToast(mensagem || 'Acesso suspenso: regularize a subscrição.', 'danger');
+  } else if (codigo === 'ASSINATURA_RESTRITA') {
+    mostrarToast(mensagem || 'Operação bloqueada: o sistema encontra-se em modo de apenas leitura.', 'warning');
+  }
+}
+
 async function navegarPara(viewId) {
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
   const isSuperAdminInspecionando = (role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
   const painel = isSuperAdminInspecionando 
-    ? (['saas', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
+    ? (['saas', 'pagamentos-saas', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
     : (MAPA_PAINEIS[role] || 'painel-escola');
 
   const menusPermitidos = isSuperAdminInspecionando
@@ -12889,6 +12940,26 @@ window.alternarAbaPublicacaoNotasDap = function(modo) {
   }
 };
 
+window.alternarModoFimTodos = function() {
+  const inf = document.getElementById('campoFimTodosInfinito');
+  const dat = document.getElementById('campoFimTodosData');
+  const btn = document.getElementById('btnToggleFimTodos');
+  const inputData = document.getElementById('pubDataFimTodos');
+  if (!inf || !dat) return;
+
+  const estaInfinito = !inf.classList.contains('d-none');
+  if (estaInfinito) {
+    inf.classList.add('d-none');
+    dat.classList.remove('d-none');
+    if (btn) btn.innerHTML = '<i class="bi bi-infinity me-1"></i>Visualizar por Infinito';
+  } else {
+    dat.classList.add('d-none');
+    inf.classList.remove('d-none');
+    if (inputData) inputData.value = '';
+    if (btn) btn.innerHTML = '<i class="bi bi-pencil me-1"></i>Definir prazo limite';
+  }
+};
+
 async function toggleVisibilidadeNotasDap() {
   try {
     const res = await apiFetch('/api/v1/escola-admin/toggle-notas');
@@ -13013,18 +13084,39 @@ async function toggleVisibilidadeNotasDap() {
               <p class="small text-muted mb-2">Publicação completa de todas as notas do ano (I, II, III trimestres e Média Final).</p>
               <div class="row g-2 align-items-center">
                 <div class="col-6">
-                  <label class="form-label small text-muted mb-1">Data Início:</label>
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label small text-muted mb-0">Data Início:</label>
+                    <a href="javascript:void(0)" class="text-decoration-none small text-primary" style="font-size: 0.72rem;" onclick="document.getElementById('pubDataInicioTodos').value = new Date().toISOString().split('T')[0]"><i class="bi bi-clock me-1"></i>Hoje</a>
+                  </div>
                   <input type="date" id="pubDataInicioTodos" class="form-control form-control-sm" value="${dataInicioTodos}">
+                  <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Início da visualização oficial.</small>
                 </div>
                 <div class="col-6">
-                  <label class="form-label small text-muted mb-1">Data Fim:</label>
-                  <input type="date" id="pubDataFimTodos" class="form-control form-control-sm" value="${dataFimTodos}">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label small text-muted mb-0">Data Fim:</label>
+                    <a href="javascript:void(0)" id="btnToggleFimTodos" class="text-decoration-none small text-muted" style="font-size: 0.72rem;" onclick="alternarModoFimTodos()">
+                      ${dataFimTodos ? '<i class=\"bi bi-infinity me-1\"></i>Visualizar por Infinito' : '<i class=\"bi bi-pencil me-1\"></i>Definir prazo limite'}
+                    </a>
+                  </div>
+                  <div id="campoFimTodosInfinito" class="${dataFimTodos ? 'd-none' : ''}">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-success bg-opacity-10 text-success border-success border-opacity-25 fw-bold"><i class="bi bi-infinity fs-6"></i></span>
+                      <input type="text" class="form-control form-control-sm bg-success bg-opacity-10 text-success fw-bold border-success border-opacity-25" value="Visualizar por Infinito" readonly disabled>
+                    </div>
+                    <small class="text-success d-block mt-1" style="font-size: 0.72rem;">
+                      <i class="bi bi-check2-circle me-1"></i>Visualização contínua e permanente sem data limite.
+                    </small>
+                  </div>
+                  <div id="campoFimTodosData" class="${dataFimTodos ? '' : 'd-none'}">
+                    <input type="date" id="pubDataFimTodos" class="form-control form-control-sm" value="${dataFimTodos}">
+                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Data de encerramento da visualização.</small>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           <div class="alert alert-light border py-2 px-3 small text-muted mb-3">
-            <i class="bi bi-clock-history me-1 text-primary"></i> <strong>Controlo Automático:</strong> Fora dos períodos definidos acima, as notas dos alunos ficarão automaticamente ocultas / suspensas.
+            <i class="bi bi-clock-history me-1 text-primary"></i> <strong>Controlo Automático:</strong> Fora dos períodos definidos acima, as notas dos alunos ficarão automaticamente ocultas / suspensas. Para <strong>Todos os Trimestres</strong>, a visualização vigora por tempo infinito a partir da Data Início.
           </div>
         </div>
 
@@ -13057,7 +13149,12 @@ async function salvarPublicacaoNotasDapModal() {
     payload.data_inicio_pub_t2 = document.getElementById('pubDataInicioT2')?.value || null;
     payload.data_fim_pub_t2 = document.getElementById('pubDataFimT2')?.value || null;
     payload.data_inicio_pub_todos = document.getElementById('pubDataInicioTodos')?.value || null;
-    payload.data_fim_pub_todos = document.getElementById('pubDataFimTodos')?.value || null;
+    const campoFimData = document.getElementById('campoFimTodosData');
+    if (campoFimData && !campoFimData.classList.contains('d-none')) {
+      payload.data_fim_pub_todos = document.getElementById('pubDataFimTodos')?.value || null;
+    } else {
+      payload.data_fim_pub_todos = null;
+    }
   }
 
   try {

@@ -76,7 +76,11 @@ async function carregarAlunoNotas(periodoParam) {
       };
       let txtPub = pubMap[d.publicacaoNotasTrimestre] || '<span class="text-success fw-bold">Todos os Trimestres</span>';
       if (d.modoPublicacaoNotas === 'DATAS' && d.infoPeriodo && d.infoPeriodo.inicio) {
-        txtPub += ` <span class="badge bg-info-subtle text-info-emphasis border ms-1"><i class="bi bi-calendar-event me-1"></i>Período: ${d.infoPeriodo.inicio} até ${d.infoPeriodo.fim}</span>`;
+        if (!d.infoPeriodo.fim || d.infoPeriodo.fim === 'Infinito') {
+          txtPub += ` <span class="badge bg-success-subtle text-success-emphasis border ms-1"><i class="bi bi-infinity me-1"></i>A partir de: ${d.infoPeriodo.inicio} (Visualização por Infinito)</span>`;
+        } else {
+          txtPub += ` <span class="badge bg-info-subtle text-info-emphasis border ms-1"><i class="bi bi-calendar-event me-1"></i>Período: ${d.infoPeriodo.inicio} até ${d.infoPeriodo.fim}</span>`;
+        }
       }
       elPub.innerHTML = txtPub;
     }

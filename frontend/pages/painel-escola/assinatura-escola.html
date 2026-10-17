@@ -1,0 +1,162 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Assinatura do Sistema & Pagamentos SaaS -->
+<!-- Página independente do módulo: assinatura-escola.html -->
+<!-- Moeda Oficial: MZN (Metical) | Fuso Horário: Africa/Maputo -->
+<!-- ===================================================================== -->
+<section id="view-assinatura-escola" class="modulo-view" style="display: none;">
+  <!-- Alerta de Estado da Assinatura -->
+  <div id="bannerAlertaAssinaturaEscola" class="alert d-none mb-4 shadow-sm" role="alert"></div>
+
+  <!-- Resumo da Assinatura e Estado Atual -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card p-4 h-100 shadow-sm border-primary">
+        <span class="text-muted small text-uppercase fw-semibold">Estado da Subscrição</span>
+        <div class="d-flex align-items-center justify-content-between my-2">
+          <h3 id="escolaAssinaturaEstado" class="fw-bold mb-0 text-success">Activa</h3>
+          <span id="escolaAssinaturaBadge" class="badge bg-success fs-6">Acesso Pleno</span>
+        </div>
+        <p class="text-muted small mb-0" id="escolaAssinaturaDescricao">A sua instituição usufrui de todas as funcionalidades contratadas.</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-4 h-100 shadow-sm">
+        <span class="text-muted small text-uppercase fw-semibold">Plano Contratado</span>
+        <h4 id="escolaPlanoNome" class="fw-bold mb-1 text-primary">Plano Padrão</h4>
+        <h5 id="escolaPlanoPreco" class="fw-bold text-dark mb-1">0 <span class="moeda-sufixo">MZN</span></h5>
+        <small class="text-muted" id="escolaPlanoPeriodicidade">Periodicidade Mensal</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-4 h-100 shadow-sm">
+        <span class="text-muted small text-uppercase fw-semibold">Próximo Vencimento</span>
+        <h3 id="escolaProximoVencimento" class="fw-bold mb-1 text-dark">-</h3>
+        <small class="text-muted" id="escolaDiasRestantes">Calculado pelo ciclo de faturação</small>
+        <div class="mt-2">
+          <button class="btn btn-warning btn-sm fw-bold w-100" onclick="abrirModalRegistarPagamentoEscola()">
+            <i class="bi bi-wallet2 me-1"></i> Registar Pagamento
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coordenadas Bancárias & Métodos de Pagamento em Moçambique -->
+  <div class="card p-4 mb-4 bg-light border-0 shadow-sm">
+    <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-credit-card-2-front me-2"></i>Contas Oficiais e Carteiras Móveis para Pagamento de Assinaturas (Moçambique)</h6>
+    <div class="row g-3 text-secondary small">
+      <div class="col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <strong class="d-block text-danger"><i class="bi bi-phone me-1"></i> M-Pesa (Vodacom)</strong>
+          <span>Número: <strong>84 000 0000</strong></span><br>
+          <span>Titular: <strong>SIGE Moçambique</strong></span>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <strong class="d-block text-warning"><i class="bi bi-phone me-1"></i> e-Mola (Movitel)</strong>
+          <span>Número: <strong>86 000 0000</strong></span><br>
+          <span>Titular: <strong>SIGE Moçambique</strong></span>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <strong class="d-block text-primary"><i class="bi bi-bank me-1"></i> Millennium BIM</strong>
+          <span>Conta: <strong>123456789</strong></span><br>
+          <span>NIB: <strong>0001 0000 12345678901 23</strong></span>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <strong class="d-block text-success"><i class="bi bi-bank me-1"></i> BCI / Standard Bank</strong>
+          <span>Conta: <strong>987654321</strong></span><br>
+          <span>NIB: <strong>0008 0000 98765432101 45</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de Faturas Emitidas -->
+  <div class="card p-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-receipt me-2"></i>Histórico de Faturas da Instituição</h5>
+      <button class="btn btn-outline-primary btn-sm" onclick="carregarMinhaAssinaturaEscola()">
+        <i class="bi bi-arrow-repeat me-1"></i> Actualizar
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Nº Fatura</th>
+            <th>Período Cobrado</th>
+            <th>Valor Base</th>
+            <th>Multa por Atraso</th>
+            <th>Valor Liquidado</th>
+            <th>Data-Limite de Pagamento</th>
+            <th>Estado</th>
+            <th class="text-end">Operação</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaMinhasFaturas">
+          <tr><td colspan="8" class="text-center py-4">A carregar faturas da instituição...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- MODAL: REGISTAR PAGAMENTO DA INSTITUIÇÃO -->
+<div class="modal fade" id="modalRegistarPagamentoEscola" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-1"></i> Submeter Comprovativo de Pagamento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formRegistarPagamentoEscola" onsubmit="salvarPagamentoEscola(event)">
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label fw-semibold">Fatura a Liquidar</label>
+              <select id="escolaPagFaturaId" class="form-select" required onchange="aoMudarFaturaSelecionadaEscola()">
+                <option value="">-- Selecione a fatura correspondente --</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Método de Pagamento</label>
+              <select id="escolaPagMetodo" class="form-select" required>
+                <option value="M-Pesa">M-Pesa (Vodacom)</option>
+                <option value="e-Mola">e-Mola (Movitel)</option>
+                <option value="transferencia_bancaria">Transferência Bancária / Depósito</option>
+                <option value="numerario">Numerário (Na Secretaria / Representante)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Código / Referência da Transacção</label>
+              <input type="text" id="escolaPagReferencia" class="form-control" required placeholder="Ex: MP261017.1234.A56789 ou NIB / Talão">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Valor Pago (MZN)</label>
+              <div class="input-group">
+                <input type="number" step="0.01" min="0.01" id="escolaPagValor" class="form-control" required placeholder="0.00">
+                <span class="input-group-text">MZN</span>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Anexar Comprovativo (PDF, JPG, PNG)</label>
+              <input type="file" id="escolaPagComprovativo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+              <small class="text-muted">Limite de 10 MB. O comprovativo é guardado com segurança.</small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning fw-bold" id="btnSubmeterPagamentoEscola">
+            <i class="bi bi-send-check me-1"></i> Enviar Comprovativo para Validação
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

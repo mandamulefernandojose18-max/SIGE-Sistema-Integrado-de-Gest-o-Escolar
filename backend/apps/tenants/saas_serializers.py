@@ -1,0 +1,61 @@
+from rest_framework import serializers
+from .models import Escola, SaasPlano, SaasAssinatura, SaasFatura, SaasPagamento, SaasLogAssinatura
+
+
+class SaasPlanoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SaasPlano
+        fields = '__all__'
+
+
+class SaasAssinaturaSerializer(serializers.ModelSerializer):
+    plano_detalhes = SaasPlanoSerializer(source='plano', read_only=True)
+    instituicao_nome = serializers.CharField(source='instituicao.nome', read_only=True)
+    instituicao_codigo = serializers.CharField(source='instituicao.codigo_escola', read_only=True)
+    instituicao_nuit = serializers.CharField(source='instituicao.nif_cnpj', read_only=True)
+    instituicao_provincia = serializers.CharField(source='instituicao.provincia', read_only=True)
+
+    class Meta:
+        model = SaasAssinatura
+        fields = '__all__'
+
+
+class SaasFaturaSerializer(serializers.ModelSerializer):
+    instituicao_nome = serializers.CharField(source='instituicao.nome', read_only=True)
+    data_limite_efectiva = serializers.DateField(read_only=True)
+    total_devido = serializers.SerializerMethodField()
+    saldo_devedor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SaasFatura
+        fields = '__all__'
+
+    def get_total_devido(self, obj):
+        return float(obj.valor + obj.multa_aplicada)
+
+    def get_saldo_devedor(self, obj):
+        total = obj.valor + obj.multa_aplicada
+        return float(max(0, total - obj.valor_pago))
+
+
+class SaasPagamentoSerializer(serializers.ModelSerializer):
+    instituicao_nome = serializers.CharField(source='instituicao.nome', read_only=True)
+    numero_fatura = serializers.CharField(source='fatura.numero_fatura', read_only=True)
+    fatura_periodo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SaasPagamento
+        fields = '__all__'
+
+    def get_fatura_periodo(self, obj):
+        if obj.fatura:
+            return f"{obj.fatura.periodo_inicio.strftime('%d/%m/%Y')} a {obj.fatura.periodo_fim.strftime('%d/%m/%Y')}"
+        return ''
+
+
+class SaasLogAssinaturaSerializer(serializers.ModelSerializer):
+    instituicao_nome = serializers.CharField(source='instituicao.nome', read_only=True)
+
+    class Meta:
+        model = SaasLogAssinatura
+        fields = '__all__'

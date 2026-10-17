@@ -665,9 +665,12 @@ class ToggleNotasView(APIView):
             escola.modo_publicacao_notas = 'DATAS' if str(modo_pub).upper() == 'DATAS' else 'MANUAL'
 
         def parse_data(val):
-            if not val or str(val).strip() == '':
+            if not val:
                 return None
-            return str(val).strip()
+            s = str(val).strip()
+            if s == '' or s.lower() in ('none', 'null', 'infinito', 'infinite', 'visualizar por infinito'):
+                return None
+            return s
 
         # Atualizar datas de agendamento se fornecidas
         if 'data_inicio_pub_t1' in data:

@@ -181,12 +181,13 @@ class Escola(models.Model):
         modo = (self.modo_publicacao_notas or 'MANUAL').upper()
         if modo == 'DATAS':
             # 1. Todos os Trimestres (I, II e III)
-            if self.data_inicio_pub_todos and self.data_fim_pub_todos:
-                if self.data_inicio_pub_todos <= hoje <= self.data_fim_pub_todos:
+            if self.data_inicio_pub_todos:
+                # Se não houver data_fim_pub_todos definida, a visualização vigora por tempo infinito a partir da data de início
+                if self.data_inicio_pub_todos <= hoje and (not self.data_fim_pub_todos or hoje <= self.data_fim_pub_todos):
                     return 'TODOS', True, 'DATAS', {
                         'periodo': 'TODOS',
                         'inicio': str(self.data_inicio_pub_todos),
-                        'fim': str(self.data_fim_pub_todos),
+                        'fim': str(self.data_fim_pub_todos) if self.data_fim_pub_todos else 'Infinito',
                         'rotulo': 'Todos os Trimestres (I, II e III)'
                     }
             # 2. I e II Trimestre (1º e 2º Trimestre)
@@ -295,4 +296,233 @@ class AnoLectivo(models.Model):
 
     def __str__(self):
         return f"{self.descricao} ({'Activo' if self.ativo else 'Findo'})"
+
+
+# =====================================================================
+# 💳 MODELOS SAAS: PAGAMENTOS, ASSINATURAS E FATURAÇÃO AUTOMÁTICA
+# =====================================================================
+
+class SaasPlano(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(blank=True, null=True)
+    preco_mensal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), validators=[MinValueValidator(Decimal('0'))])
+    limite_alunos = models.IntegerField(default=500, validators=[MinValueValidator(1)])
+    limite_professores = models.IntegerField(default=50, validators=[MinValueValidator(1)])
+    limites = models.JSONField(default=dict, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_saas_planos'
+        verbose_name = 'Plano SaaS'
+        verbose_name_plural = 'Planos SaaS'
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError("Eliminação não permitida: planos e dados são invioláveis.")
+
+    def __str__(self):
+        return f"{self.nome} ({self.preco_mensal} MZN/mês)"
+
+
+class SaasAssinatura(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    instituicao = models.ForeignKey(Escola, on_delete=models.RESTRICT, related_name='saas_assinaturas')
+    plano = models.ForeignKey(SaasPlano, on_delete=models.RESTRICT, related_name='assinaturas')
+    periodicidade = models.CharField(
+        max_length=20,
+        default='mensal',
+        choices=[('mensal', 'Mensal'), ('trimestral', 'Trimestral'), ('semestral', 'Semestral'), ('anual', 'Anual')]
+    )
+    modo_data_limite = models.CharField(
+        max_length=20,
+        default='automatico',
+        choices=[('automatico', 'Automático'), ('dia_fixo', 'Dia Fixo'), ('manual', 'Manual')]
+    )
+    dia_limite = models.IntegerField(null=True, blank=True)
+    dias_tolerancia = models.IntegerField(default=5)
+    dias_ate_suspensao = models.IntegerField(default=15)
+    data_bloqueio_manual = models.DateField(null=True, blank=True)
+    multa_tipo = models.CharField(
+        max_length=20,
+        default='nenhuma',
+        choices=[('nenhuma', 'Nenhuma'), ('fixo', 'Valor Fixo'), ('percentagem', 'Percentagem')]
+    )
+    multa_valor = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    estado = models.CharField(
+        max_length=30,
+        default='activa',
+        choices=[
+            ('teste', 'Teste'),
+            ('activa', 'Activa'),
+            ('fatura_pendente', 'Fatura Pendente'),
+            ('em_atraso', 'Em Atraso'),
+            ('restrita', 'Restrita'),
+            ('suspensa', 'Suspensa'),
+            ('cancelada', 'Cancelada')
+        ]
+    )
+    data_inicio = models.DateTimeField(default=timezone.now)
+    proxima_fatura_em = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_saas_assinaturas'
+        verbose_name = 'Assinatura SaaS'
+        verbose_name_plural = 'Assinaturas SaaS'
+        indexes = [
+            models.Index(fields=['instituicao']),
+            models.Index(fields=['estado']),
+            models.Index(fields=['proxima_fatura_em']),
+        ]
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError("Eliminação não permitida: assinaturas e registos de acesso são invioláveis.")
+
+    def __str__(self):
+        return f"{self.instituicao.nome} - {self.plano.nome} [{self.estado}]"
+
+
+class SaasFatura(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assinatura = models.ForeignKey(SaasAssinatura, on_delete=models.RESTRICT, related_name='faturas')
+    instituicao = models.ForeignKey(Escola, on_delete=models.RESTRICT, related_name='saas_faturas')
+    numero_fatura = models.CharField(max_length=50)
+    periodo_inicio = models.DateField()
+    periodo_fim = models.DateField()
+    valor = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0'))])
+    multa_aplicada = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    data_abertura = models.DateField()
+    data_limite = models.DateField()
+    data_limite_manual = models.DateField(null=True, blank=True)
+    estado = models.CharField(
+        max_length=20,
+        default='aberta',
+        choices=[
+            ('aberta', 'Aberta'),
+            ('paga_parcial', 'Paga Parcial'),
+            ('paga', 'Paga'),
+            ('em_atraso', 'Em Atraso'),
+            ('anulada', 'Anulada')
+        ]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_saas_faturas'
+        verbose_name = 'Fatura SaaS'
+        verbose_name_plural = 'Faturas SaaS'
+        constraints = [
+            models.UniqueConstraint(fields=['assinatura', 'periodo_inicio'], name='unique_saas_assinatura_periodo_inicio')
+        ]
+        indexes = [
+            models.Index(fields=['instituicao']),
+            models.Index(fields=['estado']),
+            models.Index(fields=['data_limite']),
+        ]
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError("Eliminação não permitida: faturas são permanentes e invioláveis.")
+
+    @property
+    def data_limite_efectiva(self):
+        if self.data_limite_manual:
+            return self.data_limite_manual
+        ass = self.assinatura
+        if ass.modo_data_limite == 'dia_fixo' and ass.dia_limite:
+            import calendar
+            ultimo_dia = calendar.monthrange(self.periodo_inicio.year, self.periodo_inicio.month)[1]
+            return self.periodo_inicio.replace(day=min(ass.dia_limite, ultimo_dia))
+        return self.data_limite
+
+    def __str__(self):
+        return f"{self.numero_fatura} - {self.instituicao.nome} ({self.valor} MZN) [{self.estado}]"
+
+
+class SaasPagamento(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    fatura = models.ForeignKey(SaasFatura, on_delete=models.RESTRICT, related_name='pagamentos')
+    instituicao = models.ForeignKey(Escola, on_delete=models.RESTRICT, related_name='saas_pagamentos')
+    metodo = models.CharField(
+        max_length=50,
+        choices=[
+            ('M-Pesa', 'M-Pesa'),
+            ('e-Mola', 'e-Mola'),
+            ('transferencia_bancaria', 'Transferência Bancária'),
+            ('numerario', 'Numerário')
+        ]
+    )
+    referencia = models.CharField(max_length=100)
+    valor = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    comprovativo_path = models.TextField(null=True, blank=True)
+    comprovativo_url = models.TextField(null=True, blank=True)
+    estado = models.CharField(
+        max_length=20,
+        default='enviado',
+        choices=[
+            ('enviado', 'Enviado'),
+            ('confirmado', 'Confirmado'),
+            ('rejeitado', 'Rejeitado')
+        ]
+    )
+    confirmado_por = models.CharField(max_length=150, null=True, blank=True)
+    confirmado_em = models.DateTimeField(null=True, blank=True)
+    motivo_rejeicao = models.TextField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_saas_pagamentos'
+        verbose_name = 'Pagamento SaaS'
+        verbose_name_plural = 'Pagamentos SaaS'
+        indexes = [
+            models.Index(fields=['fatura']),
+            models.Index(fields=['instituicao']),
+            models.Index(fields=['estado']),
+        ]
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError("Eliminação não permitida: registos de pagamento são invioláveis.")
+
+    def __str__(self):
+        return f"{self.metodo} - {self.referencia} ({self.valor} MZN) [{self.estado}]"
+
+
+class SaasLogAssinatura(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    instituicao = models.ForeignKey(Escola, on_delete=models.RESTRICT, related_name='saas_logs')
+    assinatura = models.ForeignKey(SaasAssinatura, on_delete=models.RESTRICT, null=True, blank=True, related_name='logs')
+    fatura = models.ForeignKey(SaasFatura, on_delete=models.RESTRICT, null=True, blank=True, related_name='logs')
+    accao = models.CharField(max_length=100)
+    estado_anterior = models.CharField(max_length=50, null=True, blank=True)
+    estado_novo = models.CharField(max_length=50, null=True, blank=True)
+    valor_anterior = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    valor_novo = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    feito_por = models.CharField(max_length=150, default='sistema')
+    motivo = models.TextField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_saas_log_assinaturas'
+        verbose_name = 'Log de Assinatura SaaS'
+        verbose_name_plural = 'Logs de Assinaturas SaaS'
+        indexes = [
+            models.Index(fields=['instituicao']),
+            models.Index(fields=['criado_em']),
+        ]
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError("Eliminação não permitida: registos de auditoria são imutáveis.")
+
+    def __str__(self):
+        return f"{self.instituicao.nome} - {self.accao} por {self.feito_por} em {self.criado_em}"
 

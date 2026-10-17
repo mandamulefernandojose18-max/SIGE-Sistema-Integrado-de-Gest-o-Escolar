@@ -1,0 +1,430 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-SUPERADMIN | Controlo de Assinaturas & Pagamentos SaaS -->
+<!-- Página independente do módulo: pagamentos-saas.html -->
+<!-- Moeda Oficial: MZN (Metical) | Fuso Horário: Africa/Maputo -->
+<!-- ===================================================================== -->
+<section id="view-pagamentos-saas" class="modulo-view" style="display: none;">
+  <!-- KPIs e Resumo Geral -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="stat-card">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Valor em Dívida</span>
+          <h3 id="saasValorDivida" class="fw-bold mb-0 text-danger">0 <span class="moeda-sufixo">MZN</span></h3>
+          <small class="text-muted">Faturas pendentes e em atraso</small>
+        </div>
+        <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-cash-stack"></i></div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Receita do Mês</span>
+          <h3 id="saasReceitaMes" class="fw-bold mb-0 text-success">0 <span class="moeda-sufixo">MZN</span></h3>
+          <small class="text-muted">Pagamentos liquidados no mês</small>
+        </div>
+        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-graph-up-arrow"></i></div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Comprovativos por Validar</span>
+          <h3 id="saasComprovativosPendentes" class="fw-bold mb-0 text-warning">0</h3>
+          <small class="text-muted">Aguardam validação na fila</small>
+        </div>
+        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-receipt"></i></div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stat-card">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Instituições Monitorizadas</span>
+          <h3 id="saasTotalInstituicoes" class="fw-bold mb-0 text-dark">0</h3>
+          <small class="text-muted" id="saasResumoEstados">0 Activas | 0 Atraso | 0 Suspensas</small>
+        </div>
+        <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-buildings"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila de Validação de Pagamentos Pendentes -->
+  <div class="card p-4 mb-4 border-warning shadow-sm" id="cardFilaComprovativos" style="display: none;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h5 class="fw-bold mb-0 text-warning"><i class="bi bi-hourglass-split me-2"></i>Fila de Comprovativos Enviados pelas Instituições</h5>
+        <small class="text-muted">Valide ou rejeite os pagamentos submetidos para reactivação e liquidação das faturas.</small>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Instituição</th>
+            <th>Fatura / Período</th>
+            <th>Método</th>
+            <th>Referência</th>
+            <th>Valor (MZN)</th>
+            <th>Data de Envio</th>
+            <th>Comprovativo</th>
+            <th class="text-end">Decisão</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaPagamentosPendentes">
+          <tr><td colspan="8" class="text-center py-3">A carregar fila de comprovativos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Gestão de Assinaturas de Todas as Instituições -->
+  <div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <h5 class="fw-bold mb-0"><i class="bi bi-shield-check me-2"></i>Controlo de Assinaturas e Prazos SaaS</h5>
+        <small class="text-muted">Acompanhe estados, configure regras de corte, tolerâncias e efectue prorrogações justificadas.</small>
+      </div>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-outline-secondary btn-sm" onclick="executarCicloDiarioManual()" title="Executar rotina diária de verificação e faturação">
+          <i class="bi bi-arrow-repeat me-1"></i> Executar Ciclo Diário
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Filtros e Pesquisa -->
+    <div class="row g-2 mb-3">
+      <div class="col-md-5">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" id="filtroSaasBusca" class="form-control" placeholder="Pesquisar por escola, código oficial ou NUIT..." oninput="filtrarTabelaAssinaturas()">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select id="filtroSaasEstado" class="form-select form-select-sm" onchange="carregarAssinaturasSuperAdmin()">
+          <option value="">Todos os Estados</option>
+          <option value="activa">Activa</option>
+          <option value="fatura_pendente">Fatura Pendente</option>
+          <option value="em_atraso">Em Atraso (Faixa de Aviso)</option>
+          <option value="restrita">Restrita (Apenas Leitura)</option>
+          <option value="suspensa">Suspensa (Bloqueio Total)</option>
+          <option value="cancelada">Cancelada</option>
+          <option value="teste">Período de Teste</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select id="filtroSaasPeriodicidade" class="form-select form-select-sm" onchange="carregarAssinaturasSuperAdmin()">
+          <option value="">Periodicidade</option>
+          <option value="mensal">Mensal</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="semestral">Semestral</option>
+          <option value="anual">Anual</option>
+        </select>
+      </div>
+      <div class="col-md-2 text-end">
+        <button class="btn btn-outline-primary btn-sm w-100" onclick="carregarAssinaturasSuperAdmin()">
+          <i class="bi bi-funnel me-1"></i> Actualizar
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabela Principal de Assinaturas -->
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Instituição</th>
+            <th>Plano</th>
+            <th>Periodicidade</th>
+            <th>Modo Data-Limite</th>
+            <th>Próxima Fatura</th>
+            <th>Tolerância / Suspensão</th>
+            <th>Estado</th>
+            <th class="text-end">Operações</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaSaasAssinaturas">
+          <tr><td colspan="8" class="text-center py-4">A carregar assinaturas SaaS...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- MODAL: FICHA DA INSTITUIÇÃO & HISTÓRICO COMPLETO -->
+<div class="modal fade" id="modalFichaInstituicao" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title fw-bold" id="modalFichaInstituicaoTitulo">Ficha da Instituição & Faturação SaaS</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <!-- Detalhes do Contrato e Configuração -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card p-3 h-100 bg-light">
+              <h6 class="fw-bold border-bottom pb-2 mb-3 text-primary"><i class="bi bi-info-circle me-1"></i> Dados da Instituição</h6>
+              <p class="mb-1"><strong>Nome:</strong> <span id="fichaEscolaNome">-</span></p>
+              <p class="mb-1"><strong>Código Oficial:</strong> <span id="fichaEscolaCodigo">-</span></p>
+              <p class="mb-1"><strong>NUIT:</strong> <span id="fichaEscolaNuit">-</span></p>
+              <p class="mb-1"><strong>Província / Distrito:</strong> <span id="fichaEscolaProvincia">-</span></p>
+              <p class="mb-0"><strong>Estado Geral:</strong> <span id="fichaEscolaEstadoBadge" class="badge bg-secondary">-</span></p>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card p-3 h-100 bg-light">
+              <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                <h6 class="fw-bold mb-0 text-primary"><i class="bi bi-sliders me-1"></i> Parâmetros da Assinatura</h6>
+                <button class="btn btn-sm btn-outline-primary" onclick="abrirModalConfigurarAssinatura()">
+                  <i class="bi bi-pencil-square me-1"></i> Alterar Regras
+                </button>
+              </div>
+              <p class="mb-1"><strong>Plano:</strong> <span id="fichaPlanoNome">-</span> (<span id="fichaPlanoPreco">-</span> MZN/mês)</p>
+              <p class="mb-1"><strong>Periodicidade:</strong> <span id="fichaPeriodicidade">-</span></p>
+              <p class="mb-1"><strong>Modo Data-Limite:</strong> <span id="fichaModoDataLimite">-</span></p>
+              <p class="mb-1"><strong>Tolerância / Corte:</strong> <span id="fichaToleranciaInfo">-</span></p>
+              <p class="mb-0"><strong>Multa Configurada:</strong> <span id="fichaMultaInfo">-</span></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Abas de Faturas, Pagamentos e Auditoria -->
+        <ul class="nav nav-tabs mb-3" id="abasFicha" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabFaturas"><i class="bi bi-receipt me-1"></i> Histórico de Faturas</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPagamentos"><i class="bi bi-cash-stack me-1"></i> Pagamentos Registados</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabAuditoria"><i class="bi bi-journal-text me-1"></i> Registo de Auditoria Imutável</button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="tabFaturas">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Nº Fatura</th>
+                    <th>Período</th>
+                    <th>Valor Base</th>
+                    <th>Multa</th>
+                    <th>Valor Pago</th>
+                    <th>Data-Limite Efectiva</th>
+                    <th>Estado</th>
+                    <th class="text-end">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaFichaFaturas"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="tabPagamentos">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Data</th>
+                    <th>Método</th>
+                    <th>Referência</th>
+                    <th>Valor (MZN)</th>
+                    <th>Estado</th>
+                    <th>Validado Por</th>
+                    <th class="text-end">Comprovativo</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaFichaPagamentos"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="tabAuditoria">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Data / Hora</th>
+                    <th>Ação</th>
+                    <th>Estado Anterior ➔ Novo</th>
+                    <th>Responsável</th>
+                    <th>Motivo / Justificação</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaFichaAuditoria"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="modalSuspenderManualInstituicao()">
+          <i class="bi bi-slash-circle me-1"></i> Suspender Manualmente
+        </button>
+        <button type="button" class="btn btn-outline-success btn-sm" onclick="modalReactivarManualInstituicao()">
+          <i class="bi bi-arrow-clockwise me-1"></i> Reactivar Manualmente
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIGURAÇÃO DE ASSINATURA -->
+<div class="modal fade" id="modalConfigurarAssinatura" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold">Configurar Parâmetros da Assinatura</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formConfigurarAssinatura" onsubmit="salvarConfiguracaoAssinatura(event)">
+        <div class="modal-body p-4">
+          <input type="hidden" id="cfgAssinaturaId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Periodicidade de Cobrança</label>
+              <select id="cfgPeriodicidade" class="form-select" required onchange="aoMudarModoDataLimite()">
+                <option value="mensal">Mensal (Preço regular)</option>
+                <option value="trimestral">Trimestral (5% de desconto)</option>
+                <option value="semestral">Semestral (10% de desconto)</option>
+                <option value="anual">Anual (15% de desconto)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Modo da Data-Limite</label>
+              <select id="cfgModoDataLimite" class="form-select" required onchange="aoMudarModoDataLimite()">
+                <option value="automatico">Automático (Predefinição da Periodicidade)</option>
+                <option value="dia_fixo">Dia Fixo (Ex: dia 5 ou dia 25 de cada mês)</option>
+                <option value="manual">Manual (Definido por fatura)</option>
+              </select>
+            </div>
+            <div class="col-md-6" id="boxDiaFixo" style="display: none;">
+              <label class="form-label fw-semibold">Dia Fixo de Vencimento (1 a 31)</label>
+              <input type="number" id="cfgDiaLimite" class="form-control" min="1" max="31" placeholder="Ex: 10">
+              <small class="text-muted">Se o mês tiver menos dias, o último dia do mês será usado automaticamente.</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Dias de Tolerância</label>
+              <input type="number" id="cfgDiasTolerancia" class="form-control" min="0" value="5" required>
+              <small class="text-muted">Após o limite, exibe faixa de aviso. Acesso total mantido.</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Dias até Suspensão (Corte)</label>
+              <input type="number" id="cfgDiasAteSuspensao" class="form-control" min="0" value="15" required>
+              <small class="text-muted">Após a tolerância, o sistema fica em modo 'restrita' (só leitura). Depois suspende.</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Data de Bloqueio Manual (Opcional)</label>
+              <input type="date" id="cfgDataBloqueioManual" class="form-control">
+              <small class="text-muted">Sobrescreve a suspensão e bloqueia na data especificada.</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Tipo de Multa por Atraso</label>
+              <select id="cfgMultaTipo" class="form-select">
+                <option value="nenhuma">Nenhuma</option>
+                <option value="fixo">Valor Fixo (MZN)</option>
+                <option value="percentagem">Percentagem (%)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Valor da Multa</label>
+              <input type="number" step="0.01" id="cfgMultaValor" class="form-control" value="0.00" min="0">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary fw-bold">Guardar Configuração</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PRORROGAR DATA LIMITE DE FATURA -->
+<div class="modal fade" id="modalProrrogarFatura" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-dark">
+        <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-1"></i> Prorrogar Data-Limite de Fatura</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formProrrogarFatura" onsubmit="salvarProrrogacaoFatura(event)">
+        <div class="modal-body p-4">
+          <input type="hidden" id="prorrogarFaturaId">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Fatura Selecionada</label>
+            <input type="text" id="prorrogarFaturaNumero" class="form-control bg-light" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nova Data-Limite Efectiva</label>
+            <input type="date" id="prorrogarNovaData" class="form-control" required>
+            <small class="text-muted">A nova data deve ser posterior à data de início do período da fatura.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Justificação Obrigatória</label>
+            <textarea id="prorrogarMotivo" class="form-control" rows="3" required placeholder="Indique o motivo formal da prorrogação (ex: ciclo orçamental de instituição pública, solicitação formal da direcção, etc.)."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-info fw-bold">Confirmar Prorrogação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REJEITAR PAGAMENTO -->
+<div class="modal fade" id="modalRejeitarPagamento" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-x-circle me-1"></i> Rejeitar Comprovativo de Pagamento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formRejeitarPagamento" onsubmit="salvarRejeicaoPagamento(event)">
+        <div class="modal-body p-4">
+          <input type="hidden" id="rejeitarPagamentoId">
+          <p class="text-muted">Indique a justificação da rejeição. A instituição será notificada e poderá submeter um novo comprovativo válido.</p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Motivo da Rejeição (Obrigatório)</label>
+            <textarea id="rejeitarMotivo" class="form-control" rows="3" required placeholder="Ex: Comprovativo ilegível, valor divergente do total devido, referência inexistente nos extractos bancários..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger fw-bold">Rejeitar Pagamento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SUSPENDER / REACTIVAR MANUAL -->
+<div class="modal fade" id="modalAcaoManualInstituicao" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" id="modalAcaoManualHeader">
+        <h5 class="modal-title fw-bold" id="modalAcaoManualTitulo">Operação Manual</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formAcaoManualInstituicao" onsubmit="salvarAcaoManualInstituicao(event)">
+        <div class="modal-body p-4">
+          <input type="hidden" id="acaoManualTipo">
+          <input type="hidden" id="acaoManualInstituicaoId">
+          <div class="alert alert-warning" id="acaoManualAviso"></div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Justificação Obrigatória</label>
+            <textarea id="acaoManualMotivo" class="form-control" rows="3" required placeholder="A justificação é registada para efeitos de auditoria jurídica e operacional."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn fw-bold" id="btnAcaoManualSubmit">Confirmar Operação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

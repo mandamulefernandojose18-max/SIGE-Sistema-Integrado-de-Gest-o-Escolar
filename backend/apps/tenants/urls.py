@@ -13,6 +13,20 @@ from .views import (
     AnoLectivoViewSet
 )
 
+from .saas_views import (
+    SaasResumoView,
+    SaasAssinaturasListView,
+    SaasAssinaturaDetalheView,
+    SaasPagamentosPendentesView,
+    SaasConfirmarPagamentoView,
+    SaasRejeitarPagamentoView,
+    SaasProrrogarDataLimiteView,
+    SaasSuspenderReactivarManualView,
+    SaasRotinaDiariaManualView,
+    MinhaAssinaturaView,
+    RegistarPagamentoInstituicaoView
+)
+
 router = OptionalSlashRouter()
 router.register(r'escolas', EscolaViewSet, basename='saas_escola')
 router.register(r'planos', PlanoViewSet, basename='saas_plano')
@@ -41,11 +55,40 @@ escola_admin_urls = [
     path('', include(escola_router.urls)),
 ]
 
+saas_pagamentos_urls = [
+    path('resumo', SaasResumoView.as_view(), name='saas_resumo_no_slash'),
+    path('resumo/', SaasResumoView.as_view(), name='saas_resumo'),
+    path('assinaturas', SaasAssinaturasListView.as_view(), name='saas_assinaturas_list_no_slash'),
+    path('assinaturas/', SaasAssinaturasListView.as_view(), name='saas_assinaturas_list'),
+    path('assinaturas/<uuid:pk>', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_detalhe_no_slash'),
+    path('assinaturas/<uuid:pk>/', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_detalhe'),
+    path('assinaturas/<uuid:pk>/configurar', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_config_no_slash'),
+    path('assinaturas/<uuid:pk>/configurar/', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_config'),
+    path('pagamentos/pendentes', SaasPagamentosPendentesView.as_view(), name='saas_pagamentos_pendentes_no_slash'),
+    path('pagamentos/pendentes/', SaasPagamentosPendentesView.as_view(), name='saas_pagamentos_pendentes'),
+    path('pagamentos/<uuid:pk>/confirmar', SaasConfirmarPagamentoView.as_view(), name='saas_pagamento_confirmar_no_slash'),
+    path('pagamentos/<uuid:pk>/confirmar/', SaasConfirmarPagamentoView.as_view(), name='saas_pagamento_confirmar'),
+    path('pagamentos/<uuid:pk>/rejeitar', SaasRejeitarPagamentoView.as_view(), name='saas_pagamento_rejeitar_no_slash'),
+    path('pagamentos/<uuid:pk>/rejeitar/', SaasRejeitarPagamentoView.as_view(), name='saas_pagamento_rejeitar'),
+    path('faturas/<uuid:pk>/prorrogar', SaasProrrogarDataLimiteView.as_view(), name='saas_fatura_prorrogar_no_slash'),
+    path('faturas/<uuid:pk>/prorrogar/', SaasProrrogarDataLimiteView.as_view(), name='saas_fatura_prorrogar'),
+    path('instituicoes/<uuid:pk>/suspender-reactivar', SaasSuspenderReactivarManualView.as_view(), name='saas_suspender_reactivar_no_slash'),
+    path('instituicoes/<uuid:pk>/suspender-reactivar/', SaasSuspenderReactivarManualView.as_view(), name='saas_suspender_reactivar'),
+    path('rotina-diaria', SaasRotinaDiariaManualView.as_view(), name='saas_rotina_diaria_no_slash'),
+    path('rotina-diaria/', SaasRotinaDiariaManualView.as_view(), name='saas_rotina_diaria'),
+    path('minha-assinatura', MinhaAssinaturaView.as_view(), name='saas_minha_assinatura_no_slash'),
+    path('minha-assinatura/', MinhaAssinaturaView.as_view(), name='saas_minha_assinatura'),
+    path('registar-pagamento', RegistarPagamentoInstituicaoView.as_view(), name='saas_registar_pagamento_no_slash'),
+    path('registar-pagamento/', RegistarPagamentoInstituicaoView.as_view(), name='saas_registar_pagamento'),
+]
+
 urlpatterns = [
     path('geografia', GeografiaView.as_view(), name='geografia_no_slash'),
     path('geografia/', GeografiaView.as_view(), name='geografia'),
     re_path(r'^saas-admin/?', include(saas_admin_urls)),
     re_path(r'^escola-admin/?', include(escola_admin_urls)),
+    re_path(r'^saas/?', include(saas_pagamentos_urls)),
     path('', include(router.urls)),
 ]
+
 
