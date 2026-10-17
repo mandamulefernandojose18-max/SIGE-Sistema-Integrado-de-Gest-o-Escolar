@@ -545,6 +545,8 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST` | `/api/v1/saas/instituicoes/<pk>/suspender-reactivar` | `SUPERADMIN` | Bloqueio ou desbloqueio manual de instituição. |
 | `GET` | `/api/v1/saas/minha-assinatura` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
 | `POST` | `/api/v1/saas/registar-pagamento` | Admin Escola | Envia comprovativo de pagamento de subscrição para homologação. |
+| `GET` | `/api/v1/saas/coordenadas` | Autenticado | Consulta as contas bancárias e carteiras móveis oficiais (iniciam em branco, sem dados fictícios). |
+| `POST` | `/api/v1/saas/coordenadas` | `SUPERADMIN` | Configura e atualiza contas bancárias (BIM, BCI), carteiras móveis (M-Pesa, e-Mola) e NUIT oficiais. |
 
 ### 9.4 Administração da Escola e Gestão de Turmas (`/api/v1/escola-admin/` e `/api/v1/turmas`)
 | Método | Endpoint | Permissão | Descrição |

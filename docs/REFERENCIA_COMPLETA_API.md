@@ -105,6 +105,8 @@
 | `POST`| `/api/v1/saas/instituicoes/<uuid:pk>/suspender-reactivar/` | `SUPERADMIN` | Bloqueio ou desbloqueio manual direto de instituição. |
 | `GET` | `/api/v1/saas/minha-assinatura/` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
 | `POST`| `/api/v1/saas/registar-pagamento/` | Admin Escola | Envia comprovativo de pagamento de mensalidade para homologação. |
+| `GET` | `/api/v1/saas/coordenadas/` | Autenticado | Consulta as contas bancárias e carteiras móveis oficiais (iniciam em branco, sem dados fictícios). |
+| `POST`| `/api/v1/saas/coordenadas/` | `SUPERADMIN` | Configura e atualiza contas bancárias (BIM, BCI), carteiras móveis (M-Pesa, e-Mola) e NUIT oficiais. |
 
 ---
 
