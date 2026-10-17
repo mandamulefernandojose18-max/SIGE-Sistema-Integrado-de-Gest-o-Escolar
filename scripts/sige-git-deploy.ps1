@@ -10,7 +10,7 @@ param(
     [string]$Branch = "chore/migracao-django-rest",
 
     [Parameter(Mandatory=$false)]
-    [string]$VmIp = "139.84.226.46",
+    [string]$VmIp = "sigesaas.duckdns.org",
 
     [Parameter(Mandatory=$false)]
     [string]$VmUser = "root",

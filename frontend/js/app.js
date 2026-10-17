@@ -10595,6 +10595,7 @@ async function carregarPagamentos() {
     }
 
     if (resP && resP.success && Array.isArray(resP.data)) {
+      window.listaUltimosPagamentos = resP.data;
       const tbody = document.getElementById('tabelaPagamentos');
       if (!tbody) return;
       tbody.innerHTML = resP.data.map(p => `
@@ -10684,22 +10685,38 @@ async function modalNovoPagamento() {
   document.getElementById('formModalPag').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const alunoId = document.getElementById('mpagAluno').value;
+      const mesRef = document.getElementById('mpagMes').value.trim();
+
+      // Verificação preventiva local se a fatura já existe no sistema para este mês
+      if (window.listaUltimosPagamentos && window.listaUltimosPagamentos.some(p => {
+        const pAlunoId = p.aluno?.id || p.aluno_id || (typeof p.aluno === 'string' ? p.aluno : null);
+        return String(pAlunoId) === String(alunoId) && String(p.mes_referencia).trim() === mesRef && p.status !== 'CANCELADO';
+      })) {
+        mostrarNotificacao('A factura já foi gerada no sistema.', 'warning');
+        alert('A factura já foi gerada no sistema.');
+        return;
+      }
+
       const res = await apiFetch('/api/v1/pagamentos', {
         method: 'POST',
         body: JSON.stringify({
-          aluno_id: document.getElementById('mpagAluno').value,
+          aluno_id: alunoId,
           descricao: document.getElementById('mpagDesc').value,
-          mes_referencia: document.getElementById('mpagMes').value,
+          mes_referencia: mesRef,
           valor: Number(document.getElementById('mpagValor').value),
           data_vencimento: document.getElementById('mpagVenc').value
         })
       });
       if (res.success) {
+        mostrarNotificacao('Cobrança gerada com sucesso!', 'success');
         fecharModal();
         carregarPagamentos();
       }
     } catch (err) {
-      alert('Erro ao criar cobrança');
+      const msg = err.message || 'Erro ao criar cobrança';
+      mostrarNotificacao(msg, 'warning');
+      alert(msg);
     }
   });
 }
@@ -10735,23 +10752,30 @@ async function modalGerarMensalidadesTurma() {
   document.getElementById('formModalLotePag').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const turmaId = document.getElementById('mlotTurma').value;
+      const mesRef = document.getElementById('mlotMes').value.trim();
+
       const res = await apiFetch('/api/v1/pagamentos/gerar-turma', {
         method: 'POST',
         body: JSON.stringify({
-          turma_id: document.getElementById('mlotTurma').value,
-          mes_referencia: document.getElementById('mlotMes').value,
+          turma_id: turmaId,
+          mes_referencia: mesRef,
           valor: Number(document.getElementById('mlotValor').value),
           data_vencimento: document.getElementById('mlotVenc').value,
-          descricao: `Propina de ${document.getElementById('mlotMes').value}`
+          descricao: `Propina de ${mesRef}`
         })
       });
       if (res.success) {
-        alert(`Mensalidades geradas com sucesso para a turma!`);
+        const msg = res.message || 'Mensalidades geradas com sucesso para a turma!';
+        mostrarNotificacao(msg, 'success');
+        alert(msg);
         fecharModal();
         carregarPagamentos();
       }
     } catch (err) {
-      alert(err.message || 'Erro ao gerar cobranças');
+      const msg = err.message || 'Erro ao gerar cobranças';
+      mostrarNotificacao(msg, 'warning');
+      alert(msg);
     }
   });
 }

@@ -10,3 +10,10 @@
 
 ## 💰 Regra de Orçamento (Guardrail)
 - Manter o custo total de infraestrutura e serviços estritamente dentro do limite de US$ 6/mês.
+
+## 🔄 Regra Mandatória: Sincronização Contínua de Documentação e Auto-Deploy
+- **SEMPRE** que qualquer actualização for realizada no sistema (código, modelo de dados, regra de negócio, endpoint, telas ou infraestrutura):
+  1. **Atualizar a documentação** correspondente na suite de manuais em `docs/` (`DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`, `README.md`, etc.).
+  2. **Executar git commit semântico** com mensagem descritiva.
+  3. **Executar git push** para o repositório remoto.
+  4. **Executar o deploy desacoplado** na VM de produção (`sigesaas.duckdns.org`), validando o funcionamento dos serviços e os atalhos locais `sige`.

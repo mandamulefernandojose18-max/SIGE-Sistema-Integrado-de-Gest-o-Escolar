@@ -57,17 +57,48 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         from common.utils.tenant import get_tenant_escola
         from rest_framework import serializers as drf_serializers
         aluno = serializer.validated_data.get('aluno')
+        mes_referencia = serializer.validated_data.get('mes_referencia')
         escola = get_tenant_escola(self.request) or (getattr(aluno, 'escola', None) if aluno else None)
         if not escola:
             raise drf_serializers.ValidationError({'escola': 'Nenhuma escola identificada para registar o pagamento.'})
         if aluno and aluno.escola_id != escola.id:
             raise drf_serializers.ValidationError({'aluno': 'O aluno selecionado pertence a outra instituição de ensino.'})
+
+        # Evita duplicação de faturas do mesmo mês
+        if aluno and mes_referencia:
+            ja_existe = Pagamento.objects.filter(
+                escola=escola,
+                aluno=aluno,
+                mes_referencia=mes_referencia
+            ).exclude(status='CANCELADO').exists()
+            if ja_existe:
+                raise drf_serializers.ValidationError({'mes_referencia': 'A factura já foi gerada no sistema.'})
+
         serializer.save(escola=escola)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        if not serializer.is_valid():
+            erros = serializer.errors
+            msg = 'Erro ao processar factura.'
+            if any('já foi gerada' in str(v).lower() for v in erros.values()):
+                msg = 'A factura já foi gerada no sistema.'
+            elif isinstance(erros, dict):
+                first_val = next(iter(erros.values()))
+                if isinstance(first_val, list) and first_val:
+                    msg = str(first_val[0])
+                elif isinstance(first_val, str):
+                    msg = first_val
+            return Response({'success': False, 'message': msg, 'errors': erros}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            self.perform_create(serializer)
+        except Exception as e:
+            msg = str(e)
+            if 'já foi gerada' in msg.lower():
+                msg = 'A factura já foi gerada no sistema.'
+            return Response({'success': False, 'message': msg}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
@@ -115,26 +146,47 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         alunos = Aluno.objects.filter(turma=turma, status='ATIVO')
 
         criados = 0
+        ja_existentes = 0
         for aluno in alunos:
-            # Evita duplicatas para a mesma descrição e mês
-            obj, created = Pagamento.objects.get_or_create(
+            # Impede duplicação de facturas do mesmo mês para o aluno
+            ja_tem = Pagamento.objects.filter(
+                escola=escola,
+                aluno=aluno,
+                mes_referencia=data['mes_referencia']
+            ).exclude(status='CANCELADO').exists()
+
+            if ja_tem:
+                ja_existentes += 1
+                continue
+
+            Pagamento.objects.create(
                 escola=escola,
                 aluno=aluno,
                 descricao=data['descricao'],
                 mes_referencia=data['mes_referencia'],
-                defaults={
-                    'valor': data['valor'],
-                    'data_vencimento': data['data_vencimento'],
-                    'status': 'PENDENTE'
-                }
+                valor=data['valor'],
+                data_vencimento=data['data_vencimento'],
+                status='PENDENTE'
             )
-            if created:
-                criados += 1
+            criados += 1
+
+        if criados == 0 and ja_existentes > 0:
+            return Response({
+                'success': False,
+                'message': 'A factura já foi gerada no sistema.',
+                'totalGerados': 0,
+                'totalExistentes': ja_existentes
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        msg = f"Gerados {criados} pagamentos para os alunos da turma {turma.nome}."
+        if ja_existentes > 0:
+            msg += f" ({ja_existentes} já haviam sido gerados anteriormente)."
 
         return Response({
             'success': True,
-            'message': f"Gerados {criados} pagamentos para os alunos da turma {turma.nome}.",
-            'totalGerados': criados
+            'message': msg,
+            'totalGerados': criados,
+            'totalExistentes': ja_existentes
         })
 
 class PagamentoStatsView(APIView):

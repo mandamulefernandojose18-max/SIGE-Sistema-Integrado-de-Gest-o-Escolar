@@ -37,6 +37,11 @@ class Pagamento(models.Model):
                 check=models.Q(valor_pago__gte=0),
                 name='check_pagamento_valor_pago_positivo'
             ),
+            models.UniqueConstraint(
+                fields=['escola', 'aluno', 'mes_referencia'],
+                condition=~models.Q(status='CANCELADO'),
+                name='unique_pagamento_aluno_mes'
+            ),
         ]
 
     def clean(self):
@@ -46,6 +51,18 @@ class Pagamento(models.Model):
             raise IntegrityRuleViolation("O valor do pagamento não pode ser negativo.")
         if self.valor_pago is not None and self.valor_pago < 0:
             raise IntegrityRuleViolation("O valor pago não pode ser negativo.")
+
+        # Impedir duplicação de factura para o mesmo aluno e mês de referência
+        if self.aluno_id and self.mes_referencia and self.status != 'CANCELADO':
+            qs = Pagamento.objects.filter(
+                escola_id=self.escola_id or (self.aluno.escola_id if self.aluno else None),
+                aluno_id=self.aluno_id,
+                mes_referencia=self.mes_referencia
+            ).exclude(status='CANCELADO')
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise IntegrityRuleViolation("A factura já foi gerada no sistema.")
 
     def save(self, *args, **kwargs):
         self.full_clean()

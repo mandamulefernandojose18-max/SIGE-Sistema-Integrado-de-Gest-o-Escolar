@@ -6,6 +6,16 @@
 > **Conformidade Normativa:** Ministério da Educação e Desenvolvimento Humano da República de Moçambique (MEC)  
 > **Arquitetura:** Backend Django 5.1 + Django REST Framework (Python 3.12) | Frontend SPA/PWA Vanilla JS + Bootstrap 5 | PostgreSQL 16 (RLS) / SQLite3
 
+### 🧭 Guias Especializados Complementares
+Para consulta aprofundada por domínio técnico ou operacional:
+- 🗺️ **[Central de Documentação](README.md)** — Mapa geral e diretrizes do sistema.
+- 🛡️ **[Arquitetura e Segurança](ARQUITETURA_E_SEGURANCA.md)** — Multi-Tenancy, RLS, 6 Pilares de Integridade e JWT.
+- ⚙️ **[Manual de Módulos e Operação](MANUAL_DE_MODULOS_E_OPERACAO.md)** — Guia passo a passo dos 18 módulos funcionais.
+- 🇲🇿 **[Regras Pedagógicas Oficiais MEC](REGRAS_PEDAGOGICAS_MEC.md)** — Matriz curricular, fórmulas de cálculo e aprovação.
+- 🗄️ **[Dicionário de Dados e Modelos](DICIONARIO_DE_DADOS.md)** — Especificação relacional das 17 tabelas e constraints.
+- 🔌 **[Catálogo Completo da API REST](REFERENCIA_COMPLETA_API.md)** — Documentação de todos os endpoints RESTful.
+- 🚀 **[Guia de Implantação e DevOps](GUIA_DE_IMPLANTACAO_E_DEVOPS.md)** — Docker, CI/CD, deploy na Cloud e guardrail de US$ 6/mês.
+
 ---
 
 ## 📑 Índice Geral
@@ -510,6 +520,16 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `PATCH` | `/api/v1/saas-admin/escolas/<pk>/toggle-status` | `SUPERADMIN` | Alterna o estado de uma escola entre `ATIVA` e `SUSPENSA` (ou `/status`). |
 | `POST` | `/api/v1/saas-admin/escolas/<pk>/renovar` | `SUPERADMIN` | Renova a assinatura da escola adicionando dias de vigência e reativando o acesso. |
 | `POST` | `/api/v1/saas-admin/cron/verificar-expiracoes` | `SUPERADMIN` | Executa varredura imediata de todas as assinaturas vencidas e marca-as como `EXPIRADA`. |
+| `GET` | `/api/v1/saas/resumo` | `SUPERADMIN` | Resumo financeiro do faturamento SaaS e contas a receber. |
+| `GET` | `/api/v1/saas/assinaturas` | `SUPERADMIN` | Lista global de contratos de assinatura de todas as escolas. |
+| `GET/POST` | `/api/v1/saas/assinaturas/<pk>/configurar` | `SUPERADMIN` | Configura cotas personalizadas de alunos e professores para a escola. |
+| `GET` | `/api/v1/saas/pagamentos/pendentes` | `SUPERADMIN` | Lista transferências bancárias pendentes de aprovação pelo SuperAdmin. |
+| `POST` | `/api/v1/saas/pagamentos/<pk>/confirmar` | `SUPERADMIN` | Confirma o pagamento da escola e renova a vigência da assinatura. |
+| `POST` | `/api/v1/saas/pagamentos/<pk>/rejeitar` | `SUPERADMIN` | Rejeita comprovativo bancário inválido. |
+| `POST` | `/api/v1/saas/faturas/<pk>/prorrogar` | `SUPERADMIN` | Concede tolerância de dias antes do bloqueio da instituição. |
+| `POST` | `/api/v1/saas/instituicoes/<pk>/suspender-reactivar` | `SUPERADMIN` | Bloqueio ou desbloqueio manual de instituição. |
+| `GET` | `/api/v1/saas/minha-assinatura` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
+| `POST` | `/api/v1/saas/registar-pagamento` | Admin Escola | Envia comprovativo de pagamento de subscrição para homologação. |
 
 ### 9.4 Administração da Escola e Gestão de Turmas (`/api/v1/escola-admin/` e `/api/v1/turmas`)
 | Método | Endpoint | Permissão | Descrição |

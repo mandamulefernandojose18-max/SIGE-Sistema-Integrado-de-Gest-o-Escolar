@@ -25,6 +25,23 @@ class PagamentoSerializer(serializers.ModelSerializer):
             'aluno': {'required': False}
         }
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        aluno = attrs.get('aluno') or (self.instance.aluno if self.instance else None)
+        mes_referencia = attrs.get('mes_referencia') or (self.instance.mes_referencia if self.instance else None)
+        status_val = attrs.get('status') or (self.instance.status if self.instance else 'PENDENTE')
+
+        if aluno and mes_referencia and status_val != 'CANCELADO':
+            qs = Pagamento.objects.filter(
+                aluno=aluno,
+                mes_referencia=mes_referencia
+            ).exclude(status='CANCELADO')
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError("A factura já foi gerada no sistema.")
+        return attrs
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         al = instance.aluno

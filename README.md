@@ -14,8 +14,15 @@
 
 O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa **SaaS Multi-Tenant** projetada para centralizar, padronizar e automatizar integralmente as operações pedagógicas, curriculares, administrativas, financeiras e de certificação digital de instituições de ensino público e privado em **Moçambique**, em estrita conformidade com as normas do **MEC (Ministério da Educação e Desenvolvimento Humano)**.
 
-> 📘 **Quer consultar tudo o que o sistema faz em detalhe?**  
-> Leia a **[Documentação Completa do Sistema (`docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`)](docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md)**.
+> 📘 **Central Oficial de Documentação:**  
+> Aceda à **[Central de Documentação do SIGE (`docs/README.md`)](docs/README.md)** ou explore diretamente os guias especializados:
+> - 📘 **[Documento Mestre do Sistema](docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md)**: Panorama unificado de ponta a ponta.
+> - 🛡️ **[Arquitetura e Segurança](docs/ARQUITETURA_E_SEGURANCA.md)**: Multi-Tenancy, 6 Pilares de Integridade, RLS e JWT.
+> - ⚙️ **[Manual de Módulos e Operação](docs/MANUAL_DE_MODULOS_E_OPERACAO.md)**: Guia operacional passo a passo dos 18 módulos.
+> - 🇲🇿 **[Regras Pedagógicas Oficiais MEC](docs/REGRAS_PEDAGOGICAS_MEC.md)**: Matriz curricular, fórmulas de cálculo e aprovação.
+> - 🗄️ **[Dicionário de Dados e Modelos](docs/DICIONARIO_DE_DADOS.md)**: Catálogo das 17 tabelas, chaves e constraints.
+> - 🔌 **[Catálogo Completo da API REST](docs/REFERENCIA_COMPLETA_API.md)**: Mais de 75 endpoints com métodos e envelopes.
+> - 🚀 **[Guia de Implantação e DevOps](docs/GUIA_DE_IMPLANTACAO_E_DEVOPS.md)**: Docker, CI/CD, deploy Cloud e guardrail de US$ 6/mês.
 
 ---
 

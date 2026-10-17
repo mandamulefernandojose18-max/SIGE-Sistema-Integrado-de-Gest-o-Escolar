@@ -1,0 +1,360 @@
+# 🗄️ Dicionário de Dados e Modelos do Sistema — SIGE (v2.5.0)
+
+> **Documento de Especificação Técnica do Banco de Dados Relacional**  
+> **Motor:** PostgreSQL 16 (Produção com RLS) / SQLite3 (Desenvolvimento)  
+> **ORM:** Django 5.1 ORM (`models.Model`)  
+> **Padrão de Nomenclatura:** Tabelas com prefixo canónico `sige_*`, chaves primárias UUID v4, chaves estrangeiras explícitas e constraints compostas.
+
+---
+
+## 1. Visão Geral do Esquema Relacional
+
+```mermaid
+erDiagram
+    PLANO ||--o{ ESCOLA : "estabelece cotas"
+    PLANO ||--o{ ASSINATURA_ESCOLA : "subscreve"
+    ESCOLA ||--o{ ASSINATURA_ESCOLA : "contrata"
+    ESCOLA ||--o{ FATURA_SAAS : "faturada"
+    ESCOLA ||--o{ USUARIO : "pertence"
+    ESCOLA ||--o{ LOG_ACESSO : "audita"
+    ESCOLA ||--o{ TURMA : "organiza"
+    ESCOLA ||--o{ ALUNO : "matricula"
+    ESCOLA ||--o{ PROFESSOR : "contrata"
+    ESCOLA ||--o{ DISCIPLINA : "leciona"
+    ESCOLA ||--o{ NOTA : "regista"
+    ESCOLA ||--o{ PAUTA : "consolida"
+    ESCOLA ||--o{ PAGAMENTO : "recebe"
+    ESCOLA ||--o{ CERTIFICADO : "emite"
+    ESCOLA ||--o{ MATERIAL_ESCOLAR : "disponibiliza"
+    ESCOLA ||--o{ DOCUMENTO_SALVO : "armazena"
+
+    TURMA ||--o{ ALUNO : "enturma"
+    PROFESSOR ||--o{ TURMA : "director_turma / director_classe"
+    PROFESSOR ||--o{ ALOCACAO_DOCENTE : "leciona"
+    DISCIPLINA ||--o{ ALOCACAO_DOCENTE : "associada"
+    TURMA ||--o{ ALOCACAO_DOCENTE : "recebe aula"
+
+    ALUNO ||--o{ NOTA : "possui"
+    DISCIPLINA ||--o{ NOTA : "avalia"
+    TURMA ||--o{ NOTA : "contextualiza"
+    TURMA ||--o{ PAUTA : "consolida"
+    TURMA ||--o{ PERMISSAO_EDICAO_NOTAS : "autoriza"
+    ALUNO ||--o{ PAGAMENTO : "liquida"
+    ALUNO ||--o{ CERTIFICADO : "titular"
+```
+
+---
+
+## 2. Catálogo Detalhado das Tabelas
+
+---
+
+### 2.1. `sige_usuarios` (`apps.accounts.models.Usuario`)
+Armazena todos os utilizadores autenticáveis do sistema (8 perfis nativos).
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único global (`uuid4`). |
+| `email` | `VARCHAR(254)` | Não | Endereço de correio eletrónico único global (`unique=True`). |
+| `username` | `VARCHAR(150)` | Não | Nome de utilizador de acesso (`unique=True`). |
+| `nome` | `VARCHAR(255)` | Não | Nome completo do utilizador. |
+| `role` | `VARCHAR(30)` | Não | Perfil: `SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `FINANCEIRO`, `PROFESSOR`, `ALUNO`. |
+| `escola_id` | `UUID` (FK) | Sim | Vinculação à escola (`tenants.Escola`). Nulo apenas para `SUPERADMIN`. |
+| `codigo_acesso` | `VARCHAR(50)` | Sim | Código oficial de acesso (`GD...`, `DP...`, `SECR...`, `PR...`, `Aluno`). |
+| `aluno_id` | `UUID` | Sim | Vínculo 1:1 lógico com o registo de `Aluno`. |
+| `professor_id` | `UUID` | Sim | Vínculo 1:1 lógico com o registo de `Professor`. |
+| `ativo` | `BOOLEAN` | Não | Estado da conta (Padrão: `True`). |
+| `senha_redefinida`| `BOOLEAN` | Não | Indica se a palavra-passe padrão foi alterada pelo utilizador. |
+| `telefone` | `VARCHAR(30)` | Sim | Contacto telefónico moçambicano. |
+| `avatar_url` | `VARCHAR(500)` | Sim | URL ou identificador de imagem de perfil. |
+
+---
+
+### 2.2. `sige_logs_acesso` (`apps.accounts.models.LogAcesso`)
+Auditoria cronológica e rastreabilidade de acessos e tentativas.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único global. |
+| `escola_id` | `UUID` (FK) | Sim | Escola onde ocorreu o evento. |
+| `usuario_id` | `UUID` (FK) | Sim | Utilizador que realizou a ação. |
+| `tipo` | `VARCHAR(40)` | Não | `LOGIN_SUCESSO`, `LOGIN_FALHA`, `ACESSO_BLOQUEADO_EXPIRADO`. |
+| `ip` | `VARCHAR(45)` | Não | Endereço de rede do cliente no momento da requisição. |
+| `user_agent` | `TEXT` | Sim | Identificador do navegador/dispositivo do cliente. |
+| `created_at` | `TIMESTAMPTZ` | Não | Carimbo de data/hora exato do evento. |
+
+---
+
+### 2.3. `sige_planos` (`apps.tenants.models.Plano`)
+Catálogo de planos comerciais da plataforma SaaS.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único global. |
+| `nome` | `VARCHAR(100)` | Não | Nome do plano: `MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`. |
+| `preco` | `DECIMAL(10,2)`| Não | Preço do plano em Meticais (`MZN`). |
+| `duracao_dias` | `INTEGER` | Não | Período de vigência em dias (30, 90, 180, 365). |
+| `max_alunos` | `INTEGER` | Não | Limite máximo contratado de alunos ativos. |
+| `max_professores`| `INTEGER` | Não | Limite máximo contratado de docentes ativos. |
+| `ativo` | `BOOLEAN` | Não | Se o plano está disponível para novas contratações. |
+
+---
+
+### 2.4. `sige_escolas` (`apps.tenants.models.Escola`)
+Registo institucional de cada Tenant na plataforma.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único da instituição. |
+| `nome` | `VARCHAR(255)` | Não | Denominação oficial da escola. |
+| `codigo_escola` | `VARCHAR(20)` | Não | Código oficial provincial/distrital (`0808S0001`). |
+| `nif_cnpj` | `VARCHAR(30)` | Não | Número Único de Identificação Tributária (NUIT). |
+| `provincia` | `VARCHAR(50)` | Não | Uma das 11 províncias de Moçambique. |
+| `distrito` | `VARCHAR(100)` | Não | Um dos 161 distritos de Moçambique. |
+| `ano_letivo_ativo`| `VARCHAR(10)` | Não | Ano letivo em curso (ex: `2026`). |
+| `trimestre_ativo`| `VARCHAR(20)` | Não | Trimestre em curso (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`). |
+| `status` | `VARCHAR(20)` | Não | `ATIVA`, `EXPIRADA`, `SUSPENSA`, `PENDENTE`. |
+| `bloqueada_manualmente` | `BOOLEAN` | Não | Bloqueio administrativo direto pelo SuperAdmin. |
+| `permitir_visualizacao_notas` | `BOOLEAN` | Não | Liberação de notas no portal do aluno. |
+| `inscricoes_abertas` | `BOOLEAN` | Não | Abertura do portal de auto-inscrição pública. |
+| `inscricoes_inicio` / `fim` | `DATE` | Sim | Janela temporal de inscrições online. |
+| `logo_base64` | `TEXT` | Sim | Imagem do logótipo institucional em Base64 para PDFs. |
+| `usar_emblema_nacional` | `BOOLEAN` | Não | Exibição do Emblema da República no cabeçalho. |
+| `director_nome` / `dap_nome` / `chefe_secretaria_nome` | `VARCHAR(255)` | Sim | Titulares oficiais dos órgãos diretivos. |
+
+---
+
+### 2.5. `sige_assinaturas_escolas` (`apps.tenants.models.AssinaturaEscola`)
+Contratos de subscrição e períodos de vigência de cada instituição.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador do contrato. |
+| `escola_id` | `UUID` (FK) | Não | Escola titular da assinatura. |
+| `plano_id` | `UUID` (FK) | Não | Plano contratado. |
+| `data_inicio` | `DATE` | Não | Data de início de vigência. |
+| `data_fim` | `DATE` | Não | Data de encerramento do contrato. |
+| `valor` | `DECIMAL(10,2)`| Não | Valor faturado em Meticais (`MZN`). |
+| `status` | `VARCHAR(20)` | Não | `ATIVA`, `EXPIRADA`, `CANCELADA`. |
+| *Check Constraint* | SQL | — | `CHECK (data_fim >= data_inicio)`. |
+
+---
+
+### 2.6. `sige_alunos` (`apps.alunos.models.Aluno`)
+Ficha biográfica e percurso escolar do estudante.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único do aluno. |
+| `escola_id` | `UUID` (FK) | Não | Escola matriculada. |
+| `turma_id` | `UUID` (FK) | Sim | Turma em que se encontra alocado. |
+| `matricula` | `VARCHAR(30)` | Não | Número oficial de matrícula (`unique=True`). |
+| `nome_completo` | `VARCHAR(255)` | Não | Nome e apelidos do aluno. |
+| `data_nascimento` | `DATE` | Não | Data de nascimento (validação 10 a 25 anos). |
+| `genero` | `VARCHAR(1)` | Não | `M` (Masculino) ou `F` (Feminino). |
+| `documento_tipo` | `VARCHAR(20)` | Não | `BI`, `PASSAPORTE`, `DIRE`, `CEDULA`, `CERTIDAO`. |
+| `documento_numero`| `VARCHAR(30)` | Não | Número do documento de identificação. |
+| `nuit` | `VARCHAR(9)` | Sim | NUIT validado exatamente com 9 dígitos. |
+| `grau_ano` | `VARCHAR(10)` | Não | Classe escolar: `7`, `8`, `9`, `10`, `11`, `12`. |
+| `area` | `VARCHAR(10)` | Sim | Secção: `GERAL`, `CB`, `CD`, `CG`, `LG`, `LH`. |
+| `status` | `VARCHAR(20)` | Não | `ACTIVO`, `INACTIVO`, `TRANSFERIDO`, `DESISTENTE`. |
+
+---
+
+### 2.7. `sige_professores` (`apps.professores.models.Professor`)
+Corpo docente e enquadramento funcional.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único do docente. |
+| `escola_id` | `UUID` (FK) | Não | Escola de vínculo. |
+| `nome_completo` | `VARCHAR(255)` | Não | Nome completo do professor. |
+| `email` | `VARCHAR(254)` | Não | Correio eletrónico institucional. |
+| `carreira` | `VARCHAR(50)` | Não | Categoria MEC (`DN4`, `DN3`, `DN2`, `DN1`, `Mestre`, etc.). |
+| `carga_horaria_semanal` | `INTEGER` | Não | Carga letiva contratada (padrão: 24h, max: 60h). |
+| `carga_maxima_por_classe` | `JSONB` | Sim | Limites máximos de aulas semanais por classe. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, email)`. |
+
+---
+
+### 2.8. `sige_professor_disciplina_turma` (`AlocacaoDocente`)
+Tabela associativa de alocação de docentes a turmas e disciplinas.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da alocação. |
+| `escola_id` | `UUID` (FK) | Não | Escola de contexto. |
+| `professor_id` | `UUID` (FK) | Não | Docente alocado. |
+| `disciplina_id` | `UUID` (FK) | Não | Disciplina a lecionar. |
+| `turma_id` | `UUID` (FK) | Não | Turma onde se realiza a docência. |
+| `ano_letivo` | `VARCHAR(10)` | Não | Ano letivo da alocação. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, professor_id, disciplina_id, turma_id, ano_letivo)`. |
+
+---
+
+### 2.9. `sige_turmas` (`apps.turmas.models.Turma`)
+Organização das classes e salas da escola.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da turma. |
+| `escola_id` | `UUID` (FK) | Não | Escola detentora da turma. |
+| `nome` | `VARCHAR(50)` | Não | Nome formal da turma (ex: `Turma 1`). |
+| `grau_ano` | `VARCHAR(10)` | Não | Classe da turma (`7` a `12`). |
+| `area` | `VARCHAR(10)` | Não | Secção da turma (`GERAL`, `CB`, `CD`, `CG`, `LG`, `LH`). |
+| `turno` | `VARCHAR(10)` | Não | `MANHA`, `TARDE`, `NOITE`. |
+| `sala` | `VARCHAR(50)` | Sim | Identificação da sala de aula física. |
+| `capacidade_maxima`| `INTEGER` | Não | Limite de lotação (padrão: 50 alunos). |
+| `director_turma_id`| `UUID` (FK) | Sim | Professor titular de Direção de Turma. |
+| `director_classe_id`| `UUID` (FK) | Sim | Professor titular de Direção de Classe. |
+| `dt_status_homologacao` | `VARCHAR(30)` | Não | `NAO_ATRIBUIDO`, `PENDENTE_HOMOLOGACAO`, `HOMOLOGADO`. |
+| `dc_status_homologacao` | `VARCHAR(30)` | Não | `NAO_ATRIBUIDO`, `PENDENTE_HOMOLOGACAO`, `HOMOLOGADO`. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, grau_ano, nome, ano_letivo)`. |
+
+---
+
+### 2.10. `sige_disciplinas` (`apps.disciplinas.models.Disciplina`)
+Grelha curricular nacional.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da disciplina. |
+| `escola_id` | `UUID` (FK) | Não | Escola proprietária da matriz. |
+| `nome` | `VARCHAR(100)` | Não | Nome da disciplina (ex: *Matemática*). |
+| `codigo` | `VARCHAR(20)` | Não | Código canónico (`MAT-10`, `BIO-12CB`). |
+| `classe` | `VARCHAR(10)` | Não | Classe curricular correspondente. |
+| `area` | `VARCHAR(10)` | Não | Secção de enquadramento. |
+| `carga_horaria` | `INTEGER` | Não | Carga letiva semanal em horas. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, codigo, ano_letivo)`. |
+
+---
+
+### 2.11. `sige_notas` (`apps.notas.models.Nota`)
+Registo quantitativo e qualitativo de avaliações.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da avaliação. |
+| `escola_id` | `UUID` (FK) | Não | Escola de contexto. |
+| `aluno_id` | `UUID` (FK) | Não | Aluno avaliado. |
+| `disciplina_id` | `UUID` (FK) | Não | Disciplina avaliada. |
+| `turma_id` | `UUID` (FK) | Não | Turma em que foi avaliado. |
+| `periodo` | `VARCHAR(20)` | Não | `1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`, `ANUAL`. |
+| `teste1` / `teste2` / `teste3` | `FLOAT` | Sim | Avaliações Contínuas (`1ª ACS`, `2ª ACS`, `3ª ACS`). |
+| `teste4` / `trabalho` | `FLOAT` | Sim | `MAP` (Práticas) e `MAS` (Trabalhos/Sistemáticas). |
+| `avaliacao_trimestral` | `FLOAT` | Sim | Prova Trimestral (`AT` / ACP). |
+| `media_final` | `FLOAT` | Sim | Nota de fechamento (`MT` ou `MFD`). |
+| `faltas` | `INTEGER` | Não | Faltas acumuladas no período (Padrão: 0). |
+| `comportamento` | `VARCHAR(5)` | Sim | Sigla qualitativa: `E`, `MB`, `B`, `S`, `NS`. |
+| `anotacao` | `VARCHAR(10)` | Sim | Código oficial: `D`, `T`, `VT`, `F`, `AM`, `PPF`, `PDF`. |
+| `resultado` | `VARCHAR(20)` | Sim | `Aprovado`, `Reprovado`, `Pendente`. |
+| *Unique Constraint* | SQL | — | `UNIQUE (aluno_id, disciplina_id, turma_id, periodo)`. |
+| *Check Constraints*| SQL | — | `CHECK (media_final >= 0 AND media_final <= 20)` e `CHECK (faltas >= 0)`. |
+
+---
+
+### 2.12. `sige_pautas` (`apps.pautas.models.Pauta`)
+Estado de consolidação e encerramento de pautas de turma.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da pauta. |
+| `escola_id` | `UUID` (FK) | Não | Escola titular. |
+| `turma_id` | `UUID` (FK) | Não | Turma consolidada. |
+| `ano_letivo` | `VARCHAR(10)` | Não | Ano letivo de referência. |
+| `periodo` | `VARCHAR(20)` | Não | Período consolidado. |
+| `status` | `VARCHAR(20)` | Não | `ABERTA`, `EM_CONSOLIDACAO`, `FECHADA`. |
+| `fechada_por` | `VARCHAR(255)` | Sim | Nome da autoridade que homologou o fecho. |
+| `data_fechamento` | `TIMESTAMPTZ` | Sim | Data e hora em que a pauta foi congelada. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, turma_id, ano_letivo, periodo)`. |
+
+---
+
+### 2.13. `sige_permissoes_edicao_notas` (`PermissaoEdicaoNotas`)
+Autorizações excecionais e auditadas de desbloqueio de notas.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da autorização. |
+| `escola_id` | `UUID` (FK) | Não | Escola de contexto. |
+| `turma_id` | `UUID` (FK) | Não | Turma autorizada. |
+| `disciplina_id` | `UUID` (FK) | Sim | Disciplina específica (ou nulo para todas da turma). |
+| `professor_id` | `UUID` (FK) | Sim | Professor específico (ou nulo para todos). |
+| `trimestre` | `VARCHAR(20)` | Não | Trimestre desbloqueado. |
+| `data_limite` | `TIMESTAMPTZ` | Não | Prazo final para conclusão das alterações. |
+| `motivo` | `TEXT` | Não | Justificativa formal da concessão de desbloqueio. |
+| `autorizado_por_id` | `UUID` (FK) | Não | DAP ou Diretor que emitiu o desbloqueio. |
+| `ativo` | `BOOLEAN` | Não | Estado da autorização. |
+
+---
+
+### 2.14. `sige_material_escolar` (`apps.material_escolar.models.MaterialEscolar`)
+Biblioteca pedagógica de conteúdos didáticos.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador do material. |
+| `escola_id` | `UUID` (FK) | Não | Escola de publicação. |
+| `titulo` | `VARCHAR(255)` | Não | Título da obra/manual/ficha. |
+| `classe` | `VARCHAR(10)` | Não | Classe escolar recomendada (`1` a `12`). |
+| `tipo` | `VARCHAR(30)` | Não | `MANUAL`, `FICHA`, `LIVRO`, `EXERCICIOS`, `GUIA`, `APOSTILA`. |
+| `formato` | `VARCHAR(10)` | Não | Extensão: `PDF`, `DOCX`, `XLSX`, `PPTX`, `EPUB`, `ZIP`, `IMG`. |
+| `tamanho_bytes` | `INTEGER` | Não | Tamanho do ficheiro (limite: 15 MB). |
+| `conteudo_base64`| `TEXT` | Sim | Ficheiro binário codificado para persistência local. |
+| `arquivo_url` | `VARCHAR(500)` | Sim | URL externa alternativa. |
+
+---
+
+### 2.15. `sige_pagamentos` (`apps.pagamentos.models.Pagamento`)
+Gestão financeira de propinas e emissão de recibos oficiais.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da cobrança. |
+| `escola_id` | `UUID` (FK) | Não | Escola credora. |
+| `aluno_id` | `UUID` (FK) | Não | Aluno devedor/titular. |
+| `mes_referencia` | `INTEGER` | Não | Mês da mensalidade (1 a 12). |
+| `ano_referencia` | `INTEGER` | Não | Ano da propina (ex: 2026). |
+| `valor` | `DECIMAL(10,2)`| Não | Valor da propina em Meticais (`MZN`). |
+| `valor_pago` | `DECIMAL(10,2)`| Não | Quantia liquidada. |
+| `status` | `VARCHAR(20)` | Não | `PENDENTE`, `PAGO`, `ATRASADO`, `CANCELADO`. |
+| `metodo_pagamento`| `VARCHAR(30)` | Sim | `MPESA`, `EMOLA`, `POS`, `TRANSFERENCIA`, `NUMERARIO`. |
+| `numero_recibo` | `VARCHAR(50)` | Sim | Identificador único de recibo (`REC-2026-00001`). |
+| `data_pagamento` | `TIMESTAMPTZ` | Sim | Data e hora da quitação. |
+| *Check Constraints*| SQL | — | `CHECK (valor > 0)` e `CHECK (valor_pago >= 0)`. |
+
+---
+
+### 2.16. `sige_certificados` (`apps.certificados.models.Certificado`)
+Emissão de certificados digitais e validação pública.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador do certificado. |
+| `escola_id` | `UUID` (FK) | Não | Escola emissora. |
+| `aluno_id` | `UUID` (FK) | Não | Estudante titular. |
+| `tipo` | `VARCHAR(30)` | Não | `CONCLUSAO`, `TRANSFERENCIA`, `DECLARACAO`, `MATRICULA`. |
+| `codigo_autenticidade`| `VARCHAR(50)` | Não | Código criptográfico público (`CERT-XXXXXXXXXX`). |
+| `qrcode_data` | `TEXT` | Não | URL do validador público incorporada no QR Code. |
+| `data_emissao` | `DATE` | Não | Data oficial de emissão. |
+
+---
+
+### 2.17. `sige_documentos_salvos` (`DocumentoSalvo`) & `sige_logs_impressao`
+Cofre persistente de ficheiros emitidos e auditoria de impressões.
+
+| Tabela / Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| **`sige_documentos_salvos`** | | | **Cofre Binário de Documentos Emitidos** |
+| `id` | `UUID` (PK) | Não | Identificador do documento salvo. |
+| `escola_id` | `UUID` (FK) | Não | Escola emissora. |
+| `nome_arquivo` | `VARCHAR(255)` | Não | Nome formal do ficheiro (ex: `pauta_10a_t1.pdf`). |
+| `tipo_documento` | `VARCHAR(50)` | Não | `boletim`, `declaracao`, `certificado`, `pauta`, `acta`, `caderneta`. |
+| `formato` | `VARCHAR(10)` | Não | `pdf`, `docx`, `xlsx`. |
+| `conteudo_base64` | `TEXT` | Não | Binário integral codificado em Base64. |
+| `tamanho_bytes` | `INTEGER` | Não | Tamanho do ficheiro no cofre. |
+| **`sige_logs_impressao`** | | | **Auditoria de Documentos e Parâmetros** |
+| `escola_id` | `UUID` (FK) | Não | Escola de contexto. |
+| `usuario_id` | `UUID` (FK) | Não | Operador que solicitou o documento. |
+| `tipo_documento` | `VARCHAR(50)` | Não | Tipo de documento emitido. |
+| `parametros_json` | `JSONB` | Sim | Armazena configurações de sessões de conselho, etc. |

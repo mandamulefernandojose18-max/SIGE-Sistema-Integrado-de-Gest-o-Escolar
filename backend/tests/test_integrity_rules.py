@@ -312,3 +312,25 @@ class TestIntegrityRulesSIGE:
                 data_fim=agora - timedelta(days=10),
                 valor=1500
             )
+
+    def test_duplicacao_factura_mesmo_mes_rejeitada(self):
+        """Não pode haver duplicação de facturas do mesmo mês para o mesmo aluno."""
+        Pagamento.objects.create(
+            escola=self.escola_a,
+            aluno=self.aluno_a,
+            descricao='Mensalidade Março',
+            mes_referencia='2026-03',
+            valor=2500,
+            data_vencimento=timezone.now()
+        )
+        with pytest.raises((ValidationError, IntegrityRuleViolation)) as excinfo:
+            Pagamento.objects.create(
+                escola=self.escola_a,
+                aluno=self.aluno_a,
+                descricao='Outra Mensalidade de Março',
+                mes_referencia='2026-03',
+                valor=2500,
+                data_vencimento=timezone.now()
+            )
+        assert 'já foi gerada' in str(excinfo.value).lower()
+
