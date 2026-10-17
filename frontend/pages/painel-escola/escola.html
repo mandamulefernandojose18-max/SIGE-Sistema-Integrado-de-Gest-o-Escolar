@@ -183,8 +183,165 @@
                   <input type="hidden" id="confEscolaLogoFinalValue" value="">
                 </div>
 
+                <!-- Secção de Tema de Cores da Instituição -->
+                <div class="card border-primary border-opacity-25 bg-light p-3 mb-3 shadow-sm">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label class="form-label small fw-bold mb-0 text-primary">
+                      <i class="bi bi-palette-fill me-1"></i> Tema de Cores da Instituição
+                    </label>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">Cores Oficiais</span>
+                  </div>
+                  <p class="x-small text-muted mb-2" style="font-size: 0.8rem;">
+                    Personalize as cores dos botões, menus, cabeçalhos e painéis da sua escola conforme a identidade institucional desejada.
+                  </p>
+
+                  <!-- Grade de Temas Disponíveis -->
+                  <div class="row g-2 mb-3" id="gradeTemasDisponiveis">
+                    <!-- Gerado dinamicamente via JS (Azul SIGE, Índigo Save, Verde Esmeralda, Bordeaux, Âmbar, Grafite, etc.) -->
+                  </div>
+
+                  <!-- Painel de Cores Personalizadas (Expansível quando "Personalizado" é selecionado) -->
+                  <div id="painelCoresPersonalizadas" class="p-2 rounded bg-white border mb-2" style="display: none;">
+                    <div class="fw-bold text-dark small mb-2 d-flex align-items-center justify-content-between">
+                      <span><i class="bi bi-sliders me-1 text-primary"></i> Cores Manuais Personalizadas</span>
+                      <small class="text-muted">Formato Hexadecimal</small>
+                    </div>
+                    <div class="row g-2">
+                      <div class="col-6">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Cor Primária</label>
+                        <div class="input-group input-group-sm">
+                          <input type="color" id="confEscolaCorPrimaria" class="form-control form-control-color w-25" value="#1e3a8a" onchange="aoMudarCorCustomizada()">
+                          <input type="text" id="confEscolaCorPrimariaHex" class="form-control" value="#1e3a8a" onchange="aoMudarHexColor('confEscolaCorPrimaria', this.value)">
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Cor da Barra Lateral</label>
+                        <div class="input-group input-group-sm">
+                          <input type="color" id="confEscolaCorSidebar" class="form-control form-control-color w-25" value="#0f172a" onchange="aoMudarCorCustomizada()">
+                          <input type="text" id="confEscolaCorSidebarHex" class="form-control" value="#0f172a" onchange="aoMudarHexColor('confEscolaCorSidebar', this.value)">
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Cor de Destaque / Hover</label>
+                        <div class="input-group input-group-sm">
+                          <input type="color" id="confEscolaCorHover" class="form-control form-control-color w-25" value="#172554" onchange="aoMudarCorCustomizada()">
+                          <input type="text" id="confEscolaCorHoverHex" class="form-control" value="#172554" onchange="aoMudarHexColor('confEscolaCorHover', this.value)">
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Item Activo do Menu</label>
+                        <div class="input-group input-group-sm">
+                          <input type="color" id="confEscolaCorSidebarAtiva" class="form-control form-control-color w-25" value="#38bdf8" onchange="aoMudarCorCustomizada()">
+                          <input type="text" id="confEscolaCorSidebarAtivaHex" class="form-control" value="#38bdf8" onchange="aoMudarHexColor('confEscolaCorSidebarAtiva', this.value)">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <input type="hidden" id="confEscolaTemaCodigo" value="padrao_azul">
+                </div>
+
+                <!-- Secção de Imagem de Fundo & Marca de Água -->
+                <div class="card border-primary border-opacity-25 bg-light p-3 mb-3 shadow-sm">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label class="form-label small fw-bold mb-0 text-primary">
+                      <i class="bi bi-aspect-ratio-fill me-1"></i> Imagem de Fundo & Marca de Água
+                    </label>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">Fundo do Sistema</span>
+                  </div>
+                  <p class="x-small text-muted mb-3" style="font-size: 0.8rem;">
+                    Escolha a imagem ou marca de água oficial que deseja exibir no fundo do sistema para a sua instituição escolar.
+                  </p>
+
+                  <!-- Fundo Activo em Uso -->
+                  <div class="d-flex align-items-center gap-3 mb-3 p-2 bg-white rounded border border-primary shadow-sm">
+                    <div id="previewFundoContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-sm" style="width: 76px; height: 76px; overflow: hidden; min-width: 76px;">
+                      <img id="confEscolaFundoPreview" src="img/logo-sige.png" alt="Fundo Activo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-success" style="font-size: 0.7rem;"><i class="bi bi-check-circle-fill me-1"></i>Fundo Activo</span>
+                        <div class="small fw-bold text-dark text-truncate" id="confEscolaFundoStatus" style="max-width: 220px;">Marca d'Água Oficial</div>
+                      </div>
+                      <small class="text-muted d-block mb-1" style="font-size: 0.75rem;" id="confEscolaFundoModoTxt">Modo: Marca de Água Central Sutil</small>
+                      <button type="button" id="btnRemoverFundo" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.72rem;" onclick="removerImagemFundoEscola()">
+                        <i class="bi bi-x-circle me-1"></i> Desactivar Imagem de Fundo
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Galeria de Fundos Disponíveis -->
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span class="x-small fw-bold text-dark text-uppercase" style="font-size: 0.75rem;">
+                        <i class="bi bi-collection-fill text-primary me-1"></i> Opções de Fundo Disponíveis:
+                      </span>
+                      <small class="text-muted fw-semibold" id="contadorGaleriaFundos">Carregando...</small>
+                    </div>
+                    <div id="galeriaFundosContainer" class="row g-2 mb-2" style="max-height: 240px; overflow-y: auto;">
+                      <!-- Opções de fundo geradas dinamicamente via JS -->
+                    </div>
+                  </div>
+
+                  <!-- Modo de Exibição e Opacidade do Fundo -->
+                  <div class="p-2 rounded bg-white border mb-3">
+                    <div class="row g-2 mb-2">
+                      <div class="col-sm-6">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.76rem;">Modo de Exibição do Fundo</label>
+                        <select id="confEscolaFundoModo" class="form-select form-select-sm" onchange="aoMudarModoFundo(this.value)">
+                          <option value="marca_dagua">1. Marca de Água Central Sutil</option>
+                          <option value="cobertura_total">2. Papel de Parede Total (Wallpaper)</option>
+                          <option value="padrao_textura">3. Padrão Textura Suave</option>
+                          <option value="nenhum">4. Sem Imagem de Fundo (Apenas Cores)</option>
+                        </select>
+                      </div>
+                      <div class="col-sm-6">
+                        <label class="form-label x-small text-dark mb-1 fw-bold d-flex justify-content-between" style="font-size: 0.76rem;">
+                          <span>Transparência / Opacidade</span>
+                          <strong id="lblFundoOpacidade" class="text-primary">15%</strong>
+                        </label>
+                        <input type="range" id="confEscolaFundoOpacidade" class="form-range mt-1" min="5" max="50" step="1" value="15" oninput="atualizarLabelOpacidadeFundo(this.value)">
+                        <small class="text-muted d-block" style="font-size: 0.68rem;">Recomendado: 10% a 20% para perfeita legibilidade.</small>
+                      </div>
+                    </div>
+
+                    <!-- Carregar Nova Imagem de Fundo -->
+                    <div class="border-top pt-2">
+                      <div class="fw-bold text-primary small mb-2 d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-cloud-arrow-up-fill me-1"></i> Carregar Nova Imagem de Fundo</span>
+                        <span class="badge bg-light text-muted border" style="font-size: 0.65rem;">PNG, JPG, WebP</span>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">1. Carregar do Computador</label>
+                        <input type="file" id="confEscolaFundoFile" accept="image/*" class="form-control form-control-sm" onchange="processarUploadFundoLocal(this)">
+                      </div>
+                      <div class="mb-1">
+                        <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">2. Ou Link / URL da Imagem</label>
+                        <div class="input-group input-group-sm">
+                          <input type="url" id="confEscolaFundoUrl" class="form-control" placeholder="https://escola.edu.mz/fundo.jpg">
+                          <button type="button" class="btn btn-outline-primary fw-semibold" onclick="processarUrlFundo(document.getElementById('confEscolaFundoUrl').value)">
+                            <i class="bi bi-plus-lg me-1"></i> Adicionar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Botões de Ação Imediata -->
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm flex-grow-1 fw-semibold" onclick="aplicarTemaEFundoAoVivo()">
+                      <i class="bi bi-eye-fill me-1"></i> Testar Visualização ao Vivo
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm fw-semibold" onclick="restaurarPadraoTemaEFundo()" title="Restaurar o tema clássico azul e marca d'água padrão">
+                      <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Padrão
+                    </button>
+                  </div>
+
+                  <input type="hidden" id="confEscolaFundoFinalValue" value="">
+                </div>
+
                 <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold py-2 shadow-sm">
-                  <i class="bi bi-check-circle-fill me-1"></i> Salvar Definições & Logótipo
+                  <i class="bi bi-check-circle-fill me-1"></i> Salvar Definições, Tema & Fundo
                 </button>
               </form>
             </div>

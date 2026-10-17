@@ -1056,6 +1056,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => inpSenha.focus(), 150);
   }
 
+  // Pré-aplicar tema e fundo salvos para evitar flicker
+  try {
+    const temaSalvo = localStorage.getItem('sige_tema_ativo');
+    if (temaSalvo) {
+      const parsed = JSON.parse(temaSalvo);
+      if (typeof aplicarTemaEFundoInstituicao === 'function') {
+        aplicarTemaEFundoInstituicao(parsed);
+      }
+    }
+  } catch (_) {}
+
   document.getElementById('loginForm')?.addEventListener('submit', realizarLogin);
   aplicarResponsividadeUniversalTabelas();
 });
@@ -1443,6 +1454,9 @@ async function iniciarApp() {
 
   if (state.tenant) {
     atualizarBadgeTenant(state.tenant);
+    if (typeof aplicarTemaEFundoInstituicao === 'function') {
+      aplicarTemaEFundoInstituicao(state.tenant);
+    }
     if (typeof atualizarBotaoToggleNotasDap === 'function') {
       atualizarBotaoToggleNotasDap(state.tenant.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas !== false);
     }
@@ -1937,6 +1951,9 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       if (res && res.success && res.data) {
         state.tenant = res.data;
         atualizarBadgeTenant(state.tenant);
+        if (typeof aplicarTemaEFundoInstituicao === 'function') {
+          aplicarTemaEFundoInstituicao(state.tenant);
+        }
         const elNome = document.getElementById('superAdminInspecaoNome');
         if (elNome) elNome.textContent = `A Inspecionar: ${state.tenant.nome}`;
         const elStatus = document.getElementById('superAdminInspecaoStatus');
@@ -1962,6 +1979,10 @@ function sairModoInspecaoSuperAdmin() {
   localStorage.removeItem('sige_selected_tenant');
   state.materialEscolar = { classeAtiva: 'TODAS', materiais: [], classes: [] };
   state.tenant = null;
+
+  if (typeof restaurarPadraoTemaEFundo === 'function') {
+    restaurarPadraoTemaEFundo();
+  }
 
   const select = document.getElementById('superAdminTenantSelect');
   if (select) select.value = '';
@@ -3085,6 +3106,52 @@ async function carregarEscolaETurmas() {
         window.renderizarGaleriaLogos();
       }
 
+      // Identidade Visual, Tema de Cores e Imagem de Fundo
+      if (e.galeria_fundos && Array.isArray(e.galeria_fundos)) {
+        state.escolaAtual.galeria_fundos = e.galeria_fundos;
+        if (state.tenant) state.tenant.galeria_fundos = e.galeria_fundos;
+      }
+      const temaCod = e.tema_codigo || 'padrao_azul';
+      const inputTema = document.getElementById('confEscolaTemaCodigo');
+      if (inputTema) inputTema.value = temaCod;
+      const corPrim = e.tema_cor_primaria || '#1e3a8a';
+      const corHov = e.tema_cor_hover || '#172554';
+      const corSide = e.tema_cor_sidebar || '#0f172a';
+      const corSideAtiva = e.tema_cor_sidebar_ativa || '#38bdf8';
+      const setInpVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      setInpVal('confEscolaCorPrimaria', corPrim);
+      setInpVal('confEscolaCorPrimariaHex', corPrim);
+      setInpVal('confEscolaCorHover', corHov);
+      setInpVal('confEscolaCorHoverHex', corHov);
+      setInpVal('confEscolaCorSidebar', corSide);
+      setInpVal('confEscolaCorSidebarHex', corSide);
+      setInpVal('confEscolaCorSidebarAtiva', corSideAtiva);
+      setInpVal('confEscolaCorSidebarAtivaHex', corSideAtiva);
+
+      const fundoVal = e.imagem_fundo_url || e.imagem_fundo_base64 || '';
+      setInpVal('confEscolaFundoFinalValue', fundoVal);
+      const urlFundoInput = document.getElementById('confEscolaFundoUrl');
+      if (urlFundoInput) urlFundoInput.value = '';
+      const modoFundo = e.imagem_fundo_modo || 'marca_dagua';
+      setInpVal('confEscolaFundoModo', modoFundo);
+      const opacFundo = (typeof e.imagem_fundo_opacidade === 'number') ? e.imagem_fundo_opacidade : 15;
+      setInpVal('confEscolaFundoOpacidade', opacFundo);
+      const lblOpac = document.getElementById('lblFundoOpacidade');
+      if (lblOpac) lblOpac.textContent = `${opacFundo}%`;
+
+      if (typeof window.renderizarSeletorTemas === 'function') {
+        window.renderizarSeletorTemas();
+      }
+      if (typeof window.renderizarGaleriaFundos === 'function') {
+        window.renderizarGaleriaFundos();
+      }
+      if (typeof window.atualizarVisualizacaoFundo === 'function') {
+        window.atualizarVisualizacaoFundo(fundoVal, modoFundo, opacFundo);
+      }
+      if (typeof window.aplicarTemaEFundoInstituicao === 'function') {
+        window.aplicarTemaEFundoInstituicao(e);
+      }
+
       // Províncias
       const selectProv = document.getElementById('confEscolaProvincia');
       selectProv.innerHTML = (state.geografia.provincias || []).map(p => 
@@ -3727,6 +3794,691 @@ function atualizarDistritosEscola(provincia, distritoSelecionado = '') {
   }
 }
 
+// ==================== PERSONALIZAÇÃO VISUAL: TEMAS DE CORES & FUNDO DA ESCOLA ====================
+
+window.SIGE_TEMAS = {
+  padrao_azul: {
+    codigo: 'padrao_azul',
+    nome: 'Azul SIGE (Institucional)',
+    primaria: '#1e3a8a',
+    hover: '#172554',
+    sidebar: '#0f172a',
+    sidebarAtiva: '#38bdf8',
+    acento: '#f59e0b',
+    descricao: 'Clássico profissional padrão do SIGE'
+  },
+  indigo_save: {
+    codigo: 'indigo_save',
+    nome: 'Índigo Save (Universitário)',
+    primaria: '#312e81',
+    hover: '#1e1b4b',
+    sidebar: '#0f0d2e',
+    sidebarAtiva: '#818cf8',
+    acento: '#df8704',
+    descricao: 'Académico moderno inspirado em universidades'
+  },
+  verde_esmeralda: {
+    codigo: 'verde_esmeralda',
+    nome: 'Verde Esmeralda Moçambique',
+    primaria: '#065f46',
+    hover: '#044e39',
+    sidebar: '#022c22',
+    sidebarAtiva: '#34d399',
+    acento: '#fbbf24',
+    descricao: 'Ecológico, vibrante e pedagógico'
+  },
+  vermelho_rubi: {
+    codigo: 'vermelho_rubi',
+    nome: 'Bordeaux & Terracota Nobre',
+    primaria: '#991b1b',
+    hover: '#7f1d1d',
+    sidebar: '#450a0a',
+    sidebarAtiva: '#f87171',
+    acento: '#fbbf24',
+    descricao: 'Tradição, distinção e prestígio'
+  },
+  dourado_ambar: {
+    codigo: 'dourado_ambar',
+    nome: 'Âmbar Dourado Moçambique',
+    primaria: '#b45309',
+    hover: '#92400e',
+    sidebar: '#1c1917',
+    sidebarAtiva: '#fbbf24',
+    acento: '#f59e0b',
+    descricao: 'Tons quentes e solares moçambicanos'
+  },
+  safira_grafite: {
+    codigo: 'safira_grafite',
+    nome: 'Grafite & Safira Tecnológico',
+    primaria: '#0284c7',
+    hover: '#0369a1',
+    sidebar: '#0b1120',
+    sidebarAtiva: '#38bdf8',
+    acento: '#38bdf8',
+    descricao: 'Contraste escuro moderno e dinâmico'
+  },
+  purpura_real: {
+    codigo: 'purpura_real',
+    nome: 'Púrpura Imperial',
+    primaria: '#7e22ce',
+    hover: '#6b21a8',
+    sidebar: '#2e1065',
+    sidebarAtiva: '#c084fc',
+    acento: '#facc15',
+    descricao: 'Distinção, liderança e nobreza'
+  },
+  oceano_petroleo: {
+    codigo: 'oceano_petroleo',
+    nome: 'Petróleo & Ciano Índico',
+    primaria: '#0f766e',
+    hover: '#115e59',
+    sidebar: '#042f2e',
+    sidebarAtiva: '#2dd4bf',
+    acento: '#5eead4',
+    descricao: 'Sereno, contemporâneo e elegante'
+  },
+  personalizado: {
+    codigo: 'personalizado',
+    nome: 'Personalizado (Cores Próprias)',
+    primaria: '#1e3a8a',
+    hover: '#172554',
+    sidebar: '#0f172a',
+    sidebarAtiva: '#38bdf8',
+    acento: '#f59e0b',
+    descricao: 'Defina manualmente as cores da instituição'
+  }
+};
+
+function aplicarTemaEFundoInstituicao(escola, opcoes = {}) {
+  if (!escola) return;
+  const temaCodigo = escola.tema_codigo || 'padrao_azul';
+  const temaConfig = window.SIGE_TEMAS[temaCodigo] || window.SIGE_TEMAS.padrao_azul;
+
+  const primaria = escola.tema_cor_primaria || temaConfig.primaria;
+  const hover = escola.tema_cor_hover || temaConfig.hover;
+  const sidebar = escola.tema_cor_sidebar || temaConfig.sidebar;
+  const sidebarAtiva = escola.tema_cor_sidebar_ativa || temaConfig.sidebarAtiva;
+
+  const root = document.documentElement;
+  root.style.setProperty('--primary-color', primaria);
+  root.style.setProperty('--primary-hover', hover);
+  root.style.setProperty('--sidebar-bg', sidebar);
+  root.style.setProperty('--sidebar-active', sidebarAtiva);
+
+  let styleTag = document.getElementById('sige-tema-dinamico');
+  if (!styleTag) {
+    styleTag = document.createElement('style');
+    styleTag.id = 'sige-tema-dinamico';
+    document.head.appendChild(styleTag);
+  }
+
+  styleTag.textContent = `
+    .btn-primary {
+      background-color: ${primaria} !important;
+      border-color: ${primaria} !important;
+    }
+    .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+      background-color: ${hover} !important;
+      border-color: ${hover} !important;
+    }
+    .btn-outline-primary {
+      color: ${primaria} !important;
+      border-color: ${primaria} !important;
+    }
+    .btn-outline-primary:hover, .btn-outline-primary:focus, .btn-outline-primary.active {
+      background-color: ${primaria} !important;
+      border-color: ${primaria} !important;
+      color: #ffffff !important;
+    }
+    .text-primary, a.text-primary {
+      color: ${primaria} !important;
+    }
+    .border-primary {
+      border-color: ${primaria} !important;
+    }
+    .bg-primary {
+      background-color: ${primaria} !important;
+    }
+    .badge.bg-primary {
+      background-color: ${primaria} !important;
+    }
+    .badge.bg-primary-subtle {
+      color: ${primaria} !important;
+      background-color: rgba(30, 58, 138, 0.12) !important;
+    }
+    #sidebar {
+      background: ${sidebar} !important;
+    }
+    #sidebar .nav-link.active {
+      background: ${primaria} !important;
+      color: #ffffff !important;
+    }
+    #sidebar .nav-link:hover {
+      background: rgba(255, 255, 255, 0.08) !important;
+    }
+    .nav-tabs .nav-link.active {
+      border-bottom-color: ${primaria} !important;
+      color: ${primaria} !important;
+    }
+  `;
+
+  // Imagem de Fundo / Marca de Água
+  const modoFundo = escola.imagem_fundo_modo || 'marca_dagua';
+  const opacidade = (typeof escola.imagem_fundo_opacidade === 'number') ? escola.imagem_fundo_opacidade : 15;
+  const opacidadeDecimal = Math.max(0.02, Math.min(0.60, opacidade / 100));
+
+  let imgFundo = escola.imagem_fundo_url || escola.imagem_fundo_base64 || '';
+  if (!imgFundo) {
+    if (escola.usar_emblema_nacional) {
+      imgFundo = 'img/emblema-mocambique.png';
+    } else if (escola.logo_url || escola.logo_base64) {
+      imgFundo = escola.logo_url || escola.logo_base64;
+    } else {
+      imgFundo = 'img/logo-sige.png';
+    }
+  }
+
+  const elMarcaDagua = document.querySelector('.marca-dagua-sistema');
+  if (elMarcaDagua) {
+    if (modoFundo === 'nenhum' || imgFundo === 'SEM_IMAGEM') {
+      elMarcaDagua.style.display = 'none';
+    } else if (modoFundo === 'cobertura_total') {
+      elMarcaDagua.style.display = 'block';
+      elMarcaDagua.style.position = 'fixed';
+      elMarcaDagua.style.inset = '0';
+      elMarcaDagua.style.width = '100vw';
+      elMarcaDagua.style.height = '100vh';
+      elMarcaDagua.style.maxWidth = '100vw';
+      elMarcaDagua.style.maxHeight = '100vh';
+      elMarcaDagua.style.transform = 'none';
+      elMarcaDagua.style.backgroundImage = `url("${imgFundo}")`;
+      elMarcaDagua.style.backgroundRepeat = 'no-repeat';
+      elMarcaDagua.style.backgroundPosition = 'center center';
+      elMarcaDagua.style.backgroundSize = 'cover';
+      elMarcaDagua.style.opacity = opacidadeDecimal.toString();
+      elMarcaDagua.style.mixBlendMode = 'multiply';
+      elMarcaDagua.style.pointerEvents = 'none';
+      elMarcaDagua.style.zIndex = '0';
+    } else if (modoFundo === 'padrao_textura') {
+      elMarcaDagua.style.display = 'block';
+      elMarcaDagua.style.position = 'fixed';
+      elMarcaDagua.style.inset = '0';
+      elMarcaDagua.style.width = '100vw';
+      elMarcaDagua.style.height = '100vh';
+      elMarcaDagua.style.maxWidth = '100vw';
+      elMarcaDagua.style.maxHeight = '100vh';
+      elMarcaDagua.style.transform = 'none';
+      elMarcaDagua.style.backgroundImage = `url("${imgFundo}")`;
+      elMarcaDagua.style.backgroundRepeat = 'repeat';
+      elMarcaDagua.style.backgroundPosition = 'top left';
+      elMarcaDagua.style.backgroundSize = '200px 200px';
+      elMarcaDagua.style.opacity = (opacidadeDecimal * 0.75).toString();
+      elMarcaDagua.style.mixBlendMode = 'multiply';
+      elMarcaDagua.style.pointerEvents = 'none';
+      elMarcaDagua.style.zIndex = '0';
+    } else {
+      // marca_dagua (Central Padrão)
+      elMarcaDagua.style.display = 'block';
+      elMarcaDagua.style.position = 'fixed';
+      elMarcaDagua.style.top = '50%';
+      elMarcaDagua.style.left = 'calc(50% + (var(--sidebar-width) / 2))';
+      elMarcaDagua.style.transform = 'translate(-50%, -50%)';
+      elMarcaDagua.style.width = '520px';
+      elMarcaDagua.style.height = '520px';
+      elMarcaDagua.style.maxWidth = '65vw';
+      elMarcaDagua.style.maxHeight = '65vh';
+      elMarcaDagua.style.backgroundImage = `url("${imgFundo}")`;
+      elMarcaDagua.style.backgroundRepeat = 'no-repeat';
+      elMarcaDagua.style.backgroundPosition = 'center center';
+      elMarcaDagua.style.backgroundSize = 'contain';
+      elMarcaDagua.style.opacity = opacidadeDecimal.toString();
+      elMarcaDagua.style.mixBlendMode = 'multiply';
+      elMarcaDagua.style.pointerEvents = 'none';
+      elMarcaDagua.style.zIndex = '0';
+    }
+  }
+
+  try {
+    localStorage.setItem('sige_tema_ativo', JSON.stringify({
+      escolaId: escola.id,
+      tema_codigo: temaCodigo,
+      tema_cor_primaria: primaria,
+      tema_cor_hover: hover,
+      tema_cor_sidebar: sidebar,
+      tema_cor_sidebar_ativa: sidebarAtiva,
+      imagem_fundo_modo: modoFundo,
+      imagem_fundo_opacidade: opacidade,
+      imagem_fundo_url: imgFundo.startsWith('data:') ? 'base64' : imgFundo
+    }));
+  } catch (_) {}
+}
+window.aplicarTemaEFundoInstituicao = aplicarTemaEFundoInstituicao;
+
+function renderizarSeletorTemas() {
+  const container = document.getElementById('gradeTemasDisponiveis');
+  if (!container) return;
+
+  const codigoAtual = document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul';
+  const painelCustom = document.getElementById('painelCoresPersonalizadas');
+  if (painelCustom) {
+    painelCustom.style.display = (codigoAtual === 'personalizado') ? 'block' : 'none';
+  }
+
+  let html = '';
+  Object.values(window.SIGE_TEMAS).forEach(t => {
+    const isAtivo = (codigoAtual === t.codigo);
+    const gradiente = (t.codigo === 'personalizado') 
+      ? 'background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);'
+      : `background: linear-gradient(135deg, ${t.sidebar} 0%, ${t.sidebar} 40%, ${t.primaria} 40%, ${t.primaria} 100%);`;
+
+    html += `
+      <div class="col-6 col-sm-4">
+        <div class="card h-100 p-2 text-center tema-card-item cursor-pointer position-relative ${isAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+             onclick="selecionarTemaEscola('${t.codigo}')"
+             title="${escapeHtml(t.nome)}: ${escapeHtml(t.descricao)}"
+             style="cursor: pointer; transition: all 0.2s; min-height: 100px;">
+          <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center position-relative" style="height: 38px; ${gradiente}">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${t.sidebarAtiva}; box-shadow: 0 0 4px rgba(0,0,0,0.4);" title="Destaque"></div>
+          </div>
+          <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">
+            ${escapeHtml(t.nome)}
+          </div>
+          <div class="mt-auto">
+            ${isAtivo 
+              ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
+              : '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>'}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+window.renderizarSeletorTemas = renderizarSeletorTemas;
+
+function selecionarTemaEscola(codigo) {
+  const input = document.getElementById('confEscolaTemaCodigo');
+  if (input) input.value = codigo;
+
+  const painelCustom = document.getElementById('painelCoresPersonalizadas');
+  if (painelCustom) {
+    painelCustom.style.display = (codigo === 'personalizado') ? 'block' : 'none';
+  }
+
+  const t = window.SIGE_TEMAS[codigo] || window.SIGE_TEMAS.padrao_azul;
+  if (codigo !== 'personalizado') {
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    setVal('confEscolaCorPrimaria', t.primaria);
+    setVal('confEscolaCorPrimariaHex', t.primaria);
+    setVal('confEscolaCorHover', t.hover);
+    setVal('confEscolaCorHoverHex', t.hover);
+    setVal('confEscolaCorSidebar', t.sidebar);
+    setVal('confEscolaCorSidebarHex', t.sidebar);
+    setVal('confEscolaCorSidebarAtiva', t.sidebarAtiva);
+    setVal('confEscolaCorSidebarAtivaHex', t.sidebarAtiva);
+  }
+
+  renderizarSeletorTemas();
+  aplicarTemaEFundoAoVivo();
+}
+window.selecionarTemaEscola = selecionarTemaEscola;
+
+function aoMudarCorCustomizada() {
+  const syncHex = (idColor, idHex) => {
+    const c = document.getElementById(idColor);
+    const h = document.getElementById(idHex);
+    if (c && h) h.value = c.value;
+  };
+  syncHex('confEscolaCorPrimaria', 'confEscolaCorPrimariaHex');
+  syncHex('confEscolaCorHover', 'confEscolaCorHoverHex');
+  syncHex('confEscolaCorSidebar', 'confEscolaCorSidebarHex');
+  syncHex('confEscolaCorSidebarAtiva', 'confEscolaCorSidebarAtivaHex');
+
+  const inputTema = document.getElementById('confEscolaTemaCodigo');
+  if (inputTema) inputTema.value = 'personalizado';
+  renderizarSeletorTemas();
+  aplicarTemaEFundoAoVivo();
+}
+window.aoMudarCorCustomizada = aoMudarCorCustomizada;
+
+function aoMudarHexColor(idColor, val) {
+  if (val && /^#[0-9A-Fa-f]{6}$/.test(val.trim())) {
+    const el = document.getElementById(idColor);
+    if (el) el.value = val.trim();
+    aoMudarCorCustomizada();
+  }
+}
+window.aoMudarHexColor = aoMudarHexColor;
+
+function obterGaleriaFundosEscola() {
+  const e = state.escolaAtual || state.tenant || {};
+  let galeria = Array.isArray(e.galeria_fundos) ? [...e.galeria_fundos] : [];
+
+  const chaveLocal = `sige_galeria_fundos_${e.id || 'default'}`;
+  try {
+    const salvoLocal = JSON.parse(localStorage.getItem(chaveLocal) || '[]');
+    if (Array.isArray(salvoLocal)) {
+      salvoLocal.forEach(item => {
+        if (item && item.url && !galeria.some(g => g.id === item.id || g.url === item.url)) {
+          galeria.push(item);
+        }
+      });
+    }
+  } catch (_) {}
+
+  const padroes = [];
+  const logoEscola = e.logo_url || e.logo_base64;
+  if (logoEscola && !logoEscola.includes('emblema-mocambique.png')) {
+    padroes.push({
+      id: 'fundo_logo_escola',
+      nome: 'Logótipo da Escola',
+      url: logoEscola,
+      tipo: 'LOGO_ESCOLA',
+      descricao: 'Usa a marca oficial da instituição como marca d\'água'
+    });
+  }
+
+  padroes.push({
+    id: 'fundo_emblema_nacional',
+    nome: 'Emblema Nacional',
+    url: 'img/emblema-mocambique.png',
+    tipo: 'OFICIAL_MEC',
+    descricao: 'Emblema da República de Moçambique'
+  });
+
+  padroes.push({
+    id: 'fundo_logo_sige',
+    nome: 'Marca Oficial SIGE',
+    url: 'img/logo-sige.png',
+    tipo: 'PADRAO_SIGE',
+    descricao: 'Marca padrão institucional SIGE'
+  });
+
+  padroes.push({
+    id: 'fundo_sem_imagem',
+    nome: 'Sem Imagem (Liso)',
+    url: 'SEM_IMAGEM',
+    tipo: 'NENHUM',
+    descricao: 'Apenas fundo limpo sem marcas d\'água'
+  });
+
+  const mapa = new Map();
+  padroes.concat(galeria).forEach(item => {
+    if (item && item.id && !mapa.has(item.id)) {
+      mapa.set(item.id, item);
+    }
+  });
+
+  return Array.from(mapa.values());
+}
+window.obterGaleriaFundosEscola = obterGaleriaFundosEscola;
+
+function renderizarGaleriaFundos() {
+  const container = document.getElementById('galeriaFundosContainer');
+  if (!container) return;
+
+  const galeria = obterGaleriaFundosEscola();
+  const fundoAtivoAtual = document.getElementById('confEscolaFundoFinalValue')?.value || '';
+  const modoAtual = document.getElementById('confEscolaFundoModo')?.value || 'marca_dagua';
+
+  const contadorEl = document.getElementById('contadorGaleriaFundos');
+  if (contadorEl) {
+    contadorEl.textContent = `${galeria.length} opção${galeria.length > 1 ? 'ões' : ''}`;
+  }
+
+  let html = '';
+  galeria.forEach(item => {
+    let isAtivo = false;
+    if (item.url === 'SEM_IMAGEM') {
+      isAtivo = (modoAtual === 'nenhum' || !fundoAtivoAtual || fundoAtivoAtual === 'SEM_IMAGEM');
+    } else {
+      isAtivo = (modoAtual !== 'nenhum') && (fundoAtivoAtual === item.url);
+    }
+
+    const previewThumb = (item.url === 'SEM_IMAGEM')
+      ? `<div class="d-flex align-items-center justify-content-center bg-light rounded text-muted mb-1" style="height: 52px;"><i class="bi bi-slash-circle fs-4"></i></div>`
+      : `<div class="d-flex align-items-center justify-content-center bg-white rounded p-1 mb-1 border" style="height: 52px; overflow: hidden;"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.nome)}" style="max-height: 100%; max-width: 100%; object-fit: contain;"></div>`;
+
+    html += `
+      <div class="col-6 col-sm-4">
+        <div class="card h-100 p-2 text-center fundo-card-item cursor-pointer position-relative ${isAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+             onclick="selecionarFundoGaleria('${item.id}')"
+             title="${escapeHtml(item.nome)}"
+             style="cursor: pointer; transition: all 0.2s; min-height: 105px;">
+          ${previewThumb}
+          <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.72rem;">
+            ${escapeHtml(item.nome)}
+          </div>
+          <div class="mt-auto">
+            ${isAtivo 
+              ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
+              : '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Usar</span>'}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+window.renderizarGaleriaFundos = renderizarGaleriaFundos;
+
+function selecionarFundoGaleria(fundoId) {
+  const galeria = obterGaleriaFundosEscola();
+  const item = galeria.find(g => g.id === fundoId);
+  if (!item) return;
+
+  const inputFundo = document.getElementById('confEscolaFundoFinalValue');
+  const selModo = document.getElementById('confEscolaFundoModo');
+
+  if (item.url === 'SEM_IMAGEM') {
+    if (inputFundo) inputFundo.value = '';
+    if (selModo) selModo.value = 'nenhum';
+  } else {
+    if (inputFundo) inputFundo.value = item.url;
+    if (selModo && selModo.value === 'nenhum') {
+      selModo.value = 'marca_dagua';
+    }
+  }
+
+  const modo = selModo?.value || 'marca_dagua';
+  const opacidade = parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15');
+  atualizarVisualizacaoFundo(inputFundo?.value || '', modo, opacidade);
+  renderizarGaleriaFundos();
+  aplicarTemaEFundoAoVivo();
+}
+window.selecionarFundoGaleria = selecionarFundoGaleria;
+
+function atualizarVisualizacaoFundo(fundoSrc, modo = 'marca_dagua', opacidade = 15) {
+  const imgPreview = document.getElementById('confEscolaFundoPreview');
+  const statusEl = document.getElementById('confEscolaFundoStatus');
+  const modoTxtEl = document.getElementById('confEscolaFundoModoTxt');
+  const btnRemover = document.getElementById('btnRemoverFundo');
+
+  const modosNomes = {
+    marca_dagua: 'Marca de Água Central Sutil',
+    cobertura_total: 'Papel de Parede Total (Wallpaper)',
+    padrao_textura: 'Padrão Textura Suave',
+    nenhum: 'Sem Imagem de Fundo (Apenas Cores)'
+  };
+
+  if (modoTxtEl) {
+    modoTxtEl.textContent = `Modo: ${modosNomes[modo] || modo} (${opacidade}%)`;
+  }
+
+  if (modo === 'nenhum' || !fundoSrc || fundoSrc === 'SEM_IMAGEM') {
+    if (imgPreview) {
+      imgPreview.src = 'img/logo-sige.png';
+      imgPreview.style.opacity = '0.2';
+    }
+    if (statusEl) statusEl.textContent = 'Sem Imagem de Fundo Activa';
+    if (btnRemover) btnRemover.style.display = 'none';
+  } else {
+    if (imgPreview) {
+      imgPreview.src = fundoSrc;
+      imgPreview.style.opacity = '1';
+    }
+    const galeria = obterGaleriaFundosEscola();
+    const item = galeria.find(g => g.url === fundoSrc);
+    if (statusEl) statusEl.textContent = item?.nome ? `Fundo: ${item.nome}` : 'Imagem Própria Activa';
+    if (btnRemover) btnRemover.style.display = 'inline-block';
+  }
+}
+window.atualizarVisualizacaoFundo = atualizarVisualizacaoFundo;
+
+function atualizarLabelOpacidadeFundo(val) {
+  const lbl = document.getElementById('lblFundoOpacidade');
+  if (lbl) lbl.textContent = `${val}%`;
+  aplicarTemaEFundoAoVivo();
+}
+window.atualizarLabelOpacidadeFundo = atualizarLabelOpacidadeFundo;
+
+function aoMudarModoFundo(modo) {
+  const inputFundo = document.getElementById('confEscolaFundoFinalValue');
+  const opacidade = parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15');
+  atualizarVisualizacaoFundo(inputFundo?.value || '', modo, opacidade);
+  renderizarGaleriaFundos();
+  aplicarTemaEFundoAoVivo();
+}
+window.aoMudarModoFundo = aoMudarModoFundo;
+
+function removerImagemFundoEscola() {
+  const inputFundo = document.getElementById('confEscolaFundoFinalValue');
+  if (inputFundo) inputFundo.value = '';
+  const selModo = document.getElementById('confEscolaFundoModo');
+  if (selModo) selModo.value = 'nenhum';
+  const opacidade = parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15');
+  atualizarVisualizacaoFundo('', 'nenhum', opacidade);
+  renderizarGaleriaFundos();
+  aplicarTemaEFundoAoVivo();
+}
+window.removerImagemFundoEscola = removerImagemFundoEscola;
+
+async function adicionarFundoAGaleria(url, nome) {
+  let galeria = obterGaleriaFundosEscola().filter(g => !['fundo_logo_escola', 'fundo_emblema_nacional', 'fundo_logo_sige', 'fundo_sem_imagem'].includes(g.id));
+  const novoId = 'fundo_' + Date.now();
+  galeria.unshift({
+    id: novoId,
+    nome: nome || 'Fundo Próprio',
+    url: url,
+    tipo: 'UPLOAD',
+    criado_em: new Date().toISOString()
+  });
+
+  const e = state.escolaAtual || state.tenant || {};
+  const chaveLocal = `sige_galeria_fundos_${e.id || 'default'}`;
+  try {
+    localStorage.setItem(chaveLocal, JSON.stringify(galeria));
+  } catch (_) {}
+
+  if (state.escolaAtual) state.escolaAtual.galeria_fundos = galeria;
+  if (state.tenant) state.tenant.galeria_fundos = galeria;
+
+  const inputFundo = document.getElementById('confEscolaFundoFinalValue');
+  if (inputFundo) inputFundo.value = url;
+  const selModo = document.getElementById('confEscolaFundoModo');
+  if (selModo && selModo.value === 'nenhum') selModo.value = 'marca_dagua';
+
+  renderizarGaleriaFundos();
+  aplicarTemaEFundoAoVivo();
+}
+window.adicionarFundoAGaleria = adicionarFundoAGaleria;
+
+function processarUploadFundoLocal(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Por favor, seleccione um ficheiro de imagem válido (PNG, JPG, WebP).');
+    return;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    alert('A imagem seleccionada é muito pesada (máximo 8MB).');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const dataUrl = e.target.result;
+    const nomeFicheiro = file.name ? file.name.replace(/\.[^/.]+$/, "") : `Fundo Carregado`;
+    await adicionarFundoAGaleria(dataUrl, nomeFicheiro);
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+window.processarUploadFundoLocal = processarUploadFundoLocal;
+
+async function processarUrlFundo(url) {
+  if (!url || !url.trim()) {
+    alert('Por favor, insira um link / URL válido da imagem.');
+    return;
+  }
+  const urlLimpo = url.trim();
+  await adicionarFundoAGaleria(urlLimpo, 'Fundo Web');
+  const inputEl = document.getElementById('confEscolaFundoUrl');
+  if (inputEl) inputEl.value = '';
+}
+window.processarUrlFundo = processarUrlFundo;
+
+function aplicarTemaEFundoAoVivo() {
+  const temaCodigo = document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul';
+  const temaConfig = window.SIGE_TEMAS[temaCodigo] || window.SIGE_TEMAS.padrao_azul;
+
+  const primaria = document.getElementById('confEscolaCorPrimaria')?.value || temaConfig.primaria;
+  const hover = document.getElementById('confEscolaCorHover')?.value || temaConfig.hover;
+  const sidebar = document.getElementById('confEscolaCorSidebar')?.value || temaConfig.sidebar;
+  const sidebarAtiva = document.getElementById('confEscolaCorSidebarAtiva')?.value || temaConfig.sidebarAtiva;
+
+  const fundoSrc = document.getElementById('confEscolaFundoFinalValue')?.value || '';
+  const modoFundo = document.getElementById('confEscolaFundoModo')?.value || 'marca_dagua';
+  const opacidade = parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15');
+
+  const escolaFake = {
+    id: state.escolaAtual?.id || state.tenant?.id || 'escola_atual',
+    tema_codigo: temaCodigo,
+    tema_cor_primaria: primaria,
+    tema_cor_hover: hover,
+    tema_cor_sidebar: sidebar,
+    tema_cor_sidebar_ativa: sidebarAtiva,
+    imagem_fundo_url: fundoSrc,
+    imagem_fundo_modo: modoFundo,
+    imagem_fundo_opacidade: opacidade
+  };
+
+  aplicarTemaEFundoInstituicao(escolaFake);
+  atualizarVisualizacaoFundo(fundoSrc, modoFundo, opacidade);
+}
+window.aplicarTemaEFundoAoVivo = aplicarTemaEFundoAoVivo;
+
+function restaurarPadraoTemaEFundo() {
+  const inputTema = document.getElementById('confEscolaTemaCodigo');
+  if (inputTema) inputTema.value = 'padrao_azul';
+
+  const t = window.SIGE_TEMAS.padrao_azul;
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setV('confEscolaCorPrimaria', t.primaria);
+  setV('confEscolaCorPrimariaHex', t.primaria);
+  setV('confEscolaCorHover', t.hover);
+  setV('confEscolaCorHoverHex', t.hover);
+  setV('confEscolaCorSidebar', t.sidebar);
+  setV('confEscolaCorSidebarHex', t.sidebar);
+  setV('confEscolaCorSidebarAtiva', t.sidebarAtiva);
+  setV('confEscolaCorSidebarAtivaHex', t.sidebarAtiva);
+  setV('confEscolaFundoFinalValue', '');
+  setV('confEscolaFundoModo', 'marca_dagua');
+  setV('confEscolaFundoOpacidade', '15');
+
+  const lbl = document.getElementById('lblFundoOpacidade');
+  if (lbl) lbl.textContent = '15%';
+
+  renderizarSeletorTemas();
+  renderizarGaleriaFundos();
+  aplicarTemaEFundoAoVivo();
+}
+window.restaurarPadraoTemaEFundo = restaurarPadraoTemaEFundo;
+
 document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
@@ -3745,7 +4497,16 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       distrito: document.getElementById('confEscolaDistrito').value,
       usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked,
       logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || '',
-      galeria_logos: (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : []
+      galeria_logos: (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : [],
+      tema_codigo: document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul',
+      tema_cor_primaria: document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a',
+      tema_cor_hover: document.getElementById('confEscolaCorHover')?.value || '#172554',
+      tema_cor_sidebar: document.getElementById('confEscolaCorSidebar')?.value || '#0f172a',
+      tema_cor_sidebar_ativa: document.getElementById('confEscolaCorSidebarAtiva')?.value || '#38bdf8',
+      imagem_fundo_url: document.getElementById('confEscolaFundoFinalValue')?.value || '',
+      imagem_fundo_modo: document.getElementById('confEscolaFundoModo')?.value || 'marca_dagua',
+      imagem_fundo_opacidade: parseInt(document.getElementById('confEscolaFundoOpacidade')?.value || '15'),
+      galeria_fundos: (typeof obterGaleriaFundosEscola === 'function') ? obterGaleriaFundosEscola() : []
     };
     const res = await apiFetch('/api/v1/escola-admin/info', {
       method: 'PUT',
@@ -3759,8 +4520,15 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
           atualizarBotaoToggleNotasDap(body.publicacao_notas_trimestre, state.tenant.permitir_visualizacao_notas);
         }
       }
+      if (res.data) {
+        if (state.escolaAtual) Object.assign(state.escolaAtual, res.data);
+        if (state.tenant) Object.assign(state.tenant, res.data);
+        if (typeof aplicarTemaEFundoInstituicao === 'function') {
+          aplicarTemaEFundoInstituicao(res.data);
+        }
+      }
       await carregarEscolaETurmas();
-      alert('Configurações da escola e logótipo oficial actualizados com sucesso!');
+      alert('Configurações da escola, identidade visual, tema e fundo actualizados com sucesso!');
     }
   } catch (err) {
     alert('Erro ao actualizar dados da escola');

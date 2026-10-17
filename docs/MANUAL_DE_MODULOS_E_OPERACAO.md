@@ -56,7 +56,9 @@
 - **Configurações Globais:**
   - **Identidade:** Nome da escola, NUIT, endereço, telefones de contacto e e-mail institucional.
   - **Período Letivo:** Seleção do **Ano Letivo Ativo** (ex: `2026`) e do **Trimestre Ativo** (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`).
-  - **Identidade Visual:** Ativação do Emblema Oficial da República de Moçambique e upload do Logótipo da Escola em formato Base64 (impresso automaticamente em pautas, boletins e declarações).
+  - **Identidade Visual & Logótipo:** Ativação do Emblema Oficial da República de Moçambique, gestão de galeria de logótipos e upload do Logótipo da Escola em formato Base64 ou URL (impresso automaticamente em pautas, cadernetas, boletins e certificados).
+  - **Personalização de Temas de Cores:** Cada instituição cadastrada pode escolher o seu esquema cromático institucional entre 8 temas de prestígio (Azul SIGE Institucional, Índigo Save Universitário, Verde Esmeralda, Bordeaux Terracota, Âmbar Dourado, Grafite & Safira, Púrpura Imperial, Petróleo & Ciano) ou configurar um tema Personalizado com paletas hexadecimais manuais (cor primária, barra lateral, hover e destaques).
+  - **Imagem de Fundo e Marca de Água:** Possibilidade de cada escola definir a sua imagem de fundo e marca d'água no sistema (usando o logótipo próprio, emblema nacional, imagens de campus ou upload próprio do computador/URL), configurando o modo de exibição (Marca de Água Central Sutil, Papel de Parede Total Wallpaper, Padrão de Textura Suave ou Sem Fundo Liso) e controle deslizante de opacidade com pré-visualização ao vivo em tempo real.
   - **Assinaturas Institucionais:** Registo dos nomes do Diretor da Escola, do DAP e do Chefe da Secretaria para impressão nas linhas de homologação documental.
   - **Prazos de Inscrição:** Abertura e fecho das matrículas online para o público externo.
   - **Liberação de Notas aos Alunos:** Ativação ou bloqueio do interruptor *"Permitir Visualização de Notas pelos Alunos"*.

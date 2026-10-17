@@ -119,6 +119,14 @@ Registo institucional de cada Tenant na plataforma.
 | `inscricoes_abertas` | `BOOLEAN` | Não | Abertura do portal de auto-inscrição pública. |
 | `inscricoes_inicio` / `fim` | `DATE` | Sim | Janela temporal de inscrições online. |
 | `logo_base64` | `TEXT` | Sim | Imagem do logótipo institucional em Base64 para PDFs. |
+| `galeria_logos` | `JSON` | Não | Catálogo e galeria de logótipos institucionais disponíveis. |
+| `tema_codigo` | `VARCHAR(50)` | Não | Código do tema de cores oficial (`padrao_azul`, `indigo_save`, etc.). |
+| `tema_cor_primaria` / `tema_cor_hover` | `VARCHAR(20)` | Sim | Cores primária e hover da instituição para botões e cabeçalhos. |
+| `tema_cor_sidebar` / `tema_cor_sidebar_ativa` | `VARCHAR(20)` | Sim | Cores da barra lateral e elemento activo do menu. |
+| `imagem_fundo_url` / `imagem_fundo_base64` | `TEXT` | Sim | Imagem de fundo ou marca d'água oficial personalizada. |
+| `imagem_fundo_modo` | `VARCHAR(30)` | Não | Modo de exibição: `marca_dagua`, `cobertura_total`, `padrao_textura`, `nenhum`. |
+| `imagem_fundo_opacidade` | `INT` | Não | Nível de opacidade do fundo (5% a 50%, padrão 15%). |
+| `galeria_fundos` | `JSON` | Não | Catálogo de imagens de fundo carregadas ou predefinidas pela escola. |
 | `usar_emblema_nacional` | `BOOLEAN` | Não | Exibição do Emblema da República no cabeçalho. |
 | `director_nome` / `dap_nome` / `chefe_secretaria_nome` | `VARCHAR(255)` | Sim | Titulares oficiais dos órgãos diretivos. |
 

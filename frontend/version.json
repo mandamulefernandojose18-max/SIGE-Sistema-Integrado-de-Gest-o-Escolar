@@ -1,8 +1,8 @@
 {
   "version": "2.5.0",
-  "build": "20261017_1245",
+  "build": "20261017_1425",
   "data": "2026-10-17",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS Moçambique)",
-  "novidades": "Melhorias de desempenho e actualizações automáticas de sistema."
+  "novidades": "Personalização de tema de cores e imagem de fundo/marca de água para cada instituição escolar cadastrada."
 }

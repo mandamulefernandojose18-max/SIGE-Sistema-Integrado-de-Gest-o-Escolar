@@ -268,6 +268,14 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Configuração de Identidade e Parâmetros Letivos:**
   - Atualização do nome da escola, NUIT, endereço, província, distrito, telefone, e-mail, **Ano Letivo Ativo** (ex.: `2026`) e **Trimestre Ativo** (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`).
   - **Identidade Visual nos Documentos:** Opção de exibir o **Emblema Oficial da República de Moçambique** no cabeçalho das pautas/boletins e upload direto do **Logótipo da Escola** (convertido e persistido em `logo_base64` para funcionar offline e em PDFs gerados no servidor).
+  - **Personalização Visual da Instituição (Tema de Cores e Imagem de Fundo/Marca de Água):**
+    - **Catálogo de 8 Temas de Cores e Paleta Personalizada:** Cada instituição pode selecionar o seu esquema cromático institucional através de 8 temas pré-configurados (*Azul Clássico SIGE*, *Índigo Save*, *Verde Esmeralda*, *Bordeaux Rubi*, *Âmbar Dourado*, *Grafite Safira*, *Púrpura Real* e *Petróleo Ciano*) ou escolher o modo **Personalizado**, configurando diretamente a cor primária (`tema_cor_primaria`), cor de hover (`tema_cor_hover`), fundo da barra lateral (`tema_cor_sidebar`) e cor do menu ativo (`tema_cor_sidebar_ativa`).
+    - **Papel de Parede, Imagem de Fundo e Marca de Água:** Permite carregar ficheiro de imagem local (PNG, JPG, WebP convertido para `imagem_fundo_base64`) ou indicar um link direto (`imagem_fundo_url`), com galeria dinâmica de fundos (`galeria_fundos`), ajuste fino de opacidade (5% a 50%) e 4 modos de exibição:
+      - *Marca de Água Central Sutil:* Exibição discreta e translúcida centralizada na área de trabalho sem atrapalhar a leitura de tabelas e pautas;
+      - *Papel de Parede Total (Wallpaper):* Cobertura completa de fundo da aplicação;
+      - *Padrão Textura Suave:* Repetição contínua em padrão visual;
+      - *Sem Imagem de Fundo:* Fundo monocromático e limpo usando apenas as cores do tema.
+    - **Aplicação e Persistência Dinâmica:** As variáveis CSS (`--primary-color`, `--primary-hover`, `--sidebar-bg`, `--sidebar-active`, `--marca-dagua-url`, `--marca-dagua-opacity`) são injetadas no `:root` no arranque da sessão, ao inspecionar tenants no painel SuperAdmin e com atualização em tempo real (*Live Preview*) no formulário de administração da escola.
   - **Titulares dos Órgãos Diretivos:** Registo do nome e carreira do Director da Escola, nome do DAP e nome do Chefe da Secretaria (impressos automaticamente nas linhas de assinatura de todos os documentos oficiais).
   - **Controlo do Período de Inscrições Públicas:** Botão para abrir/fechar as inscrições online e definir as datas de início e encerramento.
   - **Controlo de Visibilidade de Notas (`permitir_visualizacao_notas`):** Permite ao DAP ou Director bloquear temporariamente a visualização de notas no Portal do Aluno durante períodos de conselho de notas ou manutenção de pautas.
