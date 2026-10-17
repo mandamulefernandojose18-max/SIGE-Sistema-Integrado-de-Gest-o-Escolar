@@ -98,6 +98,8 @@ class PagamentoSerializer(serializers.ModelSerializer):
 class LiquidarPagamentoSerializer(serializers.Serializer):
     valor_pago = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     metodo_pagamento = serializers.CharField(default='MPESA')
+    telefone = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
+    referencia = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
 
 class GerarPagamentosTurmaSerializer(serializers.Serializer):
     turma_id = serializers.UUIDField()

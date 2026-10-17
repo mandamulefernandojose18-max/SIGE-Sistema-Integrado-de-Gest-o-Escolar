@@ -410,8 +410,10 @@ O módulo financeiro do SIGE implementa a gestão completa da tesouraria da inst
 - **Validação de Integridade Multi-Tenant (`validar_integridade_tenant`):**
   - O sistema impede em nível de modelo (`clean()`) e API que uma cobrança vincule um plano de pagamento ou aluno pertencente a outra escola.
 - **Deteção Automática de Atrasos:** Cobranças `PENDENTE` cuja `data_vencimento` já passou são automaticamente classificadas como `ATRASADO`.
-- **Liquidação Multicanal e Recibo Oficial (`/pagamentos/<id>/liquidar`):**
-  - Regista o pagamento através dos métodos oficiais de Moçambique: **M-Pesa (`MPESA`)**, **e-Mola (`EMOLA`)**, **POS (`POS`)**, **Transferência Bancária (`TRANSFERENCIA`)** ou **Numerário (`NUMERARIO`)**.
+- **Liquidação Multicanal e Pagamento de Saldo com Carteira Móvel (`/pagamentos/<id>/liquidar` e `/alunos/me/pagamentos/`):**
+  - Permite liquidar o saldo devedor através dos métodos oficiais de Moçambique: **Carteira Móvel M-Pesa (`MPESA`)**, **Carteira Móvel e-Mola (`EMOLA`)**, **POS / Cartão (`POS`)**, **Transferência Bancária (`TRANSFERENCIA`)** ou **Numerário (`NUMERARIO`)**.
+  - Suporta o registo do número de telefone móvel (`+258 84/85` ou `+258 86/87`) e do código/referência da transacção móvel para conciliação imediata.
+  - Acesso direto e responsivo tanto para a gestão escolar/secretaria como para o próprio aluno no **Espaço do Aluno**, com botão dedicado *"Pagar com Carteira Móvel"*.
   - Gera automaticamente o número de recibo sequencial único (`REC-2026-00001`) pronto para impressão ou download em PDF/Word/Excel.
 - **KPIs Financeiros (`/pagamentos/stats`):** Total Recebido (MZN), Total Pendente (MZN), Total em Atraso (MZN), Taxa de Adimplência (%), Taxa de Inadimplência (%) e histórico mensal de faturação dos 12 meses do ano.
 

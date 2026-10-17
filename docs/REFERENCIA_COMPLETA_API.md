@@ -243,7 +243,8 @@
 | `GET` | `/api/v1/pagamentos/` | Financeiro / Aluno | Lista mensalidades e faturas com filtros por aluno, turma e status. |
 | `POST`| `/api/v1/pagamentos/` | Financeiro | Cria cobrança individual para um aluno (opcionalmente vinculada a um plano escolar). |
 | `GET` | `/api/v1/pagamentos/stats/` | Financeiro / Admin | KPIs de receita: Total Recebido, Pendente, Atrasado e taxa de adimplência. |
-| `POST`| `/api/v1/pagamentos/<uuid:pk>/liquidar/` | Financeiro / Secr | Quita propina (M-Pesa, e-Mola, POS, Banco) e emite recibo `REC-...`. |
+| `POST`| `/api/v1/pagamentos/<uuid:pk>/liquidar/` | Financeiro / Secr / Aluno | Quita saldo de propina com Carteira Móvel (M-Pesa, e-Mola), POS, Banco ou Numerário e emite recibo `REC-...`. |
+| `POST`| `/api/v1/alunos/me/pagamentos/` | Aluno Autenticado | Permite ao aluno pagar o seu próprio saldo pendente com carteira móvel (M-Pesa ou e-Mola). |
 | `POST`| `/api/v1/pagamentos/gerar-turma/` | Financeiro | Gera cobranças de um mês para toda a turma, permitindo vincular plano escolar. |
 
 

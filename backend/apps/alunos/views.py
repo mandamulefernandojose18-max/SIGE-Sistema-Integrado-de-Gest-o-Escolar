@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Count
+from django.utils import timezone
 
 from .models import Aluno
 from .serializers import AlunoSerializer, TransferirAlunoSerializer
@@ -469,6 +470,57 @@ class AlunoMePagamentosView(APIView):
             'status': p.status,
             'data_vencimento': p.data_vencimento,
             'data_pagamento': p.data_pagamento,
+            'metodo_pagamento': p.metodo_pagamento,
             'recibo_numero': p.recibo_numero
         } for p in pagamentos]
         return Response({'success': True, 'data': data})
+
+    def post(self, request):
+        aluno_id = getattr(request.user, 'aluno_id', None)
+        if not aluno_id:
+            return Response({'success': False, 'message': 'Acesso exclusivo para alunos autenticados.'}, status=status.HTTP_403_FORBIDDEN)
+
+        pagamento_id = request.data.get('pagamento_id') or request.data.get('id')
+        if not pagamento_id:
+            return Response({'success': False, 'message': 'O ID do pagamento é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        pagamento = Pagamento.objects.filter(id=pagamento_id, aluno_id=aluno_id).first()
+        if not pagamento:
+            return Response({'success': False, 'message': 'Mensalidade não encontrada para este aluno.'}, status=status.HTTP_404_NOT_FOUND)
+
+        metodo_raw = request.data.get('metodo_pagamento', 'MPESA')
+        telefone = str(request.data.get('telefone', '')).strip()
+        referencia = str(request.data.get('referencia', '')).strip()
+        valor_pago = request.data.get('valor_pago') or pagamento.valor
+
+        metodo_upper = str(metodo_raw).upper().replace(' ', '').replace('-', '')
+        if 'MPESA' in metodo_upper:
+            metodo_oficial = 'MPESA'
+            nome_metodo = 'M-Pesa (Vodacom)'
+        elif 'EMOLA' in metodo_upper:
+            metodo_oficial = 'EMOLA'
+            nome_metodo = 'e-Mola (Movitel)'
+        else:
+            metodo_oficial = 'MPESA'
+            nome_metodo = 'Carteira Móvel'
+
+        pagamento.valor_pago = valor_pago
+        pagamento.status = 'PAGO'
+        pagamento.data_pagamento = timezone.now().date()
+        pagamento.metodo_pagamento = metodo_oficial
+        if not pagamento.recibo_numero:
+            ano = timezone.now().year
+            num_seq = Pagamento.objects.filter(escola=pagamento.escola, status='PAGO').count() + 1
+            pagamento.recibo_numero = f"REC-{ano}-{num_seq:05d}"
+        pagamento.save()
+
+        msg = f"Saldo liquidado com sucesso via {nome_metodo}! Recibo Oficial: {pagamento.recibo_numero}"
+        return Response({
+            'success': True,
+            'message': msg,
+            'recibo_numero': pagamento.recibo_numero,
+            'metodo_pagamento': metodo_oficial,
+            'metodo_nome': nome_metodo,
+            'referencia': referencia,
+            'telefone': telefone
+        })

@@ -159,7 +159,7 @@
   - **Aba 1: Cobranças & Mensalidades aos Alunos:**
     - *Geração Individual:* Lançamento pontual para um estudante, selecionando opcionalmente um plano escolar que preenche automaticamente o valor, descrição e vencimento.
     - *Geração em Lote:* Faturação automática para todos os alunos matriculados de uma turma no mês de referência selecionado (Janeiro a Dezembro).
-    - *Liquidação Multicanal:* Quitação com M-Pesa, e-Mola, POS, Transferência Bancária ou Numerário, emitindo recibo oficial numerado (`REC-...`).
+    - *Liquidação Multicanal e Pagamento de Saldo com Carteira Móvel:* Quitação de saldo com Carteira Móvel (M-Pesa e e-Mola), POS, Transferência Bancária ou Numerário, com registo de telemóvel e referência de transacção, emitindo recibo oficial numerado (`REC-...`). Disponível tanto no painel de administração/secretaria como no Espaço do Aluno.
     - *Filtros e Histórico:* Busca por turma, aluno, mês de referência e estado (`PENDENTE`, `PAGO`, `ATRASADO`).
   - **Aba 2: Planos & Tabela de Propinas da Escola:**
     - *Criação de Planos:* Definição de planos com Nome, Valor em Meticais (`MZN`), Periodicidade (`Mensal`, `Trimestral`, `Semestral`, `Anual`, `Única/Emolumento`), Dia de Vencimento Padrão (ex: 10), Multa por atraso (%) e Descrição.

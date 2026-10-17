@@ -100,6 +100,9 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         escola = get_tenant_escola(self.request)
         if escola:
             qs = Pagamento.objects.filter(escola=escola)
+            if getattr(self.request.user, 'role', '') == 'ALUNO':
+                target_aluno_id = getattr(self.request.user, 'aluno_id', None)
+                qs = qs.filter(aluno_id=target_aluno_id) if target_aluno_id else qs.none()
         else:
             qs = Pagamento.objects.none()
 
@@ -185,26 +188,63 @@ class PagamentoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='liquidar')
     def liquidar(self, request, pk=None):
         pagamento = self.get_object()
+
+        # Restrição de segurança: Se for aluno, só pode liquidar a sua própria propina
+        if getattr(request.user, 'role', '') == 'ALUNO':
+            aluno_id = getattr(request.user, 'aluno_id', None)
+            if not aluno_id or str(pagamento.aluno_id) != str(aluno_id):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('Apenas o próprio aluno ou a direcção da escola podem liquidar esta propina.')
+
         serializer = LiquidarPagamentoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         valor_pago = serializer.validated_data.get('valor_pago') or pagamento.valor
-        metodo = serializer.validated_data.get('metodo_pagamento', 'MPESA')
+        metodo_raw = serializer.validated_data.get('metodo_pagamento', 'MPESA')
+        telefone = serializer.validated_data.get('telefone', '').strip()
+        referencia = serializer.validated_data.get('referencia', '').strip()
+
+        # Normalização canónica de método para o sistema e telecomunicações de Moçambique
+        metodo_upper = str(metodo_raw).upper().replace(' ', '').replace('-', '')
+        if 'MPESA' in metodo_upper:
+            metodo_oficial = 'MPESA'
+            nome_metodo = 'M-Pesa (Vodacom)'
+        elif 'EMOLA' in metodo_upper:
+            metodo_oficial = 'EMOLA'
+            nome_metodo = 'e-Mola (Movitel)'
+        elif 'POS' in metodo_upper or 'CARTAO' in metodo_upper:
+            metodo_oficial = 'POS'
+            nome_metodo = 'POS / Cartão Bancário'
+        elif 'TRANSFERENCIA' in metodo_upper or 'BANCO' in metodo_upper:
+            metodo_oficial = 'TRANSFERENCIA'
+            nome_metodo = 'Transferência Bancária'
+        else:
+            metodo_oficial = 'NUMERARIO'
+            nome_metodo = 'Numerário'
 
         pagamento.valor_pago = valor_pago
         pagamento.status = 'PAGO'
         pagamento.data_pagamento = timezone.now().date()
-        pagamento.metodo_pagamento = metodo
+        pagamento.metodo_pagamento = metodo_oficial
         if not pagamento.recibo_numero:
             ano = timezone.now().year
             num_seq = Pagamento.objects.filter(escola=pagamento.escola, status='PAGO').count() + 1
             pagamento.recibo_numero = f"REC-{ano}-{num_seq:05d}"
         pagamento.save()
 
+        msg_detalhes = f"Pagamento de saldo liquidado com sucesso via {nome_metodo}."
+        if referencia:
+            msg_detalhes += f" Ref: {referencia}."
+
         return Response({
             'success': True,
-            'message': f"Pagamento liquidado com sucesso! Recibo: {pagamento.recibo_numero}",
-            'data': PagamentoSerializer(pagamento).data
+            'message': f"{msg_detalhes} Recibo Oficial: {pagamento.recibo_numero}",
+            'data': PagamentoSerializer(pagamento).data,
+            'recibo_numero': pagamento.recibo_numero,
+            'metodo_pagamento': metodo_oficial,
+            'metodo_nome': nome_metodo,
+            'telefone': telefone,
+            'referencia': referencia
         })
 
     @action(detail=False, methods=['post'], url_path='gerar-turma')

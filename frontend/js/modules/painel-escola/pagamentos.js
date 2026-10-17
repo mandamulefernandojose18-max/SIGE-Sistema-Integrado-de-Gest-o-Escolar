@@ -43,8 +43,8 @@ async function carregarPagamentos(anoParam) {
           <td class="text-end">
             <div class="btn-group btn-group-sm">
               ${p.status === 'PENDENTE' ? `
-                <button class="btn btn-outline-success" onclick="liquidarPagamento('${p.id}', ${p.valor})">
-                  <i class="bi bi-cash me-1"></i> Liquidar
+                <button class="btn btn-outline-success fw-semibold" onclick="modalLiquidarSaldoCarteira('${p.id}', ${p.valor}, '${(p.aluno?.nome || p.aluno_nome || '').replace(/'/g, "\\'")}', '${(p.descricao || '').replace(/'/g, "\\'")}')" title="Liquidar saldo com carteira móvel (M-Pesa / e-Mola)">
+                  <i class="bi bi-wallet2 me-1"></i> Liquidar Saldo
                 </button>
               ` : ''}
               <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
@@ -62,21 +62,132 @@ async function carregarPagamentos(anoParam) {
   } catch (err) {}
 }
 
-async function liquidarPagamento(id, valor) {
-  if (!confirm(`Confirmar recebimento e liquidação da quantia de ${valor.toLocaleString('pt-PT')} MZN?`)) return;
+function modalLiquidarSaldoCarteira(id, valor, alunoNome, descricao) {
+  const nomeSeguro = escapeHtml(alunoNome || 'Aluno');
+  const descSegura = escapeHtml(descricao || 'Propina / Mensalidade');
+  const valorFormatado = formatarMoeda(valor);
+
+  abrirModal('Liquidar Saldo de Propina / Mensalidade', `
+    <form id="formLiquidarSaldo" onsubmit="confirmarLiquidacaoSaldo(event, '${id}')">
+      <div class="p-3 mb-3 bg-light rounded border">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="text-muted small text-uppercase fw-semibold">Aluno</span>
+          <strong class="text-dark">${nomeSeguro}</strong>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="text-muted small text-uppercase fw-semibold">Cobrança</span>
+          <span>${descSegura}</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted small text-uppercase fw-semibold">Saldo a Liquidar</span>
+          <strong class="text-success fs-5">${valorFormatado}</strong>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Método de Liquidação *</label>
+        <select id="liqMetodo" class="form-select" required onchange="aoMudarMetodoLiquidacao()">
+          <option value="MPESA">🔴 M-Pesa (Vodacom Moçambique)</option>
+          <option value="EMOLA">🟡 e-Mola (Movitel Moçambique)</option>
+          <option value="POS">💳 POS / Cartão Bancário</option>
+          <option value="TRANSFERENCIA">🏦 Transferência Bancária / Depósito</option>
+          <option value="NUMERARIO">💵 Numerário</option>
+        </select>
+      </div>
+
+      <div id="boxCamposCarteiraMovel" class="p-3 mb-3 rounded border border-warning bg-warning bg-opacity-10">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-phone-fill text-warning fs-5"></i>
+          <strong class="small text-dark" id="liqCarteiraLabel">Carteira Móvel M-Pesa (Vodacom Moçambique)</strong>
+        </div>
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <label class="form-label small fw-semibold">Número de Carteira Móvel (+258)</label>
+            <input type="tel" id="liqTelefone" class="form-control" placeholder="Ex: 84XXXXXXX ou 85XXXXXXX" maxlength="15">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small fw-semibold">Código / Referência da Transacção</label>
+            <input type="text" id="liqReferencia" class="form-control" placeholder="Ex: MP261017.0001">
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-info-circle me-1"></i>Introduza o código da transacção recebido por SMS na carteira móvel para conciliação automática.
+        </small>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Valor Liquidado em Meticais (MZN) *</label>
+        <input type="number" step="0.01" min="0.01" id="liqValorPago" class="form-control fw-bold" value="${Number(valor)}" required>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+        <button type="button" class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" id="btnConfirmarLiq" class="btn btn-success fw-bold">
+          <i class="bi bi-check-circle me-1"></i> Confirmar Liquidação de Saldo
+        </button>
+      </div>
+    </form>
+  `);
+}
+
+function aoMudarMetodoLiquidacao() {
+  const met = document.getElementById('liqMetodo')?.value;
+  const box = document.getElementById('boxCamposCarteiraMovel');
+  const lbl = document.getElementById('liqCarteiraLabel');
+  const tel = document.getElementById('liqTelefone');
+  if (!box) return;
+
+  if (met === 'MPESA') {
+    box.style.display = 'block';
+    if (lbl) lbl.textContent = 'Carteira Móvel M-Pesa (Vodacom Moçambique)';
+    if (tel) tel.placeholder = 'Ex: 84XXXXXXX ou 85XXXXXXX';
+  } else if (met === 'EMOLA') {
+    box.style.display = 'block';
+    if (lbl) lbl.textContent = 'Carteira Móvel e-Mola (Movitel Moçambique)';
+    if (tel) tel.placeholder = 'Ex: 86XXXXXXX ou 87XXXXXXX';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+async function confirmarLiquidacaoSaldo(event, id) {
+  event.preventDefault();
+  const btn = document.getElementById('btnConfirmarLiq');
+  if (btn) btn.disabled = true;
+
   try {
+    const metodo = document.getElementById('liqMetodo')?.value || 'MPESA';
+    const valorPago = Number(document.getElementById('liqValorPago')?.value || 0);
+    const telefone = document.getElementById('liqTelefone')?.value?.trim() || '';
+    const referencia = document.getElementById('liqReferencia')?.value?.trim() || '';
+
     const res = await apiFetch(`/api/v1/pagamentos/${id}/liquidar`, {
       method: 'POST',
-      body: JSON.stringify({ valor_pago: Number(valor), metodo_pagamento: 'NUMERARIO_OU_POS' })
+      body: JSON.stringify({
+        valor_pago: valorPago,
+        metodo_pagamento: metodo,
+        telefone: telefone,
+        referencia: referencia
+      })
     });
-    if (res.success) {
-      mostrarNotificacao('Pagamento liquidado com sucesso! A emitir recibo oficial...', 'success');
+
+    if (res && res.success) {
+      fecharModal();
+      mostrarNotificacao(res.message || 'Pagamento liquidado com sucesso!', 'success');
       await carregarPagamentos();
       await abrirModalReciboPagamento(id);
+    } else {
+      mostrarNotificacao(res?.message || 'Falha ao liquidar pagamento.', 'danger');
     }
   } catch (err) {
-    alert('Erro ao liquidar pagamento: ' + (err.message || ''));
+    mostrarNotificacao('Erro ao liquidar pagamento: ' + (err.message || ''), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
   }
+}
+
+async function liquidarPagamento(id, valor) {
+  return modalLiquidarSaldoCarteira(id, valor, '', '');
 }
 
 async function modalNovoPagamento() {
