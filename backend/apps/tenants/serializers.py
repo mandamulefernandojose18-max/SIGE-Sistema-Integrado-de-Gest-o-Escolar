@@ -40,6 +40,13 @@ class EscolaSerializer(serializers.ModelSerializer):
         from common.utils.geografia_mocambique import obter_codigos_orgaos_escola
         return obter_codigos_orgaos_escola(obj.codigo_escola or '')
 
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        if 'email' in data and isinstance(data['email'], str):
+            import re
+            data['email'] = re.sub(r'\.+@', '@', data['email'].strip()).lower()
+        return super().to_internal_value(data)
+
     def validate(self, attrs):
         logo_val = attrs.get('logo_url')
         if logo_val and str(logo_val).startswith('data:'):

@@ -85,8 +85,24 @@
         <small class="text-muted">Acompanhe estados, configure regras de corte, tolerâncias e efectue prorrogações justificadas.</small>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-warning btn-sm fw-bold" onclick="abrirModalCoordenadasPagamento()" title="Configurar números de carteiras móveis e contas bancárias oficiais">
+          <i class="bi bi-credit-card-2-front me-1"></i> Configurar Contas & Carteiras
+        </button>
         <button class="btn btn-outline-secondary btn-sm" onclick="executarCicloDiarioManual()" title="Executar rotina diária de verificação e faturação">
           <i class="bi bi-arrow-repeat me-1"></i> Executar Ciclo Diário
+        </button>
+      </div>
+    </div>
+
+    <!-- Card Informativo de Contas e Carteiras Oficiais -->
+    <div class="card p-3 mb-3 bg-light border shadow-sm">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <span class="fw-bold text-dark"><i class="bi bi-credit-card-2-front me-2 text-warning"></i>Contas Oficiais e Carteiras Móveis para Pagamentos</span>
+          <div class="text-muted small" id="resumoCoordenadasSuperAdmin">A carregar contas...</div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary fw-semibold" onclick="abrirModalCoordenadasPagamento()">
+          <i class="bi bi-pencil me-1"></i> Inserir / Editar Dados
         </button>
       </div>
     </div>
@@ -443,6 +459,107 @@
         <div class="modal-footer bg-light">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn fw-bold" id="btnAcaoManualSubmit">Confirmar Operação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIGURAR CONTAS OFICIAIS E CARTEIRAS MÓVEIS -->
+<div class="modal fade" id="modalCoordenadasPagamento" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-credit-card-2-front me-2"></i>Contas Oficiais e Carteiras Móveis (Moçambique)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formCoordenadasPagamento" onsubmit="salvarCoordenadasPagamento(event)">
+        <div class="modal-body p-4">
+          <p class="text-muted small mb-3">Insira as contas oficiais da entidade para receção de pagamentos das assinaturas SaaS. <strong>Deixe em branco qualquer campo sem dados definidos</strong> — o sistema não exibirá dados fictícios.</p>
+
+          <div class="card p-3 mb-3 border-danger-subtle bg-light">
+            <h6 class="fw-bold text-danger mb-2"><i class="bi bi-phone me-1"></i> M-Pesa (Vodacom)</h6>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Número M-Pesa</label>
+                <input type="text" id="coordInpMpesaNumero" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Titular da Conta</label>
+                <input type="text" id="coordInpMpesaTitular" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-3 mb-3 border-warning-subtle bg-light">
+            <h6 class="fw-bold text-warning mb-2"><i class="bi bi-phone me-1"></i> e-Mola (Movitel)</h6>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Número e-Mola</label>
+                <input type="text" id="coordInpEmolaNumero" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Titular da Conta</label>
+                <input type="text" id="coordInpEmolaTitular" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-3 mb-3 border-primary-subtle bg-light">
+            <h6 class="fw-bold text-primary mb-2"><i class="bi bi-bank me-1"></i> Millennium BIM</h6>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Número de Conta</label>
+                <input type="text" id="coordInpBimConta" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">NIB (21 dígitos)</label>
+                <input type="text" id="coordInpBimNib" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Titular da Conta</label>
+                <input type="text" id="coordInpBimTitular" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-3 mb-3 border-success-subtle bg-light">
+            <h6 class="fw-bold text-success mb-2"><i class="bi bi-bank me-1"></i> BCI / Standard Bank</h6>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Número de Conta</label>
+                <input type="text" id="coordInpBciConta" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">NIB (21 dígitos)</label>
+                <input type="text" id="coordInpBciNib" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Titular da Conta</label>
+                <input type="text" id="coordInpBciTitular" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-3 bg-light">
+            <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-info-circle me-1"></i> NUIT & Instruções de Depósito</h6>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">NUIT da Entidade</label>
+                <input type="text" id="coordInpNuit" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Instruções / Observações no Comprovativo</label>
+                <input type="text" id="coordInpInstrucoes" class="form-control" placeholder="Deixe em branco para inserir depois">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary fw-bold" id="btnSalvarCoordenadas">
+            <i class="bi bi-check-lg me-1"></i> Guardar Contas Oficiais
+          </button>
         </div>
       </form>
     </div>

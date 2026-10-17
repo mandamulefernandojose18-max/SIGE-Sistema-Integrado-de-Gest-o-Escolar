@@ -22,7 +22,7 @@
     <div class="col-md-4">
       <div class="card p-4 h-100 shadow-sm">
         <span class="text-muted small text-uppercase fw-semibold">Plano Contratado</span>
-        <h4 id="escolaPlanoNome" class="fw-bold mb-1 text-primary">Plano Padrão</h4>
+        <h4 id="escolaPlanoNome" class="fw-bold mb-1 text-primary">Plano Básico</h4>
         <h5 id="escolaPlanoPreco" class="fw-bold text-dark mb-1">0 <span class="moeda-sufixo">MZN</span></h5>
         <small class="text-muted" id="escolaPlanoPeriodicidade">Periodicidade Mensal</small>
       </div>
@@ -43,36 +43,45 @@
 
   <!-- Coordenadas Bancárias & Métodos de Pagamento em Moçambique -->
   <div class="card p-4 mb-4 bg-light border-0 shadow-sm">
-    <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-credit-card-2-front me-2"></i>Contas Oficiais e Carteiras Móveis para Pagamento de Assinaturas (Moçambique)</h6>
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-credit-card-2-front me-2"></i>Contas Oficiais e Carteiras Móveis para Pagamento de Assinaturas (Moçambique)</h6>
+      <span class="badge bg-secondary-subtle text-secondary border small" id="coordStatusBadge">Contas Oficiais</span>
+    </div>
     <div class="row g-3 text-secondary small">
       <div class="col-md-3">
-        <div class="p-3 bg-white rounded border">
-          <strong class="d-block text-danger"><i class="bi bi-phone me-1"></i> M-Pesa (Vodacom)</strong>
-          <span>Número: <strong>84 000 0000</strong></span><br>
-          <span>Titular: <strong>SIGE Moçambique</strong></span>
+        <div class="p-3 bg-white rounded border h-100">
+          <strong class="d-block text-danger mb-1"><i class="bi bi-phone me-1"></i> M-Pesa (Vodacom)</strong>
+          <span>Número: <strong id="coordMpesaNumero"></strong></span><br>
+          <span>Titular: <strong id="coordMpesaTitular"></strong></span>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="p-3 bg-white rounded border">
-          <strong class="d-block text-warning"><i class="bi bi-phone me-1"></i> e-Mola (Movitel)</strong>
-          <span>Número: <strong>86 000 0000</strong></span><br>
-          <span>Titular: <strong>SIGE Moçambique</strong></span>
+        <div class="p-3 bg-white rounded border h-100">
+          <strong class="d-block text-warning mb-1"><i class="bi bi-phone me-1"></i> e-Mola (Movitel)</strong>
+          <span>Número: <strong id="coordEmolaNumero"></strong></span><br>
+          <span>Titular: <strong id="coordEmolaTitular"></strong></span>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="p-3 bg-white rounded border">
-          <strong class="d-block text-primary"><i class="bi bi-bank me-1"></i> Millennium BIM</strong>
-          <span>Conta: <strong>123456789</strong></span><br>
-          <span>NIB: <strong>0001 0000 12345678901 23</strong></span>
+        <div class="p-3 bg-white rounded border h-100">
+          <strong class="d-block text-primary mb-1"><i class="bi bi-bank me-1"></i> Millennium BIM</strong>
+          <span>Conta: <strong id="coordBimConta"></strong></span><br>
+          <span>NIB: <strong id="coordBimNib"></strong></span><br>
+          <span>Titular: <strong id="coordBimTitular"></strong></span>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="p-3 bg-white rounded border">
-          <strong class="d-block text-success"><i class="bi bi-bank me-1"></i> BCI / Standard Bank</strong>
-          <span>Conta: <strong>987654321</strong></span><br>
-          <span>NIB: <strong>0008 0000 98765432101 45</strong></span>
+        <div class="p-3 bg-white rounded border h-100">
+          <strong class="d-block text-success mb-1"><i class="bi bi-bank me-1"></i> BCI / Standard Bank</strong>
+          <span>Conta: <strong id="coordBciConta"></strong></span><br>
+          <span>NIB: <strong id="coordBciNib"></strong></span><br>
+          <span>Titular: <strong id="coordBciTitular"></strong></span>
         </div>
       </div>
+    </div>
+    <div class="mt-2 text-muted small" id="boxCoordNuitInstrucoes" style="display: none;">
+      <span id="coordNuitInfo"></span>
+      <span id="coordInstrucoesInfo" class="ms-2"></span>
     </div>
   </div>
 
@@ -133,7 +142,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Código / Referência da Transacção</label>
-              <input type="text" id="escolaPagReferencia" class="form-control" required placeholder="Ex: MP261017.1234.A56789 ou NIB / Talão">
+              <input type="text" id="escolaPagReferencia" class="form-control" required placeholder="Referência do talão ou comprovativo bancário">
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Valor Pago (MZN)</label>

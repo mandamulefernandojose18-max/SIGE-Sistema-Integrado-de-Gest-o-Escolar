@@ -366,3 +366,37 @@ Cofre persistente de ficheiros emitidos e auditoria de impressões.
 | `usuario_id` | `UUID` (FK) | Não | Operador que solicitou o documento. |
 | `tipo_documento` | `VARCHAR(50)` | Não | Tipo de documento emitido. |
 | `parametros_json` | `JSONB` | Sim | Armazena configurações de sessões de conselho, etc. |
+
+---
+
+### 2.18. Módulos SaaS de Assinaturas, Planos e Pagamentos Institucionais
+
+#### `sige_saas_planos` (`apps.tenants.models.SaasPlano`)
+Planos de subscrição corporativa do sistema SIGE SaaS (ex: **Plano Básico**).
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador do plano SaaS. |
+| `nome` | `VARCHAR(100)` | Não | Nome do plano (ex: `Plano Básico`). Único. |
+| `descricao` | `TEXT` | Sim | Descrição dos recursos contratados. |
+| `preco_mensal` | `DECIMAL(12,2)`| Não | Mensalidade padrão em Meticais (`MZN`). |
+| `limite_alunos` | `INTEGER` | Não | Quota máxima de alunos ativos (ex: 500). |
+| `limite_professores` | `INTEGER` | Não | Quota máxima de professores ativos (ex: 50). |
+| `limites` | `JSONB` | Não | Limites detalhados adicionais. |
+| `activo` | `BOOLEAN` | Não | Indica se o plano está aberto a novas contratações. |
+
+#### `sige_saas_assinaturas` (`apps.tenants.models.SaasAssinatura`)
+Subscrições ativas das instituições de ensino no SIGE SaaS.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da assinatura SaaS. |
+| `instituicao_id` | `UUID` (FK) | Não | Instituição assinante (`sige_escolas`). |
+| `plano_id` | `UUID` (FK) | Não | Plano contratado (`sige_saas_planos`). |
+| `periodicidade` | `VARCHAR(20)` | Não | `mensal`, `trimestral`, `semestral`, `anual`. |
+| `estado` | `VARCHAR(30)` | Não | `teste`, `activa`, `fatura_pendente`, `em_atraso`, `restrita`, `suspensa`, `cancelada`. |
+| `proxima_fatura_em` | `DATE` | Não | Data da emissão do próximo ciclo de faturação. |
+
+#### `sige_saas_coordenadas` (`apps.tenants.models.SaasCoordenadasPagamento`)
+Coordenadas bancárias e carteiras móveis oficiais da plataforma (M-Pesa, e-Mola, BIM, BCI).
+

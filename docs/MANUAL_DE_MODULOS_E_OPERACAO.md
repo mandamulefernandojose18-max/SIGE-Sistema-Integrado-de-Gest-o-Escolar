@@ -1,11 +1,11 @@
 # ⚙️ Manual Operacional dos Módulos do Sistema — SIGE (v2.5.0)
 
-> **Guia Passo a Passo de Utilização dos 18 Módulos Funcionais**  
+> **Guia Passo a Passo de Utilização dos 19 Módulos Funcionais**  
 > **Público:** SuperAdmins, Administradores da Escola, Diretores, DAPs, Chefes de Secretaria, Financeiro, Professores e Alunos
 
 ---
 
-## 📑 Índice dos 18 Módulos Funcionais
+## 📑 Índice dos 19 Módulos Funcionais
 
 1. [Módulo 1: Portal Público de Auto-Inscrição](#módulo-1-portal-público-de-auto-inscrição-modalinscricaopublica)
 2. [Módulo 2: Painel Master SaaS (SuperAdmin)](#módulo-2-painel-master-saas-view-saas)
@@ -25,6 +25,7 @@
 16. [Módulo 16: Portal Privado do Aluno](#módulo-16-portal-privado-do-aluno-view-aluno-*)
 17. [Módulo 17: Cofre de Credenciais e Gestão de Senhas](#módulo-17-cofre-de-credenciais-e-gestão-de-senhas-view-usuarios-senhas)
 18. [Módulo 18: Auditoria e Registo de Acessos](#módulo-18-auditoria-e-registo-de-acessos-view-acessos)
+19. [Módulo 19: Assinatura e Pagamentos SaaS da Escola](#módulo-19-assinatura-e-pagamentos-saas-da-escola-view-assinatura-escola)
 
 ---
 
@@ -184,3 +185,14 @@
 ### Módulo 18: Auditoria e Registo de Acessos (`#view-acessos`)
 - **Quem usa:** `ADMIN_ESCOLA` e `SUPERADMIN`.
 - **Rastreamento Total:** Log cronológico de todas as sessões iniciadas, tentativas inválidas de autenticação e bloqueios por assinatura expirada com registo de data, hora e dispositivo (`user-agent`).
+
+---
+
+### Módulo 19: Assinatura e Pagamentos SaaS da Escola (`#view-assinatura-escola`)
+- **Quem usa:** `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA` e `SUPERADMIN`.
+- **Painel Financeiro Institucional:**
+  - **Estado da Subscrição:** Acompanhamento em tempo real (`Activa`, `Fatura Aberta`, `Em Atraso`, `Restrita` ou `Suspensa`) com badge e alertas de prazo.
+  - **Plano Contratado:** Apresentação clara e oficial como **Plano Básico** (com periodicidade e valor mensal em Meticais `MZN`).
+  - **Próximo Vencimento & Faturas:** Cronograma de faturação com botão para envio de comprovativos de liquidação.
+  - **Coordenadas Oficiais em Moçambique:** Carteiras móveis M-Pesa (Vodacom) e e-Mola (Movitel), e contas bancárias Millennium BIM e BCI com validação pelo SuperAdmin.
+

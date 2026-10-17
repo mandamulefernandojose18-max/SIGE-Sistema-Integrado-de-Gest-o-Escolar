@@ -31,7 +31,7 @@ class TestAssinaturasSaaS:
 
         # Plano SaaS
         self.plano = SaasPlano.objects.create(
-            nome='Plano SaaS Moçambique Teste',
+            nome='Plano SaaS Básico Teste',
             preco_mensal=Decimal('3000.00'),
             limite_alunos=1000,
             limite_professores=100

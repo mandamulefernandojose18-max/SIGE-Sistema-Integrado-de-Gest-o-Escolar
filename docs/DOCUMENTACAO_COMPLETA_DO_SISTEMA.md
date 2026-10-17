@@ -25,7 +25,7 @@ Para consulta aprofundada por domínio técnico ou operacional:
 3. [Arquitetura Multi-Tenant, Assinaturas SaaS e Isolamento de Dados](#3-arquitetura-multi-tenant-assinaturas-saas-e-isolamento-de-dados)
 4. [Autenticação Inteligente, Perfis de Acesso (RBAC) e Códigos Oficiais](#4-autenticação-inteligente-perfis-de-acesso-rbac-e-códigos-oficiais)
 5. [Regras Pedagógicas e Curriculares Oficiais do MEC](#5-regras-pedagógicas-e-curriculares-oficiais-do-minedh)
-6. [O Que Faz Cada Módulo do Sistema (18 Módulos e Fluxos Operacionais)](#6-o-que-faz-cada-módulo-do-sistema-18-módulos-e-fluxos-operacionais)
+6. [O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)](#6-o-que-faz-cada-módulo-do-sistema-19-módulos-e-fluxos-operacionais)
 7. [Motor de Geração Documental (PDF, Word DOCX, Excel XLSX) e Cofre de Documentos](#7-motor-de-geração-documental-pdf-word-docx-excel-xlsx-e-cofre-de-documentos)
 8. [Modelo de Dados Completo (17 Tabelas e Restrições de Integridade)](#8-modelo-de-dados-completo-17-tabelas-e-restrições-de-integridade)
 9. [Catálogo Completo de Endpoints da API REST (`/api/v1/`)](#9-catálogo-completo-de-endpoints-da-api-rest-apiv1)
@@ -242,7 +242,7 @@ Em cada trimestre (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`), cada disciplina
 
 ---
 
-## 6. O Que Faz Cada Módulo do Sistema (18 Módulos e Fluxos Operacionais)
+## 6. O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)
 
 ### Módulo 1: Portal Público de Auto-Inscrição de Alunos (`#modalInscricaoPublica`)
 Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de autenticação prévia:
@@ -412,7 +412,14 @@ Acessível apenas a Administradores, Director da Escola, DAP e Chefe de Secretar
 - Permite filtrar por perfil, copiar o código de acesso com um clique, **redefinir a palavra-passe** de qualquer utilizador e ativar/bloquear contas.
 
 ### Módulo 18: Auditoria e Registo de Acessos (`#view-acessos`)
-- Exibe o registo cronológico (`LogAcesso`) de todas as autenticações bem-sucedidas (`LOGIN_SUCESSO`), tentativas falhadas (`LOGIN_FALHA`) e bloqueios por expiração de assinatura (`ACESSO_BLOQUEADO_EXPIRADO`), detalhando Utilizador, Perfil, Endereço IP, Navegador/Dispositivo (`user_agent`) e Data/Hora exata.
+- Exibe o registo cronológico (`LogAcesso`) de todas as autenticações bem-sucedidas (`LOGIN_SUCESSO`), tentativas falhadas (`LOGIN_FALHA`) e bloqueios por expiração de assinatura (`ACESSO_BLOQUEADO_EXPIRADO`), detalhando Utilizador, Perfil, Navegador/Dispositivo (`user_agent`) e Data/Hora exata.
+
+### Módulo 19: Assinatura do Sistema e Pagamentos SaaS da Escola (`#view-assinatura-escola`)
+- **Painel Financeiro Institucional:**
+  - **Estado da Subscrição:** Acompanhamento dinâmico (`Activa`, `Fatura Aberta`, `Em Atraso`, `Restrita` ou `Suspensa`) com badges e banner de avisos de tolerância.
+  - **Plano Contratado:** Identificação institucional como **Plano Básico** com indicação da periodicidade (`Mensal`) e valor contratado em Meticais (`MZN`).
+  - **Faturação & Submissão de Comprovativos:** Visualização das faturas emitidas e modal de registo de pagamentos com upload de talão/comprovativo bancário.
+  - **Coordenadas Oficiais em Moçambique:** Carteiras móveis M-Pesa (Vodacom 84) e e-Mola (Movitel 86), além de contas e NIB no Millennium BIM e BCI com validação pelo Super Administrador.
 
 ---
 

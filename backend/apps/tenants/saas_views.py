@@ -11,13 +11,14 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
-from .models import Escola, SaasPlano, SaasAssinatura, SaasFatura, SaasPagamento, SaasLogAssinatura
+from .models import Escola, SaasPlano, SaasAssinatura, SaasFatura, SaasPagamento, SaasLogAssinatura, SaasCoordenadasPagamento
 from .saas_serializers import (
     SaasPlanoSerializer,
     SaasAssinaturaSerializer,
     SaasFaturaSerializer,
     SaasPagamentoSerializer,
-    SaasLogAssinaturaSerializer
+    SaasLogAssinaturaSerializer,
+    SaasCoordenadasPagamentoSerializer
 )
 from .saas_middleware import limpar_cache_assinatura
 
@@ -85,7 +86,7 @@ class SaasAssinaturasListView(APIView):
         plano_padrao = SaasPlano.objects.filter(activo=True).first()
         if not plano_padrao:
             plano_padrao = SaasPlano.objects.create(
-                nome='Plano Básico Moçambique',
+                nome='Plano Básico',
                 preco_mensal=Decimal('2500.00'),
                 limite_alunos=500,
                 limite_professores=50
@@ -468,7 +469,7 @@ class MinhaAssinaturaView(APIView):
         if not ass:
             plano = SaasPlano.objects.filter(activo=True).first()
             if not plano:
-                plano = SaasPlano.objects.create(nome='Plano Padrão', preco_mensal=Decimal('2500.00'))
+                plano = SaasPlano.objects.create(nome='Plano Básico', preco_mensal=Decimal('2500.00'))
             ass = SaasAssinatura.objects.create(
                 instituicao=escola,
                 plano=plano,
@@ -500,6 +501,7 @@ class MinhaAssinaturaView(APIView):
                 'mensagem': 'O acesso da instituição está suspenso. Apenas o registo de pagamentos e consulta de faturas está disponível.'
             }
 
+        coord = SaasCoordenadasPagamento.get_singleton()
         return Response({
             'success': True,
             'data': {
@@ -507,6 +509,7 @@ class MinhaAssinaturaView(APIView):
                 'fatura_atual': SaasFaturaSerializer(fatura_aberta).data if fatura_aberta else None,
                 'alerta': alerta,
                 'faturas': SaasFaturaSerializer(faturas, many=True).data,
+                'coordenadas': SaasCoordenadasPagamentoSerializer(coord).data,
             }
         })
 
@@ -598,3 +601,37 @@ class RegistarPagamentoInstituicaoView(APIView):
             'message': 'Comprovativo de pagamento submetido com sucesso! O Super Administrador irá validar a operação.',
             'data': SaasPagamentoSerializer(pagamento).data
         }, status=status.HTTP_201_CREATED)
+
+
+class SaasCoordenadasPagamentoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        coord = SaasCoordenadasPagamento.get_singleton()
+        return Response({
+            'success': True,
+            'data': SaasCoordenadasPagamentoSerializer(coord).data
+        })
+
+    def post(self, request):
+        if getattr(request.user, 'role', '') != 'SUPERADMIN' and not request.user.is_superuser:
+            return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
+
+        coord = SaasCoordenadasPagamento.get_singleton()
+        campos = [
+            'mpesa_numero', 'mpesa_titular',
+            'emola_numero', 'emola_titular',
+            'bim_conta', 'bim_nib', 'bim_titular',
+            'bci_conta', 'bci_nib', 'bci_titular',
+            'nuit_entidade', 'instrucoes_adicionais'
+        ]
+        for c in campos:
+            if c in request.data:
+                setattr(coord, c, str(request.data.get(c, '')).strip())
+        coord.save()
+
+        return Response({
+            'success': True,
+            'message': 'Coordenadas de pagamento atualizadas com sucesso.',
+            'data': SaasCoordenadasPagamentoSerializer(coord).data
+        })

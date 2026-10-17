@@ -21,6 +21,9 @@ async function carregarMinhaAssinaturaEscola() {
     const faturas = res.data.faturas || [];
     const alerta = res.data.alerta;
 
+    // Atualizar Coordenadas Oficiais de Pagamento
+    atualizarCoordenadasTela(res.data.coordenadas);
+
     // 1. Atualizar Alerta de Topo se aplicável
     const banner = document.getElementById('bannerAlertaAssinaturaEscola');
     if (banner) {
@@ -84,7 +87,11 @@ async function carregarMinhaAssinaturaEscola() {
       }
 
       const elPlanoNome = document.getElementById('escolaPlanoNome');
-      if (elPlanoNome) elPlanoNome.innerText = a.plano_detalhes?.nome || 'Plano Padrão';
+      if (elPlanoNome) {
+        let nomePlano = a.plano_detalhes?.nome || 'Plano Básico';
+        nomePlano = nomePlano.replace(/Moçambique/gi, '').replace(/Mocambique/gi, '').trim();
+        elPlanoNome.innerText = nomePlano || 'Plano Básico';
+      }
 
       const elPlanoPreco = document.getElementById('escolaPlanoPreco');
       if (elPlanoPreco) elPlanoPreco.innerHTML = `${formatarValorMZN(a.plano_detalhes?.preco_mensal || 0)} <span class="moeda-sufixo">MZN</span>`;
@@ -231,6 +238,52 @@ async function salvarPagamentoEscola(event) {
     mostrarToast('Erro de ligação ao servidor.', 'danger');
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+function atualizarCoordenadasTela(coord) {
+  const elMpesaNum = document.getElementById('coordMpesaNumero');
+  const elMpesaTit = document.getElementById('coordMpesaTitular');
+  const elEmolaNum = document.getElementById('coordEmolaNumero');
+  const elEmolaTit = document.getElementById('coordEmolaTitular');
+  const elBimConta = document.getElementById('coordBimConta');
+  const elBimNib = document.getElementById('coordBimNib');
+  const elBimTit = document.getElementById('coordBimTitular');
+  const elBciConta = document.getElementById('coordBciConta');
+  const elBciNib = document.getElementById('coordBciNib');
+  const elBciTit = document.getElementById('coordBciTitular');
+  const boxExtra = document.getElementById('boxCoordNuitInstrucoes');
+  const elNuit = document.getElementById('coordNuitInfo');
+  const elInst = document.getElementById('coordInstrucoesInfo');
+
+  if (coord) {
+    if (elMpesaNum) elMpesaNum.innerText = coord.mpesa_numero || '';
+    if (elMpesaTit) elMpesaTit.innerText = coord.mpesa_titular || '';
+    if (elEmolaNum) elEmolaNum.innerText = coord.emola_numero || '';
+    if (elEmolaTit) elEmolaTit.innerText = coord.emola_titular || '';
+    if (elBimConta) elBimConta.innerText = coord.bim_conta || '';
+    if (elBimNib) elBimNib.innerText = coord.bim_nib || '';
+    if (elBimTit) elBimTit.innerText = coord.bim_titular || '';
+    if (elBciConta) elBciConta.innerText = coord.bci_conta || '';
+    if (elBciNib) elBciNib.innerText = coord.bci_nib || '';
+    if (elBciTit) elBciTit.innerText = coord.bci_titular || '';
+
+    if (boxExtra) {
+      let temExtra = false;
+      if (coord.nuit_entidade && elNuit) {
+        elNuit.innerHTML = `<strong>NUIT:</strong> ${coord.nuit_entidade}`;
+        temExtra = true;
+      } else if (elNuit) {
+        elNuit.innerHTML = '';
+      }
+      if (coord.instrucoes_adicionais && elInst) {
+        elInst.innerHTML = `<i class="bi bi-info-circle me-1"></i>${coord.instrucoes_adicionais}`;
+        temExtra = true;
+      } else if (elInst) {
+        elInst.innerHTML = '';
+      }
+      boxExtra.style.display = temExtra ? 'block' : 'none';
+    }
   }
 }
 

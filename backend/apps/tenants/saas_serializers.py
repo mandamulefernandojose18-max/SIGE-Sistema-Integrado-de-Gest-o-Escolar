@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Escola, SaasPlano, SaasAssinatura, SaasFatura, SaasPagamento, SaasLogAssinatura
+from .models import Escola, SaasPlano, SaasAssinatura, SaasFatura, SaasPagamento, SaasLogAssinatura, SaasCoordenadasPagamento
 
 
 class SaasPlanoSerializer(serializers.ModelSerializer):
@@ -63,3 +63,17 @@ class SaasLogAssinaturaSerializer(serializers.ModelSerializer):
     class Meta:
         model = SaasLogAssinatura
         fields = '__all__'
+
+
+class SaasCoordenadasPagamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SaasCoordenadasPagamento
+        fields = [
+            'id',
+            'mpesa_numero', 'mpesa_titular',
+            'emola_numero', 'emola_titular',
+            'bim_conta', 'bim_nib', 'bim_titular',
+            'bci_conta', 'bci_nib', 'bci_titular',
+            'nuit_entidade', 'instrucoes_adicionais',
+            'updated_at'
+        ]

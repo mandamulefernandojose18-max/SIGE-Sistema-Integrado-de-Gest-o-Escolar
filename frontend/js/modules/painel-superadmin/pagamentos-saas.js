@@ -7,6 +7,7 @@ var assinaturaAtualSelecionada = null;
 
 async function inicializarModuloPagamentosSaas() {
   await carregarResumoSuperAdmin();
+  await carregarCoordenadasPagamento();
   await carregarPagamentosPendentes();
   await carregarAssinaturasSuperAdmin();
 }
@@ -137,8 +138,8 @@ function renderizarTabelaAssinaturas(lista) {
   }
 
   tbody.innerHTML = lista.map(a => {
-    const badgeEstado = obterBadgeEstadoAssinatura(a.estado);
-    const planoNome = a.plano_detalhes?.nome || 'Plano Base';
+    let planoNome = a.plano_detalhes?.nome || 'Plano Básico';
+    planoNome = planoNome.replace(/Moçambique/gi, '').replace(/Mocambique/gi, '').trim() || 'Plano Básico';
     const preco = a.plano_detalhes?.preco_mensal ? `${formatarValorMZN(a.plano_detalhes.preco_mensal)} MZN` : '-';
     const proxFatura = a.proxima_fatura_em ? formatarDataPt(a.proxima_fatura_em) : '-';
 
@@ -219,7 +220,11 @@ async function abrirFichaInstituicao(assinaturaId) {
     if (elEscolaEstado) elEscolaEstado.innerHTML = obterBadgeEstadoAssinatura(assinaturaAtualSelecionada.estado);
 
     const elPlanoNome = document.getElementById('fichaPlanoNome');
-    if (elPlanoNome) elPlanoNome.innerText = assinaturaAtualSelecionada.plano_detalhes?.nome || 'Plano Base';
+    if (elPlanoNome) {
+      let nomePlano = assinaturaAtualSelecionada.plano_detalhes?.nome || 'Plano Básico';
+      nomePlano = nomePlano.replace(/Moçambique/gi, '').replace(/Mocambique/gi, '').trim() || 'Plano Básico';
+      elPlanoNome.innerText = nomePlano;
+    }
     const elPlanoPreco = document.getElementById('fichaPlanoPreco');
     if (elPlanoPreco) elPlanoPreco.innerText = formatarValorMZN(assinaturaAtualSelecionada.plano_detalhes?.preco_mensal || 0);
     const elPeriodicidade = document.getElementById('fichaPeriodicidade');
@@ -676,6 +681,102 @@ function formatarDataHoraPt(dtStr) {
   if (!dtStr) return '-';
   const d = new Date(dtStr);
   return isNaN(d) ? dtStr : d.toLocaleString('pt-PT');
+}
+
+var coordenadasPagamentoCache = null;
+
+async function carregarCoordenadasPagamento() {
+  try {
+    const res = await apiFetch('/saas/coordenadas/');
+    const elResumo = document.getElementById('resumoCoordenadasSuperAdmin');
+    if (res && res.success && res.data) {
+      coordenadasPagamentoCache = res.data;
+      const c = res.data;
+      const partes = [];
+      if (c.mpesa_numero) partes.push(`M-Pesa: ${c.mpesa_numero}`);
+      if (c.emola_numero) partes.push(`e-Mola: ${c.emola_numero}`);
+      if (c.bim_conta) partes.push(`BIM Conta: ${c.bim_conta}`);
+      if (c.bci_conta) partes.push(`BCI Conta: ${c.bci_conta}`);
+      if (c.nuit_entidade) partes.push(`NUIT: ${c.nuit_entidade}`);
+
+      if (elResumo) {
+        if (partes.length > 0) {
+          elResumo.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>Configuradas:</span> ${partes.join(' | ')}`;
+        } else {
+          elResumo.innerHTML = `<span class="text-warning"><i class="bi bi-dash-circle me-1"></i>Deixado em branco para inserção (nenhuma conta fictícia registada). Clique em 'Inserir / Editar Dados'.</span>`;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[SAAS] Erro ao carregar coordenadas:', err);
+  }
+}
+
+function abrirModalCoordenadasPagamento() {
+  const c = coordenadasPagamentoCache || {};
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val || '';
+  };
+
+  setVal('coordInpMpesaNumero', c.mpesa_numero);
+  setVal('coordInpMpesaTitular', c.mpesa_titular);
+  setVal('coordInpEmolaNumero', c.emola_numero);
+  setVal('coordInpEmolaTitular', c.emola_titular);
+  setVal('coordInpBimConta', c.bim_conta);
+  setVal('coordInpBimNib', c.bim_nib);
+  setVal('coordInpBimTitular', c.bim_titular);
+  setVal('coordInpBciConta', c.bci_conta);
+  setVal('coordInpBciNib', c.bci_nib);
+  setVal('coordInpBciTitular', c.bci_titular);
+  setVal('coordInpNuit', c.nuit_entidade);
+  setVal('coordInpInstrucoes', c.instrucoes_adicionais);
+
+  const modal = new bootstrap.Modal(document.getElementById('modalCoordenadasPagamento'));
+  modal.show();
+}
+
+async function salvarCoordenadasPagamento(event) {
+  event.preventDefault();
+  const btn = document.getElementById('btnSalvarCoordenadas');
+  if (btn) btn.disabled = true;
+
+  const getVal = (id) => (document.getElementById(id)?.value || '').trim();
+
+  const payload = {
+    mpesa_numero: getVal('coordInpMpesaNumero'),
+    mpesa_titular: getVal('coordInpMpesaTitular'),
+    emola_numero: getVal('coordInpEmolaNumero'),
+    emola_titular: getVal('coordInpEmolaTitular'),
+    bim_conta: getVal('coordInpBimConta'),
+    bim_nib: getVal('coordInpBimNib'),
+    bim_titular: getVal('coordInpBimTitular'),
+    bci_conta: getVal('coordInpBciConta'),
+    bci_nib: getVal('coordInpBciNib'),
+    bci_titular: getVal('coordInpBciTitular'),
+    nuit_entidade: getVal('coordInpNuit'),
+    instrucoes_adicionais: getVal('coordInpInstrucoes')
+  };
+
+  try {
+    const res = await apiFetch('/saas/coordenadas/', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    if (res && res.success) {
+      mostrarToast('Contas oficiais atualizadas com sucesso!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('modalCoordenadasPagamento'))?.hide();
+      await carregarCoordenadasPagamento();
+    } else {
+      mostrarToast(res?.message || 'Falha ao guardar contas oficiais.', 'danger');
+    }
+  } catch (err) {
+    console.error('[SAAS] Erro ao salvar coordenadas:', err);
+    mostrarToast('Falha de ligação com o servidor.', 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // Invocação automática ao carregar a página

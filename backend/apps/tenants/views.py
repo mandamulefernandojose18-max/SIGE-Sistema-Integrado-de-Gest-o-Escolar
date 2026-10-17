@@ -508,7 +508,7 @@ def _montar_comprovativo_escola(escola):
             'status': escola.status,
         },
         'plano': {
-            'nome': plano.nome if plano else 'Plano Padrão',
+            'nome': plano.nome if plano else 'Plano Básico',
             'preco': float(plano.preco) if plano else 0.0,
             'max_alunos': plano.max_alunos if plano else 1000,
             'max_professores': plano.max_professores if plano else 100,
@@ -585,6 +585,12 @@ class EscolaAdminInfoView(APIView):
             return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
 
         data = request.data.copy()
+        if 'email' in data and isinstance(data['email'], str):
+            import re
+            data['email'] = re.sub(r'\.+@', '@', data['email'].strip()).lower()
+            if data['email'] == (escola.email or '').lower():
+                data.pop('email', None)
+
         prov_nova = data.get('provincia', escola.provincia)
         dist_novo = data.get('distrito', escola.distrito)
         tipo_novo = data.get('tipo_escola', escola.tipo_escola)

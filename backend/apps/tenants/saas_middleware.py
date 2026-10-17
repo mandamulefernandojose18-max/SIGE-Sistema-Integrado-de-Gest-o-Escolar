@@ -62,6 +62,8 @@ class VerificarAssinaturaMiddleware(MiddlewareMixin):
         '/api/v1/certificados/verificar/',
         '/api/v1/saas/minha-assinatura',
         '/api/v1/saas/minha-assinatura/',
+        '/api/v1/saas/coordenadas',
+        '/api/v1/saas/coordenadas/',
         '/api/v1/saas/faturas',
         '/api/v1/saas/faturas/',
         '/api/v1/saas/pagamentos',

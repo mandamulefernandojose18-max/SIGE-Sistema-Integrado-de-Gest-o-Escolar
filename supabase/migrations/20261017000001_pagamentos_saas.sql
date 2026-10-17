@@ -716,3 +716,28 @@ WITH CHECK (instituicao_id::text = current_setting('request.jwt.claim.escola_id'
 
 CREATE POLICY "tenant_read_saas_log" ON public.sige_saas_log_assinaturas FOR SELECT
 USING (instituicao_id::text = current_setting('request.jwt.claim.escola_id', true));
+
+-- 6. Tabela de Coordenadas e Contas Oficiais de Pagamento SaaS
+CREATE TABLE IF NOT EXISTS public.sige_saas_coordenadas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mpesa_numero VARCHAR(50) NOT NULL DEFAULT '',
+    mpesa_titular VARCHAR(150) NOT NULL DEFAULT '',
+    emola_numero VARCHAR(50) NOT NULL DEFAULT '',
+    emola_titular VARCHAR(150) NOT NULL DEFAULT '',
+    bim_conta VARCHAR(50) NOT NULL DEFAULT '',
+    bim_nib VARCHAR(50) NOT NULL DEFAULT '',
+    bim_titular VARCHAR(150) NOT NULL DEFAULT '',
+    bci_conta VARCHAR(50) NOT NULL DEFAULT '',
+    bci_nib VARCHAR(50) NOT NULL DEFAULT '',
+    bci_titular VARCHAR(150) NOT NULL DEFAULT '',
+    nuit_entidade VARCHAR(50) NOT NULL DEFAULT '',
+    instrucoes_adicionais TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('Africa/Maputo', now())
+);
+
+ALTER TABLE public.sige_saas_coordenadas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service_all_saas_coordenadas" ON public.sige_saas_coordenadas FOR ALL
+USING (current_user = 'postgres' OR (current_setting('request.jwt.claim.role', true) = 'service_role'));
+
+CREATE POLICY "public_read_saas_coordenadas" ON public.sige_saas_coordenadas FOR SELECT USING (true);

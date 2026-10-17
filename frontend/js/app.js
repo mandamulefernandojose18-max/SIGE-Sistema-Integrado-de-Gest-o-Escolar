@@ -4898,6 +4898,7 @@ window.restaurarPadraoTemaEFundo = restaurarPadraoTemaEFundo;
 document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
+    const emailLimpo = (document.getElementById('confEscolaEmail')?.value || '').trim().replace(/\.+@/, '@');
     const body = {
       nome: document.getElementById('confEscolaNome').value,
       tipo_escola: document.getElementById('confEscolaTipo')?.value || 'S',
@@ -4905,7 +4906,7 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       trimestre_ativo: document.getElementById('confEscolaTrimestreAtivo').value,
       publicacao_notas_trimestre: document.getElementById('confEscolaPublicacaoNotas')?.value || 'TODOS',
       telefone: document.getElementById('confEscolaTelefone').value,
-      email: document.getElementById('confEscolaEmail').value,
+      email: emailLimpo,
       director_nome: document.getElementById('confEscolaDirector').value,
       dap_nome: document.getElementById('confEscolaDAP').value,
       chefe_secretaria_nome: document.getElementById('confEscolaChefeSec').value,
@@ -4944,10 +4945,14 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
         }
       }
       await carregarEscolaETurmas();
+      if (typeof mostrarToast === 'function') {
+        mostrarToast('Configurações da escola, identidade visual, tema e fundo actualizados com sucesso!', 'success');
+      }
       alert('Configurações da escola, identidade visual, tema e fundo actualizados com sucesso!');
     }
   } catch (err) {
-    alert('Erro ao actualizar dados da escola');
+    console.error('Erro ao actualizar escola:', err);
+    alert('Atenção: ' + (err.message || 'Erro ao actualizar dados da escola'));
   }
 });
 

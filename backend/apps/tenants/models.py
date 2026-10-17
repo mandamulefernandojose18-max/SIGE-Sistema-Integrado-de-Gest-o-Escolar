@@ -553,3 +553,35 @@ class SaasLogAssinatura(models.Model):
     def __str__(self):
         return f"{self.instituicao.nome} - {self.accao} por {self.feito_por} em {self.criado_em}"
 
+
+class SaasCoordenadasPagamento(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    mpesa_numero = models.CharField(max_length=50, blank=True, default='')
+    mpesa_titular = models.CharField(max_length=150, blank=True, default='')
+    emola_numero = models.CharField(max_length=50, blank=True, default='')
+    emola_titular = models.CharField(max_length=150, blank=True, default='')
+    bim_conta = models.CharField(max_length=50, blank=True, default='')
+    bim_nib = models.CharField(max_length=50, blank=True, default='')
+    bim_titular = models.CharField(max_length=150, blank=True, default='')
+    bci_conta = models.CharField(max_length=50, blank=True, default='')
+    bci_nib = models.CharField(max_length=50, blank=True, default='')
+    bci_titular = models.CharField(max_length=150, blank=True, default='')
+    nuit_entidade = models.CharField(max_length=50, blank=True, default='')
+    instrucoes_adicionais = models.TextField(blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_saas_coordenadas'
+        verbose_name = 'Coordenadas de Pagamento SaaS'
+        verbose_name_plural = 'Coordenadas de Pagamento SaaS'
+
+    @classmethod
+    def get_singleton(cls):
+        obj = cls.objects.first()
+        if not obj:
+            obj = cls.objects.create()
+        return obj
+
+    def __str__(self):
+        return f"Coordenadas de Pagamento SaaS (Atualizado: {self.updated_at})"
+

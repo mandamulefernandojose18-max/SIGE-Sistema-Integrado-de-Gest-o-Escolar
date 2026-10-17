@@ -24,7 +24,8 @@ from .saas_views import (
     SaasSuspenderReactivarManualView,
     SaasRotinaDiariaManualView,
     MinhaAssinaturaView,
-    RegistarPagamentoInstituicaoView
+    RegistarPagamentoInstituicaoView,
+    SaasCoordenadasPagamentoView
 )
 
 router = OptionalSlashRouter()
@@ -80,6 +81,8 @@ saas_pagamentos_urls = [
     path('minha-assinatura/', MinhaAssinaturaView.as_view(), name='saas_minha_assinatura'),
     path('registar-pagamento', RegistarPagamentoInstituicaoView.as_view(), name='saas_registar_pagamento_no_slash'),
     path('registar-pagamento/', RegistarPagamentoInstituicaoView.as_view(), name='saas_registar_pagamento'),
+    path('coordenadas', SaasCoordenadasPagamentoView.as_view(), name='saas_coordenadas_no_slash'),
+    path('coordenadas/', SaasCoordenadasPagamentoView.as_view(), name='saas_coordenadas'),
 ]
 
 urlpatterns = [
