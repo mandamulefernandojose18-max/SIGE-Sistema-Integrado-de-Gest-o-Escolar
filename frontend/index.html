@@ -210,7 +210,7 @@
       }
     }
     /* RESTRIÇÃO ABSOLUTA: O banner e botão 'Sair da Escola (Voltar ao SaaS)' são SÓ E SÓ PARA O SUPERADMIN EM INSPEÇÃO */
-    #superAdminInspecaoBanner {
+    #superAdminInspecaoBanner, #faixaAlertaAssinaturaGlobal {
       display: none !important;
     }
     body.role-superadmin.inspecionando-escola #superAdminInspecaoBanner {
@@ -994,21 +994,6 @@
       </div>
       <button class="btn btn-danger btn-sm fw-semibold" onclick="sairModoInspecaoSuperAdmin()">
         <i class="bi bi-box-arrow-left me-1"></i> Sair da Escola (Voltar ao SaaS)
-      </button>
-    </div>
-
-    <!-- FAIXA DE AVISO GLOBAL DE ASSINATURA EM ATRASO OU RESTRITA -->
-    <div id="faixaAlertaAssinaturaGlobal" style="display: none;" class="alert alert-warning rounded-0 m-0 border-0 border-bottom d-flex align-items-center justify-content-between px-4 py-2 no-print">
-      <div class="d-flex align-items-center gap-2">
-        <i id="iconeAlertaAssinatura" class="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
-        <div>
-          <strong id="tituloAlertaAssinatura">Aviso de Regularização de Subscrição</strong>
-          <span class="badge bg-warning text-dark ms-2" id="badgeAlertaAssinatura">EM ATRASO</span>
-          <small class="text-dark d-block" id="mensagemAlertaAssinatura">A subscrição do sistema encontra-se com fatura pendente. Regularize para garantir o pleno acesso.</small>
-        </div>
-      </div>
-      <button class="btn btn-warning btn-sm fw-bold shadow-sm" onclick="navegarPara('assinatura-escola')">
-        <i class="bi bi-credit-card-2-front me-1"></i> Ver Fatura & Regularizar
       </button>
     </div>
 

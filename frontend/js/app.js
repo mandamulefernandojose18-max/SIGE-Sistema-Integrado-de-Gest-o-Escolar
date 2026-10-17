@@ -1900,26 +1900,7 @@ async function carregarScriptModulo(painel, viewId) {
 
 function atualizarFaixaAlertaSaaS(estado) {
   const faixa = document.getElementById('faixaAlertaAssinaturaGlobal');
-  if (!faixa) return;
-  if (state.user?.role === 'SUPERADMIN') {
-    faixa.style.display = 'none';
-    return;
-  }
-  if (estado === 'em_atraso') {
-    faixa.className = 'alert alert-warning rounded-0 m-0 border-0 border-bottom d-flex align-items-center justify-content-between px-4 py-2 no-print';
-    const b = document.getElementById('badgeAlertaAssinatura');
-    if (b) { b.className = 'badge bg-warning text-dark ms-2'; b.innerText = 'EM ATRASO'; }
-    const m = document.getElementById('mensagemAlertaAssinatura');
-    if (m) m.innerText = 'A subscrição do sistema encontra-se com fatura pendente. Regularize o pagamento para evitar restrição de acesso.';
-    faixa.style.display = 'flex';
-  } else if (estado === 'restrita') {
-    faixa.className = 'alert alert-danger rounded-0 m-0 border-0 border-bottom d-flex align-items-center justify-content-between px-4 py-2 no-print';
-    const b = document.getElementById('badgeAlertaAssinatura');
-    if (b) { b.className = 'badge bg-danger ms-2'; b.innerText = 'MODO RESTRITO'; }
-    const m = document.getElementById('mensagemAlertaAssinatura');
-    if (m) m.innerText = 'A subscrição ultrapassou a tolerância e encontra-se em modo de apenas leitura. Regularize a fatura para restabelecer permissão de escrita.';
-    faixa.style.display = 'flex';
-  } else {
+  if (faixa) {
     faixa.style.display = 'none';
   }
 }
