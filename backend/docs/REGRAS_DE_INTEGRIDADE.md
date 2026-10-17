@@ -224,6 +224,7 @@ classDiagram
 | **Certificado** | `unique_certificado_codigo_autenticidade`| `UNIQUE` | `codigo_autenticidade` |
 | **Pagamento** | `check_pagamento_valor_positivo` | `CHECK` | `valor >= 0` |
 | **Pagamento** | `check_pagamento_valor_pago_positivo` | `CHECK` | `valor_pago >= 0` |
+| **Pagamento** | `unique_pagamento_aluno_mes` | `UNIQUE` | `(escola, aluno, mes_referencia) [status != 'CANCELADO']` |
 | **Assinatura** | `check_assinatura_datas_coerentes` | `CHECK` | `data_fim >= data_inicio` |
 | **Assinatura** | `check_assinatura_valor_positivo` | `CHECK` | `valor >= 0` |
 | **Plano** | `check_plano_preco_positivo` | `CHECK` | `preco >= 0` |
@@ -262,6 +263,7 @@ stateDiagram-v2
 
 ### 6.3. Imutabilidade Documental e Financeira
 - **Recibos de Pagamento:** Uma vez atribuído o número do recibo (`recibo_numero`) e `status='PAGO'`, o valor pago e a data de liquidação tornam-se inalteráveis. Anulações exigem estorno explícito e lançamento de auditoria.
+- **Unicidade de Facturas:** Não é permitida a duplicação de facturas/cobranças para o mesmo aluno no mesmo mês de referência (`mes_referencia`). Tentativas de emissão duplicada disparam a mensagem canônica *"A factura já foi gerada no sistema."*.
 - **Certificados Digitais:** Uma vez emitidos, o `codigo_autenticidade` e o `qrcode_data` gerados são selados e não admitem retificação em linha, devendo ser revogados ou substituídos por nova via com histórico.
 
 ---

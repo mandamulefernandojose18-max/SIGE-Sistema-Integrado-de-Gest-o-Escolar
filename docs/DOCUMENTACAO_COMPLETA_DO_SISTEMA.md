@@ -573,8 +573,8 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST/PATCH` | `/api/v1/pautas/<pk>/fechar` e `/reabrir` | Direção / `DAP` | Homologa/fecha uma pauta (congelando notas) ou reabre para retificação. |
 | `GET/POST` | `/api/v1/material-escolar` | Autenticado / Pedagógico | Lista materiais didáticos (1ª à 12ª Classe) ou publica novo ficheiro/manual. |
 | `GET` | `/api/v1/material-escolar/<pk>/download` | Autenticado | Descarrega o ficheiro binário do material escolar. |
-| `GET/POST` | `/api/v1/pagamentos` e `/gerar-lote` | Financeiro / Aluno | Lista propinas, cria cobrança individual ou gera mensalidades em lote para uma turma. |
-| `POST/PATCH` | `/api/v1/pagamentos/<pk>/pagar` | Financeiro / Secretaria | Liquida pagamento (`MPESA`, `EMOLA`, `POS`, `TRANSFERENCIA`, `NUMERARIO`) e emite recibo `REC-...`. |
+| `GET/POST` | `/api/v1/pagamentos` e `/gerar-turma` | Financeiro / Aluno | Lista propinas, cria cobrança individual ou gera mensalidades em lote para uma turma (com bloqueio estrito contra faturas duplicadas no mesmo mês: *"A factura já foi gerada no sistema."*). |
+| `POST/PATCH` | `/api/v1/pagamentos/<pk>/liquidar` | Financeiro / Secretaria | Liquida pagamento (`MPESA`, `EMOLA`, `POS`, `TRANSFERENCIA`, `NUMERARIO`) e emite recibo oficial `REC-...`. |
 | `GET` | `/api/v1/pagamentos/stats` | Financeiro / Admin | Retorna KPIs financeiros e histórico mensal de receitas. |
 | `GET/POST` | `/api/v1/certificados` | Secretaria / Admin | Lista certificados emitidos ou emite novo certificado com QR Code (`CERT-...`). |
 | `GET` | `/api/v1/dashboard/overview` | Autenticado | Indicadores gerais do Dashboard e validade da assinatura da escola. |
@@ -590,7 +590,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 O SIGE implementa **6 Pilares de Integridade** (`backend/docs/REGRAS_DE_INTEGRIDADE.md`):
 1. **Isolamento Multi-Tenant:** `TenantIsolationMiddleware`, `TenantQuerySetMixin`, validação cruzada `validar_integridade_tenant()` e políticas RLS no PostgreSQL.
 2. **Domínio Pedagógico MEC:** Validação estrita da escala `0.0` a `20.0`, arredondamentos regulamentares, proibição de faltas negativas e filtro rigoroso de disciplinas por secção/área na 11ª e 12ª Classe.
-3. **Unicidade e Integridade Referencial:** Restrições SQL (`UniqueConstraint` e `CheckConstraint`) impedindo notas duplicadas no mesmo trimestre, alocações duplicadas, turmas com nomes repetidos na mesma classe ou pagamentos negativos.
+3. **Unicidade e Integridade Referencial:** Restrições SQL (`UniqueConstraint` e `CheckConstraint`) impedindo notas duplicadas no mesmo trimestre, faturas/propinas duplicadas no mesmo mês para o mesmo aluno (`unique_pagamento_aluno_mes`), alocações duplicadas, turmas com nomes repetidos na mesma classe ou pagamentos negativos.
 4. **Imutabilidade Pós-Homologação:** Quando uma `Pauta` é fechada (`status = 'FECHADA'`), qualquer tentativa de edição de notas é bloqueada ao nível do serviço e do modelo, exceto mediante registo explícito e auditado em `PermissaoEdicaoNotas` dentro do prazo.
 5. **Governança Financeira e Contratual:** Bloqueio automático `HTTP 402` para assinaturas vencidas e verificação dos limites do plano (`max_alunos`, `max_professores`).
 6. **Não-Repúdio e Verificação Pública:** Registo de `LogAcesso`, `LogImpressao`, arquivo binário em `DocumentoSalvo` e validação pública de certificados por QR Code sem necessidade de autenticação.
