@@ -38,7 +38,7 @@ COMMIT_HASH=$(git rev-parse --short HEAD)
 COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
 log_success "Código atualizado para o commit ${COMMIT_HASH}: \"${COMMIT_MSG}\""
 
-# Sincronizar automaticamente frontend/version.json com o commit e timestamp da VM
+# Sincronizar automaticamente frontend/version.json e meta tag sige-build com o commit da VM
 if [ -f "frontend/version.json" ]; then
     cat <<EOF > frontend/version.json
 {
@@ -47,10 +47,15 @@ if [ -f "frontend/version.json" ]; then
   "data": "$(date '+%Y-%m-%d %H:%M:%S')",
   "nome": "SIGE SaaS",
   "commit": "${COMMIT_HASH}",
-  "novidades": "Melhorias e actualizações automáticas de sistema."
+  "novidades": "Melhorias de desempenho e actualizações automáticas de sistema."
 }
 EOF
     log_info "frontend/version.json sincronizado com o commit ${COMMIT_HASH}."
+fi
+
+if [ -f "frontend/index.html" ]; then
+    sed -i "s/<meta name=\"sige-build\" content=\".*\">/<meta name=\"sige-build\" content=\"${COMMIT_HASH}\">/g" frontend/index.html
+    log_info "frontend/index.html sige-build sincronizado com o commit ${COMMIT_HASH}."
 fi
 
 # ------------------------------------------------------------------------------
