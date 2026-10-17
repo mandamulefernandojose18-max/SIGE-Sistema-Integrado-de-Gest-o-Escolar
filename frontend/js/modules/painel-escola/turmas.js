@@ -574,9 +574,13 @@ async function modalCriarTurma() {
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
       if (btnAdd) btnAdd.style.display = 'inline-block';
-      const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
-        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : [];
+      sel.innerHTML = typeof window.renderizarOpcoesNiveisSelect === 'function'
+        ? window.renderizarOpcoesNiveisSelect(niveis)
+        : (niveis.length ? niveis.map(n => `<option value="${n}">${n}</option>`).join('') + '<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>' : '<option value="">-- Nenhum nível cadastrado (+ Adicionar) --</option><option value="__NOVO_NIVEL__">➕ + Adicionar Nível...</option>');
+      if (niveis.length === 0) {
+        setTimeout(() => { if (typeof window.promptAdicionarNivelModal === 'function') window.promptAdicionarNivelModal('mtGrau'); }, 150);
+      }
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
       if (btnAdd) btnAdd.style.display = 'none';
@@ -755,9 +759,13 @@ async function modalCriarTurmasEmLote() {
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
       if (btnAdd) btnAdd.style.display = 'inline-block';
-      const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
-        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : [];
+      sel.innerHTML = typeof window.renderizarOpcoesNiveisSelect === 'function'
+        ? window.renderizarOpcoesNiveisSelect(niveis)
+        : (niveis.length ? niveis.map(n => `<option value="${n}">${n}</option>`).join('') + '<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>' : '<option value="">-- Nenhum nível cadastrado (+ Adicionar) --</option><option value="__NOVO_NIVEL__">➕ + Adicionar Nível...</option>');
+      if (niveis.length === 0) {
+        setTimeout(() => { if (typeof window.promptAdicionarNivelModal === 'function') window.promptAdicionarNivelModal('mlGrau'); }, 150);
+      }
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
       if (btnAdd) btnAdd.style.display = 'none';
@@ -1023,7 +1031,7 @@ async function modalEditarTurma(turmaId) {
       '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
       '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
     ];
-    const niveisOficiais = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
+    const niveisOficiais = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : [];
 
     const grauAtual = (turma.grau_ano || '').trim();
     const isNivel = grauAtual.toLowerCase().includes('nível') || grauAtual.toLowerCase().includes('nivel');
@@ -1032,10 +1040,9 @@ async function modalEditarTurma(turmaId) {
     if (!listaGraus.includes(grauAtual) && grauAtual) {
       listaGraus.push(grauAtual);
     }
-    let optGraus = listaGraus.map(g => `<option value="${g}" ${g === grauAtual ? 'selected' : ''}>${g}</option>`).join('');
-    if (isNivel) {
-      optGraus += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
-    }
+    const optGraus = isNivel
+      ? (typeof window.renderizarOpcoesNiveisSelect === 'function' ? window.renderizarOpcoesNiveisSelect(listaGraus, grauAtual) : listaGraus.map(g => `<option value="${g}" ${g === grauAtual ? 'selected' : ''}>${g}</option>`).join('') + '<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>')
+      : classesOficiais.map(g => `<option value="${g}" ${g === grauAtual ? 'selected' : ''}>${g}</option>`).join('');
 
     const podeHomologar = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'].includes(state.user?.role);
     const dtBadgeStatus = turma.dt_status_homologacao === 'HOMOLOGADO' && turma.codigo_director_turma
@@ -1172,9 +1179,13 @@ async function modalEditarTurma(turmaId) {
       if (regimeSel === 'NIVEL') {
         if (lbl) lbl.textContent = 'Nível Curricular *';
         if (btnAdd) btnAdd.style.display = 'inline-block';
-        const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
-        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
-          `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+        const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : [];
+        sel.innerHTML = typeof window.renderizarOpcoesNiveisSelect === 'function'
+          ? window.renderizarOpcoesNiveisSelect(niveis, grauAtual)
+          : (niveis.length ? niveis.map(n => `<option value="${n}">${n}</option>`).join('') + '<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>' : '<option value="">-- Nenhum nível cadastrado (+ Adicionar) --</option><option value="__NOVO_NIVEL__">➕ + Adicionar Nível...</option>');
+        if (niveis.length === 0) {
+          setTimeout(() => { if (typeof window.promptAdicionarNivelModal === 'function') window.promptAdicionarNivelModal('mtEditGrau'); }, 150);
+        }
       } else {
         if (lbl) lbl.textContent = 'Classe / Grau *';
         if (btnAdd) btnAdd.style.display = 'none';
