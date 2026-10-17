@@ -8,15 +8,88 @@ from django.utils import timezone
 from django.db.models import Sum, Count
 from django.shortcuts import get_object_or_404
 
-from .models import Pagamento
+from .models import Pagamento, PlanoPagamentoEscola
 from .serializers import (
     PagamentoSerializer,
     LiquidarPagamentoSerializer,
-    GerarPagamentosTurmaSerializer
+    GerarPagamentosTurmaSerializer,
+    PlanoPagamentoEscolaSerializer
 )
 from apps.alunos.models import Aluno
 from apps.turmas.models import Turma
 from common.permissions.rbac import IsEscolaAdmin
+
+
+class PlanoPagamentoEscolaViewSet(viewsets.ModelViewSet):
+    """
+    Gestão de Planos de Pagamento e Tabelas de Propinas Próprias de cada Escola.
+    Garante isolamento absoluto:
+    - Cada escola cria, altera e aplica os seus próprios planos aos seus alunos.
+    - O plano do Super Admin é estritamente B2B (Super Admin -> Instituição) e não reflete para os usuários da escola.
+    - Nada do que uma escola configura reflecte ou compromete outra escola.
+    """
+    serializer_class = PlanoPagamentoEscolaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            return PlanoPagamentoEscola.objects.none()
+        qs = PlanoPagamentoEscola.objects.filter(escola=escola)
+
+        ativo = self.request.query_params.get('ativo')
+        if ativo is not None:
+            qs = qs.filter(ativo=str(ativo).lower() in ['true', '1'])
+
+        periodicidade = self.request.query_params.get('periodicidade')
+        if periodicidade:
+            qs = qs.filter(periodicidade=periodicidade)
+
+        busca = self.request.query_params.get('busca') or self.request.query_params.get('q')
+        if busca:
+            qs = qs.filter(nome__icontains=busca)
+
+        return qs.order_by('nome')
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        serializer = self.get_serializer(qs, many=True)
+        return Response({'success': True, 'data': serializer.data})
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+    def _verificar_permissao_gestao(self, request):
+        from rest_framework.exceptions import PermissionDenied
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'CHEFE_SECRETARIA', 'FINANCEIRO']:
+            raise PermissionDenied('Apenas a direcção e gestão financeira da instituição podem gerir os planos de pagamento da escola.')
+
+    def perform_create(self, serializer):
+        from common.utils.tenant import get_tenant_escola
+        from rest_framework import serializers as drf_serializers
+        self._verificar_permissao_gestao(self.request)
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            raise drf_serializers.ValidationError({'escola': 'Nenhuma escola identificada para registar o plano.'})
+        serializer.save(escola=escola)
+
+    def perform_update(self, serializer):
+        self._verificar_permissao_gestao(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._verificar_permissao_gestao(self.request)
+        if instance.pagamentos.exists():
+            instance.ativo = False
+            instance.save()
+        else:
+            instance.delete()
+
 
 class PagamentoViewSet(viewsets.ModelViewSet):
     serializer_class = PagamentoSerializer
@@ -63,6 +136,10 @@ class PagamentoViewSet(viewsets.ModelViewSet):
             raise drf_serializers.ValidationError({'escola': 'Nenhuma escola identificada para registar o pagamento.'})
         if aluno and aluno.escola_id != escola.id:
             raise drf_serializers.ValidationError({'aluno': 'O aluno selecionado pertence a outra instituição de ensino.'})
+
+        plano = serializer.validated_data.get('plano_pagamento')
+        if plano and plano.escola_id != escola.id:
+            raise drf_serializers.ValidationError({'plano_pagamento': 'O plano de pagamento pertence a outra instituição de ensino.'})
 
         # Evita duplicação de faturas do mesmo mês
         if aluno and mes_referencia:
@@ -144,6 +221,10 @@ class PagamentoViewSet(viewsets.ModelViewSet):
             turma = get_object_or_404(Turma, id=data['turma_id'])
             escola = turma.escola or escola
         alunos = Aluno.objects.filter(turma=turma, status='ATIVO')
+        plano_id = data.get('plano_id')
+        plano = None
+        if plano_id:
+            plano = get_object_or_404(PlanoPagamentoEscola, id=plano_id, escola=escola)
 
         criados = 0
         ja_existentes = 0
@@ -162,6 +243,7 @@ class PagamentoViewSet(viewsets.ModelViewSet):
             Pagamento.objects.create(
                 escola=escola,
                 aluno=aluno,
+                plano_pagamento=plano,
                 descricao=data['descricao'],
                 mes_referencia=data['mes_referencia'],
                 valor=data['valor'],

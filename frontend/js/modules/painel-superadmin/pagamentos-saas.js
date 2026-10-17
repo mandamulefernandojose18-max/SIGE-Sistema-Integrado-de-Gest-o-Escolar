@@ -142,6 +142,7 @@ function renderizarTabelaAssinaturas(lista) {
     planoNome = planoNome.replace(/Moçambique/gi, '').replace(/Mocambique/gi, '').trim() || 'Plano Básico';
     const preco = a.plano_detalhes?.preco_mensal ? `${formatarValorMZN(a.plano_detalhes.preco_mensal)} MZN` : '-';
     const proxFatura = a.proxima_fatura_em ? formatarDataPt(a.proxima_fatura_em) : '-';
+    const badgeEstado = obterBadgeEstadoAssinatura(a.estado);
 
     return `
       <tr>

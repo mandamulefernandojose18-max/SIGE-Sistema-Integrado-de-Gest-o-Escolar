@@ -375,10 +375,13 @@ Motor analítico completo (`GET /api/v1/dashboard/estatisticas-aproveitamento`) 
 - Qualquer entidade externa (outra escola, universidade, empregador ou ministério) pode ler o QR Code com a câmara do telemóvel e validar a autenticidade pública do documento em tempo real sem precisar de login.
 
 ### Módulo 14: Gestão Financeira, Propinas e Tesouraria (`#view-pagamentos`)
-- **Emissão Individual e Geração em Lote por Turma (`/pagamentos/gerar-lote`):**
-  - Permite lançar uma cobrança para um aluno específico ou gerar de uma só vez a mensalidade/propina de um mês de referência (Janeiro a Dezembro) para **todos os alunos ativos de uma turma**.
+- **Planos de Pagamento Próprios da Escola (`PlanoPagamentoEscola` / `/api/v1/pagamentos/planos-escola/`):**
+  - Permite que a gestão e tesouraria de cada escola defina os seus próprios planos de pagamento, mensalidades e tabelas de propinas para os alunos, com total isolamento multi-tenant.
+  - O plano de subscrição do Super Admin (`SaasPlano`) é estritamente B2B (Super Admin -> Escola) e não reflete para os alunos nem colide com a tabela de propinas da instituição.
+- **Emissão Individual e Geração em Lote por Turma (`/pagamentos/gerar-turma`):**
+  - Permite lançar uma cobrança para um aluno específico ou gerar de uma só vez a mensalidade/propina de um mês de referência (Janeiro a Dezembro) para **todos os alunos ativos de uma turma**, associando opcionalmente o plano de pagamento da escola.
 - **Deteção Automática de Atrasos:** Cobranças `PENDENTE` cuja `data_vencimento` já passou são automaticamente classificadas como `ATRASADO`.
-- **Liquidação Multicanal e Recibo Oficial (`/pagamentos/<id>/pagar`):**
+- **Liquidação Multicanal e Recibo Oficial (`/pagamentos/<id>/liquidar`):**
   - Regista o pagamento através dos métodos oficiais de Moçambique: **M-Pesa (`MPESA`)**, **e-Mola (`EMOLA`)**, **POS (`POS`)**, **Transferência Bancária (`TRANSFERENCIA`)** ou **Numerário (`NUMERARIO`)**.
   - Gera automaticamente o número de recibo sequencial único (`REC-2026-00001`) pronto para impressão ou download em PDF/Word/Excel.
 - **KPIs Financeiros (`/pagamentos/stats`):** Total Recebido (MZN), Total Pendente (MZN), Total em Atraso (MZN), Taxa de Adimplência (%), Taxa de Inadimplência (%) e histórico mensal de faturação dos 12 meses do ano.
@@ -420,7 +423,7 @@ Acessível apenas a Administradores, Director da Escola, DAP e Chefe de Secretar
   - **Estado da Subscrição:** Acompanhamento dinâmico (`Activa`, `Fatura Aberta`, `Em Atraso`, `Restrita` ou `Suspensa`) com badges e banner de avisos de tolerância.
   - **Plano Contratado:** Identificação institucional como **Plano Básico** com indicação da periodicidade (`Mensal`) e valor contratado em Meticais (`MZN`).
   - **Faturação & Submissão de Comprovativos:** Visualização das faturas emitidas e modal de registo de pagamentos com upload de talão/comprovativo bancário.
-  - **Coordenadas Oficiais em Moçambique:** Carteiras móveis M-Pesa (Vodacom 84) e e-Mola (Movitel 86), além de contas e NIB no Millennium BIM e BCI com validação pelo Super Administrador.
+  - **Coordenadas Oficiais em Moçambique (Sem Dados Fictícios):** Carteiras móveis M-Pesa (Vodacom 84) e e-Mola (Movitel 86), além de contas e NIB no Millennium BIM e BCI com dados dinâmicos configuráveis pelo Super Administrador (iniciando estritamente em branco para evitar números simulados ou falsos).
 
 ---
 
@@ -592,6 +595,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET/POST` | `/api/v1/material-escolar` | Autenticado / Pedagógico | Lista materiais didáticos (1ª à 12ª Classe) ou publica novo ficheiro/manual. |
 | `GET` | `/api/v1/material-escolar/<pk>/download` | Autenticado | Descarrega o ficheiro binário do material escolar. |
 | `GET/POST` | `/api/v1/pagamentos` e `/gerar-turma` | Financeiro / Aluno | Lista propinas, cria cobrança individual ou gera mensalidades em lote para uma turma (com bloqueio estrito contra faturas duplicadas no mesmo mês: *"A factura já foi gerada no sistema."*). |
+| `GET/POST/PUT/PATCH/DELETE` | `/api/v1/pagamentos/planos-escola` | Financeiro / Admin Escola | Gestão dos planos de pagamento e tabelas de propinas próprias da escola (isolamento estrito multi-tenant). |
 | `POST/PATCH` | `/api/v1/pagamentos/<pk>/liquidar` | Financeiro / Secretaria | Liquida pagamento (`MPESA`, `EMOLA`, `POS`, `TRANSFERENCIA`, `NUMERARIO`) e emite recibo oficial `REC-...`. |
 | `GET` | `/api/v1/pagamentos/stats` | Financeiro / Admin | Retorna KPIs financeiros e histórico mensal de receitas. |
 | `GET/POST` | `/api/v1/certificados` | Secretaria / Admin | Lista certificados emitidos ou emite novo certificado com QR Code (`CERT-...`). |

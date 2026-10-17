@@ -15,6 +15,9 @@ if is_testing:
             'NAME': ':memory:',
         }
     }
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
 elif db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
     parsed = urlparse(db_url)
     db_name = unquote(parsed.path.lstrip('/')).split('?')[0]

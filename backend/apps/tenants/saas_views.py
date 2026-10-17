@@ -27,6 +27,10 @@ def is_postgresql():
     return connection.vendor == 'postgresql'
 
 
+def is_superadmin_user(user):
+    return getattr(user, 'role', '') == 'SUPERADMIN' or getattr(user, 'is_superuser', False)
+
+
 # =====================================================================
 # 👑 VISÃO SUPER ADMIN (DONO DA PLATAFORMA)
 # =====================================================================
@@ -35,7 +39,7 @@ class SaasResumoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso exclusivo ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         # 1. Total de Instituições por Estado
@@ -79,7 +83,7 @@ class SaasAssinaturasListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso exclusivo ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         # Garante que todas as escolas tenham um registo de SaasAssinatura ativo
@@ -130,7 +134,7 @@ class SaasAssinaturaDetalheView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso exclusivo ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         ass = SaasAssinatura.objects.select_related('instituicao', 'plano').filter(id=pk).first()
@@ -153,7 +157,7 @@ class SaasAssinaturaDetalheView(APIView):
 
     def patch(self, request, pk):
         """Configuração avançada dos parâmetros da assinatura pelo Super Admin"""
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso exclusivo ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         ass = SaasAssinatura.objects.filter(id=pk).first()
@@ -200,7 +204,7 @@ class SaasPagamentosPendentesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         qs = SaasPagamento.objects.select_related('instituicao', 'fatura').filter(estado='enviado').order_by('-criado_em')
@@ -212,7 +216,7 @@ class SaasConfirmarPagamentoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         pag = SaasPagamento.objects.filter(id=pk).first()
@@ -273,7 +277,7 @@ class SaasRejeitarPagamentoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         motivo = request.data.get('motivo', '').strip()
@@ -315,7 +319,7 @@ class SaasProrrogarDataLimiteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         nova_data_str = request.data.get('nova_data')
@@ -365,7 +369,7 @@ class SaasSuspenderReactivarManualView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         acao = request.data.get('acao')  # 'suspender' ou 'reactivar'
@@ -424,7 +428,7 @@ class SaasRotinaDiariaManualView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN':
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         if is_postgresql():
@@ -456,8 +460,16 @@ class MinhaAssinaturaView(APIView):
 
     def get(self, request):
         user = request.user
+        if getattr(user, 'role', '') in ['ALUNO', 'PROFESSOR']:
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Acesso restrito. Os planos de subscrição do Super Admin aplicam-se apenas à gestão da instituição e não reflectem para os usuários escolares.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
         escola = getattr(user, 'escola', None)
-        if not escola and user.role == 'SUPERADMIN':
+        if not escola and is_superadmin_user(user):
             tenant_id = request.headers.get('X-Tenant-ID') or request.GET.get('tenant_id')
             if tenant_id:
                 escola = Escola.objects.filter(id=tenant_id).first()
@@ -520,8 +532,16 @@ class RegistarPagamentoInstituicaoView(APIView):
 
     def post(self, request):
         user = request.user
+        if getattr(user, 'role', '') in ['ALUNO', 'PROFESSOR']:
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Acesso restrito. Pagamentos SaaS são de competência exclusiva da administração da instituição.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
         escola = getattr(user, 'escola', None)
-        if not escola and user.role == 'SUPERADMIN':
+        if not escola and is_superadmin_user(user):
             tenant_id = request.headers.get('X-Tenant-ID') or request.data.get('instituicao_id')
             if tenant_id:
                 escola = Escola.objects.filter(id=tenant_id).first()
@@ -614,7 +634,7 @@ class SaasCoordenadasPagamentoView(APIView):
         })
 
     def post(self, request):
-        if getattr(request.user, 'role', '') != 'SUPERADMIN' and not request.user.is_superuser:
+        if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
         coord = SaasCoordenadasPagamento.get_singleton()

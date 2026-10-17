@@ -258,7 +258,7 @@ class SaaSMetricsView(APIView):
 class PlanoViewSet(viewsets.ModelViewSet):
     queryset = Plano.objects.all()
     serializer_class = PlanoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()

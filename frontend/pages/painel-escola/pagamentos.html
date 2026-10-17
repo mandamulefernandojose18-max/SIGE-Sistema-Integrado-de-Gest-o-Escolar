@@ -43,42 +43,95 @@
           </div>
         </div>
 
-        <div class="card p-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold mb-0"><i class="bi bi-wallet2 me-2"></i>Gestão de Propinas & Mensalidades (MZN)</h5>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-danger btn-sm" onclick="exportarPagamentosPdf()" title="Exportar pagamentos em PDF">
-                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF
-                </button>
-                <button class="btn btn-outline-success btn-sm" onclick="exportarPagamentosExcel()" title="Exportar pagamentos em Excel">
-                  <i class="bi bi-file-earmark-excel me-1"></i> Excel
-                </button>
-                <button class="btn btn-outline-primary btn-sm" onclick="exportarPagamentosWord()" title="Exportar pagamentos em Word">
-                  <i class="bi bi-file-earmark-word me-1"></i> Word
-                </button>
+        <!-- Navegação por Abas: Cobranças aos Alunos vs. Planos Próprios da Escola -->
+        <ul class="nav nav-pills mb-4 gap-2" id="pagamentosTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="tab-cobrancas-btn" data-bs-toggle="pill" data-bs-target="#tab-cobrancas" type="button" role="tab">
+              <i class="bi bi-people me-2"></i>Cobranças & Mensalidades aos Alunos
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-planos-escola-btn" data-bs-toggle="pill" data-bs-target="#tab-planos-escola" type="button" role="tab" onclick="carregarPlanosEscola()">
+              <i class="bi bi-tag-fill me-2"></i>Planos & Tabela de Propinas da Escola
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="pagamentosTabsContent">
+          <!-- Aba 1: Cobranças aos Alunos -->
+          <div class="tab-pane fade show active" id="tab-cobrancas" role="tabpanel">
+            <div class="card p-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-wallet2 me-2"></i>Gestão de Propinas & Mensalidades (MZN)</h5>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-danger btn-sm" onclick="exportarPagamentosPdf()" title="Exportar pagamentos em PDF">
+                      <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="exportarPagamentosExcel()" title="Exportar pagamentos em Excel">
+                      <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="exportarPagamentosWord()" title="Exportar pagamentos em Word">
+                      <i class="bi bi-file-earmark-word me-1"></i> Word
+                    </button>
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm" onclick="modalGerarMensalidadesTurma()"><i class="bi bi-calendar-plus me-1"></i> Gerar em Lote para Turma</button>
+                  <button class="btn btn-primary btn-sm" onclick="modalNovoPagamento()"><i class="bi bi-plus-lg me-1"></i> Nova Cobrança</button>
+                </div>
               </div>
-              <button class="btn btn-outline-primary btn-sm" onclick="modalGerarMensalidadesTurma()"><i class="bi bi-calendar-plus me-1"></i> Gerar em Lote para Turma</button>
-              <button class="btn btn-primary btn-sm" onclick="modalNovoPagamento()"><i class="bi bi-plus-lg me-1"></i> Nova Cobrança</button>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Aluno</th>
+                      <th>Descrição</th>
+                      <th>Plano da Escola</th>
+                      <th>Mês Ref.</th>
+                      <th>Valor (MZN)</th>
+                      <th>Vencimento</th>
+                      <th>Estado</th>
+                      <th class="text-end">Liquidação & Recibo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaPagamentos">
+                    <tr><td colspan="8" class="text-center py-4">A carregar pagamentos...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th>Aluno</th>
-                  <th>Descrição</th>
-                  <th>Mês Ref.</th>
-                  <th>Valor (MZN)</th>
-                  <th>Vencimento</th>
-                  <th>Estado</th>
-                  <th class="text-end">Liquidação & Recibo</th>
-                </tr>
-              </thead>
-              <tbody id="tabelaPagamentos">
-                <tr><td colspan="7" class="text-center py-4">A carregar pagamentos...</td></tr>
-              </tbody>
-            </table>
+
+          <!-- Aba 2: Planos & Tabela de Propinas da Escola -->
+          <div class="tab-pane fade" id="tab-planos-escola" role="tabpanel">
+            <div class="card p-4">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-tag-fill me-2"></i>Planos de Pagamento & Emolumentos da Escola</h5>
+                  <small class="text-muted">Crie e configure os planos de propinas e taxas escolares que esta instituição aplica aos seus alunos. Totalmente isolado das outras instituições e da subscrição SaaS.</small>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="modalNovoPlanoEscola()">
+                  <i class="bi bi-plus-lg me-1"></i> Novo Plano Escolar
+                </button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Nome do Plano / Taxa</th>
+                      <th>Periodicidade</th>
+                      <th>Valor Oficial (MZN)</th>
+                      <th>Vencimento Padrão</th>
+                      <th>Cobranças Emitidas</th>
+                      <th>Estado</th>
+                      <th class="text-end">Acções</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaPlanosEscola">
+                    <tr><td colspan="7" class="text-center py-4">A carregar planos de pagamento da escola...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </section>
