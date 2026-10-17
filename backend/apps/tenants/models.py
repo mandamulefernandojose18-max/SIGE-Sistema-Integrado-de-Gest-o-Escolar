@@ -69,6 +69,28 @@ class Escola(models.Model):
     codigo_escola = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     logo_base64 = models.TextField(blank=True, null=True)
     galeria_logos = models.JSONField(default=list, blank=True)
+
+    # Identidade Visual, Tema e Imagem de Fundo da Instituição
+    tema_codigo = models.CharField(max_length=50, default='padrao_azul')
+    tema_cor_primaria = models.CharField(max_length=20, default='#1e3a8a', blank=True)
+    tema_cor_hover = models.CharField(max_length=20, default='#172554', blank=True)
+    tema_cor_sidebar = models.CharField(max_length=20, default='#0f172a', blank=True)
+    tema_cor_sidebar_ativa = models.CharField(max_length=20, default='#38bdf8', blank=True)
+    imagem_fundo_url = models.TextField(blank=True, null=True)
+    imagem_fundo_base64 = models.TextField(blank=True, null=True)
+    imagem_fundo_modo = models.CharField(
+        max_length=30,
+        default='marca_dagua',
+        choices=[
+            ('marca_dagua', 'Marca de Água Central Sutil'),
+            ('cobertura_total', 'Papel de Parede Total (Wallpaper)'),
+            ('padrao_textura', 'Padrão Textura Suave'),
+            ('nenhum', 'Sem Imagem de Fundo (Apenas Cores)')
+        ]
+    )
+    imagem_fundo_opacidade = models.IntegerField(default=15)
+    galeria_fundos = models.JSONField(default=list, blank=True)
+
     bloqueada_manualmente = models.BooleanField(default=False)
     permitir_visualizacao_notas = models.BooleanField(default=True)
     modo_publicacao_notas = models.CharField(

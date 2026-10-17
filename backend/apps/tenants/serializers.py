@@ -24,6 +24,8 @@ class EscolaSerializer(serializers.ModelSerializer):
     _count = serializers.SerializerMethodField()
     logo_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     galeria_logos = serializers.JSONField(required=False, allow_null=True)
+    imagem_fundo_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    galeria_fundos = serializers.JSONField(required=False, allow_null=True)
     codigo_gabinete_director = serializers.ReadOnlyField()
     codigo_direccao_pedagogica = serializers.ReadOnlyField()
     codigo_secretaria = serializers.ReadOnlyField()
@@ -49,6 +51,17 @@ class EscolaSerializer(serializers.ModelSerializer):
         galeria = attrs.get('galeria_logos')
         if galeria is not None and not isinstance(galeria, list):
             attrs['galeria_logos'] = []
+
+        fundo_val = attrs.get('imagem_fundo_url')
+        if fundo_val and str(fundo_val).startswith('data:'):
+            attrs['imagem_fundo_base64'] = fundo_val
+            attrs['imagem_fundo_url'] = None
+        elif 'imagem_fundo_url' in attrs and (fundo_val == '' or fundo_val is None):
+            attrs['imagem_fundo_url'] = None
+            attrs['imagem_fundo_base64'] = None
+        galeria_f = attrs.get('galeria_fundos')
+        if galeria_f is not None and not isinstance(galeria_f, list):
+            attrs['galeria_fundos'] = []
         return super().validate(attrs)
 
     def get_assinatura_ativa(self, obj):
@@ -78,6 +91,8 @@ class EscolaSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['logo_url'] = instance.logo_url or instance.logo_base64 or None
         data['galeria_logos'] = instance.galeria_logos if isinstance(instance.galeria_logos, list) else []
+        data['imagem_fundo_url'] = instance.imagem_fundo_url or instance.imagem_fundo_base64 or None
+        data['galeria_fundos'] = instance.galeria_fundos if isinstance(instance.galeria_fundos, list) else []
         data['codigo_gabinete_director'] = instance.codigo_gabinete_director
         data['codigo_direccao_pedagogica'] = instance.codigo_direccao_pedagogica
         data['codigo_secretaria'] = instance.codigo_secretaria
