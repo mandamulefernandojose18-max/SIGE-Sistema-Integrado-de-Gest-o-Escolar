@@ -5,7 +5,6 @@
  */
 // ==================== GESTÃO DE NÍVEIS CURRICULARES DA INSTITUIÇÃO ====================
 window.obterNiveisInstituicao = function() {
-  const padrao = ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'];
   const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
     || state.tenant?.id
     || state.user?.escola_id
@@ -17,7 +16,7 @@ window.obterNiveisInstituicao = function() {
     salvos = JSON.parse(localStorage.getItem(chave) || '[]');
   } catch (_) {}
 
-  const setNiveis = new Set([...padrao, ...salvos]);
+  const setNiveis = new Set([...salvos]);
   (state.todasDisciplinas || []).forEach(d => {
     const c = (d.classe || '').trim();
     if (c.toLowerCase().includes('nível') || c.toLowerCase().includes('nivel')) {
@@ -36,6 +35,16 @@ window.obterNiveisInstituicao = function() {
     const numB = parseInt(b.replace(/\D/g, '')) || 0;
     return numA - numB;
   });
+};
+
+window.renderizarOpcoesNiveisSelect = function(niveis, selecionado = '') {
+  if (!niveis || niveis.length === 0) {
+    return `<option value="">-- Nenhum nível cadastrado (+ Adicionar) --</option>` +
+           `<option value="__NOVO_NIVEL__">➕ + Adicionar Nível...</option>`;
+  }
+  let html = niveis.map(n => `<option value="${n}" ${n === selecionado ? 'selected' : ''}>${n}</option>`).join('');
+  html += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+  return html;
 };
 
 window.adicionarNivelInstituicao = function(novoNivel) {
@@ -72,7 +81,7 @@ window.promptAdicionarNivelModal = function(selectId, callback) {
     const sel = document.getElementById(selectId);
     if (sel && sel.value === '__NOVO_NIVEL__') {
       const niveis = window.obterNiveisInstituicao();
-      sel.value = niveis[0] || 'Nível 1';
+      sel.value = niveis[0] || '';
     }
     return;
   }
@@ -81,8 +90,7 @@ window.promptAdicionarNivelModal = function(selectId, callback) {
     const sel = document.getElementById(selectId);
     if (sel) {
       const niveis = window.obterNiveisInstituicao();
-      sel.innerHTML = niveis.map(n => `<option value="${n}" ${n === adicionado ? 'selected' : ''}>${n}</option>`).join('') +
-        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis, adicionado);
       sel.value = adicionado;
       if (typeof callback === 'function') callback(adicionado);
     }
@@ -91,11 +99,13 @@ window.promptAdicionarNivelModal = function(selectId, callback) {
 
 window.modalAdicionarNivelCurricular = function() {
   const niveisAtuais = window.obterNiveisInstituicao();
-  const listaNiveisHtml = niveisAtuais.map(n => `
-    <span class="badge bg-success bg-opacity-10 text-success border border-success p-2 fs-6">
-      <i class="bi bi-layers-fill me-1"></i>${n}
-    </span>
-  `).join('');
+  const listaNiveisHtml = niveisAtuais.length > 0
+    ? niveisAtuais.map(n => `
+      <span class="badge bg-success bg-opacity-10 text-success border border-success p-2 fs-6">
+        <i class="bi bi-layers-fill me-1"></i>${n}
+      </span>
+    `).join('')
+    : '<span class="text-muted small fst-italic"><i class="bi bi-info-circle me-1"></i>Nenhum nível cadastrado ainda nesta instituição. Utilize o formulário abaixo ou os botões de adição rápida para adicionar os níveis da sua escola (ex: Nível 1, Nível 2...).</span>';
 
   abrirModal('Gerir & Adicionar Níveis Curriculares da Instituição', `
     <form id="formAdicionarNivelInst">
@@ -254,11 +264,9 @@ function modalNovaSeccaoArea() {
 
   const classeAtiva = (state.filtroDisciplinaClasse || '10ª Classe').trim();
   const isNivel = classeAtiva.toLowerCase().includes('nível') || classeAtiva.toLowerCase().includes('nivel');
-  const listaInicial = isNivel ? niveisOficiais : classesOficiais;
-  let optClasses = listaInicial.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
-  if (isNivel) {
-    optClasses += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
-  }
+  const optClasses = isNivel
+    ? window.renderizarOpcoesNiveisSelect(niveisOficiais, classeAtiva)
+    : classesOficiais.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
 
   abrirModal('Cadastrar Secção / Área de Estudo', `
     <form id="formModalSeccaoArea">
@@ -309,11 +317,13 @@ function modalNovaSeccaoArea() {
     const btnAdd = document.getElementById('btnAdicionarNivelSeccao');
     if (!sel) return;
     if (regime === 'NIVEL') {
-      if (lbl) lbl.textContent = 'Nível Correspondente *';
+      if (lbl) lbl.textContent = 'Nível Curricular *';
       if (btnAdd) btnAdd.style.display = 'inline-block';
       const niveis = window.obterNiveisInstituicao();
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
-        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis);
+      if (niveis.length === 0) {
+        setTimeout(() => { window.promptAdicionarNivelModal('msaClasse'); }, 150);
+      }
     } else {
       if (lbl) lbl.textContent = 'Classe Correspondente *';
       if (btnAdd) btnAdd.style.display = 'none';
@@ -630,12 +640,9 @@ function modalNovaDisciplina() {
     `<option value="${a}" ${state.filtroDisciplinaArea === a ? 'selected' : ''}>${a}</option>`
   ).join('');
 
-  let optOpcoesHtml = opcoesIniciais.map(o => 
-    `<option value="${o}" ${itemInicial === o ? 'selected' : ''}>${o}</option>`
-  ).join('');
-  if (isNivelInicial) {
-    optOpcoesHtml += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
-  }
+  let optOpcoesHtml = isNivelInicial
+    ? window.renderizarOpcoesNiveisSelect(niveisOficiais, itemInicial)
+    : classesOficiais.map(o => `<option value="${o}" ${itemInicial === o ? 'selected' : ''}>${o}</option>`).join('');
 
   abrirModal('Nova Disciplina Curricular', `
     <form id="formModalDisc">
@@ -709,8 +716,10 @@ function modalNovaDisciplina() {
       if (lbl) lbl.textContent = 'Nível Curricular *';
       if (btnAdd) btnAdd.style.display = 'inline-block';
       const niveis = window.obterNiveisInstituicao();
-      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
-        `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+      sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis);
+      if (niveis.length === 0) {
+        setTimeout(() => { window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc); }, 150);
+      }
     } else {
       if (lbl) lbl.textContent = 'Classe / Grau *';
       if (btnAdd) btnAdd.style.display = 'none';
@@ -789,10 +798,9 @@ async function modalEditarDisciplina(disciplinaId) {
     if (!listaOpcoes.includes(classeVal) && classeVal) {
       listaOpcoes.push(classeVal);
     }
-    let optOpcoes = listaOpcoes.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
-    if (isNivel) {
-      optOpcoes += `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
-    }
+    const optOpcoes = isNivel
+      ? window.renderizarOpcoesNiveisSelect(listaOpcoes, classeVal)
+      : classesOficiais.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
 
     const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(d.classe)
@@ -876,8 +884,10 @@ async function modalEditarDisciplina(disciplinaId) {
         if (lbl) lbl.textContent = 'Nível Curricular *';
         if (btnAdd) btnAdd.style.display = 'inline-block';
         const niveis = window.obterNiveisInstituicao();
-        sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('') +
-          `<option value="__NOVO_NIVEL__">➕ + Adicionar Outro Nível...</option>`;
+        sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis, classeVal);
+        if (niveis.length === 0) {
+          setTimeout(() => { window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc); }, 150);
+        }
       } else {
         if (lbl) lbl.textContent = 'Classe / Grau *';
         if (btnAdd) btnAdd.style.display = 'none';
