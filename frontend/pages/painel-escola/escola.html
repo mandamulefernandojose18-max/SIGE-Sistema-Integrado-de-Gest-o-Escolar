@@ -191,19 +191,369 @@
                     </label>
                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">Cores Oficiais</span>
                   </div>
-                  <p class="x-small text-muted mb-2" style="font-size: 0.8rem;">
-                    Personalize as cores dos botões, menus, cabeçalhos e painéis da sua escola conforme a identidade institucional desejada.
+                  <p class="x-small text-muted mb-3" style="font-size: 0.82rem;">
+                    Personalize as cores dos botões, menus, cabeçalhos e painéis da sua escola. Escolha qualquer cor directamente no espectro ou seleccione um dos temas institucionais abaixo:
                   </p>
 
-                  <!-- Grade de Temas Disponíveis -->
+                  <!-- 1. ESPECTRO VISUAL DE CORES RÁPIDAS (SWATCHES DIRETOS) -->
+                  <div class="p-3 rounded bg-white border mb-3 shadow-xs">
+                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                      <span class="small fw-bold text-dark d-flex align-items-center">
+                        <i class="bi bi-circle-square me-1 text-primary"></i> 1. Espectro de Cores (Clique para Escolher)
+                      </span>
+                      <div class="d-flex align-items-center gap-1" id="boxCorAtivaPreview">
+                        <span class="badge text-white px-2 py-1 shadow-sm font-monospace" id="badgeCorAtivaHex" style="background-color: #1e3a8a; font-size: 0.72rem;">#1E3A8A</span>
+                        <span class="small text-muted fw-semibold" id="nomeCorAtivaTexto" style="font-size: 0.74rem;">Azul SIGE</span>
+                      </div>
+                    </div>
+
+                    <!-- Grade de Espectro de Cores Clicáveis -->
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3" id="espectroCoresGrade">
+                      <!-- Azuis -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #1e3a8a;" 
+                              onclick="selecionarCorEspectro('#1e3a8a', 'Azul Real SIGE')" 
+                              title="Azul Real SIGE (#1e3a8a)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #2563eb;" 
+                              onclick="selecionarCorEspectro('#2563eb', 'Azul Elétrico')" 
+                              title="Azul Elétrico (#2563eb)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #0284c7;" 
+                              onclick="selecionarCorEspectro('#0284c7', 'Azul Safira')" 
+                              title="Azul Safira (#0284c7)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #0ea5e9;" 
+                              onclick="selecionarCorEspectro('#0ea5e9', 'Azul Céu')" 
+                              title="Azul Céu (#0ea5e9)"></button>
+
+                      <!-- Índigos e Violetas -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #312e81;" 
+                              onclick="selecionarCorEspectro('#312e81', 'Índigo Save')" 
+                              title="Índigo Save (#312e81)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #4338ca;" 
+                              onclick="selecionarCorEspectro('#4338ca', 'Índigo Universitário')" 
+                              title="Índigo Universitário (#4338ca)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #581c87;" 
+                              onclick="selecionarCorEspectro('#581c87', 'Púrpura Imperial')" 
+                              title="Púrpura Imperial (#581c87)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #7c3aed;" 
+                              onclick="selecionarCorEspectro('#7c3aed', 'Violeta Moderno')" 
+                              title="Violeta Moderno (#7c3aed)"></button>
+
+                      <!-- Verdes -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #064e3b;" 
+                              onclick="selecionarCorEspectro('#064e3b', 'Verde Floresta')" 
+                              title="Verde Floresta (#064e3b)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #065f46;" 
+                              onclick="selecionarCorEspectro('#065f46', 'Verde Esmeralda')" 
+                              title="Verde Esmeralda (#065f46)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #059669;" 
+                              onclick="selecionarCorEspectro('#059669', 'Verde Jade')" 
+                              title="Verde Jade (#059669)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #16a34a;" 
+                              onclick="selecionarCorEspectro('#16a34a', 'Verde Bandeira')" 
+                              title="Verde Bandeira (#16a34a)"></button>
+
+                      <!-- Vermelhos e Bordôs -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #881337;" 
+                              onclick="selecionarCorEspectro('#881337', 'Bordeaux Nobre')" 
+                              title="Bordeaux Nobre (#881337)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #991b1b;" 
+                              onclick="selecionarCorEspectro('#991b1b', 'Rubi Clássico')" 
+                              title="Rubi Clássico (#991b1b)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #b91c1c;" 
+                              onclick="selecionarCorEspectro('#b91c1c', 'Vermelho Institucional')" 
+                              title="Vermelho Institucional (#b91c1c)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #dc2626;" 
+                              onclick="selecionarCorEspectro('#dc2626', 'Carmesim')" 
+                              title="Carmesim (#dc2626)"></button>
+
+                      <!-- Âmbar e Laranja -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #78350f;" 
+                              onclick="selecionarCorEspectro('#78350f', 'Bronze Nobre')" 
+                              title="Bronze Nobre (#78350f)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #b45309;" 
+                              onclick="selecionarCorEspectro('#b45309', 'Âmbar Moçambique')" 
+                              title="Âmbar Moçambique (#b45309)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #d97706;" 
+                              onclick="selecionarCorEspectro('#d97706', 'Dourado Solar')" 
+                              title="Dourado Solar (#d97706)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #ea580c;" 
+                              onclick="selecionarCorEspectro('#ea580c', 'Coral Quente')" 
+                              title="Coral Quente (#ea580c)"></button>
+
+                      <!-- Cianos e Petróleos -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #083344;" 
+                              onclick="selecionarCorEspectro('#083344', 'Petróleo Noite')" 
+                              title="Petróleo Noite (#083344)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #0e7490;" 
+                              onclick="selecionarCorEspectro('#0e7490', 'Petróleo Marítimo')" 
+                              title="Petróleo Marítimo (#0e7490)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #0f766e;" 
+                              onclick="selecionarCorEspectro('#0f766e', 'Turquesa Escuro')" 
+                              title="Turquesa Escuro (#0f766e)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #0d9488;" 
+                              onclick="selecionarCorEspectro('#0d9488', 'Turquesa Ciano')" 
+                              title="Turquesa Ciano (#0d9488)"></button>
+
+                      <!-- Magentas e Rosas -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #831843;" 
+                              onclick="selecionarCorEspectro('#831843', 'Bordô Rosado')" 
+                              title="Bordô Rosado (#831843)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #9d174d;" 
+                              onclick="selecionarCorEspectro('#9d174d', 'Framboesa')" 
+                              title="Framboesa (#9d174d)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #be185d;" 
+                              onclick="selecionarCorEspectro('#be185d', 'Magenta')" 
+                              title="Magenta (#be185d)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #e11d48;" 
+                              onclick="selecionarCorEspectro('#e11d48', 'Rosa Carmim')" 
+                              title="Rosa Carmim (#e11d48)"></button>
+
+                      <!-- Grafites e Ardósias -->
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #0f172a;" 
+                              onclick="selecionarCorEspectro('#0f172a', 'Ardósia Escura')" 
+                              title="Ardósia Escura (#0f172a)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #1e293b;" 
+                              onclick="selecionarCorEspectro('#1e293b', 'Grafite Moderno')" 
+                              title="Grafite Moderno (#1e293b)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #334155;" 
+                              onclick="selecionarCorEspectro('#334155', 'Chumbo')" 
+                              title="Chumbo (#334155)"></button>
+                      <button type="button" class="btn p-0 rounded-circle swatch-cor-espectro border shadow-xs" 
+                              style="width: 32px; height: 32px; background-color: #475569;" 
+                              onclick="selecionarCorEspectro('#475569', 'Aço Institucional')" 
+                              title="Aço Institucional (#475569)"></button>
+                    </div>
+
+                    <!-- 2. BARRA DE GRADIENTE CONTÍNUO DO ESPECTRO (ARCO-ÍRIS INTERATIVO) -->
+                    <div class="mb-2">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <small class="text-dark fw-bold" style="font-size: 0.76rem;">
+                          <i class="bi bi-rainbow me-1 text-primary"></i> 2. Barra de Espectro Contínuo (Deslize para Navegar em 360°)
+                        </small>
+                        <small class="text-muted font-monospace" id="lblMatizEspectro" style="font-size: 0.72rem;">220° (Azul)</small>
+                      </div>
+                      <div class="position-relative p-1 rounded-pill border" style="background: linear-gradient(to right, #ff0000 0%, #ff8000 12%, #ffff00 25%, #00ff00 38%, #00ffff 50%, #007fff 62%, #0000ff 75%, #8000ff 87%, #ff007f 100%);">
+                        <input type="range" class="form-range w-100 m-0" id="sliderEspectroMatiz" min="0" max="360" value="220" 
+                               oninput="aoMoverEspectroSlider(this.value)" 
+                               style="opacity: 0.85; cursor: pointer; height: 18px;">
+                      </div>
+                    </div>
+
+                    <!-- 3. SELETOR LIVRE COM CONTA-GOTAS / COLOR PICKER NATIVO -->
+                    <div class="d-flex align-items-center justify-content-between gap-2 pt-2 border-top flex-wrap">
+                      <label for="pickerEspectroManual" class="small text-muted mb-0 fw-semibold cursor-pointer d-flex align-items-center">
+                        <i class="bi bi-eyedropper me-1 text-primary"></i> Ou abra o Seletor/Conta-Gotas Livre:
+                      </label>
+                      <div class="d-flex align-items-center gap-2">
+                        <input type="color" id="pickerEspectroManual" class="form-control form-control-color border-2 p-0" 
+                               value="#1e3a8a" title="Clique para abrir o espectro completo" 
+                               onchange="selecionarCorEspectro(this.value, 'Cor do Espectro')" 
+                               style="width: 44px; height: 30px; cursor: pointer;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm px-2 py-0" style="font-size: 0.74rem; height: 30px;" onclick="restaurarPadraoTemaEFundo()">
+                          <i class="bi bi-arrow-counterclockwise me-1"></i> Padrão
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 4. TEMAS INSTITUCIONAIS COMPLETOS (8 TEMAS PRÉ-DEFINIDOS + PERSONALIZADO) -->
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="small fw-bold text-dark">
+                      <i class="bi bi-grid-fill me-1 text-primary"></i> 3. Temas Oficiais Completos Pré-configurados
+                    </span>
+                    <small class="text-muted">Harmonizados para o SIGE</small>
+                  </div>
+
+                  <!-- Grade de Temas Disponíveis (Pré-renderizada no HTML) -->
                   <div class="row g-2 mb-3" id="gradeTemasDisponiveis">
-                    <!-- Gerado dinamicamente via JS (Azul SIGE, Índigo Save, Verde Esmeralda, Bordeaux, Âmbar, Grafite, etc.) -->
+                    <!-- 1. Azul SIGE -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-primary border-2 bg-primary-subtle shadow-sm"
+                           id="cardTema_padrao_azul"
+                           onclick="selecionarTemaEscola('padrao_azul')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #0f172a 0%, #0f172a 40%, #1e3a8a 40%, #1e3a8a 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Azul SIGE</div>
+                        <div class="mt-auto" id="badgeTema_padrao_azul">
+                          <span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 2. Índigo Save -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_indigo_save"
+                           onclick="selecionarTemaEscola('indigo_save')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #0f0d2e 0%, #0f0d2e 40%, #312e81 40%, #312e81 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #818cf8; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Índigo Save</div>
+                        <div class="mt-auto" id="badgeTema_indigo_save">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 3. Verde Esmeralda -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_verde_esmeralda"
+                           onclick="selecionarTemaEscola('verde_esmeralda')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #022c22 0%, #022c22 40%, #065f46 40%, #065f46 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #34d399; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Verde Esmeralda</div>
+                        <div class="mt-auto" id="badgeTema_verde_esmeralda">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 4. Bordeaux Rubi -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_vermelho_rubi"
+                           onclick="selecionarTemaEscola('vermelho_rubi')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #450a0a 0%, #450a0a 40%, #991b1b 40%, #991b1b 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #f87171; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Bordeaux Rubi</div>
+                        <div class="mt-auto" id="badgeTema_vermelho_rubi">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 5. Âmbar Dourado -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_dourado_ambar"
+                           onclick="selecionarTemaEscola('dourado_ambar')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #1c1917 0%, #1c1917 40%, #b45309 40%, #b45309 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Âmbar Dourado</div>
+                        <div class="mt-auto" id="badgeTema_dourado_ambar">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 6. Grafite Safira -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_safira_grafite"
+                           onclick="selecionarTemaEscola('safira_grafite')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #0b1120 0%, #0b1120 40%, #0284c7 40%, #0284c7 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Grafite Safira</div>
+                        <div class="mt-auto" id="badgeTema_safira_grafite">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 7. Púrpura Real -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_purpura_real"
+                           onclick="selecionarTemaEscola('purpura_real')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #1e0933 0%, #1e0933 40%, #581c87 40%, #581c87 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Púrpura Real</div>
+                        <div class="mt-auto" id="badgeTema_purpura_real">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 8. Petróleo Ciano -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_petroleo_ciano"
+                           onclick="selecionarTemaEscola('petroleo_ciano')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #042f2e 0%, #042f2e 40%, #0f766e 40%, #0f766e 100%);">
+                          <div style="width: 12px; height: 12px; border-radius: 50%; background: #2dd4bf; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Petróleo Ciano</div>
+                        <div class="mt-auto" id="badgeTema_petroleo_ciano">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 9. Personalizado -->
+                    <div class="col-6 col-sm-4">
+                      <div class="card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white"
+                           id="cardTema_personalizado"
+                           onclick="selecionarTemaEscola('personalizado')"
+                           style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+                        <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center" 
+                             style="height: 36px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);">
+                          <i class="bi bi-sliders text-white fs-6"></i>
+                        </div>
+                        <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">Personalizado</div>
+                        <div class="mt-auto" id="badgeTema_personalizado">
+                          <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Painel de Cores Personalizadas (Expansível quando "Personalizado" é selecionado) -->
                   <div id="painelCoresPersonalizadas" class="p-2 rounded bg-white border mb-2" style="display: none;">
                     <div class="fw-bold text-dark small mb-2 d-flex align-items-center justify-content-between">
-                      <span><i class="bi bi-sliders me-1 text-primary"></i> Cores Manuais Personalizadas</span>
+                      <span><i class="bi bi-sliders me-1 text-primary"></i> Ajuste Fino das Cores Individuais</span>
                       <small class="text-muted">Formato Hexadecimal</small>
                     </div>
                     <div class="row g-2">

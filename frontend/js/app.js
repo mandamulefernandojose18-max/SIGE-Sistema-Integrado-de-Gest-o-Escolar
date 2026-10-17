@@ -4243,46 +4243,264 @@ function aplicarTemaEFundoInstituicao(escola, opcoes = {}) {
 }
 window.aplicarTemaEFundoInstituicao = aplicarTemaEFundoInstituicao;
 
+// Utilitários de Conversão Cromática e Geração de Paleta Harmónica
+function hexParaRgb(hex) {
+  hex = (hex || '#1e3a8a').replace('#', '').trim();
+  if (hex.length === 3) {
+    hex = hex.split('').map(c => c + c).join('');
+  }
+  const num = parseInt(hex, 16) || 0;
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255
+  };
+}
+
+function rgbParaHex(r, g, b) {
+  const c = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+
+function rgbParaHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s, l };
+}
+
+function hslParaRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return { r: v, g: v, b: v };
+  }
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1/3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1/3) * 255)
+  };
+}
+
+function gerarPaletaHarmonica(hexPrimaria) {
+  try {
+    const rgb = hexParaRgb(hexPrimaria);
+    const hsl = rgbParaHsl(rgb.r, rgb.g, rgb.b);
+    
+    // Hover: Tom 20% mais escuro e saturado
+    const hoverRgb = hslParaRgb(hsl.h, Math.min(1, hsl.s * 1.1), Math.max(0.12, hsl.l * 0.78));
+    
+    // Sidebar: Fundo escuro baseado no matiz institucional (luminosidade 8% a 12%)
+    const sidebarRgb = hslParaRgb(hsl.h, Math.min(0.60, hsl.s * 0.8), 0.09);
+    
+    // Sidebar Ativa: Tom luminoso e brilhante (luminosidade 65% a 75%)
+    const ativaRgb = hslParaRgb(hsl.h, Math.max(0.75, hsl.s), 0.65);
+
+    return {
+      primaria: hexPrimaria.toLowerCase(),
+      hover: rgbParaHex(hoverRgb.r, hoverRgb.g, hoverRgb.b),
+      sidebar: rgbParaHex(sidebarRgb.r, sidebarRgb.g, sidebarRgb.b),
+      sidebarAtiva: rgbParaHex(ativaRgb.r, ativaRgb.g, ativaRgb.b)
+    };
+  } catch (_) {
+    return {
+      primaria: hexPrimaria,
+      hover: '#172554',
+      sidebar: '#0f172a',
+      sidebarAtiva: '#38bdf8'
+    };
+  }
+}
+
+function selecionarCorEspectro(hexPrimaria, nomeCor = '') {
+  if (!hexPrimaria) return;
+  hexPrimaria = hexPrimaria.trim();
+  const paleta = gerarPaletaHarmonica(hexPrimaria);
+
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('confEscolaCorPrimaria', paleta.primaria);
+  setVal('confEscolaCorPrimariaHex', paleta.primaria);
+  setVal('confEscolaCorHover', paleta.hover);
+  setVal('confEscolaCorHoverHex', paleta.hover);
+  setVal('confEscolaCorSidebar', paleta.sidebar);
+  setVal('confEscolaCorSidebarHex', paleta.sidebar);
+  setVal('confEscolaCorSidebarAtiva', paleta.sidebarAtiva);
+  setVal('confEscolaCorSidebarAtivaHex', paleta.sidebarAtiva);
+
+  // Define tema como personalizado ou detecta se bate com algum pré-definido
+  let codigoTema = 'personalizado';
+  for (const [key, t] of Object.entries(window.SIGE_TEMAS || {})) {
+    if (t.codigo !== 'personalizado' && t.primaria.toLowerCase() === paleta.primaria.toLowerCase()) {
+      codigoTema = t.codigo;
+      break;
+    }
+  }
+  setVal('confEscolaTemaCodigo', codigoTema);
+
+  // Sincroniza o seletor manual / picker
+  const pickerManual = document.getElementById('pickerEspectroManual');
+  if (pickerManual) pickerManual.value = paleta.primaria;
+
+  // Atualiza indicadores visuais do espectro
+  atualizarIndicadoresEspectro(paleta.primaria, nomeCor);
+
+  // Atualiza cartões de temas pré-definidos
+  renderizarSeletorTemas();
+
+  // Aplica ao vivo imediatamente em todo o ecrã
+  aplicarTemaEFundoAoVivo();
+}
+window.selecionarCorEspectro = selecionarCorEspectro;
+
+function aoMoverEspectroSlider(hue) {
+  hue = parseFloat(hue) || 0;
+  const rgb = hslParaRgb(hue, 0.82, 0.38);
+  const hex = rgbParaHex(rgb.r, rgb.g, rgb.b);
+
+  const lbl = document.getElementById('lblMatizEspectro');
+  if (lbl) {
+    let nomeHue = 'Matiz';
+    if (hue >= 345 || hue < 15) nomeHue = 'Vermelho';
+    else if (hue < 45) nomeHue = 'Laranja';
+    else if (hue < 70) nomeHue = 'Âmbar/Dourado';
+    else if (hue < 150) nomeHue = 'Verde';
+    else if (hue < 195) nomeHue = 'Ciano/Turquesa';
+    else if (hue < 255) nomeHue = 'Azul';
+    else if (hue < 290) nomeHue = 'Índigo/Púrpura';
+    else if (hue < 345) nomeHue = 'Magenta/Rosa';
+    lbl.textContent = `${Math.round(hue)}° (${nomeHue})`;
+  }
+
+  selecionarCorEspectro(hex, `Espectro ${Math.round(hue)}°`);
+}
+window.aoMoverEspectroSlider = aoMoverEspectroSlider;
+
+function atualizarIndicadoresEspectro(hexPrimaria, nomeCor) {
+  hexPrimaria = (hexPrimaria || '').toLowerCase();
+  
+  const badgeHex = document.getElementById('badgeCorAtivaHex');
+  if (badgeHex) {
+    badgeHex.style.backgroundColor = hexPrimaria;
+    badgeHex.textContent = hexPrimaria.toUpperCase();
+  }
+
+  const nomeTexto = document.getElementById('nomeCorAtivaTexto');
+  if (nomeTexto && nomeCor) {
+    nomeTexto.textContent = nomeCor;
+  }
+
+  // Destacar o botão de swatch ativo com anel e visto
+  document.querySelectorAll('.swatch-cor-espectro').forEach(btn => {
+    const title = (btn.getAttribute('title') || '').toLowerCase();
+    const onclickAttr = (btn.getAttribute('onclick') || '').toLowerCase();
+    const match = title.includes(hexPrimaria) || onclickAttr.includes(hexPrimaria);
+    if (match) {
+      btn.style.boxShadow = '0 0 0 3px #0f172a, 0 0 8px rgba(0,0,0,0.5)';
+      btn.style.transform = 'scale(1.18)';
+      btn.innerHTML = '<i class="bi bi-check-lg text-white" style="font-size: 0.9rem; -webkit-text-stroke: 0.5px;"></i>';
+    } else {
+      btn.style.boxShadow = '';
+      btn.style.transform = '';
+      btn.innerHTML = '';
+    }
+  });
+}
+window.atualizarIndicadoresEspectro = atualizarIndicadoresEspectro;
+
 function renderizarSeletorTemas() {
   const container = document.getElementById('gradeTemasDisponiveis');
   if (!container) return;
 
   const codigoAtual = document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul';
+  const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a';
+
   const painelCustom = document.getElementById('painelCoresPersonalizadas');
   if (painelCustom) {
     painelCustom.style.display = (codigoAtual === 'personalizado') ? 'block' : 'none';
   }
 
-  let html = '';
-  Object.values(window.SIGE_TEMAS).forEach(t => {
-    const isAtivo = (codigoAtual === t.codigo);
-    const gradiente = (t.codigo === 'personalizado') 
-      ? 'background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);'
-      : `background: linear-gradient(135deg, ${t.sidebar} 0%, ${t.sidebar} 40%, ${t.primaria} 40%, ${t.primaria} 100%);`;
+  // Atualizar cartões de temas pré-renderizados
+  const codigos = ['padrao_azul', 'indigo_save', 'verde_esmeralda', 'vermelho_rubi', 'dourado_ambar', 'safira_grafite', 'purpura_real', 'petroleo_ciano', 'personalizado'];
+  let temCardPreRenderizado = false;
 
-    html += `
-      <div class="col-6 col-sm-4">
-        <div class="card h-100 p-2 text-center tema-card-item cursor-pointer position-relative ${isAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
-             onclick="selecionarTemaEscola('${t.codigo}')"
-             title="${escapeHtml(t.nome)}: ${escapeHtml(t.descricao)}"
-             style="cursor: pointer; transition: all 0.2s; min-height: 100px;">
-          <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center position-relative" style="height: 38px; ${gradiente}">
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${t.sidebarAtiva}; box-shadow: 0 0 4px rgba(0,0,0,0.4);" title="Destaque"></div>
-          </div>
-          <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">
-            ${escapeHtml(t.nome)}
-          </div>
-          <div class="mt-auto">
-            ${isAtivo 
-              ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
-              : '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>'}
-          </div>
-        </div>
-      </div>
-    `;
+  codigos.forEach(cod => {
+    const card = document.getElementById(`cardTema_${cod}`);
+    const badge = document.getElementById(`badgeTema_${cod}`);
+    if (card) {
+      temCardPreRenderizado = true;
+      const isAtivo = (codigoAtual === cod);
+      if (isAtivo) {
+        card.className = 'card h-100 p-2 text-center tema-card-item cursor-pointer border-primary border-2 bg-primary-subtle shadow-sm';
+      } else {
+        card.className = 'card h-100 p-2 text-center tema-card-item cursor-pointer border-secondary-subtle bg-white';
+      }
+      if (badge) {
+        badge.innerHTML = isAtivo 
+          ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
+          : '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>';
+      }
+    }
   });
 
-  container.innerHTML = html;
+  // Se por algum motivo os cartões não estiverem pré-renderizados no DOM, gera-os dinamicamente como fallback
+  if (!temCardPreRenderizado && window.SIGE_TEMAS) {
+    let html = '';
+    Object.values(window.SIGE_TEMAS).forEach(t => {
+      const isAtivo = (codigoAtual === t.codigo);
+      const gradiente = (t.codigo === 'personalizado') 
+        ? 'background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);'
+        : `background: linear-gradient(135deg, ${t.sidebar} 0%, ${t.sidebar} 40%, ${t.primaria} 40%, ${t.primaria} 100%);`;
+
+      html += `
+        <div class="col-6 col-sm-4">
+          <div class="card h-100 p-2 text-center tema-card-item cursor-pointer position-relative ${isAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+               id="cardTema_${t.codigo}"
+               onclick="selecionarTemaEscola('${t.codigo}')"
+               title="${escapeHtml(t.nome)}: ${escapeHtml(t.descricao)}"
+               style="cursor: pointer; transition: all 0.2s; min-height: 95px;">
+            <div class="rounded mb-2 shadow-sm d-flex align-items-center justify-content-center position-relative" style="height: 36px; ${gradiente}">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: ${t.sidebarAtiva}; box-shadow: 0 0 4px rgba(0,0,0,0.5);" title="Destaque"></div>
+            </div>
+            <div class="small fw-bold text-truncate text-dark mb-1" style="font-size: 0.73rem;">
+              ${escapeHtml(t.nome)}
+            </div>
+            <div class="mt-auto" id="badgeTema_${t.codigo}">
+              ${isAtivo 
+                ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
+                : '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Escolher</span>'}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  }
+
+  // Atualizar indicadores visuais do espectro
+  const nomeAtivo = (window.SIGE_TEMAS[codigoAtual]?.nome) || 'Personalizado';
+  atualizarIndicadoresEspectro(corPrimaria, nomeAtivo);
 }
 window.renderizarSeletorTemas = renderizarSeletorTemas;
 
@@ -4306,6 +4524,9 @@ function selecionarTemaEscola(codigo) {
     setVal('confEscolaCorSidebarHex', t.sidebar);
     setVal('confEscolaCorSidebarAtiva', t.sidebarAtiva);
     setVal('confEscolaCorSidebarAtivaHex', t.sidebarAtiva);
+
+    const pickerManual = document.getElementById('pickerEspectroManual');
+    if (pickerManual) pickerManual.value = t.primaria;
   }
 
   renderizarSeletorTemas();
@@ -4326,6 +4547,11 @@ function aoMudarCorCustomizada() {
 
   const inputTema = document.getElementById('confEscolaTemaCodigo');
   if (inputTema) inputTema.value = 'personalizado';
+
+  const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a';
+  const pickerManual = document.getElementById('pickerEspectroManual');
+  if (pickerManual) pickerManual.value = corPrimaria;
+
   renderizarSeletorTemas();
   aplicarTemaEFundoAoVivo();
 }
@@ -4338,6 +4564,7 @@ function aoMudarHexColor(idColor, val) {
     aoMudarCorCustomizada();
   }
 }
+window.aoMudarHexColor = aoMudarHexColor;
 window.aoMudarHexColor = aoMudarHexColor;
 
 function obterGaleriaFundosEscola() {
