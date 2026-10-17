@@ -287,3 +287,5 @@
 | :---: | :--- | :---: | :---: | :--- |
 | `GET` | `/ferramentas/prompt-gateway` | `SUPERADMIN` / Admin / Direcção | `Cache-Control: no-store`<br>`X-Robots-Tag: noindex`<br>HTML | Retorna a página Web completa com o layout do sistema, visualização segura do prompt em `<pre>` (XSS escapado) e botões de cópia e descarregamento. Redireciona para login (302) se não autenticado. |
 | `GET` | `/ferramentas/prompt-gateway/descarregar` | `SUPERADMIN` / Admin / Direcção | `Content-Type: text/plain; charset=utf-8`<br>`Content-Disposition: attachment; filename="prompt-gateway-sms-ussd.txt"`<br>`Cache-Control: no-store` | Devolve o ficheiro de conteúdo limpo para download direto pelo utilizador ou assistente de código. Retorna 401 se sem sessão e 403 se sem perfil diretivo. |
+| `GET` | `/api/v1/ferramentas/prompt-gateway/conteudo` | `SUPERADMIN` / Admin / Direcção | `application/json`<br>`Cache-Control: no-store` | Retorna JSON `{ "success": true, "conteudo": "...", "titulo": "..." }` para carregamento assíncrono modular no SPA. |
+

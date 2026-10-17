@@ -1758,7 +1758,8 @@ const MENUS_POR_PAINEL = {
   'painel-financeiro': [
     { id: 'dashboard', titulo: 'Visão Geral Financeira', icone: 'bi-grid-1x2-fill', categoria: 'Financeiro & Tesouraria' },
     { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Tesouraria' },
-    { id: 'impressao', titulo: 'Central de Impressão de Recibos', icone: 'bi-printer-fill', categoria: 'Financeiro & Tesouraria' }
+    { id: 'impressao', titulo: 'Central de Impressão de Recibos', icone: 'bi-printer-fill', categoria: 'Financeiro & Tesouraria' },
+    { id: 'prompt-gateway', titulo: 'Prompt do Gateway', icone: 'bi-terminal-fill text-warning', categoria: 'Ferramentas' }
   ]
 };
 

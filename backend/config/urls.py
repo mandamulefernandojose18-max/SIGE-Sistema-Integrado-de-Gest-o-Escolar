@@ -27,6 +27,7 @@ api_v1_patterns = [
     re_path(r'^impressao/?', include('apps.documentos.urls')),
     re_path(r'^documentos/?', include('apps.documentos.urls')),
     re_path(r'^dashboard/?', include('apps.dashboard.urls')),
+    re_path(r'^ferramentas/?', include('apps.ferramentas.urls')),
     path('', include('apps.tenants.urls')),
 ]
 
@@ -34,6 +35,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('health', health_check, name='health_no_slash'),
     path('health/', health_check, name='health'),
+
+    # Rotas diretas de Ferramentas /ferramentas/prompt-gateway
+    re_path(r'^ferramentas/?', include('apps.ferramentas.urls')),
 
     # API Versionada /api/v1/
     re_path(r'^api/v1/?', include(api_v1_patterns)),

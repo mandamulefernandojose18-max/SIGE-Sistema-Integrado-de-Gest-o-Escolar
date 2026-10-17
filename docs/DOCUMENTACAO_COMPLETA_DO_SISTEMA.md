@@ -703,3 +703,25 @@ Sobe os 4 contentores orquestrados (`sige_postgres` na porta `5432`, `sige_backe
 - **Pipeline GitHub Actions (`.github/workflows/ci.yml` e `deploy.yml`):**
   1. Executa `python manage.py check`, `migrate`, `pytest -v` com PostgreSQL 16 e validação sintática do JavaScript do frontend (`node -c`).
   2. Realiza deploy contínuo via SSH na Máquina Virtual (`scripts/deploy-vm.sh`), atualizando primeiro a API Backend (com migrações automáticas e healthcheck) e em seguida o Frontend Nginx com HTTPS Let's Encrypt (`sigesaas.duckdns.org`), respeitando o **Budget Guardrail de Infraestrutura ($\le \$6\text{ USD/mês}$)**.
+
+---
+
+## 12. Módulo de Ferramentas: Gateway SMS, USSD e Pagamentos Móveis
+
+### 12.1 Visão Geral e Arquitetura
+Disponibiliza aos perfis com privilégios de administração e direcção (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `FINANCEIRO`) a especificação integral e o prompt de engenharia para desenvolvimento do microsserviço independente em Node.js responsável pelas integrações móveis no ecossistema de Moçambique:
+- **SMS Transacional e em Lote:** Notificações escolares para encarregados (propinas, recibos, faltas, pautas) com normalização `+258`.
+- **Serviço USSD Interativo (`*...#`):** Menus para telemóveis básicos com comandos `CON` e `END`, consulta de notas e propinas.
+- **Pagamentos com Carteira Móvel:** Liquidação instantânea de saldos e propinas via M-Pesa (Vodacom C2B STK Push) e e-Mola (Movitel).
+
+### 12.2 Rotas e Endpoints
+| Método | Endpoint | Perfil Autorizado | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/ferramentas/prompt-gateway` | Administração / Direcção | Visualização da página no layout oficial com `Cache-Control: no-store` e `X-Robots-Tag: noindex`. |
+| `GET` | `/ferramentas/prompt-gateway/descarregar` | Administração / Direcção | Descarrega o ficheiro `prompt-gateway-sms-ussd.txt` limpo em UTF-8. |
+| `GET` | `/api/v1/ferramentas/prompt-gateway/conteudo` | Administração / Direcção | Endpoint JSON da API REST com o conteúdo do prompt para consumo da SPA. |
+
+### 12.3 Acesso na Interface (Painel)
+1. **Topbar (Cabeçalho):** Botão de atalho rápido `[ Prompt Gateway ]` visível imediatamente após o login para perfis autorizados.
+2. **Sidebar (Menu Lateral):** Secção **Ferramentas → Prompt do Gateway** em todos os painéis administrativos e financeiros (`painel-superadmin`, `painel-escola`, `painel-financeiro`).
+
