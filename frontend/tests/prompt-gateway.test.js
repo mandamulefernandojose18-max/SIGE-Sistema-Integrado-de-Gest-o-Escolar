@@ -181,7 +181,7 @@ describe('Testes da Página e Rotas: Prompt do Gateway SMS, USSD e Pagamentos M�
     assert.strictEqual(res.status, 200, 'SUPERADMIN via Cookie deve receber 200');
     const html = await res.text();
     assert.ok(html.includes('Prompt: Gateway SMS, USSD e Pagamentos Móveis'));
-    assert.ok(html.includes(conteudoOriginal));
+    assert.ok(html.includes(escaparHtml(conteudoOriginal)), 'HTML deve conter o prompt devidamente escapado');
   });
 
   // ---------------------------------------------------------------------------
