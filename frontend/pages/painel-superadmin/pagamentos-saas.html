@@ -283,7 +283,7 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label fw-semibold">Periodicidade de Cobrança</label>
-              <select id="cfgPeriodicidade" class="form-select" required onchange="aoMudarModoDataLimite()">
+              <select id="cfgPeriodicidade" class="form-select" required onchange="aoMudarPeriodicidadeConfig()">
                 <option value="mensal">Mensal (Preço regular)</option>
                 <option value="trimestral">Trimestral (5% de desconto)</option>
                 <option value="semestral">Semestral (10% de desconto)</option>
@@ -306,7 +306,7 @@
             <div class="col-md-6">
               <label class="form-label fw-semibold">Dias de Tolerância</label>
               <input type="number" id="cfgDiasTolerancia" class="form-control" min="0" value="5" required>
-              <small class="text-muted">Após o limite, exibe faixa de aviso. Acesso total mantido.</small>
+              <small class="text-muted">Após o limite, o sistema sinaliza atraso. Acesso total mantido.</small>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Dias até Suspensão (Corte)</label>
@@ -318,18 +318,39 @@
               <input type="date" id="cfgDataBloqueioManual" class="form-control">
               <small class="text-muted">Sobrescreve a suspensão e bloqueia na data especificada.</small>
             </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Tipo de Multa por Atraso</label>
-              <select id="cfgMultaTipo" class="form-select">
-                <option value="nenhuma">Nenhuma</option>
-                <option value="fixo">Valor Fixo (MZN)</option>
-                <option value="percentagem">Percentagem (%)</option>
-              </select>
+
+            <!-- SECÇÃO DE MULTA: DEFINIDA EM FUNÇÃO DA PERCENTAGEM COM PROCESSAMENTO AUTOMÁTICO DO VALOR -->
+            <div class="col-12 mt-2">
+              <div class="card p-3 bg-light border">
+                <div class="row g-3 align-items-center">
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold mb-1">Tipo de Multa por Atraso</label>
+                    <select id="cfgMultaTipo" class="form-select" onchange="aoMudarTipoMulta()">
+                      <option value="percentagem">Percentagem sobre Valor Base (%)</option>
+                      <option value="nenhuma">Nenhuma Multa</option>
+                      <option value="fixo">Valor Fixo Manual (MZN)</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4" id="boxMultaPercentagem">
+                    <label class="form-label fw-semibold mb-1" id="lblMultaEntrada">Percentagem da Multa (%)</label>
+                    <div class="input-group">
+                      <input type="number" step="0.1" min="0" max="100" id="cfgMultaPercentagem" class="form-control" value="10.0" oninput="calcularMultaAutomatica()" placeholder="Ex: 10">
+                      <span class="input-group-text fw-bold" id="sufixoMultaEntrada">%</span>
+                    </div>
+                    <small class="text-muted" id="ajudaMultaEntrada">Taxa percentual aplicada à fatura.</small>
+                  </div>
+                  <div class="col-md-4" id="boxMultaValorProcessado">
+                    <label class="form-label fw-semibold mb-1">Valor da Multa Processado</label>
+                    <div class="input-group">
+                      <input type="text" id="cfgMultaValorCalculado" class="form-control bg-white fw-bold text-danger border" readonly value="0,00">
+                      <span class="input-group-text bg-light fw-bold">MZN</span>
+                    </div>
+                    <small class="text-muted d-block text-truncate" id="cfgMultaBaseInfo">Calculado sobre o valor base: 0,00 MZN</small>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Valor da Multa</label>
-              <input type="number" step="0.01" id="cfgMultaValor" class="form-control" value="0.00" min="0">
-            </div>
+            <input type="hidden" id="cfgMultaValor" value="0.00">
           </div>
         </div>
         <div class="modal-footer bg-light">

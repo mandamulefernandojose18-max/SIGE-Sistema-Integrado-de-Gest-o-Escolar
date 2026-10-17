@@ -229,9 +229,15 @@ async function abrirFichaInstituicao(assinaturaId) {
     const elTolerancia = document.getElementById('fichaToleranciaInfo');
     if (elTolerancia) elTolerancia.innerText = `${assinaturaAtualSelecionada.dias_tolerancia} dias tolerância | ${assinaturaAtualSelecionada.dias_ate_suspensao} dias até suspensão`;
     
-    const multaStr = assinaturaAtualSelecionada.multa_tipo === 'nenhuma' 
-      ? 'Nenhuma' 
-      : `${assinaturaAtualSelecionada.multa_tipo === 'fixo' ? formatarValorMZN(assinaturaAtualSelecionada.multa_valor) + ' MZN' : assinaturaAtualSelecionada.multa_valor + '%'}`;
+    const precoMensalPlano = parseFloat(assinaturaAtualSelecionada.plano_detalhes?.preco_mensal || 0);
+    let multaStr = 'Nenhuma';
+    if (assinaturaAtualSelecionada.multa_tipo === 'percentagem') {
+      const pct = parseFloat(assinaturaAtualSelecionada.multa_valor || 0);
+      const valProc = precoMensalPlano * (pct / 100);
+      multaStr = `${pct}% sobre valor base (Processado: ${formatarValorMZN(valProc)} MZN)`;
+    } else if (assinaturaAtualSelecionada.multa_tipo === 'fixo') {
+      multaStr = `${formatarValorMZN(assinaturaAtualSelecionada.multa_valor)} MZN (Fixo)`;
+    }
     const elMulta = document.getElementById('fichaMultaInfo');
     if (elMulta) elMulta.innerText = multaStr;
 
@@ -325,13 +331,30 @@ function abrirModalConfigurarAssinatura() {
   document.getElementById('cfgDiasTolerancia').value = assinaturaAtualSelecionada.dias_tolerancia;
   document.getElementById('cfgDiasAteSuspensao').value = assinaturaAtualSelecionada.dias_ate_suspensao;
   document.getElementById('cfgDataBloqueioManual').value = assinaturaAtualSelecionada.data_bloqueio_manual || '';
-  document.getElementById('cfgMultaTipo').value = assinaturaAtualSelecionada.multa_tipo;
-  document.getElementById('cfgMultaValor').value = assinaturaAtualSelecionada.multa_valor;
+
+  const tipoMulta = assinaturaAtualSelecionada.multa_tipo || 'percentagem';
+  document.getElementById('cfgMultaTipo').value = tipoMulta;
+
+  const inputPct = document.getElementById('cfgMultaPercentagem');
+  if (tipoMulta === 'percentagem') {
+    inputPct.value = (assinaturaAtualSelecionada.multa_valor != null && parseFloat(assinaturaAtualSelecionada.multa_valor) > 0)
+      ? parseFloat(assinaturaAtualSelecionada.multa_valor)
+      : 10.0;
+  } else if (tipoMulta === 'fixo') {
+    inputPct.value = assinaturaAtualSelecionada.multa_valor != null ? parseFloat(assinaturaAtualSelecionada.multa_valor) : 0.0;
+  } else {
+    inputPct.value = 0;
+  }
 
   aoMudarModoDataLimite();
+  aoMudarTipoMulta();
+  calcularMultaAutomatica();
 
-  const modal = new bootstrap.Modal(document.getElementById('modalConfigurarAssinatura'));
-  modal.show();
+  const modalEl = document.getElementById('modalConfigurarAssinatura');
+  if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modal.show();
+  }
 }
 
 function aoMudarModoDataLimite() {
@@ -342,9 +365,89 @@ function aoMudarModoDataLimite() {
   }
 }
 
+function obterValorBaseContrato() {
+  const precoMensal = parseFloat(assinaturaAtualSelecionada?.plano_detalhes?.preco_mensal || 0);
+  const per = document.getElementById('cfgPeriodicidade')?.value || 'mensal';
+  if (per === 'trimestral') return precoMensal * 3 * 0.95;
+  if (per === 'semestral') return precoMensal * 6 * 0.90;
+  if (per === 'anual') return precoMensal * 12 * 0.85;
+  return precoMensal;
+}
+
+function aoMudarPeriodicidadeConfig() {
+  calcularMultaAutomatica();
+}
+
+function aoMudarTipoMulta() {
+  const tipo = document.getElementById('cfgMultaTipo')?.value || 'percentagem';
+  const boxPct = document.getElementById('boxMultaPercentagem');
+  const boxProc = document.getElementById('boxMultaValorProcessado');
+  const lblEntrada = document.getElementById('lblMultaEntrada');
+  const sufixoEntrada = document.getElementById('sufixoMultaEntrada');
+  const ajudaEntrada = document.getElementById('ajudaMultaEntrada');
+  const inputPct = document.getElementById('cfgMultaPercentagem');
+
+  if (tipo === 'percentagem') {
+    if (boxPct) boxPct.style.display = 'block';
+    if (boxProc) boxProc.style.display = 'block';
+    if (lblEntrada) lblEntrada.innerText = 'Percentagem da Multa (%)';
+    if (sufixoEntrada) sufixoEntrada.innerText = '%';
+    if (ajudaEntrada) ajudaEntrada.innerText = 'Taxa percentual aplicada à fatura.';
+    if (inputPct && (!inputPct.value || parseFloat(inputPct.value) === 0)) {
+      inputPct.value = '10.0';
+    }
+  } else if (tipo === 'fixo') {
+    if (boxPct) boxPct.style.display = 'block';
+    if (boxProc) boxProc.style.display = 'block';
+    if (lblEntrada) lblEntrada.innerText = 'Valor Fixo da Multa (MZN)';
+    if (sufixoEntrada) sufixoEntrada.innerText = 'MZN';
+    if (ajudaEntrada) ajudaEntrada.innerText = 'Montante estipulado em Meticais.';
+  } else {
+    // nenhuma
+    if (boxPct) boxPct.style.display = 'none';
+    if (boxProc) boxProc.style.display = 'none';
+  }
+  calcularMultaAutomatica();
+}
+
+function calcularMultaAutomatica() {
+  const tipo = document.getElementById('cfgMultaTipo')?.value || 'percentagem';
+  const valorBase = obterValorBaseContrato();
+  const elCalculado = document.getElementById('cfgMultaValorCalculado');
+  const elBaseInfo = document.getElementById('cfgMultaBaseInfo');
+  const elHidden = document.getElementById('cfgMultaValor');
+  const inputPct = document.getElementById('cfgMultaPercentagem');
+
+  if (tipo === 'percentagem') {
+    const pct = parseFloat(inputPct?.value || 0);
+    const valorMulta = valorBase * (pct / 100);
+    if (elCalculado) elCalculado.value = formatarValorMZN(valorMulta);
+    if (elBaseInfo) {
+      elBaseInfo.innerHTML = `Base: <strong>${formatarValorMZN(valorBase)} MZN</strong> × <strong>${pct}%</strong> = <span class="text-danger fw-bold">${formatarValorMZN(valorMulta)} MZN</span>`;
+    }
+    if (elHidden) elHidden.value = pct;
+  } else if (tipo === 'fixo') {
+    const val = parseFloat(inputPct?.value || 0);
+    if (elCalculado) elCalculado.value = formatarValorMZN(val);
+    if (elBaseInfo) {
+      elBaseInfo.innerText = `Valor fixo por atraso: ${formatarValorMZN(val)} MZN`;
+    }
+    if (elHidden) elHidden.value = val;
+  } else {
+    if (elCalculado) elCalculado.value = '0,00';
+    if (elBaseInfo) elBaseInfo.innerText = 'Isento de multa por atraso.';
+    if (elHidden) elHidden.value = '0.00';
+  }
+}
+
 async function salvarConfiguracaoAssinatura(event) {
   event.preventDefault();
   const id = document.getElementById('cfgAssinaturaId').value;
+  const tipoMulta = document.getElementById('cfgMultaTipo').value;
+  let valorMulta = 0;
+  if (tipoMulta === 'percentagem' || tipoMulta === 'fixo') {
+    valorMulta = parseFloat(document.getElementById('cfgMultaPercentagem').value || 0);
+  }
 
   const payload = {
     periodicidade: document.getElementById('cfgPeriodicidade').value,
@@ -353,8 +456,8 @@ async function salvarConfiguracaoAssinatura(event) {
     dias_tolerancia: parseInt(document.getElementById('cfgDiasTolerancia').value),
     dias_ate_suspensao: parseInt(document.getElementById('cfgDiasAteSuspensao').value),
     data_bloqueio_manual: document.getElementById('cfgDataBloqueioManual').value || null,
-    multa_tipo: document.getElementById('cfgMultaTipo').value,
-    multa_valor: parseFloat(document.getElementById('cfgMultaValor').value || 0)
+    multa_tipo: tipoMulta,
+    multa_valor: valorMulta
   };
 
   try {
@@ -373,7 +476,7 @@ async function salvarConfiguracaoAssinatura(event) {
     }
   } catch (err) {
     console.error('[SAAS] Erro ao salvar configuração:', err);
-    mostrarToast('Falha na ligação ao servidor.', 'danger');
+    mostrarToast('Erro de comunicação ao salvar parâmetros.', 'danger');
   }
 }
 
