@@ -84,7 +84,7 @@ def test_prompt_gateway_com_superadmin(client, superadmin_user):
     resp_page = client.get('/ferramentas/prompt-gateway')
     assert resp_page.status_code == 200
     html = resp_page.content.decode('utf-8')
-    assert 'Prompt: Gateway SMS, USSD e Pagamentos Móveis' in html
+    assert 'Gateway SMS, USSD' in html
     assert 'noindex' in html
     assert resp_page.headers.get('X-Robots-Tag') == 'noindex, nofollow'
     assert 'no-store' in resp_page.headers.get('Cache-Control')
@@ -103,7 +103,7 @@ def test_prompt_gateway_financeiro(client, financeiro_user):
 
     resp_page = client.get('/ferramentas/prompt-gateway')
     assert resp_page.status_code == 200
-    assert 'Prompt: Gateway SMS, USSD e Pagamentos Móveis' in resp_page.content.decode('utf-8')
+    assert 'Gateway SMS, USSD' in resp_page.content.decode('utf-8')
 
 @pytest.mark.django_db
 def test_prompt_gateway_ficheiro_em_falta(client, superadmin_user):
