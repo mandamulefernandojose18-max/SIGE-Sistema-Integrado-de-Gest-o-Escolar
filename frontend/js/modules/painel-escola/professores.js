@@ -426,7 +426,7 @@ async function modalNovoProfessor() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
-          <input type="text" id="mpTel" class="form-control" value="+258 ">
+          <input type="tel" id="mpTel" class="form-control" value="+258 " placeholder="+258 ..." inputmode="tel">
         </div>
 
         <div class="col-md-6">

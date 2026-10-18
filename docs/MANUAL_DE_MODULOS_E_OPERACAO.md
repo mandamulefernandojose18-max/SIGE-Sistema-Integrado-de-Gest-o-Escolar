@@ -224,7 +224,7 @@
   - **Estado da Subscrição:** Acompanhamento em tempo real (`Activa`, `Fatura Aberta`, `Em Atraso`, `Restrita` ou `Suspensa`) com badge e alertas de prazo.
   - **Plano Contratado:** Apresentação clara e oficial como **Plano Básico** (com periodicidade e valor mensal em Meticais `MZN`).
   - **Próximo Vencimento & Faturas:** Cronograma de faturação com botão para envio de comprovativos de liquidação.
-  - **Coordenadas Oficiais em Moçambique:** Carteiras móveis M-Pesa (Vodacom) e e-Mola (Movitel), e contas bancárias Millennium BIM e BCI com validação pelo SuperAdmin.
+  - **Coordenadas Oficiais e Carteiras Móveis:** Carteiras móveis M-Pesa (Vodacom) e e-Mola (Movitel), e contas bancárias Millennium BIM e BCI com validação pelo SuperAdmin.
 
 ---
 

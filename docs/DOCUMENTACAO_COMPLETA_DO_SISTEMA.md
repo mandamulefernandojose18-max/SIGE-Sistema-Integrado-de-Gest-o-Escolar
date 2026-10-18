@@ -461,7 +461,7 @@ Acessível apenas a Administradores, Director da Escola, DAP e Chefe de Secretar
   - **Estado da Subscrição:** Acompanhamento dinâmico (`Activa`, `Fatura Aberta`, `Em Atraso`, `Restrita` ou `Suspensa`) com badges e banner de avisos de tolerância.
   - **Plano Contratado:** Identificação institucional como **Plano Básico** com indicação da periodicidade (`Mensal`) e valor contratado em Meticais (`MZN`).
   - **Faturação & Submissão de Comprovativos:** Visualização das faturas emitidas e modal de registo de pagamentos com upload de talão/comprovativo bancário.
-  - **Coordenadas Oficiais em Moçambique (Sem Dados Fictícios):** Carteiras móveis M-Pesa (Vodacom 84) e e-Mola (Movitel 86), além de contas e NIB no Millennium BIM e BCI com dados dinâmicos configuráveis pelo Super Administrador (iniciando estritamente em branco para evitar números simulados ou falsos).
+  - **Coordenadas Oficiais e Carteiras Móveis (Sem Dados Fictícios):** Carteiras móveis M-Pesa (Vodacom) e e-Mola (Movitel), além de contas e NIB no Millennium BIM e BCI com dados dinâmicos configuráveis pelo Super Administrador (iniciando estritamente em branco para evitar números simulados ou falsos).
 
 ### Módulo 20: Ferramentas & Integrações — Prompt do Gateway (`#view-prompt-gateway` / `/ferramentas/prompt-gateway`)
 - **Acesso Restrito:** Exclusivo para perfis diretivos e de administração (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`).
