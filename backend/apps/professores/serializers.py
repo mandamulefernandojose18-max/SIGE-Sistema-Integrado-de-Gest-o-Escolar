@@ -90,31 +90,30 @@ class ProfessorSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def validate(self, attrs):
-        if 'nuit' in attrs:
-            val_nuit = attrs.get('nuit')
-            if val_nuit is None or str(val_nuit).strip() == '':
-                attrs['nuit'] = None
-            else:
-                import re
-                nuit_str = str(val_nuit).strip()
-                if not re.match(r'^\d{1,9}$', nuit_str):
-                    raise serializers.ValidationError({"nuit": "O NUIT do docente deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
-                attrs['nuit'] = nuit_str
+    def validate_nuit(self, value):
+        if value is None or str(value).strip() == '':
+            return None
+        import re
+        nuit_str = str(value).strip()
+        if not re.match(r'^\d{1,9}$', nuit_str):
+            raise serializers.ValidationError("O NUIT do docente deve conter apenas números (no máximo 9 dígitos). Não aceita letras.")
+        return nuit_str
 
-        if 'telefone' in attrs and attrs.get('telefone'):
+    def validate_telefone(self, value):
+        if value:
             import re
-            tel_str = str(attrs['telefone']).strip()
+            tel_str = str(value).strip()
             if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
-                raise serializers.ValidationError({"telefone": "O telefone do docente não pode aceitar letras. Insira apenas números."})
+                raise serializers.ValidationError("O telefone do docente não pode aceitar letras. Insira apenas números.")
+        return value
 
-        if 'carga_horaria_semanal' in attrs and attrs.get('carga_horaria_semanal') is not None:
+    def validate_carga_horaria_semanal(self, value):
+        if value is not None:
             import re
-            ch_str = str(attrs['carga_horaria_semanal']).strip()
+            ch_str = str(value).strip()
             if re.search(r'[a-zA-Z\u00C0-\u017F]', ch_str):
-                raise serializers.ValidationError({"carga_horaria_semanal": "A carga horária deve ser um valor numérico."})
-
-        return super().validate(attrs)
+                raise serializers.ValidationError("A carga horária deve ser um valor numérico.")
+        return value
 
     def get_codigos_direccao_turma(self, obj):
         res = []

@@ -269,8 +269,8 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 3. **Validação Rigorosa de Dados Biográficos:**
    - Nome completo, apelido, género e data de nascimento (valida idade compatível entre 10 e 25 anos).
    - Documento de identificação (`BI`, `Passaporte`, `DIRE`, `Cédula`, `Certidão`) com validação de formato do BI moçambicano (12 dígitos + 1 letra maiúscula).
-   - `NUIT` opcional validado exatamente com 9 dígitos numéricos.
-   - Filiação (Nome do Pai e da Mãe), Nome do Encarregado de Educação e Contacto telefónico moçambicano (`+258 82/83/84/85/86/87...`).
+   - `NUIT` opcional validado estritamente com até 9 dígitos numéricos, sem aceitar letras (`^\d{1,9}$`).
+   - Filiação (Nome do Pai e da Mãe), Nome do Encarregado de Educação e Contacto telefónico (estritamente numérico com código internacional, sem permitir letras).
 4. **Enturmação e Credenciais Instantâneas:**
    - O sistema procura automaticamente uma turma disponível daquela classe/secção que ainda tenha vagas livres (`ocupacao < capacidade_maxima`), gera o número de matrícula sequencial (`{ano}{seq:03d}`), cria a conta `Usuario(role='ALUNO')` com a senha definida pelo candidato e exibe no ecrã o **Cartão Oficial de Confirmação de Matrícula** contendo o **Código de Acesso do Estudante**.
 
@@ -664,6 +664,10 @@ O SIGE implementa **6 Pilares de Integridade** (`backend/docs/REGRAS_DE_INTEGRID
 5. **Governança Financeira e Contratual:** Bloqueio automático `HTTP 402` para assinaturas vencidas e verificação dos limites do plano (`max_alunos`, `max_professores`).
 6. **Não-Repúdio e Verificação Pública:** Registo de `LogAcesso`, `LogImpressao`, arquivo binário em `DocumentoSalvo` e validação pública de certificados por QR Code sem necessidade de autenticação.
 7. **Privacidade e Isenção Total de Exposição de Origens/Links:** Todas as notificações, avisos e confirmações da interface SPA utilizam estritamente o sistema in-app (`mostrarAlerta`, `mostrarNotificacao`, `mostrarConfirmacao`), com higienização prévia via `limparTextoMensagem()`. O `window.alert` nativo do navegador foi interceptado para impedir terminantemente a exibição de cabeçalhos de domínio ou URLs (como *"sigesaas.duckdns.org diz"*) em qualquer caixa de diálogo.
+8. **Validação Estrita de Campos Numéricos, NUIT e Telefones (Anti-Letras & Limite de 9 Dígitos):**
+   - **NUIT (Identificação Tributária):** Validação estrita limitando o tamanho a **no máximo 9 dígitos puramente numéricos** (`^\d{1,9}$`), rejeitando terminantemente quaisquer letras ou caracteres alfabéticos em todos os serializers (`AlunoSerializer`, `ProfessorSerializer`, `EscolaSerializer`, `SaasCoordenadasBancariasSerializer`) e nos modais/telas de cadastro e edição.
+   - **Celular / Telefone:** Rejeição rigorosa de letras (`validar_telefone_sem_letras`). Aceita apenas números e caracteres de discagem internacional (`+`, `-`, parênteses e espaços).
+   - **Guardião Global de Inputs Numéricos:** Interceptação unificada no Frontend (`frontend/js/app.js` via `classificarCampoNumerico`, `tratarKeydownCampoNumerico`, `sanitizarValorCampoNumerico` e `tratarPasteCampoNumerico`) impedindo a digitação ou colagem de letras (`a-z`, `A-Z`) ou notação científica (`e`, `E`) em qualquer campo de número ou quantidade (capacidades de turma, anos letivos, cargas horárias, limites de planos, valores monetários/taxas/propinas, percentuais, coordenadas bancárias, horas e minutos).
 
 ---
 

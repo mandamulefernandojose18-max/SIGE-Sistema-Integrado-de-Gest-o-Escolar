@@ -600,7 +600,11 @@ function aoSelecionarAlunoParaPagamento(alunoId) {
 }
 
 function aoDigitarTelefonePagamento(tel) {
-  const limpo = (tel || '').replace(/\D/g, '');
+  const limpo = (tel || '').replace(/\D/g, '').slice(0, 15);
+  const elInp = document.getElementById('pagamentoTelefone');
+  if (elInp && elInp.value !== limpo) {
+    elInp.value = limpo;
+  }
   let ddd = '';
   if (limpo.startsWith('258') && limpo.length >= 5) {
     ddd = limpo.slice(3, 5);

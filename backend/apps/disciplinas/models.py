@@ -11,6 +11,7 @@ class Disciplina(models.Model):
     area = models.CharField(max_length=50, default='Geral')
     carga_horaria = models.IntegerField(default=60, validators=[MinValueValidator(1)])
     ano_letivo = models.CharField(max_length=10, default='2026')
+    tem_exame = models.BooleanField(default=False, verbose_name="Tem Exame")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

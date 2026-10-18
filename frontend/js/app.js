@@ -2001,7 +2001,6 @@ const MENUS_POR_PAINEL = {
     { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão Escolar' },
     { id: 'assinatura-escola', titulo: 'Assinatura do Sistema', icone: 'bi-shield-lock-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
-    { id: 'classes-exames', titulo: 'Classes, Níveis & Exames', icone: 'bi-mortarboard-fill text-primary', categoria: 'Gestão Escolar' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
     { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
     { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Gestão Escolar' },
@@ -2690,7 +2689,7 @@ async function navegarPara(viewId) {
   if (viewId === 'saas') carregarPainelSaaS();
   if (viewId === 'escola') carregarEscolaETurmas();
   if (viewId === 'turmas') carregarTurmas();
-  if (viewId === 'classes-exames') carregarPaginaClassesExames();
+  if (viewId === 'classes-exames') { navegarPara('disciplinas'); return; }
   if (viewId === 'alunos') carregarAlunos();
   if (viewId === 'professores') carregarProfessores();
   if (viewId === 'disciplinas') carregarDisciplinas();

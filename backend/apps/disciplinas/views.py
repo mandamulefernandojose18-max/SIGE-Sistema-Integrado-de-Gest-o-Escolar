@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -68,6 +69,25 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
         return Response({'success': True, 'data': response.data})
+
+    def partial_update(self, request, *args, **kwargs):
+        response = super().partial_update(request, *args, **kwargs)
+        return Response({'success': True, 'data': response.data})
+
+    @action(detail=True, methods=['post', 'patch'], url_path='toggle-exame')
+    def toggle_exame(self, request, pk=None):
+        disciplina = self.get_object()
+        tem_exame = request.data.get('tem_exame')
+        if tem_exame is None:
+            disciplina.tem_exame = not disciplina.tem_exame
+        else:
+            disciplina.tem_exame = bool(tem_exame)
+        disciplina.save(update_fields=['tem_exame', 'updated_at'])
+        return Response({
+            'success': True,
+            'data': DisciplinaSerializer(disciplina).data,
+            'message': f"Regime de exame de '{disciplina.nome}' atualizado para: {'Com Exame (Sim)' if disciplina.tem_exame else 'Sem Exame (Não)'}."
+        })
 
     def destroy(self, request, *args, **kwargs):
         super().destroy(request, *args, **kwargs)

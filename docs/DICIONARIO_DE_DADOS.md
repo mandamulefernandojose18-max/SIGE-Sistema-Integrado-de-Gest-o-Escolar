@@ -109,7 +109,7 @@ Registo institucional de cada Tenant na plataforma.
 | `id` | `UUID` (PK) | Não | Identificador único da instituição. |
 | `nome` | `VARCHAR(255)` | Não | Denominação oficial da escola. |
 | `codigo_escola` | `VARCHAR(20)` | Não | Código oficial provincial/distrital (`0808S0001`). |
-| `nif_cnpj` | `VARCHAR(30)` | Não | Número Único de Identificação Tributária (NUIT). |
+| `nif_cnpj` | `VARCHAR(30)` | Não | Número Único de Identificação Tributária (NUIT institucional, validado estritamente com até 9 dígitos numéricos, sem letras). |
 | `provincia` | `VARCHAR(50)` | Não | Uma das 11 províncias de Moçambique. |
 | `distrito` | `VARCHAR(100)` | Não | Um dos 161 distritos de Moçambique. |
 | `ano_letivo_ativo`| `VARCHAR(10)` | Não | Ano letivo em curso (ex: `2026`). |
@@ -165,7 +165,7 @@ Ficha biográfica e percurso escolar do estudante.
 | `genero` | `VARCHAR(1)` | Não | `M` (Masculino) ou `F` (Feminino). |
 | `documento_tipo` | `VARCHAR(20)` | Não | `BI`, `PASSAPORTE`, `DIRE`, `CEDULA`, `CERTIDAO`. |
 | `documento_numero`| `VARCHAR(30)` | Não | Número do documento de identificação. |
-| `nuit` | `VARCHAR(9)` | Sim | NUIT validado exatamente com 9 dígitos. |
+| `nuit` | `VARCHAR(9)` | Sim | NUIT do aluno validado estritamente com até 9 dígitos numéricos, sem letras (`^\d{1,9}$`). |
 | `grau_ano` | `VARCHAR(10)` | Não | Classe escolar: `7`, `8`, `9`, `10`, `11`, `12`. |
 | `area` | `VARCHAR(10)` | Sim | Secção: `GERAL`, `CB`, `CD`, `CG`, `LG`, `LH`. |
 | `status` | `VARCHAR(20)` | Não | `ACTIVO`, `INACTIVO`, `TRANSFERIDO`, `DESISTENTE`. |

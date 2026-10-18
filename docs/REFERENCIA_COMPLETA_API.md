@@ -41,6 +41,11 @@
 - `404 Not Found`: Recurso não localizado para o tenant atual.
 - `422 Unprocessable Entity`: Violação de regras pedagógicas do MEC ou integridade de dados.
 
+### 1.4. Regras Estritas de Validação de Dados de Entrada
+- **NUIT (Identificação Tributária):** O campo NUIT em todos os endpoints (`/api/v1/alunos/`, `/api/v1/professores/`, `/api/v1/escola-admin/info/`, `/api/v1/saas/coordenadas/`) é restrito a **no máximo 9 dígitos puramente numéricos** (`^\d{1,9}$`), rejeitando categoricamente quaisquer letras ou cadeias com mais de 9 dígitos com erro `400 Bad Request`.
+- **Telefone / Celular:** Campos telefónicos (`telefone`, `celular`, `contato_responsavel`) rejeitam expressamente caracteres alfabéticos (`validar_telefone_sem_letras`), admitindo unicamente algarismos e pontuação de discagem internacional.
+- **Campos Numéricos e Quantitativos Globais:** Quantidades, capacidades de turma, anos letivos, cargas horárias, cotas de alunos/professores, montantes em Meticais, coordenadas bancárias e NIBs rejeitam qualquer caractere alfabético tanto no backend (DRF) como na camada de captura global do frontend.
+
 ---
 
 ## 2. Catálogo Completo dos Mais de 75 Endpoints
@@ -107,7 +112,7 @@
 | `GET` | `/api/v1/saas/minha-assinatura/` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
 | `POST`| `/api/v1/saas/registar-pagamento/` | Admin Escola | Envia comprovativo de pagamento de mensalidade para homologação. |
 | `GET` | `/api/v1/saas/coordenadas/` | Autenticado | Consulta as contas bancárias e carteiras móveis oficiais (iniciam em branco, sem dados fictícios). |
-| `POST`| `/api/v1/saas/coordenadas/` | `SUPERADMIN` | Configura e atualiza contas bancárias (BIM, BCI), carteiras móveis (M-Pesa, e-Mola) e NUIT oficiais. |
+| `POST`| `/api/v1/saas/coordenadas/` | `SUPERADMIN` | Configura e atualiza contas bancárias (BIM, BCI), carteiras móveis (M-Pesa, e-Mola) e NUIT oficiais (com validação estrita de no máximo 9 dígitos numéricos, sem letras). |
 
 ---
 

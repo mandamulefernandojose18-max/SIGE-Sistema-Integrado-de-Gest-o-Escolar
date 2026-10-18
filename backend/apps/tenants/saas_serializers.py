@@ -86,6 +86,15 @@ class SaasCoordenadasPagamentoSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def validate_nuit_entidade(self, value):
+        if value:
+            import re
+            nuit_str = str(value).strip()
+            if not re.match(r'^\d{1,9}$', nuit_str):
+                raise serializers.ValidationError("O NUIT da entidade deve conter apenas números (no máximo 9 dígitos). Não aceita letras.")
+            return nuit_str
+        return value
+
     def validate(self, attrs):
         import re
         if 'nuit_entidade' in attrs and attrs.get('nuit_entidade'):

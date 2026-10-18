@@ -34,25 +34,22 @@ class AlunoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def validate(self, attrs):
-        if 'nuit' in attrs:
-            val_nuit = attrs.get('nuit')
-            if val_nuit is None or str(val_nuit).strip() == '':
-                attrs['nuit'] = None
-            else:
-                import re
-                nuit_str = str(val_nuit).strip()
-                if not re.match(r'^\d{1,9}$', nuit_str):
-                    raise serializers.ValidationError({"nuit": "O NUIT deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
-                attrs['nuit'] = nuit_str
+    def validate_nuit(self, value):
+        if value is None or str(value).strip() == '':
+            return None
+        import re
+        nuit_str = str(value).strip()
+        if not re.match(r'^\d{1,9}$', nuit_str):
+            raise serializers.ValidationError("O NUIT deve conter apenas números (no máximo 9 dígitos). Não aceita letras.")
+        return nuit_str
 
-        if 'contato_responsavel' in attrs and attrs.get('contato_responsavel'):
+    def validate_contato_responsavel(self, value):
+        if value:
             import re
-            tel_str = str(attrs['contato_responsavel']).strip()
+            tel_str = str(value).strip()
             if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
-                raise serializers.ValidationError({"contato_responsavel": "O contacto do encarregado não pode aceitar letras. Insira apenas números."})
-
-        return attrs
+                raise serializers.ValidationError("O contacto do encarregado não pode aceitar letras. Insira apenas números.")
+        return value
 
     def create(self, validated_data):
         ano_ingresso = validated_data.get('ano_ingresso')

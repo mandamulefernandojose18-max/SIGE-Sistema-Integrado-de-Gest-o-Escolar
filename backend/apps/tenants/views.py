@@ -940,31 +940,26 @@ class ClassesExamesConfigView(APIView):
 
         resultado = []
         if regime == 'CLASSES':
-            for nome_c, padrao_exame in self.CLASSES_SNE_PADRAO:
-                tem_exame = salvos.get(nome_c, padrao_exame)
-                resultado.append({
-                    'nome': nome_c,
-                    'tem_exame': bool(tem_exame),
-                    'tipo': 'CLASSE',
-                    'obrigatorio_sne': True
-                })
+            # Retorna estritamente apenas as classes que a escola adicionou
+            for nome_c, _ in self.CLASSES_SNE_PADRAO:
+                if nome_c in salvos:
+                    resultado.append({
+                        'nome': nome_c,
+                        'tem_exame': bool(salvos[nome_c]),
+                        'tipo': 'CLASSE'
+                    })
         else:
-            # Modo NÍVEIS: apenas níveis técnicos/vocacionais
-            niveis_salvos = {k: v for k, v in salvos.items() if 'nível' in k.lower() or 'nivel' in k.lower()}
-            if not niveis_salvos:
-                for nome_n, padrao_exame in self.NIVEIS_PADRAO:
-                    niveis_salvos[nome_n] = padrao_exame
-
+            # Retorna estritamente apenas os níveis que a escola adicionou
+            niveis_salvos = [k for k in salvos if 'nível' in k.lower() or 'nivel' in k.lower()]
             itens_ordenados = sorted(
-                niveis_salvos.items(),
-                key=lambda x: int(''.join(filter(str.isdigit, x[0])) or 0)
+                niveis_salvos,
+                key=lambda x: int(''.join(filter(str.isdigit, x)) or 0)
             )
-            for nome_n, tem_ex in itens_ordenados:
+            for nome_n in itens_ordenados:
                 resultado.append({
                     'nome': nome_n,
-                    'tem_exame': bool(tem_ex),
-                    'tipo': 'NIVEL',
-                    'obrigatorio_sne': False
+                    'tem_exame': bool(salvos[nome_n]),
+                    'tipo': 'NIVEL'
                 })
 
         return Response({
@@ -972,7 +967,7 @@ class ClassesExamesConfigView(APIView):
             'regime': regime,
             'data': resultado,
             'classes_permitidas': [c[0] for c in self.CLASSES_SNE_PADRAO],
-            'niveis_sugestoes': [n[0] for n in self.NIVEIS_PADRAO],
+            'niveis_permitidos': [f'Nível {i}' for i in range(1, 11)],
             'config_raw': salvos
         })
 
@@ -993,41 +988,51 @@ class ClassesExamesConfigView(APIView):
         regime_atual = getattr(escola, 'regime_curricular', 'CLASSES') or 'CLASSES'
         salvos = dict(escola.config_classes_exames or {})
 
-        # Restaurar padrão oficial do regime ativo
-        if data.get('restaurar_padrao'):
-            if regime_atual == 'CLASSES':
-                salvos = {c[0]: c[1] for c in self.CLASSES_SNE_PADRAO}
-            else:
-                salvos = {n[0]: n[1] for n in self.NIVEIS_PADRAO}
+        # Limpar todas as classes/níveis
+        if data.get('limpar_tudo'):
+            salvos = {}
 
         # Remover item específico
         if data.get('remover_nome'):
             nome_rem = str(data.get('remover_nome')).strip()
             salvos.pop(nome_rem, None)
+            norm_c = self.normalizar_nome_classe(nome_rem)
+            if norm_c:
+                salvos.pop(norm_c, None)
+            norm_n = self.normalizar_nome_nivel(nome_rem)
+            if norm_n:
+                salvos.pop(norm_n, None)
 
         # Adicionar / atualizar item único com validação estrita
         if 'nome' in data and not data.get('remover_nome'):
             nome_bruto = str(data['nome']).strip()
-            tem_exame = bool(data.get('tem_exame', False))
 
             if regime_atual == 'CLASSES':
                 nome_normalizado = self.normalizar_nome_classe(nome_bruto)
                 if not nome_normalizado:
                     return Response({
                         'success': False,
-                        'message': 'No regime por Classes, o sistema só e só permite adicionar da 1ª à 12ª Classe.'
+                        'message': 'No regime por Classes, o sistema só permite adicionar da 1ª à 12ª Classe.'
                     }, status=status.HTTP_400_BAD_REQUEST)
+                if 'tem_exame' in data:
+                    tem_exame = bool(data.get('tem_exame'))
+                else:
+                    tem_exame = (nome_normalizado in ['10ª Classe', '12ª Classe'])
                 salvos[nome_normalizado] = tem_exame
             else:
                 nome_normalizado = self.normalizar_nome_nivel(nome_bruto)
                 if not nome_normalizado:
                     return Response({
                         'success': False,
-                        'message': 'No regime por Níveis, o sistema só e só permite adicionar Níveis numéricos (ex: Nível 1, Nível 2...).'
+                        'message': 'No regime por Níveis, o sistema só permite adicionar Níveis numéricos (ex: Nível 1, Nível 2...).'
                     }, status=status.HTTP_400_BAD_REQUEST)
+                if 'tem_exame' in data:
+                    tem_exame = bool(data.get('tem_exame'))
+                else:
+                    tem_exame = False
                 salvos[nome_normalizado] = tem_exame
 
-        # Atualizações em lote (classes ou níveis)
+        # Atualizações em lote (se fornecido)
         if 'classes' in data and isinstance(data['classes'], list):
             for item in data['classes']:
                 if isinstance(item, dict) and 'nome' in item:
@@ -1042,27 +1047,35 @@ class ClassesExamesConfigView(APIView):
                         if norm:
                             salvos[norm] = te
 
-        if 'config' in data and isinstance(data['config'], dict):
-            for k, v in data['config'].items():
-                if regime_atual == 'CLASSES':
-                    norm = self.normalizar_nome_classe(k)
-                    if norm:
-                        salvos[norm] = bool(v)
-                else:
-                    norm = self.normalizar_nome_nivel(k)
-                    if norm:
-                        salvos[norm] = bool(v)
-
         escola.config_classes_exames = salvos
         update_fields = ['config_classes_exames', 'updated_at']
         if hasattr(escola, 'regime_curricular'):
             update_fields.append('regime_curricular')
         escola.save(update_fields=update_fields)
 
+        resultado = []
+        if regime_atual == 'CLASSES':
+            for nome_c, _ in self.CLASSES_SNE_PADRAO:
+                if nome_c in salvos:
+                    resultado.append({
+                        'nome': nome_c,
+                        'tem_exame': bool(salvos[nome_c]),
+                        'tipo': 'CLASSE'
+                    })
+        else:
+            niveis_salvos = [k for k in salvos if 'nível' in k.lower() or 'nivel' in k.lower()]
+            for nome_n in sorted(niveis_salvos, key=lambda x: int(''.join(filter(str.isdigit, x)) or 0)):
+                resultado.append({
+                    'nome': nome_n,
+                    'tem_exame': bool(salvos[nome_n]),
+                    'tipo': 'NIVEL'
+                })
+
         return Response({
             'success': True,
-            'message': f'Regime ({regime_atual}) e critérios de exames guardados com sucesso.',
+            'message': 'Configuração guardada com sucesso.',
             'regime': regime_atual,
-            'data': salvos
+            'data': resultado,
+            'config_raw': salvos
         })
 

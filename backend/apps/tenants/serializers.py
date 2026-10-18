@@ -75,21 +75,24 @@ class EscolaSerializer(serializers.ModelSerializer):
         regime = attrs.get('regime_curricular')
         if regime and regime not in ['CLASSES', 'NIVEIS']:
             attrs['regime_curricular'] = 'CLASSES'
-
-        if 'nif_cnpj' in attrs and attrs.get('nif_cnpj'):
-            import re
-            nuit_str = str(attrs['nif_cnpj']).strip()
-            if not re.match(r'^\d{1,9}$', nuit_str):
-                raise serializers.ValidationError({"nif_cnpj": "O NUIT da instituição deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
-            attrs['nif_cnpj'] = nuit_str
-
-        if 'telefone' in attrs and attrs.get('telefone'):
-            import re
-            tel_str = str(attrs['telefone']).strip()
-            if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
-                raise serializers.ValidationError({"telefone": "O telefone da instituição não pode aceitar letras. Insira apenas números."})
-
         return super().validate(attrs)
+
+    def validate_nif_cnpj(self, value):
+        if value:
+            import re
+            nuit_str = str(value).strip()
+            if not re.match(r'^\d{1,9}$', nuit_str):
+                raise serializers.ValidationError("O NUIT da instituição deve conter apenas números (no máximo 9 dígitos). Não aceita letras.")
+            return nuit_str
+        return value
+
+    def validate_telefone(self, value):
+        if value:
+            import re
+            tel_str = str(value).strip()
+            if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
+                raise serializers.ValidationError("O telefone da instituição não pode aceitar letras. Insira apenas números.")
+        return value
 
     def get_assinatura_ativa(self, obj):
         ass = obj.assinaturas.order_by('-data_fim').first()

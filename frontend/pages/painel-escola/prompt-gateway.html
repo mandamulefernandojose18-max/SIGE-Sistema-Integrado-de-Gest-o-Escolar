@@ -197,7 +197,7 @@
               <label class="form-label small fw-bold text-muted">Número(s) de Telemóvel (+258):</label>
               <div class="input-group">
                 <span class="input-group-text bg-light text-muted"><i class="bi bi-telephone-fill"></i></span>
-                <input type="text" id="smsTelefones" class="form-control" placeholder="Ex: 841234567, 869876543 (+258)">
+                <input type="text" id="smsTelefones" class="form-control" placeholder="Ex: 841234567, 869876543 (+258)" inputmode="tel">
               </div>
               <small class="text-muted">Aceita múltiplos números separados por vírgula. Formato padrão (+258).</small>
             </div>
@@ -435,7 +435,7 @@
                 <label class="form-label small fw-bold text-muted">Telemóvel do Pagador (+258):</label>
                 <div class="input-group">
                   <span class="input-group-text bg-light fw-bold text-muted">+258</span>
-                  <input type="text" id="pagamentoTelefone" class="form-control" placeholder="Ex: 841234567" oninput="aoDigitarTelefonePagamento(this.value)">
+                  <input type="tel" id="pagamentoTelefone" class="form-control" placeholder="Ex: 841234567" inputmode="tel" maxlength="15" oninput="aoDigitarTelefonePagamento(this.value)">
                 </div>
               </div>
 
@@ -679,7 +679,7 @@
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-bold text-muted">Shortcode Comercial M-Pesa (Vodacom):</label>
-            <input type="text" id="cfgMpesaShortcode" class="form-control font-monospace" placeholder="Ex: 171717 (Opcional)">
+            <input type="text" id="cfgMpesaShortcode" class="form-control font-monospace" placeholder="Ex: 171717 (Opcional)" inputmode="numeric">
             <small class="text-muted">Utilizado para STK Push direto para quem tem conta comercial M-Pesa.</small>
           </div>
         </div>
