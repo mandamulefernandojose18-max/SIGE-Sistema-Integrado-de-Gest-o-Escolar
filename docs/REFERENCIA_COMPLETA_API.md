@@ -188,9 +188,13 @@
 
 | Método | Endpoint | Permissão | Descrição |
 | :---: | :--- | :---: | :--- |
-| `GET` | `/api/v1/disciplinas/` | Autenticado | Lista a matriz de disciplinas (com auto-seed automático do MEC se vazio). |
-| `POST`| `/api/v1/disciplinas/` | `DAP` / Admin | Cadastra disciplina individual na matriz curricular. |
-| `GET` | `/api/v1/disciplinas/stats/` | Autenticado | Resumo quantitativo de disciplinas ativas e médias de carga horária. |
+| `GET` | `/api/v1/disciplinas/` | Autenticado | Lista a matriz de disciplinas com filtros opcionais por `classe`, `area` e `search`. |
+| `POST`| `/api/v1/disciplinas/` | `DAP` / Admin | Cadastra disciplina individual na matriz curricular com definição obrigatória de `tem_exame: True/False`. |
+| `GET` | `/api/v1/disciplinas/<uuid:pk>/` | Autenticado | Consulta detalhes de uma disciplina curricular. |
+| `PUT`/`PATCH` | `/api/v1/disciplinas/<uuid:pk>/` | `DAP` / Admin | Atualiza dados da disciplina curricular e seu critério `tem_exame`. |
+| `POST`/`PATCH` | `/api/v1/disciplinas/<uuid:pk>/toggle-exame/` | `DAP` / Admin | Alterna instantaneamente o regime de exame da disciplina (`tem_exame: True/False`). |
+| `DELETE` | `/api/v1/disciplinas/<uuid:pk>/` | `DAP` / Admin | Elimina uma disciplina curricular da matriz. |
+| `GET` | `/api/v1/disciplinas/stats/` | Autenticado | Resumo quantitativo de disciplinas ativas e estatísticas curriculares. |
 | `GET` | `/api/v1/disciplinas/ranking-reprovacao/` | Autenticado | Ranking percentual das disciplinas com maior índice de negativas. |
 
 ---

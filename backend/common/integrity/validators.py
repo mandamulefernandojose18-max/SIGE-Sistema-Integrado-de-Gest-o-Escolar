@@ -4,7 +4,7 @@ Validadores de Domínio e Normas Oficiais — SIGE / MEC (Moçambique)
 import re
 from .exceptions import InvalidDomainValueViolation
 
-PERIODOS_VALIDOS = {'1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE', 'ANUAL'}
+PERIODOS_VALIDOS = {'1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE', 'ANUAL', 'EXAME'}
 COMPORTAMENTOS_VALIDOS = {'NS', 'S', 'B', 'MB', 'E'}
 ANOTACOES_VALIDAS = {'D', 'T', 'VT', 'F', 'AM', 'PPF', 'PDF'}
 RESULTADOS_VALIDOS = {'Aprovado', 'Reprovado', 'Excluido', 'Dispensado', 'Admitido', 'Sem Nota'}

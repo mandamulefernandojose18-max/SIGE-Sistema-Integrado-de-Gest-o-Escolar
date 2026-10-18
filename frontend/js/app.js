@@ -10326,193 +10326,170 @@ window.promptAdicionarNivelModal = function(selectId, callback) {
   });
 };
 
-window.modalAdicionarNivelCurricular = function() {
-  const configExames = window.obterClassesExamesConfig();
-  const niveisCustomizados = window.obterNiveisInstituicao();
-  
-  const classesOficiais = [
-    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-  ];
+// ==================== GESTÃO DE CLASSES/NÍVEIS E EXAMES POR DISCIPLINA ====================
+window.LISTA_CLASSES_OFICIAIS = [
+  '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+  '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+];
 
-  const todasClasses = [...classesOficiais];
-  niveisCustomizados.forEach(n => {
-    if (!todasClasses.includes(n)) todasClasses.push(n);
+window.LISTA_NIVEIS_OFICIAIS = [
+  'Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6', 'Nível 7', 'Nível 8'
+];
+
+window.obterRegimeInstituicao = function() {
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id || state.user?.escola_id || 'padrao';
+  return localStorage.getItem(`sige_regime_instituicao_${escolaId}`) || 'CLASSES';
+};
+
+window.selecionarRegimeInstituicao = function(novoRegime) {
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id || state.user?.escola_id || 'padrao';
+  localStorage.setItem(`sige_regime_instituicao_${escolaId}`, novoRegime);
+  state.regimeInstituicao = novoRegime;
+  state.filtroDisciplinaClasse = '';
+  const nomeRegime = novoRegime === 'CLASSES' ? 'Classes (1ª à 12ª)' : 'Níveis (Nível 1, 2...)';
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`Regime da instituição definido para: ${nomeRegime}`, 'info');
+  }
+  carregarDisciplinas();
+};
+
+window.obterClassesInstituicao = function() {
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id || state.user?.escola_id || 'padrao';
+  const regime = window.obterRegimeInstituicao();
+
+  const dasDisciplinas = (state.todasDisciplinas || [])
+    .map(d => (d.classe || '').trim())
+    .filter(Boolean);
+
+  let adicionadas = [];
+  try {
+    adicionadas = JSON.parse(localStorage.getItem(`sige_classes_ativas_${escolaId}`) || '[]');
+  } catch(_) {}
+
+  const todas = Array.from(new Set([...dasDisciplinas, ...adicionadas]));
+
+  const filtradas = todas.filter(item => {
+    const isNivel = /n[ií]vel/i.test(item);
+    return regime === 'NIVEIS' ? isNivel : !isNivel;
   });
 
-  const linhasTabela = todasClasses.map(c => {
-    const temExame = Boolean(configExames[c]);
-    const isOficial = classesOficiais.includes(c);
-    const tipo = isOficial ? 'Classe Regular (SNE)' : 'Nível Curricular';
-
-    const badgeExame = temExame
-      ? '<span class="badge bg-danger text-white px-2 py-1 shadow-sm"><i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)</span>'
-      : '<span class="badge bg-secondary text-white px-2 py-1 shadow-sm"><i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)</span>';
-
-    const btnAlternar = temExame
-      ? `<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="alternarExameClasseRapido('${c}', false)" title="Mudar regime para Sem Exame">
-          <i class="bi bi-arrow-left-right me-1"></i> Mudar para: Não
-        </button>`
-      : `<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="alternarExameClasseRapido('${c}', true)" title="Mudar regime para Com Exame">
-          <i class="bi bi-arrow-left-right me-1"></i> Mudar para: Sim
-        </button>`;
-
-    const btnRemover = !isOficial
-      ? `<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1 ms-1" onclick="removerNivelInstituicao('${c}')" title="Excluir Nível"><i class="bi bi-trash"></i></button>`
-      : '';
-
-    return `
-      <tr>
-        <td><strong>${c}</strong></td>
-        <td><small class="text-muted fw-semibold">${tipo}</small></td>
-        <td>${badgeExame}</td>
-        <td class="text-end">
-          <div class="d-inline-flex align-items-center">
-            ${btnAlternar}
-            ${btnRemover}
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  abrirModal('Cadastrar & Gerir Classes ou Níveis Curriculares', `
-    <div class="alert alert-info py-2 small mb-3 shadow-sm">
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <div>
-          <i class="bi bi-info-circle-fill me-1"></i> <strong>Regra Oficial MEC:</strong> A <strong>10ª e 12ª Classes</strong> têm Exame Nacional Obrigatório (<strong>Sim</strong>). As restantes classes transitam por avaliação contínua (<strong>Não</strong>).
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="aplicarPadraoMecClassesExames()">
-          <i class="bi bi-shield-check me-1"></i> Restaurar Padrão Nacional MEC
-        </button>
-      </div>
-    </div>
-
-    <!-- FORMULÁRIO DE CADASTRO DE NOVA CLASSE OU NÍVEL -->
-    <div class="card p-3 mb-4 border bg-light shadow-sm">
-      <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-plus-circle-fill text-success me-1"></i> Cadastrar Nova Classe ou Nível Curricular</h6>
-      <form id="formAdicionarNivelInst">
-        <div class="row g-2 align-items-end">
-          <div class="col-md-4">
-            <label class="form-label small fw-semibold">Tipo / Modalidade</label>
-            <select id="inputTipoModalidade" class="form-select form-select-sm" onchange="window.aoMudarTipoModalidadeCadastro(this.value)">
-              <option value="CLASSE">Classe Regular (Ex: 10ª Classe)</option>
-              <option value="NIVEL" selected>Nível Curricular (Ex: Nível 1, Nível 2...)</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label small fw-semibold">Nome da Classe / Nível *</label>
-            <input type="text" id="inputNovoNivelNome" class="form-control form-control-sm" placeholder="Ex: Nível 1, Nível 2, 10ª Classe..." required autofocus>
-          </div>
-          <div class="col-md-4">
-            <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
-              <i class="bi bi-plus-lg me-1"></i> Cadastrar
-            </button>
-          </div>
-
-          <!-- OPÇÃO 2 SOLICITADA PELO USUÁRIO: A Classe tem Exame: Sim ou Não -->
-          <div class="col-12 mt-2">
-            <div class="p-2 bg-white rounded border d-flex align-items-center justify-content-between flex-wrap gap-2">
-              <span class="small fw-bold text-secondary text-uppercase">
-                <i class="bi bi-patch-question-fill me-1 text-primary"></i> A Classe tem Exame:
-              </span>
-              <div class="d-flex gap-4">
-                <div class="form-check mb-0">
-                  <input class="form-check-input" type="radio" name="inputNovoClasseTemExame" id="novoClasseTemExameSim" value="sim">
-                  <label class="form-check-label fw-semibold text-danger small" for="novoClasseTemExameSim">
-                    <i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)
-                  </label>
-                </div>
-                <div class="form-check mb-0">
-                  <input class="form-check-input" type="radio" name="inputNovoClasseTemExame" id="novoClasseTemExameNao" value="nao" checked>
-                  <label class="form-check-label fw-semibold text-secondary small" for="novoClasseTemExameNao">
-                    <i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </form>
-    </div>
-
-    <!-- TABELA DE GESTÃO E CONFIGURAÇÃO DE EXAME DAS CLASSES E NÍVEIS -->
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <label class="form-label small fw-bold text-uppercase text-secondary mb-0">
-          <i class="bi bi-list-check me-1"></i> Classes e Níveis da Instituição (Regime de Exame):
-        </label>
-        <span class="badge bg-light text-dark border">${todasClasses.length} registadas</span>
-      </div>
-      <div class="table-responsive border rounded" style="max-height: 280px; overflow-y: auto;">
-        <table class="table table-hover table-sm align-middle mb-0">
-          <thead class="table-light sticky-top">
-            <tr>
-              <th>Classe / Nível</th>
-              <th>Regime Curricular</th>
-              <th>A Classe tem Exame?</th>
-              <th class="text-end">Ação Rápida</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${linhasTabela}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- BOTÕES DE ADIÇÃO RÁPIDA -->
-    <div class="p-2 bg-light rounded border mb-3">
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <span class="small fw-bold text-muted text-uppercase">Adição Rápida de Níveis:</span>
-        <div class="d-flex flex-wrap gap-1">
-          ${[1, 2, 3, 4, 5, 6].map(i => `
-            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="adicionarNivelRapido('Nível ${i}', false)">
-              + Nível ${i}
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-
-    <div class="d-flex justify-content-end gap-2 mt-3">
-      <button type="button" class="btn btn-primary px-4 fw-semibold" onclick="fecharModal(); carregarDisciplinas(); if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas(); if (typeof carregarTurmasView === 'function') carregarTurmasView();">
-        <i class="bi bi-check-lg me-1"></i> Concluído
-      </button>
-    </div>
-  `);
-
-  window.aoMudarTipoModalidadeCadastro = function(tipo) {
-    const input = document.getElementById('inputNovoNivelNome');
-    if (!input) return;
-    if (tipo === 'CLASSE') {
-      input.placeholder = 'Ex: 10ª Classe, 11ª Classe, 12ª Classe...';
-    } else {
-      input.placeholder = 'Ex: Nível 1, Nível 2, Nível 3...';
-    }
-  };
-
-  window.adicionarNivelRapido = function(nivelNome, temExame = false) {
-    window.adicionarNivelInstituicao(nivelNome, temExame);
-    fecharModal();
-    window.modalAdicionarNivelCurricular();
-  };
-
-  document.getElementById('formAdicionarNivelInst').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const val = document.getElementById('inputNovoNivelNome').value;
-    const temExame = document.querySelector('input[name="inputNovoClasseTemExame"]:checked')?.value === 'sim';
-    const add = window.adicionarNivelInstituicao(val, temExame);
-    if (add) {
-      fecharModal();
-      window.modalAdicionarNivelCurricular();
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-      if (typeof carregarTurmasView === 'function') carregarTurmasView();
-    }
+  return filtradas.sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
   });
 };
 
+window.adicionarClasseInstituicao = function(nomeClasse) {
+  if (!nomeClasse) return;
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id || state.user?.escola_id || 'padrao';
+
+  let ativas = [];
+  try {
+    ativas = JSON.parse(localStorage.getItem(`sige_classes_ativas_${escolaId}`) || '[]');
+  } catch(_) {}
+
+  if (!ativas.includes(nomeClasse)) {
+    ativas.push(nomeClasse);
+    try {
+      localStorage.setItem(`sige_classes_ativas_${escolaId}`, JSON.stringify(ativas));
+    } catch(_) {}
+  }
+
+  state.filtroDisciplinaClasse = nomeClasse;
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`"${nomeClasse}" selecionada! Defina as disciplinas desta classe e o critério: Tem Exame (Sim ou Não).`, 'success');
+  }
+  carregarDisciplinas();
+
+  const discExistentes = (state.todasDisciplinas || []).filter(d => (d.classe || '').trim() === nomeClasse);
+  if (discExistentes.length === 0) {
+    modalNovaDisciplina(nomeClasse);
+  }
+};
+
+window.removerClasseDaInstituicaoAtiva = function() {
+  const classeAtiva = (state.filtroDisciplinaClasse || '').trim();
+  if (!classeAtiva) return;
+
+  const vinculadas = (state.todasDisciplinas || []).filter(d => (d.classe || '').trim() === classeAtiva);
+  if (vinculadas.length > 0) {
+    alert(`Não é possível remover "${classeAtiva}" porque ela possui ${vinculadas.length} disciplina(s) cadastrada(s).\n\nElimine as disciplinas desta classe primeiro.`);
+    return;
+  }
+
+  if (!confirm(`Deseja remover "${classeAtiva}" da lista de classes ativas da escola?`)) return;
+
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id || state.user?.escola_id || 'padrao';
+
+  let ativas = [];
+  try {
+    ativas = JSON.parse(localStorage.getItem(`sige_classes_ativas_${escolaId}`) || '[]');
+  } catch(_) {}
+
+  ativas = ativas.filter(c => c !== classeAtiva);
+  try {
+    localStorage.setItem(`sige_classes_ativas_${escolaId}`, JSON.stringify(ativas));
+  } catch(_) {}
+
+  state.filtroDisciplinaClasse = '';
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao(`"${classeAtiva}" removida da lista.`, 'info');
+  }
+  carregarDisciplinas();
+};
+
+window.alternarExameDisciplina = async function(disciplinaId, novoStatus) {
+  try {
+    const statusBool = Boolean(novoStatus);
+    const disc = (state.todasDisciplinas || []).find(x => String(x.id) === String(disciplinaId));
+    if (disc && disc.tem_exame === statusBool) return;
+
+    const res = await apiFetch(`/api/v1/disciplinas/${disciplinaId}/toggle-exame/`, {
+      method: 'POST',
+      body: JSON.stringify({ tem_exame: statusBool })
+    });
+
+    if (res && res.success) {
+      if (disc) disc.tem_exame = statusBool;
+      if (state.disciplinasFiltradasAtuais) {
+        const item = state.disciplinasFiltradasAtuais.find(x => String(x.id) === String(disciplinaId));
+        if (item) item.tem_exame = statusBool;
+      }
+      try {
+        localStorage.setItem('sige_cache_disciplinas', JSON.stringify(state.todasDisciplinas));
+      } catch (_) {}
+
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao(`"${disc?.nome || 'Disciplina'}": Exame definido como ${statusBool ? 'Sim (Com Exame)' : 'Não (Sem Exame)'}`, 'info');
+      }
+      await carregarDisciplinas();
+    } else {
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao(res?.message || 'Erro ao alterar critério de exame', 'danger');
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao alternar exame da disciplina:', err);
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Erro ao comunicar com o servidor: ' + err.message, 'danger');
+    }
+  }
+};
+
+window.modalNovaDisciplinaParaClasseAtiva = function() {
+  const classeAtiva = state.filtroDisciplinaClasse || '';
+  modalNovaDisciplina(classeAtiva);
+};
+
+window.modalAdicionarNivelCurricular = function() {
+  navegarPara('disciplinas');
+};
 
 function modalNovaSeccaoArea() {
   const classesOficiais = [
@@ -10634,6 +10611,47 @@ function modalNovaSeccaoArea() {
 
 async function carregarDisciplinas() {
   const tbody = document.getElementById('tabelaDisciplinas');
+  const regime = window.obterRegimeInstituicao();
+
+  // 1. Atualizar Botões de Regime no Topo
+  const btnClasses = document.getElementById('btnRegimeClasses');
+  const btnNiveis = document.getElementById('btnRegimeNiveis');
+  const txtBtnAdd = document.getElementById('textoBtnAdicionarClasse');
+  const lblFiltroCls = document.getElementById('labelFiltroClasse');
+
+  if (btnClasses && btnNiveis) {
+    if (regime === 'CLASSES') {
+      btnClasses.className = 'btn btn-sm btn-primary active text-white fw-bold';
+      btnNiveis.className = 'btn btn-sm btn-outline-secondary';
+      if (txtBtnAdd) txtBtnAdd.textContent = '+ Adicionar Classe';
+      if (lblFiltroCls) lblFiltroCls.innerHTML = '<i class="bi bi-mortarboard me-1 text-primary"></i> 1. Classe:';
+    } else {
+      btnClasses.className = 'btn btn-sm btn-outline-secondary';
+      btnNiveis.className = 'btn btn-sm btn-success active text-white fw-bold';
+      if (txtBtnAdd) txtBtnAdd.textContent = '+ Adicionar Nível';
+      if (lblFiltroCls) lblFiltroCls.innerHTML = '<i class="bi bi-layers me-1 text-success"></i> 1. Nível:';
+    }
+  }
+
+  // 2. Preencher Dropdown com as Classes/Níveis Oficiais para Escolher e Adicionar
+  const dropdownLista = document.getElementById('listaDropdownClassesDisponiveis');
+  if (dropdownLista) {
+    const listaOficial = regime === 'NIVEIS' ? window.LISTA_NIVEIS_OFICIAIS : window.LISTA_CLASSES_OFICIAIS;
+    const ativas = window.obterClassesInstituicao();
+
+    dropdownLista.innerHTML = listaOficial.map(item => {
+      const jaAdicionada = ativas.includes(item);
+      return `
+        <li>
+          <a class="dropdown-item d-flex justify-content-between align-items-center py-2" href="#" onclick="window.adicionarClasseInstituicao('${item}'); return false;">
+            <span class="fw-semibold">${item}</span>
+            ${jaAdicionada ? '<span class="badge bg-light text-muted border ms-2 small">Ativa</span>' : '<span class="badge bg-success-subtle text-success border border-success-subtle ms-2 small">+ Adicionar</span>'}
+          </a>
+        </li>
+      `;
+    }).join('');
+  }
+
   try {
     const selClasse = document.getElementById('filtroDisciplinasClasseSelect');
     if (selClasse && state.filtroDisciplinaClasse !== undefined) {
@@ -10662,7 +10680,7 @@ async function carregarDisciplinas() {
       resD = rD;
       resStats = rS;
     } catch (fetchErr) {
-      console.warn('Erro na requisição à API de disciplinas, verificando contingência offline:', fetchErr);
+      console.warn('Erro ao carregar disciplinas via API, verificando cache offline:', fetchErr);
       const cacheLocal = localStorage.getItem('sige_cache_disciplinas');
       if (state.todasDisciplinas && state.todasDisciplinas.length > 0) {
         resD = { success: true, data: state.todasDisciplinas, _fromCache: true };
@@ -10683,12 +10701,22 @@ async function carregarDisciplinas() {
         try { localStorage.setItem('sige_cache_disciplinas', JSON.stringify(lista)); } catch(_) {}
       }
 
-      // Filtro defensivo no client-side para garantir 100% de consistência imediata
+      // Sincronizar catálogo global se sem filtros restritivos
+      if (!state.filtroDisciplinaClasse && !state.filtroDisciplinaArea && !buscaVal) {
+        state.todasDisciplinas = lista;
+      } else {
+        const exist = state.todasDisciplinas || [];
+        const ids = new Set(exist.map(x => x.id));
+        lista.forEach(d => {
+          if (!ids.has(d.id)) exist.push(d);
+        });
+        state.todasDisciplinas = exist;
+      }
+
+      // Filtro defensivo client-side
       if (state.filtroDisciplinaClasse) {
-        const digitosClasse = (state.filtroDisciplinaClasse.match(/\d+/) || [''])[0];
-        if (digitosClasse) {
-          lista = lista.filter(d => (d.classe || '').includes(digitosClasse));
-        }
+        const classeFiltro = state.filtroDisciplinaClasse.trim().toLowerCase();
+        lista = lista.filter(d => (d.classe || '').trim().toLowerCase() === classeFiltro);
       }
       if (state.filtroDisciplinaArea) {
         const areaFiltroNorm = state.filtroDisciplinaArea.trim().toLowerCase();
@@ -10710,34 +10738,15 @@ async function carregarDisciplinas() {
 
       state.disciplinasFiltradasAtuais = lista;
 
-      // Sincronizar catálogo global se sem filtros restritivos
-      if (!state.filtroDisciplinaClasse && !state.filtroDisciplinaArea && !buscaVal) {
-        state.todasDisciplinas = lista;
-      } else {
-        const exist = state.todasDisciplinas || [];
-        const ids = new Set(exist.map(x => x.id));
-        lista.forEach(d => {
-          if (!ids.has(d.id)) exist.push(d);
-        });
-        state.todasDisciplinas = exist;
-      }
-
-      // Sincronizar dinamicamente o seletor de filtro apenas com as Classes ou Níveis reais da instituição
+      // 3. Atualizar Seletor de Filtro apenas com Classes reais da instituição (SEM NENHUMA FICTÍCIA)
       const selClasseEl = document.getElementById('filtroDisciplinasClasseSelect');
       if (selClasseEl) {
-        const classesUnicas = Array.from(new Set(
-          (state.todasDisciplinas || []).map(d => (d.classe || '').trim()).filter(Boolean)
-        )).sort((a, b) => {
-          const numA = parseInt(a.replace(/\D/g, '')) || 0;
-          const numB = parseInt(b.replace(/\D/g, '')) || 0;
-          return numA - numB;
-        });
-
-        if (classesUnicas.length === 0) {
-          selClasseEl.innerHTML = '<option value="">-- Nenhuma classe/nível cadastrado --</option>';
+        const classesAtivas = window.obterClassesInstituicao();
+        if (classesAtivas.length === 0) {
+          selClasseEl.innerHTML = '<option value="">-- Nenhuma classe/nível cadastrado (+ Adicionar) --</option>';
         } else {
-          let optHtml = '<option value="">Todas as Classes / Níveis</option>';
-          classesUnicas.forEach(c => {
+          let optHtml = `<option value="">Todas as ${regime === 'NIVEIS' ? 'Níveis Cadastrados' : 'Classes Cadastradas'} (${classesAtivas.length})</option>`;
+          classesAtivas.forEach(c => {
             const isAct = (state.filtroDisciplinaClasse === c) ? 'selected' : '';
             optHtml += `<option value="${c}" ${isAct}>${c}</option>`;
           });
@@ -10745,23 +10754,36 @@ async function carregarDisciplinas() {
         }
       }
 
+      // 4. Banner Contextual da Classe Ativa
+      const bannerEl = document.getElementById('bannerClasseAtiva');
+      const badgeClasse = document.getElementById('badgeNomeClasseAtiva');
+      const resumoClasse = document.getElementById('resumoDisciplinasClasseAtiva');
+      if (bannerEl && badgeClasse && resumoClasse) {
+        if (state.filtroDisciplinaClasse) {
+          bannerEl.style.setProperty('display', 'flex', 'important');
+          badgeClasse.textContent = state.filtroDisciplinaClasse;
+          resumoClasse.textContent = `${lista.length} disciplina(s) cadastrada(s) para esta classe. Defina o critério (Sim ou Não) para cada disciplina.`;
+        } else {
+          bannerEl.style.setProperty('display', 'none', 'important');
+        }
+      }
+
       if (!tbody) return;
 
       if (lista.length === 0) {
-        const totalInstituicao = (state.todasDisciplinas || []).length;
-        if (totalInstituicao === 0) {
+        const totalGeral = (state.todasDisciplinas || []).length;
+        if (totalGeral === 0) {
           tbody.innerHTML = `
             <tr>
               <td colspan="7" class="text-center py-5">
                 <div class="text-muted">
-                  <i class="bi bi-mortarboard fs-2 text-primary d-block mb-2"></i>
-                  <div class="fw-semibold">Nenhuma disciplina cadastrada nesta instituição</div>
+                  <i class="bi bi-book fs-1 text-primary d-block mb-2"></i>
+                  <div class="fw-semibold fs-6">Nenhuma disciplina cadastrada nesta instituição</div>
                   <div class="small text-muted mt-1">
-                    Cada instituição define as suas políticas curriculares (<strong>Classe da 1ª à 12ª</strong> ou <strong>Nível 1, 2...</strong>).<br>
-                    Cadastre as disciplinas em função das políticas e critérios que a sua instituição define.
+                    Adicione uma classe através de <strong>"+ Adicionar ${regime === 'NIVEIS' ? 'Nível' : 'Classe'}"</strong> ou crie uma nova disciplina directamente.
                   </div>
                   <div class="mt-3">
-                    <button class="btn btn-primary btn-sm px-4" onclick="modalNovaDisciplina()">
+                    <button class="btn btn-primary btn-sm px-4 fw-semibold" onclick="modalNovaDisciplina()">
                       <i class="bi bi-plus-circle me-1"></i> Cadastrar Primeira Disciplina
                     </button>
                   </div>
@@ -10770,24 +10792,22 @@ async function carregarDisciplinas() {
             </tr>
           `;
         } else {
-          const descClasse = state.filtroDisciplinaClasse || 'Todas as Classes / Níveis';
-          const descArea = state.filtroDisciplinaArea ? `na área "${state.filtroDisciplinaArea}"` : '';
-          const descBusca = buscaVal ? `com o termo "${buscaVal}"` : '';
+          const descClasse = state.filtroDisciplinaClasse || 'este filtro';
           tbody.innerHTML = `
             <tr>
               <td colspan="7" class="text-center py-5">
                 <div class="text-muted">
-                  <i class="bi bi-info-circle fs-3 text-secondary d-block mb-2"></i>
-                  <div class="fw-semibold">Nenhuma disciplina encontrada com estes filtros</div>
+                  <i class="bi bi-info-circle fs-2 text-secondary d-block mb-2"></i>
+                  <div class="fw-semibold">Nenhuma disciplina encontrada para ${descClasse}</div>
                   <div class="small text-muted mt-1">
-                    Não foram encontradas disciplinas cadastradas para <strong>${descClasse}</strong> ${descArea} ${descBusca}.
+                    Adicione as disciplinas desta classe e defina se têm Exame (Sim ou Não).
                   </div>
-                  <div class="mt-3">
-                    <button class="btn btn-outline-primary btn-sm me-2" onclick="modalNovaDisciplina()">
-                      <i class="bi bi-plus-circle me-1"></i> Cadastrar Disciplina
+                  <div class="mt-3 d-flex justify-content-center gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="modalNovaDisciplina('${state.filtroDisciplinaClasse || ''}')">
+                      <i class="bi bi-plus-circle me-1"></i> + Cadastrar Disciplina
                     </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="filtrarDisciplinasClasse(''); filtrarDisciplinasArea('');">
-                      <i class="bi bi-arrow-repeat me-1"></i> Limpar Filtros
+                    <button class="btn btn-outline-secondary btn-sm" onclick="filtrarDisciplinasClasse('');">
+                      <i class="bi bi-arrow-repeat me-1"></i> Ver Todas
                     </button>
                   </div>
                 </div>
@@ -10800,158 +10820,76 @@ async function carregarDisciplinas() {
           <tr>
             <td><code>${d.codigo}</code></td>
             <td><strong>${d.nome}</strong></td>
-            <td>
-              <span class="badge bg-secondary">${d.classe || '10ª Classe'}</span>
-              ${(typeof window.classeTemExame === 'function' && window.classeTemExame(d.classe || '10ª Classe'))
-                ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size: 0.68rem;" title="A Classe tem Exame: Sim (Com Exame)"><i class="bi bi-file-earmark-check-fill me-1"></i>Com Exame</span>`
-                : `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1" style="font-size: 0.68rem;" title="A Classe tem Exame: Não (Sem Exame)"><i class="bi bi-dash-circle me-1"></i>Sem Exame</span>`}
-            </td>
+            <td><span class="badge bg-secondary-subtle text-dark border">${d.classe || '-'}</span></td>
             <td><small class="text-muted fw-semibold">${d.area || 'Geral'}</small></td>
-            <td>${d.carga_horaria} horas/semana</td>
-            <td>${d.ano_letivo}</td>
+            <td>${d.carga_horaria} h/sem</td>
+            <td class="text-center">
+              <div class="btn-group btn-group-sm" role="group" aria-label="A Disciplina tem Exame?">
+                <button type="button" class="btn btn-sm ${d.tem_exame ? 'btn-danger active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.alternarExameDisciplina('${d.id}', true)" title="Definir disciplina com exame: Sim">
+                  <i class="bi bi-check-circle-fill me-1"></i>Sim
+                </button>
+                <button type="button" class="btn btn-sm ${!d.tem_exame ? 'btn-secondary active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.alternarExameDisciplina('${d.id}', false)" title="Definir disciplina sem exame: Não">
+                  Não
+                </button>
+              </div>
+            </td>
             <td class="text-end">
               <div class="d-inline-flex gap-1">
-                <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarDisciplina('${d.id}')" title="Editar Disciplina Curricular">
-                  <i class="bi bi-pencil-square me-1"></i>Editar
+                <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarDisciplina('${d.id}')" title="Editar Disciplina">
+                  <i class="bi bi-pencil-square"></i>
                 </button>
                 <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarDisciplina('${d.id}', '${(d.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Disciplina">
-                  <i class="bi bi-trash me-1"></i>Eliminar
+                  <i class="bi bi-trash"></i>
                 </button>
               </div>
             </td>
           </tr>
         `).join('');
       }
-    } else {
-      if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas do servidor.</td></tr>`;
-      }
-    }
-
-    if (resStats && resStats.success) {
-      renderizarGraficoReprovacao(resStats.data.rankingReprovacao || []);
     }
   } catch (err) {
     console.error('Erro ao carregar disciplinas:', err);
     if (tbody) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7" class="text-center py-5">
-            <div class="text-danger mb-2">
-              <i class="bi bi-exclamation-triangle-fill fs-3 text-danger d-block mb-2"></i>
-              <div class="fw-semibold">Falha de comunicação ao carregar disciplinas</div>
-              <div class="small text-muted mt-1">
-                ${err.message || 'Verifique a ligação à rede ou confirme se o servidor SIGE está ativo.'}
-              </div>
-            </div>
-            <div class="mt-3">
-              <button class="btn btn-outline-primary btn-sm px-3" onclick="carregarDisciplinas()">
-                <i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas.</td></tr>`;
     }
   }
 }
 
-function renderizarGraficoReprovacao(ranking) {
-  const ctx = document.getElementById('chartDisciplinasReprovacao');
-  if (!ctx) return;
-  if (state.charts.reprovacao) state.charts.reprovacao.destroy();
+function modalNovaDisciplina(classePredefinida = '') {
+  const regime = window.obterRegimeInstituicao();
+  const classesLista = regime === 'NIVEIS' ? window.LISTA_NIVEIS_OFICIAIS : window.LISTA_CLASSES_OFICIAIS;
 
-  const labels = ranking.map(r => r.nome);
-  const data = ranking.map(r => r.taxaReprovacao);
-
-  state.charts.reprovacao = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: '% Negativas',
-        data,
-        backgroundColor: '#dc2626'
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: { legend: { display: false } }
-    }
-  });
-}
-
-function modalNovaDisciplina() {
-  const classesOficiais = [
-    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-  ];
-  const niveisOficiais = window.obterNiveisInstituicao();
-
-  const classeFiltroAtiva = (state.filtroDisciplinaClasse || '').trim();
-  const isNivelInicial = classeFiltroAtiva.toLowerCase().includes('nível') || classeFiltroAtiva.toLowerCase().includes('nivel');
-  const regimeInicial = isNivelInicial ? 'NIVEL' : 'CLASSE';
-
-  const opcoesIniciais = isNivelInicial ? niveisOficiais : classesOficiais;
-  const itemInicial = opcoesIniciais.includes(classeFiltroAtiva) ? classeFiltroAtiva : opcoesIniciais[0];
+  const classeInicial = classePredefinida || state.filtroDisciplinaClasse || classesLista[0];
 
   const areasIniciais = typeof window.obterTodasAreasOficiais === 'function'
-    ? window.obterTodasAreasOficiais(itemInicial)
+    ? window.obterTodasAreasOficiais(classeInicial)
     : ['Ensino Geral', 'Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História'];
 
   const optAreas = areasIniciais.map(a => 
-    `<option value="${a}" ${state.filtroDisciplinaArea === a ? 'selected' : ''}>${a}</option>`
+    `<option value="${a}">${a}</option>`
   ).join('');
 
-  let optOpcoesHtml = isNivelInicial
-    ? window.renderizarOpcoesNiveisSelect(niveisOficiais, itemInicial)
-    : classesOficiais.map(o => `<option value="${o}" ${itemInicial === o ? 'selected' : ''}>${o}</option>`).join('');
+  const optClassesHtml = classesLista.map(c => 
+    `<option value="${c}" ${c === classeInicial ? 'selected' : ''}>${c}</option>`
+  ).join('');
 
   abrirModal('Nova Disciplina Curricular', `
     <form id="formModalDisc">
       <div class="row g-3">
-        <!-- SELETOR DE MODALIDADE: CLASSE OU NÍVEL -->
-        <div class="col-md-12">
-          <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
-            <i class="bi bi-sliders me-1 text-primary"></i> 1. Modalidade Curricular:
-          </label>
-          <div class="d-flex gap-4 p-2 bg-light rounded border">
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="modalRegimeCurricular" id="regimeClasse" value="CLASSE" ${regimeInicial === 'CLASSE' ? 'checked' : ''} onchange="window.alternarRegimeModalNovaDisc(this.value)">
-              <label class="form-check-label fw-semibold" for="regimeClasse">
-                <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª Classe)
-              </label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="modalRegimeCurricular" id="regimeNivel" value="NIVEL" ${regimeInicial === 'NIVEL' ? 'checked' : ''} onchange="window.alternarRegimeModalNovaDisc(this.value)">
-              <label class="form-check-label fw-semibold" for="regimeNivel">
-                <i class="bi bi-layers me-1 text-success"></i> Nível (Nível 1, Nível 2...)
-              </label>
-            </div>
-          </div>
-        </div>
-
         <div class="col-md-8">
           <label class="form-label small fw-semibold">Nome da Disciplina *</label>
-          <input type="text" id="mdNome" class="form-control" required placeholder="Ex: Matemática, Física, Português, Desenho Técnico...">
+          <input type="text" id="mdNome" class="form-control" required placeholder="Ex: Língua Portuguesa, Matemática, Física, TIC's...">
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Código Curricular *</label>
-          <input type="text" id="mdCodigo" class="form-control" required placeholder="Ex: MAT-10 ou TEC-N1">
+          <input type="text" id="mdCodigo" class="form-control" required placeholder="Ex: MAT-10, PORT-10, TEC-N1">
         </div>
 
         <div class="col-md-6">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <label class="form-label small fw-semibold mb-0" id="labelMdClasse">${regimeInicial === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
-            <button type="button" id="btnAdicionarNivelNovaDisc" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${regimeInicial === 'NIVEL' ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc)">
-              <i class="bi bi-plus-circle me-1"></i>+ Nível / Classe
-            </button>
-          </div>
+          <label class="form-label small fw-semibold mb-1" id="labelMdClasse">${regime === 'NIVEIS' ? 'Nível Curricular *' : 'Classe *'}</label>
           <select id="mdClasse" class="form-select" required onchange="aoMudarClasseModalNovaDisc(this.value)">
-            ${optOpcoesHtml}
+            ${optClassesHtml}
           </select>
-          <div id="infoExameMdClasse" class="mt-1"></div>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Secção / Área de Estudo *</label>
@@ -10961,98 +10899,94 @@ function modalNovaDisciplina() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Carga Horária (Aulas/Semana)</label>
-          <input type="number" id="mdCarga" class="form-control" value="5" min="1" max="40" required>
+          <input type="number" id="mdCarga" class="form-control" value="4" min="1" max="40" required>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Ano Lectivo</label>
           <input type="text" id="mdAnoLetivo" class="form-control" value="2026" required>
         </div>
+
+        <!-- DEFINIÇÃO OBRIGATÓRIA: A Disciplina tem Exame: Sim ou Não -->
+        <div class="col-12 mt-2">
+          <div class="p-3 bg-light rounded border">
+            <label class="form-label small fw-bold text-uppercase text-secondary mb-2">
+              <i class="bi bi-question-circle-fill me-1 text-primary"></i> A Disciplina tem Exame:
+            </label>
+            <div class="d-flex gap-4">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="mdTemExame" id="mdTemExameSim" value="true">
+                <label class="form-check-label fw-bold text-danger small" for="mdTemExameSim">
+                  <i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="mdTemExame" id="mdTemExameNao" value="false" checked>
+                <label class="form-check-label fw-bold text-secondary small" for="mdTemExameNao">
+                  <i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)
+                </label>
+              </div>
+            </div>
+            <div class="form-text small mt-1 text-muted">
+              Defina se os alunos desta classe realizam Exame nesta disciplina específica (ex: Matemática: Sim; TIC's: Não).
+            </div>
+          </div>
+        </div>
       </div>
-      <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-plus-circle me-1"></i> Criar Disciplina no Plano Curricular</button>
+      <button type="submit" class="btn btn-primary w-100 mt-4 fw-semibold"><i class="bi bi-plus-circle me-1"></i> Criar Disciplina no Plano Curricular</button>
     </form>
   `);
 
-  window.alternarRegimeModalNovaDisc = function(regime) {
-    const sel = document.getElementById('mdClasse');
-    const lbl = document.getElementById('labelMdClasse');
-    const btnAdd = document.getElementById('btnAdicionarNivelNovaDisc');
-    if (!sel) return;
-    if (regime === 'NIVEL') {
-      if (lbl) lbl.textContent = 'Nível Curricular *';
-      if (btnAdd) btnAdd.style.display = 'inline-block';
-      const niveis = window.obterNiveisInstituicao();
-      sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis);
-      if (niveis.length === 0) {
-        setTimeout(() => { window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc); }, 150);
-      }
-    } else {
-      if (lbl) lbl.textContent = 'Classe / Grau *';
-      if (btnAdd) btnAdd.style.display = 'none';
-      sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
-    }
-    if (typeof window.aoMudarClasseModalNovaDisc === 'function') {
-      window.aoMudarClasseModalNovaDisc(sel.value);
-    }
-  };
-
   window.aoMudarClasseModalNovaDisc = function(novaClasse) {
-    if (novaClasse === '__NOVO_NIVEL__') {
-      return window.promptAdicionarNivelModal('mdClasse', window.aoMudarClasseModalNovaDisc);
-    }
     const selArea = document.getElementById('mdArea');
     if (!selArea) return;
     const areas = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(novaClasse)
       : ['Ensino Geral'];
     selArea.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
-
-    const elExame = document.getElementById('infoExameMdClasse');
-    if (elExame) {
-      const temExame = typeof window.classeTemExame === 'function' && window.classeTemExame(novaClasse);
-      if (temExame) {
-        elExame.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-file-earmark-check-fill me-1"></i>A Classe tem Exame: <strong>Sim (Com Exame)</strong></span>';
-      } else {
-        elExame.innerHTML = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle px-2 py-1"><i class="bi bi-dash-circle me-1"></i>A Classe tem Exame: <strong>Não (Sem Exame)</strong></span>';
-      }
-    }
   };
-
-  setTimeout(() => {
-    const initC = document.getElementById('mdClasse')?.value;
-    if (initC && typeof window.aoMudarClasseModalNovaDisc === 'function') {
-      window.aoMudarClasseModalNovaDisc(initC);
-    }
-  }, 100);
 
   document.getElementById('formModalDisc').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const nomeVal = document.getElementById('mdNome').value.trim();
+      const codigoVal = document.getElementById('mdCodigo').value.trim();
+      const classeVal = document.getElementById('mdClasse').value;
       const areaVal = document.getElementById('mdArea').value;
+      const temExameVal = document.querySelector('input[name="mdTemExame"]:checked')?.value === 'true';
+
       const body = {
-        nome: document.getElementById('mdNome').value,
-        codigo: document.getElementById('mdCodigo').value,
-        classe: document.getElementById('mdClasse').value,
+        nome: nomeVal,
+        codigo: codigoVal,
+        classe: classeVal,
         area: areaVal,
         carga_horaria: Number(document.getElementById('mdCarga').value),
-        ano_letivo: document.getElementById('mdAnoLetivo').value || '2026'
+        ano_letivo: document.getElementById('mdAnoLetivo').value || '2026',
+        tem_exame: temExameVal
       };
+
       const res = await apiFetch('/api/v1/disciplinas', {
         method: 'POST',
         body: JSON.stringify(body)
       });
-      if (res.success) {
-        if (areaVal) {
-          const chAll = 'sige_custom_areas_all';
-          const exAll = JSON.parse(localStorage.getItem(chAll) || '[]');
-          if (!exAll.includes(areaVal)) {
-            exAll.push(areaVal);
-            localStorage.setItem(chAll, JSON.stringify(exAll));
-          }
+
+      if (res && res.success) {
+        const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+          || state.tenant?.id || state.user?.escola_id || 'padrao';
+        let ativas = [];
+        try { ativas = JSON.parse(localStorage.getItem(`sige_classes_ativas_${escolaId}`) || '[]'); } catch(_) {}
+        if (!ativas.includes(classeVal)) {
+          ativas.push(classeVal);
+          try { localStorage.setItem(`sige_classes_ativas_${escolaId}`, JSON.stringify(ativas)); } catch(_) {}
         }
+
         fecharModal();
+        state.filtroDisciplinaClasse = classeVal;
         await carregarDisciplinas();
-        atualizarSelectAreasDisciplinas(state.filtroDisciplinaClasse);
-        mostrarNotificacao?.('Disciplina criada com sucesso!', 'success');
+        if (typeof mostrarNotificacao === 'function') {
+          mostrarNotificacao(`Disciplina "${nomeVal}" criada com sucesso! (Exame: ${temExameVal ? 'Sim' : 'Não'})`, 'success');
+        }
+      } else {
+        alert(res?.message || 'Erro ao criar disciplina');
       }
     } catch (err) {
       alert(err.message || 'Erro ao criar disciplina');
@@ -11066,23 +11000,18 @@ async function modalEditarDisciplina(disciplinaId) {
     if (!res.success || !res.data) return alert('Disciplina não encontrada');
     const d = res.data;
 
-    const classesOficiais = [
-      '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-      '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-    ];
-    const niveisOficiais = window.obterNiveisInstituicao();
-
+    const regime = window.obterRegimeInstituicao();
+    const classesLista = regime === 'NIVEIS' ? window.LISTA_NIVEIS_OFICIAIS : window.LISTA_CLASSES_OFICIAIS;
     const classeVal = (d.classe || '').trim();
-    const isNivel = classeVal.toLowerCase().includes('nível') || classeVal.toLowerCase().includes('nivel');
-    const regime = isNivel ? 'NIVEL' : 'CLASSE';
-    const listaOpcoes = isNivel ? [...niveisOficiais] : [...classesOficiais];
 
-    if (!listaOpcoes.includes(classeVal) && classeVal) {
+    const listaOpcoes = [...classesLista];
+    if (classeVal && !listaOpcoes.includes(classeVal)) {
       listaOpcoes.push(classeVal);
     }
-    const optOpcoes = isNivel
-      ? window.renderizarOpcoesNiveisSelect(listaOpcoes, classeVal)
-      : classesOficiais.map(c => `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`).join('');
+
+    const optOpcoes = listaOpcoes.map(c => 
+      `<option value="${c}" ${c === classeVal ? 'selected' : ''}>${c}</option>`
+    ).join('');
 
     const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(d.classe)
@@ -11095,27 +11024,6 @@ async function modalEditarDisciplina(disciplinaId) {
     abrirModal(`Editar Disciplina: ${d.nome}`, `
       <form id="formModalEditarDisc">
         <div class="row g-3">
-          <!-- MODALIDADE: CLASSE OU NÍVEL -->
-          <div class="col-md-12">
-            <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
-              <i class="bi bi-sliders me-1 text-primary"></i> Modalidade Curricular:
-            </label>
-            <div class="d-flex gap-4 p-2 bg-light rounded border">
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="editRegimeCurricular" id="editRegimeClasse" value="CLASSE" ${regime === 'CLASSE' ? 'checked' : ''} onchange="window.alternarRegimeModalEditarDisc(this.value)">
-                <label class="form-check-label fw-semibold" for="editRegimeClasse">
-                  <i class="bi bi-mortarboard me-1 text-primary"></i> Classe (1ª à 12ª Classe)
-                </label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="editRegimeCurricular" id="editRegimeNivel" value="NIVEL" ${regime === 'NIVEL' ? 'checked' : ''} onchange="window.alternarRegimeModalEditarDisc(this.value)">
-                <label class="form-check-label fw-semibold" for="editRegimeNivel">
-                  <i class="bi bi-layers me-1 text-success"></i> Nível (Nível 1, Nível 2...)
-                </label>
-              </div>
-            </div>
-          </div>
-
           <div class="col-md-8">
             <label class="form-label small fw-semibold">Nome da Disciplina *</label>
             <input type="text" id="mdeNome" class="form-control" required value="${d.nome || ''}">
@@ -11125,16 +11033,10 @@ async function modalEditarDisciplina(disciplinaId) {
             <input type="text" id="mdeCodigo" class="form-control" required value="${d.codigo || ''}">
           </div>
           <div class="col-md-6">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <label class="form-label small fw-semibold mb-0" id="labelMdeClasse">${regime === 'NIVEL' ? 'Nível Curricular *' : 'Classe / Grau *'}</label>
-              <button type="button" id="btnAdicionarNivelEditDisc" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${regime === 'NIVEL' ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc)">
-                <i class="bi bi-plus-circle me-1"></i>+ Nível / Classe
-              </button>
-            </div>
+            <label class="form-label small fw-semibold mb-1" id="labelMdeClasse">${regime === 'NIVEIS' ? 'Nível Curricular *' : 'Classe *'}</label>
             <select id="mdeClasse" class="form-select" required onchange="aoMudarClasseModalEditarDisc(this.value)">
               ${optOpcoes}
             </select>
-            <div id="infoExameMdeClasse" class="mt-1"></div>
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Secção / Área de Estudo *</label>
@@ -11144,93 +11046,77 @@ async function modalEditarDisciplina(disciplinaId) {
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
-            <input type="number" id="mdeCarga" class="form-control" value="${d.carga_horaria || 5}" min="1" max="40" required>
+            <input type="number" id="mdeCarga" class="form-control" value="${d.carga_horaria || 4}" min="1" max="40" required>
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Ano Lectivo</label>
             <input type="text" id="mdeAnoLetivo" class="form-control" value="${d.ano_letivo || '2026'}" required>
           </div>
+
+          <!-- DEFINIÇÃO OBRIGATÓRIA: A Disciplina tem Exame: Sim ou Não -->
+          <div class="col-12 mt-2">
+            <div class="p-3 bg-light rounded border">
+              <label class="form-label small fw-bold text-uppercase text-secondary mb-2">
+                <i class="bi bi-question-circle-fill me-1 text-primary"></i> A Disciplina tem Exame:
+              </label>
+              <div class="d-flex gap-4">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="mdeTemExame" id="mdeTemExameSim" value="true" ${d.tem_exame ? 'checked' : ''}>
+                  <label class="form-check-label fw-bold text-danger small" for="mdeTemExameSim">
+                    <i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="mdeTemExame" id="mdeTemExameNao" value="false" ${!d.tem_exame ? 'checked' : ''}>
+                  <label class="form-check-label fw-bold text-secondary small" for="mdeTemExameNao">
+                    <i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="d-flex gap-2 justify-content-end mt-4">
           <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary btn-sm px-4">Salvar Alterações</button>
+          <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold">Salvar Alterações</button>
         </div>
       </form>
     `);
 
-    window.alternarRegimeModalEditarDisc = function(novoRegime) {
-      const sel = document.getElementById('mdeClasse');
-      const lbl = document.getElementById('labelMdeClasse');
-      const btnAdd = document.getElementById('btnAdicionarNivelEditDisc');
-      if (!sel) return;
-      if (novoRegime === 'NIVEL') {
-        if (lbl) lbl.textContent = 'Nível Curricular *';
-        if (btnAdd) btnAdd.style.display = 'inline-block';
-        const niveis = window.obterNiveisInstituicao();
-        sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis, classeVal);
-        if (niveis.length === 0) {
-          setTimeout(() => { window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc); }, 150);
-        }
-      } else {
-        if (lbl) lbl.textContent = 'Classe / Grau *';
-        if (btnAdd) btnAdd.style.display = 'none';
-        sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
-      }
-      if (typeof window.aoMudarClasseModalEditarDisc === 'function') {
-        window.aoMudarClasseModalEditarDisc(sel.value);
-      }
-    };
-
     window.aoMudarClasseModalEditarDisc = function(novaClasse) {
-      if (novaClasse === '__NOVO_NIVEL__') {
-        return window.promptAdicionarNivelModal('mdeClasse', window.aoMudarClasseModalEditarDisc);
-      }
       const selArea = document.getElementById('mdeArea');
       if (!selArea) return;
       const areas = typeof window.obterTodasAreasOficiais === 'function'
         ? window.obterTodasAreasOficiais(novaClasse)
         : ['Ensino Geral'];
       selArea.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
-
-      const elExame = document.getElementById('infoExameMdeClasse');
-      if (elExame) {
-        const temExame = typeof window.classeTemExame === 'function' && window.classeTemExame(novaClasse);
-        if (temExame) {
-          elExame.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-file-earmark-check-fill me-1"></i>A Classe tem Exame: <strong>Sim (Com Exame)</strong></span>';
-        } else {
-          elExame.innerHTML = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle px-2 py-1"><i class="bi bi-dash-circle me-1"></i>A Classe tem Exame: <strong>Não (Sem Exame)</strong></span>';
-        }
-      }
     };
-
-    setTimeout(() => {
-      const initC = document.getElementById('mdeClasse')?.value;
-      if (initC && typeof window.aoMudarClasseModalEditarDisc === 'function') {
-        window.aoMudarClasseModalEditarDisc(initC);
-      }
-    }, 100);
 
     document.getElementById('formModalEditarDisc').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
+        const temExameVal = document.querySelector('input[name="mdeTemExame"]:checked')?.value === 'true';
         const body = {
-          nome: document.getElementById('mdeNome').value,
-          codigo: document.getElementById('mdeCodigo').value,
+          nome: document.getElementById('mdeNome').value.trim(),
+          codigo: document.getElementById('mdeCodigo').value.trim(),
           classe: document.getElementById('mdeClasse').value,
           area: document.getElementById('mdeArea').value,
           carga_horaria: Number(document.getElementById('mdeCarga').value),
-          ano_letivo: document.getElementById('mdeAnoLetivo').value || '2026'
+          ano_letivo: document.getElementById('mdeAnoLetivo').value || '2026',
+          tem_exame: temExameVal
         };
         const updRes = await apiFetch(`/api/v1/disciplinas/${disciplinaId}`, {
           method: 'PUT',
           body: JSON.stringify(body)
         });
-        if (updRes.success) {
-          mostrarNotificacao('Disciplina curricular actualizada com sucesso!', 'success');
+        if (updRes && updRes.success) {
+          if (typeof mostrarNotificacao === 'function') {
+            mostrarNotificacao('Disciplina actualizada com sucesso!', 'success');
+          }
           fecharModal();
           carregarDisciplinas();
         } else {
-          alert(updRes.message || 'Erro ao actualizar disciplina');
+          alert(updRes?.message || 'Erro ao actualizar disciplina');
         }
       } catch (err) {
         alert(err.message || 'Erro ao comunicar com o servidor');

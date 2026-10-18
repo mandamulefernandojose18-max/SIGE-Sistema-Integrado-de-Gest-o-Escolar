@@ -491,6 +491,237 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     buffer.seek(0)
     return buffer.getvalue()
 
+
+# ==================== 1.1 PAUTA DE EXAMES OFICIAIS (LANDSCAPE) ====================
+
+def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='landscape') -> bytes:
+    """
+    Gera o PDF oficial da Pauta de Exames no formato A4 Paisagem (Landscape)
+    respeitando integralmente a estrutura curricular e o modelo oficial do MEC.
+    """
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=0.6 * cm,
+        leftMargin=0.6 * cm,
+        topMargin=0.6 * cm,
+        bottomMargin=0.8 * cm
+    )
+    elements = []
+
+    # Emblema e Cabeçalho Oficial
+    if os.path.exists(EMBLEMA_PATH):
+        try:
+            elements.append(RLImage(EMBLEMA_PATH, width=1.1 * cm, height=1.1 * cm))
+            elements.append(Spacer(1, 0.1 * cm))
+        except Exception:
+            pass
+
+    style_hdr_rep = ParagraphStyle('PEHdrRep', alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
+    style_hdr_esc = ParagraphStyle('PEHdrEsc', alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
+    style_pauta_title = ParagraphStyle('PEPautaTitle', alignment=1, fontSize=11, leading=13, fontName='Times-Bold', textColor=colors.HexColor('#1e3a8a'))
+    style_pauta_sub = ParagraphStyle('PEPautaSub', alignment=1, fontSize=8, leading=10, fontName='Times-Roman')
+
+    esc_nome = (getattr(escola, 'nome', '') or 'ESCOLA SECUNDÁRIA').upper()
+    turma_info = dados_pauta.get('turma', {})
+    turma_nome = turma_info.get('nome', 'Turma')
+    grau_ano = turma_info.get('grau_ano', '10ª Classe')
+    area_nome = turma_info.get('area', '')
+
+    elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_hdr_rep))
+    elements.append(Paragraph(f"ESCOLA {esc_nome}", style_hdr_esc))
+    elements.append(Spacer(1, 0.1 * cm))
+
+    sub_info = f"Classe/Área ou Secção: <b>{grau_ano} {('/ ' + area_nome) if area_nome else ''}</b> &nbsp;&nbsp;|&nbsp;&nbsp; <b>PAUTA DE EXAMES / Ano {ano_letivo}</b> &nbsp;&nbsp;|&nbsp;&nbsp; Turma: <b>{turma_nome}</b>"
+    elements.append(Paragraph(sub_info, style_pauta_title))
+    elements.append(Spacer(1, 0.3 * cm))
+
+    # Tabela da Pauta
+    disciplinas_com_exame = dados_pauta.get('disciplinas_com_exame', [])
+    disciplinas_sem_exame = dados_pauta.get('disciplinas_sem_exame', [])
+    alunos = dados_pauta.get('alunos', [])
+
+    sh_bold_w = ParagraphStyle('SHBW', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.white)
+    sh_sub = ParagraphStyle('SHSub', fontName='Times-Bold', fontSize=6, leading=7, alignment=1, textColor=colors.HexColor('#1e293b'))
+    st_c = ParagraphStyle('STC', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=1)
+    st_c_bold = ParagraphStyle('STCB', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
+    st_red = ParagraphStyle('STR', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_green = ParagraphStyle('STG', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.HexColor('#166534'))
+    st_nome = ParagraphStyle('STN', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=0)
+
+    # Linhas de cabeçalho (3 linhas)
+    row_hdr1 = [
+        Paragraph("Nº Ordem", sh_bold_w),
+        Paragraph("Nº Candidato", sh_bold_w),
+        Paragraph("Nome do Aluno", sh_bold_w),
+        Paragraph("Gén.", sh_bold_w),
+        Paragraph("Turma", sh_bold_w),
+    ]
+    row_hdr2 = ["", "", "", "", ""]
+    row_hdr3 = ["", "", "", "", ""]
+
+    table_styles = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('BACKGROUND', (0, 1), (-1, 2), colors.HexColor('#f1f5f9')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        # Merge colunas fixas 0 a 4 através das linhas 0 a 2
+        ('SPAN', (0, 0), (0, 2)),
+        ('SPAN', (1, 0), (1, 2)),
+        ('SPAN', (2, 0), (2, 2)),
+        ('SPAN', (3, 0), (3, 2)),
+        ('SPAN', (4, 0), (4, 2)),
+    ]
+
+    curr_col = 5
+    # Disciplinas com Exame
+    for d in disciplinas_com_exame:
+        d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
+        row_hdr1.extend([Paragraph(d_nome_curto, sh_bold_w), "", "", ""])
+        table_styles.append(('SPAN', (curr_col, 0), (curr_col + 3, 0)))
+
+        row_hdr2.extend([
+            Paragraph("de", sh_sub),
+            Paragraph("Frequência", sh_sub),
+            Paragraph("Exame", sh_sub),
+            Paragraph("Média", sh_sub),
+        ])
+        row_hdr3.extend([
+            Paragraph("Proven.", sh_sub),
+            Paragraph("", sh_sub),
+            Paragraph("1ª / 2ª", sh_sub),
+            Paragraph("", sh_sub),
+        ])
+        curr_col += 4
+
+    # Disciplinas sem Exame
+    for d in disciplinas_sem_exame:
+        d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
+        row_hdr1.append(Paragraph(d_nome_curto, sh_bold_w))
+        row_hdr2.append(Paragraph("Frequência", sh_sub))
+        row_hdr3.append(Paragraph("Proven.", sh_sub))
+        curr_col += 1
+
+    # Resultado Final
+    row_hdr1.extend([Paragraph("RESULTADO FINAL", sh_bold_w), "", ""])
+    table_styles.append(('SPAN', (curr_col, 0), (curr_col + 2, 0)))
+
+    row_hdr2.extend([
+        Paragraph("Aprovado(a)", sh_sub),
+        Paragraph("MF", sh_sub),
+        Paragraph("Disciplina(s) que Reprovou", sh_sub),
+    ])
+    row_hdr3.extend(["", "", ""])
+    table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))
+    table_styles.append(('SPAN', (curr_col + 1, 1), (curr_col + 1, 2)))
+    table_styles.append(('SPAN', (curr_col + 2, 1), (curr_col + 2, 2)))
+
+    table_data = [row_hdr1, row_hdr2, row_hdr3]
+
+    # Inserir alunos
+    for r_idx, aluno in enumerate(alunos, start=3):
+        row = [
+            Paragraph(str(aluno.get('numero', '')), st_c),
+            Paragraph(str(aluno.get('candidato', '')), st_c),
+            Paragraph(str(aluno.get('nome', '')), st_nome),
+            Paragraph(str(aluno.get('genero', '')), st_c),
+            Paragraph(str(aluno.get('turma', '')), st_c),
+        ]
+
+        disc_map = aluno.get('disciplinas', {})
+        for d in disciplinas_com_exame:
+            d_data = disc_map.get(d['id']) or {}
+            v_freq = d_data.get('frequencia', '-')
+            v_e1 = d_data.get('exame_1epoca')
+            v_e2 = d_data.get('exame_2epoca')
+            v_med = d_data.get('media', '-')
+
+            e_str = f"{v_e2}" if v_e2 is not None else (f"{v_e1}" if v_e1 is not None else "-")
+
+            row.append(Paragraph(str(v_freq), st_c))
+            row.append(Paragraph(str(v_freq), st_c))
+            row.append(Paragraph(e_str, st_c))
+
+            if isinstance(v_med, (int, float)):
+                m_st = st_green if v_med >= 9.5 else st_red
+                row.append(Paragraph(str(v_med), m_st))
+            else:
+                row.append(Paragraph(str(v_med), st_c_bold))
+
+        for d in disciplinas_sem_exame:
+            d_data = disc_map.get(d['id']) or {}
+            v_freq = d_data.get('frequencia', '-')
+            if isinstance(v_freq, (int, float)):
+                f_st = st_green if v_freq >= 9.5 else st_red
+                row.append(Paragraph(str(v_freq), f_st))
+            else:
+                row.append(Paragraph(str(v_freq), st_c))
+
+        res_info = aluno.get('resultado_final', {})
+        res_aprov = str(res_info.get('aprovado', '') or 'Pendente').strip()
+        res_mf = res_info.get('mf', '-')
+        res_rep = str(res_info.get('disciplinas_reprovou', '---') or '---')
+
+        ap_st = st_green if 'Aprovad' in res_aprov else (st_red if 'Reprovad' in res_aprov or 'Excluíd' in res_aprov else st_c_bold)
+        row.append(Paragraph(res_aprov, ap_st))
+        row.append(Paragraph(str(res_mf), st_c_bold))
+        row.append(Paragraph(res_rep, ParagraphStyle('SRep', fontName='Times-Roman', fontSize=5.5, leading=6.5, alignment=0)))
+
+        # Zebra striping
+        if (r_idx % 2) == 0:
+            table_styles.append(('BACKGROUND', (0, r_idx), (-1, r_idx), colors.HexColor('#f8fafc')))
+
+        table_data.append(row)
+
+    # Larguras das colunas
+    total_cols = len(row_hdr1)
+    w_fixed = [0.8 * cm, 1.3 * cm, 4.0 * cm, 0.6 * cm, 1.1 * cm]
+    w_res = [1.5 * cm, 0.7 * cm, 2.5 * cm]
+    espaco_discs = 28.5 * cm - sum(w_fixed) - sum(w_res)
+    n_cols_discs = (len(disciplinas_com_exame) * 4) + len(disciplinas_sem_exame)
+    w_col_disc = max(0.42 * cm, espaco_discs / max(n_cols_discs, 1))
+
+    col_widths = list(w_fixed)
+    for _ in range(n_cols_discs):
+        col_widths.append(w_col_disc)
+    col_widths.extend(w_res)
+
+    t = Table(table_data, colWidths=col_widths, repeatRows=3)
+    t.setStyle(TableStyle(table_styles))
+    elements.append(t)
+    elements.append(Spacer(1, 0.4 * cm))
+
+    # Assinaturas
+    dap_nome = getattr(escola, 'dap_nome', 'O Director Pedagógico (DAP)') or 'O Director Pedagógico (DAP)'
+    dir_nome = getattr(escola, 'director_nome', 'O Director da Escola') or 'O Director da Escola'
+    dt_nome = turma_info.get('director_turma', 'O Director de Turma') or 'O Director de Turma'
+
+    sig_data = [
+        ["______________________________", "______________________________", "______________________________"],
+        ["O Director de Turma", "O Director Pedagógico (DAP)", "O Director da Escola"],
+        [dt_nome, dap_nome, dir_nome]
+    ]
+    w_sig = (28.5 / 3.0) * cm
+    t_sig = Table(sig_data, colWidths=[w_sig, w_sig, w_sig])
+    t_sig.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+    ]))
+    elements.append(KeepTogether(t_sig))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 # ==================== 2. BOLETIM DE APROVEITAMENTO (VERTICAL / PORTRAIT) ====================
 
 def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:

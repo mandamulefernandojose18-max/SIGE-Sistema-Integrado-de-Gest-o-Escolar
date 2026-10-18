@@ -530,3 +530,290 @@ def obter_disciplinas_pauta_turma(turma):
 
     disciplinas_finais.sort(key=ordem_sort_key)
     return disciplinas_finais
+
+
+# =====================================================================
+# REGRAS E CONSOLIDAÇÃO DA PAUTA DE EXAMES OFICIAIS (MEC / MOÇAMBIQUE)
+# =====================================================================
+
+def turma_tem_exame(turma, escola=None):
+    """
+    Verifica se a turma pertence a uma classe ou nível com regime de exame oficial.
+    Por padrão em Moçambique: 10ª Classe e 12ª Classe.
+    Além disso, respeita qualquer classe configurada com tem_exame=True na escola.
+    """
+    if not turma:
+        return False
+    grau = str(getattr(turma, 'grau_ano', '') or '').strip()
+    if re.search(r'(^|[^\d])(10|12)([ªaº\.\s]|$)', grau.lower()):
+        return True
+
+    esc = escola or getattr(turma, 'escola', None)
+    if esc and hasattr(esc, 'config_classes_exames') and isinstance(esc.config_classes_exames, dict):
+        for k, v in esc.config_classes_exames.items():
+            if v and (k.lower() in grau.lower() or grau.lower() in k.lower()):
+                return True
+    return False
+
+
+def disciplina_tem_exame_na_turma(disciplina, turma):
+    """
+    Determina se uma disciplina específica realiza exame oficial na respectiva turma/classe.
+    Respeita a configuração explícita disciplina.tem_exame e a matriz curricular oficial MEC.
+    """
+    if getattr(disciplina, 'tem_exame', False):
+        return True
+
+    m_canon = identificar_materia_canonica(disciplina)
+    grau = str(getattr(turma, 'grau_ano', '') or '').lower()
+
+    # 10ª Classe: 8 disciplinas de Exame Nacional (Português, Inglês, História, Geografia, Biologia, Química, Física, Matemática)
+    if re.search(r'(^|[^\d])10([ªaº\.\s]|$)', grau):
+        if m_canon in {'LP', 'ING', 'HIS', 'GEO', 'BIO', 'QUI', 'FIS', 'MAT'}:
+            return True
+        return False
+
+    # 12ª Classe: Exames Nacionais por secção/área
+    if re.search(r'(^|[^\d])12([ªaº\.\s]|$)', grau):
+        _, sub_area = categorizar_area(getattr(turma, 'area', ''), getattr(turma, 'nome', ''))
+        if sub_area == 'CIENCIAS_BIOLOGIA' and m_canon in {'LP', 'MAT', 'BIO', 'QUI'}:
+            return True
+        elif sub_area == 'CIENCIAS_DESENHO' and m_canon in {'LP', 'MAT', 'FIS', 'DGD'}:
+            return True
+        elif sub_area == 'CIENCIAS_GEOGRAFIA' and m_canon in {'LP', 'MAT', 'GEO', 'FIS'}:
+            return True
+        elif sub_area in ('LETRAS_GEOGRAFIA', 'LETRAS_HISTORIA', 'LETRAS_GERAL') and m_canon in {'LP', 'HIS', 'GEO', 'FRAN'}:
+            return True
+        elif m_canon in {'LP', 'MAT'}:
+            return True
+        return False
+
+    return False
+
+
+def consolidar_pauta_exames(turma, ano_letivo='2026'):
+    """
+    Gera a Pauta Oficial de Exames do SIGE estruturada fielmente ao modelo do MEC:
+    - Disciplinas e Médias de Proveniência (Frequência) extraídas diretamente das pautas de frequência (reais, não fictícias).
+    - Sub-colunas para disciplinas com exame: Frequência (Proven.), Exame 1ª, Exame 2ª, Média da Disciplina.
+    - Coluna única para disciplinas sem exame: Frequência.
+    - RESULTADO FINAL: Aprovado(a), MF (Média Final), Disciplina(s) que Reprovou.
+    """
+    from apps.alunos.models import Aluno
+    from apps.notas.models import Nota, NotaExame
+    from common.utils.avaliacoes_mocambique import avaliar_aprovacao_pauta
+
+    # 1. Carregar disciplinas da turma
+    disciplinas = obter_disciplinas_pauta_turma(turma)
+
+    # Identificar quais têm exame e quais não têm
+    disciplinas_info = []
+    for d in disciplinas:
+        tem_ex = disciplina_tem_exame_na_turma(d, turma)
+        disciplinas_info.append({
+            'id': str(d.id),
+            'obj': d,
+            'nome': d.nome,
+            'codigo': d.codigo or '',
+            'tem_exame': tem_ex
+        })
+
+    # 2. Carregar alunos ativos da turma
+    alunos = list(Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome', 'apelido'))
+
+    # 3. Carregar notas de frequência de todos os trimestres
+    todas_notas = list(Nota.objects.filter(turma=turma).select_related('disciplina'))
+    notas_freq_map = {}
+    for n in todas_notas:
+        if n.disciplina_id:
+            notas_freq_map[(n.aluno_id, n.disciplina_id, n.periodo)] = n
+
+    # 4. Carregar notas de exame salvas
+    notas_exame_objs = list(NotaExame.objects.filter(turma=turma, ano_letivo=ano_letivo))
+    notas_exame_map = {}
+    for ne in notas_exame_objs:
+        notas_exame_map[(ne.aluno_id, ne.disciplina_id)] = ne
+
+    grau_ano = getattr(turma, 'grau_ano', '') or '10ª Classe'
+    is_12a = bool(re.search(r'(^|[^\d])12([ªaº\.\s]|$)', grau_ano.lower()))
+
+    dados_alunos = []
+    total_aprovados = 0
+    total_reprovados = 0
+    total_admitidos = 0
+    total_excluidos = 0
+
+    for idx, aluno in enumerate(alunos, start=1):
+        aluno_nome_completo = f"{aluno.nome} {aluno.apelido or ''}".strip()
+        genero = (aluno.genero or 'M').upper()
+        sufixo_genero = 'a' if genero.startswith('F') else 'o'
+
+        disciplinas_aluno = {}
+        notas_finais_calc = []
+        disciplinas_reprovadas = []
+
+        tem_algum_exame = False
+
+        for d_info in disciplinas_info:
+            d_id = d_info['id']
+            d_obj = d_info['obj']
+            tem_ex = d_info['tem_exame']
+
+            # Calcular média de frequência real a partir dos trimestres
+            def extrair_val(per):
+                n = notas_freq_map.get((aluno.id, d_obj.id, per))
+                if not n:
+                    return None
+                tem_avaliacoes = any(
+                    getattr(n, c, None) is not None and getattr(n, c, 0) > 0
+                    for c in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral']
+                )
+                if tem_avaliacoes or (n.media_final is not None and n.media_final > 0) or n.anotacao:
+                    return n.media_final
+                return None
+
+            t1 = extrair_val('1_TRIMESTRE')
+            t2 = extrair_val('2_TRIMESTRE')
+            t3 = extrair_val('3_TRIMESTRE')
+
+            vals_tri = [v for v in [t1, t2, t3] if v is not None]
+            if vals_tri:
+                mfreq_val = round(sum(vals_tri) / len(vals_tri), 1)
+                mfreq_int = int(round(mfreq_val))
+            else:
+                mfreq_val = None
+                mfreq_int = None
+
+            # Obter registo de exame
+            ne_obj = notas_exame_map.get((aluno.id, d_obj.id))
+            e1 = getattr(ne_obj, 'exame_1epoca', None) if ne_obj else None
+            e2 = getattr(ne_obj, 'exame_2epoca', None) if ne_obj else None
+
+            if e1 is not None or e2 is not None:
+                tem_algum_exame = True
+
+            # Nota do Exame considerada (2ª época tem precedência sobre 1ª)
+            nota_exame_efetiva = e2 if e2 is not None else e1
+
+            # Média Final da Disciplina
+            if tem_ex:
+                if nota_exame_efetiva is not None:
+                    if mfreq_val is not None:
+                        media_disc_val = round((mfreq_val + nota_exame_efetiva) / 2, 1)
+                        media_disc_int = int(round(media_disc_val))
+                    else:
+                        media_disc_int = int(round(nota_exame_efetiva))
+                elif mfreq_val is not None:
+                    media_disc_int = mfreq_int
+                else:
+                    media_disc_int = None
+            else:
+                media_disc_int = mfreq_int
+
+            # Situação na disciplina
+            if media_disc_int is not None:
+                aprov_disc = media_disc_int >= 9.5
+                res_disc = f"Aprovad{sufixo_genero}" if aprov_disc else f"Reprovad{sufixo_genero}"
+                if not aprov_disc:
+                    disciplinas_reprovadas.append(d_info['nome'])
+                notas_finais_calc.append({'disciplina': d_info['nome'], 'notaFinal': media_disc_int})
+            else:
+                res_disc = 'Sem Nota'
+
+            disciplinas_aluno[d_id] = {
+                'disciplina_id': d_id,
+                'nome': d_info['nome'],
+                'codigo': d_info['codigo'],
+                'tem_exame': tem_ex,
+                'frequencia': mfreq_int if mfreq_int is not None else '-',
+                'frequencia_decimal': mfreq_val,
+                'exame_1epoca': e1,
+                'exame_2epoca': e2,
+                'media': media_disc_int if media_disc_int is not None else '-',
+                'resultado': res_disc,
+                'aprovado': media_disc_int >= 9.5 if media_disc_int is not None else False
+            }
+
+        # Avaliar Resultado Final do Aluno
+        if notas_finais_calc:
+            soma_finais = sum(n['notaFinal'] for n in notas_finais_calc)
+            mf_global = int(round(soma_finais / len(notas_finais_calc)))
+            total_negativas = len(disciplinas_reprovadas)
+
+            # Regras de Aprovação
+            if not is_12a:
+                aprovado_geral = (total_negativas == 0 and mf_global >= 9.5)
+            else:
+                tem_abaixo_de_8 = any(n['notaFinal'] < 8.0 for n in notas_finais_calc)
+                aprovado_geral = (mf_global >= 9.5 and total_negativas <= 2 and not tem_abaixo_de_8)
+
+            if tem_algum_exame:
+                resultado_final = f"Aprovad{sufixo_genero}" if aprovado_geral else f"Reprovad{sufixo_genero}"
+                if aprovado_geral:
+                    total_aprovados += 1
+                else:
+                    total_reprovados += 1
+            else:
+                # Aluno antes da realização dos exames: Admitido ou Excluído
+                if mf_global >= 9.5:
+                    resultado_final = f"Admitid{sufixo_genero}"
+                    total_admitidos += 1
+                else:
+                    resultado_final = f"Excluíd{sufixo_genero}"
+                    total_excluidos += 1
+        else:
+            mf_global = '-'
+            resultado_final = 'Pendente'
+
+        dados_alunos.append({
+            'numero': idx,
+            'id': str(aluno.id),
+            'aluno_id': str(aluno.id),
+            'candidato': aluno.matricula or f"CAND-{idx:03d}",
+            'matricula': aluno.matricula or f"CAND-{idx:03d}",
+            'nome': aluno_nome_completo,
+            'genero': genero,
+            'turma': turma.nome,
+            'disciplinas': disciplinas_aluno,
+            'resultado_final': {
+                'aprovado': resultado_final,
+                'resultado': resultado_final,
+                'mf': mf_global,
+                'media_final': mf_global,
+                'disciplinas_reprovou': ", ".join(disciplinas_reprovadas) if disciplinas_reprovadas else "---",
+                'total_negativas': len(disciplinas_reprovadas)
+            }
+        })
+
+    total_alunos = len(dados_alunos)
+    homens = sum(1 for a in dados_alunos if a['genero'] == 'M')
+    mulheres = sum(1 for a in dados_alunos if a['genero'].startswith('F'))
+
+    estatisticas = {
+        'total': total_alunos,
+        'homens': homens,
+        'mulheres': mulheres,
+        'aprovados': total_aprovados,
+        'reprovados': total_reprovados,
+        'admitidos': total_admitidos,
+        'excluidos': total_excluidos,
+        'taxa_aprovacao': round((total_aprovados / (total_aprovados + total_reprovados) * 100), 1) if (total_aprovados + total_reprovados) > 0 else 0.0
+    }
+
+    return {
+        'turma': {
+            'id': str(turma.id),
+            'nome': turma.nome,
+            'grau_ano': turma.grau_ano,
+            'area': turma.area,
+            'turno': getattr(turma, 'turno', 'Diurno') or 'Diurno',
+            'ano_letivo': ano_letivo,
+            'tem_exame': turma_tem_exame(turma)
+        },
+        'disciplinas': disciplinas_info,
+        'disciplinas_com_exame': [d for d in disciplinas_info if d['tem_exame']],
+        'disciplinas_sem_exame': [d for d in disciplinas_info if not d['tem_exame']],
+        'alunos': dados_alunos,
+        'estatisticas': estatisticas
+    }
+

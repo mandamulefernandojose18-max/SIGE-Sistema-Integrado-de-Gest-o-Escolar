@@ -171,3 +171,88 @@ class PermissaoEdicaoNotas(models.Model):
             self.data_expiracao = timezone.now() + timedelta(hours=self.duracao_horas)
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class NotaExame(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='notas_exame')
+    aluno = models.ForeignKey('alunos.Aluno', on_delete=models.CASCADE, related_name='notas_exame')
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, related_name='notas_exame')
+    turma = models.ForeignKey('turmas.Turma', on_delete=models.CASCADE, related_name='notas_exame')
+    ano_letivo = models.CharField(max_length=10, default='2026')
+
+    nota_frequencia = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(20.0)]
+    )
+    exame_1epoca = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(20.0)]
+    )
+    exame_2epoca = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(20.0)]
+    )
+    nota_final = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(20.0)]
+    )
+    resultado = models.CharField(max_length=25, default='Pendente')  # Aprovado, Reprovado, Admitido, Excluido, Dispensado
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_notas_exame'
+        verbose_name = 'Nota de Exame'
+        verbose_name_plural = 'Notas de Exame'
+        indexes = [
+            models.Index(fields=['escola']),
+            models.Index(fields=['aluno']),
+            models.Index(fields=['disciplina']),
+            models.Index(fields=['turma']),
+            models.Index(fields=['ano_letivo']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'aluno', 'disciplina', 'turma', 'ano_letivo'],
+                name='unique_nota_exame_aluno_disc_ano'
+            ),
+        ]
+
+    def clean(self):
+        from common.integrity import validar_integridade_tenant, validar_escala_nota
+        validar_integridade_tenant(self, aluno=self.aluno, disciplina=self.disciplina, turma=self.turma)
+
+        for campo in ['nota_frequencia', 'exame_1epoca', 'exame_2epoca', 'nota_final']:
+            val = getattr(self, campo, None)
+            if val is not None:
+                validar_escala_nota(val)
+
+        # Cálculo oficial MEC (Moçambique):
+        # Nota do exame: Se fez 2ª época, prevalece a 2ª época; caso contrário, 1ª época
+        nota_exame = self.exame_2epoca if self.exame_2epoca is not None else self.exame_1epoca
+
+        if nota_exame is not None:
+            if self.nota_frequencia is not None:
+                # Média final oficial da disciplina com exame: (MFreq + NE) / 2
+                self.nota_final = float(round((self.nota_frequencia + nota_exame) / 2))
+            else:
+                self.nota_final = float(round(nota_exame))
+            self.resultado = 'Aprovado' if self.nota_final >= 9.5 else 'Reprovado'
+        elif self.nota_frequencia is not None:
+            self.nota_final = float(round(self.nota_frequencia))
+            if self.nota_frequencia >= 9.5:
+                self.resultado = 'Admitido'
+            else:
+                self.resultado = 'Excluído'
+        else:
+            self.resultado = 'Pendente'
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Exame {self.aluno.nome} - {self.disciplina.nome}: Freq={self.nota_frequencia}, 1ª={self.exame_1epoca}, 2ª={self.exame_2epoca}, Final={self.nota_final}"
+

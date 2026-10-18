@@ -244,6 +244,280 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     buffer.seek(0)
     return buffer.getvalue()
 
+# ==================== 1.1 PAUTA DE EXAMES OFICIAIS ====================
+
+def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='landscape') -> bytes:
+    """
+    Gera a planilha Excel oficial da Pauta de Exames fiel ao modelo MEC:
+    - Disciplinas e Médias de Proveniência (Frequência) extraídas diretamente das pautas de frequência.
+    - Sub-colunas para disciplinas com exame: Frequência (Proven.), Exame 1ª, Exame 2ª, Média.
+    - Coluna única para disciplinas sem exame: Frequência.
+    - RESULTADO FINAL: Aprovado(a), MF, Disciplina(s) que Reprovou.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    turma_info = dados_pauta.get('turma', {})
+    turma_nome = turma_info.get('nome', 'Turma')
+    ws.title = f"Exames {turma_nome[:20]}"
+    configurar_pagina_excel(ws, orientacao=orientacao)
+
+    disciplinas = dados_pauta.get('disciplinas', [])
+    disciplinas_com_exame = dados_pauta.get('disciplinas_com_exame', [])
+    disciplinas_sem_exame = dados_pauta.get('disciplinas_sem_exame', [])
+    alunos = dados_pauta.get('alunos', [])
+
+    # Total de colunas: 5 (Nº, Nº Candidato, Nome, Género, Turma) + len(com_exame)*4 + len(sem_exame)*1 + 3 (Aprovado, MF, Disciplinas que Reprovou)
+    total_cols = 5 + (len(disciplinas_com_exame) * 4) + (len(disciplinas_sem_exame) * 1) + 3
+    end_col_letter = get_column_letter(total_cols)
+
+    esc_nome = (getattr(escola, 'nome', '') or 'ESCOLA SECUNDÁRIA').upper()
+    grau_area = f"{turma_info.get('grau_ano', '')} / {turma_info.get('area', '')}".strip(' /')
+
+    # Linha 1: REPÚBLICA DE MOÇAMBIQUE
+    ws.merge_cells(f'C1:{end_col_letter}1')
+    ws['C1'] = "REPÚBLICA DE MOÇAMBIQUE"
+    ws['C1'].font = FONT_TITLE
+    ws['C1'].alignment = ALIGN_CENTER
+    ws.row_dimensions[1].height = 22
+
+    # Linha 2: ESCOLA ...
+    ws.merge_cells(f'C2:{end_col_letter}2')
+    ws['C2'] = f"ESCOLA {esc_nome}"
+    ws['C2'].font = FONT_SUBTITLE
+    ws['C2'].alignment = ALIGN_CENTER
+    ws.row_dimensions[2].height = 20
+
+    # Linha 3: Classe/Área ou Secção | PAUTA DE EXAMES / Ano
+    ws.merge_cells('C3:E3')
+    ws['C3'] = f"Classe/Área ou Secção: {grau_area}"
+    ws['C3'].font = FONT_REGULAR_BOLD
+    ws['C3'].alignment = ALIGN_LEFT
+
+    col_pauta_ano = get_column_letter(6)
+    ws.merge_cells(f'{col_pauta_ano}3:{end_col_letter}3')
+    ws[f'{col_pauta_ano}3'] = f"PAUTA DE EXAMES / Ano {ano_letivo}"
+    ws[f'{col_pauta_ano}3'].font = FONT_TITLE
+    ws[f'{col_pauta_ano}3'].alignment = ALIGN_CENTER
+    ws.row_dimensions[3].height = 22
+
+    # Linhas de Cabeçalho da Tabela: Linhas 4, 5, 6
+    cols_fixas = ['Nº de Ordem', 'Nº Candidato', 'Nome do Aluno', 'Género', 'Turma']
+    for idx_c, nome_c in enumerate(cols_fixas, start=1):
+        c_let = get_column_letter(idx_c)
+        ws.merge_cells(f'{c_let}4:{c_let}6')
+        cell = ws[f'{c_let}4']
+        cell.value = nome_c
+        cell.font = FONT_HEADER
+        cell.fill = FILL_NAVY
+        cell.alignment = ALIGN_CENTER
+        aplicar_estilo_intervalo(ws, idx_c, 4, idx_c, 6, font=FONT_HEADER, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
+
+    curr_c = 6
+    # Disciplinas com exame: 4 colunas cada (Frequência Proven., Exame 1ª, Exame 2ª, Média)
+    for d in disciplinas_com_exame:
+        d_nome = d['nome']
+        c_start = curr_c
+        c_end = curr_c + 3
+        # Linha 4: Nome da Disciplina mesclado nas 4 colunas
+        ws.merge_cells(start_row=4, start_column=c_start, end_row=4, end_column=c_end)
+        cell = ws.cell(row=4, column=c_start, value=d_nome)
+        cell.font = FONT_HEADER
+        cell.fill = FILL_NAVY
+        cell.alignment = ALIGN_CENTER
+        aplicar_estilo_intervalo(ws, c_start, 4, c_end, 4, font=FONT_HEADER, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
+
+        # Linha 5 e 6:
+        # Col c_start: "Frequência" / "Proven."
+        ws.cell(row=5, column=c_start, value="de").font = FONT_SMALL_BOLD
+        ws.cell(row=6, column=c_start, value="Proven.").font = FONT_SMALL_BOLD
+        # Col c_start + 1: Exame 1ª época
+        ws.cell(row=5, column=c_start + 1, value="Exame").font = FONT_SMALL_BOLD
+        ws.cell(row=6, column=c_start + 1, value="1ª").font = FONT_SMALL_BOLD
+        # Col c_start + 2: Exame 2ª época
+        ws.cell(row=5, column=c_start + 2, value="Exame").font = FONT_SMALL_BOLD
+        ws.cell(row=6, column=c_start + 2, value="2ª").font = FONT_SMALL_BOLD
+        # Col c_start + 3: Média
+        ws.merge_cells(start_row=5, start_column=c_start + 3, end_row=6, end_column=c_end)
+        cell_m = ws.cell(row=5, column=c_start + 3, value="Média")
+        cell_m.font = FONT_SMALL_BOLD
+        cell_m.alignment = ALIGN_CENTER
+
+        aplicar_estilo_intervalo(ws, c_start, 5, c_end, 6, font=FONT_SMALL_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        curr_c += 4
+
+    # Disciplinas sem exame: 1 coluna cada (Frequência)
+    for d in disciplinas_sem_exame:
+        d_nome = d['nome']
+        ws.cell(row=4, column=curr_c, value=d_nome).font = FONT_HEADER
+        ws.cell(row=4, column=curr_c).fill = FILL_NAVY
+        ws.cell(row=4, column=curr_c).alignment = ALIGN_CENTER
+        ws.cell(row=4, column=curr_c).border = THIN_BORDER
+
+        ws.cell(row=5, column=curr_c, value="Frequência").font = FONT_SMALL_BOLD
+        ws.cell(row=6, column=curr_c, value="").font = FONT_SMALL_BOLD
+        aplicar_estilo_intervalo(ws, curr_c, 5, curr_c, 6, font=FONT_SMALL_BOLD, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        curr_c += 1
+
+    # RESULTADO FINAL: 3 colunas
+    c_res_start = curr_c
+    ws.merge_cells(start_row=4, start_column=c_res_start, end_row=4, end_column=c_res_start + 2)
+    ws.cell(row=4, column=c_res_start, value="RESULTADO FINAL").font = FONT_HEADER
+    ws.cell(row=4, column=c_res_start).alignment = ALIGN_CENTER
+    aplicar_estilo_intervalo(ws, c_res_start, 4, c_res_start + 2, 4, font=FONT_HEADER, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
+
+    # Sub-cabeçalhos de resultado
+    ws.merge_cells(start_row=5, start_column=c_res_start, end_row=6, end_column=c_res_start)
+    ws.cell(row=5, column=c_res_start, value="Aprovado(a)").font = FONT_SMALL_BOLD
+    ws.cell(row=5, column=c_res_start).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=5, start_column=c_res_start + 1, end_row=6, end_column=c_res_start + 1)
+    ws.cell(row=5, column=c_res_start + 1, value="MF").font = FONT_SMALL_BOLD
+    ws.cell(row=5, column=c_res_start + 1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=5, start_column=c_res_start + 2, end_row=6, end_column=c_res_start + 2)
+    ws.cell(row=5, column=c_res_start + 2, value="Disciplina(s) que\nReprovou").font = FONT_SMALL_BOLD
+    ws.cell(row=5, column=c_res_start + 2).alignment = ALIGN_CENTER
+    aplicar_estilo_intervalo(ws, c_res_start, 5, c_res_start + 2, 6, font=FONT_SMALL_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_CENTER)
+
+    ws.row_dimensions[4].height = 24
+    ws.row_dimensions[5].height = 18
+    ws.row_dimensions[6].height = 18
+
+    # 4. Inserir dados dos alunos
+    current_row = 7
+    for aluno in alunos:
+        ws.row_dimensions[current_row].height = 20
+        # Nº de Ordem
+        ws.cell(row=current_row, column=1, value=aluno.get('numero', '')).alignment = ALIGN_CENTER
+        # Nº Candidato
+        ws.cell(row=current_row, column=2, value=str(aluno.get('candidato', '') or aluno.get('matricula', ''))).alignment = ALIGN_CENTER
+        # Nome do Aluno
+        ws.cell(row=current_row, column=3, value=str(aluno.get('nome', ''))).alignment = ALIGN_LEFT
+        # Género
+        ws.cell(row=current_row, column=4, value=str(aluno.get('genero', ''))).alignment = ALIGN_CENTER
+        # Turma
+        ws.cell(row=current_row, column=5, value=str(aluno.get('turma', ''))).alignment = ALIGN_CENTER
+
+        for c_idx in range(1, 6):
+            ws.cell(row=current_row, column=c_idx).border = THIN_BORDER
+            ws.cell(row=current_row, column=c_idx).font = FONT_REGULAR
+
+        disc_map = aluno.get('disciplinas', {})
+        c_cursor = 6
+
+        # Disciplinas com exame: 4 colunas
+        for d in disciplinas_com_exame:
+            d_data = disc_map.get(d['id']) or {}
+            v_freq = d_data.get('frequencia', '-')
+            v_e1 = d_data.get('exame_1epoca', '')
+            v_e2 = d_data.get('exame_2epoca', '')
+            v_med = d_data.get('media', '-')
+
+            # Frequência
+            c_f = ws.cell(row=current_row, column=c_cursor, value=v_freq if v_freq is not None else '-')
+            c_f.alignment = ALIGN_CENTER
+            c_f.border = THIN_BORDER
+            c_f.font = FONT_REGULAR
+
+            # 1ª Época
+            c_1 = ws.cell(row=current_row, column=c_cursor + 1, value=v_e1 if v_e1 is not None else '')
+            c_1.alignment = ALIGN_CENTER
+            c_1.border = THIN_BORDER
+            c_1.font = FONT_REGULAR
+
+            # 2ª Época
+            c_2 = ws.cell(row=current_row, column=c_cursor + 2, value=v_e2 if v_e2 is not None else '')
+            c_2.alignment = ALIGN_CENTER
+            c_2.border = THIN_BORDER
+            c_2.font = FONT_REGULAR
+
+            # Média da Disciplina
+            c_m = ws.cell(row=current_row, column=c_cursor + 3, value=v_med if v_med is not None else '-')
+            c_m.alignment = ALIGN_CENTER
+            c_m.border = THIN_BORDER
+            if isinstance(v_med, (int, float)):
+                c_m.font = FONT_GREEN if v_med >= 9.5 else FONT_RED
+            else:
+                c_m.font = FONT_REGULAR_BOLD
+
+            c_cursor += 4
+
+        # Disciplinas sem exame: 1 coluna
+        for d in disciplinas_sem_exame:
+            d_data = disc_map.get(d['id']) or {}
+            v_freq = d_data.get('frequencia', '-')
+            c_f = ws.cell(row=current_row, column=c_cursor, value=v_freq if v_freq is not None else '-')
+            c_f.alignment = ALIGN_CENTER
+            c_f.border = THIN_BORDER
+            if isinstance(v_freq, (int, float)):
+                c_f.font = FONT_GREEN if v_freq >= 9.5 else FONT_RED
+            else:
+                c_f.font = FONT_REGULAR
+            c_cursor += 1
+
+        # RESULTADO FINAL
+        res_info = aluno.get('resultado_final', {})
+        res_aprov = str(res_info.get('aprovado', '') or 'Pendente').strip()
+        res_mf = res_info.get('mf', '-')
+        res_disc_rep = str(res_info.get('disciplinas_reprovou', '---') or '---')
+
+        # Aprovado(a)
+        c_ap = ws.cell(row=current_row, column=c_cursor, value=res_aprov)
+        c_ap.alignment = ALIGN_CENTER
+        c_ap.border = THIN_BORDER
+        if 'Aprovad' in res_aprov:
+            c_ap.font = FONT_GREEN
+            c_ap.fill = FILL_ROW_SUCCESS
+        elif 'Reprovad' in res_aprov or 'Excluíd' in res_aprov:
+            c_ap.font = FONT_RED
+            c_ap.fill = FILL_ROW_DANGER
+        else:
+            c_ap.font = FONT_REGULAR_BOLD
+
+        # MF
+        c_mf = ws.cell(row=current_row, column=c_cursor + 1, value=res_mf if res_mf is not None else '-')
+        c_mf.alignment = ALIGN_CENTER
+        c_mf.border = THIN_BORDER
+        c_mf.font = FONT_REGULAR_BOLD
+
+        # Disciplinas que Reprovou
+        c_rep = ws.cell(row=current_row, column=c_cursor + 2, value=res_disc_rep)
+        c_rep.alignment = ALIGN_LEFT
+        c_rep.border = THIN_BORDER
+        c_rep.font = FONT_SMALL
+
+        current_row += 1
+
+    # 5. Rodapé Oficial com Resumo e Assinaturas
+    current_row += 1
+    estat = dados_pauta.get('estatisticas', {})
+    tot = estat.get('total', len(alunos))
+    aprov = estat.get('aprovados', 0)
+    rep = estat.get('reprovados', 0)
+    adm = estat.get('admitidos', 0)
+    taxa = estat.get('taxa_aprovacao', 0.0)
+
+    resumo_texto = f"Total Candidatos: {tot} | Aprovados: {aprov} | Reprovados: {rep} | Admitidos: {adm} | Taxa de Aprovação: {taxa}%"
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=total_cols)
+    ws.cell(row=current_row, column=1, value=resumo_texto).font = FONT_REGULAR_BOLD
+    ws.cell(row=current_row, column=1).alignment = ALIGN_LEFT
+    current_row += 2
+
+    # Assinaturas
+    ws.cell(row=current_row, column=2, value="O Director de Turma:").font = FONT_REGULAR_BOLD
+    ws.cell(row=current_row, column=total_cols - 3, value="O Director da Escola:").font = FONT_REGULAR_BOLD
+    current_row += 2
+    ws.cell(row=current_row, column=2, value="______________________________________").font = FONT_REGULAR
+    ws.cell(row=current_row, column=total_cols - 3, value="______________________________________").font = FONT_REGULAR
+
+    auto_ajustar_colunas(ws, padding=2)
+    ws.column_dimensions['C'].width = 28  # Nome do Aluno
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
 # ==================== 2. BOLETIM DE APROVEITAMENTO (VERTICAL) ====================
 
 def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:

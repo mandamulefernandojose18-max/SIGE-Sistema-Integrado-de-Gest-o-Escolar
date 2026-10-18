@@ -300,13 +300,15 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - **Controlo de Visibilidade de Notas (`permitir_visualizacao_notas`):** Permite ao DAP ou Director bloquear temporariamente a visualização de notas no Portal do Aluno durante períodos de conselho de notas ou manutenção de pautas.
 
 ### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas` e `#view-escola`)
-- **Página Dedicada de Cadastro e Gestão de Classes ou Níveis (`#view-classes-exames`):**
-  - Módulo completo no menu *Gestão Escolar* que permite à instituição escolher o seu modelo estrutural: **Regime por Classes** ou **Regime por Níveis**.
-  - **Diferenciação Estrita de Modelos:**
-    - Se for **Classe**: O sistema restringe e permite adicionar **estritamente e unicamente da 1ª à 12ª Classe** (`1ª Classe`, `2ª Classe` ... `12ª Classe`).
-    - Se for **Nível**: O sistema restringe e permite adicionar **estritamente e unicamente Níveis numéricos** (`Nível 1`, `Nível 2`, `Nível 3`...).
-  - **Critério Obrigatório:** Para cada classe ou nível, define-se obrigatoriamente: **"A Classe tem Exame: Sim ou Não"** (ou *"O Nível tem Exame: Sim ou Não"*).
-  - Tabela interativa com alternância de status em 1 clique, botões de ação em massa e botão de restauração das regras oficiais do MEC (10ª e 12ª com exame, restantes sem exame), sincronizando em tempo real com `GET/POST /api/v1/escola-admin/classes-exames/`.
+- **Gestão de Classes ou Níveis e Critério de Exame no Módulo de Disciplinas (`#view-disciplinas`):**
+  - O sistema unifica a gestão curricular na página oficial **"Disciplinas"**, sem menus redundantes.
+  - **Escolha do Modelo Estrutural da Instituição:**
+    - A instituição seleciona no topo da página o seu modelo: **Classes (1ª à 12ª)** ou **Níveis (Nível 1, Nível 2...)**.
+    - **Restrição Estrita:** Se o regime for *Classes*, o seletor disponibiliza única e exclusivamente **1ª à 12ª Classe**. Se for *Níveis*, disponibiliza estritamente **Nível 1, Nível 2, Nível 3...**.
+    - **Zero Classes Fictícias:** Nenhuma classe ou nível fictício é pré-carregado. O utilizador adiciona as classes reais através do botão dropdown **"+ Adicionar Classe ▾"** (ou *"+ Adicionar Nível ▾"*).
+  - **Critério Obrigatório "Tem Exame: Sim ou Não" por Disciplina:**
+    - Como na realidade pedagógica uma classe possui disciplinas com exame (ex: Língua Portuguesa, Matemática) e disciplinas sem exame (ex: TIC's, Educação Física), a definição é atribuída directamente por disciplina.
+    - Cada linha da tabela de disciplinas possui botões toggle ergonómicos `[ Sim ]` `[ Não ]` que sincronizam em tempo real via API (`/api/v1/disciplinas/<id>/toggle-exame/`), além da escolha obrigatória no formulário de cadastro/edição.
 - **Controlo de Lotação em Tempo Real:**
   - Cada turma possui `capacidade_maxima` configurável (padrão: **50 alunos**, validado até 200).
   - O sistema calcula em tempo real `ocupacao_atual`, `vagas_livres`, `percentual_ocupacao` e exibe barras visuais de progresso (**Verde** $< 80\%$, **Amarelo** $\ge 80\%$, **Vermelho** $100\%$ Lotada).
@@ -627,7 +629,8 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET/POST` | `/api/v1/disciplinas` | Autenticado / `DAP` | Lista disciplinas (com auto-seed do currículo MEC) ou cria nova disciplina. |
 | `POST` | `/api/v1/disciplinas/seed-curriculo` | `DAP` / Admin | Força a sincronização do Plano Curricular Nacional da 7ª à 12ª Classe. |
 | `GET` | `/api/v1/disciplinas/ranking-reprovacao` | Autenticado | Devolve o ranking de disciplinas com maior taxa de reprovação (%). |
-| `GET/PUT/PATCH/DELETE` | `/api/v1/disciplinas/<pk>` | `DAP` / Admin | Consulta, edita ou elimina uma disciplina. |
+| `GET/PUT/PATCH/DELETE` | `/api/v1/disciplinas/<pk>` | `DAP` / Admin | Consulta, edita ou elimina uma disciplina (inclui campo `tem_exame: True/False`). |
+| `POST/PATCH` | `/api/v1/disciplinas/<pk>/toggle-exame` | `DAP` / Admin | Alterna ou define diretamente o critério de exame da disciplina (`tem_exame: True/False`). |
 
 ### 9.6 Notas, Cadernetas, Pautas, Material Escolar, Financeiro, Certificados e Documentos
 | Método | Endpoint | Permissão | Descrição |

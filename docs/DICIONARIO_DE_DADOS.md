@@ -236,6 +236,7 @@ Grelha curricular nacional.
 | `classe` | `VARCHAR(10)` | Não | Classe curricular correspondente. |
 | `area` | `VARCHAR(10)` | Não | Secção de enquadramento. |
 | `carga_horaria` | `INTEGER` | Não | Carga letiva semanal em horas. |
+| `tem_exame` | `BOOLEAN` | Não | Critério oficial de exame por disciplina (`True` = Sim / `False` = Não). Padrão: `False`. |
 | *Unique Constraint* | SQL | — | `UNIQUE (escola_id, codigo, ano_letivo)`. |
 
 ---
