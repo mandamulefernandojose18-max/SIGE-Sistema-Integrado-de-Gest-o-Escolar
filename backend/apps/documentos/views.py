@@ -118,13 +118,18 @@ def _obter_pagamento_e_escola(request, pagamento_id):
 
 
 def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_prefetched=None):
-    from apps.pautas.services import identificar_materia_canonica
+    from apps.pautas.services import identificar_materia_canonica, turma_tem_exame
+    from apps.notas.models import NotaExame
     from .services.pdf_service import match_disciplina
 
     if notas_prefetched is not None:
         notas = notas_prefetched
     else:
         notas = list(Nota.objects.filter(aluno=aluno).select_related('disciplina'))
+
+    # Carregar notas de exame do aluno para integração mandatória com Certificado e Declaração
+    notas_exame_list = list(NotaExame.objects.filter(aluno=aluno).select_related('disciplina'))
+    tem_regime_exame = turma_tem_exame(getattr(aluno, 'turma', None), escola)
 
     # Carregar estritamente as disciplinas do plano curricular da classe e secção/área que o aluno estuda
     plano_curricular = obter_disciplinas_plano_curricular(aluno, escola)
@@ -178,7 +183,36 @@ def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_
         vals = [v for v in [n1, n2, n3] if isinstance(v, (int, float))]
         if vals:
             m_val = round(sum(vals) / len(vals), 1)
-            media_anual = int(round(m_val))
+            media_freq = int(round(m_val))
+        else:
+            media_freq = None
+
+        # Procurar NotaExame desta disciplina
+        ne_encontrada = None
+        for ne in notas_exame_list:
+            if ne.disciplina:
+                ne_canon = identificar_materia_canonica(ne.disciplina)
+                if d_db and ne.disciplina_id == d_db.id:
+                    ne_encontrada = ne
+                    break
+                elif mat_canon and ne_canon and (mat_canon == ne_canon or {mat_canon, ne_canon} == {'MAT', 'MATA'}):
+                    ne_encontrada = ne
+                    break
+                elif match_disciplina(nome_disc, ne.disciplina.nome):
+                    ne_encontrada = ne
+                    break
+
+        # Regra de negócio mandatória:
+        # Em classes/níveis com regime de exame, a nota oficial no Certificado e na Declaração
+        # sai directamente da Pauta de Exames (se houver nota final de exame/frequência).
+        if ne_encontrada and ne_encontrada.nota_final is not None:
+            media_anual = int(round(ne_encontrada.nota_final))
+            situacao = 'Aprovado' if media_anual >= 9.5 else 'Reprovado'
+        elif ne_encontrada and ne_encontrada.nota_frequencia is not None:
+            media_anual = int(round(ne_encontrada.nota_frequencia))
+            situacao = 'Aprovado' if media_anual >= 9.5 else 'Reprovado'
+        elif media_freq is not None:
+            media_anual = media_freq
             situacao = 'Aprovado' if media_anual >= 9.5 else 'Reprovado'
         else:
             media_anual = '-'
@@ -191,6 +225,9 @@ def obter_dados_boletim_aluno(aluno, escola, disciplinas_prefetched=None, notas_
             't1': n1,
             't2': n2,
             't3': n3,
+            'frequencia': media_freq if media_freq is not None else '-',
+            'exame_1epoca': getattr(ne_encontrada, 'exame_1epoca', None) if ne_encontrada else None,
+            'exame_2epoca': getattr(ne_encontrada, 'exame_2epoca', None) if ne_encontrada else None,
             'media_anual': media_anual,
             'mediaFinal': media_anual,
             'notaFinal': media_anual,
