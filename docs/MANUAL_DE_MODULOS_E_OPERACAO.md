@@ -81,6 +81,23 @@
 
 ---
 
+### Módulo 4.1: Cadastro e Gestão de Classes ou Níveis Curriculares (`#view-classes-exames`)
+- **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
+- **Como aceder:** Clique em **"Classes, Níveis & Exames"** na barra lateral de navegação (categoria *Gestão Escolar*).
+- **Modelo Estrutural da Instituição (Classes vs Níveis):**
+  - **Regime por Classes:** Destinado ao Ensino Secundário Geral (ESG) e Ensino Primário. O sistema restringe e permite cadastrar **estritamente de 1ª à 12ª Classe** (`1ª Classe`, `2ª Classe` ... `12ª Classe`).
+  - **Regime por Níveis:** Destinado a Institutos Médios, Escolas Técnicas e Formação Profissional. O sistema restringe e permite cadastrar **estritamente Níveis numéricos** (`Nível 1`, `Nível 2`, `Nível 3`, `Nível 4`, `Nível 5`, etc.).
+- **Critério Obrigatório por Item: "A Classe tem Exame: Sim ou Não":**
+  - Para cada classe ou nível cadastrado, a instituição define obrigatoriamente:
+    - **Sim (Com Exame):** A classe culmina em Exame Nacional ou Exame Final de Ciclo com pauta de júri e nota de exame.
+    - **Não (Sem Exame):** A aprovação e transição baseiam-se na Média Final da Disciplina (MFD) da avaliação contínua.
+- **Painel Interativo de Gestão:**
+  - **Alternância com 1 Clique:** Botão para mudar instantaneamente o critério de exame de qualquer classe/nível entre *Sim* e *Não* com persistência imediata no servidor.
+  - **Ações em Massa:** Botões para configurar todas as classes como *Sim* ou todas como *Não*.
+  - **Restaurar Padrão Oficial:** Repõe as normas oficiais do MEC de Moçambique (10ª e 12ª com exame, demais sem exame).
+
+---
+
 ### Módulo 5: Alunos, Matrículas e Transferências (`#view-alunos`)
 - **Quem usa:** `CHEFE_SECRETARIA`, `ADMIN_ESCOLA` e `DAP`.
 - **Funcionalidades:**

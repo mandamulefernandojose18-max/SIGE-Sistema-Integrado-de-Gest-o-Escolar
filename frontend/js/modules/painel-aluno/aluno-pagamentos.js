@@ -92,7 +92,7 @@ function modalPagarSaldoCarteiraAluno(id, valor, descricao, mesRef) {
   const descSegura = escapeHtml(descricao || 'Mensalidade Escolar');
   const valorFormatado = formatarMoeda(valor);
 
-  abrirModal('Pagar Saldo com Carteira Móvel (Moçambique)', `
+  abrirModal('Pagar Saldo com Carteira Móvel', `
     <form id="formPagarSaldoAluno" onsubmit="confirmarPagamentoSaldoAluno(event, '${id}')">
       <div class="p-3 mb-3 bg-light rounded border">
         <div class="d-flex justify-content-between align-items-center mb-1">
@@ -108,8 +108,8 @@ function modalPagarSaldoCarteiraAluno(id, valor, descricao, mesRef) {
       <div class="mb-3">
         <label class="form-label small fw-semibold">Seleccione a Carteira Móvel *</label>
         <select id="alunoLiqMetodo" class="form-select" required onchange="aoMudarCarteiraAluno()">
-          <option value="MPESA">🔴 M-Pesa (Vodacom Moçambique - 84 / 85)</option>
-          <option value="EMOLA">🟡 e-Mola (Movitel Moçambique - 86 / 87)</option>
+          <option value="MPESA">🔴 M-Pesa (Vodacom - 84 / 85)</option>
+          <option value="EMOLA">🟡 e-Mola (Movitel - 86 / 87)</option>
         </select>
       </div>
 
@@ -148,10 +148,10 @@ function aoMudarCarteiraAluno() {
   const tit = document.getElementById('alunoCarteiraTitulo');
   const tel = document.getElementById('alunoLiqTelefone');
   if (met === 'EMOLA') {
-    if (tit) tit.textContent = 'Pagamento e-Mola (Movitel Moçambique)';
+    if (tit) tit.textContent = 'Pagamento e-Mola (Movitel)';
     if (tel) tel.placeholder = 'Ex: 86XXXXXXX ou 87XXXXXXX';
   } else {
-    if (tit) tit.textContent = 'Pagamento M-Pesa (Vodacom Moçambique)';
+    if (tit) tit.textContent = 'Pagamento M-Pesa (Vodacom)';
     if (tel) tel.placeholder = 'Ex: 84XXXXXXX ou 85XXXXXXX';
   }
 }

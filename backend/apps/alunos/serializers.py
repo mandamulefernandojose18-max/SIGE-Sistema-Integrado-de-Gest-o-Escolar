@@ -35,8 +35,23 @@ class AlunoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate(self, attrs):
-        if 'nuit' in attrs and (attrs['nuit'] is None or str(attrs['nuit']).strip() == ''):
-            attrs['nuit'] = None
+        if 'nuit' in attrs:
+            val_nuit = attrs.get('nuit')
+            if val_nuit is None or str(val_nuit).strip() == '':
+                attrs['nuit'] = None
+            else:
+                import re
+                nuit_str = str(val_nuit).strip()
+                if not re.match(r'^\d{1,9}$', nuit_str):
+                    raise serializers.ValidationError({"nuit": "O NUIT deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
+                attrs['nuit'] = nuit_str
+
+        if 'contato_responsavel' in attrs and attrs.get('contato_responsavel'):
+            import re
+            tel_str = str(attrs['contato_responsavel']).strip()
+            if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
+                raise serializers.ValidationError({"contato_responsavel": "O contacto do encarregado não pode aceitar letras. Insira apenas números."})
+
         return attrs
 
     def create(self, validated_data):

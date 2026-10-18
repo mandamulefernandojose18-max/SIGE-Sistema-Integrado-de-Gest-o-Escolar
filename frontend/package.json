@@ -1,7 +1,7 @@
 {
   "name": "sige-frontend",
   "version": "2.5.0",
-  "description": "SIGE — Interface Web SPA Autônoma (Moçambique)",
+  "description": "SIGE — Interface Web SPA Autônoma",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

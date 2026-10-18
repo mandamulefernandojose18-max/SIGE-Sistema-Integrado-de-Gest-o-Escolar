@@ -19,6 +19,13 @@ class UsuarioSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'date_joined']
 
+    def validate_telefone(self, value):
+        if value:
+            import re
+            if re.search(r'[a-zA-Z\u00C0-\u017F]', str(value)):
+                raise serializers.ValidationError("O telefone do utilizador não pode aceitar letras. Insira apenas números.")
+        return value
+
     def get_ultimo_acesso(self, obj):
         if obj.last_login:
             return obj.last_login.isoformat()

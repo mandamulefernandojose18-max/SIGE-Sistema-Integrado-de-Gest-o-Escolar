@@ -87,8 +87,8 @@ function modalLiquidarSaldoCarteira(id, valor, alunoNome, descricao) {
       <div class="mb-3">
         <label class="form-label small fw-semibold">Método de Liquidação *</label>
         <select id="liqMetodo" class="form-select" required onchange="aoMudarMetodoLiquidacao()">
-          <option value="MPESA">🔴 M-Pesa (Vodacom Moçambique)</option>
-          <option value="EMOLA">🟡 e-Mola (Movitel Moçambique)</option>
+          <option value="MPESA">🔴 M-Pesa (Vodacom)</option>
+          <option value="EMOLA">🟡 e-Mola (Movitel)</option>
           <option value="POS">💳 POS / Cartão Bancário</option>
           <option value="TRANSFERENCIA">🏦 Transferência Bancária / Depósito</option>
           <option value="NUMERARIO">💵 Numerário</option>
@@ -98,7 +98,7 @@ function modalLiquidarSaldoCarteira(id, valor, alunoNome, descricao) {
       <div id="boxCamposCarteiraMovel" class="p-3 mb-3 rounded border border-warning bg-warning bg-opacity-10">
         <div class="d-flex align-items-center gap-2 mb-2">
           <i class="bi bi-phone-fill text-warning fs-5"></i>
-          <strong class="small text-dark" id="liqCarteiraLabel">Carteira Móvel M-Pesa (Vodacom Moçambique)</strong>
+          <strong class="small text-dark" id="liqCarteiraLabel">Carteira Móvel M-Pesa (Vodacom)</strong>
         </div>
         <div class="row g-2">
           <div class="col-sm-6">
@@ -139,11 +139,11 @@ function aoMudarMetodoLiquidacao() {
 
   if (met === 'MPESA') {
     box.style.display = 'block';
-    if (lbl) lbl.textContent = 'Carteira Móvel M-Pesa (Vodacom Moçambique)';
+    if (lbl) lbl.textContent = 'Carteira Móvel M-Pesa (Vodacom)';
     if (tel) tel.placeholder = 'Ex: 84XXXXXXX ou 85XXXXXXX';
   } else if (met === 'EMOLA') {
     box.style.display = 'block';
-    if (lbl) lbl.textContent = 'Carteira Móvel e-Mola (Movitel Moçambique)';
+    if (lbl) lbl.textContent = 'Carteira Móvel e-Mola (Movitel)';
     if (tel) tel.placeholder = 'Ex: 86XXXXXXX ou 87XXXXXXX';
   } else {
     box.style.display = 'none';

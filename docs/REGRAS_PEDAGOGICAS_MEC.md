@@ -237,3 +237,11 @@ Para além do Ensino Secundário Geral, o SIGE atende escolas técnicas, institu
 3. Restaurar a qualquer instante os padrões oficiais do MEC através do botão institucional *"Restaurar Padrão MEC (10ª e 12ª com Exame)"*.
 4. Exibir badges informativos automáticos nas pautas, criação de turmas e matrizes curriculares: `Sim (Com Exame)` ou `Não (Sem Exame)`.
 
+### 6.3. Distinção Obrigatória de Modelo: Regime por Classes (1ª à 12ª) vs Regime por Níveis Técnicos
+A escolha do modelo estrutural é de responsabilidade da instituição e define as regras em todo o ecossistema escolar:
+- **Se a Instituição escolher Regime por Classes:**
+  O sistema restringe e permite cadastrar **exclusivamente da 1ª à 12ª Classe** (`1ª Classe`, `2ª Classe` ... `12ª Classe`), impedindo a criação de nomenclaturas divergentes. O critério oficial é: **"A Classe tem Exame: Sim ou Não"**.
+- **Se a Instituição escolher Regime por Níveis:**
+  O sistema restringe e permite cadastrar **exclusivamente Níveis numéricos** (`Nível 1`, `Nível 2`, `Nível 3`, `Nível 4`, `Nível 5`...), atendendo a institutos médios técnicos, politécnicos e vocacionais. O critério oficial é: **"O Nível tem Exame: Sim ou Não"**.
+
+

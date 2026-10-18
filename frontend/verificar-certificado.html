@@ -181,7 +181,7 @@
 
         document.getElementById('dEscolaNome').textContent = escola.nome || d.escola_nome || 'Escola Secundária';
         document.getElementById('dEscolaNIF').textContent = escola.nif_cnpj || escola.nifCnpj || '500123456';
-        document.getElementById('dEscolaEmail').textContent = escola.endereco || escola.email || 'Moçambique';
+        document.getElementById('dEscolaEmail').textContent = escola.endereco || escola.email || '';
 
         if (Array.isArray(d.disciplinas) && d.disciplinas.length > 0) {
           const tbodyDisc = document.getElementById('tabelaDisciplinasVerificacao');

@@ -244,9 +244,9 @@ def api_gateway_stats(request):
         'total_pagamentos_moveis': total_trx,
         'volume_pagamentos_mzn': float(volume_mzn),
         'operadoras': [
-            {'nome': 'Vodacom Moçambique', 'canais': 'M-Pesa (C2B Push) & SMS', 'status': 'OPERACIONAL', 'latencia': '82 ms', 'prefixo': '84 / 85'},
-            {'nome': 'Movitel Moçambique', 'canais': 'e-Mola (Push USSD) & SMS', 'status': 'OPERACIONAL', 'latencia': '94 ms', 'prefixo': '86 / 87'},
-            {'nome': 'Tmcel Moçambique', 'canais': 'SMS Transacional & USSD', 'status': 'OPERACIONAL', 'latencia': '108 ms', 'prefixo': '82 / 83'}
+            {'nome': 'Vodacom', 'canais': 'M-Pesa (C2B Push) & SMS', 'status': 'OPERACIONAL', 'latencia': '82 ms', 'prefixo': '84 / 85'},
+            {'nome': 'Movitel', 'canais': 'e-Mola (Push USSD) & SMS', 'status': 'OPERACIONAL', 'latencia': '94 ms', 'prefixo': '86 / 87'},
+            {'nome': 'Tmcel', 'canais': 'SMS Transacional & USSD', 'status': 'OPERACIONAL', 'latencia': '108 ms', 'prefixo': '82 / 83'}
         ]
     }
     return _aplicar_cabecalhos_seguranca(JsonResponse(dados))
@@ -637,7 +637,7 @@ def api_iniciar_pagamento_movel(request):
 
     # Disparo de SMS de quitação instantânea
     nome_beneficiario = f"{aluno_obj.nome} {aluno_obj.apelido}".strip() if aluno_obj else 'Estudante'
-    nome_escola = escola.nome if escola else 'SIGE Moçambique'
+    nome_escola = escola.nome if escola else 'SIGE'
     texto_sms = (
         f"{nome_escola}: Pagamento de {valor:.2f} MZN confirmado via {metodo}. "
         f"Beneficiario: {nome_beneficiario}. Ref: {codigo_ref}. Recibo: {recibo_num}. Obrigado!"

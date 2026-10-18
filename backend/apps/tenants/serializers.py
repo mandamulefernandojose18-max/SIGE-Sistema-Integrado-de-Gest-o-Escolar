@@ -72,6 +72,23 @@ class EscolaSerializer(serializers.ModelSerializer):
         cfg_exames = attrs.get('config_classes_exames')
         if cfg_exames is not None and not isinstance(cfg_exames, dict):
             attrs['config_classes_exames'] = {}
+        regime = attrs.get('regime_curricular')
+        if regime and regime not in ['CLASSES', 'NIVEIS']:
+            attrs['regime_curricular'] = 'CLASSES'
+
+        if 'nif_cnpj' in attrs and attrs.get('nif_cnpj'):
+            import re
+            nuit_str = str(attrs['nif_cnpj']).strip()
+            if not re.match(r'^\d{1,9}$', nuit_str):
+                raise serializers.ValidationError({"nif_cnpj": "O NUIT da instituição deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
+            attrs['nif_cnpj'] = nuit_str
+
+        if 'telefone' in attrs and attrs.get('telefone'):
+            import re
+            tel_str = str(attrs['telefone']).strip()
+            if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
+                raise serializers.ValidationError({"telefone": "O telefone da instituição não pode aceitar letras. Insira apenas números."})
+
         return super().validate(attrs)
 
     def get_assinatura_ativa(self, obj):

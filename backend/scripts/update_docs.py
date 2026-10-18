@@ -98,7 +98,7 @@ def gerar_api_reference_markdown():
     print(f"[OK] Referência de endpoints gerada em: {target}")
 
 def atualizar_openapi_schema():
-    generator = SchemaGenerator(title="SIGE API", description="API RESTful SaaS Multi-Tenant Moçambique")
+    generator = SchemaGenerator(title="SIGE API", description="API RESTful SaaS Multi-Tenant")
     schema = generator.get_schema()
     schema_file = BASE_DIR / 'schema.yml'
     with open(schema_file, 'w', encoding='utf-8') as f:

@@ -1,7 +1,7 @@
 {
   "name": "SIGE — Sistema Integrado de Gestão Escolar",
   "short_name": "SIGE",
-  "description": "Plataforma SaaS Multi-Tenant de Gestão Escolar Oficial de Moçambique",
+  "description": "Plataforma SaaS Multi-Tenant de Gestão Escolar",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1e3a8a",

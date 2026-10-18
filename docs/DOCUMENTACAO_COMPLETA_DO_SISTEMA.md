@@ -300,10 +300,13 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - **Controlo de Visibilidade de Notas (`permitir_visualizacao_notas`):** Permite ao DAP ou Director bloquear temporariamente a visualização de notas no Portal do Aluno durante períodos de conselho de notas ou manutenção de pautas.
 
 ### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas` e `#view-escola`)
-- **Cadastro e Gestão de Classes ou Níveis Curriculares:**
-  - Modal operacional acessível a partir da gestão de turmas, disciplinas e configurações da escola para cadastrar novas classes ou gerir os níveis existentes.
-  - Inclui a definição explícita do campo: **"A Classe tem Exame: Sim ou Não"** (indicando se a classe culmina em exame final nacional/institucional ou tem aprovação por avaliação contínua).
-  - Inclui tabela interativa com alternância de status em 1 clique (`toggle-status`) e botão de restauração das regras oficiais do MEC (10ª e 12ª com exame, restantes sem exame), sincronizando em tempo real com `GET/POST /api/v1/escola-admin/classes-exames/`.
+- **Página Dedicada de Cadastro e Gestão de Classes ou Níveis (`#view-classes-exames`):**
+  - Módulo completo no menu *Gestão Escolar* que permite à instituição escolher o seu modelo estrutural: **Regime por Classes** ou **Regime por Níveis**.
+  - **Diferenciação Estrita de Modelos:**
+    - Se for **Classe**: O sistema restringe e permite adicionar **estritamente e unicamente da 1ª à 12ª Classe** (`1ª Classe`, `2ª Classe` ... `12ª Classe`).
+    - Se for **Nível**: O sistema restringe e permite adicionar **estritamente e unicamente Níveis numéricos** (`Nível 1`, `Nível 2`, `Nível 3`...).
+  - **Critério Obrigatório:** Para cada classe ou nível, define-se obrigatoriamente: **"A Classe tem Exame: Sim ou Não"** (ou *"O Nível tem Exame: Sim ou Não"*).
+  - Tabela interativa com alternância de status em 1 clique, botões de ação em massa e botão de restauração das regras oficiais do MEC (10ª e 12ª com exame, restantes sem exame), sincronizando em tempo real com `GET/POST /api/v1/escola-admin/classes-exames/`.
 - **Controlo de Lotação em Tempo Real:**
   - Cada turma possui `capacidade_maxima` configurável (padrão: **50 alunos**, validado até 200).
   - O sistema calcula em tempo real `ocupacao_atual`, `vagas_livres`, `percentual_ocupacao` e exibe barras visuais de progresso (**Verde** $< 80\%$, **Amarelo** $\ge 80\%$, **Vermelho** $100\%$ Lotada).
@@ -529,7 +532,7 @@ erDiagram
 | **1** | `sige_usuarios` | `accounts.Usuario` | Contas de utilizador (8 roles), `email` único, `codigo_acesso` indexado, FK `escola`. |
 | **2** | `sige_logs_acesso` | `accounts.LogAcesso` | Registo de auditoria de logins, falhas e bloqueios (`ip`, `user_agent`, `tipo`). |
 | **3** | `sige_planos` | `tenants.Plano` | Catálogo de planos SaaS (`MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`), preço em MZN e cotas `max_alunos`/`max_professores`. |
-| **4** | `sige_escolas` | `tenants.Escola` | Registo institucional do Tenant, `codigo_escola`, `nif_cnpj` único, `ano_letivo_ativo`, `trimestre_ativo`, `logo_base64`, `inscricoes_abertas`, `permitir_visualizacao_notas`, `config_classes_exames` (JSON com regime de exame por classe). |
+| **4** | `sige_escolas` | `tenants.Escola` | Registo institucional do Tenant, `codigo_escola`, `nif_cnpj` único, `ano_letivo_ativo`, `trimestre_ativo`, `logo_base64`, `inscricoes_abertas`, `permitir_visualizacao_notas`, `regime_curricular` (`CLASSES` ou `NIVEIS`), `config_classes_exames` (JSON com regime de exame por classe/nível). |
 | **5** | `sige_assinaturas_escolas` | `tenants.AssinaturaEscola` | Contratos de subscrição da escola (`data_inicio`, `data_fim`, `valor`, `status`, `metodo_pagamento`). Check: `data_fim > data_inicio`. |
 | **6** | `sige_alunos` | `alunos.Aluno` | Cadastro biográfico e académico do estudante, `matricula` única global, FK `turma`, `classe`, `area`, `status`. |
 | **7** | `sige_professores` | `professores.Professor` | Cadastro docente, `carreira` MEC, `carga_horaria_semanal` (1–60h), `carga_maxima_por_classe` (JSON). Unique: `(escola, email)`. |

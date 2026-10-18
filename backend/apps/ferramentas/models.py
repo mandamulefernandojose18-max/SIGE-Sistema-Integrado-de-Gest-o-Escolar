@@ -17,9 +17,9 @@ class MensagemSMS(models.Model):
         max_length=30,
         default='VODACOM',
         choices=[
-            ('VODACOM', 'Vodacom Moçambique (84/85)'),
-            ('MOVITEL', 'Movitel Moçambique (86/87)'),
-            ('TMCEL', 'Tmcel Moçambique (82/83)'),
+            ('VODACOM', 'Vodacom (84/85)'),
+            ('MOVITEL', 'Movitel (86/87)'),
+            ('TMCEL', 'Tmcel (82/83)'),
             ('OUTRA', 'Outra Operadora')
         ]
     )
@@ -90,8 +90,8 @@ class TransacaoGatewayMovel(models.Model):
         max_length=20,
         default='MPESA',
         choices=[
-            ('MPESA', 'M-Pesa Moçambique (Vodacom)'),
-            ('EMOLA', 'e-Mola Moçambique (Movitel)')
+            ('MPESA', 'M-Pesa (Vodacom)'),
+            ('EMOLA', 'e-Mola (Movitel)')
         ],
         db_index=True
     )

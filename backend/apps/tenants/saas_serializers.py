@@ -85,3 +85,25 @@ class SaasCoordenadasPagamentoSerializer(serializers.ModelSerializer):
             'nuit_entidade', 'instrucoes_adicionais',
             'updated_at'
         ]
+
+    def validate(self, attrs):
+        import re
+        if 'nuit_entidade' in attrs and attrs.get('nuit_entidade'):
+            nuit_str = str(attrs['nuit_entidade']).strip()
+            if not re.match(r'^\d{1,9}$', nuit_str):
+                raise serializers.ValidationError({"nuit_entidade": "O NUIT da entidade deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
+            attrs['nuit_entidade'] = nuit_str
+
+        campos_telefone = ['mpesa_numero', 'emola_numero']
+        for campo in campos_telefone:
+            if campo in attrs and attrs.get(campo):
+                if re.search(r'[a-zA-Z\u00C0-\u017F]', str(attrs[campo])):
+                    raise serializers.ValidationError({campo: f"O campo {campo} não pode aceitar letras. Insira apenas números."})
+
+        campos_bancarios = ['bim_conta', 'bim_nib', 'bci_conta', 'bci_nib']
+        for campo in campos_bancarios:
+            if campo in attrs and attrs.get(campo):
+                if re.search(r'[a-zA-Z\u00C0-\u017F]', str(attrs[campo])):
+                    raise serializers.ValidationError({campo: f"O campo {campo} deve conter apenas números e não pode aceitar letras."})
+
+        return super().validate(attrs)

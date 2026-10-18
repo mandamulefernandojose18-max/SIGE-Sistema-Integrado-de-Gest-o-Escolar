@@ -189,8 +189,8 @@ CORS_ALLOW_HEADERS = [
 
 # OpenAPI / Swagger Documentation
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'SIGE API — Sistema Integrado de Gestão Escolar (Moçambique)',
-    'DESCRIPTION': 'API RESTful corporativa SaaS Multi-Tenant conforme as normas do MEC de Moçambique.',
+    'TITLE': 'SIGE API — Sistema Integrado de Gestão Escolar',
+    'DESCRIPTION': 'API RESTful corporativa SaaS Multi-Tenant conforme as normas do MEC.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }

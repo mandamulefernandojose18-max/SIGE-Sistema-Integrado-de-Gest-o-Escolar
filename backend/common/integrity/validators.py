@@ -41,14 +41,38 @@ def validar_faltas(valor):
 
 def validar_nuit_mz(nuit):
     """
-    Valida a sintaxe do NUIT moçambicano (Número Único de Identificação Tributária - 9 dígitos).
+    Valida a sintaxe do NUIT moçambicano (Número Único de Identificação Tributária - no máximo 9 dígitos, apenas números).
     """
     if not nuit:
         return
     nuit_str = str(nuit).strip()
-    if not re.match(r'^\d{9}$', nuit_str):
+    if not re.match(r'^\d{1,9}$', nuit_str):
         raise InvalidDomainValueViolation(
-            f"O NUIT '{nuit}' é inválido. O NUIT em Moçambique deve conter exatamente 9 dígitos numéricos."
+            f"O NUIT '{nuit}' é inválido. O NUIT em Moçambique não pode conter letras e é limitado a no máximo 9 dígitos numéricos."
+        )
+
+def validar_telefone_sem_letras(telefone, nome_campo="Contacto/Telefone"):
+    """
+    Garante que campos de telefone ou telemóvel não aceitem letras e contenham apenas números.
+    """
+    if not telefone:
+        return
+    tel_str = str(telefone).strip()
+    if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
+        raise InvalidDomainValueViolation(
+            f"O campo '{nome_campo}' ('{telefone}') não pode conter letras. Deve conter apenas números."
+        )
+
+def validar_campo_numerico_sem_letras(valor, nome_campo="Campo Numérico"):
+    """
+    Garante que qualquer campo que leve número ou quantidade não possa aceitar inserção de letras.
+    """
+    if valor is None:
+        return
+    val_str = str(valor).strip()
+    if re.search(r'[a-zA-Z\u00C0-\u017F]', val_str):
+        raise InvalidDomainValueViolation(
+            f"O campo '{nome_campo}' ('{valor}') não pode conter letras. Deve conter apenas valores numéricos."
         )
 
 def validar_periodo_academico(periodo):

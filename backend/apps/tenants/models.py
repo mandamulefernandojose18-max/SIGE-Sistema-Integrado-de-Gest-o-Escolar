@@ -70,6 +70,14 @@ class Escola(models.Model):
     logo_base64 = models.TextField(blank=True, null=True)
     galeria_logos = models.JSONField(default=list, blank=True)
     config_classes_exames = models.JSONField(default=dict, blank=True)
+    regime_curricular = models.CharField(
+        max_length=20,
+        default='CLASSES',
+        choices=[
+            ('CLASSES', 'Regime por Classes (1ª à 12ª Classe)'),
+            ('NIVEIS', 'Regime por Níveis (Nível 1, Nível 2...)')
+        ]
+    )
 
     # Identidade Visual, Tema e Imagem de Fundo da Instituição
     tema_codigo = models.CharField(max_length=50, default='padrao_azul')

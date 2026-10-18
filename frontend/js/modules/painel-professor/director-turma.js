@@ -200,7 +200,7 @@ async function carregarDadosTurmaDT() {
           <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
             <div>
               <h6 class="fw-bold text-dark mb-0">Acta Oficial do Conselho de Avaliação</h6>
-              <small class="text-muted">Modelo Oficial MEC Moçambique</small>
+              <small class="text-muted">Modelo Oficial MEC</small>
             </div>
             <div class="d-flex gap-2">
               <button class="btn btn-outline-success btn-sm fw-semibold" onclick="exportarActaConselhoExcel('${dtTurmaAtivaId}')">

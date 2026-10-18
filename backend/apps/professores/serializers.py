@@ -90,6 +90,32 @@ class ProfessorSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def validate(self, attrs):
+        if 'nuit' in attrs:
+            val_nuit = attrs.get('nuit')
+            if val_nuit is None or str(val_nuit).strip() == '':
+                attrs['nuit'] = None
+            else:
+                import re
+                nuit_str = str(val_nuit).strip()
+                if not re.match(r'^\d{1,9}$', nuit_str):
+                    raise serializers.ValidationError({"nuit": "O NUIT do docente deve conter apenas números (no máximo 9 dígitos). Não aceita letras."})
+                attrs['nuit'] = nuit_str
+
+        if 'telefone' in attrs and attrs.get('telefone'):
+            import re
+            tel_str = str(attrs['telefone']).strip()
+            if re.search(r'[a-zA-Z\u00C0-\u017F]', tel_str):
+                raise serializers.ValidationError({"telefone": "O telefone do docente não pode aceitar letras. Insira apenas números."})
+
+        if 'carga_horaria_semanal' in attrs and attrs.get('carga_horaria_semanal') is not None:
+            import re
+            ch_str = str(attrs['carga_horaria_semanal']).strip()
+            if re.search(r'[a-zA-Z\u00C0-\u017F]', ch_str):
+                raise serializers.ValidationError({"carga_horaria_semanal": "A carga horária deve ser um valor numérico."})
+
+        return super().validate(attrs)
+
     def get_codigos_direccao_turma(self, obj):
         res = []
         for t in obj.turmas_como_director_turma.all():
