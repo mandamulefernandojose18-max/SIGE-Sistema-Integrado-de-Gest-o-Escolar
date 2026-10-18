@@ -1,5 +1,5 @@
 /**
- * SIGE — Sistema Integrado de Gestão Escolar (Moçambique)
+ * SIGE — Sistema Integrado de Gestão Escolar
  * Motor Super Avançado de Geração de Documentos e Relatórios
  * 
  * Bibliotecas Oficiais Integradas:

@@ -605,6 +605,282 @@ window.formatarMoeda = formatarMoeda;
 window.formatarMoedaTexto = formatarMoedaTexto;
 window.aplicarResponsividadeUniversalTabelas = aplicarResponsividadeUniversalTabelas;
 
+// ==================== CONTROLO RESTRITIVO E MÁSCARAS DE CAMPOS NUMÉRICOS, NUIT E TELEFONE ====================
+/**
+ * Classifica um elemento de formulário quanto à sua natureza numérica:
+ * - 'nuit': Número Único de Identificação Tributária (Moçambique) — exclusivamente dígitos 0-9, máx. 9 dígitos.
+ * - 'telefone': Celular ou telefone — números apenas, sem aceitar letras (permite prefixo + e pontuação telefónica).
+ * - 'telefone_multiplo': Lista de números para SMS em lote (permite vírgula/ponto e vírgula).
+ * - 'inteiro': Quantidades, vagas, capacidades, anos, faltas, cargas horárias, contas, NIB — apenas dígitos 0-9.
+ * - 'decimal': Valores monetários, preços, multas, taxas, notas e percentagens — dígitos e um separador decimal.
+ */
+function classificarCampoNumerico(input) {
+  if (!input || (input.tagName !== 'INPUT' && input.tagName !== 'TEXTAREA')) return null;
+  const id = (input.id || '').toLowerCase();
+  const name = (input.name || '').toLowerCase();
+  const placeholder = (input.placeholder || '').toLowerCase();
+  const type = (input.type || '').toLowerCase();
+  const dataTipo = (input.getAttribute('data-tipo') || '').toLowerCase();
+  const classList = (input.className || '').toLowerCase();
+
+  // Excluir tipos de dados não textuais, senhas, e-mails, arquivos, buscas e referências alfanuméricas
+  if (['password', 'email', 'file', 'checkbox', 'radio', 'color', 'range', 'date', 'datetime-local', 'month', 'week', 'time', 'search'].includes(type)) {
+    return null;
+  }
+  if (id.includes('pesquisa') || id.includes('filtro') || id.includes('busca') || id.includes('search')) {
+    return null;
+  }
+  // Número de documento (ex: BI moçambicano '110100234567M' com letra final ou passaporte) e referências de recibos/banco
+  if (id.includes('numdoc') || id.includes('numerodocumento') || id.includes('referencia') || id.includes('ref')) {
+    return null;
+  }
+
+  // 1. NUIT: estritamente 9 dígitos numéricos
+  if (id.includes('nuit') || name.includes('nuit') || dataTipo === 'nuit' || placeholder.includes('nuit') || classList.includes('campo-nuit')) {
+    return 'nuit';
+  }
+
+  // 2. CELULAR / TELEFONE: números apenas, estritamente sem letras
+  if (
+    type === 'tel' ||
+    dataTipo === 'telefone' || dataTipo === 'celular' ||
+    classList.includes('campo-telefone') || classList.includes('campo-celular') ||
+    id.includes('telefone') || id.includes('celular') || id.includes('msisdn') ||
+    id.includes('telresp') || id.includes('escolatelefone') || id.includes('mptel') || id.includes('mpetel') || id.includes('matel') ||
+    id.includes('liqtelefone') || id.includes('ussdinptel') ||
+    (id.includes('contato') || id.includes('contacto')) && !id.includes('tipo') ||
+    name.includes('telefone') || name.includes('celular') || name.includes('contato') || name.includes('contacto') ||
+    placeholder.includes('+258') || placeholder.includes('telemóvel') || placeholder.includes('telefone')
+  ) {
+    if (id.includes('smstelefone') || id.includes('telefones') || id.includes('multiplos')) {
+      return 'telefone_multiplo';
+    }
+    return 'telefone';
+  }
+
+  // 3. NÚMEROS, QUANTIDADES, CAPACIDADES, ANOS, DIAS E VALORES
+  if (
+    type === 'number' ||
+    dataTipo === 'numero' || dataTipo === 'quantidade' || dataTipo === 'moeda' || dataTipo === 'inteiro' || dataTipo === 'decimal' ||
+    classList.includes('campo-numero') || classList.includes('campo-quantidade') ||
+    id.includes('qtd') || id.includes('quant') || id.includes('capacidade') ||
+    id.includes('carga') || id.includes('vagas') || id.includes('faltas') ||
+    (id.includes('dias') || id.includes('dialimite') || id.includes('diatol') || id.includes('diavenc')) ||
+    id.includes('anoletivo') || id.includes('anoingresso') ||
+    id.includes('hini') || id.includes('mini') || id.includes('hfim') || id.includes('mfim') ||
+    id.includes('bimconta') || id.includes('bimnib') || id.includes('bciconta') || id.includes('bcinib') ||
+    id.includes('port') || id.includes('desbloqueiohoras') ||
+    id.includes('valor') || id.includes('preco') || id.includes('multa') || id.includes('taxa') || id.includes('desconto') ||
+    id.includes('mlnt') || id.includes('mlntrabalho') || id.includes('mlnat')
+  ) {
+    if (
+      id.includes('valor') || id.includes('preco') || id.includes('multa') ||
+      id.includes('taxa') || id.includes('desconto') || (input.step && input.step !== '1') ||
+      id.includes('mlnt') || id.includes('mlntrabalho') || id.includes('mlnat')
+    ) {
+      return 'decimal';
+    }
+    return 'inteiro';
+  }
+
+  return null;
+}
+
+function sanitizarValorCampoNumerico(input) {
+  if (!input) return;
+  const categoria = classificarCampoNumerico(input);
+  if (!categoria) return;
+
+  const original = input.value || '';
+  let limpo = original;
+
+  if (categoria === 'nuit') {
+    // Apenas dígitos, máximo 9 dígitos
+    limpo = limpo.replace(/\D/g, '').slice(0, 9);
+    input.setAttribute('maxlength', '9');
+    input.setAttribute('inputmode', 'numeric');
+    input.setAttribute('pattern', '[0-9]{1,9}');
+  } else if (categoria === 'telefone') {
+    // Proibir qualquer letra
+    limpo = limpo.replace(/[a-zA-Z\u00C0-\u017F]/g, '');
+    // Permitir dígitos, +, espaços, hífens, parênteses
+    limpo = limpo.replace(/[^\d+ \-\(\)]/g, '');
+    const comecaComMais = limpo.startsWith('+');
+    limpo = (comecaComMais ? '+' : '') + limpo.replace(/\+/g, '');
+    input.setAttribute('inputmode', 'tel');
+  } else if (categoria === 'telefone_multiplo') {
+    limpo = limpo.replace(/[a-zA-Z\u00C0-\u017F]/g, '');
+    limpo = limpo.replace(/[^\d+;, \-\(\)]/g, '');
+    input.setAttribute('inputmode', 'tel');
+  } else if (categoria === 'inteiro') {
+    limpo = limpo.replace(/\D/g, '');
+    input.setAttribute('inputmode', 'numeric');
+  } else if (categoria === 'decimal') {
+    limpo = limpo.replace(/[a-zA-Z\u00C0-\u017F]/g, '');
+    limpo = limpo.replace(/[^\d.,]/g, '');
+    const primeiroPonto = limpo.search(/[.,]/);
+    if (primeiroPonto !== -1) {
+      const sep = limpo[primeiroPonto];
+      const antes = limpo.substring(0, primeiroPonto);
+      const depois = limpo.substring(primeiroPonto + 1).replace(/[.,]/g, '');
+      limpo = antes + sep + depois;
+    }
+    input.setAttribute('inputmode', 'decimal');
+  }
+
+  if (input.value !== limpo) {
+    const start = input.selectionStart;
+    const diff = original.length - limpo.length;
+    input.value = limpo;
+    try {
+      const newPos = Math.max(0, (start || limpo.length) - (diff > 0 ? diff : 0));
+      input.setSelectionRange(newPos, newPos);
+    } catch (_) {}
+  }
+}
+
+function tratarKeydownCampoNumerico(e) {
+  const input = e.target;
+  const categoria = classificarCampoNumerico(input);
+  if (!categoria) return;
+
+  const teclasControle = [
+    'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End'
+  ];
+  if (teclasControle.includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) {
+    return;
+  }
+
+  // REGRA MESTRA: Qualquer letra é terminantemente impedida de ser digitada
+  if (/^[a-zA-Z\u00C0-\u017F]$/.test(e.key)) {
+    e.preventDefault();
+    return;
+  }
+
+  if (categoria === 'nuit') {
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    const selLen = (input.selectionEnd || 0) - (input.selectionStart || 0);
+    const digitosAtuais = (input.value || '').replace(/\D/g, '');
+    if (digitosAtuais.length >= 9 && selLen === 0) {
+      e.preventDefault();
+      return;
+    }
+  } else if (categoria === 'telefone') {
+    if (!/^[\d+ \-\(\)]$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    if (e.key === '+') {
+      if ((input.selectionStart || 0) !== 0 || (input.value || '').includes('+')) {
+        e.preventDefault();
+        return;
+      }
+    }
+  } else if (categoria === 'telefone_multiplo') {
+    if (!/^[\d+;, \-\(\)]$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+  } else if (categoria === 'inteiro') {
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+  } else if (categoria === 'decimal') {
+    if (!/^[\d.,]$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    if (e.key === '.' || e.key === ',') {
+      if ((input.value || '').includes('.') || (input.value || '').includes(',')) {
+        e.preventDefault();
+        return;
+      }
+    }
+  }
+}
+
+function tratarPasteCampoNumerico(e) {
+  const input = e.target;
+  const categoria = classificarCampoNumerico(input);
+  if (!categoria) return;
+
+  const textoColado = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (/[a-zA-Z\u00C0-\u017F]/.test(textoColado)) {
+    e.preventDefault();
+    let limpo = textoColado.replace(/[a-zA-Z\u00C0-\u017F]/g, '');
+    if (categoria === 'nuit') {
+      limpo = limpo.replace(/\D/g, '');
+      const atual = (input.value || '').replace(/\D/g, '');
+      const espacoRestante = Math.max(0, 9 - atual.length);
+      limpo = limpo.slice(0, espacoRestante);
+    } else if (categoria === 'inteiro') {
+      limpo = limpo.replace(/\D/g, '');
+    } else if (categoria === 'decimal') {
+      limpo = limpo.replace(/[^\d.,]/g, '');
+    } else if (categoria === 'telefone') {
+      limpo = limpo.replace(/[^\d+ \-\(\)]/g, '');
+    }
+    try {
+      document.execCommand('insertText', false, limpo);
+    } catch (_) {
+      input.value = (input.value || '') + limpo;
+    }
+    sanitizarValorCampoNumerico(input);
+  } else {
+    setTimeout(() => sanitizarValorCampoNumerico(input), 0);
+  }
+}
+
+function aplicarMascaraCamposNumericos(root = document) {
+  try {
+    const elRoot = root || document;
+    const inputs = elRoot.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+      const categoria = classificarCampoNumerico(input);
+      if (!categoria) return;
+
+      if (categoria === 'nuit') {
+        input.setAttribute('maxlength', '9');
+        input.setAttribute('inputmode', 'numeric');
+        input.setAttribute('pattern', '[0-9]{1,9}');
+        if (!input.placeholder || input.placeholder.includes('Ex:')) {
+          input.setAttribute('placeholder', 'Ex: 400123456 (máx. 9 dígitos)');
+        }
+      } else if (categoria === 'telefone' || categoria === 'telefone_multiplo') {
+        input.setAttribute('inputmode', 'tel');
+      } else if (categoria === 'inteiro') {
+        input.setAttribute('inputmode', 'numeric');
+      } else if (categoria === 'decimal') {
+        input.setAttribute('inputmode', 'decimal');
+      }
+      sanitizarValorCampoNumerico(input);
+    });
+  } catch (err) {
+    console.warn('[MASCARAS] Erro ao aplicar máscaras numéricas:', err);
+  }
+}
+
+function inicializarFiltrosNumericosGlobais() {
+  document.addEventListener('keydown', tratarKeydownCampoNumerico, true);
+  document.addEventListener('input', (e) => sanitizarValorCampoNumerico(e.target), true);
+  document.addEventListener('paste', tratarPasteCampoNumerico, true);
+  document.addEventListener('change', (e) => sanitizarValorCampoNumerico(e.target), true);
+  aplicarMascaraCamposNumericos(document);
+}
+
+// Inicializar imediatamente os interceptores no escopo global
+inicializarFiltrosNumericosGlobais();
+
+window.classificarCampoNumerico = classificarCampoNumerico;
+window.sanitizarValorCampoNumerico = sanitizarValorCampoNumerico;
+window.aplicarMascaraCamposNumericos = aplicarMascaraCamposNumericos;
+
 // ==================== UTILITÁRIOS DE SEGURANÇA E ESCAPE ====================
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -15285,6 +15561,7 @@ function abrirModal(titulo, htmlCorpo) {
   if (corpo) {
     corpo.innerHTML = htmlCorpo;
     aplicarResponsividadeUniversalTabelas(corpo);
+    aplicarMascaraCamposNumericos(corpo);
   }
   const el = document.getElementById('modalGenerico');
   if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
