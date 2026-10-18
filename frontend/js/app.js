@@ -608,7 +608,7 @@ window.aplicarResponsividadeUniversalTabelas = aplicarResponsividadeUniversalTab
 // ==================== CONTROLO RESTRITIVO E MÁSCARAS DE CAMPOS NUMÉRICOS, NUIT E TELEFONE ====================
 /**
  * Classifica um elemento de formulário quanto à sua natureza numérica:
- * - 'nuit': Número Único de Identificação Tributária (Moçambique) — exclusivamente dígitos 0-9, máx. 9 dígitos.
+ * - 'nuit': Número Único de Identificação Tributária — exclusivamente dígitos 0-9, máx. 9 dígitos.
  * - 'telefone': Celular ou telefone — números apenas, sem aceitar letras (permite prefixo + e pontuação telefónica).
  * - 'telefone_multiplo': Lista de números para SMS em lote (permite vírgula/ponto e vírgula).
  * - 'inteiro': Quantidades, vagas, capacidades, anos, faltas, cargas horárias, contas, NIB — apenas dígitos 0-9.
@@ -3109,7 +3109,7 @@ async function modalCadastrarEscolaSuperAdmin() {
         </div>
         <div class="col-md-3">
           <label class="form-label small fw-semibold">NUIT da Escola</label>
-          <input type="text" id="cadEscolaNUIT" class="form-control" required placeholder="Ex: 400123456">
+          <input type="text" id="cadEscolaNUIT" class="form-control" required placeholder="Ex: 400123456 (máx. 9 dígitos)" maxlength="9" inputmode="numeric" pattern="[0-9]{1,9}">
         </div>
 
         <div class="col-md-6">
@@ -3118,7 +3118,7 @@ async function modalCadastrarEscolaSuperAdmin() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
-          <input type="text" id="cadEscolaTelefone" class="form-control" value="+258 " required>
+          <input type="tel" id="cadEscolaTelefone" class="form-control" value="+258 " required inputmode="tel" placeholder="+258 ...">
         </div>
 
         <div class="col-md-6">
@@ -3295,7 +3295,7 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           </div>
           <div class="col-md-3">
             <label class="form-label small fw-semibold">NUIT</label>
-            <input type="text" id="editEscolaNUIT" class="form-control" value="${escola.nif_cnpj}" required>
+            <input type="text" id="editEscolaNUIT" class="form-control" value="${escola.nif_cnpj}" required maxlength="9" inputmode="numeric" pattern="[0-9]{1,9}" placeholder="9 dígitos">
           </div>
 
           <div class="col-md-6">
@@ -3304,7 +3304,7 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Telefone</label>
-            <input type="text" id="editEscolaTelefone" class="form-control" value="${escola.telefone || '+258 '}">
+            <input type="tel" id="editEscolaTelefone" class="form-control" value="${escola.telefone || '+258 '}" inputmode="tel" placeholder="+258 ...">
           </div>
 
           <div class="col-md-6">
@@ -7375,7 +7375,7 @@ async function modalEditarAluno(id) {
           </div>
           <div class="col-md-4">
             <label class="form-label small fw-semibold">NUIT (Opcional)</label>
-            <input type="text" id="meNUIT" class="form-control" value="${a.nuit || ''}" placeholder="Ex: 109876543 (Opcional)">
+            <input type="text" id="meNUIT" class="form-control" value="${a.nuit || ''}" placeholder="Ex: 109876543 (máx. 9 dígitos)" maxlength="9" inputmode="numeric" pattern="[0-9]{1,9}">
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Província</label>
@@ -7404,7 +7404,7 @@ async function modalEditarAluno(id) {
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Contacto Encarregado</label>
-            <input type="text" id="meTelResp" class="form-control" value="${a.contato_responsavel || ''}">
+            <input type="tel" id="meTelResp" class="form-control" value="${a.contato_responsavel || ''}" placeholder="Ex: 841234567 ou +258..." inputmode="tel">
           </div>
         </div>
         <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-check2-circle me-1"></i> Guardar Alterações do Aluno</button>
