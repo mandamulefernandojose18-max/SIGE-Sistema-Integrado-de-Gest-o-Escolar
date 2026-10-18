@@ -7866,7 +7866,7 @@ async function modalNovoAluno() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">NUIT (Opcional)</label>
-          <input type="text" id="maNUIT" class="form-control" placeholder="Ex: 109876543 (Opcional)">
+          <input type="text" id="maNUIT" class="form-control" placeholder="Ex: 109876543 (máx. 9 dígitos)" maxlength="9" inputmode="numeric" pattern="[0-9]{1,9}">
         </div>
 
         <div class="col-md-6">
@@ -7898,7 +7898,7 @@ async function modalNovoAluno() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone de Contacto (+258 Padrão)</label>
-          <input type="text" id="maTel" class="form-control" value="+258 ">
+          <input type="tel" id="maTel" class="form-control" value="+258 " placeholder="+258 ..." inputmode="tel">
         </div>
       </div>
       <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-person-plus-fill me-1"></i> Confirmar Matrícula Oficial</button>
