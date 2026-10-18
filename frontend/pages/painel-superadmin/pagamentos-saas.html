@@ -183,7 +183,8 @@
               <p class="mb-1"><strong>Código Oficial:</strong> <span id="fichaEscolaCodigo">-</span></p>
               <p class="mb-1"><strong>NUIT:</strong> <span id="fichaEscolaNuit">-</span></p>
               <p class="mb-1"><strong>Província / Distrito:</strong> <span id="fichaEscolaProvincia">-</span></p>
-              <p class="mb-0"><strong>Estado Geral:</strong> <span id="fichaEscolaEstadoBadge" class="badge bg-secondary">-</span></p>
+              <p class="mb-1"><strong>Estado Geral:</strong> <span id="fichaEscolaEstadoBadge" class="badge bg-secondary">-</span></p>
+              <p class="mb-0"><strong>Modo de Controlo:</strong> <span id="fichaModoControloBadge" class="badge bg-secondary">-</span></p>
             </div>
           </div>
           <div class="col-md-6">
@@ -272,14 +273,27 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer bg-light">
-        <button type="button" class="btn btn-outline-danger btn-sm" onclick="modalSuspenderManualInstituicao()">
-          <i class="bi bi-slash-circle me-1"></i> Suspender Manualmente
-        </button>
-        <button type="button" class="btn btn-outline-success btn-sm" onclick="modalReactivarManualInstituicao()">
-          <i class="bi bi-arrow-clockwise me-1"></i> Reactivar Manualmente
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+      <div class="modal-footer bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-outline-primary" onclick="executarAcaoAutomaticaInstituicao('auto_avaliar')" title="Reavaliar conformidade e repor o modo automático">
+            <i class="bi bi-cpu me-1"></i> Repor Modo Automático
+          </button>
+          <button type="button" class="btn btn-outline-warning text-dark" onclick="executarAcaoAutomaticaInstituicao('auto_suspender')" title="Suspender com base nas regras automáticas de corte">
+            <i class="bi bi-robot me-1"></i> Suspensão Automática
+          </button>
+          <button type="button" class="btn btn-outline-info text-dark" onclick="executarAcaoAutomaticaInstituicao('auto_reactivar')" title="Reactivar com base na quitação e cumprimento dos prazos">
+            <i class="bi bi-arrow-repeat me-1"></i> Reactivação Automática
+          </button>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="modalSuspenderManualInstituicao()">
+            <i class="bi bi-slash-circle me-1"></i> Suspender Manualmente
+          </button>
+          <button type="button" class="btn btn-outline-success btn-sm" onclick="modalReactivarManualInstituicao()">
+            <i class="bi bi-arrow-clockwise me-1"></i> Reactivar Manualmente
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+        </div>
       </div>
     </div>
   </div>

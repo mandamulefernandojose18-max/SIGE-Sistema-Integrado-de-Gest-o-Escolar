@@ -14,10 +14,18 @@ class SaasAssinaturaSerializer(serializers.ModelSerializer):
     instituicao_codigo = serializers.CharField(source='instituicao.codigo_escola', read_only=True)
     instituicao_nuit = serializers.CharField(source='instituicao.nif_cnpj', read_only=True)
     instituicao_provincia = serializers.CharField(source='instituicao.provincia', read_only=True)
+    instituicao_status = serializers.CharField(source='instituicao.status', read_only=True)
+    instituicao_bloqueada_manualmente = serializers.BooleanField(source='instituicao.bloqueada_manualmente', read_only=True)
+    modo_controlo = serializers.SerializerMethodField()
 
     class Meta:
         model = SaasAssinatura
         fields = '__all__'
+
+    def get_modo_controlo(self, obj):
+        if getattr(obj.instituicao, 'bloqueada_manualmente', False):
+            return 'manual'
+        return 'automatico'
 
 
 class SaasFaturaSerializer(serializers.ModelSerializer):

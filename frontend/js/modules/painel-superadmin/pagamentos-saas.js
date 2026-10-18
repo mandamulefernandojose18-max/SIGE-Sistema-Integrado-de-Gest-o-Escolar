@@ -143,6 +143,9 @@ function renderizarTabelaAssinaturas(lista) {
     const preco = a.plano_detalhes?.preco_mensal ? `${formatarValorMZN(a.plano_detalhes.preco_mensal)} MZN` : '-';
     const proxFatura = a.proxima_fatura_em ? formatarDataPt(a.proxima_fatura_em) : '-';
     const badgeEstado = obterBadgeEstadoAssinatura(a.estado);
+    const modoControloBadge = (a.modo_controlo === 'manual' || a.instituicao_bloqueada_manualmente)
+      ? '<small class="d-block text-warning fw-semibold mt-1"><i class="bi bi-person me-1"></i>Manual</small>'
+      : '<small class="d-block text-muted mt-1"><i class="bi bi-robot me-1"></i>Automático</small>';
 
     return `
       <tr>
@@ -164,7 +167,10 @@ function renderizarTabelaAssinaturas(lista) {
           <small class="d-block">Tolerância: <strong>${a.dias_tolerancia}d</strong></small>
           <small class="text-muted">Suspensão: <strong>${a.dias_ate_suspensao}d</strong></small>
         </td>
-        <td>${badgeEstado}</td>
+        <td>
+          ${badgeEstado}
+          ${modoControloBadge}
+        </td>
         <td class="text-end">
           <button class="btn btn-sm btn-primary" onclick="abrirFichaInstituicao('${a.id}')" title="Ver Histórico, Faturas e Configuração">
             <i class="bi bi-eye me-1"></i> Gerir
@@ -219,6 +225,16 @@ async function abrirFichaInstituicao(assinaturaId) {
     if (elEscolaProvincia) elEscolaProvincia.innerText = assinaturaAtualSelecionada.instituicao_provincia || 'Maputo';
     const elEscolaEstado = document.getElementById('fichaEscolaEstadoBadge');
     if (elEscolaEstado) elEscolaEstado.innerHTML = obterBadgeEstadoAssinatura(assinaturaAtualSelecionada.estado);
+
+    const elModoControlo = document.getElementById('fichaModoControloBadge');
+    if (elModoControlo) {
+      const modoManual = assinaturaAtualSelecionada.modo_controlo === 'manual' || assinaturaAtualSelecionada.instituicao_bloqueada_manualmente;
+      if (modoManual) {
+        elModoControlo.innerHTML = '<span class="badge bg-warning text-dark"><i class="bi bi-person me-1"></i>Manual (Bloqueio Forçado)</span>';
+      } else {
+        elModoControlo.innerHTML = '<span class="badge bg-primary"><i class="bi bi-robot me-1"></i>Automático (Regras do Sistema)</span>';
+      }
+    }
 
     const elPlanoNome = document.getElementById('fichaPlanoNome');
     if (elPlanoNome) {
@@ -647,6 +663,44 @@ async function salvarAcaoManualInstituicao(event) {
   } catch (err) {
     console.error('[SAAS] Erro em operação manual:', err);
     mostrarToast('Erro de comunicação.', 'danger');
+  }
+}
+
+async function executarAcaoAutomaticaInstituicao(tipo) {
+  if (!assinaturaAtualSelecionada) return;
+  const nomeInst = assinaturaAtualSelecionada.instituicao_nome || 'Instituição';
+  const instituicaoId = assinaturaAtualSelecionada.instituicao;
+
+  let mensagemConfirmacao = '';
+  if (tipo === 'auto_suspender') {
+    mensagemConfirmacao = `Confirma a execução da Suspensão Automática para "${nomeInst}"?\nO sistema verificará se existem faturas em atraso que excederam o prazo de tolerância e corte (${assinaturaAtualSelecionada.dias_ate_suspensao} dias) e aplicará a suspensão sob modo automático.`;
+  } else if (tipo === 'auto_reactivar') {
+    mensagemConfirmacao = `Confirma a execução da Reactivação Automática para "${nomeInst}"?\nO sistema verificará se todas as pendências foram regularizadas e restaurará o acesso sob modo automático.`;
+  } else if (tipo === 'auto_avaliar') {
+    mensagemConfirmacao = `Deseja repor o Modo Automático para "${nomeInst}"?\nQualquer bloqueio manual anterior será removido e o estado será reavaliado com base nas faturas e regras reais do sistema.`;
+  }
+
+  if (!confirm(mensagemConfirmacao)) return;
+
+  try {
+    const res = await apiFetch(`/saas/instituicoes/${instituicaoId}/suspender-reactivar/`, {
+      method: 'POST',
+      body: JSON.stringify({ acao: tipo })
+    });
+
+    if (res && res.success) {
+      mostrarToast(res.message || 'Operação automática processada com sucesso!', 'success');
+      if (assinaturaAtualSelecionada) {
+        await abrirFichaInstituicao(assinaturaAtualSelecionada.id);
+      }
+      await carregarAssinaturasSuperAdmin();
+      await carregarResumoSuperAdmin();
+    } else {
+      mostrarToast(res?.message || 'Falha ao processar regras automáticas.', 'warning');
+    }
+  } catch (err) {
+    console.error('[SAAS] Erro em operação automática:', err);
+    mostrarToast('Falha na comunicação com o servidor.', 'danger');
   }
 }
 

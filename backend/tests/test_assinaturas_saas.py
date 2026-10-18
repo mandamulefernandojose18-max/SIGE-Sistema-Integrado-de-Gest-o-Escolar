@@ -353,3 +353,125 @@ class TestAssinaturasSaaS:
         res_depois = self.client.get('/api/v1/saas/coordenadas/')
         assert res_depois.data['data']['mpesa_numero'] == '841112233'
         assert res_depois.data['data']['bim_conta'] == '555444333'
+
+    def test_suspensao_e_reactivacao_manual(self):
+        """Valida suspensão e reactivação manual com justificação obrigatória e registo de auditoria"""
+        self.client.force_authenticate(user=self.superadmin)
+
+        # 1. Tentativa sem justificativa deve falhar
+        res_fail = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'suspender',
+            'motivo': ''
+        }, format='json')
+        assert res_fail.status_code == 400
+
+        # 2. Suspensão manual com sucesso
+        res_susp = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'suspender',
+            'motivo': 'Bloqueio administrativo temporário'
+        }, format='json')
+        assert res_susp.status_code == 200
+        self.escola.refresh_from_db()
+        self.assinatura.refresh_from_db()
+        assert self.escola.status == 'SUSPENSA'
+        assert self.escola.bloqueada_manualmente is True
+        assert self.assinatura.estado == 'suspensa'
+
+        # 3. Reactivação manual com sucesso
+        res_react = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'reactivar',
+            'motivo': 'Regularização administrativa manual confirmada'
+        }, format='json')
+        assert res_react.status_code == 200
+        self.escola.refresh_from_db()
+        self.assinatura.refresh_from_db()
+        assert self.escola.status == 'ATIVA'
+        assert self.escola.bloqueada_manualmente is False
+        assert self.assinatura.estado == 'activa'
+
+    def test_suspensao_e_reactivacao_automatica_por_regras(self):
+        """Valida suspensão automática (apenas quando há corte) e reactivação automática (apenas quando regularizado)"""
+        self.client.force_authenticate(user=self.superadmin)
+        hoje = timezone.localdate()
+
+        # 1. Sem faturas em corte: auto_suspender deve recusar suspensão automática
+        res_sem_corte = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'auto_suspender'
+        }, format='json')
+        assert res_sem_corte.status_code == 400
+        assert 'não possui faturas que excedam o prazo de corte' in res_sem_corte.data['message']
+
+        # 2. Criar fatura vencida há 25 dias (excede 5 dias de tolerância + 15 dias até suspensão = 20 dias)
+        fatura = SaasFatura.objects.create(
+            assinatura=self.assinatura,
+            instituicao=self.escola,
+            numero_fatura='FAT-AUTO-CORTE',
+            periodo_inicio=hoje - timedelta(days=40),
+            periodo_fim=hoje - timedelta(days=10),
+            valor=Decimal('3000.00'),
+            data_abertura=hoje - timedelta(days=40),
+            data_limite=hoje - timedelta(days=25),
+            data_limite_manual=hoje - timedelta(days=25),
+            estado='aberta'
+        )
+
+        # 3. Com fatura em corte: auto_reactivar deve recusar e avisar das faturas pendentes
+        res_recusa_react = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'auto_reactivar'
+        }, format='json')
+        assert res_recusa_react.status_code == 400
+        assert 'Não é possível reactivar automaticamente' in res_recusa_react.data['message']
+
+        # 4. Executar auto_suspender agora deve aplicar Suspensão Automática com sucesso
+        res_susp_auto = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'auto_suspender'
+        }, format='json')
+        assert res_susp_auto.status_code == 200
+        self.escola.refresh_from_db()
+        self.assinatura.refresh_from_db()
+        assert self.escola.status == 'SUSPENSA'
+        assert self.escola.bloqueada_manualmente is False
+        assert self.assinatura.estado == 'suspensa'
+
+        # 5. Regularizar a fatura (paga)
+        fatura.estado = 'paga'
+        fatura.valor_pago = Decimal('3000.00')
+        fatura.save()
+
+        # 6. Agora auto_reactivar deve ter sucesso total!
+        res_react_auto = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'auto_reactivar'
+        }, format='json')
+        assert res_react_auto.status_code == 200
+        self.escola.refresh_from_db()
+        self.assinatura.refresh_from_db()
+        assert self.escola.status == 'ATIVA'
+        assert self.escola.bloqueada_manualmente is False
+        assert self.assinatura.estado == 'activa'
+
+    def test_repor_modo_automatico_e_ciclo_diario(self):
+        """Valida que repor modo automático limpa bloqueio manual e ciclo diário reactiva escolas regularizadas"""
+        self.client.force_authenticate(user=self.superadmin)
+
+        # 1. Instituição bloqueada manualmente sem dívida
+        self.escola.status = 'SUSPENSA'
+        self.escola.bloqueada_manualmente = True
+        self.escola.save()
+        self.assinatura.estado = 'suspensa'
+        self.assinatura.save()
+
+        # 2. Superadmin clica em 'Repor Modo Automático'
+        res_repor = self.client.post(f'/api/v1/saas/instituicoes/{self.escola.id}/suspender-reactivar/', {
+            'acao': 'auto_avaliar'
+        }, format='json')
+        assert res_repor.status_code == 200
+        self.escola.refresh_from_db()
+        self.assinatura.refresh_from_db()
+        assert self.escola.status == 'ATIVA'
+        assert self.escola.bloqueada_manualmente is False
+        assert self.assinatura.estado in ['activa', 'fatura_pendente']
+
+        # 3. Serializer expõe modo de controlo correcto
+        res_ficha = self.client.get(f'/api/v1/saas/assinaturas/{self.assinatura.id}/')
+        assert res_ficha.data['data']['assinatura']['modo_controlo'] == 'automatico'
+

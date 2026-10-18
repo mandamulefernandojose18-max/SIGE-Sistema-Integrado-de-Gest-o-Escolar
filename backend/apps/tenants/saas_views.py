@@ -366,17 +366,19 @@ class SaasProrrogarDataLimiteView(APIView):
 
 
 class SaasSuspenderReactivarManualView(APIView):
+    """
+    Gestão de Suspensão e Reactivação de Instituições:
+    - Modo Manual: 'suspender' e 'reactivar' (exigem justificação do Super Admin)
+    - Modo Automático: 'auto_suspender', 'auto_reactivar', 'auto_avaliar' (avaliam regras de faturação, tolerância e corte)
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
-        acao = request.data.get('acao')  # 'suspender' ou 'reactivar'
+        acao = request.data.get('acao')  # 'suspender', 'reactivar', 'auto_suspender', 'auto_reactivar', 'auto_avaliar'
         motivo = request.data.get('motivo', '').strip()
-
-        if not motivo:
-            return Response({'success': False, 'message': 'A justificação é estritamente obrigatória.'}, status=status.HTTP_400_BAD_REQUEST)
 
         escola = Escola.objects.filter(id=pk).first()
         if not escola:
@@ -384,7 +386,11 @@ class SaasSuspenderReactivarManualView(APIView):
 
         utilizador = request.user.nome or request.user.email
 
+        # 1. Operações Manuais (Exigem Justificação Obrigatória)
         if acao == 'suspender':
+            if not motivo:
+                return Response({'success': False, 'message': 'A justificação é estritamente obrigatória para a suspensão manual.'}, status=status.HTTP_400_BAD_REQUEST)
+
             if is_postgresql():
                 with connection.cursor() as cursor:
                     cursor.execute("SELECT public.suspender_manual(%s, %s, %s)", [str(pk), motivo, utilizador])
@@ -400,7 +406,11 @@ class SaasSuspenderReactivarManualView(APIView):
                     motivo=motivo
                 )
                 res = {'sucesso': True, 'mensagem': 'Instituição suspensa manualmente.'}
+
         elif acao == 'reactivar':
+            if not motivo:
+                return Response({'success': False, 'message': 'A justificação é estritamente obrigatória para a reactivação manual.'}, status=status.HTTP_400_BAD_REQUEST)
+
             if is_postgresql():
                 with connection.cursor() as cursor:
                     cursor.execute("SELECT public.reactivar_manual(%s, %s, %s)", [str(pk), motivo, utilizador])
@@ -416,6 +426,31 @@ class SaasSuspenderReactivarManualView(APIView):
                     motivo=motivo
                 )
                 res = {'sucesso': True, 'mensagem': 'Instituição reactivada com sucesso.'}
+
+        # 2. Operações Automáticas (Avaliação Estrita das Regras do Sistema)
+        elif acao in ['auto_suspender', 'auto_reactivar', 'auto_avaliar']:
+            from .saas_services import avaliar_regras_automaticas_instituicao
+            resultado = avaliar_regras_automaticas_instituicao(
+                instituicao_id=pk,
+                acao_desejada=acao,
+                feito_por=f"{utilizador} (Super Admin)",
+                motivo_personalizado=motivo if motivo else None
+            )
+            limpar_cache_assinatura(pk)
+            if not resultado.get('sucesso'):
+                return Response({
+                    'success': False,
+                    'message': resultado.get('mensagem'),
+                    'tipo': resultado.get('tipo'),
+                    'detalhes': resultado.get('detalhes')
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({
+                'success': True,
+                'message': resultado.get('mensagem'),
+                'data': resultado
+            })
+
         else:
             return Response({'success': False, 'message': 'Ação inválida.'}, status=status.HTTP_400_BAD_REQUEST)
 

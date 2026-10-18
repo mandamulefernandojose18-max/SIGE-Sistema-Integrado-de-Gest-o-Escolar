@@ -281,11 +281,18 @@
 
 ---
 
-### 2.17. Ferramentas & Integrações — Gateway SMS, USSD e Pagamentos Móveis
+### 2.17. Ferramentas & Integrações — Central de Gateway SMS, USSD e Pagamentos Móveis (`apps.ferramentas`)
 
 | Método | Endpoint | Permissão | Cabeçalhos & Resposta | Descrição |
 | :---: | :--- | :---: | :---: | :--- |
-| `GET` | `/ferramentas/prompt-gateway` | `SUPERADMIN` / Admin / Direcção | `Cache-Control: no-store`<br>`X-Robots-Tag: noindex`<br>HTML | Retorna a página Web completa com o layout do sistema, visualização segura do prompt em `<pre>` (XSS escapado) e botões de cópia e descarregamento. Redireciona para login (302) se não autenticado. |
-| `GET` | `/ferramentas/prompt-gateway/descarregar` | `SUPERADMIN` / Admin / Direcção | `Content-Type: text/plain; charset=utf-8`<br>`Content-Disposition: attachment; filename="prompt-gateway-sms-ussd.txt"`<br>`Cache-Control: no-store` | Devolve o ficheiro de conteúdo limpo para download direto pelo utilizador ou assistente de código. Retorna 401 se sem sessão e 403 se sem perfil diretivo. |
-| `GET` | `/api/v1/ferramentas/prompt-gateway/conteudo` | `SUPERADMIN` / Admin / Direcção | `application/json`<br>`Cache-Control: no-store` | Retorna JSON `{ "success": true, "conteudo": "...", "titulo": "..." }` para carregamento assíncrono modular no SPA. |
+| `GET` | `/api/v1/ferramentas/stats/` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Indicadores de telecomunicações: saldo de créditos SMS, taxa de entrega nacional, total de pagamentos móveis, volume em Meticais e estado operacional de Vodacom, Movitel e Tmcel. |
+| `POST` | `/api/v1/ferramentas/sms/enviar/` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Dispara SMS transacional ou em massa. Parâmetros: `modo` (`MANUAL`, `TURMA`, `PROPINAS_PENDENTES`, `TODOS`), `destinatarios`, `mensagem`, `tipo` (`AVISO`, `PROPINA`, `RECIBO`, `NOTAS`). Normaliza para `+258` e calcula segmentos GSM-7/UCS-2. |
+| `GET` | `/api/v1/ferramentas/sms/historico/` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Lista das mensagens SMS enviadas com destinatário, operadora, segmentos, data e estado de entrega. |
+| `POST` | `/api/v1/ferramentas/pagamentos-moveis/iniciar/` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Inicia cobrança C2B via STK Push. Parâmetros: `metodo` (`MPESA` ou `EMOLA`), `telefone`, `valor`, `aluno_id`, `pagamento_id`, `descricao`. Se vinculado a um pagamento, liquida para `PAGO`, emite recibo `REC-...` e envia SMS. |
+| `GET` | `/api/v1/ferramentas/pagamentos-moveis/transacoes/` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Lista do histórico de transações de carteira móvel com referência bancária, recibo emitido e status. |
+| `POST` | `/api/v1/ferramentas/ussd/simular/` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Simulador da máquina de estados do menu USSD. Parâmetros: `phoneNumber`, `text`, `sessionId`. Retorna `CON` (continuar) ou `END` (concluir sessão). |
+| `GET` | `/ferramentas/prompt-gateway` | `SUPERADMIN` / Admin / Direção / Financeiro | `Cache-Control: no-store`<br>`X-Robots-Tag: noindex`<br>HTML | Retorna a página Web completa da Central de Maximização com as 4 abas (SMS, Pagamentos, USSD e Prompt) no layout oficial do SIGE. |
+| `GET` | `/ferramentas/prompt-gateway/descarregar` | `SUPERADMIN` / Admin / Direção / Financeiro | `Content-Type: text/plain; charset=utf-8`<br>`Content-Disposition: attachment; filename="prompt-gateway-sms-ussd.txt"`<br>`Cache-Control: no-store` | Devolve o ficheiro de conteúdo limpo para download direto pelo utilizador ou assistente de código. |
+| `GET` | `/api/v1/ferramentas/prompt-gateway/conteudo` | `SUPERADMIN` / Admin / Direção / Financeiro | `application/json`<br>`Cache-Control: no-store` | Retorna JSON `{ "success": true, "conteudo": "...", "titulo": "..." }` para carregamento assíncrono modular no SPA. |
+
 

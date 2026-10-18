@@ -708,20 +708,53 @@ Sobe os 4 contentores orquestrados (`sige_postgres` na porta `5432`, `sige_backe
 
 ## 12. Módulo de Ferramentas: Gateway SMS, USSD e Pagamentos Móveis
 
-### 12.1 Visão Geral e Arquitetura
-Disponibiliza aos perfis com privilégios de administração e direcção (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `FINANCEIRO`) a especificação integral e o prompt de engenharia para desenvolvimento do microsserviço independente em Node.js responsável pelas integrações móveis no ecossistema de Moçambique:
-- **SMS Transacional e em Lote:** Notificações escolares para encarregados (propinas, recibos, faltas, pautas) com normalização `+258`.
-- **Serviço USSD Interativo (`*...#`):** Menus para telemóveis básicos com comandos `CON` e `END`, consulta de notas e propinas.
-- **Pagamentos com Carteira Móvel:** Liquidação instantânea de saldos e propinas via M-Pesa (Vodacom C2B STK Push) e e-Mola (Movitel).
+### 12.1 Visão Geral e Arquitetura Operacional
+O SIGE incorpora a **Central Operacional de Maximização do Gateway**, disponível para utilizadores com privilégios diretivos e administrativos (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `FINANCEIRO`). A central agrega as seguintes capacidades operacionais totalmente funcionais:
+- **Envio de Mensagens SMS (Unitário e em Lote):**
+  - Normalização automática para a numeração de Moçambique no formato internacional `+258XXXXXXXXX`.
+  - Deteção e roteamento automático de operadoras: Vodacom Moçambique (`+258 84/85`), Movitel Moçambique (`+258 86/87`) e Tmcel Moçambique (`+258 82/83`).
+  - Cálculo de caracteres e múltiplos segmentos SMS (GSM-7 de 160 caracteres vs. UCS-2 de 70 caracteres).
+  - Modos de disparo: Manual por telemóvel, Em Lote por Turma Escolar, Encarregados com Propinas Pendentes e Todos os Alunos matriculados da escola.
+  - Modelos rápidos predefinidos (Lembrete de Propinas, Convocatória de Reunião, Registo de Falta, Confirmação de Matrícula).
+  - Histórico em tempo real de mensagens enviadas com estado de entrega (`ENTREGUE`, `PENDENTE`, `FALHOU`).
+- **Cobranças e Pagamentos com Carteira Móvel (M-Pesa e e-Mola):**
+  - Disparo de cobrança móvel C2B via STK Push (solicitação de PIN no ecrã do telemóvel).
+  - Suporte completo às principais carteiras móveis nacionais: **M-Pesa** (Vodacom 84/85) e **e-Mola** (Movitel 86/87).
+  - Vinculação direta a faturas/propinas pendentes do aluno no sistema financeiro escolar.
+  - Liquidação automática da propina com registo de `PAGO`, método utilizado, valor recebido e emissão instantânea de recibo oficial no padrão `REC-YYYYMM-XXXXXX`.
+  - Disparo imediato de SMS de quitação e confirmação ao encarregado de educação.
+  - Tabela histórica de transações móveis com filtros e emissão de comprovativo.
+- **Simulador Interativo de Menus USSD (`*...#`):**
+  - Terminal interativo com ecrã LCD e teclado numérico (`0-9`, `*`, `#`), simulando fielmente a experiência do encarregado de educação em telemóveis básicos (feature phones sem internet).
+  - Conformidade com as normas das operadoras de telecomunicações: respostas continuadas (`CON`) e de encerramento (`END`).
+  - Navegação hierárquica por árvore de estados:
+    1. Consulta de notas e médias trimestrais por número de matrícula do aluno (`1*MATRICULA`).
+    2. Consulta de mensalidades e propinas pendentes em Meticais.
+    3. Disparo de liquidação via M-Pesa / e-Mola diretamente a partir do telemóvel.
+    4. Consulta do Calendário Escolar Oficial (I, II e III Trimestres).
+    5. Contactos e horários de atendimento da secretaria escolar.
+- **Prompt Técnico & Especificação do Microsserviço:**
+  - Separador dedicado para consulta, cópia (`navigator.clipboard` com confirmação `aria-live="polite"`) e descarregamento (`.txt`) da especificação técnica completa para engenharia de software e assistentes de código.
 
-### 12.2 Rotas e Endpoints
+### 12.2 Modelos de Dados
+- **`apps.ferramentas.models.MensagemSMS` (`sige_mensagens_sms`):** Registo de cada SMS disparado com tenant (`escola`), destinatário canónico `+258`, nome do encarregado/aluno, operadora (`VODACOM`, `MOVITEL`, `TMCEL`), mensagem de texto, tipo (`AVISO`, `PROPINA`, `RECIBO`, `NOTAS`), contagem de caracteres, segmentos SMS e estado (`PENDENTE`, `ENVIADO`, `ENTREGUE`, `FALHOU`).
+- **`apps.ferramentas.models.TransacaoGatewayMovel` (`sige_transacoes_gateway_movel`):** Registo de transações de carteira móvel com vínculo a `Escola`, `Aluno` e `Pagamento`, método (`MPESA`, `EMOLA`), telefone, valor em Meticais, referência bancária única, número do recibo emitido e estado (`PENDENTE`, `PROCESSANDO`, `CONCLUIDO`, `FALHOU`).
+
+### 12.3 Rotas e Endpoints da API REST
 | Método | Endpoint | Perfil Autorizado | Descrição |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/ferramentas/prompt-gateway` | Administração / Direcção | Visualização da página no layout oficial com `Cache-Control: no-store` e `X-Robots-Tag: noindex`. |
-| `GET` | `/ferramentas/prompt-gateway/descarregar` | Administração / Direcção | Descarrega o ficheiro `prompt-gateway-sms-ussd.txt` limpo em UTF-8. |
-| `GET` | `/api/v1/ferramentas/prompt-gateway/conteudo` | Administração / Direcção | Endpoint JSON da API REST com o conteúdo do prompt para consumo da SPA. |
+| `GET` | `/api/v1/ferramentas/stats/` | Administração / Direcção | Métricas operacionais do gateway, saldo de créditos SMS, total enviado e status das operadoras. |
+| `POST` | `/api/v1/ferramentas/sms/enviar/` | Administração / Direcção | Envio de SMS unitário ou em lote (suporta modo manual, turma e propinas pendentes). |
+| `GET` | `/api/v1/ferramentas/sms/historico/` | Administração / Direcção | Histórico das últimas mensagens SMS disparadas pela escola. |
+| `POST` | `/api/v1/ferramentas/pagamentos-moveis/iniciar/` | Administração / Direcção | Disparo de cobrança C2B M-Pesa / e-Mola, liquidação de propina e emissão de recibo. |
+| `GET` | `/api/v1/ferramentas/pagamentos-moveis/transacoes/` | Administração / Direcção | Lista das transações móveis processadas com status e dados do aluno. |
+| `POST` | `/api/v1/ferramentas/ussd/simular/` | Administração / Direcção | Máquina de estados USSD interativa para processamento de comandos `CON` e `END`. |
+| `GET` | `/ferramentas/prompt-gateway` | Administração / Direcção | Visualização da interface completa da Central no layout do sistema com `Cache-Control: no-store` e `X-Robots-Tag: noindex`. |
+| `GET` | `/ferramentas/prompt-gateway/descarregar` | Administração / Direcção | Descarrega o ficheiro `prompt-gateway-sms-ussd.txt` limpo em codificação UTF-8. |
+| `GET` | `/api/v1/ferramentas/prompt-gateway/conteudo` | Administração / Direcção | Endpoint JSON com o texto de especificação para consumo da SPA. |
 
-### 12.3 Acesso na Interface (Painel)
-1. **Topbar (Cabeçalho):** Botão de atalho rápido `[ Prompt Gateway ]` visível imediatamente após o login para perfis autorizados.
-2. **Sidebar (Menu Lateral):** Secção **Ferramentas → Prompt do Gateway** em todos os painéis administrativos e financeiros (`painel-superadmin`, `painel-escola`, `painel-financeiro`).
+### 12.4 Acesso na Interface do Sistema
+1. **Topbar (Cabeçalho Superior):** Botão de acesso rápido `[ Gateway SMS & Pagamentos ]` visível nos painéis administrativos.
+2. **Sidebar (Menu Lateral):** Secção **Ferramentas & Integrações → Gateway SMS & Pagamentos** em `painel-superadmin`, `painel-escola` e `painel-financeiro`.
+3. **URL Direto Autenticado:** `https://sigesaas.duckdns.org/ferramentas/prompt-gateway`.
 

@@ -1,8 +1,15 @@
 import pytest
+import json
+from decimal import Decimal
 from unittest.mock import patch
-from django.urls import reverse
+from django.utils import timezone
 from django.test import Client
 from apps.accounts.models import Usuario
+from apps.tenants.models import Escola, Plano
+from apps.turmas.models import Turma
+from apps.alunos.models import Aluno
+from apps.pagamentos.models import Pagamento
+from apps.ferramentas.models import MensagemSMS, TransacaoGatewayMovel
 
 @pytest.fixture
 def client():
@@ -111,3 +118,273 @@ def test_prompt_gateway_ficheiro_em_falta(client, superadmin_user):
         assert 'Traceback' not in html
         assert 'Exception' not in html
         assert 'prompt-gateway.txt' not in html
+
+
+@pytest.fixture
+def escola_teste(db):
+    plano, _ = Plano.objects.get_or_create(nome='PLANO_TESTE_GW', defaults={'preco': 1000, 'duracao_dias': 30})
+    esc, _ = Escola.objects.get_or_create(
+        nome='Escola Secundária de Massinga',
+        defaults={'nif_cnpj': 'NIF_GW_001', 'email': 'massinga.gw@sige.edu.mz', 'status': 'ATIVA', 'plano': plano}
+    )
+    return esc
+
+
+@pytest.fixture
+def turma_teste(db, escola_teste):
+    turma, _ = Turma.objects.get_or_create(escola=escola_teste, nome='10ª A - GW', defaults={'grau_ano': '10ª'})
+    return turma
+
+
+@pytest.fixture
+def aluno_teste(db, escola_teste, turma_teste):
+    aluno, _ = Aluno.objects.get_or_create(
+        matricula='MAT-GW-001',
+        defaults={
+            'escola': escola_teste,
+            'turma': turma_teste,
+            'nome': 'Armando',
+            'apelido': 'Guebuza',
+            'contato_responsavel': '841234567',
+            'data_nascimento': '2008-01-01',
+            'genero': 'M',
+            'status': 'ATIVO'
+        }
+    )
+    return aluno
+
+
+@pytest.fixture
+def pagamento_pendente_teste(db, escola_teste, aluno_teste):
+    pag, _ = Pagamento.objects.get_or_create(
+        escola=escola_teste,
+        aluno=aluno_teste,
+        descricao='Propina de Outubro 2026',
+        defaults={
+            'mes_referencia': '2026-10',
+            'valor': Decimal('1200.00'),
+            'status': 'PENDENTE',
+            'data_vencimento': timezone.now().date() + timezone.timedelta(days=15)
+        }
+    )
+    return pag
+
+
+@pytest.mark.django_db
+def test_api_gateway_stats(client, superadmin_user, aluno_user):
+    """Testa endpoint de métricas e estado das operadoras."""
+    # Sem autenticação
+    resp_anon = client.get('/api/v1/ferramentas/stats/')
+    assert resp_anon.status_code == 401
+
+    # Sem permissão (ALUNO)
+    client.force_login(aluno_user)
+    resp_aluno = client.get('/api/v1/ferramentas/stats/')
+    assert resp_aluno.status_code == 403
+
+    # Superadmin
+    client.force_login(superadmin_user)
+    resp = client.get('/api/v1/ferramentas/stats/')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert 'operadoras' in dados
+    assert dados['saldo_creditos_sms'] >= 0
+
+
+@pytest.mark.django_db
+def test_api_enviar_sms_unitario(client, superadmin_user, escola_teste):
+    """Testa envio de SMS unitário com normalização de número de Moçambique."""
+    client.force_login(superadmin_user)
+
+    payload = {
+        'modo': 'MANUAL',
+        'destinatarios': '841234567',
+        'mensagem': 'SIGE: Informamos que a reunião terá lugar amanhã.',
+        'tipo': 'AVISO'
+    }
+    resp = client.post('/api/v1/ferramentas/sms/enviar/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert dados['total_enviados'] == 1
+    assert dados['operadoras']['VODACOM'] == 1
+
+    # Valida registo na base de dados
+    msg = MensagemSMS.objects.filter(destinatario='+258841234567').first()
+    assert msg is not None
+    assert msg.operadora == 'VODACOM'
+    assert msg.status == 'ENTREGUE'
+    assert msg.segmentos_sms == 1
+
+
+@pytest.mark.django_db
+def test_api_enviar_sms_lote_turma(client, superadmin_user, turma_teste, aluno_teste):
+    """Testa envio de SMS em lote por turma escolar."""
+    client.force_login(superadmin_user)
+
+    payload = {
+        'modo': 'TURMA',
+        'turma_id': str(turma_teste.id),
+        'mensagem': 'Prezados pais da turma, o trimestre termina nesta sexta.',
+        'tipo': 'AVISO'
+    }
+    resp = client.post('/api/v1/ferramentas/sms/enviar/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert dados['total_enviados'] >= 1
+
+
+@pytest.mark.django_db
+def test_api_enviar_sms_validacao(client, superadmin_user):
+    """Testa validações de parâmetros e número no envio de SMS."""
+    client.force_login(superadmin_user)
+
+    # Mensagem vazia
+    resp = client.post('/api/v1/ferramentas/sms/enviar/', data=json.dumps({'modo': 'MANUAL', 'destinatarios': '841234567', 'mensagem': ''}), content_type='application/json')
+    assert resp.status_code == 400
+
+    # Número não informado
+    resp2 = client.post('/api/v1/ferramentas/sms/enviar/', data=json.dumps({'modo': 'MANUAL', 'destinatarios': '', 'mensagem': 'Olá'}), content_type='application/json')
+    assert resp2.status_code == 400
+
+
+@pytest.mark.django_db
+def test_api_iniciar_pagamento_movel_mpesa(client, superadmin_user, aluno_teste, pagamento_pendente_teste):
+    """Testa cobrança móvel via Vodacom M-Pesa com liquidação automática e recibo."""
+    client.force_login(superadmin_user)
+
+    payload = {
+        'metodo': 'MPESA',
+        'telefone': '841234567',
+        'valor': 1200,
+        'aluno_id': str(aluno_teste.id),
+        'pagamento_id': str(pagamento_pendente_teste.id),
+        'descricao': 'Propina Escolar de Outubro'
+    }
+    resp = client.post('/api/v1/ferramentas/pagamentos-moveis/iniciar/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert 'transacao' in dados
+    assert dados['transacao']['metodo'] == 'MPESA'
+    assert dados['transacao']['recibo'].startswith('REC-')
+
+    # Valida atualização do pagamento na base de dados
+    pagamento_pendente_teste.refresh_from_db()
+    assert pagamento_pendente_teste.status == 'PAGO'
+    assert pagamento_pendente_teste.metodo_pagamento == 'MPESA'
+    assert pagamento_pendente_teste.recibo_numero.startswith('REC-')
+
+    # Valida criação do registo em TransacaoGatewayMovel
+    trx = TransacaoGatewayMovel.objects.filter(telefone='+258841234567', metodo='MPESA').first()
+    assert trx is not None
+    assert trx.status == 'CONCLUIDO'
+    assert trx.valor == Decimal('1200.00')
+
+    # Valida emissão automática do SMS de recibo
+    sms_rec = MensagemSMS.objects.filter(destinatario='+258841234567', tipo='RECIBO').first()
+    assert sms_rec is not None
+    assert 'REC-' in sms_rec.mensagem
+
+
+@pytest.mark.django_db
+def test_api_iniciar_pagamento_movel_emola(client, superadmin_user, aluno_teste):
+    """Testa cobrança móvel via Movitel e-Mola."""
+    client.force_login(superadmin_user)
+
+    payload = {
+        'metodo': 'EMOLA',
+        'telefone': '861234567',
+        'valor': 850,
+        'aluno_id': str(aluno_teste.id),
+        'descricao': 'Taxa de Documentos'
+    }
+    resp = client.post('/api/v1/ferramentas/pagamentos-moveis/iniciar/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert dados['transacao']['metodo'] == 'EMOLA'
+
+    trx = TransacaoGatewayMovel.objects.filter(telefone='+258861234567', metodo='EMOLA').first()
+    assert trx is not None
+    assert trx.valor == Decimal('850.00')
+
+
+@pytest.mark.django_db
+def test_api_iniciar_pagamento_movel_validacoes(client, superadmin_user):
+    """Testa validações de prefixo de rede e valores inválidos."""
+    client.force_login(superadmin_user)
+
+    # M-Pesa com número Movitel (86) deve falhar com 400
+    resp_mpesa_err = client.post(
+        '/api/v1/ferramentas/pagamentos-moveis/iniciar/',
+        data=json.dumps({'metodo': 'MPESA', 'telefone': '861234567', 'valor': 500}),
+        content_type='application/json'
+    )
+    assert resp_mpesa_err.status_code == 400
+
+    # e-Mola com número Vodacom (84) deve falhar com 400
+    resp_emola_err = client.post(
+        '/api/v1/ferramentas/pagamentos-moveis/iniciar/',
+        data=json.dumps({'metodo': 'EMOLA', 'telefone': '841234567', 'valor': 500}),
+        content_type='application/json'
+    )
+    assert resp_emola_err.status_code == 400
+
+    # Valor zero ou negativo deve falhar com 400
+    resp_val_err = client.post(
+        '/api/v1/ferramentas/pagamentos-moveis/iniciar/',
+        data=json.dumps({'metodo': 'MPESA', 'telefone': '841234567', 'valor': -10}),
+        content_type='application/json'
+    )
+    assert resp_val_err.status_code == 400
+
+
+@pytest.mark.django_db
+def test_api_simulador_ussd_menu_e_subopcoes(client, superadmin_user, aluno_teste, pagamento_pendente_teste):
+    """Testa o simulador interativo USSD (*...#) para consulta e pagamentos."""
+    client.force_login(superadmin_user)
+
+    # Menu Principal
+    resp_menu = client.post(
+        '/api/v1/ferramentas/ussd/simular/',
+        data=json.dumps({'text': '', 'phoneNumber': '+258841234567'}),
+        content_type='application/json'
+    )
+    assert resp_menu.status_code == 200
+    dados = resp_menu.json()
+    assert dados['type'] == 'CON'
+    assert '1. Consultar Notas' in dados['response']
+    assert '2. Propinas' in dados['response']
+
+    # Submenu 1: Solicitação de Matrícula
+    resp_sub1 = client.post(
+        '/api/v1/ferramentas/ussd/simular/',
+        data=json.dumps({'text': '1', 'phoneNumber': '+258841234567'}),
+        content_type='application/json'
+    )
+    assert 'CON Digite o' in resp_sub1.json()['response']
+    assert 'Matr' in resp_sub1.json()['response']
+
+    # Submenu 1 com matrícula do aluno
+    resp_sub1_aluno = client.post(
+        '/api/v1/ferramentas/ussd/simular/',
+        data=json.dumps({'text': f'1*{aluno_teste.matricula}', 'phoneNumber': '+258841234567'}),
+        content_type='application/json'
+    )
+    assert resp_sub1_aluno.status_code == 200
+    assert resp_sub1_aluno.json()['type'] == 'END'
+    assert aluno_teste.nome in resp_sub1_aluno.json()['response']
+
+    # Submenu 5: Contactos da Secretaria
+    resp_sub5 = client.post(
+        '/api/v1/ferramentas/ussd/simular/',
+        data=json.dumps({'text': '5', 'phoneNumber': '+258841234567'}),
+        content_type='application/json'
+    )
+    assert resp_sub5.status_code == 200
+    assert resp_sub5.json()['type'] == 'END'
+    assert 'Secretaria' in resp_sub5.json()['response']
+

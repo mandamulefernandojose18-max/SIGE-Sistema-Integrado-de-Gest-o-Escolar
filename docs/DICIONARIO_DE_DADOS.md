@@ -427,3 +427,45 @@ Subscrições ativas das instituições de ensino no SIGE SaaS.
 #### `sige_saas_coordenadas` (`apps.tenants.models.SaasCoordenadasPagamento`)
 Coordenadas bancárias e carteiras móveis oficiais da plataforma (M-Pesa, e-Mola, BIM, BCI).
 
+---
+
+### 2.19. Central de Gateway SMS, USSD e Pagamentos Móveis (`apps.ferramentas`)
+
+#### `sige_mensagens_sms` (`apps.ferramentas.models.MensagemSMS`)
+Registo de cada mensagem SMS disparada pelo sistema para encarregados e alunos.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único da mensagem SMS. |
+| `escola_id` | `UUID` (FK) | Sim | Escola emissora do SMS. |
+| `destinatario` | `VARCHAR(30)` | Não | Número normalizado internacional de Moçambique (`+258XXXXXXXXX`). |
+| `nome_destinatario` | `VARCHAR(255)` | Sim | Nome do encarregado de educação ou estudante. |
+| `operadora` | `VARCHAR(20)` | Não | `VODACOM`, `MOVITEL`, `TMCEL` ou `OUTRA`. |
+| `mensagem` | `TEXT` | Não | Texto integral da mensagem SMS. |
+| `tipo` | `VARCHAR(30)` | Não | `AVISO`, `PROPINA`, `RECIBO`, `NOTAS`, `REUNIAO`, `FALTA`. |
+| `caracteres` | `INTEGER` | Não | Contagem total de caracteres do texto. |
+| `segmentos_sms` | `INTEGER` | Não | Número de segmentos SMS faturados (GSM-7 de 160 vs. UCS-2 de 70). |
+| `status` | `VARCHAR(20)` | Não | `PENDENTE`, `ENVIADO`, `ENTREGUE`, `FALHOU`. |
+| `mensagem_id_operadora`| `VARCHAR(100)`| Sim | ID do lote ou protocolo retornado pela gateway da operadora. |
+| `created_at` | `TIMESTAMP` | Não | Data e hora do disparo. |
+
+#### `sige_transacoes_gateway_movel` (`apps.ferramentas.models.TransacaoGatewayMovel`)
+Registo de transações de carteira móvel (M-Pesa C2B e e-Mola) com liquidação automática de propinas.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único da transação. |
+| `escola_id` | `UUID` (FK) | Sim | Escola beneficiária. |
+| `pagamento_id` | `UUID` (FK) | Sim | Vinculação direta ao registo de propina em `sige_pagamentos`. |
+| `aluno_id` | `UUID` (FK) | Sim | Aluno beneficiário em `sige_alunos`. |
+| `metodo` | `VARCHAR(20)` | Não | Carteira móvel utilizada: `MPESA` ou `EMOLA`. |
+| `telefone` | `VARCHAR(30)` | Não | Número do telemóvel do pagador (`+258XXXXXXXXX`). |
+| `valor` | `DECIMAL(12,2)`| Não | Valor pago em Meticais (`MZN`). |
+| `referencia_transacao` | `VARCHAR(100)`| Não | Código de referência bancária gerado pela rede móvel. Único. |
+| `recibo_emitido` | `VARCHAR(50)` | Sim | Número do recibo oficial emitido (`REC-YYYYMM-XXXXXX`). |
+| `status` | `VARCHAR(20)` | Não | `PENDENTE`, `PROCESSANDO`, `CONCLUIDO`, `FALHOU`. |
+| `mensagem_retorno` | `TEXT` | Sim | Mensagem de confirmação ou log retornado pela API da operadora. |
+| `created_at` | `TIMESTAMP` | Não | Data e hora do início da transação. |
+| `updated_at` | `TIMESTAMP` | Não | Data e hora da última alteração de estado. |
+
+

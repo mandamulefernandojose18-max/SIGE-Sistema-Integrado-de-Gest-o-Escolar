@@ -209,14 +209,31 @@
 
 ---
 
-### Módulo 20: Ferramentas & Prompt do Gateway (`#view-prompt-gateway` / `/ferramentas/prompt-gateway`)
-- **Quem usa:** `SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP` e `CHEFE_SECRETARIA`.
-- **Objetivo:** Disponibilizar à equipa técnica e aos administradores o prompt estruturado para integração do Gateway de SMS, USSD e Pagamentos Móveis (M-Pesa e e-Mola) em Node.js.
-- **Funcionalidades:**
-  - **Visualização Segura:** Leitura do ficheiro `conteudo/prompt-gateway.txt` através de cache dinâmico em memória com recarregamento em tempo real via `fs.watch`.
-  - **Proteção XSS Rigorosa:** Escape integral e automático de entidades HTML antes da renderização no elemento `<pre>`.
-  - **Botão "Copiar prompt":** Cópia assistida e acessível para a área de transferência via `navigator.clipboard` com fallback para `Range + execCommand`, anunciando o estado na região `aria-live="polite"` por ~2,5 segundos.
-  - **Botão "Descarregar .txt":** Rota dedicada (`/ferramentas/prompt-gateway/descarregar`) com cabeçalhos `Content-Type: text/plain; charset=utf-8` e `Content-Disposition: attachment; filename="prompt-gateway-sms-ussd.txt"`.
-  - **Segurança & RBAC:** Acesso condicionado a utilizadores autenticados com papéis diretivos; bloqueio estrito (403) a perfis não autorizados e redirecionamento (ou 401) para utilizadores sem sessão.
-  - **Políticas de Cache e Indexação:** Cabeçalhos `Cache-Control: no-store` e `X-Robots-Tag: noindex` com meta tag de proteção `<meta name="robots" content="noindex">`.
+### Módulo 20: Ferramentas & Gateway SMS, USSD e Pagamentos Móveis (`#view-prompt-gateway` / `/ferramentas/prompt-gateway`)
+- **Quem usa:** `SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA` e `FINANCEIRO`.
+- **Objetivo:** Central unificada e operacional para disparo de mensagens SMS aos encarregados, liquidação instantânea de propinas escolares via M-Pesa (Vodacom) e e-Mola (Movitel), simulação interativa de menus USSD para feature phones e acesso à especificação técnica de engenharia.
+- **Funcionalidades Operacionais:**
+  - **1. Disparo de Mensagens SMS:**
+    - Envio individual (manual) ou em massa (por turma, encarregados em atraso com propinas pendentes ou todos os alunos).
+    - Normalização automática para o prefixo internacional de Moçambique (`+258 84/85` Vodacom, `+258 86/87` Movitel, `+258 82/83` Tmcel).
+    - Contador em tempo real de caracteres e múltiplos segmentos GSM-7 (160 caracteres) vs. UCS-2 (70 caracteres).
+    - Modelos rápidos instantâneos (Lembrete de Propina, Convocatória, Falta e Matrícula).
+    - Histórico detalhado de disparos com ID de operadora e estado de entrega.
+  - **2. Cobrança e Pagamento via Carteira Móvel:**
+    - Disparo de solicitação STK Push diretamente para o telemóvel do encarregado de educação (Vodacom M-Pesa e Movitel e-Mola).
+    - Seleção de aluno e vinculação direta a mensalidades/propinas em aberto.
+    - Liquidação automática no módulo financeiro (`sige_pagamentos`) com status `PAGO`, data de pagamento, método e referência.
+    - Emissão imediata do recibo oficial no padrão `REC-YYYYMM-XXXXXX`.
+    - Disparo instantâneo de SMS de recibo e quitação ao encarregado.
+    - Tabela de transações com visualização e download do comprovativo.
+  - **3. Simulador Interativo USSD (`*...#`):**
+    - Ecrã LCD simulando o visor de telemóveis básicos com teclado interativo (`0-9`, `*`, `#`).
+    - Consulta de notas trimestrais por número de matrícula (`1*MATRICULA`).
+    - Consulta de mensalidades e propinas pendentes.
+    - Pagamento direto pelo telemóvel e consulta do calendário escolar ou secretaria.
+  - **4. Prompt Técnico & Especificação do Microsserviço:**
+    - Visualização do prompt de engenharia em Node.js com destaque de código.
+    - Botão "Copiar prompt" via `navigator.clipboard` com feedback acessível `aria-live="polite"` (~2,5 s).
+    - Botão "Descarregar .txt" com download via `/ferramentas/prompt-gateway/descarregar`.
+- **Segurança & RBAC:** Proteção rigorosa com cabeçalhos anti-indexação (`X-Robots-Tag: noindex`), `Cache-Control: no-store` e restrição a utilizadores autenticados com papéis diretivos e financeiros autorizados.
 

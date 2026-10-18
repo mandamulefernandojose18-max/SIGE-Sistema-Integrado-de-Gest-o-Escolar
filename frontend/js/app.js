@@ -1716,7 +1716,7 @@ const MENUS_POR_PAINEL = {
   'painel-superadmin': [
     { id: 'saas', titulo: 'Gestão de Escolas & Planos', icone: 'bi-buildings-fill text-warning', categoria: 'Administração Geral SaaS' },
     { id: 'pagamentos-saas', titulo: 'Assinaturas & Pagamentos SaaS', icone: 'bi-credit-card-2-front-fill text-warning', categoria: 'Administração Geral SaaS' },
-    { id: 'prompt-gateway', titulo: 'Prompt do Gateway', icone: 'bi-terminal-fill text-warning', categoria: 'Ferramentas' },
+    { id: 'prompt-gateway', titulo: 'Gateway SMS & Pagamentos', icone: 'bi-broadcast-pin text-warning', categoria: 'Ferramentas & Integrações' },
     { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais Master', icone: 'bi-key-fill text-warning', categoria: 'Segurança' },
     { id: 'acessos', titulo: 'Auditoria & Acessos Globais', icone: 'bi-shield-check', categoria: 'Segurança' }
   ],
@@ -1737,7 +1737,7 @@ const MENUS_POR_PAINEL = {
     { id: 'certificados', titulo: 'Certificados (QR Code)', icone: 'bi-award-fill', categoria: 'Financeiro & Secretaria' },
     { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Secretaria' },
     { id: 'impressao', titulo: 'Central de Impressão', icone: 'bi-printer-fill', categoria: 'Financeiro & Secretaria' },
-    { id: 'prompt-gateway', titulo: 'Prompt do Gateway', icone: 'bi-terminal-fill text-warning', categoria: 'Ferramentas' },
+    { id: 'prompt-gateway', titulo: 'Gateway SMS & Pagamentos', icone: 'bi-broadcast-pin text-warning', categoria: 'Ferramentas & Integrações' },
     { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais', icone: 'bi-key-fill text-warning', categoria: 'Segurança & Cofre' },
     { id: 'acessos', titulo: 'Auditoria & Acessos', icone: 'bi-shield-check', categoria: 'Segurança & Cofre' }
   ],
@@ -1759,7 +1759,7 @@ const MENUS_POR_PAINEL = {
     { id: 'dashboard', titulo: 'Visão Geral Financeira', icone: 'bi-grid-1x2-fill', categoria: 'Financeiro & Tesouraria' },
     { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Tesouraria' },
     { id: 'impressao', titulo: 'Central de Impressão de Recibos', icone: 'bi-printer-fill', categoria: 'Financeiro & Tesouraria' },
-    { id: 'prompt-gateway', titulo: 'Prompt do Gateway', icone: 'bi-terminal-fill text-warning', categoria: 'Ferramentas' }
+    { id: 'prompt-gateway', titulo: 'Gateway SMS & Pagamentos', icone: 'bi-broadcast-pin text-warning', categoria: 'Ferramentas & Integrações' }
   ]
 };
 
