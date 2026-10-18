@@ -213,3 +213,27 @@ No livro de ponto, caderneta eletrónica e pautas de turma:
 - **`AM` — Anulou a Matrícula:** Cancelamento formal de matrícula a pedido ou médico.
 - **`PPF` — Perdeu por Faltas:** Ultrapassou o limite legal de faltas não justificadas.
 - **`PDF` — Perdeu por Disciplina:** Excluído por processo disciplinar homologado.
+
+---
+
+## 6. Regime de Exames Nacionais e Parametrização de Classes com Exame
+
+### 6.1. Padrão Oficial do Sistema Nacional de Educação (SNE)
+No Ensino Secundário Geral de Moçambique, as classes dividem-se formalmente entre **Classes de Exame Nacional** e **Classes de Avaliação Contínua e Prova Trimestral**:
+
+| Classe | Ciclo Curricular | Regime de Exame Oficial MEC | Campo: `A Classe tem Exame: Sim ou Não` |
+| :---: | :---: | :---: | :---: |
+| **7ª Classe** | 1º Ciclo (ESG) | Sem Exame Nacional | **Não (Sem Exame)** |
+| **8ª Classe** | 1º Ciclo (ESG) | Sem Exame Nacional | **Não (Sem Exame)** |
+| **9ª Classe** | 1º Ciclo (ESG) | Sem Exame Nacional | **Não (Sem Exame)** |
+| **10ª Classe** | Conclusão do 1º Ciclo (ESG) | **Com Exame Nacional de Conclusão** | **Sim (Com Exame)** |
+| **11ª Classe** | 2º Ciclo Pré-Universitário | Sem Exame Nacional | **Não (Sem Exame)** |
+| **12ª Classe** | Conclusão do ESG / Pré-Universitário | **Com Exame Nacional de Admissão/Conclusão** | **Sim (Com Exame)** |
+
+### 6.2. Parametrização Flexível por Escola (`config_classes_exames`)
+Para além do Ensino Secundário Geral, o SIGE atende escolas técnicas, institutos médios, centros vocacionais e ensino primário/básico. Por este motivo, cada escola tem total autonomia pedagógica para:
+1. Definir explicitamente para qualquer classe ou nível curricular a resposta à pergunta: **"A Classe tem Exame: Sim ou Não"**;
+2. Alternar o status com um único clique na tabela de classes (`/api/v1/escola-admin/classes-exames/`);
+3. Restaurar a qualquer instante os padrões oficiais do MEC através do botão institucional *"Restaurar Padrão MEC (10ª e 12ª com Exame)"*.
+4. Exibir badges informativos automáticos nas pautas, criação de turmas e matrizes curriculares: `Sim (Com Exame)` ou `Não (Sem Exame)`.
+

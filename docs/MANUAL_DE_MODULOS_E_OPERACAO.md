@@ -73,6 +73,7 @@
 - **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
 - **Funcionalidades:**
   - **Criação Individual ou em Lote:** Criação de múltiplas turmas de uma só vez por classe e turno com capacidade máxima padrão (50 alunos).
+  - **Cadastro e Gestão de Classes ou Níveis:** Modal institucional para cadastrar e gerir classes e níveis curriculares com o campo explícito **"A Classe tem Exame: Sim ou Não"** (permitindo definir se a classe possui exame final nacional/institucional ou avaliação contínua, com alternância rápida de status em 1 clique e botão de restauração do padrão oficial do MEC: 10ª e 12ª com exame, restantes sem exame).
   - **Barra de Ocupação:** Indicadores coloridos de capacidade em tempo real (Verde $<80\%$, Amarelo $\ge 80\%$, Vermelho $100\%$ Lotada).
   - **Formação e Distribuição Automática:** Motor algorítmico que aloca alunos sem turma por ordem alfabética ou balanceamento de género.
   - **Renumerar Turmas:** Normaliza automaticamente os nomes das turmas (`Turma 1`, `Turma 2`, `Turma 3`...) evitando inconsistências.
@@ -100,6 +101,7 @@
 ### Módulo 7: Disciplinas e Matriz Curricular (`#view-disciplinas`)
 - **Quem usa:** `DAP` e `ADMIN_ESCOLA`.
 - **Auto-Seed Nacional:** Sincronização do plano curricular oficial da 7ª à 12ª Classe com um clique (`/seed-curriculo`).
+- **Identificação de Regime de Exame:** Badges visuais em tempo real informando se a classe correspondente é `Com Exame` ou `Sem Exame`, com atalho rápido para o modal de gestão de classes.
 - **Ranking de Reprovação:** Gráfico dinâmico que destaca as disciplinas com maiores índices de insucesso pedagógico na escola.
 
 ---

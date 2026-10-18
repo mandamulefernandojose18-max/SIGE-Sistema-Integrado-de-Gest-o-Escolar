@@ -867,3 +867,103 @@ class AnoLectivoViewSet(viewsets.ModelViewSet):
             'message': f'Ano Lectivo de {ano} definido como activo com sucesso.',
             'ano_ativo': ano
         })
+
+
+class ClassesExamesConfigView(APIView):
+    """
+    Gestão do Regime de Exames por Classe ou Nível Curricular (Opção 2: A Classe tem Exame: Sim ou Não).
+    Permite parametrizar se cada classe/nível da instituição realiza Exame Nacional / Final ou Avaliação Contínua.
+    """
+    permission_classes = [IsAuthenticated]
+
+    CLASSES_SNE_PADRAO = [
+        ('1ª Classe', False),
+        ('2ª Classe', False),
+        ('3ª Classe', False),
+        ('4ª Classe', False),
+        ('5ª Classe', False),
+        ('6ª Classe', False),
+        ('7ª Classe', False),
+        ('8ª Classe', False),
+        ('9ª Classe', False),
+        ('10ª Classe', True),
+        ('11ª Classe', False),
+        ('12ª Classe', True),
+    ]
+
+    def get(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        salvos = escola.config_classes_exames or {}
+        if not isinstance(salvos, dict):
+            salvos = {}
+
+        resultado = []
+        for nome_c, padrao_exame in self.CLASSES_SNE_PADRAO:
+            tem_exame = salvos.get(nome_c, padrao_exame)
+            resultado.append({
+                'nome': nome_c,
+                'tem_exame': bool(tem_exame),
+                'tipo': 'CLASSE'
+            })
+
+        classes_base_nomes = {c[0] for c in self.CLASSES_SNE_PADRAO}
+        for nome_custom, val in salvos.items():
+            if nome_custom not in classes_base_nomes:
+                is_nivel = 'nível' in nome_custom.lower() or 'nivel' in nome_custom.lower()
+                resultado.append({
+                    'nome': nome_custom,
+                    'tem_exame': bool(val),
+                    'tipo': 'NIVEL' if is_nivel else 'CUSTOM'
+                })
+
+        return Response({
+            'success': True,
+            'data': resultado,
+            'config_raw': salvos
+        })
+
+    def post(self, request):
+        return self.put(request)
+
+    def put(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        salvos = dict(escola.config_classes_exames or {})
+
+        if isinstance(data, dict):
+            if 'classes' in data and isinstance(data['classes'], list):
+                for item in data['classes']:
+                    if isinstance(item, dict) and 'nome' in item:
+                        salvos[str(item['nome']).strip()] = bool(item.get('tem_exame', False))
+            elif 'nome' in data:
+                nome = str(data['nome']).strip()
+                if nome:
+                    salvos[nome] = bool(data.get('tem_exame', False))
+            elif 'config' in data and isinstance(data['config'], dict):
+                salvos.update(data['config'])
+            else:
+                for k, v in data.items():
+                    if isinstance(k, str) and not k.startswith('_'):
+                        salvos[k] = bool(v)
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and 'nome' in item:
+                    salvos[str(item['nome']).strip()] = bool(item.get('tem_exame', False))
+
+        escola.config_classes_exames = salvos
+        escola.save(update_fields=['config_classes_exames', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'message': 'Configuração de exames das classes actualizada com sucesso.',
+            'data': salvos
+        })
+

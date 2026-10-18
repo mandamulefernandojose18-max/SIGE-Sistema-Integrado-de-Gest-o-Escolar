@@ -300,6 +300,10 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - **Controlo de Visibilidade de Notas (`permitir_visualizacao_notas`):** Permite ao DAP ou Director bloquear temporariamente a visualização de notas no Portal do Aluno durante períodos de conselho de notas ou manutenção de pautas.
 
 ### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas` e `#view-escola`)
+- **Cadastro e Gestão de Classes ou Níveis Curriculares:**
+  - Modal operacional acessível a partir da gestão de turmas, disciplinas e configurações da escola para cadastrar novas classes ou gerir os níveis existentes.
+  - Inclui a definição explícita do campo: **"A Classe tem Exame: Sim ou Não"** (indicando se a classe culmina em exame final nacional/institucional ou tem aprovação por avaliação contínua).
+  - Inclui tabela interativa com alternância de status em 1 clique (`toggle-status`) e botão de restauração das regras oficiais do MEC (10ª e 12ª com exame, restantes sem exame), sincronizando em tempo real com `GET/POST /api/v1/escola-admin/classes-exames/`.
 - **Controlo de Lotação em Tempo Real:**
   - Cada turma possui `capacidade_maxima` configurável (padrão: **50 alunos**, validado até 200).
   - O sistema calcula em tempo real `ocupacao_atual`, `vagas_livres`, `percentual_ocupacao` e exibe barras visuais de progresso (**Verde** $< 80\%$, **Amarelo** $\ge 80\%$, **Vermelho** $100\%$ Lotada).
@@ -525,7 +529,7 @@ erDiagram
 | **1** | `sige_usuarios` | `accounts.Usuario` | Contas de utilizador (8 roles), `email` único, `codigo_acesso` indexado, FK `escola`. |
 | **2** | `sige_logs_acesso` | `accounts.LogAcesso` | Registo de auditoria de logins, falhas e bloqueios (`ip`, `user_agent`, `tipo`). |
 | **3** | `sige_planos` | `tenants.Plano` | Catálogo de planos SaaS (`MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`), preço em MZN e cotas `max_alunos`/`max_professores`. |
-| **4** | `sige_escolas` | `tenants.Escola` | Registo institucional do Tenant, `codigo_escola`, `nif_cnpj` único, `ano_letivo_ativo`, `trimestre_ativo`, `logo_base64`, `inscricoes_abertas`, `permitir_visualizacao_notas`. |
+| **4** | `sige_escolas` | `tenants.Escola` | Registo institucional do Tenant, `codigo_escola`, `nif_cnpj` único, `ano_letivo_ativo`, `trimestre_ativo`, `logo_base64`, `inscricoes_abertas`, `permitir_visualizacao_notas`, `config_classes_exames` (JSON com regime de exame por classe). |
 | **5** | `sige_assinaturas_escolas` | `tenants.AssinaturaEscola` | Contratos de subscrição da escola (`data_inicio`, `data_fim`, `valor`, `status`, `metodo_pagamento`). Check: `data_fim > data_inicio`. |
 | **6** | `sige_alunos` | `alunos.Aluno` | Cadastro biográfico e académico do estudante, `matricula` única global, FK `turma`, `classe`, `area`, `status`. |
 | **7** | `sige_professores` | `professores.Professor` | Cadastro docente, `carreira` MEC, `carga_horaria_semanal` (1–60h), `carga_maxima_por_classe` (JSON). Unique: `(escola, email)`. |
@@ -604,6 +608,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST` | `/api/v1/escola-admin/turmas/corrigir-numeracao` | Admin / `DAP` | Corrige e padroniza a numeração sequencial (`Turma 1, 2, 3...`) dentro de cada classe. |
 | `POST` | `/api/v1/escola-admin/turmas/<pk>/homologar-cargo` | `DIRECTOR_ESCOLA` / Admin | Homologa ou revoga o cargo de Director de Turma (`DT`) ou Director de Classe (`DC`). |
 | `GET/POST` | `/api/v1/escola-admin/turmas/<pk>/parametros-conselho` | `DT` / `DAP` / Direção | Consulta ou guarda Presidente, Data e Horas da Sessão do Conselho de Avaliação dos 3 Trimestres. |
+| `GET/POST/PUT` | `/api/v1/escola-admin/classes-exames/` | Autenticado / Admin | Consulta ou atualiza o regime de exame das classes/níveis curriculares (`tem_exame: True/False`). |
 
 ### 9.5 Alunos, Professores e Disciplinas
 | Método | Endpoint | Permissão | Descrição |

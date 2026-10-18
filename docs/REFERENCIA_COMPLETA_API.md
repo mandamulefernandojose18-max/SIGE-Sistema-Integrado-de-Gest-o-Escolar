@@ -119,6 +119,8 @@
 | `PUT` | `/api/v1/escola-admin/info/` | Admin Escola | Atualiza dados, logótipo Base64, emblema nacional, diretores e prazos de inscrição. |
 | `POST`| `/api/v1/escola-admin/toggle-notas/` | `DAP` / Diretor | Ativa ou bloqueia a consulta de notas no Portal do Aluno. |
 | `GET` | `/api/v1/escola-admin/usuarios-credenciais/` | Admin / Direção | Cofre de credenciais: sincroniza e lista códigos oficiais e senhas padrão da escola. |
+| `GET` | `/api/v1/escola-admin/classes-exames/` | Autenticado | Lista o regime de exames de todas as classes e níveis da instituição. |
+| `POST` / `PUT` | `/api/v1/escola-admin/classes-exames/` | Admin Escola | Atualiza o regime de exame das classes/níveis (A Classe tem Exame: Sim ou Não). |
 | `GET` | `/api/v1/anos-letivos/` | Autenticado | Lista os anos letivos cadastrados para a escola. |
 
 ---

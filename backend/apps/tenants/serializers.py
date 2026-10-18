@@ -69,6 +69,9 @@ class EscolaSerializer(serializers.ModelSerializer):
         galeria_f = attrs.get('galeria_fundos')
         if galeria_f is not None and not isinstance(galeria_f, list):
             attrs['galeria_fundos'] = []
+        cfg_exames = attrs.get('config_classes_exames')
+        if cfg_exames is not None and not isinstance(cfg_exames, dict):
+            attrs['config_classes_exames'] = {}
         return super().validate(attrs)
 
     def get_assinatura_ativa(self, obj):
@@ -100,6 +103,7 @@ class EscolaSerializer(serializers.ModelSerializer):
         data['galeria_logos'] = instance.galeria_logos if isinstance(instance.galeria_logos, list) else []
         data['imagem_fundo_url'] = instance.imagem_fundo_url or instance.imagem_fundo_base64 or None
         data['galeria_fundos'] = instance.galeria_fundos if isinstance(instance.galeria_fundos, list) else []
+        data['config_classes_exames'] = instance.config_classes_exames if isinstance(instance.config_classes_exames, dict) else {}
         data['codigo_gabinete_director'] = instance.codigo_gabinete_director
         data['codigo_direccao_pedagogica'] = instance.codigo_direccao_pedagogica
         data['codigo_secretaria'] = instance.codigo_secretaria

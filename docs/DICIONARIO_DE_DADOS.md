@@ -128,6 +128,7 @@ Registo institucional de cada Tenant na plataforma.
 | `imagem_fundo_modo` | `VARCHAR(30)` | Não | Modo de exibição: `marca_dagua`, `cobertura_total`, `padrao_textura`, `nenhum`. |
 | `imagem_fundo_opacidade` | `INT` | Não | Nível de opacidade do fundo (5% a 50%, padrão 15%). |
 | `galeria_fundos` | `JSON` | Não | Catálogo de imagens de fundo carregadas ou predefinidas pela escola. |
+| `config_classes_exames` | `JSON` | Não | Mapeamento de regime de exames por classe/nível (`{"10ª Classe": true, "12ª Classe": true, ...}`). |
 | `usar_emblema_nacional` | `BOOLEAN` | Não | Exibição do Emblema da República no cabeçalho. |
 | `director_nome` / `dap_nome` / `chefe_secretaria_nome` | `VARCHAR(255)` | Sim | Titulares oficiais dos órgãos diretivos. |
 

@@ -10,7 +10,8 @@ from .views import (
     ToggleNotasView,
     UsuariosCredenciaisView,
     MinhaEscolaComprovativoView,
-    AnoLectivoViewSet
+    AnoLectivoViewSet,
+    ClassesExamesConfigView
 )
 
 from .saas_views import (
@@ -53,6 +54,8 @@ escola_admin_urls = [
     path('toggle-notas/', ToggleNotasView.as_view(), name='escola_toggle_notas'),
     path('usuarios-credenciais', UsuariosCredenciaisView.as_view(), name='escola_usuarios_credenciais_no_slash'),
     path('usuarios-credenciais/', UsuariosCredenciaisView.as_view(), name='escola_usuarios_credenciais'),
+    path('classes-exames', ClassesExamesConfigView.as_view(), name='escola_classes_exames_no_slash'),
+    path('classes-exames/', ClassesExamesConfigView.as_view(), name='escola_classes_exames'),
     path('', include(escola_router.urls)),
 ]
 

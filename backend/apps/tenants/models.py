@@ -69,6 +69,7 @@ class Escola(models.Model):
     codigo_escola = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     logo_base64 = models.TextField(blank=True, null=True)
     galeria_logos = models.JSONField(default=list, blank=True)
+    config_classes_exames = models.JSONField(default=dict, blank=True)
 
     # Identidade Visual, Tema e Imagem de Fundo da Instituição
     tema_codigo = models.CharField(max_length=50, default='padrao_azul')
