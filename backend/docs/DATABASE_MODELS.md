@@ -74,7 +74,7 @@ Plano(id, nome, descricao, preco, duracao_dias, max_alunos, max_professores, ati
 
 ### Modelo: `Escola`
 
-Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_letivo_ativo, trimestre_ativo, plano, data_adesao, provincia, distrito, tipo_escola, director_nome, director_carreira, dap_nome, chefe_secretaria_nome, usar_emblema_nacional, codigo_escola, logo_base64, bloqueada_manualmente, permitir_visualizacao_notas, inscricoes_abertas, inscricoes_inicio, inscricoes_fim, modo_calendarizacao, tipo_duracao_automatica, valor_duracao_automatica, data_base_automatica, data_inicio_t1, data_fim_t1, data_inicio_t2, data_fim_t2, data_inicio_t3, data_fim_t3, permitir_sempre_t1, permitir_sempre_t2, permitir_sempre_t3, created_at, updated_at)
+Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_letivo_ativo, trimestre_ativo, plano, data_adesao, provincia, distrito, tipo_escola, director_nome, director_carreira, dap_nome, chefe_secretaria_nome, usar_emblema_nacional, codigo_escola, logo_base64, galeria_logos, tema_codigo, tema_cor_primaria, tema_cor_hover, tema_cor_sidebar, tema_cor_sidebar_ativa, imagem_fundo_url, imagem_fundo_base64, imagem_fundo_modo, imagem_fundo_opacidade, galeria_fundos, bloqueada_manualmente, permitir_visualizacao_notas, modo_publicacao_notas, publicacao_notas_trimestre, data_inicio_pub_t1, data_fim_pub_t1, data_inicio_pub_t2, data_fim_pub_t2, data_inicio_pub_todos, data_fim_pub_todos, inscricoes_abertas, inscricoes_inicio, inscricoes_fim, modo_calendarizacao, tipo_duracao_automatica, valor_duracao_automatica, data_base_automatica, data_inicio_t1, data_fim_t1, data_inicio_t2, data_fim_t2, data_inicio_t3, data_fim_t3, permitir_sempre_t1, permitir_sempre_t2, permitir_sempre_t3, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
@@ -100,8 +100,27 @@ Escola(id, nome, nif_cnpj, endereco, telefone, email, logo_url, status, ano_leti
 | `usar_emblema_nacional` | `BooleanField` | Não |  |
 | `codigo_escola` | `CharField` | Sim |  |
 | `logo_base64` | `TextField` | Sim |  |
+| `galeria_logos` | `JSONField` | Não |  |
+| `tema_codigo` | `CharField` | Não |  |
+| `tema_cor_primaria` | `CharField` | Não |  |
+| `tema_cor_hover` | `CharField` | Não |  |
+| `tema_cor_sidebar` | `CharField` | Não |  |
+| `tema_cor_sidebar_ativa` | `CharField` | Não |  |
+| `imagem_fundo_url` | `TextField` | Sim |  |
+| `imagem_fundo_base64` | `TextField` | Sim |  |
+| `imagem_fundo_modo` | `CharField` | Não |  |
+| `imagem_fundo_opacidade` | `IntegerField` | Não |  |
+| `galeria_fundos` | `JSONField` | Não |  |
 | `bloqueada_manualmente` | `BooleanField` | Não |  |
 | `permitir_visualizacao_notas` | `BooleanField` | Não |  |
+| `modo_publicacao_notas` | `CharField` | Não |  |
+| `publicacao_notas_trimestre` | `CharField` | Não |  |
+| `data_inicio_pub_t1` | `DateField` | Sim |  |
+| `data_fim_pub_t1` | `DateField` | Sim |  |
+| `data_inicio_pub_t2` | `DateField` | Sim |  |
+| `data_fim_pub_t2` | `DateField` | Sim |  |
+| `data_inicio_pub_todos` | `DateField` | Sim |  |
+| `data_fim_pub_todos` | `DateField` | Sim |  |
 | `inscricoes_abertas` | `BooleanField` | Não |  |
 | `inscricoes_inicio` | `DateTimeField` | Sim |  |
 | `inscricoes_fim` | `DateTimeField` | Sim |  |
@@ -154,6 +173,135 @@ AnoLectivo(id, escola, ano, descricao, ativo, data_inicio, data_fim, created_at,
 | `data_inicio` | `DateField` | Sim |  |
 | `data_fim` | `DateField` | Sim |  |
 | `created_at` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
+### Modelo: `SaasPlano`
+
+SaasPlano(id, nome, descricao, preco_mensal, limite_alunos, limite_professores, limites, activo, created_at, updated_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `nome` | `CharField` | Não |  |
+| `descricao` | `TextField` | Sim |  |
+| `preco_mensal` | `DecimalField` | Não |  |
+| `limite_alunos` | `IntegerField` | Não |  |
+| `limite_professores` | `IntegerField` | Não |  |
+| `limites` | `JSONField` | Não |  |
+| `activo` | `BooleanField` | Não |  |
+| `created_at` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
+### Modelo: `SaasAssinatura`
+
+SaasAssinatura(id, instituicao, plano, periodicidade, modo_data_limite, dia_limite, dias_tolerancia, dias_ate_suspensao, data_bloqueio_manual, multa_tipo, multa_valor, estado, data_inicio, proxima_fatura_em, created_at, updated_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `instituicao` | `ForeignKey` | Não |  -> `Escola` |
+| `plano` | `ForeignKey` | Não |  -> `SaasPlano` |
+| `periodicidade` | `CharField` | Não |  |
+| `modo_data_limite` | `CharField` | Não |  |
+| `dia_limite` | `IntegerField` | Sim |  |
+| `dias_tolerancia` | `IntegerField` | Não |  |
+| `dias_ate_suspensao` | `IntegerField` | Não |  |
+| `data_bloqueio_manual` | `DateField` | Sim |  |
+| `multa_tipo` | `CharField` | Não |  |
+| `multa_valor` | `DecimalField` | Não |  |
+| `estado` | `CharField` | Não |  |
+| `data_inicio` | `DateTimeField` | Não |  |
+| `proxima_fatura_em` | `DateField` | Não |  |
+| `created_at` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
+### Modelo: `SaasFatura`
+
+SaasFatura(id, assinatura, instituicao, numero_fatura, periodo_inicio, periodo_fim, valor, multa_aplicada, valor_pago, data_abertura, data_limite, data_limite_manual, estado, created_at, updated_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `assinatura` | `ForeignKey` | Não |  -> `SaasAssinatura` |
+| `instituicao` | `ForeignKey` | Não |  -> `Escola` |
+| `numero_fatura` | `CharField` | Não |  |
+| `periodo_inicio` | `DateField` | Não |  |
+| `periodo_fim` | `DateField` | Não |  |
+| `valor` | `DecimalField` | Não |  |
+| `multa_aplicada` | `DecimalField` | Não |  |
+| `valor_pago` | `DecimalField` | Não |  |
+| `data_abertura` | `DateField` | Não |  |
+| `data_limite` | `DateField` | Não |  |
+| `data_limite_manual` | `DateField` | Sim |  |
+| `estado` | `CharField` | Não |  |
+| `created_at` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
+### Modelo: `SaasPagamento`
+
+SaasPagamento(id, fatura, instituicao, metodo, referencia, valor, comprovativo_path, comprovativo_url, estado, confirmado_por, confirmado_em, motivo_rejeicao, criado_em, updated_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `fatura` | `ForeignKey` | Não |  -> `SaasFatura` |
+| `instituicao` | `ForeignKey` | Não |  -> `Escola` |
+| `metodo` | `CharField` | Não |  |
+| `referencia` | `CharField` | Não |  |
+| `valor` | `DecimalField` | Não |  |
+| `comprovativo_path` | `TextField` | Sim |  |
+| `comprovativo_url` | `TextField` | Sim |  |
+| `estado` | `CharField` | Não |  |
+| `confirmado_por` | `CharField` | Sim |  |
+| `confirmado_em` | `DateTimeField` | Sim |  |
+| `motivo_rejeicao` | `TextField` | Sim |  |
+| `criado_em` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
+### Modelo: `SaasLogAssinatura`
+
+SaasLogAssinatura(id, instituicao, assinatura, fatura, accao, estado_anterior, estado_novo, valor_anterior, valor_novo, feito_por, motivo, criado_em)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `instituicao` | `ForeignKey` | Não |  -> `Escola` |
+| `assinatura` | `ForeignKey` | Sim |  -> `SaasAssinatura` |
+| `fatura` | `ForeignKey` | Sim |  -> `SaasFatura` |
+| `accao` | `CharField` | Não |  |
+| `estado_anterior` | `CharField` | Sim |  |
+| `estado_novo` | `CharField` | Sim |  |
+| `valor_anterior` | `DecimalField` | Sim |  |
+| `valor_novo` | `DecimalField` | Sim |  |
+| `feito_por` | `CharField` | Não |  |
+| `motivo` | `TextField` | Sim |  |
+| `criado_em` | `DateTimeField` | Não |  |
+
+
+### Modelo: `SaasCoordenadasPagamento`
+
+SaasCoordenadasPagamento(id, mpesa_numero, mpesa_titular, emola_numero, emola_titular, bim_conta, bim_nib, bim_titular, bci_conta, bci_nib, bci_titular, nuit_entidade, instrucoes_adicionais, updated_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `mpesa_numero` | `CharField` | Não |  |
+| `mpesa_titular` | `CharField` | Não |  |
+| `emola_numero` | `CharField` | Não |  |
+| `emola_titular` | `CharField` | Não |  |
+| `bim_conta` | `CharField` | Não |  |
+| `bim_nib` | `CharField` | Não |  |
+| `bim_titular` | `CharField` | Não |  |
+| `bci_conta` | `CharField` | Não |  |
+| `bci_nib` | `CharField` | Não |  |
+| `bci_titular` | `CharField` | Não |  |
+| `nuit_entidade` | `CharField` | Não |  |
+| `instrucoes_adicionais` | `TextField` | Não |  |
 | `updated_at` | `DateTimeField` | Não |  |
 
 
@@ -427,15 +575,40 @@ DocumentoSalvo(id, escola, usuario, aluno, turma, tipo_documento, titulo, ano_le
 
 ## Aplicação: `apps.pagamentos`
 
+### Modelo: `PlanoPagamentoEscola`
+
+Plano de Pagamentos / Tabela de Propinas e Emolumentos Própria da Instituição.
+    Isolamento total:
+    - O plano do Super Admin aplica-se unicamente às instituições (B2B SaaS).
+    - Cada instituição cria e gere os seus próprios planos para aplicar aos seus alunos.
+    - O que uma instituição faz no seu sistema não compromete nem reflecte noutra.
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `escola` | `ForeignKey` | Não |  -> `Escola` |
+| `nome` | `CharField` | Não |  |
+| `descricao` | `TextField` | Não |  |
+| `valor` | `DecimalField` | Não |  |
+| `periodicidade` | `CharField` | Não |  |
+| `dia_vencimento_padrao` | `IntegerField` | Não |  |
+| `multa_atraso_percentual` | `DecimalField` | Não |  |
+| `multa_atraso_fixo` | `DecimalField` | Não |  |
+| `ativo` | `BooleanField` | Não |  |
+| `created_at` | `DateTimeField` | Não |  |
+| `updated_at` | `DateTimeField` | Não |  |
+
+
 ### Modelo: `Pagamento`
 
-Pagamento(id, escola, aluno, descricao, mes_referencia, valor, valor_pago, status, data_vencimento, data_pagamento, metodo_pagamento, recibo_numero, created_at, updated_at)
+Pagamento(id, escola, aluno, plano_pagamento, descricao, mes_referencia, valor, valor_pago, status, data_vencimento, data_pagamento, metodo_pagamento, recibo_numero, created_at, updated_at)
 
 | Campo | Tipo | Nulo / Opcional | Descrição / Relação |
 | :--- | :--- | :---: | :--- |
 | `id` | `UUIDField` | Não |  |
 | `escola` | `ForeignKey` | Não |  -> `Escola` |
 | `aluno` | `ForeignKey` | Não |  -> `Aluno` |
+| `plano_pagamento` | `ForeignKey` | Sim |  -> `PlanoPagamentoEscola` |
 | `descricao` | `CharField` | Não |  |
 | `mes_referencia` | `CharField` | Não |  |
 | `valor` | `DecimalField` | Não |  |
@@ -465,5 +638,47 @@ Certificado(id, escola, aluno, tipo, codigo_autenticidade, qrcode_data, emitido_
 | `qrcode_data` | `TextField` | Não |  |
 | `emitido_em` | `DateTimeField` | Não |  |
 | `emitido_por` | `CharField` | Sim |  |
+| `created_at` | `DateTimeField` | Não |  |
+
+
+## Aplicação: `apps.ferramentas`
+
+### Modelo: `MensagemSMS`
+
+MensagemSMS(id, escola, destinatario, nome_destinatario, operadora, mensagem, tipo, caracteres, segmentos_sms, status, mensagem_id_operadora, created_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `escola` | `ForeignKey` | Sim |  -> `Escola` |
+| `destinatario` | `CharField` | Não |  |
+| `nome_destinatario` | `CharField` | Não |  |
+| `operadora` | `CharField` | Não |  |
+| `mensagem` | `TextField` | Não |  |
+| `tipo` | `CharField` | Não |  |
+| `caracteres` | `IntegerField` | Não |  |
+| `segmentos_sms` | `IntegerField` | Não |  |
+| `status` | `CharField` | Não |  |
+| `mensagem_id_operadora` | `CharField` | Não |  |
+| `created_at` | `DateTimeField` | Não |  |
+
+
+### Modelo: `TransacaoGatewayMovel`
+
+TransacaoGatewayMovel(id, escola, pagamento, aluno, metodo, telefone, valor, referencia_transacao, recibo_emitido, status, mensagem_retorno, created_at)
+
+| Campo | Tipo | Nulo / Opcional | Descrição / Relação |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUIDField` | Não |  |
+| `escola` | `ForeignKey` | Sim |  -> `Escola` |
+| `pagamento` | `ForeignKey` | Sim |  -> `Pagamento` |
+| `aluno` | `ForeignKey` | Sim |  -> `Aluno` |
+| `metodo` | `CharField` | Não |  |
+| `telefone` | `CharField` | Não |  |
+| `valor` | `DecimalField` | Não |  |
+| `referencia_transacao` | `CharField` | Não |  |
+| `recibo_emitido` | `CharField` | Não |  |
+| `status` | `CharField` | Não |  |
+| `mensagem_retorno` | `TextField` | Não |  |
 | `created_at` | `DateTimeField` | Não |  |
 

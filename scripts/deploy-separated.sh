@@ -86,6 +86,16 @@ done
 docker compose exec -T backend python manage.py collectstatic --noinput >/dev/null 2>&1 || true
 docker compose exec -T backend python manage.py shell -c "from common.utils.geografia_mocambique import sincronizar_todos_codigos_oficiais; print('Codigos oficiais sincronizados:', sincronizar_todos_codigos_oficiais())" || true
 
+# Aplicação de migrações SQL SaaS PostgreSQL (se serviço postgres estiver ativo)
+if docker compose exec -T postgres pg_isready -U sige_user -d sige_db >/dev/null 2>&1; then
+    docker compose exec -T postgres psql -U sige_user -d sige_db -f /var/www/sige/supabase/migrations/20261017000001_pagamentos_saas.sql >/dev/null 2>&1 || true
+    docker compose exec -T postgres psql -U sige_user -d sige_db -f /var/www/sige/supabase/migrations/20261018000001_suspensao_reativacao_automatica.sql >/dev/null 2>&1 || true
+fi
+
+# Configurar cron diário para a rotina automática de faturas, suspensão e reactivação SaaS (00:05 Maputo)
+(crontab -l 2>/dev/null | grep -v "job_assinaturas.js" | grep -v "executar_rotina_diaria_saas_python"; echo "5 0 * * * cd /var/www/sige && docker compose exec -T backend python manage.py shell -c \"from apps.tenants.saas_services import executar_rotina_diaria_saas_python; print(executar_rotina_diaria_saas_python())\" >> /var/log/sige_saas_cron.log 2>&1") | crontab - || true
+
+
 # Health check isolado da API
 for i in $(seq 1 30); do
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health/ || echo "000")

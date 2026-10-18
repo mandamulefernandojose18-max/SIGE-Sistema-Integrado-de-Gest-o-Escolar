@@ -584,7 +584,8 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST` | `/api/v1/saas/pagamentos/<pk>/confirmar` | `SUPERADMIN` | Confirma o pagamento da escola e renova a vigência da assinatura. |
 | `POST` | `/api/v1/saas/pagamentos/<pk>/rejeitar` | `SUPERADMIN` | Rejeita comprovativo bancário inválido. |
 | `POST` | `/api/v1/saas/faturas/<pk>/prorrogar` | `SUPERADMIN` | Concede tolerância de dias antes do bloqueio da instituição. |
-| `POST` | `/api/v1/saas/instituicoes/<pk>/suspender-reactivar` | `SUPERADMIN` | Bloqueio ou desbloqueio manual de instituição. |
+| `POST` | `/api/v1/saas/instituicoes/<pk>/suspender-reactivar` | `SUPERADMIN` | Gestão de Acesso: Suspensão e Reactivação Manuais (com justificação de auditoria) e Operações Automáticas ('auto_suspender', 'auto_reactivar', 'auto_avaliar' com base nas regras de tolerância e corte). |
+| `POST` | `/api/v1/saas/rotina-diaria` | `SUPERADMIN` | Executa o ciclo diário de faturação, aplicação de multas por atraso e suspensão/reactivação automáticas de instituições. |
 | `GET` | `/api/v1/saas/minha-assinatura` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
 | `POST` | `/api/v1/saas/registar-pagamento` | Admin Escola | Envia comprovativo de pagamento de subscrição para homologação. |
 | `GET` | `/api/v1/saas/coordenadas` | Autenticado | Consulta as contas bancárias e carteiras móveis oficiais (iniciam em branco, sem dados fictícios). |

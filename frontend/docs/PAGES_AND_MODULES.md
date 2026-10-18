@@ -21,7 +21,7 @@
 | `/api/v1/alunos` | **Alunos** |
 | `/api/v1/alunos/${id}` | **Alunos** |
 | `/api/v1/alunos/${id}/transferir` | **Alunos** |
-| `/api/v1/alunos/me/notas` | **Alunos** |
+| `/api/v1/alunos/me/notas?periodo=${encodeURIComponent(periodo)}` | **Alunos** |
 | `/api/v1/alunos/me/pagamentos` | **Alunos** |
 | `/api/v1/alunos/perfil/me` | **Alunos** |
 | `/api/v1/alunos/stats` | **Alunos** |
@@ -97,7 +97,7 @@
 
 ## 3. Funções Controladoras de Interface Identificadas
 
-Foram detectadas **67** funções essenciais de carregamento e manipulação de estado:
+Foram detectadas **71** funções essenciais de carregamento e manipulação de estado:
 
 - `abrirSeletorDataSeguro()`
 - `carregarDadosGeografia()`
@@ -117,6 +117,9 @@ Foram detectadas **67** funções essenciais de carregamento e manipulação de 
 - `renderizarEstatisticasETabelaTurmas()`
 - `renderizarTabelaTurmasNoDOM()`
 - `abrirAlunosDaTurma()`
+- `renderizarGaleriaLogos()`
+- `renderizarSeletorTemas()`
+- `renderizarGaleriaFundos()`
 - `carregarAlunos()`
 - `renderizarFiltrosAlunos()`
 - `renderizarBotoesClassesAlunos()`
@@ -136,7 +139,4 @@ Foram detectadas **67** funções essenciais de carregamento e manipulação de 
 - `carregarPautaGeral()`
 - `carregarActaConselho()`
 - `salvarConfigSessaoActa()`
-- `carregarCertificados()`
-- `carregarPagamentos()`
-- `abrirModalReciboPagamento()`
-- *... e mais 27 funções auxiliares.*
+- *... e mais 31 funções auxiliares.*

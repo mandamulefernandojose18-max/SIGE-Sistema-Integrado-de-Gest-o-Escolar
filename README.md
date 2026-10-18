@@ -33,9 +33,10 @@ O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa 
 - O contexto da escola é extraído automaticamente do token JWT (`TenantIsolationMiddleware`) ou inspecionado pelo `SUPERADMIN` via cabeçalho `X-Tenant-ID`.
 - Validação cruzada em todas as entidades (`validar_integridade_tenant()`) e políticas de **Row-Level Security (RLS)** nativas no PostgreSQL (`backend/supabase_schema_rls.sql`).
 
-### 2. Gestão de Planos, Assinaturas e Bloqueio Automático (HTTP 402)
-- Planos de subscrição em Meticais (`MZN`): **Mensal** (30 dias), **Trimestral** (90 dias), **Semestral** (180 dias) e **Anual** (365 dias), com limites contratados de alunos e professores.
-- O middleware `TenantExpirationMiddleware` verifica em tempo real a validade da assinatura (`AssinaturaEscola`). Caso esteja expirada ou suspensa, retorna **HTTP 402 (Payment Required)**, mantendo acessíveis apenas as rotas públicas (como a verificação pública de certificados por QR Code e o login).
+### 2. Gestão de Planos, Assinaturas, Suspensão e Reactivação (Automática e Manual)
+- Planos de subscrição em Meticais (`MZN`): **Mensal**, **Trimestral**, **Semestral** e **Anual**, com modos de vencimento Automático, Dia Fixo ou Manual, tolerância e corte configuráveis por escola.
+- **Suspensão e Reactivação Híbrida (Manual & Automática):** O Super Administrador dispõe de operações manuais imediatas (`Suspender Manualmente` e `Reactivar Manualmente`, com justificação obrigatória de auditoria) e operações automáticas governadas pelo sistema (`Suspensão Automática`, `Reactivação Automática` e `Repor Modo Automático`), complementadas pelo ciclo diário que suspende automaticamente escolas inadimplentes além do corte e reactiva automaticamente instituições regularizadas.
+- O middleware `TenantExpirationMiddleware` e a validação de autenticação verificam em tempo real o estado da subscrição e da instituição, mantendo acessíveis apenas o SuperAdmin e as rotas públicas quando uma entidade estiver suspensa.
 
 ### 3. Autenticação Inteligente por Código Oficial & 8 Perfis RBAC (+ DT/DC)
 - Suporta login por **E-mail**, **Username** ou **Código Oficial de Acesso** gerado automaticamente:
