@@ -659,7 +659,7 @@ async function modalEditarProfessor(profId) {
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Telefone</label>
-            <input type="text" id="mpeTel" class="form-control" value="${p.telefone || ''}">
+            <input type="tel" id="mpeTel" class="form-control" value="${p.telefone || ''}" placeholder="+258 ..." inputmode="tel">
           </div>
 
           <div class="col-md-6">
