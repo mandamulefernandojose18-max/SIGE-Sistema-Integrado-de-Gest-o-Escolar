@@ -211,29 +211,29 @@
 
 ### Módulo 20: Ferramentas & Gateway SMS, USSD e Pagamentos Móveis (`#view-prompt-gateway` / `/ferramentas/prompt-gateway`)
 - **Quem usa:** `SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA` e `FINANCEIRO`.
-- **Objetivo:** Central unificada e operacional para disparo de mensagens SMS aos encarregados, liquidação instantânea de propinas escolares via M-Pesa (Vodacom) e e-Mola (Movitel), simulação interativa de menus USSD para feature phones e acesso à especificação técnica de engenharia.
+- **Objetivo:** Central unificada e operacional com flexibilidade total para escolha instantânea do método operacional mais conveniente para a escola naquele momento:
 - **Funcionalidades Operacionais:**
-  - **1. Disparo de Mensagens SMS:**
-    - Envio individual (manual) ou em massa (por turma, encarregados em atraso com propinas pendentes ou todos os alunos).
-    - Normalização automática para o prefixo internacional de Moçambique (`+258 84/85` Vodacom, `+258 86/87` Movitel, `+258 82/83` Tmcel).
-    - Contador em tempo real de caracteres e múltiplos segmentos GSM-7 (160 caracteres) vs. UCS-2 (70 caracteres).
-    - Modelos rápidos instantâneos (Lembrete de Propina, Convocatória, Falta e Matrícula).
-    - Histórico detalhado de disparos com ID de operadora e estado de entrega.
-  - **2. Cobrança e Pagamento via Carteira Móvel:**
-    - Disparo de solicitação STK Push diretamente para o telemóvel do encarregado de educação (Vodacom M-Pesa e Movitel e-Mola).
-    - Seleção de aluno e vinculação direta a mensalidades/propinas em aberto.
-    - Liquidação automática no módulo financeiro (`sige_pagamentos`) com status `PAGO`, data de pagamento, método e referência.
-    - Emissão imediata do recibo oficial no padrão `REC-YYYYMM-XXXXXX`.
-    - Disparo instantâneo de SMS de recibo e quitação ao encarregado.
-    - Tabela de transações com visualização e download do comprovativo.
-  - **3. Simulador Interativo USSD (`*...#`):**
+  - **1. Disparo de Mensagens — 3 Canais Selecionáveis no Momento:**
+    - *Opção 1 (Android SIM Escola — Custo Zero):* Utiliza o telemóvel Android da secretaria ligado ao SIGE para disparar SMS reais com o saldo/pacote ilimitado da escola (Vodacom, Movitel ou Tmcel). Custo zero de plataformas intermediárias.
+    - *Opção 2 (WhatsApp Escolar — 1-Clique Gratuito):* Gera link direto `wa.me` com o número formatado `+258...` e a mensagem codificada. Abre o WhatsApp Web ou aplicação no telemóvel para envio imediato e gratuito.
+    - *Opção 3 (Sandbox / Simulação):* Modo de teste sem envio real para validação e auditoria.
+    - Modos de seleção de destinatários: manual por telemóvel, por turma ou todos os alunos com propinas pendentes.
+    - Modelos rápidos instantâneos (Lembrete de Propina, Quitação/Recibo, Convocatória, Falta e Pautas).
+    - Histórico detalhado de disparos com canal utilizado e estado de entrega.
+  - **2. Efetuar e Processar Pagamentos — 3 Modos Selecionáveis no Momento:**
+    - *Opção 1 (Manual com Comprovativo — Custo Zero):* Liquidação de propinas mediante apresentação de talão de depósito bancário (Millennium BIM, BCI, Moza), mensagem de transferência M-Pesa/e-Mola do pai ou dinheiro em caixa. Altera imediatamente o estado para `PAGO`, gera recibo `REC-YYYYMM-XXXXXX` e baixa o saldo devedor.
+    - *Opção 2 (STK Push PIN):* Disparo de solicitação OpenAPI que faz surgir a tela de confirmação de PIN no telemóvel do encarregado (M-Pesa 84/85 ou e-Mola 86/87).
+    - *Opção 3 (SMS Telemóvel / Reconciliação Automática):* Os SMS de confirmação recebidos no telemóvel da escola são encaminhados via webhook e reconciliados automaticamente pelo SIGE sem necessidade de intervenção humana.
+  - **3. Reconciliação Automática por SMS M-Pesa / e-Mola (Custo Zero de API):**
+    - Painel dedicado com listagem de todos os SMS bancários recebidos, valores em Meticais, referências únicas e estudantes associados.
+    - Caixa de teste interativa para simulação instantânea de recebimento de SMS do M-Pesa.
+    - Proteção integral contra duplicados: a mesma referência M-Pesa não pode ser creditada duas vezes.
+  - **4. Simulador Interativo USSD (`*...#`):**
     - Ecrã LCD simulando o visor de telemóveis básicos com teclado interativo (`0-9`, `*`, `#`).
-    - Consulta de notas trimestrais por número de matrícula (`1*MATRICULA`).
-    - Consulta de mensalidades e propinas pendentes.
-    - Pagamento direto pelo telemóvel e consulta do calendário escolar ou secretaria.
-  - **4. Prompt Técnico & Especificação do Microsserviço:**
-    - Visualização do prompt de engenharia em Node.js com destaque de código.
-    - Botão "Copiar prompt" via `navigator.clipboard` com feedback acessível `aria-live="polite"` (~2,5 s).
-    - Botão "Descarregar .txt" com download via `/ferramentas/prompt-gateway/descarregar`.
+    - Consulta de notas trimestrais por número de matrícula (`1*MATRICULA`), mensalidades pendentes e pagamento direto pelo telemóvel.
+  - **5. Definições Operacionais & Prompt Técnico do Gateway:**
+    - Configuração rápida da URL do telemóvel Android e parâmetros de integração.
+    - Visualização e cópia do prompt de engenharia (`navigator.clipboard` com confirmação `aria-live="polite"`) e descarregamento de ficheiro limpo UTF-8 via `/ferramentas/prompt-gateway/descarregar`.
 - **Segurança & RBAC:** Proteção rigorosa com cabeçalhos anti-indexação (`X-Robots-Tag: noindex`), `Cache-Control: no-store` e restrição a utilizadores autenticados com papéis diretivos e financeiros autorizados.
+
 

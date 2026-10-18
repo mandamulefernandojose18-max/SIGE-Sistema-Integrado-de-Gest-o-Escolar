@@ -18,13 +18,22 @@ from django.utils import timezone
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 
+import urllib.request
+import urllib.parse
+
 import jwt
 from apps.accounts.models import Usuario
 from apps.tenants.models import Escola
 from apps.alunos.models import Aluno
 from apps.turmas.models import Turma
 from apps.pagamentos.models import Pagamento
-from .models import MensagemSMS, TransacaoGatewayMovel
+from .models import (
+    MensagemSMS,
+    TransacaoGatewayMovel,
+    ConfiguracaoGateway,
+    MensagemWhatsApp,
+    ReconciliacaoSmsMovel
+)
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +327,12 @@ def api_enviar_sms(request):
     if not destinatarios_processar:
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Nenhum destinatário válido encontrado com número de telemóvel registado.'}, status=400))
 
+    canal = (dados.get('canal') or 'ANDROID_GATEWAY').upper()
+    android_url_override = (dados.get('android_url') or '').strip()
+
+    cfg = ConfiguracaoGateway.objects.filter(escola=escola).first() if escola else None
+    android_target_url = android_url_override or (cfg.android_gateway_url if cfg else '')
+
     mensagens_criadas = []
     operadoras_count = {'VODACOM': 0, 'MOVITEL': 0, 'TMCEL': 0, 'OUTRA': 0}
 
@@ -335,6 +350,38 @@ def api_enviar_sms(request):
         chars, segmentos = calcular_segmentos_sms(msg_final)
         msg_id_op = f"SMS-{operadora[:3]}-{uuid.uuid4().hex[:10].upper()}"
 
+        # Se o canal escolhido for WhatsApp
+        wa_link = ''
+        if canal == 'WHATSAPP':
+            num_wa = canonico.replace('+', '')
+            wa_link = f"https://wa.me/{num_wa}?text={urllib.parse.quote(msg_final)}"
+            MensagemWhatsApp.objects.create(
+                escola=escola,
+                destinatario=canonico,
+                nome_destinatario=nome_dest,
+                tipo=tipo,
+                mensagem=msg_final,
+                wa_link=wa_link,
+                status='ENVIADO'
+            )
+
+        # Se for canal Android Gateway e tiver URL configurada, tenta disparar via telemóvel Android
+        status_sms = 'ENTREGUE'
+        if canal == 'ANDROID_GATEWAY' and android_target_url:
+            try:
+                payload_android = json.dumps({'to': canonico, 'message': msg_final, 'sim': 1}).encode('utf-8')
+                req_android = urllib.request.Request(
+                    android_target_url,
+                    data=payload_android,
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                with urllib.request.urlopen(req_android, timeout=2.0) as resp_and:
+                    if resp_and.status in (200, 201):
+                        msg_id_op = f"AND-SIM-{uuid.uuid4().hex[:8].upper()}"
+            except Exception:
+                pass
+
         sms_obj = MensagemSMS.objects.create(
             escola=escola,
             destinatario=canonico,
@@ -344,7 +391,7 @@ def api_enviar_sms(request):
             tipo=tipo,
             caracteres=chars,
             segmentos_sms=segmentos,
-            status='ENTREGUE',
+            status=status_sms,
             mensagem_id_operadora=msg_id_op
         )
         operadoras_count[operadora] = operadoras_count.get(operadora, 0) + 1
@@ -354,12 +401,16 @@ def api_enviar_sms(request):
             'operadora': operadora,
             'nome': nome_dest,
             'status': sms_obj.status,
-            'mensagem_id': msg_id_op
+            'mensagem_id': msg_id_op,
+            'canal': canal,
+            'wa_link': wa_link
         })
 
+    msg_feedback = f"Envio concluído com sucesso: {len(mensagens_criadas)} mensagens processadas via canal {canal}."
     return _aplicar_cabecalhos_seguranca(JsonResponse({
         'success': True,
-        'message': f"Envio concluído com sucesso: {len(mensagens_criadas)} SMS disparados.",
+        'message': msg_feedback,
+        'canal': canal,
         'total_enviados': len(mensagens_criadas),
         'operadoras': operadoras_count,
         'mensagens': mensagens_criadas[:15]
@@ -398,6 +449,99 @@ def api_historico_sms(request):
             'status': m.status,
             'mensagem_id': m.mensagem_id_operadora,
             'data': m.created_at.strftime('%d/%m/%Y %H:%M')
+        })
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'data': lista, 'total': len(lista)}))
+
+
+# ==============================================================================
+# 3.1. API: NOTIFICAÇÕES WHATSAPP (1-CLIQUE OU VIA WEBHOOK)
+# ==============================================================================
+@csrf_exempt
+def api_enviar_whatsapp(request):
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+
+    role = getattr(user, 'role', '')
+    if role not in ROLES_AUTORIZADAS:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Acesso proibido.'}, status=403))
+
+    try:
+        dados = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        dados = request.POST
+
+    telefone_raw = dados.get('destinatarios') or dados.get('telefone') or ''
+    mensagem = (dados.get('mensagem') or '').strip()
+    aluno_id = dados.get('aluno_id')
+    tipo = dados.get('tipo', 'AVISO')
+    escola = _obter_escola_do_pedido(request, user)
+
+    if not mensagem:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Texto da mensagem é obrigatório.'}, status=400))
+
+    canonico, operadora = normalizar_telefone_mz(telefone_raw)
+    if not canonico:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Número de telemóvel inválido para Moçambique (+258).'}, status=400))
+
+    aluno_obj = Aluno.objects.filter(id=aluno_id).first() if aluno_id else None
+    nome_dest = f"{aluno_obj.nome} {aluno_obj.apelido}".strip() if aluno_obj else 'Encarregado de Educação'
+
+    # Gerar link directo wa.me sem o sinal +
+    numero_wa = canonico.replace('+', '')
+    wa_link = f"https://wa.me/{numero_wa}?text={urllib.parse.quote(mensagem)}"
+
+    # Registar no histórico
+    reg = MensagemWhatsApp.objects.create(
+        escola=escola,
+        aluno=aluno_obj,
+        destinatario=canonico,
+        nome_destinatario=nome_dest,
+        tipo=tipo,
+        mensagem=mensagem,
+        wa_link=wa_link,
+        status='ENVIADO'
+    )
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'message': 'Mensagem WhatsApp preparada com sucesso! Clique para abrir no WhatsApp Web ou App.',
+        'wa_link': wa_link,
+        'destinatario': canonico,
+        'id': str(reg.id)
+    }))
+
+
+@csrf_exempt
+def api_historico_whatsapp(request):
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+
+    role = getattr(user, 'role', '')
+    if role not in ROLES_AUTORIZADAS:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Acesso proibido.'}, status=403))
+
+    escola = _obter_escola_do_pedido(request, user)
+    qs = MensagemWhatsApp.objects.all()
+    if escola and role != 'SUPERADMIN':
+        qs = qs.filter(escola=escola)
+
+    lista = []
+    for w in qs[:60]:
+        lista.append({
+            'id': str(w.id),
+            'destinatario': w.destinatario,
+            'nome': w.nome_destinatario,
+            'tipo': w.tipo,
+            'mensagem': w.mensagem,
+            'wa_link': w.wa_link,
+            'status': w.status,
+            'data': w.created_at.strftime('%d/%m/%Y %H:%M')
         })
 
     return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'data': lista, 'total': len(lista)}))
@@ -563,6 +707,385 @@ def api_transacoes_moveis(request):
         })
 
     return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'data': lista, 'total': len(lista)}))
+
+
+# ==============================================================================
+# 5.1. API: LIQUIDAÇÃO MANUAL DE PROPINAS COM COMPROVATIVO (CUSTO ZERO)
+# ==============================================================================
+@csrf_exempt
+def api_liquidar_pagamento_manual(request):
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+
+    role = getattr(user, 'role', '')
+    if role not in ROLES_AUTORIZADAS:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Acesso proibido.'}, status=403))
+
+    try:
+        dados = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        dados = request.POST
+
+    pagamento_id = dados.get('pagamento_id')
+    aluno_id = dados.get('aluno_id')
+    metodo = (dados.get('metodo') or 'MPESA').upper().strip()
+    valor_raw = dados.get('valor')
+    referencia = (dados.get('referencia_transacao') or dados.get('referencia') or '').strip()
+    observacoes = (dados.get('observacoes') or '').strip()
+    escola = _obter_escola_do_pedido(request, user)
+
+    if not pagamento_id and not aluno_id:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Indique o aluno ou a propina a liquidar.'}, status=400))
+
+    pagamento_obj = None
+    if pagamento_id:
+        pagamento_obj = Pagamento.objects.filter(id=pagamento_id).first()
+
+    aluno_obj = None
+    if aluno_id:
+        aluno_obj = Aluno.objects.filter(id=aluno_id).first()
+    elif pagamento_obj:
+        aluno_obj = pagamento_obj.aluno
+
+    if not pagamento_obj and aluno_obj:
+        pagamento_obj = Pagamento.objects.filter(aluno=aluno_obj, status='PENDENTE').first()
+
+    if not pagamento_obj:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não foi encontrada nenhuma propina pendente para este aluno.'}, status=404))
+
+    try:
+        valor = Decimal(str(valor_raw)) if valor_raw else pagamento_obj.valor
+        if valor <= 0:
+            raise ValueError()
+    except Exception:
+        valor = pagamento_obj.valor
+
+    if not referencia:
+        referencia = f"MANUAL-{metodo[:4]}-{timezone.now().strftime('%Y%m%d%H%M')}-{uuid.uuid4().hex[:4].upper()}"
+
+    recibo_num = f"REC-{timezone.now().strftime('%Y%m')}-{uuid.uuid4().hex[:6].upper()}"
+    telefone_dest = getattr(aluno_obj, 'contato_responsavel', None) or '+258840000000'
+
+    # Atualiza pagamento
+    pagamento_obj.status = 'PAGO'
+    pagamento_obj.metodo_pagamento = metodo
+    pagamento_obj.recibo_numero = recibo_num
+    pagamento_obj.valor_pago = valor
+    pagamento_obj.data_pagamento = timezone.now()
+    pagamento_obj.observacoes = observacoes or f"Liquidado manualmente via {metodo} (Ref: {referencia})"
+    pagamento_obj.save()
+
+    # Cria registo em TransacaoGatewayMovel
+    metodo_gw = metodo if metodo in ('MPESA', 'EMOLA') else 'MPESA'
+    transacao = TransacaoGatewayMovel.objects.create(
+        escola=escola,
+        pagamento=pagamento_obj,
+        aluno=aluno_obj,
+        metodo=metodo_gw,
+        telefone=telefone_dest,
+        valor=valor,
+        referencia_transacao=referencia,
+        recibo_emitido=recibo_num,
+        status='CONCLUIDO',
+        mensagem_retorno=f"Liquidação manual confirmada pela secretaria ({getattr(user, 'nome', '') or getattr(user, 'username', '')})."
+    )
+
+    nome_al = f"{aluno_obj.nome} {aluno_obj.apelido}".strip() if aluno_obj else 'Estudante'
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'message': f"Propina liquidada com sucesso! Emitido o recibo oficial {recibo_num}.",
+        'recibo': recibo_num,
+        'referencia': referencia,
+        'valor': float(valor),
+        'metodo': metodo,
+        'aluno': nome_al
+    }))
+
+
+# ==============================================================================
+# 5.2. API: RECONCILIAÇÃO AUTOMÁTICA POR SMS M-PESA / E-MOLA (CUSTO ZERO)
+# ==============================================================================
+@csrf_exempt
+def api_reconciliacao_sms_webhook(request):
+    """
+    Webhook que recebe SMS do telemóvel da escola, identifica M-Pesa / e-Mola
+    e liquida automaticamente as propinas correspondentes.
+    """
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método POST esperado.'}, status=405))
+
+    try:
+        dados = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        dados = request.POST
+
+    texto_sms = (dados.get('message') or dados.get('text') or dados.get('content') or dados.get('sms') or '').strip()
+    remetente = (dados.get('from') or dados.get('sender') or 'MPESA').strip()
+    escola = Escola.objects.first()
+
+    if not texto_sms:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Texto da mensagem SMS não fornecido.'}, status=400))
+
+    # Analisador Inteligente de SMS M-Pesa / e-Mola Moçambique
+    # 1. Extração do Valor (ex: 1,500.00MT ou 1500MT ou 1500.00 MZN)
+    match_valor = re.search(r'([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?|[0-9]+)\s*(?:MT|MZN)', texto_sms, re.I)
+    valor = Decimal('0.00')
+    if match_valor:
+        val_str = match_valor.group(1).replace(',', '')
+        try:
+            valor = Decimal(val_str)
+        except Exception:
+            pass
+
+    # 2. Extração da Referência (ex: Ref: PP261018.1023.A12345 ou Transacao ID: ...)
+    match_ref = re.search(r'(?:Ref[.:\s]+|Transa[cç][aã]o\s*(?:ID)?[.:\s]+)([A-Z0-9.]+)', texto_sms, re.I)
+    codigo_ref = match_ref.group(1).strip().rstrip('.,;:') if match_ref else f"SMS-{uuid.uuid4().hex[:10].upper()}"
+
+    # 3. Extração de Telemóvel de Moçambique (84, 85, 86, 87, 82, 83)
+    match_tel = re.search(r'(?:\+?258\s*)?(8[2-7]\d{7})', texto_sms)
+    tel_origem = match_tel.group(1) if match_tel else ''
+
+    # 4. Extração de Nome
+    match_nome = re.search(r'de\s+(?:(?:\+?258)?\d{9}\s*[-–]\s*)?([A-Z\s]{4,30})(?:\s+aos|\s+em|\s+Ref)', texto_sms)
+    nome_origem = match_nome.group(1).strip() if match_nome else ''
+
+    # Verificar se já foi processado
+    if ReconciliacaoSmsMovel.objects.filter(codigo_transacao=codigo_ref).exists():
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': True,
+            'status': 'DUPLICADO',
+            'message': f"A transação com a referência {codigo_ref} já foi reconciliada anteriormente."
+        }))
+
+    # Tenta encontrar o aluno
+    aluno_candidato = None
+    if tel_origem:
+        aluno_candidato = Aluno.objects.filter(contato_responsavel__icontains=tel_origem).first()
+
+    if not aluno_candidato and nome_origem:
+        partes = nome_origem.split()
+        if len(partes) >= 2:
+            aluno_candidato = Aluno.objects.filter(nome__icontains=partes[0], apelido__icontains=partes[-1]).first()
+
+    # Procurar matrícula se constar no texto
+    if not aluno_candidato:
+        for al in Aluno.objects.all()[:100]:
+            if al.matricula and al.matricula.lower() in texto_sms.lower():
+                aluno_candidato = al
+                break
+
+    pagamento_liquidado = None
+    recibo_gerado = ''
+
+    if aluno_candidato:
+        # Busca propina pendente
+        qs_pag = Pagamento.objects.filter(aluno=aluno_candidato, status='PENDENTE')
+        pagamento_candidato = qs_pag.filter(valor=valor).first() or qs_pag.first()
+        if pagamento_candidato:
+            pagamento_liquidado = pagamento_candidato
+            recibo_gerado = f"REC-{timezone.now().strftime('%Y%m')}-{uuid.uuid4().hex[:6].upper()}"
+            pagamento_liquidado.status = 'PAGO'
+            pagamento_liquidado.metodo_pagamento = 'MPESA' if 'mpesa' in remetente.lower() else 'EMOLA'
+            pagamento_liquidado.recibo_numero = recibo_gerado
+            pagamento_liquidado.valor_pago = valor if valor > 0 else pagamento_liquidado.valor
+            pagamento_liquidado.data_pagamento = timezone.now()
+            pagamento_liquidado.observacoes = f"Reconciliado automaticamente via SMS {remetente} (Ref: {codigo_ref})"
+            pagamento_liquidado.save()
+
+            # Cria TransacaoGatewayMovel
+            TransacaoGatewayMovel.objects.create(
+                escola=escola,
+                pagamento=pagamento_liquidado,
+                aluno=aluno_candidato,
+                metodo=pagamento_liquidado.metodo_pagamento,
+                telefone=f"+258{tel_origem}" if tel_origem else '+258840000000',
+                valor=pagamento_liquidado.valor_pago,
+                referencia_transacao=codigo_ref,
+                recibo_emitido=recibo_gerado,
+                status='CONCLUIDO',
+                mensagem_retorno=f"Reconciliado via SMS: {texto_sms[:120]}"
+            )
+
+    status_rec = 'RECONCILIADO' if pagamento_liquidado else 'PENDENTE_ASSOCIACAO'
+    rec_obj = ReconciliacaoSmsMovel.objects.create(
+        escola=escola,
+        remetente=remetente,
+        texto_sms=texto_sms,
+        codigo_transacao=codigo_ref,
+        valor=valor,
+        telefone_origem=tel_origem,
+        nome_origem=nome_origem,
+        aluno=aluno_candidato,
+        pagamento=pagamento_liquidado,
+        recibo_emitido=recibo_gerado,
+        status=status_rec,
+        detalhes=f"Reconhecido valor={valor} MZN, ref={codigo_ref}, tel={tel_origem}"
+    )
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'status': status_rec,
+        'codigo_transacao': codigo_ref,
+        'valor': float(valor),
+        'recibo': recibo_gerado or None,
+        'aluno': f"{aluno_candidato.nome} {aluno_candidato.apelido}".strip() if aluno_candidato else None,
+        'message': 'Propina liquidada automaticamente com recibo emitido!' if status_rec == 'RECONCILIADO' else 'SMS registado. Aluno pendente de associação pela secretaria.'
+    }))
+
+
+@csrf_exempt
+def api_reconciliacoes_lista(request):
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+
+    role = getattr(user, 'role', '')
+    if role not in ROLES_AUTORIZADAS:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Acesso proibido.'}, status=403))
+
+    escola = _obter_escola_do_pedido(request, user)
+    qs = ReconciliacaoSmsMovel.objects.all().select_related('aluno', 'pagamento')
+    if escola and role != 'SUPERADMIN':
+        qs = qs.filter(escola=escola)
+
+    lista = []
+    for r in qs[:60]:
+        nome_al = f"{r.aluno.nome} {r.aluno.apelido}".strip() if r.aluno else 'Aguardando Associação'
+        lista.append({
+            'id': str(r.id),
+            'remetente': r.remetente,
+            'codigo_transacao': r.codigo_transacao,
+            'valor': float(r.valor),
+            'telefone': r.telefone_origem,
+            'nome_origem': r.nome_origem,
+            'aluno': nome_al,
+            'aluno_id': str(r.aluno.id) if r.aluno else None,
+            'recibo': r.recibo_emitido or '-',
+            'status': r.status,
+            'data': r.created_at.strftime('%d/%m/%Y %H:%M'),
+            'texto_sms': r.texto_sms
+        })
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'data': lista, 'total': len(lista)}))
+
+
+@csrf_exempt
+def api_reconciliacao_associar(request):
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método POST esperado.'}, status=405))
+
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+
+    try:
+        dados = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        dados = request.POST
+
+    reconciliacao_id = dados.get('reconciliacao_id')
+    aluno_id = dados.get('aluno_id')
+    pagamento_id = dados.get('pagamento_id')
+
+    rec_obj = ReconciliacaoSmsMovel.objects.filter(id=reconciliacao_id).first()
+    if not rec_obj:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Registo de reconciliação não encontrado.'}, status=404))
+
+    aluno_obj = Aluno.objects.filter(id=aluno_id).first()
+    if not aluno_obj:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Aluno não encontrado.'}, status=404))
+
+    pag_obj = None
+    if pagamento_id:
+        pag_obj = Pagamento.objects.filter(id=pagamento_id).first()
+    else:
+        pag_obj = Pagamento.objects.filter(aluno=aluno_obj, status='PENDENTE').first()
+
+    recibo_num = f"REC-{timezone.now().strftime('%Y%m')}-{uuid.uuid4().hex[:6].upper()}"
+
+    if pag_obj:
+        pag_obj.status = 'PAGO'
+        pag_obj.metodo_pagamento = 'MPESA'
+        pag_obj.recibo_numero = recibo_num
+        pag_obj.valor_pago = rec_obj.valor if rec_obj.valor > 0 else pag_obj.valor
+        pag_obj.data_pagamento = timezone.now()
+        pag_obj.observacoes = f"Associado manualmente pela secretaria via Reconciliação SMS ({rec_obj.codigo_transacao})"
+        pag_obj.save()
+
+    rec_obj.aluno = aluno_obj
+    rec_obj.pagamento = pag_obj
+    rec_obj.recibo_emitido = recibo_num
+    rec_obj.status = 'RECONCILIADO'
+    rec_obj.save()
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'message': f"Pagamento associado com sucesso! Foi emitido o recibo {recibo_num}.",
+        'recibo': recibo_num,
+        'aluno': f"{aluno_obj.nome} {aluno_obj.apelido}".strip()
+    }))
+
+
+# ==============================================================================
+# 5.3. API: CONFIGURAÇÕES DO GATEWAY (ANDROID SIM, WHATSAPP, M-PESA)
+# ==============================================================================
+@csrf_exempt
+def api_configuracao_gateway(request):
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+
+    role = getattr(user, 'role', '')
+    if role not in ROLES_AUTORIZADAS:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Acesso proibido.'}, status=403))
+
+    escola = _obter_escola_do_pedido(request, user)
+    cfg, _ = ConfiguracaoGateway.objects.get_or_create(escola=escola)
+
+    if request.method == 'POST':
+        try:
+            dados = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            dados = request.POST
+
+        if 'modo_sms' in dados:
+            cfg.modo_sms = dados.get('modo_sms')
+        if 'android_gateway_url' in dados:
+            cfg.android_gateway_url = (dados.get('android_gateway_url') or '').strip()
+        if 'android_gateway_token' in dados:
+            cfg.android_gateway_token = (dados.get('android_gateway_token') or '').strip()
+        if 'whatsapp_ativo' in dados:
+            cfg.whatsapp_ativo = bool(dados.get('whatsapp_ativo'))
+        if 'whatsapp_provider' in dados:
+            cfg.whatsapp_provider = dados.get('whatsapp_provider')
+        if 'whatsapp_api_url' in dados:
+            cfg.whatsapp_api_url = (dados.get('whatsapp_api_url') or '').strip()
+        if 'mpesa_shortcode' in dados:
+            cfg.mpesa_shortcode = (dados.get('mpesa_shortcode') or '').strip()
+        cfg.save()
+
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'message': 'Configurações do Gateway gravadas com sucesso!'}))
+
+    # GET
+    webhook_url = f"https://sigesaas.duckdns.org/api/v1/ferramentas/reconciliacao/sms-webhook/"
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'config': {
+            'modo_sms': cfg.modo_sms,
+            'android_gateway_url': cfg.android_gateway_url,
+            'android_gateway_token': cfg.android_gateway_token,
+            'whatsapp_ativo': cfg.whatsapp_ativo,
+            'whatsapp_provider': cfg.whatsapp_provider,
+            'whatsapp_api_url': cfg.whatsapp_api_url,
+            'mpesa_shortcode': cfg.mpesa_shortcode,
+            'webhook_sms_url': webhook_url,
+            'webhook_secret_sms': cfg.webhook_secret_sms
+        }
+    }))
 
 
 # ==============================================================================

@@ -9,7 +9,13 @@ from apps.tenants.models import Escola, Plano
 from apps.turmas.models import Turma
 from apps.alunos.models import Aluno
 from apps.pagamentos.models import Pagamento
-from apps.ferramentas.models import MensagemSMS, TransacaoGatewayMovel
+from apps.ferramentas.models import (
+    MensagemSMS,
+    TransacaoGatewayMovel,
+    ConfiguracaoGateway,
+    MensagemWhatsApp,
+    ReconciliacaoSmsMovel
+)
 
 @pytest.fixture
 def client():
@@ -387,4 +393,118 @@ def test_api_simulador_ussd_menu_e_subopcoes(client, superadmin_user, aluno_test
     assert resp_sub5.status_code == 200
     assert resp_sub5.json()['type'] == 'END'
     assert 'Secretaria' in resp_sub5.json()['response']
+
+
+@pytest.mark.django_db
+def test_api_enviar_whatsapp(client, superadmin_user, aluno_teste):
+    """Testa geração de link directo wa.me e registo de mensagem WhatsApp."""
+    client.force_login(superadmin_user)
+
+    payload = {
+        'telefone': '841234567',
+        'mensagem': 'SIGE Massinga: Aviso de propinas do estudante.',
+        'aluno_id': str(aluno_teste.id),
+        'tipo': 'PROPINA'
+    }
+    resp = client.post('/api/v1/ferramentas/whatsapp/enviar/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert 'wa_link' in dados
+    assert 'wa.me/258841234567' in dados['wa_link']
+
+    # Valida persistência
+    msg_wa = MensagemWhatsApp.objects.filter(destinatario='+258841234567').first()
+    assert msg_wa is not None
+    assert msg_wa.status == 'ENVIADO'
+
+
+@pytest.mark.django_db
+def test_api_liquidar_pagamento_manual(client, superadmin_user, aluno_teste, pagamento_pendente_teste):
+    """Testa liquidação manual de propina com inserção de comprovativo ou código bancário."""
+    client.force_login(superadmin_user)
+
+    payload = {
+        'pagamento_id': str(pagamento_pendente_teste.id),
+        'aluno_id': str(aluno_teste.id),
+        'metodo': 'TRANSFERENCIA',
+        'referencia_transacao': 'TRF-BIM-998877',
+        'valor': 1200,
+        'observacoes': 'Comprovativo de depósito Millennium BIM validado pela secretaria.'
+    }
+    resp = client.post('/api/v1/ferramentas/pagamentos/liquidar-manual/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert dados['recibo'].startswith('REC-')
+
+    # Valida atualização do modelo Pagamento
+    pagamento_pendente_teste.refresh_from_db()
+    assert pagamento_pendente_teste.status == 'PAGO'
+    assert pagamento_pendente_teste.metodo_pagamento == 'TRANSFERENCIA'
+    assert pagamento_pendente_teste.recibo_numero.startswith('REC-')
+
+    # Valida registo em TransacaoGatewayMovel
+    trx = TransacaoGatewayMovel.objects.filter(referencia_transacao='TRF-BIM-998877').first()
+    assert trx is not None
+    assert trx.status == 'CONCLUIDO'
+
+
+@pytest.mark.django_db
+def test_api_reconciliacao_sms_webhook_mpesa(client, aluno_teste, pagamento_pendente_teste):
+    """Testa processamento de SMS oficial de confirmação do M-Pesa recebido no telemóvel da escola."""
+    sms_texto_real = (
+        "Confirmado. Recebeu 1,200.00MT de 841234567 - ARMANDO GUEBUZA aos 18/10/2026 as 10:20. "
+        "Ref: PP261018.1023.A12345. Saldo actual: 25,400.00MT."
+    )
+    payload = {
+        'from': 'MPesa',
+        'message': sms_texto_real
+    }
+    resp = client.post('/api/v1/ferramentas/reconciliacao/sms-webhook/', data=json.dumps(payload), content_type='application/json')
+    assert resp.status_code == 200
+    dados = resp.json()
+    assert dados['success'] is True
+    assert dados['status'] == 'RECONCILIADO'
+    assert dados['valor'] == 1200.0
+    assert dados['codigo_transacao'] == 'PP261018.1023.A12345'
+    assert dados['recibo'].startswith('REC-')
+
+    # Valida liquidação da propina do aluno correspondente
+    pagamento_pendente_teste.refresh_from_db()
+    assert pagamento_pendente_teste.status == 'PAGO'
+    assert pagamento_pendente_teste.recibo_numero == dados['recibo']
+
+    # Valida prevenção de duplicação caso o mesmo SMS seja retransmitido
+    resp_dup = client.post('/api/v1/ferramentas/reconciliacao/sms-webhook/', data=json.dumps(payload), content_type='application/json')
+    assert resp_dup.status_code == 200
+    assert resp_dup.json()['status'] == 'DUPLICADO'
+
+
+@pytest.mark.django_db
+def test_api_configuracao_gateway(client, superadmin_user, escola_teste):
+    """Testa consulta e salvamento de configurações do gateway (Android, WhatsApp e M-Pesa)."""
+    client.force_login(superadmin_user)
+
+    # Obter configuração inicial
+    resp_get = client.get('/api/v1/ferramentas/configuracao/')
+    assert resp_get.status_code == 200
+    assert resp_get.json()['success'] is True
+
+    # Salvar nova configuração com URL do telemóvel Android da escola
+    payload = {
+        'modo_sms': 'ANDROID_GATEWAY',
+        'android_gateway_url': 'http://192.168.1.50:8080/message',
+        'whatsapp_ativo': True,
+        'mpesa_shortcode': '123456'
+    }
+    resp_post = client.post('/api/v1/ferramentas/configuracao/', data=json.dumps(payload), content_type='application/json')
+    assert resp_post.status_code == 200
+    assert resp_post.json()['success'] is True
+
+    cfg = ConfiguracaoGateway.objects.first()
+    assert cfg is not None
+    assert cfg.android_gateway_url == 'http://192.168.1.50:8080/message'
+    assert cfg.modo_sms == 'ANDROID_GATEWAY'
+
 

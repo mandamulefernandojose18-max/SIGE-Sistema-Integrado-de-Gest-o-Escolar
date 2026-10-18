@@ -3,8 +3,15 @@ from .views import (
     api_gateway_stats,
     api_enviar_sms,
     api_historico_sms,
+    api_enviar_whatsapp,
+    api_historico_whatsapp,
     api_iniciar_pagamento_movel,
     api_transacoes_moveis,
+    api_liquidar_pagamento_manual,
+    api_reconciliacao_sms_webhook,
+    api_reconciliacoes_lista,
+    api_reconciliacao_associar,
+    api_configuracao_gateway,
     api_simulador_ussd,
     prompt_gateway_pagina,
     prompt_gateway_descarregar,
@@ -22,11 +29,33 @@ urlpatterns = [
     path('sms/historico', api_historico_sms, name='api_historico_sms_sem_barra'),
     path('sms/historico/', api_historico_sms, name='api_historico_sms'),
 
-    # Pagamentos Móveis (M-Pesa e e-Mola)
+    # WhatsApp: Envio e Histórico
+    path('whatsapp/enviar', api_enviar_whatsapp, name='api_enviar_whatsapp_sem_barra'),
+    path('whatsapp/enviar/', api_enviar_whatsapp, name='api_enviar_whatsapp'),
+    path('whatsapp/historico', api_historico_whatsapp, name='api_historico_whatsapp_sem_barra'),
+    path('whatsapp/historico/', api_historico_whatsapp, name='api_historico_whatsapp'),
+
+    # Pagamentos Móveis (M-Pesa e e-Mola STK Push)
     path('pagamentos-moveis/iniciar', api_iniciar_pagamento_movel, name='api_iniciar_pagamento_movel_sem_barra'),
     path('pagamentos-moveis/iniciar/', api_iniciar_pagamento_movel, name='api_iniciar_pagamento_movel'),
     path('pagamentos-moveis/transacoes', api_transacoes_moveis, name='api_transacoes_moveis_sem_barra'),
     path('pagamentos-moveis/transacoes/', api_transacoes_moveis, name='api_transacoes_moveis'),
+
+    # Pagamento Manual de Propinas (Comprovativo M-Pesa / Banco)
+    path('pagamentos/liquidar-manual', api_liquidar_pagamento_manual, name='api_liquidar_pagamento_manual_sem_barra'),
+    path('pagamentos/liquidar-manual/', api_liquidar_pagamento_manual, name='api_liquidar_pagamento_manual'),
+
+    # Reconciliação Automática por SMS M-Pesa / e-Mola (Custo Zero)
+    path('reconciliacao/sms-webhook', api_reconciliacao_sms_webhook, name='api_reconciliacao_sms_webhook_sem_barra'),
+    path('reconciliacao/sms-webhook/', api_reconciliacao_sms_webhook, name='api_reconciliacao_sms_webhook'),
+    path('reconciliacao/lista', api_reconciliacoes_lista, name='api_reconciliacoes_lista_sem_barra'),
+    path('reconciliacao/lista/', api_reconciliacoes_lista, name='api_reconciliacoes_lista'),
+    path('reconciliacao/associar', api_reconciliacao_associar, name='api_reconciliacao_associar_sem_barra'),
+    path('reconciliacao/associar/', api_reconciliacao_associar, name='api_reconciliacao_associar'),
+
+    # Configurações do Gateway (Android SIM, WhatsApp, M-Pesa)
+    path('configuracao', api_configuracao_gateway, name='api_configuracao_gateway_sem_barra'),
+    path('configuracao/', api_configuracao_gateway, name='api_configuracao_gateway'),
 
     # Simulador USSD
     path('ussd/simular', api_simulador_ussd, name='api_simulador_ussd_sem_barra'),

@@ -710,44 +710,60 @@ Sobe os 4 contentores orquestrados (`sige_postgres` na porta `5432`, `sige_backe
 ## 12. Módulo de Ferramentas: Gateway SMS, USSD e Pagamentos Móveis
 
 ### 12.1 Visão Geral e Arquitetura Operacional
-O SIGE incorpora a **Central Operacional de Maximização do Gateway**, disponível para utilizadores com privilégios diretivos e administrativos (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `FINANCEIRO`). A central agrega as seguintes capacidades operacionais totalmente funcionais:
-- **Envio de Mensagens SMS (Unitário e em Lote):**
-  - Normalização automática para a numeração de Moçambique no formato internacional `+258XXXXXXXXX`.
-  - Deteção e roteamento automático de operadoras: Vodacom Moçambique (`+258 84/85`), Movitel Moçambique (`+258 86/87`) e Tmcel Moçambique (`+258 82/83`).
-  - Cálculo de caracteres e múltiplos segmentos SMS (GSM-7 de 160 caracteres vs. UCS-2 de 70 caracteres).
-  - Modos de disparo: Manual por telemóvel, Em Lote por Turma Escolar, Encarregados com Propinas Pendentes e Todos os Alunos matriculados da escola.
-  - Modelos rápidos predefinidos (Lembrete de Propinas, Convocatória de Reunião, Registo de Falta, Confirmação de Matrícula).
-  - Histórico em tempo real de mensagens enviadas com estado de entrega (`ENTREGUE`, `PENDENTE`, `FALHOU`).
-- **Cobranças e Pagamentos com Carteira Móvel (M-Pesa e e-Mola):**
-  - Disparo de cobrança móvel C2B via STK Push (solicitação de PIN no ecrã do telemóvel).
-  - Suporte completo às principais carteiras móveis nacionais: **M-Pesa** (Vodacom 84/85) e **e-Mola** (Movitel 86/87).
-  - Vinculação direta a faturas/propinas pendentes do aluno no sistema financeiro escolar.
-  - Liquidação automática da propina com registo de `PAGO`, método utilizado, valor recebido e emissão instantânea de recibo oficial no padrão `REC-YYYYMM-XXXXXX`.
-  - Disparo imediato de SMS de quitação e confirmação ao encarregado de educação.
-  - Tabela histórica de transações móveis com filtros e emissão de comprovativo.
-- **Simulador Interativo de Menus USSD (`*...#`):**
-  - Terminal interativo com ecrã LCD e teclado numérico (`0-9`, `*`, `#`), simulando fielmente a experiência do encarregado de educação em telemóveis básicos (feature phones sem internet).
-  - Conformidade com as normas das operadoras de telecomunicações: respostas continuadas (`CON`) e de encerramento (`END`).
-  - Navegação hierárquica por árvore de estados:
-    1. Consulta de notas e médias trimestrais por número de matrícula do aluno (`1*MATRICULA`).
-    2. Consulta de mensalidades e propinas pendentes em Meticais.
-    3. Disparo de liquidação via M-Pesa / e-Mola diretamente a partir do telemóvel.
-    4. Consulta do Calendário Escolar Oficial (I, II e III Trimestres).
-    5. Contactos e horários de atendimento da secretaria escolar.
-- **Prompt Técnico & Especificação do Microsserviço:**
-  - Separador dedicado para consulta, cópia (`navigator.clipboard` com confirmação `aria-live="polite"`) e descarregamento (`.txt`) da especificação técnica completa para engenharia de software e assistentes de código.
+O SIGE incorpora a **Central Operacional de Maximização do Gateway**, disponível para utilizadores com privilégios diretivos e administrativos (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `FINANCEIRO`). A central agrega as seguintes capacidades operacionais com seleção instantânea no momento da operação:
+
+#### A. Envio de Notificações Escolares — 3 Opções Disponíveis na Hora:
+1. **Opção 1: Gateway Android Local (Cartão SIM da Escola — Custo Zero):**
+   - Disparo de SMS reais através do telemóvel Android da secretaria escolar (usando app gratuita como *Android SMS Gateway* conectada via Wi-Fi/rede local).
+   - Utiliza pacotes promocionais de SMS ilimitados ou de baixo custo das operadoras locais (Vodacom, Movitel e Tmcel), dispensando qualquer custo de gateways terceiros de SMS.
+2. **Opção 2: Conector WhatsApp Escolar (1-Clique Gratuito):**
+   - Geração imediata de links diretos `wa.me` com o número formatado `+258...` e a mensagem codificada em URL.
+   - Permite à secretaria disparar avisos e recibos com 1 único clique via WhatsApp Web ou telemóvel, 100% gratuito e sem restrições de limites de caracteres.
+3. **Opção 3: Modo Sandbox / Simulação Interna:**
+   - Permite testar o fluxo de envio, validação de destinatários, contagem de caracteres e regras de negócio sem enviar mensagens reais e sem consumir saldo.
+
+#### B. Processamento e Liquidação de Propinas — 3 Métodos Disponíveis na Hora:
+1. **Opção 1: Liquidação Manual com Comprovativo (Custo Zero):**
+   - O encarregado paga por M-Pesa, e-Mola, transferência bancária (Millennium BIM, BCI, Moza Banco) ou numerário na secretaria.
+   - O operador introduz a referência da transação e o valor; o sistema liquida a propina para `PAGO`, gera o recibo oficial `REC-YYYYMM-XXXXXX` e emite o comprovativo imediatamente.
+2. **Opção 2: STK Push Automático (M-Pesa OpenAPI / Vodacom e-Mola):**
+   - Disparo de solicitação remota de pagamento que faz surgir a janela de confirmação de PIN diretamente no ecrã do telemóvel do encarregado.
+3. **Opção 3: Reconciliação Automática por Leitura de SMS M-Pesa / e-Mola (Custo Zero de API):**
+   - O telemóvel da escola recebe os SMS oficiais de confirmação de recebimento do M-Pesa ("*Confirmado. Recebeu 1,500.00MT de... Ref: PP...*").
+   - A app Android reencaminha o SMS para o webhook do SIGE (`/api/v1/ferramentas/reconciliacao/sms-webhook/`).
+   - O SIGE processa o SMS via expressões regulares (regex robusto para Moçambique), extrai o valor em Meticais e a referência única, associa ao aluno e liquida a propina automaticamente, prevenindo duplicações.
+
+#### C. Simulador Interativo de Menus USSD (`*...#`):
+- Terminal interativo com ecrã LCD e teclado numérico (`0-9`, `*`, `#`), simulando fielmente a experiência do encarregado de educação em telemóveis básicos (feature phones sem internet).
+- Navegação hierárquica por árvore de estados:
+  1. Consulta de notas e médias trimestrais por número de matrícula do aluno (`1*MATRICULA`).
+  2. Consulta de mensalidades e propinas pendentes em Meticais.
+  3. Disparo de liquidação via M-Pesa / e-Mola diretamente a partir do telemóvel.
+  4. Consulta do Calendário Escolar Oficial (I, II e III Trimestres).
+  5. Contactos e horários de atendimento da secretaria escolar.
+
+#### D. Prompt Técnico & Especificação do Microsserviço:
+- Separador dedicado para consulta, cópia (`navigator.clipboard` com confirmação `aria-live="polite"`) e descarregamento (`.txt`) da especificação técnica completa para engenharia de software e assistentes de código.
 
 ### 12.2 Modelos de Dados
-- **`apps.ferramentas.models.MensagemSMS` (`sige_mensagens_sms`):** Registo de cada SMS disparado com tenant (`escola`), destinatário canónico `+258`, nome do encarregado/aluno, operadora (`VODACOM`, `MOVITEL`, `TMCEL`), mensagem de texto, tipo (`AVISO`, `PROPINA`, `RECIBO`, `NOTAS`), contagem de caracteres, segmentos SMS e estado (`PENDENTE`, `ENVIADO`, `ENTREGUE`, `FALHOU`).
-- **`apps.ferramentas.models.TransacaoGatewayMovel` (`sige_transacoes_gateway_movel`):** Registo de transações de carteira móvel com vínculo a `Escola`, `Aluno` e `Pagamento`, método (`MPESA`, `EMOLA`), telefone, valor em Meticais, referência bancária única, número do recibo emitido e estado (`PENDENTE`, `PROCESSANDO`, `CONCLUIDO`, `FALHOU`).
+- **`apps.ferramentas.models.ConfiguracaoGateway` (`sige_configuracoes_gateway`):** Configuração operacional por escola, definindo URL do telemóvel Android, canal de envio pré-definido, shortcode M-Pesa e chaves API.
+- **`apps.ferramentas.models.MensagemSMS` (`sige_mensagens_sms`):** Registo de cada SMS disparado com tenant (`escola`), destinatário canónico `+258`, canal (`ANDROID_GATEWAY`, `WHATSAPP`, `SANDBOX`), operadora (`VODACOM`, `MOVITEL`, `TMCEL`), texto, caracteres, segmentos e estado (`PENDENTE`, `ENVIADO`, `ENTREGUE`, `FALHOU`).
+- **`apps.ferramentas.models.MensagemWhatsApp` (`sige_mensagens_whatsapp`):** Registo de notificações via WhatsApp com link direto `wa.me` gerado, destinatário e estado.
+- **`apps.ferramentas.models.TransacaoGatewayMovel` (`sige_transacoes_gateway_movel`):** Registo de transações móveis e manuais vinculadas a `Escola`, `Aluno` e `Pagamento`, com método (`MPESA`, `EMOLA`, `TRANSFERENCIA`, `NUMERARIO`), referência, recibo oficial `REC-...` e estado.
+- **`apps.ferramentas.models.ReconciliacaoSmsMovel` (`sige_reconciliacoes_sms_movel`):** Armazenamento e auditoria de cada SMS bancário/móvel recebido no telemóvel da escola, com valor extraído, referência única com índice `db_index` e proteção anti-duplicação, vínculo a aluno e data de processamento.
 
 ### 12.3 Rotas e Endpoints da API REST
 | Método | Endpoint | Perfil Autorizado | Descrição |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/ferramentas/stats/` | Administração / Direcção | Métricas operacionais do gateway, saldo de créditos SMS, total enviado e status das operadoras. |
-| `POST` | `/api/v1/ferramentas/sms/enviar/` | Administração / Direcção | Envio de SMS unitário ou em lote (suporta modo manual, turma e propinas pendentes). |
-| `GET` | `/api/v1/ferramentas/sms/historico/` | Administração / Direcção | Histórico das últimas mensagens SMS disparadas pela escola. |
-| `POST` | `/api/v1/ferramentas/pagamentos-moveis/iniciar/` | Administração / Direcção | Disparo de cobrança C2B M-Pesa / e-Mola, liquidação de propina e emissão de recibo. |
+| `GET` | `/api/v1/ferramentas/configuracao/obter/` | Administração / Direcção | Leitura da configuração do gateway e endereço do telemóvel Android. |
+| `POST` | `/api/v1/ferramentas/configuracao/salvar/` | Administração / Direcção | Gravação das definições e URL do telemóvel Android da escola. |
+| `POST` | `/api/v1/ferramentas/sms/enviar/` | Administração / Direcção | Envio de mensagens suportando os canais `ANDROID_GATEWAY`, `WHATSAPP` e `SANDBOX`. |
+| `GET` | `/api/v1/ferramentas/sms/historico/` | Administração / Direcção | Histórico das últimas mensagens disparadas pela escola com respetivo canal. |
+| `POST` | `/api/v1/ferramentas/pagamentos-moveis/iniciar/` | Administração / Direcção | Disparo de cobrança C2B M-Pesa / e-Mola via STK Push. |
+| `POST` | `/api/v1/ferramentas/pagamentos/liquidar-manual/` | Administração / Direcção | Liquidação manual de propina com referência de comprovativo e emissão de recibo `REC-...`. |
+| `POST` | `/api/v1/ferramentas/reconciliacao/sms-webhook/` | Aberto / Token / App Android | Webhook receptor de SMS do telemóvel da secretaria com reconciliação automática e anti-duplicação. |
+| `GET` | `/api/v1/ferramentas/reconciliacao/lista/` | Administração / Direcção | Lista de SMS bancários recebidos e estado da reconciliação com os alunos. |
 | `GET` | `/api/v1/ferramentas/pagamentos-moveis/transacoes/` | Administração / Direcção | Lista das transações móveis processadas com status e dados do aluno. |
 | `POST` | `/api/v1/ferramentas/ussd/simular/` | Administração / Direcção | Máquina de estados USSD interativa para processamento de comandos `CON` e `END`. |
 | `GET` | `/ferramentas/prompt-gateway` | Administração / Direcção | Visualização da interface completa da Central no layout do sistema com `Cache-Control: no-store` e `X-Robots-Tag: noindex`. |
@@ -758,4 +774,5 @@ O SIGE incorpora a **Central Operacional de Maximização do Gateway**, disponí
 1. **Topbar (Cabeçalho Superior):** Botão de acesso rápido `[ Gateway SMS & Pagamentos ]` visível nos painéis administrativos.
 2. **Sidebar (Menu Lateral):** Secção **Ferramentas & Integrações → Gateway SMS & Pagamentos** em `painel-superadmin`, `painel-escola` e `painel-financeiro`.
 3. **URL Direto Autenticado:** `https://sigesaas.duckdns.org/ferramentas/prompt-gateway`.
+
 

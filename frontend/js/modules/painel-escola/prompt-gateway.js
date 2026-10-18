@@ -1,6 +1,11 @@
 /**
  * SIGE — Módulo Gateway SMS, USSD e Pagamentos Móveis
- * Central Operacional: Envio de SMS, Cobrança M-Pesa/e-Mola, USSD e Especificação
+ * Central Operacional:
+ * 1. Envio de Notificações (Android SIM da Escola, WhatsApp Escolar ou Sandbox)
+ * 2. Processamento de Pagamentos (Manual com Comprovativo, STK Push PIN ou Reconciliação SMS)
+ * 3. Reconciliação Automática por SMS M-Pesa / e-Mola (Custo Zero)
+ * 4. Simulador USSD (*...#)
+ * 5. Especificação Técnica & Prompt do Gateway
  */
 
 let stateCarteiraAtiva = 'MPESA';
@@ -14,6 +19,8 @@ async function carregarPromptGateway() {
     carregarAlunosParaPagamentoMovel(),
     carregarHistoricoSms(),
     carregarTransacoesGateway(),
+    carregarReconciliacoesSms(),
+    carregarConfiguracoesGateway(),
     carregarConteudoPromptTecnico()
   ]);
 
@@ -22,7 +29,9 @@ async function carregarPromptGateway() {
   }
 }
 
+// ==============================================================================
 // 1. CARREGAR ESTATÍSTICAS
+// ==============================================================================
 async function carregarEstatisticasGateway() {
   try {
     const res = await apiFetch('/api/v1/ferramentas/stats', { ignoreAuthRedirect: true });
@@ -47,7 +56,9 @@ async function carregarEstatisticasGateway() {
   }
 }
 
+// ==============================================================================
 // 2. CARREGAR TURMAS NO SELECT DE SMS
+// ==============================================================================
 async function carregarTurmasParaSms() {
   const sel = document.getElementById('smsTurmaId');
   if (!sel) return;
@@ -77,10 +88,13 @@ async function carregarTurmasParaSms() {
   }
 }
 
-// 3. CARREGAR ALUNOS NO SELECT DE PAGAMENTOS
+// ==============================================================================
+// 3. CARREGAR ALUNOS NOS SELECTS DE COBRANÇA E QUITAÇÃO MANUAL
+// ==============================================================================
 async function carregarAlunosParaPagamentoMovel() {
-  const sel = document.getElementById('pagamentoAlunoSelect');
-  if (!sel) return;
+  const selPush = document.getElementById('pagamentoAlunoSelect');
+  const selManual = document.getElementById('pagManualAlunoSelect');
+  if (!selPush && !selManual) return;
 
   try {
     let alunos = state.todosAlunos || [];
@@ -93,21 +107,148 @@ async function carregarAlunosParaPagamentoMovel() {
     }
 
     if (alunos && alunos.length > 0) {
-      let optHtml = '<option value="">-- Cobrança Direta / Selecione Aluno --</option>';
+      let optPush = '<option value="">-- Cobrança Direta / Selecione Aluno --</option>';
+      let optManual = '<option value="">-- Selecione o Aluno --</option>';
+
       alunos.forEach(al => {
         const nomeCompleto = `${al.nome || ''} ${al.apelido || ''}`.trim();
         const mat = al.matricula || '';
         const tel = al.telefone_encarregado || al.telefone || '';
-        optHtml += `<option value="${al.id}" data-telefone="${escapeHtml(tel)}" data-nome="${escapeHtml(nomeCompleto)}">${escapeHtml(nomeCompleto)} (${escapeHtml(mat)})</option>`;
+        const rotulo = `${escapeHtml(nomeCompleto)} (${escapeHtml(mat)})`;
+
+        optPush += `<option value="${al.id}" data-telefone="${escapeHtml(tel)}" data-nome="${escapeHtml(nomeCompleto)}">${rotulo}</option>`;
+        optManual += `<option value="${al.id}" data-telefone="${escapeHtml(tel)}" data-nome="${escapeHtml(nomeCompleto)}" data-matricula="${escapeHtml(mat)}">${rotulo}</option>`;
       });
-      sel.innerHTML = optHtml;
+
+      if (selPush) selPush.innerHTML = optPush;
+      if (selManual) selManual.innerHTML = optManual;
     }
   } catch (_) {}
 }
 
 // ==============================================================================
-// GESTÃO DE SMS
+// 4. CONFIGURAÇÃO OPERACIONAL DO GATEWAY (GET / POST)
 // ==============================================================================
+async function carregarConfiguracoesGateway() {
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/configuracao/obter/', { ignoreAuthRedirect: true });
+    if (res && res.success && res.data) {
+      const d = res.data;
+      const inpAndroidRapido = document.getElementById('gwAndroidUrlInput');
+      const inpAndroidCfg = document.getElementById('cfgAndroidGatewayUrl');
+      const inpMpesaShortcode = document.getElementById('cfgMpesaShortcode');
+
+      if (inpAndroidRapido && d.android_gateway_url) inpAndroidRapido.value = d.android_gateway_url;
+      if (inpAndroidCfg && d.android_gateway_url) inpAndroidCfg.value = d.android_gateway_url;
+      if (inpMpesaShortcode && d.mpesa_shortcode) inpMpesaShortcode.value = d.mpesa_shortcode;
+
+      // Selecionar canal pré-definido se existir
+      if (d.canal_envio_padrao) {
+        const radio = document.querySelector(`input[name="gwCanalEnvio"][value="${d.canal_envio_padrao}"]`);
+        if (radio) {
+          radio.checked = true;
+          alternarCanalEnvio(d.canal_envio_padrao);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[GATEWAY] Não foi possível carregar definições do gateway:', err);
+  }
+}
+
+async function salvarUrlAndroidRapida() {
+  const url = (document.getElementById('gwAndroidUrlInput')?.value || '').trim();
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/configuracao/salvar/', {
+      method: 'POST',
+      body: JSON.stringify({ android_gateway_url: url })
+    });
+    if (res && res.success) {
+      mostrarToast('Endereço do telemóvel Android guardado!', 'success');
+      const inpCfg = document.getElementById('cfgAndroidGatewayUrl');
+      if (inpCfg) inpCfg.value = url;
+    } else {
+      mostrarToast((res && res.message) || 'Erro ao guardar endereço.', 'danger');
+    }
+  } catch (err) {
+    mostrarToast('Falha de ligação: ' + (err.message || ''), 'danger');
+  }
+}
+
+async function testarConexaoAndroidGateway() {
+  const url = (document.getElementById('gwAndroidUrlInput')?.value || '').trim();
+  if (!url) {
+    mostrarToast('Por favor, introduza o endereço IP do telemóvel Android primeiro.', 'warning');
+    document.getElementById('gwAndroidUrlInput')?.focus();
+    return;
+  }
+  mostrarToast('A verificar conexão com o telemóvel Android...', 'info');
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/configuracao/salvar/', {
+      method: 'POST',
+      body: JSON.stringify({ android_gateway_url: url })
+    });
+    if (res && res.success) {
+      mostrarToast('✅ Telemóvel configurado e pronto para disparos com o cartão SIM da escola!', 'success');
+    }
+  } catch (err) {
+    mostrarToast('Aviso: Certifique-se de que o telemóvel está na mesma rede Wi-Fi ou com rota aberta.', 'warning');
+  }
+}
+
+async function salvarConfiguracoesCompletasGateway() {
+  const androidUrl = (document.getElementById('cfgAndroidGatewayUrl')?.value || '').trim();
+  const mpesaShortcode = (document.getElementById('cfgMpesaShortcode')?.value || '').trim();
+
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/configuracao/salvar/', {
+      method: 'POST',
+      body: JSON.stringify({
+        android_gateway_url: androidUrl,
+        mpesa_shortcode: mpesaShortcode
+      })
+    });
+    if (res && res.success) {
+      mostrarToast('Definições do gateway gravadas com sucesso!', 'success');
+      const inpRapido = document.getElementById('gwAndroidUrlInput');
+      if (inpRapido) inpRapido.value = androidUrl;
+    } else {
+      mostrarToast((res && res.message) || 'Falha ao gravar definições.', 'danger');
+    }
+  } catch (err) {
+    mostrarToast('Erro ao comunicar com o servidor: ' + (err.message || ''), 'danger');
+  }
+}
+
+// ==============================================================================
+// 5. GESTÃO DE CANAIS DE ENVIO (3 OPÇÕES INSTANTÂNEAS)
+// ==============================================================================
+function alternarCanalEnvio(canal) {
+  const boxAndroid = document.getElementById('boxAndroidGatewayConfig');
+  const btnDisparar = document.getElementById('btnDispararSms');
+
+  if (canal === 'ANDROID_GATEWAY') {
+    if (boxAndroid) boxAndroid.style.display = 'block';
+    if (btnDisparar) {
+      btnDisparar.className = 'btn btn-success fw-bold w-100 py-2 shadow-sm';
+      btnDisparar.innerHTML = '<i class="bi bi-phone-fill me-1"></i> Disparar SMS via Telemóvel Android (Custo Zero)';
+    }
+  } else if (canal === 'WHATSAPP') {
+    if (boxAndroid) boxAndroid.style.display = 'none';
+    if (btnDisparar) {
+      btnDisparar.className = 'btn btn-success fw-bold w-100 py-2 shadow-sm';
+      btnDisparar.innerHTML = '<i class="bi bi-whatsapp me-1"></i> Abrir / Enviar via WhatsApp (100% Gratuito)';
+    }
+  } else {
+    // SANDBOX
+    if (boxAndroid) boxAndroid.style.display = 'none';
+    if (btnDisparar) {
+      btnDisparar.className = 'btn btn-secondary fw-bold w-100 py-2 shadow-sm';
+      btnDisparar.innerHTML = '<i class="bi bi-shield-shaded me-1"></i> Simular Envio em Sandbox (Teste)';
+    }
+  }
+}
+
 function aoMudarModoSms(modo) {
   const boxTurma = document.getElementById('boxSmsTurmaSelect');
   const boxManual = document.getElementById('boxSmsTelefonesManuais');
@@ -126,11 +267,11 @@ function aoMudarModoSms(modo) {
 }
 
 const MODELOS_SMS = {
-  PROPINA: "Prezado Encarregado de {aluno}, lembramos que a propina de {mes} no valor de {valor} MZN tem vencimento proximo. Evite multas pagando via M-Pesa ou e-Mola. SIGE.",
-  RECIBO: "SIGE: Confirmamos a liquidacao da propina de {aluno} referente a {mes}. Valor: {valor} MZN. Recibo disponivel no portal do estudante. Obrigado!",
-  REUNIAO: "Convocatoria: Convidamos o encarregado de {aluno} para a Reuniao Geral de Pais e Encarregados de Educacao neste Sabado as 08h30 na escola. Direccao SIGE.",
-  FALTA: "Aviso Escolar: O estudante {aluno} registou falta no dia de hoje. Agradecemos contacto com a Direccao Pedagogica ou Professor de Turma. SIGE.",
-  PAUTA: "Informacao Escolar: As pautas de avaliacao trimestral de {aluno} ja estao homologadas e disponiveis para consulta no portal e via USSD *123#. SIGE."
+  PROPINA: "Prezado Encarregado de {aluno}, lembramos que a propina de {mes} no valor de {valor} MZN tem vencimento próximo. Evite multas pagando via M-Pesa ou e-Mola. SIGE.",
+  RECIBO: "SIGE: Confirmamos a liquidação da propina de {aluno} referente a {mes}. Valor: {valor} MZN. Recibo disponível no portal do estudante. Obrigado!",
+  REUNIAO: "Convocatória: Convidamos o encarregado de {aluno} para a Reunião Geral de Pais e Encarregados de Educação neste Sábado às 08h30 na escola. Direcção SIGE.",
+  FALTA: "Aviso Escolar: O estudante {aluno} registou falta no dia de hoje. Agradecemos contacto com a Direcção Pedagógica ou Professor de Turma. SIGE.",
+  PAUTA: "Informação Escolar: As pautas de avaliação trimestral de {aluno} já estão homologadas e disponíveis para consulta no portal e via USSD *123#. SIGE."
 };
 
 function aplicarModeloSms(tipoModelo) {
@@ -175,6 +316,9 @@ function aoDigitarTextoSms(texto) {
 }
 
 async function executarEnvioSms() {
+  const radioCanal = document.querySelector('input[name="gwCanalEnvio"]:checked');
+  const canal = radioCanal ? radioCanal.value : 'ANDROID_GATEWAY';
+
   const modo = document.getElementById('smsModoSelect')?.value || 'MANUAL';
   const mensagem = (document.getElementById('smsTexto')?.value || '').trim();
   const tipo = document.getElementById('smsTipoSelect')?.value || 'AVISO';
@@ -185,7 +329,7 @@ async function executarEnvioSms() {
     return;
   }
 
-  const payload = { modo, mensagem, tipo };
+  const payload = { canal, modo, mensagem, tipo };
 
   if (modo === 'MANUAL') {
     const tels = (document.getElementById('smsTelefones')?.value || '').trim();
@@ -208,7 +352,7 @@ async function executarEnvioSms() {
   const btnOriginal = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> A disparar SMS na rede...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> A processar envio...';
   }
 
   try {
@@ -218,18 +362,24 @@ async function executarEnvioSms() {
     });
 
     if (res && res.success) {
-      mostrarToast(res.message || 'SMS enviado com sucesso!', 'success');
+      mostrarToast(res.message || 'Mensagem enviada com sucesso!', 'success');
+
+      // Se for canal WhatsApp e tiver link gerado, abrir diretamente no WhatsApp Web
+      if (res.canal === 'WHATSAPP' && res.wa_link) {
+        window.open(res.wa_link, '_blank');
+      }
+
       if (document.getElementById('smsTexto')) document.getElementById('smsTexto').value = '';
       if (document.getElementById('smsTelefones')) document.getElementById('smsTelefones').value = '';
       aoDigitarTextoSms('');
       await carregarHistoricoSms();
       await carregarEstatisticasGateway();
     } else {
-      mostrarToast((res && res.message) || 'Falha ao enviar SMS.', 'danger');
+      mostrarToast((res && res.message) || 'Falha ao enviar mensagem.', 'danger');
     }
   } catch (err) {
     console.error('[SMS] Erro ao enviar:', err);
-    mostrarToast('Erro de conexão ao enviar SMS: ' + (err.message || ''), 'danger');
+    mostrarToast('Erro de conexão ao enviar: ' + (err.message || ''), 'danger');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -247,26 +397,30 @@ async function carregarHistoricoSms() {
     const lista = (res && res.data) || [];
 
     if (lista.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum SMS enviado recentemente.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum envio recente registado.</td></tr>';
       return;
     }
 
     let html = '';
     lista.forEach(m => {
-      let badgeOp = '<span class="badge bg-secondary">OUTRA</span>';
-      if (m.operadora === 'VODACOM') badgeOp = '<span class="badge bg-danger">Vodacom</span>';
-      if (m.operadora === 'MOVITEL') badgeOp = '<span class="badge bg-warning text-dark">Movitel</span>';
-      if (m.operadora === 'TMCEL') badgeOp = '<span class="badge bg-info text-dark">Tmcel</span>';
+      let badgeCanal = '<span class="badge bg-secondary">SMS</span>';
+      if (m.canal === 'ANDROID_GATEWAY' || m.operadora === 'VODACOM') {
+        badgeCanal = '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-phone me-1"></i>SIM Android</span>';
+      } else if (m.canal === 'WHATSAPP') {
+        badgeCanal = '<span class="badge bg-success"><i class="bi bi-whatsapp me-1"></i>WhatsApp</span>';
+      } else if (m.canal === 'SANDBOX') {
+        badgeCanal = '<span class="badge bg-secondary-subtle text-secondary border"><i class="bi bi-shield-shaded me-1"></i>Sandbox</span>';
+      }
 
       html += `
         <tr>
           <td class="small text-muted text-nowrap">${escapeHtml(m.data)}</td>
           <td>
             <div class="fw-semibold small">${escapeHtml(m.destinatario)}</div>
-            <small class="text-muted">${escapeHtml(m.nome_destinatario)}</small>
+            <small class="text-muted">${escapeHtml(m.nome_destinatario || '')}</small>
           </td>
-          <td>${badgeOp}</td>
-          <td class="small text-truncate" style="max-width: 200px;" title="${escapeHtml(m.mensagem)}">
+          <td>${badgeCanal}</td>
+          <td class="small text-truncate" style="max-width: 220px;" title="${escapeHtml(m.mensagem)}">
             ${escapeHtml(m.mensagem)}
           </td>
           <td>
@@ -284,14 +438,113 @@ async function carregarHistoricoSms() {
 }
 
 // ==============================================================================
-// GESTÃO DE PAGAMENTOS MÓVEIS (M-PESA / E-MOLA)
+// 6. GESTÃO DE PAGAMENTOS (3 OPÇÕES INSTANTÂNEAS)
+// ==============================================================================
+function alternarModoPagamento(modo) {
+  const pManual = document.getElementById('painelPagamentoManual');
+  const pPush = document.getElementById('painelPagamentoPush');
+  const pRec = document.getElementById('painelPagamentoReconciliacao');
+
+  if (modo === 'MANUAL') {
+    if (pManual) pManual.style.display = 'block';
+    if (pPush) pPush.style.display = 'none';
+    if (pRec) pRec.style.display = 'none';
+  } else if (modo === 'PUSH') {
+    if (pManual) pManual.style.display = 'none';
+    if (pPush) pPush.style.display = 'block';
+    if (pRec) pRec.style.display = 'none';
+  } else if (modo === 'RECONCILIACAO') {
+    if (pManual) pManual.style.display = 'none';
+    if (pPush) pPush.style.display = 'none';
+    if (pRec) pRec.style.display = 'block';
+  }
+}
+
+function aoSelecionarAlunoManual(alunoId) {
+  const sel = document.getElementById('pagManualAlunoSelect');
+  if (!sel || !alunoId) return;
+
+  const opt = sel.options[sel.selectedIndex];
+  if (opt) {
+    const nome = opt.getAttribute('data-nome') || '';
+    const mat = opt.getAttribute('data-matricula') || '';
+    const inpObs = document.getElementById('pagManualObservacoes');
+    if (inpObs && !inpObs.value) {
+      inpObs.value = `Quitação de propina escolar - ${nome} (${mat})`;
+    }
+    const inpValor = document.getElementById('pagManualValor');
+    if (inpValor && !inpValor.value) {
+      inpValor.value = '1500.00';
+    }
+  }
+}
+
+async function executarLiquidacaoManual() {
+  const alunoId = document.getElementById('pagManualAlunoSelect')?.value;
+  const metodo = document.getElementById('pagManualMetodoSelect')?.value || 'MPESA';
+  const referencia = (document.getElementById('pagManualReferencia')?.value || '').trim();
+  const valor = parseFloat(document.getElementById('pagManualValor')?.value || 0);
+  const observacoes = (document.getElementById('pagManualObservacoes')?.value || '').trim();
+
+  if (!alunoId) {
+    mostrarToast('Por favor, selecione o estudante beneficiário.', 'warning');
+    document.getElementById('pagManualAlunoSelect')?.focus();
+    return;
+  }
+
+  if (!referencia) {
+    mostrarToast('Por favor, introduza a referência do comprovativo M-Pesa / borderô.', 'warning');
+    document.getElementById('pagManualReferencia')?.focus();
+    return;
+  }
+
+  if (!valor || valor <= 0) {
+    mostrarToast('Por favor, introduza um valor válido em Meticais (MZN).', 'warning');
+    document.getElementById('pagManualValor')?.focus();
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/pagamentos/liquidar-manual/', {
+      method: 'POST',
+      body: JSON.stringify({
+        aluno_id: alunoId,
+        metodo,
+        referencia,
+        valor,
+        observacoes
+      })
+    });
+
+    if (res && res.success) {
+      const recibo = res.recibo || 'REC-CONFIRMADO';
+      mostrarToast(`Propina liquidada com sucesso! Recibo: ${recibo}`, 'success');
+      alert(`✅ SUCESSO: Liquidação Concluída!\n\nEstudante: ${res.aluno || 'Estudante'}\nValor: ${valor.toFixed(2)} MZN\nRecibo Oficial: ${recibo}\nReferência: ${referencia}\n\nEstado da propina alterado para PAGO.`);
+
+      // Limpar formulário manual
+      if (document.getElementById('pagManualReferencia')) document.getElementById('pagManualReferencia').value = '';
+      if (document.getElementById('pagManualValor')) document.getElementById('pagManualValor').value = '';
+      if (document.getElementById('pagManualObservacoes')) document.getElementById('pagManualObservacoes').value = '';
+
+      await carregarTransacoesGateway();
+      await carregarEstatisticasGateway();
+    } else {
+      mostrarToast((res && res.message) || 'Falha ao liquidar pagamento manual.', 'danger');
+    }
+  } catch (err) {
+    console.error('[PAGAMENTO MANUAL] Erro:', err);
+    mostrarToast('Erro ao comunicar com o servidor: ' + (err.message || ''), 'danger');
+  }
+}
+
+// ==============================================================================
+// 7. STK PUSH (PIN NO TELEMÓVEL)
 // ==============================================================================
 function selecionarCarteiraGateway(metodo) {
   stateCarteiraAtiva = metodo;
   const optMpesa = document.getElementById('optCarteiraMpesa');
   const optEmola = document.getElementById('optCarteiraEmola');
   const btnDisparar = document.getElementById('btnDispararStkPush');
-  const lblPrefixo = document.getElementById('lblPrefixoOperadora');
   const statusOp = document.getElementById('statusOperadoraTelefone');
 
   if (metodo === 'MPESA') {
@@ -305,7 +558,7 @@ function selecionarCarteiraGateway(metodo) {
 
     if (btnDisparar) {
       btnDisparar.className = 'btn btn-danger fw-bold w-100 py-2 shadow-sm';
-      btnDisparar.innerHTML = '<i class="bi bi-send-plus-fill me-1"></i> Disparar Cobrança M-Pesa (PIN STK Push)';
+      btnDisparar.innerHTML = '<i class="bi bi-broadcast me-1"></i> Disparar Cobrança M-Pesa (PIN STK Push)';
     }
     if (statusOp) statusOp.textContent = 'Introduza um número Vodacom (84 ou 85) para confirmação de PIN M-Pesa.';
   } else {
@@ -319,7 +572,7 @@ function selecionarCarteiraGateway(metodo) {
 
     if (btnDisparar) {
       btnDisparar.className = 'btn btn-warning text-dark fw-bold w-100 py-2 shadow-sm';
-      btnDisparar.innerHTML = '<i class="bi bi-send-plus-fill me-1"></i> Disparar Cobrança e-Mola (PIN Push)';
+      btnDisparar.innerHTML = '<i class="bi bi-broadcast me-1"></i> Disparar Cobrança e-Mola (PIN Push)';
     }
     if (statusOp) statusOp.textContent = 'Introduza um número Movitel (86 ou 87) para confirmação de PIN e-Mola.';
   }
@@ -435,21 +688,22 @@ async function carregarTransacoesGateway() {
     const lista = (res && res.data) || [];
 
     if (lista.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Nenhuma transação móvel efetuada recentemente.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Nenhuma transação efetuada recentemente.</td></tr>';
       return;
     }
 
     let html = '';
     lista.forEach(t => {
-      const badgeMetodo = t.metodo === 'MPESA'
-        ? '<span class="badge bg-danger">M-Pesa</span>'
-        : '<span class="badge bg-warning text-dark">e-Mola</span>';
+      let badgeMetodo = '<span class="badge bg-secondary">Outro</span>';
+      if (t.metodo === 'MPESA') badgeMetodo = '<span class="badge bg-danger">M-Pesa</span>';
+      else if (t.metodo === 'EMOLA') badgeMetodo = '<span class="badge bg-warning text-dark">e-Mola</span>';
+      else if (t.metodo === 'TRANSFERENCIA') badgeMetodo = '<span class="badge bg-primary">Banco</span>';
+      else if (t.metodo === 'NUMERARIO') badgeMetodo = '<span class="badge bg-dark">Caixa</span>';
 
       html += `
         <tr>
           <td class="small text-muted text-nowrap">${escapeHtml(t.data)}</td>
           <td>${badgeMetodo}</td>
-          <td class="font-monospace small">${escapeHtml(t.telefone)}</td>
           <td class="small fw-semibold">${escapeHtml(t.aluno || '-')}</td>
           <td class="fw-bold text-dark">${(t.valor || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} MT</td>
           <td><span class="badge bg-light text-dark border font-monospace">${escapeHtml(t.recibo)}</span></td>
@@ -463,12 +717,85 @@ async function carregarTransacoesGateway() {
     });
     tbody.innerHTML = html;
   } catch (_) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted">Transações indisponíveis.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">Transações indisponíveis.</td></tr>';
   }
 }
 
 // ==============================================================================
-// SIMULADOR USSD (*...#)
+// 8. RECONCILIAÇÃO AUTOMÁTICA POR SMS M-PESA / E-MOLA (CUSTO ZERO)
+// ==============================================================================
+async function carregarReconciliacoesSms() {
+  const tbody = document.getElementById('tabelaReconciliacoesSmsCorpo');
+  if (!tbody) return;
+
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/reconciliacao/lista/', { ignoreAuthRedirect: true });
+    const lista = (res && res.data) || [];
+
+    if (lista.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Nenhum SMS de confirmação recebido recentemente.</td></tr>';
+      return;
+    }
+
+    let html = '';
+    lista.forEach(r => {
+      let badgeSt = '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>Liquidado</span>';
+      if (r.status === 'PENDENTE') {
+        badgeSt = '<span class="badge bg-warning-subtle text-dark border border-warning-subtle"><i class="bi bi-clock me-1"></i>Pendente</span>';
+      } else if (r.status === 'DUPLICADO') {
+        badgeSt = '<span class="badge bg-secondary-subtle text-secondary border"><i class="bi bi-copy me-1"></i>Duplicado</span>';
+      }
+
+      html += `
+        <tr>
+          <td class="small text-muted text-nowrap">${escapeHtml(r.data)}</td>
+          <td class="small fw-semibold">${escapeHtml(r.origem || 'M-Pesa')}</td>
+          <td class="fw-bold text-dark">${(r.valor || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} MT</td>
+          <td class="font-monospace small">${escapeHtml(r.referencia)}</td>
+          <td class="small">${escapeHtml(r.aluno || '-')}</td>
+          <td>${badgeSt}</td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+  } catch (_) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">Reconciliações indisponíveis.</td></tr>';
+  }
+}
+
+async function simularRecebimentoSmsMpesa() {
+  const texto = (document.getElementById('txtSimulacaoSmsMpesa')?.value || '').trim();
+  if (!texto) {
+    mostrarToast('Por favor, introduza o texto do SMS para simulação.', 'warning');
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/reconciliacao/sms-webhook/', {
+      method: 'POST',
+      body: JSON.stringify({
+        sender: 'MPesa',
+        message: texto
+      })
+    });
+
+    if (res && res.success) {
+      mostrarToast(`SMS processado! Referência: ${res.referencia || 'N/A'} - Valor: ${res.valor || 0} MT`, 'success');
+      alert(`✅ RECONCILIAÇÃO PROCESSADA!\n\nCarteira: ${res.carteira || 'M-Pesa'}\nValor: ${res.valor} MT\nReferência: ${res.referencia}\nEstado: ${res.status}\nEstudante Associado: ${res.aluno || 'Não vinculado automaticamente'}\nRecibo: ${res.recibo || 'N/A'}`);
+
+      await carregarReconciliacoesSms();
+      await carregarTransacoesGateway();
+      await carregarEstatisticasGateway();
+    } else {
+      mostrarToast((res && res.message) || 'Erro ao processar reconciliação.', 'danger');
+    }
+  } catch (err) {
+    mostrarToast('Erro ao testar webhook: ' + (err.message || ''), 'danger');
+  }
+}
+
+// ==============================================================================
+// 9. SIMULADOR USSD (*...#)
 // ==============================================================================
 function teclarUssd(d) {
   const inp = document.getElementById('ussdInputComando');
@@ -484,10 +811,15 @@ function reiniciarSessaoUssd() {
   const inp = document.getElementById('ussdInputComando');
   if (inp) inp.value = '';
 
-  const statusEl = document.getElementById('ussdSessionStatus');
-  if (statusEl) statusEl.textContent = 'Sessão Reiniciada';
-
-  enviarComandoUssd(true);
+  const ecra = document.getElementById('ussdLcdScreen');
+  if (ecra) {
+    ecra.textContent = `CON Escola Secundária de Massinga (SIGE)
+1. Consultar Notas do Estudante
+2. Propinas / Saldos Pendentes
+3. Pagar Propina (M-Pesa / e-Mola)
+4. Calendário Escolar 2026
+5. Contactos da Secretaria`;
+  }
 }
 
 async function enviarComandoUssd(forceRoot = false) {
@@ -502,7 +834,7 @@ async function enviarComandoUssd(forceRoot = false) {
     }
   }
 
-  const ecra = document.getElementById('ussdEcraTexto');
+  const ecra = document.getElementById('ussdLcdScreen');
   if (ecra) ecra.textContent = 'A comunicar com a operadora GSM...';
 
   try {
@@ -517,14 +849,8 @@ async function enviarComandoUssd(forceRoot = false) {
 
     if (res && res.response) {
       if (ecra) ecra.textContent = res.response;
-      const statusEl = document.getElementById('ussdSessionStatus');
-      if (statusEl) {
-        if (res.type === 'END') {
-          statusEl.textContent = 'Sessão Concluída (END)';
-          stateUssdTextoAcumulado = '';
-        } else {
-          statusEl.textContent = 'A aguardar entrada (CON)';
-        }
+      if (res.type === 'END') {
+        stateUssdTextoAcumulado = '';
       }
     }
   } catch (err) {
@@ -535,7 +861,7 @@ async function enviarComandoUssd(forceRoot = false) {
 }
 
 // ==============================================================================
-// ESPECIFICAÇÃO & PROMPT TÉCNICO (ABA 4)
+// 10. ESPECIFICAÇÃO & PROMPT TÉCNICO (ABA 5)
 // ==============================================================================
 async function carregarConteudoPromptTecnico() {
   const pre = document.getElementById('conteudoPrompt');
@@ -560,18 +886,27 @@ async function carregarConteudoPromptTecnico() {
   } catch (_) {}
 }
 
-// Tornar métodos disponíveis globalmente para os botões do DOM
+// Expor métodos globalmente no escopo de window para bindings dos templates HTML
 window.carregarPromptGateway = carregarPromptGateway;
+window.alternarCanalEnvio = alternarCanalEnvio;
+window.salvarUrlAndroidRapida = salvarUrlAndroidRapida;
+window.testarConexaoAndroidGateway = testarConexaoAndroidGateway;
+window.salvarConfiguracoesCompletasGateway = salvarConfiguracoesCompletasGateway;
 window.aoMudarModoSms = aoMudarModoSms;
 window.aplicarModeloSms = aplicarModeloSms;
 window.aoDigitarTextoSms = aoDigitarTextoSms;
 window.executarEnvioSms = executarEnvioSms;
 window.carregarHistoricoSms = carregarHistoricoSms;
+window.alternarModoPagamento = alternarModoPagamento;
+window.aoSelecionarAlunoManual = aoSelecionarAlunoManual;
+window.executarLiquidacaoManual = executarLiquidacaoManual;
 window.selecionarCarteiraGateway = selecionarCarteiraGateway;
 window.aoSelecionarAlunoParaPagamento = aoSelecionarAlunoParaPagamento;
 window.aoDigitarTelefonePagamento = aoDigitarTelefonePagamento;
 window.executarStkPushPagamento = executarStkPushPagamento;
 window.carregarTransacoesGateway = carregarTransacoesGateway;
+window.carregarReconciliacoesSms = carregarReconciliacoesSms;
+window.simularRecebimentoSmsMpesa = simularRecebimentoSmsMpesa;
 window.teclarUssd = teclarUssd;
 window.reiniciarSessaoUssd = reiniciarSessaoUssd;
 window.enviarComandoUssd = enviarComandoUssd;

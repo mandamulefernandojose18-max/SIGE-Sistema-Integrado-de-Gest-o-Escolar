@@ -468,4 +468,51 @@ Registo de transações de carteira móvel (M-Pesa C2B e e-Mola) com liquidaçã
 | `created_at` | `TIMESTAMP` | Não | Data e hora do início da transação. |
 | `updated_at` | `TIMESTAMP` | Não | Data e hora da última alteração de estado. |
 
+#### `sige_configuracoes_gateway` (`apps.ferramentas.models.ConfiguracaoGateway`)
+Configurações operacionais dos canais de telecomunicações e pagamentos por escola (tenant).
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único da configuração. |
+| `escola_id` | `UUID` (FK) | Sim | Escola vinculada (tenant). |
+| `canal_envio_padrao` | `VARCHAR(30)` | Não | Canal pré-definido: `ANDROID_GATEWAY`, `WHATSAPP` ou `SANDBOX`. |
+| `android_gateway_url` | `VARCHAR(255)`| Sim | URL local do telemóvel Android com o SIM da escola. |
+| `whatsapp_numero_escola` | `VARCHAR(30)` | Sim | Número do WhatsApp institucional da escola. |
+| `mpesa_shortcode` | `VARCHAR(30)` | Sim | Shortcode comercial M-Pesa (Vodacom). |
+| `mpesa_api_key` | `VARCHAR(255)`| Sim | Chave de integração M-Pesa OpenAPI. |
+| `updated_at` | `TIMESTAMP` | Não | Data da última alteração. |
+
+#### `sige_mensagens_whatsapp` (`apps.ferramentas.models.MensagemWhatsApp`)
+Registo de mensagens disparadas via WhatsApp Escolar (1-clique gratuito).
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único da mensagem. |
+| `escola_id` | `UUID` (FK) | Sim | Escola emissora. |
+| `destinatario` | `VARCHAR(30)` | Não | Número normalizado internacional (`+258XXXXXXXXX`). |
+| `nome_destinatario` | `VARCHAR(255)`| Sim | Nome do encarregado de educação ou estudante. |
+| `mensagem` | `TEXT` | Não | Conteúdo integral da mensagem. |
+| `tipo` | `VARCHAR(30)` | Não | `AVISO`, `PROPINA`, `RECIBO`, `NOTAS`, `REUNIAO`, `FALTA`. |
+| `link_wa` | `TEXT` | Sim | Link direto `https://wa.me/...` gerado para disparo rápido. |
+| `status` | `VARCHAR(20)` | Não | `GERADO`, `ENVIADO`, `ENTREGUE`, `FALHOU`. |
+| `created_at` | `TIMESTAMP` | Não | Data e hora da criação/disparo. |
+
+#### `sige_reconciliacoes_sms_movel` (`apps.ferramentas.models.ReconciliacaoSmsMovel`)
+Armazenamento e auditoria de SMS de confirmação recebidos do M-Pesa ou e-Mola para liquidação automática a custo zero.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único do SMS reconciliado. |
+| `escola_id` | `UUID` (FK) | Sim | Escola destinatária. |
+| `origem` | `VARCHAR(50)` | Não | `MPESA`, `EMOLA` ou remetente do SMS. |
+| `remetente_telefone` | `VARCHAR(30)`| Sim | Número de telefone que transferiu o valor. |
+| `texto_sms` | `TEXT` | Não | Conteúdo bruto integral do SMS bancário recebido. |
+| `valor_extraido` | `DECIMAL(12,2)`| Não | Valor extraído em Meticais (`MZN`). |
+| `referencia_transacao` | `VARCHAR(100)`| Não | Referência bancária única extraída por regex (`db_index=True`). |
+| `aluno_id` | `UUID` (FK) | Sim | Aluno vinculado à quitação da propina. |
+| `pagamento_id` | `UUID` (FK) | Sim | Pagamento liquidado em `sige_pagamentos`. |
+| `status` | `VARCHAR(20)` | Não | `PROCESSADO`, `PENDENTE`, `DUPLICADO`, `ERRO`. |
+| `created_at` | `TIMESTAMP` | Não | Data e hora da receção e reconciliação. |
+
+
 

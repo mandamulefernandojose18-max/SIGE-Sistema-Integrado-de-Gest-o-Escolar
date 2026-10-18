@@ -1,6 +1,6 @@
 <!-- ===================================================================== -->
-<!-- SIGE - Módulo Ferramentas | Gateway de SMS, USSD e Pagamentos Móveis -->
-<!-- Central Operacional de Maximização: Envio de SMS, Cobranças Móveis e USSD -->
+<!-- SIGE - Módulo Ferramentas | Central de Telecomunicações & Pagamentos -->
+<!-- Maximização de Gateway: SMS, WhatsApp, Pagamentos Móveis e USSD     -->
 <!-- ===================================================================== -->
 <section id="view-prompt-gateway" class="modulo-view" style="display: none;">
   <!-- Cabeçalho Principal -->
@@ -11,14 +11,14 @@
           <i class="bi bi-broadcast-pin me-1"></i> Central de Telecomunicações & Pagamentos
         </span>
         <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small fw-semibold">
-          <i class="bi bi-check-circle-fill me-1"></i> Gateways Ativos (+258)
+          <i class="bi bi-check-circle-fill me-1"></i> 3 Opções Disponíveis
         </span>
       </div>
       <h3 class="fw-bold mb-1 text-dark" style="letter-spacing: -0.3px;">
         Gateway de SMS, USSD e Pagamentos Móveis
       </h3>
       <p class="text-muted mb-0 small">
-        Operação e Maximização em Moçambique: Envio de SMS aos Encarregados, Cobranças M-Pesa & e-Mola e Serviços USSD.
+        Operação Integrada em Moçambique: Gateway Android (SIM Escola), WhatsApp Escolar, Pagamentos Manuais, STK Push e Reconciliação SMS M-Pesa.
       </p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -28,8 +28,8 @@
       <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 small">
         <i class="bi bi-phone me-1"></i> Movitel e-Mola (86/87)
       </span>
-      <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 small">
-        <i class="bi bi-phone me-1"></i> Tmcel SMS (82/83)
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small">
+        <i class="bi bi-whatsapp me-1"></i> WhatsApp Gratuito
       </span>
     </div>
   </div>
@@ -48,7 +48,7 @@
     </div>
     <div class="col-md-3 col-sm-6">
       <div class="card p-3 shadow-sm border-0 h-100 bg-white">
-        <span class="text-muted small text-uppercase fw-semibold">SMS Enviados no Mês</span>
+        <span class="text-muted small text-uppercase fw-semibold">SMS & WhatsApp Enviados</span>
         <div class="d-flex align-items-center justify-content-between mt-2">
           <h4 class="fw-bold mb-0 text-dark" id="gwCardTotalSms">0</h4>
           <span class="badge bg-success-subtle text-success border"><i class="bi bi-send-check-fill"></i> Concluídos</span>
@@ -63,7 +63,7 @@
           <h4 class="fw-bold mb-0 text-success" id="gwCardTotalPagamentos">0</h4>
           <span class="badge bg-success-subtle text-success border">M-Pesa / e-Mola</span>
         </div>
-        <small class="text-muted mt-1 d-block">Liquidações instantâneas</small>
+        <small class="text-muted mt-1 d-block">Liquidações e Reconciliações</small>
       </div>
     </div>
     <div class="col-md-3 col-sm-6">
@@ -73,7 +73,7 @@
           <h4 class="fw-bold mb-0 text-dark" id="gwCardVolumeMzn">0,00 <span class="fs-6 text-muted">MZN</span></h4>
           <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-wallet2"></i> Conciliado</span>
         </div>
-        <small class="text-muted mt-1 d-block">Depósito direto em conta escolar</small>
+        <small class="text-muted mt-1 d-block">Depósito em conta escolar</small>
       </div>
     </div>
   </div>
@@ -82,22 +82,27 @@
   <ul class="nav nav-tabs nav-fill mb-4 border-bottom bg-white rounded-top shadow-sm p-2" id="tabsGateway" role="tablist">
     <li class="nav-item" role="presentation">
       <button class="nav-link active fw-bold py-2" id="tab-sms-btn" data-bs-toggle="tab" data-bs-target="#tab-sms" type="button" role="tab">
-        <i class="bi bi-chat-dots-fill me-2 text-primary"></i> 1. Enviar SMS (Transacional & Massa)
+        <i class="bi bi-chat-dots-fill me-2 text-primary"></i> 1. Enviar Mensagens (SMS & WhatsApp)
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link fw-bold py-2" id="tab-pagamentos-btn" data-bs-toggle="tab" data-bs-target="#tab-pagamentos" type="button" role="tab">
-        <i class="bi bi-phone-fill me-2 text-danger"></i> 2. Efetuar Pagamentos Móveis (M-Pesa / e-Mola)
+        <i class="bi bi-wallet2 me-2 text-danger"></i> 2. Efetuar Pagamentos (Manual & STK Push)
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-bold py-2" id="tab-reconciliacao-btn" data-bs-toggle="tab" data-bs-target="#tab-reconciliacao" type="button" role="tab">
+        <i class="bi bi-receipt-cutoff me-2 text-success"></i> 3. Reconciliação SMS M-Pesa / e-Mola
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link fw-bold py-2" id="tab-ussd-btn" data-bs-toggle="tab" data-bs-target="#tab-ussd" type="button" role="tab">
-        <i class="bi bi-phone-vibrate-fill me-2 text-warning"></i> 3. Simulador USSD (*...#)
+        <i class="bi bi-phone-vibrate-fill me-2 text-warning"></i> 4. Simulador USSD (*...#)
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link fw-bold py-2" id="tab-prompt-btn" data-bs-toggle="tab" data-bs-target="#tab-prompt" type="button" role="tab">
-        <i class="bi bi-code-square me-2 text-secondary"></i> 4. Especificação & Prompt Técnico
+        <i class="bi bi-gear-fill me-2 text-secondary"></i> 5. Definições & Prompt Técnico
       </button>
     </li>
   </ul>
@@ -105,19 +110,72 @@
   <!-- Conteúdo das Abas -->
   <div class="tab-content" id="tabsGatewayContent">
 
-    <!-- ==================== ABA 1: ENVIAR SMS ==================== -->
+    <!-- ==================== ABA 1: ENVIAR MENSAGENS (SMS & WHATSAPP) ==================== -->
     <div class="tab-pane fade show active" id="tab-sms" role="tabpanel">
       <div class="row g-4">
-        <!-- Coluna de Configuração e Disparo de SMS -->
+        <!-- Coluna de Configuração e Disparo -->
         <div class="col-lg-6">
           <div class="card p-4 shadow-sm border-0 h-100">
             <h5 class="fw-bold mb-3 text-dark">
-              <i class="bi bi-send-fill text-primary me-2"></i> Disparar Mensagem SMS
+              <i class="bi bi-send-fill text-primary me-2"></i> Disparar Notificação Escolar
             </h5>
 
-            <!-- 1. Seletor de Modo -->
+            <!-- SELETOR DE CANAL NAQUELE INSTANTE (3 OPÇÕES) -->
+            <div class="card p-3 mb-3 border-primary-subtle bg-primary-subtle bg-opacity-10">
+              <label class="form-label fw-bold text-dark small mb-2">
+                <i class="bi bi-check2-circle text-primary me-1"></i> Escolha o Canal de Envio Para Este Disparo:
+              </label>
+              <div class="row g-2">
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="gwCanalEnvio" id="gwCanalAndroid" value="ANDROID_GATEWAY" checked onchange="alternarCanalEnvio(this.value)">
+                  <label class="btn btn-outline-success w-100 p-2 text-start h-100 d-flex flex-column justify-content-between" for="gwCanalAndroid">
+                    <div>
+                      <strong class="d-block small"><i class="bi bi-phone me-1"></i> 1. Android SIM</strong>
+                      <span class="text-muted d-block" style="font-size: 0.68rem;">SMS real pelo telemóvel da escola. Custo 0 MT.</span>
+                    </div>
+                    <span class="badge bg-success-subtle text-success border mt-1" style="font-size: 0.65rem;">Custo Zero</span>
+                  </label>
+                </div>
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="gwCanalEnvio" id="gwCanalWhatsApp" value="WHATSAPP" onchange="alternarCanalEnvio(this.value)">
+                  <label class="btn btn-outline-success w-100 p-2 text-start h-100 d-flex flex-column justify-content-between" for="gwCanalWhatsApp">
+                    <div>
+                      <strong class="d-block small"><i class="bi bi-whatsapp me-1"></i> 2. WhatsApp</strong>
+                      <span class="text-muted d-block" style="font-size: 0.68rem;">Link directo wa.me ou Webhook. Custo 0 MT.</span>
+                    </div>
+                    <span class="badge bg-success-subtle text-success border mt-1" style="font-size: 0.65rem;">100% Grátis</span>
+                  </label>
+                </div>
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="gwCanalEnvio" id="gwCanalSandbox" value="SANDBOX" onchange="alternarCanalEnvio(this.value)">
+                  <label class="btn btn-outline-secondary w-100 p-2 text-start h-100 d-flex flex-column justify-content-between" for="gwCanalSandbox">
+                    <div>
+                      <strong class="d-block small"><i class="bi bi-shield-shaded me-1"></i> 3. Sandbox</strong>
+                      <span class="text-muted d-block" style="font-size: 0.68rem;">Modo de simulação e teste de entrega.</span>
+                    </div>
+                    <span class="badge bg-secondary-subtle text-secondary border mt-1" style="font-size: 0.65rem;">Simulação</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Campo Expansível de URL do Telemóvel Android -->
+              <div class="mt-2 pt-2 border-top" id="boxAndroidGatewayConfig" style="display: block;">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <span class="text-muted small" style="font-size: 0.75rem;"><i class="bi bi-wifi text-success me-1"></i> Endereço do Telemóvel Android da Escola:</span>
+                  <a href="javascript:void(0)" class="small text-primary text-decoration-none" onclick="testarConexaoAndroidGateway()" style="font-size: 0.75rem;"><i class="bi bi-arrow-repeat me-1"></i>Testar Conexão</a>
+                </div>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-white"><i class="bi bi-link-45deg"></i></span>
+                  <input type="text" id="gwAndroidUrlInput" class="form-control form-control-sm font-monospace" placeholder="Ex: http://192.168.1.50:8080/message" value="">
+                  <button class="btn btn-outline-secondary btn-sm" type="button" onclick="salvarUrlAndroidRapida()" title="Guardar"><i class="bi bi-check-lg"></i></button>
+                </div>
+                <small class="text-muted d-block mt-1" style="font-size: 0.68rem;">Instale a app gratuita <em>Android SMS Gateway</em> no telemóvel da secretaria e coloque o endereço aqui.</small>
+              </div>
+            </div>
+
+            <!-- Seletor de Destinatários -->
             <div class="mb-3">
-              <label class="form-label small fw-bold text-muted">Destinatários do Envio:</label>
+              <label class="form-label small fw-bold text-muted">Destinatários da Mensagem:</label>
               <select id="smsModoSelect" class="form-select" onchange="aoMudarModoSms(this.value)">
                 <option value="MANUAL">Número Manual / Lista Directa de Telemóveis</option>
                 <option value="TURMA">Toda uma Turma (Encarregados da Turma)</option>
@@ -126,7 +184,7 @@
               </select>
             </div>
 
-            <!-- Campo Condicional: Seletor de Turma -->
+            <!-- Campo Condicional: Turma -->
             <div class="mb-3 d-none" id="boxSmsTurmaSelect">
               <label class="form-label small fw-bold text-muted">Selecionar Turma:</label>
               <select id="smsTurmaId" class="form-select">
@@ -144,7 +202,7 @@
               <small class="text-muted">Aceita múltiplos números separados por vírgula. Formato padrão de Moçambique.</small>
             </div>
 
-            <!-- 2. Modelos Prontos de Mensagem -->
+            <!-- Modelos Rápidos -->
             <div class="mb-3">
               <label class="form-label small fw-bold text-muted">Modelos Rápidos (Clique para aplicar):</label>
               <div class="d-flex flex-wrap gap-1">
@@ -166,7 +224,7 @@
               </div>
             </div>
 
-            <!-- 3. Tipo de Mensagem -->
+            <!-- Tipo de Notificação -->
             <div class="mb-3">
               <label class="form-label small fw-bold text-muted">Tipo de Notificação:</label>
               <select id="smsTipoSelect" class="form-select form-select-sm">
@@ -178,27 +236,27 @@
               </select>
             </div>
 
-            <!-- 4. Textarea da Mensagem com Contador -->
+            <!-- Textarea da Mensagem -->
             <div class="mb-3">
               <div class="d-flex justify-content-between align-items-center mb-1">
-                <label class="form-label small fw-bold text-muted mb-0">Texto do SMS:</label>
+                <label class="form-label small fw-bold text-muted mb-0">Texto da Mensagem:</label>
                 <span class="small fw-semibold" id="smsContadorCaracteres">0 / 160 caracteres (1 SMS)</span>
               </div>
               <textarea id="smsTexto" rows="4" class="form-control font-monospace" placeholder="Escreva a mensagem aqui... Use {aluno}, {mes}, {valor} para campos dinâmicos." oninput="aoDigitarTextoSms(this.value)"></textarea>
               <div class="d-flex justify-content-between align-items-center mt-1">
-                <small class="text-muted">Tags suportadas: <code>{aluno}</code>, <code>{mes}</code>, <code>{valor}</code></small>
+                <small class="text-muted">Tags: <code>{aluno}</code>, <code>{mes}</code>, <code>{valor}</code></small>
                 <small class="text-secondary" id="smsCodificacaoBadge">Codificação: GSM-7 (160 car.)</small>
               </div>
             </div>
 
-            <!-- Botão de Disparo -->
+            <!-- Botão de Disparo Dinâmico -->
             <button type="button" id="btnDispararSms" class="btn btn-primary fw-bold w-100 py-2 shadow-sm" onclick="executarEnvioSms()">
-              <i class="bi bi-send-check-fill me-1"></i> Enviar Notificação SMS Agora
+              <i class="bi bi-send-check-fill me-1"></i> Disparar Notificação Agora
             </button>
           </div>
         </div>
 
-        <!-- Coluna de Pré-visualização & Histórico de SMS -->
+        <!-- Coluna de Pré-visualização & Histórico -->
         <div class="col-lg-6">
           <div class="card p-4 shadow-sm border-0 h-100">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -210,11 +268,11 @@
               </button>
             </div>
 
-            <!-- Pré-visualização do SMS em formato de Telemóvel -->
+            <!-- Pré-visualização no Telemóvel -->
             <div class="p-3 rounded-3 bg-light border mb-3">
               <div class="d-flex align-items-center gap-2 mb-2">
                 <i class="bi bi-phone text-primary"></i>
-                <span class="small fw-bold text-muted text-uppercase">Pré-visualização no Telemóvel do Encarregado</span>
+                <span class="small fw-bold text-muted text-uppercase">Pré-visualização no Telemóvel</span>
               </div>
               <div class="p-3 bg-white rounded-3 border shadow-xs" style="max-height: 120px; overflow-y: auto;">
                 <p id="smsPreviewTexto" class="mb-0 text-dark small font-monospace" style="white-space: pre-wrap;">
@@ -230,13 +288,13 @@
                   <tr>
                     <th>Data/Hora</th>
                     <th>Destinatário</th>
-                    <th>Operadora</th>
+                    <th>Canal</th>
                     <th>Mensagem</th>
-                    <th>Estado</th>
+                    <th>Ação</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaHistoricoSmsCorpo">
-                  <tr><td colspan="5" class="text-center py-4 text-muted">A carregar histórico de SMS...</td></tr>
+                  <tr><td colspan="5" class="text-center py-4 text-muted">A carregar histórico...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -245,75 +303,166 @@
       </div>
     </div>
 
-    <!-- ==================== ABA 2: PAGAMENTOS MÓVEIS ==================== -->
+    <!-- ==================== ABA 2: PAGAMENTOS (MANUAL, STK PUSH & RECONCILIAÇÃO) ==================== -->
     <div class="tab-pane fade" id="tab-pagamentos" role="tabpanel">
       <div class="row g-4">
-        <!-- Formulário de Disparo C2B STK Push -->
         <div class="col-lg-5">
           <div class="card p-4 shadow-sm border-0 h-100">
             <h5 class="fw-bold mb-3 text-dark">
-              <i class="bi bi-credit-card-2-front-fill text-danger me-2"></i> Cobrança Móvel (C2B STK Push)
+              <i class="bi bi-wallet2 text-danger me-2"></i> Efetuar / Processar Pagamento
             </h5>
-            <p class="text-muted small">
-              Inicie a solicitação de débito no telemóvel do encarregado. O cliente recebe um alerta pop-up no telemóvel e digita o PIN para liquidar a propina instantaneamente.
-            </p>
 
-            <!-- Seleção de Carteira Móvel -->
-            <div class="mb-3">
-              <label class="form-label small fw-bold text-muted">Escolha a Carteira Móvel:</label>
+            <!-- SELETOR DE MODO DE PAGAMENTO NAQUELE INSTANTE (3 OPÇÕES) -->
+            <div class="card p-3 mb-3 border-danger-subtle bg-danger-subtle bg-opacity-10">
+              <label class="form-label fw-bold text-dark small mb-2">
+                <i class="bi bi-check2-circle text-danger me-1"></i> Escolha o Método de Pagamento Para Este Registo:
+              </label>
               <div class="row g-2">
-                <div class="col-6">
-                  <div class="p-2 border rounded-3 text-center cursor-pointer opcao-carteira-box active" id="optCarteiraMpesa" onclick="selecionarCarteiraGateway('MPESA')" style="border-color: #dc2626 !important; background: rgba(220, 38, 38, 0.05);">
-                    <div class="fw-bold text-danger"><i class="bi bi-phone me-1"></i> M-Pesa</div>
-                    <small class="text-muted" style="font-size: 0.75rem;">Vodacom (84/85)</small>
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="gwModoPagamento" id="gwModoManual" value="MANUAL" checked onchange="alternarModoPagamento(this.value)">
+                  <label class="btn btn-outline-primary w-100 p-2 text-start h-100 d-flex flex-column justify-content-between" for="gwModoManual">
+                    <div>
+                      <strong class="d-block small"><i class="bi bi-pencil-square me-1"></i> 1. Manual</strong>
+                      <span class="text-muted d-block" style="font-size: 0.68rem;">Comprovativo M-Pesa / Talão Banco.</span>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border mt-1" style="font-size: 0.65rem;">Custo Zero</span>
+                  </label>
+                </div>
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="gwModoPagamento" id="gwModoPush" value="PUSH" onchange="alternarModoPagamento(this.value)">
+                  <label class="btn btn-outline-danger w-100 p-2 text-start h-100 d-flex flex-column justify-content-between" for="gwModoPush">
+                    <div>
+                      <strong class="d-block small"><i class="bi bi-broadcast me-1"></i> 2. STK Push</strong>
+                      <span class="text-muted d-block" style="font-size: 0.68rem;">Dispara pedido de PIN no telemóvel.</span>
+                    </div>
+                    <span class="badge bg-danger-subtle text-danger border mt-1" style="font-size: 0.65rem;">M-Pesa API</span>
+                  </label>
+                </div>
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="gwModoPagamento" id="gwModoReconciliacao" value="RECONCILIACAO" onchange="alternarModoPagamento(this.value)">
+                  <label class="btn btn-outline-warning w-100 p-2 text-start h-100 d-flex flex-column justify-content-between" for="gwModoReconciliacao">
+                    <div>
+                      <strong class="d-block small"><i class="bi bi-chat-left-dots me-1"></i> 3. SMS Telemóvel</strong>
+                      <span class="text-muted d-block" style="font-size: 0.68rem;">Lê confirmações M-Pesa recebidas.</span>
+                    </div>
+                    <span class="badge bg-warning-subtle text-dark border mt-1" style="font-size: 0.65rem;">Automático 0 MT</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- PAINEL 1: LIQUIDAÇÃO MANUAL COM COMPROVATIVO -->
+            <div id="painelPagamentoManual" style="display: block;">
+              <!-- Aluno -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Estudante Beneficiário:</label>
+                <select id="pagManualAlunoSelect" class="form-select" onchange="aoSelecionarAlunoManual(this.value)">
+                  <option value="">-- Selecione o Aluno --</option>
+                </select>
+              </div>
+
+              <!-- Método -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Método Utilizado pelo Encarregado:</label>
+                <select id="pagManualMetodoSelect" class="form-select">
+                  <option value="MPESA">Vodacom M-Pesa (Transferência / Pagamento)</option>
+                  <option value="EMOLA">Movitel e-Mola</option>
+                  <option value="TRANSFERENCIA">Transferência Bancária (Millennium BIM / BCI / Moza)</option>
+                  <option value="POS">Cartão / TPA (Terminal POS)</option>
+                  <option value="NUMERARIO">Numerário / Caixa Secretaria</option>
+                </select>
+              </div>
+
+              <!-- Código de Referência do M-Pesa / Talão -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Código de Transação / Referência do Talão:</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-hash"></i></span>
+                  <input type="text" id="pagManualReferencia" class="form-control font-monospace" placeholder="Ex: PP261018.1023.A12345 ou TRF-001">
+                </div>
+                <small class="text-muted">Insira o código do SMS M-Pesa do pai ou o número do borderô.</small>
+              </div>
+
+              <!-- Valor em Meticais -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Valor Pago (MZN):</label>
+                <div class="input-group">
+                  <input type="number" step="0.01" min="1" id="pagManualValor" class="form-control fw-bold fs-5" placeholder="1500.00">
+                  <span class="input-group-text bg-light fw-bold">MZN</span>
+                </div>
+              </div>
+
+              <!-- Observações -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Observações da Quitação:</label>
+                <input type="text" id="pagManualObservacoes" class="form-control form-control-sm" placeholder="Ex: Liquidado na secretaria com confirmação visual do SMS">
+              </div>
+
+              <!-- Botão Liquidar Manual -->
+              <button type="button" class="btn btn-success fw-bold w-100 py-2 shadow-sm" onclick="executarLiquidacaoManual()">
+                <i class="bi bi-check-circle-fill me-1"></i> Liquidar Propina & Emitir Recibo REC-...
+              </button>
+            </div>
+
+            <!-- PAINEL 2: STK PUSH AUTOMÁTICO (PIN NO TELEMÓVEL) -->
+            <div id="painelPagamentoPush" style="display: none;">
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Escolha a Carteira:</label>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="p-2 border rounded-3 text-center cursor-pointer opcao-carteira-box active" id="optCarteiraMpesa" onclick="selecionarCarteiraGateway('MPESA')" style="border-color: #dc2626 !important; background: rgba(220, 38, 38, 0.05);">
+                      <div class="fw-bold text-danger"><i class="bi bi-phone me-1"></i> M-Pesa</div>
+                      <small class="text-muted" style="font-size: 0.75rem;">Vodacom (84/85)</small>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="p-2 border rounded-3 text-center cursor-pointer opcao-carteira-box" id="optCarteiraEmola" onclick="selecionarCarteiraGateway('EMOLA')" style="border-color: #e5e7eb;">
+                      <div class="fw-bold text-warning"><i class="bi bi-phone me-1"></i> e-Mola</div>
+                      <small class="text-muted" style="font-size: 0.75rem;">Movitel (86/87)</small>
+                    </div>
                   </div>
                 </div>
-                <div class="col-6">
-                  <div class="p-2 border rounded-3 text-center cursor-pointer opcao-carteira-box" id="optCarteiraEmola" onclick="selecionarCarteiraGateway('EMOLA')" style="border-color: #e5e7eb;">
-                    <div class="fw-bold text-warning"><i class="bi bi-phone me-1"></i> e-Mola</div>
-                    <small class="text-muted" style="font-size: 0.75rem;">Movitel (86/87)</small>
-                  </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Vincular a Aluno:</label>
+                <select id="pagamentoAlunoSelect" class="form-select" onchange="aoSelecionarAlunoParaPagamento(this.value)">
+                  <option value="">-- Cobrança Direta / Selecione Aluno --</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Telemóvel do Pagador (+258):</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light fw-bold text-muted">+258</span>
+                  <input type="text" id="pagamentoTelefone" class="form-control" placeholder="Ex: 841234567" oninput="aoDigitarTelefonePagamento(this.value)">
                 </div>
               </div>
-            </div>
 
-            <!-- Seleção de Aluno / Propina Pendente -->
-            <div class="mb-3">
-              <label class="form-label small fw-bold text-muted">Vincular a Propina do Aluno (Opcional):</label>
-              <select id="pagamentoAlunoSelect" class="form-select" onchange="aoSelecionarAlunoParaPagamento(this.value)">
-                <option value="">-- Cobrança Direta / Selecione Aluno --</option>
-              </select>
-            </div>
-
-            <!-- Número de Telemóvel (+258) -->
-            <div class="mb-3">
-              <label class="form-label small fw-bold text-muted">Telemóvel do Pagador (+258):</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light fw-bold text-muted" id="lblPrefixoOperadora">+258</span>
-                <input type="text" id="pagamentoTelefone" class="form-control" placeholder="Ex: 841234567 ou 861234567" oninput="aoDigitarTelefonePagamento(this.value)">
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Valor a Cobrar (MZN):</label>
+                <div class="input-group">
+                  <input type="number" step="0.01" min="1" id="pagamentoValor" class="form-control fw-bold fs-5" placeholder="1500.00">
+                  <span class="input-group-text bg-light fw-bold">MZN</span>
+                </div>
               </div>
-              <small class="text-muted" id="statusOperadoraTelefone">Introduza um número Vodacom (84/85) para M-Pesa ou Movitel (86/87) para e-Mola.</small>
+
+              <button type="button" class="btn btn-danger fw-bold w-100 py-2 shadow-sm" onclick="executarStkPushPagamento()">
+                <i class="bi bi-broadcast me-1"></i> Disparar Solicitação STK Push (PIN)
+              </button>
             </div>
 
-            <!-- Valor em Meticais -->
-            <div class="mb-3">
-              <label class="form-label small fw-bold text-muted">Valor a Cobrar (MZN):</label>
-              <div class="input-group">
-                <input type="number" step="0.01" min="1" id="pagamentoValor" class="form-control fw-bold fs-5" placeholder="1500.00">
-                <span class="input-group-text bg-light fw-bold">MZN</span>
+            <!-- PAINEL 3: ATALHO PARA RECONCILIAÇÃO -->
+            <div id="painelPagamentoReconciliacao" style="display: none;">
+              <div class="alert alert-warning py-3 small">
+                <h6 class="fw-bold text-dark mb-1"><i class="bi bi-magic me-1"></i> Reconciliação Automática por SMS</h6>
+                <p class="mb-2">Os pagamentos transferidos pelos encarregados são lidos diretamente do telemóvel Android da escola através dos SMS de confirmação do M-Pesa e e-Mola.</p>
+                <button type="button" class="btn btn-warning btn-sm fw-bold" onclick="document.getElementById('tab-reconciliacao-btn').click()">
+                  <i class="bi bi-arrow-right-circle-fill me-1"></i> Abrir Painel de Reconciliações SMS
+                </button>
               </div>
             </div>
 
-            <!-- Descrição / Referência -->
-            <div class="mb-4">
-              <label class="form-label small fw-bold text-muted">Descrição da Cobrança:</label>
-              <input type="text" id="pagamentoDescricao" class="form-control" placeholder="Ex: Propina de Março - Turma 10A">
-            </div>
-
-            <!-- Botão de Disparo STK Push -->
-            <button type="button" id="btnDispararStkPush" class="btn btn-danger fw-bold w-100 py-2 shadow-sm" onclick="executarStkPushPagamento()">
-              <i class="bi bi-send-plus-fill me-1"></i> Disparar Solicitação STK Push (PIN)
-            </button>
           </div>
         </div>
 
@@ -321,32 +470,28 @@
         <div class="col-lg-7">
           <div class="card p-4 shadow-sm border-0 h-100">
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h5 class="fw-bold mb-0 text-dark">
-                  <i class="bi bi-wallet2 text-success me-2"></i> Transações de Pagamento Móvel
-                </h5>
-                <small class="text-muted">Cobranças liquidadas com conciliação automática e recibo emitido.</small>
-              </div>
+              <h5 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-receipt text-success me-2"></i> Transações e Recibos Emitidos
+              </h5>
               <button class="btn btn-outline-primary btn-sm" onclick="carregarTransacoesGateway()">
                 <i class="bi bi-arrow-repeat me-1"></i> Actualizar
               </button>
             </div>
 
             <div class="table-responsive flex-grow-1" style="max-height: 420px; overflow-y: auto;">
-              <table class="table table-hover align-middle mb-0">
+              <table class="table table-sm table-hover align-middle mb-0">
                 <thead class="table-light sticky-top">
                   <tr>
-                    <th>Data/Hora</th>
-                    <th>Carteira</th>
-                    <th>Telemóvel</th>
-                    <th>Beneficiário</th>
-                    <th>Valor (MZN)</th>
-                    <th>Recibo Emitido</th>
+                    <th>Data</th>
+                    <th>Método</th>
+                    <th>Estudante</th>
+                    <th>Valor</th>
+                    <th>Recibo</th>
                     <th>Estado</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaTransacoesGatewayCorpo">
-                  <tr><td colspan="7" class="text-center py-4 text-muted">A carregar transações móveis...</td></tr>
+                  <tr><td colspan="6" class="text-center py-4 text-muted">A carregar transações...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -355,33 +500,99 @@
       </div>
     </div>
 
-    <!-- ==================== ABA 3: SIMULADOR USSD ==================== -->
+    <!-- ==================== ABA 3: RECONCILIAÇÃO AUTOMÁTICA POR SMS M-PESA ==================== -->
+    <div class="tab-pane fade" id="tab-reconciliacao" role="tabpanel">
+      <div class="row g-4">
+        <!-- Coluna de Instruções & Teste de SMS -->
+        <div class="col-lg-5">
+          <div class="card p-4 shadow-sm border-0 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="badge bg-success-subtle text-success border px-2 py-1 small fw-semibold">
+                <i class="bi bi-magic me-1"></i> Custo Zero de API
+              </span>
+            </div>
+            <h5 class="fw-bold mb-2 text-dark">
+              Reconciliação Automática por SMS M-Pesa / e-Mola
+            </h5>
+            <p class="text-muted small">
+              Quando a escola recebe transferências M-Pesa ou e-Mola no telemóvel da secretaria, o app Android reencaminha o SMS para o SIGE. O sistema extrai o valor, a referência e dá baixa na propina instantaneamente!
+            </p>
+
+            <div class="alert alert-info py-2 px-3 small mb-3">
+              <strong>URL do Webhook para o telemóvel da escola:</strong><br>
+              <code class="d-block mt-1 user-select-all text-dark font-monospace" style="word-break: break-all;">https://sigesaas.duckdns.org/api/v1/ferramentas/reconciliacao/sms-webhook/</code>
+            </div>
+
+            <!-- Caixa de Teste Rápido de SMS -->
+            <div class="p-3 border rounded-3 bg-light mb-3">
+              <label class="form-label small fw-bold text-dark mb-1">
+                <i class="bi bi-play-circle-fill text-primary me-1"></i> Testar Recebimento de SMS M-Pesa Agora:
+              </label>
+              <textarea id="txtSimulacaoSmsMpesa" rows="3" class="form-control form-control-sm font-monospace small mb-2">Confirmado. Recebeu 1,500.00MT de 841234567 - ENCARREGADO TESTE aos 18/10/2026 as 10:20. Ref: PP261018.1023.A12345. Saldo actual: 25,000.00MT.</textarea>
+              <button type="button" class="btn btn-primary btn-sm fw-bold w-100" onclick="simularRecebimentoSmsMpesa()">
+                <i class="bi bi-lightning-charge-fill me-1"></i> Simular Recebimento & Reconciliar
+              </button>
+            </div>
+
+            <div class="small text-muted">
+              <i class="bi bi-shield-check text-success me-1"></i> Validação com proteção anti-duplicação: cada referência M-Pesa só é processada uma única vez.
+            </div>
+          </div>
+        </div>
+
+        <!-- Coluna de Tabela de SMS Reconciliados -->
+        <div class="col-lg-7">
+          <div class="card p-4 shadow-sm border-0 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-list-check text-primary me-2"></i> SMS Recebidos e Reconciliados
+              </h5>
+              <button class="btn btn-outline-primary btn-sm" onclick="carregarReconciliacoesSms()">
+                <i class="bi bi-arrow-repeat me-1"></i> Actualizar
+              </button>
+            </div>
+
+            <div class="table-responsive flex-grow-1" style="max-height: 420px; overflow-y: auto;">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th>Data</th>
+                    <th>Origem</th>
+                    <th>Valor</th>
+                    <th>Referência</th>
+                    <th>Estudante</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaReconciliacoesSmsCorpo">
+                  <tr><td colspan="6" class="text-center py-4 text-muted">A carregar reconciliações...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ABA 4: SIMULADOR USSD (*...#) ==================== -->
     <div class="tab-pane fade" id="tab-ussd" role="tabpanel">
       <div class="row g-4 justify-content-center">
-        <!-- Telemóvel Virtual USSD -->
+        <!-- Ecrã de Simulação do Telemóvel -->
         <div class="col-md-6 col-lg-5">
-          <div class="card p-4 shadow-lg border-0 bg-dark text-white rounded-4 mx-auto" style="max-width: 360px;">
-            <div class="text-center mb-3">
-              <span class="badge bg-secondary px-3 py-1 text-uppercase fw-semibold" style="letter-spacing: 2px;">
-                Terminal USSD Moçambique
-              </span>
-              <div class="text-muted small mt-1">Simulador de Sessão GSM (*...#)</div>
+          <div class="card p-4 shadow-sm border-0 text-center" style="background: #111827; border-radius: 20px; border: 4px solid #374151 !important;">
+            <div class="d-flex justify-content-between align-items-center text-secondary small mb-2">
+              <span><i class="bi bi-reception-4 text-success"></i> Vodacom MZ</span>
+              <span><i class="bi bi-battery-full text-success"></i> 98%</span>
             </div>
 
             <!-- Ecrã LCD do Telemóvel -->
-            <div class="p-3 rounded-3 mb-3 border shadow-inner" style="background: #022c22; border-color: #059669 !important; min-height: 180px; font-family: 'Courier New', Courier, monospace; color: #34d399;">
-              <div class="d-flex justify-content-between align-items-center border-bottom border-success border-opacity-25 pb-1 mb-2 small">
-                <span><i class="bi bi-reception-4"></i> Rede GSM (+258)</span>
-                <span id="ussdSessionStatus">Sessão Activa</span>
-              </div>
-              <div id="ussdEcraTexto" style="white-space: pre-wrap; font-size: 0.88rem; line-height: 1.4;">
-SIGE Moçambique (Massinga)
+            <div class="p-3 mb-3 text-start rounded-3 shadow-inner" style="background: #0f172a; border: 2px solid #1e293b; min-height: 160px; font-family: monospace; color: #38bdf8; font-size: 0.9rem; line-height: 1.4;">
+              <div id="ussdLcdScreen" style="white-space: pre-wrap;">CON Escola Secundária de Massinga (SIGE)
 1. Consultar Notas do Estudante
 2. Propinas / Saldos Pendentes
 3. Pagar Propina (M-Pesa / e-Mola)
 4. Calendário Escolar 2026
-5. Contactos da Secretaria
-              </div>
+5. Contactos da Secretaria</div>
             </div>
 
             <!-- Entrada de Dígitos -->
@@ -443,10 +654,6 @@ SIGE Moçambique (Massinga)
                 <strong class="text-danger"><i class="bi bi-3-circle-fill me-1"></i> Opção 3: Pagar com Carteira Móvel</strong><br>
                 Dispara uma notificação direta (STK Push) para o telemóvel solicitando o PIN da conta M-Pesa ou e-Mola.
               </div>
-              <div class="list-group-item px-0 py-2">
-                <strong class="text-warning"><i class="bi bi-4-circle-fill me-1"></i> Opções 4 e 5: Informações Gerais</strong><br>
-                Calendário dos trimestres e contactos da secretaria escolar.
-              </div>
             </div>
 
             <div class="alert alert-info py-2 px-3 small mb-0">
@@ -457,8 +664,33 @@ SIGE Moçambique (Massinga)
       </div>
     </div>
 
-    <!-- ==================== ABA 4: PROMPT TÉCNICO & ESPECIFICAÇÃO ==================== -->
+    <!-- ==================== ABA 5: DEFINIÇÕES & PROMPT TÉCNICO ==================== -->
     <div class="tab-pane fade" id="tab-prompt" role="tabpanel">
+      <!-- Painel de Definições dos Gateways -->
+      <div class="card p-4 shadow-sm border-0 mb-4">
+        <h5 class="fw-bold mb-3 text-dark">
+          <i class="bi bi-sliders text-primary me-2"></i> Definições Operacionais do Gateway
+        </h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold text-muted">URL do Telemóvel Android da Escola (Custo Zero):</label>
+            <input type="text" id="cfgAndroidGatewayUrl" class="form-control font-monospace" placeholder="http://192.168.1.50:8080/message">
+            <small class="text-muted">Endereço da app <em>Android SMS Gateway</em> no telemóvel da secretaria.</small>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold text-muted">Shortcode Comercial M-Pesa (Vodacom):</label>
+            <input type="text" id="cfgMpesaShortcode" class="form-control font-monospace" placeholder="Ex: 171717 (Opcional)">
+            <small class="text-muted">Utilizado para STK Push direto para quem tem conta comercial M-Pesa.</small>
+          </div>
+        </div>
+        <div class="mt-3 text-end">
+          <button type="button" class="btn btn-primary btn-sm px-4 fw-bold" onclick="salvarConfiguracoesCompletasGateway()">
+            <i class="bi bi-save me-1"></i> Gravar Definições do Gateway
+          </button>
+        </div>
+      </div>
+
+      <!-- Especificação Técnica e Prompt -->
       <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
         <div class="card-header bg-white border-bottom py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2">
