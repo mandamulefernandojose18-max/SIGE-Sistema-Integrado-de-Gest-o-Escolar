@@ -989,3 +989,132 @@ class PautasEstatisticasGeraisXLSXView(APIView):
         response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 
+
+# =====================================================================
+# ENDPOINTS REST: PAUTA DE EXAMES OFICIAIS (MEC / MOÇAMBIQUE)
+# =====================================================================
+
+class PautaExamesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, turma_id):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        turma = get_object_or_404(Turma, id=turma_id)
+        if escola and turma.escola_id != escola.id:
+            return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
+
+        ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
+        dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_letivo)
+
+        return Response({
+            'success': True,
+            'data': dados_exame,
+            **dados_exame
+        })
+
+    def post(self, request, turma_id):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        turma = get_object_or_404(Turma, id=turma_id)
+        if escola and turma.escola_id != escola.id:
+            return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
+
+        ano_letivo = request.data.get('ano_letivo') or getattr(escola, 'ano_letivo_ativo', '2026') or '2026'
+        notas_payload = request.data.get('notas', [])
+
+        if not isinstance(notas_payload, list):
+            return Response({'success': False, 'message': 'Formato inválido: lista de notas esperada.'}, status=400)
+
+        salvos = 0
+        for item in notas_payload:
+            aluno_id = item.get('aluno_id')
+            disc_id = item.get('disciplina_id')
+            if not aluno_id or not disc_id:
+                continue
+
+            e1 = item.get('exame_1epoca')
+            e2 = item.get('exame_2epoca')
+            mfreq = item.get('nota_frequencia') or item.get('frequencia')
+
+            def parse_num(v):
+                if v is None or v == '' or v == '-':
+                    return None
+                try:
+                    num = float(v)
+                    return max(0.0, min(20.0, num))
+                except (ValueError, TypeError):
+                    return None
+
+            e1_num = parse_num(e1)
+            e2_num = parse_num(e2)
+            mfreq_num = parse_num(mfreq)
+
+            ne_obj, _ = NotaExame.objects.get_or_create(
+                escola=escola or turma.escola,
+                aluno_id=aluno_id,
+                disciplina_id=disc_id,
+                turma=turma,
+                ano_letivo=ano_letivo
+            )
+
+            if mfreq_num is not None:
+                ne_obj.nota_frequencia = mfreq_num
+            ne_obj.exame_1epoca = e1_num
+            ne_obj.exame_2epoca = e2_num
+            ne_obj.save()
+            salvos += 1
+
+        return Response({
+            'success': True,
+            'message': f"{salvos} nota(s) de exame atualizada(s) com sucesso na pauta oficial!",
+            'salvos': salvos
+        })
+
+
+class PautaExamesXLSXView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, turma_id):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        turma = get_object_or_404(Turma, id=turma_id)
+        if escola and turma.escola_id != escola.id:
+            return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
+
+        ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
+        orientacao = request.query_params.get('orientacao', 'landscape')
+
+        dados = consolidar_pauta_exames(turma, ano_letivo=ano_letivo)
+        xlsx_bytes = gerar_pauta_exames_xlsx(dados, escola or turma.escola, ano_letivo=ano_letivo, orientacao=orientacao)
+
+        safe_turma = re.sub(r'[^\w\-]', '_', turma.nome)
+        fname = f"Pauta_Exames_{safe_turma}_{ano_letivo}.xlsx"
+        response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        return response
+
+
+class PautaExamesPDFView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, turma_id):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        turma = get_object_or_404(Turma, id=turma_id)
+        if escola and turma.escola_id != escola.id:
+            return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
+
+        ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
+        orientacao = request.query_params.get('orientacao', 'landscape')
+
+        dados = consolidar_pauta_exames(turma, ano_letivo=ano_letivo)
+        pdf_bytes = gerar_pauta_exames_pdf(dados, escola or turma.escola, ano_letivo=ano_letivo, orientacao=orientacao)
+
+        safe_turma = re.sub(r'[^\w\-]', '_', turma.nome)
+        fname = f"Pauta_Exames_{safe_turma}_{ano_letivo}.pdf"
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        return response
+
+

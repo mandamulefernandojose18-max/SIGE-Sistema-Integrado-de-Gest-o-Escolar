@@ -10,7 +10,10 @@ from .views import (
     ActaDOCXView,
     ActaXLSXView,
     PautasEstatisticasGeraisView,
-    PautasEstatisticasGeraisXLSXView
+    PautasEstatisticasGeraisXLSXView,
+    PautaExamesView,
+    PautaExamesXLSXView,
+    PautaExamesPDFView
 )
 
 urlpatterns = [
@@ -55,4 +58,13 @@ urlpatterns = [
     path('estatisticas-gerais/', PautasEstatisticasGeraisView.as_view(), name='pautas_estatisticas'),
     path('estatisticas-gerais/xlsx', PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx_no_slash'),
     path('estatisticas-gerais/xlsx/', PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx'),
+    # Pauta de Exames Oficiais (MEC)
+    path('exames/turma/<uuid:turma_id>', PautaExamesView.as_view(), name='pauta_exames_no_slash'),
+    path('exames/turma/<uuid:turma_id>/', PautaExamesView.as_view(), name='pauta_exames'),
+    path('exames/turma/<uuid:turma_id>/salvar', PautaExamesView.as_view(), name='pauta_exames_salvar_no_slash'),
+    path('exames/turma/<uuid:turma_id>/salvar/', PautaExamesView.as_view(), name='pauta_exames_salvar'),
+    path('exames/turma/<uuid:turma_id>/xlsx', PautaExamesXLSXView.as_view(), name='pauta_exames_xlsx_no_slash'),
+    path('exames/turma/<uuid:turma_id>/xlsx/', PautaExamesXLSXView.as_view(), name='pauta_exames_xlsx'),
+    path('exames/turma/<uuid:turma_id>/pdf', PautaExamesPDFView.as_view(), name='pauta_exames_pdf_no_slash'),
+    path('exames/turma/<uuid:turma_id>/pdf/', PautaExamesPDFView.as_view(), name='pauta_exames_pdf'),
 ]
