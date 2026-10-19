@@ -1,0 +1,120 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Pauta Oficial de Exames (Classes com Exame) -->
+<!-- Página independente do módulo: exames.html -->
+<!-- Isolamento estrito de nível: Acesso restrito a este painel -->
+<!-- ===================================================================== -->
+<section id="view-exames" class="modulo-view" style="display: none;">
+  <!-- Barra de Filtros e Controlos -->
+  <div class="card p-4 mb-4 no-print border-0 shadow-sm">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1">
+            <i class="bi bi-layers-fill text-primary me-1"></i>Classe / Nível (com Exame)
+          </label>
+          <select id="exameClasseFilter" class="form-select form-select-sm" style="min-width: 180px;" onchange="filtrarTurmasExamesPorClasse()">
+            <option value="">A carregar classes com exame...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1">
+            <i class="bi bi-diagram-3-fill text-warning me-1"></i>Turma de Exame
+          </label>
+          <select id="exameTurmaSelect" class="form-select form-select-sm" style="min-width: 240px;" onchange="carregarPautaExamesTurma()">
+            <option value="">Selecione uma turma com exame...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1">
+            <i class="bi bi-calendar-event text-info me-1"></i>Ano Lectivo
+          </label>
+          <div class="sige-seletor-ano-box d-flex align-items-center">
+            <select id="exameAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo" onchange="carregarPautaExamesTurma()">
+              <option value="">-- Escolha ano Lectivo --</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarPautaExamesTurma()">
+              Buscar <i class="bi bi-search ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="salvarNotasExame()" id="btnSalvarNotasExame" title="Guardar alterações das notas de exame na base de dados">
+          <i class="bi bi-floppy-fill me-1"></i> Guardar Notas de Exame
+        </button>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-success" onclick="exportarPautaExamesExcel()" title="Descarregar ficheiro XLSX (Excel) idêntico ao modelo oficial">
+            <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+          </button>
+          <button type="button" class="btn btn-danger" onclick="descarregarPautaExamesPdf()" title="Descarregar documento em PDF oficial em formato Paisagem">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+          </button>
+          <button type="button" class="btn btn-dark" onclick="imprimirPautaExames()" title="Imprimir pauta de exames em folha horizontal (Landscape)">
+            <i class="bi bi-printer me-1"></i> Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerta Informativo e Guardrail Pedagógico -->
+    <div class="mt-3 pt-3 border-top d-flex align-items-center justify-content-between small text-muted">
+      <div>
+        <i class="bi bi-shield-check text-success me-1"></i>
+        <span><strong>Regime Oficial de Exames:</strong> As disciplinas e médias de frequência (proveniência) são extraídas diretamente das pautas de frequência dos 3 trimestres. As notas finais alimentam automaticamente os Certificados de Habilitações e Declarações Escolares.</span>
+      </div>
+      <span class="badge bg-warning text-dark fw-bold px-2 py-1 ms-2" id="badgeTotalCandidatosExame">0 Candidatos</span>
+    </div>
+  </div>
+
+  <!-- Content Card da Pauta de Exames (Imprimível em Landscape) -->
+  <div id="subViewPautaExames" class="card p-4 printable-document shadow-sm border-0" style="background: #ffffff; min-height: 500px;">
+    <!-- Cabeçalho Oficial Idêntico ao Modelo Moçambicano -->
+    <div id="pautaExameCabecalhoOficial" class="text-center mb-3">
+      <div class="d-flex justify-content-center mb-1">
+        <img src="/img/logo-sige.png" alt="Emblema Nacional" style="width: 48px; height: 48px; object-fit: contain;">
+      </div>
+      <h6 class="fw-bold mb-1 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.95rem;">República de Moçambique</h6>
+      <h5 class="fw-bold mb-1 text-uppercase text-dark" id="pautaExameEscolaNome" style="font-size: 1.15rem;">ESCOLA SECUNDÁRIA</h5>
+      <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 px-3 py-2 bg-light rounded border">
+        <span class="fw-bold text-dark small" id="pautaExameClasseArea">Classe / Área ou Secção: 10ª Classe</span>
+        <h6 class="fw-bold text-primary mb-0" id="pautaExameTituloAno" style="letter-spacing: 0.5px;">PAUTA DE EXAMES / Ano 2026</h6>
+        <span class="badge bg-primary px-3 py-2" id="pautaExameTurmaBadge">Turma: 10ª A</span>
+      </div>
+    </div>
+
+    <!-- Tabela Dinâmica da Pauta de Exames -->
+    <div class="table-responsive" id="containerTabelaPautaExames">
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-mortarboard fs-1 text-secondary opacity-50 d-block mb-2"></i>
+        <p class="mb-0">Selecione uma turma com regime de exame para visualizar e lançar notas de exame.</p>
+      </div>
+    </div>
+
+    <!-- Resumo Estatístico e Assinaturas no Rodapé -->
+    <div id="pautaExameRodapeOficial" class="mt-4 pt-3 border-top d-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 p-2 bg-light rounded small" id="pautaExameEstatisticasBox">
+        <!-- Inserido dinamicamente -->
+      </div>
+
+      <div class="row text-center mt-4 pt-3">
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director de Turma</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDT">Director de Turma</p>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director Pedagógico (DAP)</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDAP">Direcção Pedagógica</p>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director da Escola</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDir">Director da Escola</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
