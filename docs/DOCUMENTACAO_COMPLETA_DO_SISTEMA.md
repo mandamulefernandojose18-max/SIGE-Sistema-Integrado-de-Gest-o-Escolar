@@ -341,8 +341,11 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - Ao alocar o professor, o sistema **inicializa automaticamente as Pautas/Cadernetas dos 3 Trimestres** para aquela turma, deixando-as prontas para o lançamento de notas.
 
 ### Módulo 7: Disciplinas e Plano Curricular (`#view-disciplinas`)
-- Gestão do catálogo de disciplinas por Classe (7ª à 12ª) e Secção/Área de Estudo, com códigos canónicos (`LP-10`, `MAT-12CB`, `DGD-11CD`, etc.) e carga horária semanal.
-- Botão para **Sincronizar Currículo Nacional MEC** (`seed-curriculo`) a qualquer momento.
+- **Navegação em Sub-páginas por Classe:** O módulo "Disciplinas" estrutura o currículo em sub-páginas/abas limpas para cada **Classe** ou **Nível** ativo da instituição (1ª à 12ª Classe ou Níveis Técnicos).
+- **Disciplinas Organizadas por Área / Secção:** Na página de cada classe, as disciplinas são apresentadas agrupadas em função da área ou secção correspondente ao seu plano curricular (ex.: *Ciências com Biologia*, *Ciências com Desenho*, *Letras com Geografia*, *Letras com História*, *Ensino Geral / Tronco Comum*).
+- **Critério Obrigatório por Disciplina "Tem Exame: Sim ou Não":** Cada disciplina exibe botões inline ergonómicos `[ Sim ]` `[ Não ]` para alternância imediata em tempo real no servidor (`/api/v1/disciplinas/<id>/toggle-exame/`), além da obrigatoriedade nos formulários de cadastro e edição.
+- **Zero Classes Fictícias e Adição por Filtro:** Apenas classes ativas são exibidas; novas classes oficiais são adicionadas com um clique através do menu dropdown "+ Adicionar Classe ▾" (estritamente 1ª-12ª) ou "+ Adicionar Nível ▾" (Nível 1-8).
+- **Gestão de Secções Curriculares:** Botão "+ Nova Secção / Área" permite criar áreas complementares para a classe selecionada.
 - **Gráfico de Ranking de Reprovação (`/disciplinas/ranking-reprovacao`):** Calcula e exibe em gráfico Chart.js as disciplinas com maior índice percentual de notas negativas na escola.
 
 ### Módulo 8: Biblioteca Digital de Material Escolar (`#view-material-escolar`)
@@ -389,9 +392,15 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Conformidade Normativa e Dados Reais:**
   - As disciplinas e as médias de frequência (MFD) têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
   - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True` ou 10ª / 12ª Classes).
+- **Janela Modal de Parâmetros de Exame:**
+  - Permite configurar a percentagem da nota de frequência (% Freq, padrão 50%), a percentagem da nota de exame (% Exame, padrão 50%, totalizando 100%) e a nota mínima do exame (0 a 20 valores, padrão 10.0).
+- **Regras de Avaliação e 1ª / 2ª Época:**
+  - **1ª Época $\ge \text{Nota Mínima}$:** Aluno aprovado no exame, sendo dispensada a 2ª época.
+  - **1ª Época $< \text{Nota Mínima}$:** Aluno elegível e admitido à 2ª época (classificação provisória `2ª Época`). Ao lançar a 2ª época, a Média Final utiliza esta nota.
 - **Estrutura Visual da Pauta:**
   - Cabeçalho oficial de 3 níveis padronizado pelo MEC.
-  - Para disciplinas com exame: colunas `M. Freq`, `1ª Época`, `2ª Época` e `NF` ($\text{round}((\text{MFreq} + \text{NE})/2)$).
+  - Para disciplinas com exame: colunas `M. Freq`, `1ª Época`, `2ª Época` e `NF` calculada por:
+    $$\text{NF} = \text{round}\left(\frac{\text{MFreq} \times \%_{\text{Freq}} + \text{NE} \times \%_{\text{Exame}}}{100}\right)$$
   - Para disciplinas sem exame: exibição da coluna `M. Freq` (cuja nota é a própria Nota Final).
   - Colunas de encerramento: **Resultado** (`Aprovado`, `2ª Época`, `Reprovado`), **Média Final Global** e **Disciplinas em Atraso**.
 - **Operações e Exportações:**
@@ -663,6 +672,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST` | `/api/v1/pautas/exames/turma/<turma_id>/salvar/` | Pedagógico | Grava e recalcula as notas de exame (1ª e 2ª época) no modelo `NotaExame`. |
 | `GET` | `/api/v1/pautas/exames/turma/<turma_id>/xlsx/` | Pedagógico | Exportação da Pauta de Exames em Excel com cabeçalho oficial de 3 níveis. |
 | `GET` | `/api/v1/pautas/exames/turma/<turma_id>/pdf/` | Pedagógico | Emissão da Pauta Oficial de Exames em PDF A4 Paisagem com termos de homologação. |
+| `GET/POST` | `/api/v1/pautas/exames/parametros/` | Pedagógico / Direção | Consulta e configuração de pesos (% Freq + % Exame = 100%) e nota mínima do exame (0 a 20). |
 | `GET/POST` | `/api/v1/material-escolar` | Autenticado / Pedagógico | Lista materiais didáticos (1ª à 12ª Classe) ou publica novo ficheiro/manual. |
 | `GET` | `/api/v1/material-escolar/<pk>/download` | Autenticado | Descarrega o ficheiro binário do material escolar. |
 | `GET/POST` | `/api/v1/pagamentos` e `/gerar-turma` | Financeiro / Aluno | Lista propinas, cria cobrança individual ou gera mensalidades em lote para uma turma (com bloqueio estrito contra faturas duplicadas no mesmo mês: *"A factura já foi gerada no sistema."*). |

@@ -1062,6 +1062,37 @@ class PautaExamesView(APIView):
                 ne_obj.nota_frequencia = mfreq_num
             ne_obj.exame_1epoca = e1_num
             ne_obj.exame_2epoca = e2_num
+
+            # Calcular e salvar nota_final ponderada e resultado oficial
+            esc_obj = escola or turma.escola
+            cfg_p = esc_obj.get_config_parametros_exames() if hasattr(esc_obj, 'get_config_parametros_exames') else {}
+            p_freq = float(cfg_p.get('peso_frequencia', 50.0))
+            p_exame = float(cfg_p.get('peso_exame', 50.0))
+            n_min = float(cfg_p.get('nota_minima_exame', 10.0))
+
+            nota_ex = None
+            if e1_num is not None and e1_num >= n_min:
+                nota_ex = e1_num
+            elif e1_num is not None and e1_num < n_min:
+                if e2_num is not None:
+                    nota_ex = e2_num
+            elif e1_num is None and e2_num is not None:
+                nota_ex = e2_num
+
+            if nota_ex is not None:
+                if mfreq_num is not None:
+                    nf_val = round((mfreq_num * (p_freq / 100.0)) + (nota_ex * (p_exame / 100.0)), 1)
+                    ne_obj.nota_final = round(nf_val)
+                else:
+                    ne_obj.nota_final = round(nota_ex)
+                ne_obj.resultado = 'Aprovado' if ne_obj.nota_final >= 9.5 else 'Reprovado'
+            elif e1_num is not None and e1_num < n_min and e2_num is None:
+                ne_obj.nota_final = None
+                ne_obj.resultado = '2ª Época'
+            elif mfreq_num is not None:
+                ne_obj.nota_final = round(mfreq_num)
+                ne_obj.resultado = 'Pendente'
+
             ne_obj.save()
             salvos += 1
 
@@ -1116,5 +1147,86 @@ class PautaExamesPDFView(APIView):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
+
+
+class ParametrosExamesView(APIView):
+    """
+    Endpoint para consultar e definir percentagens da nota de frequência, nota de exame
+    e nota mínima de exame da instituição escolar (ou padrão MEC).
+    """
+    permission_classes = [AllowAny]  # Validação manual por token/tenant ou AllowAny para flexibilidade
+
+    def get(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            # Fallback para primeira escola ativa
+            from apps.tenants.models import Escola
+            escola = Escola.objects.first()
+
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
+
+        cfg = escola.get_config_parametros_exames()
+        return Response({
+            'success': True,
+            'parametros': cfg
+        })
+
+    def post(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            from apps.tenants.models import Escola
+            escola = Escola.objects.first()
+
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
+
+        peso_freq = request.data.get('peso_frequencia')
+        peso_exame = request.data.get('peso_exame')
+        nota_minima = request.data.get('nota_minima_exame')
+
+        try:
+            pf = float(peso_freq)
+            pe = float(peso_exame)
+            nm = float(nota_minima)
+        except (ValueError, TypeError):
+            return Response({
+                'success': False,
+                'message': 'Os valores de percentagem e nota mínima devem ser numéricos válidos.'
+            }, status=400)
+
+        if pf < 0 or pf > 100 or pe < 0 or pe > 100:
+            return Response({
+                'success': False,
+                'message': 'As percentagens devem estar entre 0% e 100%.'
+            }, status=400)
+
+        if round(pf + pe, 1) != 100.0:
+            return Response({
+                'success': False,
+                'message': f'A soma da percentagem de frequência ({pf}%) e de exame ({pe}%) deve totalizar exatamente 100%.'
+            }, status=400)
+
+        if nm < 0 or nm > 20:
+            return Response({
+                'success': False,
+                'message': 'A nota mínima do exame deve estar entre 0 e 20 valores.'
+            }, status=400)
+
+        escola.config_parametros_exames = {
+            'peso_frequencia': pf,
+            'peso_exame': pe,
+            'nota_minima_exame': nm
+        }
+        escola.save(update_fields=['config_parametros_exames'])
+
+        return Response({
+            'success': True,
+            'message': 'Parâmetros de exame configurados com sucesso!',
+            'parametros': escola.get_config_parametros_exames()
+        })
+
 
 

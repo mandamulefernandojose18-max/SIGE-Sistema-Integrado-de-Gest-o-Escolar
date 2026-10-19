@@ -41,6 +41,9 @@
 
       <!-- Botões de Ação -->
       <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" onclick="abrirModalParametrosExame()" title="Configurar percentagem de frequência, percentagem de exame e nota mínima">
+          <i class="bi bi-sliders me-1"></i> Parâmetros do Exame
+        </button>
         <button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="salvarNotasExame()" id="btnSalvarNotasExame" title="Guardar alterações das notas de exame na base de dados">
           <i class="bi bi-floppy-fill me-1"></i> Guardar Notas de Exame
         </button>
@@ -59,12 +62,84 @@
     </div>
 
     <!-- Alerta Informativo e Guardrail Pedagógico -->
-    <div class="mt-3 pt-3 border-top d-flex align-items-center justify-content-between small text-muted">
+    <div class="mt-3 pt-3 border-top d-flex flex-wrap align-items-center justify-content-between small text-muted gap-2">
       <div>
         <i class="bi bi-shield-check text-success me-1"></i>
         <span><strong>Regime Oficial de Exames:</strong> As disciplinas e médias de frequência (proveniência) são extraídas diretamente das pautas de frequência dos 3 trimestres. As notas finais alimentam automaticamente os Certificados de Habilitações e Declarações Escolares.</span>
       </div>
-      <span class="badge bg-warning text-dark fw-bold px-2 py-1 ms-2" id="badgeTotalCandidatosExame">0 Candidatos</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-light text-primary border fw-semibold px-2 py-1" id="badgeParametrosAtivos">Freq: 50% | Exame: 50% | Mín: 10.0</span>
+        <span class="badge bg-warning text-dark fw-bold px-2 py-1" id="badgeTotalCandidatosExame">0 Candidatos</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Parâmetros de Avaliação de Exame -->
+  <div class="modal fade" id="modalParametrosExame" tabindex="-1" aria-labelledby="modalParametrosExameLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0">
+        <div class="modal-header bg-primary text-white">
+          <h6 class="modal-title fw-bold" id="modalParametrosExameLabel">
+            <i class="bi bi-sliders me-2"></i>Parâmetros de Avaliação de Exame
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            <i class="bi bi-info-circle-fill me-1"></i>
+            A <strong>Média Final</strong> da disciplina com exame será calculada pela soma ponderada:
+            <div class="fw-bold mt-1 text-dark text-center font-monospace">
+              Média Final = (Freq × %Freq) + (Nota Exame × %Exame)
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                % Nota de Frequência
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inputParamPesoFreq" class="form-control" min="0" max="100" step="1" value="50" oninput="aoMudarPesoFrequencia(this.value)">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                % Nota de Exame
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inputParamPesoExame" class="form-control" min="0" max="100" step="1" value="50" oninput="aoMudarPesoExame(this.value)">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">
+              Nota Mínima do Exame (Aprovação Direta)
+            </label>
+            <div class="input-group input-group-sm">
+              <input type="number" id="inputParamNotaMinima" class="form-control" min="0" max="20" step="0.5" value="10.0">
+              <span class="input-group-text">Valores (Máx. 20)</span>
+            </div>
+            <div class="form-text small text-muted mt-1">
+              <i class="bi bi-check2-circle text-success me-1"></i>
+              Se a nota da <strong>1ª Época</strong> for igual ou superior à nota mínima, o aluno é <strong>Aprovado</strong> no exame. Caso contrário, o aluno pode e tem direito a realizar a <strong>2ª Época</strong>.
+            </div>
+          </div>
+
+          <div id="alertaSomaPesos" class="alert alert-warning py-1 px-2 small d-none">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            A soma das percentagens de Frequência e Exame deve totalizar rigorosamente 100%.
+          </div>
+        </div>
+        <div class="modal-footer bg-light p-3">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="salvarParametrosExame()">
+            <i class="bi bi-check-lg me-1"></i> Guardar Parâmetros
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

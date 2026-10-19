@@ -85,15 +85,25 @@
 ### Módulo Curricular: Gestão de Disciplinas, Classes/Níveis e Regime de Exame (`#view-disciplinas`)
 - **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
 - **Como aceder:** Clique em **"Disciplinas"** na barra lateral de navegação (categoria *Gestão Escolar*).
+- **Sub-páginas das Classes dentro da Página "Disciplinas":**
+  - O SIGE disponibiliza uma navegação fluida por abas horizontais representando as páginas de cada **Classe** ou **Nível** ativo da instituição (ex: `10ª Classe`, `11ª Classe`, `12ª Classe` ou `Nível 1`, `Nível 2`...).
+  - Ao clicar numa aba de classe, o utilizador entra directamente na sub-página curricular daquela classe específica.
+- **Disciplinas Organizadas em Função da Área / Secção do Plano Curricular:**
+  - Na sub-página de cada classe, as disciplinas são apresentadas em blocos dedicados por **Área / Secção de Estudo** correspondentes ao plano curricular daquela classe:
+    - *Exemplo 11ª / 12ª Classe:* Blocos de **Ciências com Biologia**, **Ciências com Desenho**, **Letras com Geografia**, **Letras com História**, e **Ensino Geral (Tronco Comum)**.
+    - *Exemplo 1ª à 10ª Classe:* Bloco de **Ensino Geral (Tronco Comum)** e eventuais secções complementares.
+    - *Exemplo Ensino Técnico/Níveis:* Blocos de **Formação Vocacional** e **Formação Geral**.
+  - Cada secção possui o seu cabeçalho com contagem de disciplinas, indicadores de exame e botão rápido `+ Disciplina`.
+  - Permite adicionar novas secções ou áreas personalizadas para a classe através do botão **"+ Nova Secção / Área"**.
 - **Modelo Estrutural da Instituição (Classes vs Níveis):**
-  - **Regime por Classes:** Destinado ao Ensino Secundário Geral (ESG) e Ensino Primário. O sistema restringe e permite cadastrar **estritamente de 1ª à 12ª Classe** (`1ª Classe`, `2ª Classe` ... `12ª Classe`).
-  - **Regime por Níveis:** Destinado a Institutos Médios, Escolas Técnicas e Formação Profissional. O sistema restringe e permite cadastrar **estritamente Níveis numéricos** (`Nível 1`, `Nível 2`, `Nível 3`, `Nível 4`, `Nível 5`, etc.).
+  - **Regime por Classes:** Destinado ao Ensino Geral (ESG e Primário). Restringe as opções estritamente de **1ª à 12ª Classe**.
+  - **Regime por Níveis:** Destinado a Institutos Médios e Formação Profissional. Restringe as opções estritamente a **Nível 1 à Nível 8**.
 - **Adição Dinâmica e Zero Classes Fictícias:**
-  - O sistema não insere dados fictícios. A instituição ativa as classes ou níveis que efetivamente leciona através do menu dropdown **"+ Adicionar Classe ▾"** (ou *"+ Adicionar Nível ▾"*).
+  - O sistema não pré-carrega classes fictícias. A instituição ativa as classes ou níveis que leciona através do menu dropdown **"+ Adicionar Classe ▾"** (ou *"+ Adicionar Nível ▾"*). Ao escolher uma classe da lista oficial, a sua sub-página é criada instantaneamente.
 - **Critério Obrigatório por Disciplina: "A Disciplina tem Exame: Sim ou Não":**
-  - A definição de ter ou não exame é granular por disciplina, refletindo fielmente a matriz curricular (disciplinas com exame nacional como Português e Matemática versus disciplinas de avaliação contínua como TIC's e Educação Física).
-  - **Alternância com 1 Clique na Tabela:** Cada linha da tabela de disciplinas possui os botões ergonómicos `[ Sim ]` `[ Não ]` que atualizam em tempo real no servidor com feedback visual imediato.
-  - **Formulário de Cadastro e Edição:** Campo obrigatório com selecção clara *(•) Sim (Com Exame) / ( ) Não (Sem Exame)*.
+  - Cada disciplina possui a definição granular e independente de realização de exame final (ex: Matemática e Língua Portuguesa com exame nacional vs Educação Física e TIC's sem exame).
+  - **Alternância com 1 Clique:** Na tabela de cada secção, os botões ergonómicos `[ Sim ]` `[ Não ]` atualizam em tempo real via API (`/api/v1/disciplinas/<id>/toggle-exame/`) com resposta instantânea e sem recarregar a tela.
+  - **Cadastro e Edição Integrados:** Formulários com selecção obrigatória *(•) Sim (Com Exame) / ( ) Não (Sem Exame)*.
 
 ---
 
@@ -158,13 +168,22 @@
 - **Princípio da Fidelidade e Dados Reais:**
   - As disciplinas e as **Médias de Frequência** têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
   - O seletor de turmas filtra dinamicamente e exibe apenas turmas pertencentes a classes ou níveis parametrizados como **"Com Exame"** (padrão MEC: 10ª e 12ª Classes).
+- **Janela de Parâmetros de Avaliação de Exame (Botão "Parâmetros do Exame"):**
+  - Permite aos responsáveis pedagógicos e diretores configurar os critérios de cálculo:
+    - **% Nota de Frequência:** Percentual de peso da média de frequência (padrão: 50%).
+    - **% Nota de Exame:** Percentual de peso da nota do exame (padrão: 50%).
+    - *Validação Automática:* A soma das percentagens deve totalizar estritamente 100%.
+    - **Nota Mínima do Exame (escala 0 a 20):** Padrão de 10.0 valores para aprovação direta na 1ª época.
+- **Regras Operacionais da 1ª e 2ª Época:**
+  - **Aprovação na 1ª Época:** Se a nota da 1ª época for $\ge \text{Nota Mínima}$, o aluno é considerado **Aprovado no Exame**. O campo da 2ª época fica bloqueado/indicado como "Dispensado" (`Disp.`).
+  - **Direito à 2ª Época:** Se a nota da 1ª época for $< \text{Nota Mínima}$, o aluno fica elegível para a 2ª época e o status provisório passa a **`2ª Época`**. Ao lançar a nota da 2ª época, a Média Final é calculada com esta nota.
 - **Estrutura Visual da Pauta:**
   - Cabeçalho oficial de 3 níveis padronizado pelo MEC.
-  - **Disciplinas com Exame:** `M. Freq`, `1ª Época`, `2ª Época` e `NF` (calculada por $\text{round}((\text{MFreq} + \text{NE})/2)$).
+  - **Disciplinas com Exame:** `M. Freq`, `1ª Época`, `2ª Época` e `NF` (calculada pela fórmula ponderada $\text{round}((\text{MFreq} \times \%_{\text{Freq}} + \text{NE} \times \%_{\text{Exame}})/100)$).
   - **Disciplinas sem Exame:** Exibição exclusiva de `M. Freq` (cuja nota é a própria Nota Final).
   - Colunas de encerramento: **Resultado** (`Aprovado`, `2ª Época`, `Reprovado`), **Média Final Global** e **Disciplinas em Atraso**.
 - **Operações e Exportações:**
-  - **Lançamento de Notas de Exame:** Campos de entrada com recálculo em tempo real e botão **"Gravar Notas"** para persistência segura em `sige_notas_exame`.
+  - **Lançamento de Notas de Exame:** Campos de entrada com recálculo em tempo real e botão **"Guardar Notas de Exame"** para persistência segura em `sige_notas_exame`.
   - **Exportação Excel (`.xlsx`):** Gera a planilha oficial completa com formatação idêntica ao modelo ministerial.
   - **Download PDF & Impressão:** Relatório em formato A4 Paisagem com quadro estatístico demográfico e assinaturas do Diretor da Escola, DAP e Diretor de Turma.
 - **Integração aos Documentos Oficiais:** As classificações consolidadas na Pauta de Exames alimentam diretamente o **Certificado de Habilitações** e a **Declaração Escolar com Notas** emitidos para o estudante.

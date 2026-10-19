@@ -9551,33 +9551,36 @@ function atualizarSelectAreasDisciplinas(classe = null) {
 
 function filtrarDisciplinasTabelaTexto() {
   const busca = (document.getElementById('filtroDisciplinasBusca')?.value || '').toLowerCase().trim();
-  const rows = document.querySelectorAll('#tabelaDisciplinas tr');
+  const rows = document.querySelectorAll('.linha-disciplina-item');
   let visiveis = 0;
-  let linhaVazia = document.getElementById('linhaNenhumaDisciplinaBusca');
 
-  rows.forEach(r => {
-    if (r.id === 'linhaNenhumaDisciplinaBusca') return;
+  if (rows && rows.length > 0) {
+    rows.forEach(r => {
+      const txt = (r.getAttribute('data-texto') || r.textContent).toLowerCase();
+      const show = (!busca || txt.includes(busca));
+      r.style.display = show ? '' : 'none';
+      if (show) visiveis++;
+    });
+
+    const cards = document.querySelectorAll('.area-seccao-card');
+    cards.forEach(c => {
+      if (!busca) {
+        c.style.display = '';
+        return;
+      }
+      const visibleInCard = c.querySelectorAll('.linha-disciplina-item:not([style*="display: none"])');
+      c.style.display = visibleInCard.length > 0 ? '' : 'none';
+    });
+    return;
+  }
+
+  const fallbackRows = document.querySelectorAll('#tabelaDisciplinas tr');
+  fallbackRows.forEach(r => {
     if (r.cells.length < 4) return;
     const txt = r.textContent.toLowerCase();
     const show = (!busca || txt.includes(busca));
     r.style.display = show ? '' : 'none';
-    if (show) visiveis++;
   });
-
-  const tbody = document.getElementById('tabelaDisciplinas');
-  if (tbody && rows.length > 0 && visiveis === 0 && busca) {
-    if (!linhaVazia) {
-      linhaVazia = document.createElement('tr');
-      linhaVazia.id = 'linhaNenhumaDisciplinaBusca';
-      linhaVazia.innerHTML = `<td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-search me-1 text-primary"></i> Nenhuma disciplina encontrada com o termo "<strong>${busca}</strong>".</td>`;
-      tbody.appendChild(linhaVazia);
-    } else {
-      linhaVazia.style.display = '';
-      linhaVazia.innerHTML = `<td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-search me-1 text-primary"></i> Nenhuma disciplina encontrada com o termo "<strong>${busca}</strong>".</td>`;
-    }
-  } else if (linhaVazia) {
-    linhaVazia.style.display = 'none';
-  }
 }
 
 // ==================== GESTÃO DE CLASSES E NÍVEIS CURRICULARES (REGIME DE EXAME) ====================
@@ -10405,21 +10408,33 @@ window.adicionarClasseInstituicao = function(nomeClasse) {
 
   state.filtroDisciplinaClasse = nomeClasse;
   if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao(`"${nomeClasse}" selecionada! Defina as disciplinas desta classe e o critério: Tem Exame (Sim ou Não).`, 'success');
+    mostrarNotificacao(`Página da "${nomeClasse}" ativada! Adicione disciplinas e defina se têm exame (Sim ou Não).`, 'success');
   }
   carregarDisciplinas();
+};
 
-  const discExistentes = (state.todasDisciplinas || []).filter(d => (d.classe || '').trim() === nomeClasse);
-  if (discExistentes.length === 0) {
-    modalNovaDisciplina(nomeClasse);
+window.selecionarSubPaginaClasse = function(nomeClasse) {
+  state.filtroDisciplinaClasse = nomeClasse;
+  const navTabs = document.getElementById('navAbasClassesInstituicao');
+  if (navTabs) {
+    const botoes = navTabs.querySelectorAll('button[data-classe]');
+    botoes.forEach(b => {
+      const isAct = b.getAttribute('data-classe') === nomeClasse;
+      b.className = `btn btn-sm ${isAct ? 'btn-primary active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}`;
+      const badge = b.querySelector('.badge');
+      if (badge) {
+        badge.className = `badge ${isAct ? 'bg-white text-primary' : 'bg-secondary text-white'} ms-1`;
+      }
+    });
   }
+  window.renderizarSubpaginaClasseAtiva();
 };
 
 window.removerClasseDaInstituicaoAtiva = function() {
   const classeAtiva = (state.filtroDisciplinaClasse || '').trim();
   if (!classeAtiva) return;
 
-  const vinculadas = (state.todasDisciplinas || []).filter(d => (d.classe || '').trim() === classeAtiva);
+  const vinculadas = (state.todasDisciplinas || []).filter(d => (d.classe || '').trim().toLowerCase() === classeAtiva.toLowerCase());
   if (vinculadas.length > 0) {
     alert(`Não é possível remover "${classeAtiva}" porque ela possui ${vinculadas.length} disciplina(s) cadastrada(s).\n\nElimine as disciplinas desta classe primeiro.`);
     return;
@@ -10435,14 +10450,14 @@ window.removerClasseDaInstituicaoAtiva = function() {
     ativas = JSON.parse(localStorage.getItem(`sige_classes_ativas_${escolaId}`) || '[]');
   } catch(_) {}
 
-  ativas = ativas.filter(c => c !== classeAtiva);
+  ativas = ativas.filter(c => c.toLowerCase() !== classeAtiva.toLowerCase());
   try {
     localStorage.setItem(`sige_classes_ativas_${escolaId}`, JSON.stringify(ativas));
   } catch(_) {}
 
   state.filtroDisciplinaClasse = '';
   if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao(`"${classeAtiva}" removida da lista.`, 'info');
+    mostrarNotificacao(`"${classeAtiva}" removida da lista da escola.`, 'info');
   }
   carregarDisciplinas();
 };
@@ -10471,7 +10486,7 @@ window.alternarExameDisciplina = async function(disciplinaId, novoStatus) {
       if (typeof mostrarNotificacao === 'function') {
         mostrarNotificacao(`"${disc?.nome || 'Disciplina'}": Exame definido como ${statusBool ? 'Sim (Com Exame)' : 'Não (Sem Exame)'}`, 'info');
       }
-      await carregarDisciplinas();
+      window.renderizarSubpaginaClasseAtiva();
     } else {
       if (typeof mostrarNotificacao === 'function') {
         mostrarNotificacao(res?.message || 'Erro ao alterar critério de exame', 'danger');
@@ -10490,21 +10505,26 @@ window.modalNovaDisciplinaParaClasseAtiva = function() {
   modalNovaDisciplina(classeAtiva);
 };
 
+window.modalNovaSeccaoAreaParaClasseAtiva = function() {
+  const classeAtiva = state.filtroDisciplinaClasse || '';
+  modalNovaSeccaoArea(classeAtiva);
+};
+
 window.modalAdicionarNivelCurricular = function() {
   navegarPara('disciplinas');
 };
 
-function modalNovaSeccaoArea() {
+function modalNovaSeccaoArea(classePredefinida = '') {
   const classesOficiais = [
     '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
     '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
   ];
-  const niveisOficiais = window.obterNiveisInstituicao();
+  const niveisOficiais = window.obterNiveisInstituicao ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3'];
 
-  const classeAtiva = (state.filtroDisciplinaClasse || '10ª Classe').trim();
+  const classeAtiva = (classePredefinida || state.filtroDisciplinaClasse || '10ª Classe').trim();
   const isNivel = classeAtiva.toLowerCase().includes('nível') || classeAtiva.toLowerCase().includes('nivel');
   const optClasses = isNivel
-    ? window.renderizarOpcoesNiveisSelect(niveisOficiais, classeAtiva)
+    ? (typeof window.renderizarOpcoesNiveisSelect === 'function' ? window.renderizarOpcoesNiveisSelect(niveisOficiais, classeAtiva) : niveisOficiais.map(n => `<option value="${n}" ${n === classeAtiva ? 'selected' : ''}>${n}</option>`).join(''))
     : classesOficiais.map(c => `<option value="${c}" ${c === classeAtiva ? 'selected' : ''}>${c}</option>`).join('');
 
   abrirModal('Cadastrar Secção / Área de Estudo', `
@@ -10531,18 +10551,15 @@ function modalNovaSeccaoArea() {
       <div class="mb-3">
         <div class="d-flex justify-content-between align-items-center mb-1">
           <label class="form-label small fw-semibold mb-0" id="labelMsaClasse">${isNivel ? 'Nível Correspondente *' : 'Classe Correspondente *'}</label>
-          <button type="button" id="btnAdicionarNivelSeccao" class="btn btn-link btn-sm p-0 text-success fw-semibold small text-decoration-none" style="${isNivel ? '' : 'display: none;'}" onclick="window.promptAdicionarNivelModal('msaClasse')">
-            <i class="bi bi-plus-circle me-1"></i>+ Adicionar Nível
-          </button>
         </div>
-        <select id="msaClasse" class="form-select" required onchange="if(this.value==='__NOVO_NIVEL__') window.promptAdicionarNivelModal('msaClasse')">
+        <select id="msaClasse" class="form-select" required>
           ${optClasses}
         </select>
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Nome da Secção ou Área de Estudo *</label>
         <input type="text" id="msaNome" class="form-control" placeholder="Ex: Ciências com Geografia, Ciências com Biologia, Contabilidade, Eletricidade..." required>
-        <small class="text-muted">A nova secção/área aparecerá automaticamente em todas as listas de filtros, turmas e disciplinas.</small>
+        <small class="text-muted">A nova secção/área aparecerá organizada na página desta classe para inclusão de disciplinas.</small>
       </div>
       <button type="submit" class="btn btn-primary w-100 fw-semibold">
         <i class="bi bi-plus-circle me-1"></i> Criar Secção / Área
@@ -10553,19 +10570,13 @@ function modalNovaSeccaoArea() {
   window.alternarRegimeModalSeccao = function(regime) {
     const sel = document.getElementById('msaClasse');
     const lbl = document.getElementById('labelMsaClasse');
-    const btnAdd = document.getElementById('btnAdicionarNivelSeccao');
     if (!sel) return;
     if (regime === 'NIVEL') {
       if (lbl) lbl.textContent = 'Nível Curricular *';
-      if (btnAdd) btnAdd.style.display = 'inline-block';
-      const niveis = window.obterNiveisInstituicao();
-      sel.innerHTML = window.renderizarOpcoesNiveisSelect(niveis);
-      if (niveis.length === 0) {
-        setTimeout(() => { window.promptAdicionarNivelModal('msaClasse'); }, 150);
-      }
+      const niveis = window.obterNiveisInstituicao ? window.obterNiveisInstituicao() : ['Nível 1', 'Nível 2', 'Nível 3'];
+      sel.innerHTML = niveis.map(n => `<option value="${n}">${n}</option>`).join('');
     } else {
       if (lbl) lbl.textContent = 'Classe Correspondente *';
-      if (btnAdd) btnAdd.style.display = 'none';
       sel.innerHTML = classesOficiais.map(c => `<option value="${c}">${c}</option>`).join('');
     }
   };
@@ -10590,49 +10601,32 @@ function modalNovaSeccaoArea() {
 
     fecharModal();
 
-    // Atualiza imediatamente a lista de filtros e seleciona a nova área
     state.filtroDisciplinaClasse = classeAlvo;
-    state.filtroDisciplinaArea = nomeArea;
-
-    const selClasse = document.getElementById('filtroDisciplinasClasseSelect');
-    if (selClasse) selClasse.value = classeAlvo;
-
-    atualizarSelectAreasDisciplinas(classeAlvo);
-
-    const selArea = document.getElementById('filtroDisciplinasAreaSelect');
-    if (selArea) selArea.value = nomeArea;
-
     carregarDisciplinas();
 
-    if (typeof atualizarFiltroAreasTurmas === 'function') {
-      try { atualizarFiltroAreasTurmas(); } catch(err){}
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao(`Secção / Área "${nomeArea}" cadastrada para a ${classeAlvo}!`, 'success');
     }
-
-    mostrarNotificacao?.(`Secção / Área "${nomeArea}" cadastrada com sucesso! Ela foi adicionada à lista de filtros.`, 'success');
   });
 }
 
 async function carregarDisciplinas() {
-  const tbody = document.getElementById('tabelaDisciplinas');
   const regime = window.obterRegimeInstituicao();
 
   // 1. Atualizar Botões de Regime no Topo
   const btnClasses = document.getElementById('btnRegimeClasses');
   const btnNiveis = document.getElementById('btnRegimeNiveis');
   const txtBtnAdd = document.getElementById('textoBtnAdicionarClasse');
-  const lblFiltroCls = document.getElementById('labelFiltroClasse');
 
   if (btnClasses && btnNiveis) {
     if (regime === 'CLASSES') {
       btnClasses.className = 'btn btn-sm btn-primary active text-white fw-bold';
       btnNiveis.className = 'btn btn-sm btn-outline-secondary';
       if (txtBtnAdd) txtBtnAdd.textContent = '+ Adicionar Classe';
-      if (lblFiltroCls) lblFiltroCls.innerHTML = '<i class="bi bi-mortarboard me-1 text-primary"></i> 1. Classe:';
     } else {
       btnClasses.className = 'btn btn-sm btn-outline-secondary';
       btnNiveis.className = 'btn btn-sm btn-success active text-white fw-bold';
       if (txtBtnAdd) txtBtnAdd.textContent = '+ Adicionar Nível';
-      if (lblFiltroCls) lblFiltroCls.innerHTML = '<i class="bi bi-layers me-1 text-success"></i> 1. Nível:';
     }
   }
 
@@ -10643,7 +10637,7 @@ async function carregarDisciplinas() {
     const ativas = window.obterClassesInstituicao();
 
     dropdownLista.innerHTML = listaOficial.map(item => {
-      const jaAdicionada = ativas.includes(item);
+      const jaAdicionada = ativas.some(a => a.toLowerCase() === item.toLowerCase());
       return `
         <li>
           <a class="dropdown-item d-flex justify-content-between align-items-center py-2" href="#" onclick="window.adicionarClasseInstituicao('${item}'); return false;">
@@ -10656,32 +10650,9 @@ async function carregarDisciplinas() {
   }
 
   try {
-    const selClasse = document.getElementById('filtroDisciplinasClasseSelect');
-    if (selClasse && state.filtroDisciplinaClasse !== undefined) {
-      selClasse.value = state.filtroDisciplinaClasse;
-    }
-
-    const selArea = document.getElementById('filtroDisciplinasAreaSelect');
-    if (selArea && state.filtroDisciplinaArea !== undefined) {
-      selArea.value = state.filtroDisciplinaArea;
-    }
-
-    const qParams = new URLSearchParams();
-    if (state.filtroDisciplinaClasse) qParams.set('classe', state.filtroDisciplinaClasse);
-    if (state.filtroDisciplinaArea) qParams.set('area', state.filtroDisciplinaArea);
-    const buscaVal = (document.getElementById('filtroDisciplinasBusca')?.value || '').trim();
-    if (buscaVal) qParams.set('search', buscaVal);
-
-    const url = '/api/v1/disciplinas' + (qParams.toString() ? '?' + qParams.toString() : '');
     let resD = null;
-    let resStats = null;
     try {
-      const [rD, rS] = await Promise.all([
-        apiFetch(url),
-        apiFetch('/api/v1/disciplinas/stats').catch(() => ({ success: false }))
-      ]);
-      resD = rD;
-      resStats = rS;
+      resD = await apiFetch('/api/v1/disciplinas');
     } catch (fetchErr) {
       console.warn('Erro ao carregar disciplinas via API, verificando cache offline:', fetchErr);
       const cacheLocal = localStorage.getItem('sige_cache_disciplinas');
@@ -10703,173 +10674,315 @@ async function carregarDisciplinas() {
       if (!resD._fromCache) {
         try { localStorage.setItem('sige_cache_disciplinas', JSON.stringify(lista)); } catch(_) {}
       }
-
-      // Sincronizar catálogo global se sem filtros restritivos
-      if (!state.filtroDisciplinaClasse && !state.filtroDisciplinaArea && !buscaVal) {
-        state.todasDisciplinas = lista;
-      } else {
-        const exist = state.todasDisciplinas || [];
-        const ids = new Set(exist.map(x => x.id));
-        lista.forEach(d => {
-          if (!ids.has(d.id)) exist.push(d);
-        });
-        state.todasDisciplinas = exist;
-      }
-
-      // Filtro defensivo client-side
-      if (state.filtroDisciplinaClasse) {
-        const classeFiltro = state.filtroDisciplinaClasse.trim().toLowerCase();
-        lista = lista.filter(d => (d.classe || '').trim().toLowerCase() === classeFiltro);
-      }
-      if (state.filtroDisciplinaArea) {
-        const areaFiltroNorm = state.filtroDisciplinaArea.trim().toLowerCase();
-        lista = lista.filter(d => {
-          const dAreaNorm = (d.area || '').trim().toLowerCase();
-          if (areaFiltroNorm.includes('geral')) {
-            return dAreaNorm.includes('geral') || !dAreaNorm;
-          }
-          return dAreaNorm.includes(areaFiltroNorm);
-        });
-      }
-      if (buscaVal) {
-        const bLow = buscaVal.toLowerCase();
-        lista = lista.filter(d => 
-          (d.nome || '').toLowerCase().includes(bLow) || 
-          (d.codigo || '').toLowerCase().includes(bLow)
-        );
-      }
-
-      state.disciplinasFiltradasAtuais = lista;
-
-      // 3. Atualizar Seletor de Filtro apenas com Classes reais da instituição (SEM NENHUMA FICTÍCIA)
-      const selClasseEl = document.getElementById('filtroDisciplinasClasseSelect');
-      if (selClasseEl) {
-        const classesAtivas = window.obterClassesInstituicao();
-        if (classesAtivas.length === 0) {
-          selClasseEl.innerHTML = '<option value="">-- Nenhuma classe/nível cadastrado (+ Adicionar) --</option>';
-        } else {
-          let optHtml = `<option value="">Todas as ${regime === 'NIVEIS' ? 'Níveis Cadastrados' : 'Classes Cadastradas'} (${classesAtivas.length})</option>`;
-          classesAtivas.forEach(c => {
-            const isAct = (state.filtroDisciplinaClasse === c) ? 'selected' : '';
-            optHtml += `<option value="${c}" ${isAct}>${c}</option>`;
-          });
-          selClasseEl.innerHTML = optHtml;
-        }
-      }
-
-      // 4. Banner Contextual da Classe Ativa
-      const bannerEl = document.getElementById('bannerClasseAtiva');
-      const badgeClasse = document.getElementById('badgeNomeClasseAtiva');
-      const resumoClasse = document.getElementById('resumoDisciplinasClasseAtiva');
-      if (bannerEl && badgeClasse && resumoClasse) {
-        if (state.filtroDisciplinaClasse) {
-          bannerEl.style.setProperty('display', 'flex', 'important');
-          badgeClasse.textContent = state.filtroDisciplinaClasse;
-          resumoClasse.textContent = `${lista.length} disciplina(s) cadastrada(s) para esta classe. Defina o critério (Sim ou Não) para cada disciplina.`;
-        } else {
-          bannerEl.style.setProperty('display', 'none', 'important');
-        }
-      }
-
-      if (!tbody) return;
-
-      if (lista.length === 0) {
-        const totalGeral = (state.todasDisciplinas || []).length;
-        if (totalGeral === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" class="text-center py-5">
-                <div class="text-muted">
-                  <i class="bi bi-book fs-1 text-primary d-block mb-2"></i>
-                  <div class="fw-semibold fs-6">Nenhuma disciplina cadastrada nesta instituição</div>
-                  <div class="small text-muted mt-1">
-                    Adicione uma classe através de <strong>"+ Adicionar ${regime === 'NIVEIS' ? 'Nível' : 'Classe'}"</strong> ou crie uma nova disciplina directamente.
-                  </div>
-                  <div class="mt-3">
-                    <button class="btn btn-primary btn-sm px-4 fw-semibold" onclick="modalNovaDisciplina()">
-                      <i class="bi bi-plus-circle me-1"></i> Cadastrar Primeira Disciplina
-                    </button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          `;
-        } else {
-          const descClasse = state.filtroDisciplinaClasse || 'este filtro';
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" class="text-center py-5">
-                <div class="text-muted">
-                  <i class="bi bi-info-circle fs-2 text-secondary d-block mb-2"></i>
-                  <div class="fw-semibold">Nenhuma disciplina encontrada para ${descClasse}</div>
-                  <div class="small text-muted mt-1">
-                    Adicione as disciplinas desta classe e defina se têm Exame (Sim ou Não).
-                  </div>
-                  <div class="mt-3 d-flex justify-content-center gap-2">
-                    <button class="btn btn-primary btn-sm" onclick="modalNovaDisciplina('${state.filtroDisciplinaClasse || ''}')">
-                      <i class="bi bi-plus-circle me-1"></i> + Cadastrar Disciplina
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="filtrarDisciplinasClasse('');">
-                      <i class="bi bi-arrow-repeat me-1"></i> Ver Todas
-                    </button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          `;
-        }
-      } else {
-        tbody.innerHTML = lista.map(d => `
-          <tr>
-            <td><code>${d.codigo}</code></td>
-            <td><strong>${d.nome}</strong></td>
-            <td><span class="badge bg-secondary-subtle text-dark border">${d.classe || '-'}</span></td>
-            <td><small class="text-muted fw-semibold">${d.area || 'Geral'}</small></td>
-            <td>${d.carga_horaria} h/sem</td>
-            <td class="text-center">
-              <div class="btn-group btn-group-sm" role="group" aria-label="A Disciplina tem Exame?">
-                <button type="button" class="btn btn-sm ${d.tem_exame ? 'btn-danger active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.alternarExameDisciplina('${d.id}', true)" title="Definir disciplina com exame: Sim">
-                  <i class="bi bi-check-circle-fill me-1"></i>Sim
-                </button>
-                <button type="button" class="btn btn-sm ${!d.tem_exame ? 'btn-secondary active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.alternarExameDisciplina('${d.id}', false)" title="Definir disciplina sem exame: Não">
-                  Não
-                </button>
-              </div>
-            </td>
-            <td class="text-end">
-              <div class="d-inline-flex gap-1">
-                <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarDisciplina('${d.id}')" title="Editar Disciplina">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
-                <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarDisciplina('${d.id}', '${(d.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Disciplina">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        `).join('');
-      }
+      state.todasDisciplinas = lista;
     }
   } catch (err) {
-    console.error('Erro ao carregar disciplinas:', err);
-    if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Erro ao carregar disciplinas.</td></tr>`;
-    }
+    console.error('Erro ao buscar disciplinas na API:', err);
   }
+
+  // 3. Atualizar Classes Ativas e Definir Classe Ativa
+  const classesAtivas = window.obterClassesInstituicao();
+  if (state.filtroDisciplinaClasse && !classesAtivas.some(c => c.toLowerCase() === state.filtroDisciplinaClasse.toLowerCase())) {
+    state.filtroDisciplinaClasse = classesAtivas.length > 0 ? classesAtivas[0] : '';
+  } else if (!state.filtroDisciplinaClasse && classesAtivas.length > 0) {
+    state.filtroDisciplinaClasse = classesAtivas[0];
+  }
+
+  // 4. Renderizar Barra de Abas das Classes
+  const navTabs = document.getElementById('navAbasClassesInstituicao');
+  if (navTabs) {
+    const classeAtiva = state.filtroDisciplinaClasse || '';
+    const labelTexto = regime === 'NIVEIS' ? 'Níveis:' : 'Classes:';
+    let tabsHtml = `
+      <span class="small fw-bold text-uppercase text-secondary me-2">
+        <i class="bi bi-mortarboard text-primary me-1"></i><span id="labelNavClasses">${labelTexto}</span>
+      </span>
+    `;
+
+    if (classesAtivas.length === 0) {
+      tabsHtml += `<span class="small text-muted fst-italic me-2">Nenhuma ${regime === 'NIVEIS' ? 'nível' : 'classe'} adicionada</span>`;
+    } else {
+      classesAtivas.forEach(c => {
+        const isAct = (c.toLowerCase() === classeAtiva.toLowerCase());
+        const num = (state.todasDisciplinas || []).filter(d => (d.classe || '').trim().toLowerCase() === c.toLowerCase()).length;
+        tabsHtml += `
+          <button type="button" data-classe="${c}" class="btn btn-sm ${isAct ? 'btn-primary active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.selecionarSubPaginaClasse('${c}')">
+            ${c}
+            <span class="badge ${isAct ? 'bg-white text-primary' : 'bg-secondary text-white'} ms-1">${num}</span>
+          </button>
+        `;
+      });
+    }
+    navTabs.innerHTML = tabsHtml;
+  }
+
+  // 5. Renderizar a Sub-página da Classe Ativa (com secções/áreas e tabela de disciplinas)
+  window.renderizarSubpaginaClasseAtiva();
 }
 
-function modalNovaDisciplina(classePredefinida = '') {
+window.renderizarSubpaginaClasseAtiva = function() {
+  const container = document.getElementById('containerSubpaginaClasse');
+  if (!container) return;
+
+  const regime = window.obterRegimeInstituicao();
+  const classesAtivas = window.obterClassesInstituicao();
+  const classeAtiva = (state.filtroDisciplinaClasse || '').trim();
+
+  // Caso 1: Nenhuma classe adicionada ainda
+  if (!classeAtiva || classesAtivas.length === 0) {
+    const listaOficial = regime === 'NIVEIS' ? window.LISTA_NIVEIS_OFICIAIS : window.LISTA_CLASSES_OFICIAIS;
+    const nomeRotulo = regime === 'NIVEIS' ? 'Nível' : 'Classe';
+    const optDropdown = listaOficial.map(item => `
+      <li>
+        <a class="dropdown-item py-2 fw-semibold" href="#" onclick="window.adicionarClasseInstituicao('${item}'); return false;">
+          <i class="bi bi-plus-circle me-1 text-success"></i> ${item}
+        </a>
+      </li>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="card border-dashed p-5 text-center bg-light my-2 shadow-none">
+        <div class="text-muted">
+          <i class="bi bi-mortarboard fs-1 text-primary d-block mb-3"></i>
+          <h5 class="fw-bold text-dark">Nenhuma ${nomeRotulo} Selecionada no Plano Curricular</h5>
+          <p class="text-muted small mb-4" style="max-width: 540px; margin: 0 auto;">
+            Para estruturar o currículo escolar, clique no botão <strong>+ Adicionar ${nomeRotulo}</strong> e selecione a classe correspondente. O sistema criará a página dessa classe com as suas secções e disciplinas organizadas.
+          </p>
+          <div class="dropdown d-inline-block">
+            <button class="btn btn-primary btn-sm px-4 py-2 fw-bold dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-plus-circle me-1"></i> Adicionar Primeira ${nomeRotulo}
+            </button>
+            <ul class="dropdown-menu shadow">
+              ${optDropdown}
+            </ul>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Caso 2: Sub-página da Classe Ativa
+  const todasDisciplinas = state.todasDisciplinas || [];
+  const discsDaClasse = todasDisciplinas.filter(d => 
+    (d.classe || '').trim().toLowerCase() === classeAtiva.toLowerCase()
+  );
+
+  const totalDiscs = discsDaClasse.length;
+  const comExame = discsDaClasse.filter(d => Boolean(d.tem_exame)).length;
+  const semExame = totalDiscs - comExame;
+
+  // Áreas presentes nas disciplinas
+  const areasUsadas = Array.from(new Set(discsDaClasse.map(d => (d.area || 'Ensino Geral (Tronco Comum)').trim()))).filter(Boolean);
+
+  // Áreas personalizadas salvas para esta classe
+  let customAreas = [];
+  try {
+    const rawCustom = localStorage.getItem(`sige_custom_areas_${classeAtiva}`);
+    if (rawCustom) customAreas = JSON.parse(rawCustom);
+  } catch(_) {}
+
+  // Áreas pedagógicas oficiais do Sistema Nacional de Educação (Moçambique)
+  const isEnsinoSecundario2Ciclo = /11|12/i.test(classeAtiva);
+  let areasPadraoClasse = [];
+  if (isEnsinoSecundario2Ciclo) {
+    areasPadraoClasse = ['Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História', 'Ensino Geral (Tronco Comum)'];
+  } else if (/n[ií]vel/i.test(classeAtiva)) {
+    areasPadraoClasse = ['Formação Vocacional', 'Formação Geral'];
+  } else {
+    areasPadraoClasse = ['Ensino Geral (Tronco Comum)'];
+  }
+
+  let listaAreasExibir = [];
+  if (areasUsadas.length > 0) {
+    listaAreasExibir = Array.from(new Set([...areasUsadas, ...customAreas]));
+  } else {
+    listaAreasExibir = Array.from(new Set([...areasPadraoClasse, ...customAreas]));
+  }
+
+  // Montar blocos das Áreas / Secções da Classe
+  const cardsSeccoesHtml = listaAreasExibir.map(areaNome => {
+    const discsArea = discsDaClasse.filter(d => {
+      const a = (d.area || '').trim().toLowerCase();
+      const ref = areaNome.trim().toLowerCase();
+      if (ref.includes('geral') || ref.includes('tronco comum')) {
+        return a.includes('geral') || a.includes('tronco comum') || !a;
+      }
+      return a === ref;
+    });
+
+    const comExameArea = discsArea.filter(d => Boolean(d.tem_exame)).length;
+
+    let tabelaCorpo = '';
+    if (discsArea.length === 0) {
+      tabelaCorpo = `
+        <tr>
+          <td colspan="5" class="text-center py-4 text-muted">
+            <i class="bi bi-info-circle me-1 text-secondary"></i> Nenhuma disciplina vinculada a esta secção ainda.
+            <button class="btn btn-link btn-sm p-0 ms-2 text-decoration-none fw-semibold" onclick="modalNovaDisciplina('${classeAtiva}', '${areaNome}')">
+              <i class="bi bi-plus-circle me-1"></i>+ Adicionar Disciplina nesta Secção
+            </button>
+          </td>
+        </tr>
+      `;
+    } else {
+      tabelaCorpo = discsArea.map(d => `
+        <tr class="linha-disciplina-item" data-texto="${(d.nome + ' ' + d.codigo + ' ' + areaNome).toLowerCase()}">
+          <td><code class="fw-bold text-dark fs-7">${d.codigo}</code></td>
+          <td>
+            <div class="fw-bold text-dark">${d.nome}</div>
+            <div class="small text-muted d-sm-none">${areaNome}</div>
+          </td>
+          <td><span class="text-secondary fw-semibold">${d.carga_horaria} h/sem</span></td>
+          <td class="text-center">
+            <div class="btn-group btn-group-sm" role="group" aria-label="A Disciplina tem Exame?">
+              <button type="button" class="btn btn-sm ${d.tem_exame ? 'btn-danger active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.alternarExameDisciplina('${d.id}', true)" title="Definir disciplina com exame: Sim">
+                <i class="bi bi-check-circle-fill me-1"></i>Sim
+              </button>
+              <button type="button" class="btn btn-sm ${!d.tem_exame ? 'btn-secondary active text-white fw-bold shadow-sm' : 'btn-outline-secondary'}" onclick="window.alternarExameDisciplina('${d.id}', false)" title="Definir disciplina sem exame: Não">
+                Não
+              </button>
+            </div>
+          </td>
+          <td class="text-end">
+            <div class="d-inline-flex gap-1">
+              <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarDisciplina('${d.id}')" title="Editar Disciplina">
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarDisciplina('${d.id}', '${(d.nome || '').replace(/'/g, "\\'")}')" title="Eliminar Disciplina">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    const iconeArea = /ci[êe]ncias/i.test(areaNome)
+      ? 'bi-activity'
+      : /letras/i.test(areaNome)
+        ? 'bi-journal-richtext'
+        : /vocacional|t[ée]cnic/i.test(areaNome)
+          ? 'bi-tools'
+          : 'bi-diagram-3-fill';
+
+    return `
+      <div class="card mb-3 shadow-none border area-seccao-card">
+        <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi ${iconeArea} text-primary fs-6"></i>
+            <h6 class="fw-bold mb-0 text-dark">${areaNome}</h6>
+            <span class="badge bg-light text-secondary border small">${discsArea.length} disciplina(s)</span>
+            ${comExameArea > 0 ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle small"><i class="bi bi-file-earmark-check-fill me-1"></i>${comExameArea} com Exame</span>` : ''}
+          </div>
+          <div>
+            <button class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold" onclick="modalNovaDisciplina('${classeAtiva}', '${areaNome}')" title="Cadastrar nova disciplina nesta secção">
+              <i class="bi bi-plus-lg me-1"></i>+ Disciplina
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-secondary">
+              <tr>
+                <th style="width: 120px;">Código</th>
+                <th>Disciplina</th>
+                <th style="width: 140px;">Carga Horária</th>
+                <th style="width: 190px;" class="text-center">A Disciplina tem Exame?</th>
+                <th class="text-end" style="width: 110px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tabelaCorpo}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <!-- Cabeçalho da Sub-página da Classe -->
+    <div class="card bg-light border p-3 mb-3 shadow-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-primary px-3 py-2 fs-6 shadow-sm">
+              <i class="bi bi-mortarboard me-1"></i>${classeAtiva}
+            </span>
+            <h5 class="fw-bold mb-0 text-dark">Plano Curricular & Secções</h5>
+          </div>
+          <p class="text-muted small mb-0">
+            Disciplinas em função da área/secção correspondente ao plano curricular da <strong>${classeAtiva}</strong>. Defina se têm Exame (Sim ou Não).
+          </p>
+        </div>
+
+        <!-- Indicadores Rápidos (KPIs) -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="badge bg-white text-dark border px-2 py-1 small">
+            <i class="bi bi-book me-1 text-primary"></i><strong>${totalDiscs}</strong> Disciplinas
+          </span>
+          <span class="badge bg-danger text-white px-2 py-1 small shadow-sm">
+            <i class="bi bi-file-earmark-check-fill me-1"></i><strong>${comExame}</strong> Com Exame
+          </span>
+          <span class="badge bg-secondary text-white px-2 py-1 small shadow-sm">
+            <i class="bi bi-dash-circle me-1"></i><strong>${semExame}</strong> Sem Exame
+          </span>
+        </div>
+      </div>
+
+      <!-- Barra de Ferramentas da Classe: Busca e Ações -->
+      <div class="row g-2 align-items-center mt-2 pt-2 border-top">
+        <div class="col-md-5">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input type="search" id="filtroDisciplinasBusca" class="form-control" placeholder="Pesquisar disciplina por nome ou código nesta classe..." oninput="filtrarDisciplinasTabelaTexto()" onsearch="filtrarDisciplinasTabelaTexto()">
+          </div>
+        </div>
+        <div class="col-md-7 d-flex justify-content-md-end gap-2 flex-wrap">
+          <button class="btn btn-sm btn-primary fw-semibold shadow-sm" onclick="modalNovaDisciplinaParaClasseAtiva()">
+            <i class="bi bi-plus-circle me-1"></i>+ Adicionar Disciplina nesta Classe
+          </button>
+          <button class="btn btn-sm btn-outline-primary fw-semibold" onclick="modalNovaSeccaoAreaParaClasseAtiva()">
+            <i class="bi bi-diagram-3 me-1"></i>+ Nova Secção / Área
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="removerClasseDaInstituicaoAtiva()" title="Remover esta classe da lista da escola se não houver disciplinas cadastradas">
+            <i class="bi bi-trash me-1"></i>Remover Classe
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de Áreas / Secções da Classe com as suas Disciplinas -->
+    <div id="listaSeccoesAreasContainer">
+      ${cardsSeccoesHtml}
+    </div>
+
+    <!-- Botão Inferior para Criar Nova Secção/Área -->
+    <div class="text-center mt-3 pt-2">
+      <button class="btn btn-outline-secondary btn-sm px-4 py-2 border-dashed fw-semibold" onclick="modalNovaSeccaoAreaParaClasseAtiva()">
+        <i class="bi bi-plus-circle me-1 text-primary"></i> + Adicionar Outra Secção / Área de Estudo na ${classeAtiva}
+      </button>
+    </div>
+  `;
+};
+
+function modalNovaDisciplina(classePredefinida = '', areaPredefinida = '') {
   const regime = window.obterRegimeInstituicao();
   const classesLista = regime === 'NIVEIS' ? window.LISTA_NIVEIS_OFICIAIS : window.LISTA_CLASSES_OFICIAIS;
 
   const classeInicial = classePredefinida || state.filtroDisciplinaClasse || classesLista[0];
 
-  const areasIniciais = typeof window.obterTodasAreasOficiais === 'function'
+  let areasIniciais = typeof window.obterTodasAreasOficiais === 'function'
     ? window.obterTodasAreasOficiais(classeInicial)
-    : ['Ensino Geral', 'Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História'];
+    : ['Ensino Geral (Tronco Comum)', 'Ciências com Biologia', 'Ciências com Desenho', 'Letras com Geografia', 'Letras com História'];
+
+  if (areaPredefinida && !areasIniciais.some(a => a.toLowerCase() === areaPredefinida.toLowerCase())) {
+    areasIniciais.unshift(areaPredefinida);
+  }
 
   const optAreas = areasIniciais.map(a => 
-    `<option value="${a}">${a}</option>`
+    `<option value="${a}" ${(areaPredefinida && a.toLowerCase() === areaPredefinida.toLowerCase()) ? 'selected' : ''}>${a}</option>`
   ).join('');
 
   const optClassesHtml = classesLista.map(c => 
@@ -10944,7 +11057,7 @@ function modalNovaDisciplina(classePredefinida = '') {
     if (!selArea) return;
     const areas = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(novaClasse)
-      : ['Ensino Geral'];
+      : ['Ensino Geral (Tronco Comum)'];
     selArea.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
   };
 
@@ -10986,7 +11099,7 @@ function modalNovaDisciplina(classePredefinida = '') {
         state.filtroDisciplinaClasse = classeVal;
         await carregarDisciplinas();
         if (typeof mostrarNotificacao === 'function') {
-          mostrarNotificacao(`Disciplina "${nomeVal}" criada com sucesso! (Exame: ${temExameVal ? 'Sim' : 'Não'})`, 'success');
+          mostrarNotificacao(`Disciplina "${nomeVal}" criada com sucesso na página da ${classeVal}! (Exame: ${temExameVal ? 'Sim' : 'Não'})`, 'success');
         }
       } else {
         alert(res?.message || 'Erro ao criar disciplina');
@@ -11018,7 +11131,7 @@ async function modalEditarDisciplina(disciplinaId) {
 
     const areasDisponiveis = typeof window.obterTodasAreasOficiais === 'function'
       ? window.obterTodasAreasOficiais(d.classe)
-      : ['Ensino Geral'];
+      : ['Ensino Geral (Tronco Comum)'];
     if (d.area && !areasDisponiveis.includes(d.area)) {
       areasDisponiveis.push(d.area);
     }
@@ -11091,7 +11204,7 @@ async function modalEditarDisciplina(disciplinaId) {
       if (!selArea) return;
       const areas = typeof window.obterTodasAreasOficiais === 'function'
         ? window.obterTodasAreasOficiais(novaClasse)
-        : ['Ensino Geral'];
+        : ['Ensino Geral (Tronco Comum)'];
       selArea.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
     };
 
@@ -17797,6 +17910,9 @@ const PLANO_CURRICULAR_MINEDH_FRONTEND = PLANO_CURRICULAR_MEC_FRONTEND;
 
 // =====================================================================
 // SIGE - Módulo Exames | Pautas Oficiais de Exame (MEC / Moçambique)
+// Modelagem e Cálculo Estrito: Dados reais das pautas de frequência,
+// lançamento de notas de 1ª e 2ª época, janela de parâmetros (pesos e nota mínima),
+// e integração com Certificados e Declarações.
 // =====================================================================
 
 window._sigePautaExamesData = null;
@@ -17807,6 +17923,7 @@ async function carregarExames() {
   if (!container) return;
 
   try {
+    // 1. Obter classes com regime de exame configurado
     let classesComExame = new Set(['10ª Classe', '12ª Classe']);
     try {
       const resCfg = await apiFetch('/api/v1/escola-admin/classes-exames');
@@ -17819,12 +17936,14 @@ async function carregarExames() {
       }
     } catch (_) {}
 
+    // 2. Obter todas as turmas da instituição
     const resTurmas = await apiFetch('/api/v1/escola-admin/turmas');
     const selectClasse = document.getElementById('exameClasseFilter');
     const selectTurma = document.getElementById('exameTurmaSelect');
     if (!selectClasse || !selectTurma) return;
 
     if (resTurmas && resTurmas.success && Array.isArray(resTurmas.data)) {
+      // Filtrar apenas turmas de classes com regime de exame
       const turmasComExame = resTurmas.data.filter(t => {
         const grau = (t.grau_ano || '').trim();
         const eh10ou12 = /(^|[^\d])(10|12)([ªaº\.\s]|$)/i.test(grau);
@@ -17833,6 +17952,8 @@ async function carregarExames() {
       });
 
       window._sigeTurmasExamesLista = turmasComExame;
+
+      // Extrair classes únicas das turmas com exame
       const classesUnicas = Array.from(new Set(turmasComExame.map(t => t.grau_ano))).filter(Boolean);
 
       if (classesUnicas.length > 0) {
@@ -17870,15 +17991,12 @@ function filtrarTurmasExamesPorClasse() {
     carregarPautaExamesTurma();
   } else {
     selectTurma.innerHTML = '<option value="">Nenhuma turma encontrada para esta classe</option>';
-    const c = document.getElementById('containerTabelaPautaExames');
-    if (c) {
-      c.innerHTML = `
-        <div class="alert alert-warning text-center my-4">
-          <i class="bi bi-exclamation-triangle-fill me-2"></i>
-          Nenhuma turma com regime de exame registada para a classe selecionada.
-        </div>
-      `;
-    }
+    document.getElementById('containerTabelaPautaExames').innerHTML = `
+      <div class="alert alert-warning text-center my-4">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        Nenhuma turma com regime de exame registada para a classe selecionada.
+      </div>
+    `;
     const rodape = document.getElementById('pautaExameRodapeOficial');
     if (rodape) rodape.classList.add('d-none');
   }
@@ -17914,6 +18032,7 @@ async function carregarPautaExamesTurma() {
     window._sigePautaExamesData = d;
     window._sigeNotasExameModificadas.clear();
 
+    // Actualizar Cabeçalhos
     const escNome = (window.state?.tenant?.nome || 'ESCOLA SECUNDÁRIA').toUpperCase();
     const elEsc = document.getElementById('pautaExameEscolaNome');
     if (elEsc) elEsc.textContent = escNome;
@@ -17931,6 +18050,11 @@ async function carregarPautaExamesTurma() {
 
     const badgeTotal = document.getElementById('badgeTotalCandidatosExame');
     if (badgeTotal) badgeTotal.textContent = `${(d.alunos || []).length} Candidatos`;
+
+    const badgeParam = document.getElementById('badgeParametrosAtivos');
+    if (badgeParam && d.parametros) {
+      badgeParam.textContent = `Freq: ${d.parametros.peso_frequencia}% | Exame: ${d.parametros.peso_exame}% | Mín: ${d.parametros.nota_minima_exame}`;
+    }
 
     renderizarTabelaExamesHtml(d);
   } catch (err) {
@@ -17951,6 +18075,8 @@ function renderizarTabelaExamesHtml(d) {
   const disciplinasComExame = d.disciplinas_com_exame || [];
   const disciplinasSemExame = d.disciplinas_sem_exame || [];
   const alunos = d.alunos || [];
+  const params = d.parametros || { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10 };
+  const notaMinima = Number(params.nota_minima_exame || 10);
 
   if (alunos.length === 0) {
     container.innerHTML = `
@@ -17964,6 +18090,7 @@ function renderizarTabelaExamesHtml(d) {
     return;
   }
 
+  // Montar Cabeçalhos da Tabela Fiel ao Modelo MEC
   let thLinha1 = `
     <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 45px; font-size: 0.72rem;">Nº de Ordem</th>
     <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 85px; font-size: 0.72rem;">Nº Candidato</th>
@@ -17972,16 +18099,20 @@ function renderizarTabelaExamesHtml(d) {
     <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 70px; font-size: 0.72rem;">Turma</th>
   `;
 
+  // Disciplinas com exame: 4 colunas cada
   disciplinasComExame.forEach(disc => {
     thLinha1 += `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary fw-bold border-start border-end" style="font-size: 0.75rem;">${disc.nome}</th>`;
   });
 
+  // Disciplinas sem exame: 1 coluna cada
   disciplinasSemExame.forEach(disc => {
     thLinha1 += `<th rowspan="2" class="text-center bg-light text-dark fw-bold border-start border-end" style="font-size: 0.72rem; min-width: 75px;">${disc.nome}</th>`;
   });
 
+  // RESULTADO FINAL: 3 colunas
   thLinha1 += `<th colspan="3" class="text-center bg-dark text-white fw-bold border-start" style="font-size: 0.78rem;">RESULTADO FINAL</th>`;
 
+  // Linha 2 do cabeçalho
   let thLinha2 = '';
   disciplinasComExame.forEach(() => {
     thLinha2 += `
@@ -17998,6 +18129,7 @@ function renderizarTabelaExamesHtml(d) {
     <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold text-start ps-2" style="min-width: 160px; font-size: 0.72rem;">Disciplina(s) que Reprovou</th>
   `;
 
+  // Linha 3 do cabeçalho
   let thLinha3 = '';
   disciplinasComExame.forEach(() => {
     thLinha3 += `
@@ -18013,13 +18145,16 @@ function renderizarTabelaExamesHtml(d) {
     thLinha3 += `<th class="bg-light text-muted border-end" style="font-size: 0.65rem;">Frequência</th>`;
   });
 
+  // Linhas dos Alunos
   let trsCorpo = '';
   alunos.forEach((aluno, idx) => {
     const discMap = aluno.disciplinas || {};
     const resFinal = aluno.resultado_final || {};
+    const sufixoGen = (aluno.genero || 'M').toUpperCase().startsWith('F') ? 'a' : 'o';
 
     let tdsDiscs = '';
 
+    // Disciplinas com exame
     disciplinasComExame.forEach(d => {
       const dData = discMap[d.id] || {};
       const vFreq = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
@@ -18027,9 +18162,27 @@ function renderizarTabelaExamesHtml(d) {
       const e2Val = dData.exame_2epoca !== null && dData.exame_2epoca !== undefined ? dData.exame_2epoca : '';
       const vMed = dData.media !== undefined && dData.media !== null ? dData.media : '-';
 
-      const corMed = (typeof vMed === 'number' || !isNaN(Number(vMed))) 
+      const temE1 = e1Val !== '' && !isNaN(Number(e1Val));
+      const aprovou1e = temE1 && Number(e1Val) >= notaMinima;
+      const pode2e = temE1 && Number(e1Val) < notaMinima;
+
+      let estiloE1 = 'background: transparent;';
+      let estiloE2 = 'background: transparent;';
+      let titleE2 = 'Nota da 2ª época (se necessária)';
+
+      if (aprovou1e) {
+        estiloE1 = 'background: #dcfce7; font-weight: bold; color: #166534;';
+        estiloE2 = 'background: #f1f5f9; color: #94a3b8; cursor: not-allowed;';
+        titleE2 = `Aluno já aprovado na 1ª época (${e1Val} ≥ ${notaMinima})`;
+      } else if (pode2e) {
+        estiloE1 = 'background: #fee2e2; color: #991b1b;';
+        estiloE2 = 'background: #fef3c7; border: 1px dashed #f59e0b !important; font-weight: bold;';
+        titleE2 = `Não atingiu nota mínima (${e1Val} < ${notaMinima}). Elegível para a 2ª época!`;
+      }
+
+      const corMed = (typeof vMed === 'number' || (!isNaN(Number(vMed)) && vMed !== '-')) 
         ? (Number(vMed) >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold') 
-        : 'text-muted';
+        : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted');
 
       tdsDiscs += `
         <td class="text-center bg-light border-end font-monospace small">${vFreq}</td>
@@ -18037,12 +18190,14 @@ function renderizarTabelaExamesHtml(d) {
         <td class="p-0 text-center border-end" style="min-width: 48px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"
             value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; background: transparent;">
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; ${estiloE1}"
+            title="1ª Época: Mínimo ${notaMinima} valores para aprovação">
         </td>
         <td class="p-0 text-center border-end" style="min-width: 48px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"
             value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; background: transparent;">
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; ${estiloE2}"
+            title="${titleE2}">
         </td>
         <td class="text-center border-end font-monospace small ${corMed}" id="media_${aluno.id}_${d.id}">
           ${vMed}
@@ -18050,10 +18205,11 @@ function renderizarTabelaExamesHtml(d) {
       `;
     });
 
+    // Disciplinas sem exame
     disciplinasSemExame.forEach(d => {
       const dData = discMap[d.id] || {};
       const vFreq = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
-      const corFreq = (typeof vFreq === 'number' || !isNaN(Number(vFreq))) 
+      const corFreq = (typeof vFreq === 'number' || (!isNaN(Number(vFreq)) && vFreq !== '-')) 
         ? (Number(vFreq) >= 9.5 ? 'text-success' : 'text-danger') 
         : 'text-muted';
       tdsDiscs += `
@@ -18061,10 +18217,12 @@ function renderizarTabelaExamesHtml(d) {
       `;
     });
 
-    const resAprov = String(resFinal.aprovado || 'Pendente').trim();
+    // Resultado Final do Aluno
+    const resAprov = String(resFinal.aprovado || resFinal.resultado || 'Pendente').trim();
     let badgeResClass = 'bg-secondary';
     if (resAprov.includes('Aprovad')) badgeResClass = 'bg-success';
     else if (resAprov.includes('Reprovad') || resAprov.includes('Excluíd')) badgeResClass = 'bg-danger';
+    else if (resAprov.includes('2ª Época')) badgeResClass = 'bg-warning text-dark';
     else if (resAprov.includes('Admitid')) badgeResClass = 'bg-primary';
 
     const mfVal = resFinal.mf !== undefined && resFinal.mf !== null ? resFinal.mf : '-';
@@ -18091,7 +18249,7 @@ function renderizarTabelaExamesHtml(d) {
     `;
   });
 
-  container.innerHTML = `
+  const htmlTabela = `
     <table class="table table-bordered table-sm align-middle text-center sige-tabela-exames mb-0 border" style="font-size: 0.8rem;">
       <thead>
         <tr class="align-middle">${thLinha1}</tr>
@@ -18104,6 +18262,9 @@ function renderizarTabelaExamesHtml(d) {
     </table>
   `;
 
+  container.innerHTML = htmlTabela;
+
+  // Renderizar Rodapé Oficial com Resumo e Assinaturas
   const rodape = document.getElementById('pautaExameRodapeOficial');
   const boxEstat = document.getElementById('pautaExameEstatisticasBox');
   if (rodape && boxEstat) {
@@ -18112,11 +18273,13 @@ function renderizarTabelaExamesHtml(d) {
     const aprov = estat.aprovados || 0;
     const rep = estat.reprovados || 0;
     const adm = estat.admitidos || 0;
+    const seg = estat.segunda_epoca || 0;
     const taxa = estat.taxa_aprovacao || 0.0;
 
     boxEstat.innerHTML = `
       <div><strong>Total de Candidatos:</strong> <span class="badge bg-secondary ms-1">${tot}</span> (H: ${estat.homens || 0} | M: ${estat.mulheres || 0})</div>
       <div><strong>Aprovados:</strong> <span class="badge bg-success ms-1">${aprov}</span></div>
+      <div><strong>2ª Época:</strong> <span class="badge bg-warning text-dark ms-1">${seg}</span></div>
       <div><strong>Reprovados:</strong> <span class="badge bg-danger ms-1">${rep}</span></div>
       <div><strong>Admitidos ao Exame:</strong> <span class="badge bg-primary ms-1">${adm}</span></div>
       <div><strong>Taxa de Aprovação:</strong> <span class="badge bg-dark ms-1">${taxa}%</span></div>
@@ -18157,8 +18320,10 @@ function aoMudarNotaExame(inputEl) {
   if (epoca === '1') obj.exame_1epoca = valNum;
   if (epoca === '2') obj.exame_2epoca = valNum;
 
+  // Recalcular dinamicamente Média da Disciplina e Resultado do Aluno na interface
   recalcularLinhaAlunoInterface(alunoId);
 
+  // Destacar botão de salvar com indicação visual de alteração pendente
   const btnSalvar = document.getElementById('btnSalvarNotasExame');
   if (btnSalvar) {
     btnSalvar.classList.add('btn-warning');
@@ -18173,6 +18338,11 @@ function recalcularLinhaAlunoInterface(alunoId) {
   const aluno = (d.alunos || []).find(a => a.id === alunoId);
   if (!aluno) return;
 
+  const params = d.parametros || { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10 };
+  const pesoFreq = Number(params.peso_frequencia || 50);
+  const pesoExame = Number(params.peso_exame || 50);
+  const notaMinima = Number(params.nota_minima_exame || 10);
+
   const disciplinasComExame = d.disciplinas_com_exame || [];
   const disciplinasSemExame = d.disciplinas_sem_exame || [];
   const grauAno = d.turma?.grau_ano || '10ª Classe';
@@ -18182,6 +18352,7 @@ function recalcularLinhaAlunoInterface(alunoId) {
   const notasFinais = [];
   const discReprovadas = [];
   let temAlgumExame = false;
+  let alunoTem2ePendente = false;
 
   disciplinasComExame.forEach(disc => {
     const dId = disc.id;
@@ -18191,21 +18362,44 @@ function recalcularLinhaAlunoInterface(alunoId) {
 
     const e1 = mod && mod.exame_1epoca !== undefined ? mod.exame_1epoca : dData.exame_1epoca;
     const e2 = mod && mod.exame_2epoca !== undefined ? mod.exame_2epoca : dData.exame_2epoca;
-    const neEfetivo = e2 !== null && e2 !== undefined ? e2 : e1;
 
-    if (neEfetivo !== null && neEfetivo !== undefined) {
+    const e1Num = (e1 !== null && e1 !== undefined && e1 !== '') ? Number(e1) : null;
+    const e2Num = (e2 !== null && e2 !== undefined && e2 !== '') ? Number(e2) : null;
+
+    if (e1Num !== null || e2Num !== null) {
       temAlgumExame = true;
+    }
+
+    let neEfetivo = null;
+    let discEm2e = false;
+
+    if (e1Num !== null && e1Num >= notaMinima) {
+      // Passou logo na 1ª época!
+      neEfetivo = e1Num;
+    } else if (e1Num !== null && e1Num < notaMinima) {
+      // Não passou na 1ª época -> tem direito à 2ª época
+      if (e2Num !== null) {
+        neEfetivo = e2Num;
+      } else {
+        // Aguarda 2ª época
+        discEm2e = true;
+        alunoTem2ePendente = true;
+      }
+    } else if (e1Num === null && e2Num !== null) {
+      neEfetivo = e2Num;
     }
 
     const freqVal = typeof dData.frequencia_decimal === 'number' ? dData.frequencia_decimal : (typeof dData.frequencia === 'number' ? dData.frequencia : null);
     let mediaFinalDisc = null;
 
-    if (neEfetivo !== null && neEfetivo !== undefined) {
+    if (neEfetivo !== null) {
       if (freqVal !== null) {
-        mediaFinalDisc = Math.round((freqVal + neEfetivo) / 2);
+        mediaFinalDisc = Math.round((freqVal * (pesoFreq / 100)) + (neEfetivo * (pesoExame / 100)));
       } else {
         mediaFinalDisc = Math.round(neEfetivo);
       }
+    } else if (discEm2e) {
+      mediaFinalDisc = '2ª Época';
     } else if (freqVal !== null) {
       mediaFinalDisc = Math.round(freqVal);
     }
@@ -18213,10 +18407,16 @@ function recalcularLinhaAlunoInterface(alunoId) {
     const elMedia = document.getElementById(`media_${alunoId}_${dId}`);
     if (elMedia) {
       elMedia.textContent = mediaFinalDisc !== null ? mediaFinalDisc : '-';
-      elMedia.className = `text-center border-end font-monospace small ${mediaFinalDisc !== null && mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
+      if (typeof mediaFinalDisc === 'number') {
+        elMedia.className = `text-center border-end font-monospace small ${mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
+      } else if (mediaFinalDisc === '2ª Época') {
+        elMedia.className = `text-center border-end font-monospace small text-warning fw-bold`;
+      } else {
+        elMedia.className = `text-center border-end font-monospace small text-muted`;
+      }
     }
 
-    if (mediaFinalDisc !== null) {
+    if (typeof mediaFinalDisc === 'number') {
       notasFinais.push(mediaFinalDisc);
       if (mediaFinalDisc < 9.5) {
         discReprovadas.push(disc.nome);
@@ -18233,10 +18433,17 @@ function recalcularLinhaAlunoInterface(alunoId) {
     }
   });
 
+  // Atualizar Resultado Final
   let resAprov = 'Pendente';
   let mfGlobal = '-';
 
-  if (notasFinais.length > 0) {
+  if (alunoTem2ePendente) {
+    resAprov = '2ª Época';
+    if (notasFinais.length > 0) {
+      const soma = notasFinais.reduce((acc, v) => acc + v, 0);
+      mfGlobal = Math.round(soma / notasFinais.length);
+    }
+  } else if (notasFinais.length > 0) {
     const soma = notasFinais.reduce((acc, v) => acc + v, 0);
     mfGlobal = Math.round(soma / notasFinais.length);
 
@@ -18261,6 +18468,7 @@ function recalcularLinhaAlunoInterface(alunoId) {
     let badgeCls = 'bg-secondary';
     if (resAprov.includes('Aprovad')) badgeCls = 'bg-success';
     else if (resAprov.includes('Reprovad') || resAprov.includes('Excluíd')) badgeCls = 'bg-danger';
+    else if (resAprov.includes('2ª Época')) badgeCls = 'bg-warning text-dark';
     else if (resAprov.includes('Admitid')) badgeCls = 'bg-primary';
     elRes.className = `badge ${badgeCls} px-2 py-1`;
   }
@@ -18270,6 +18478,116 @@ function recalcularLinhaAlunoInterface(alunoId) {
 
   const elRep = document.getElementById(`rep_aluno_${alunoId}`);
   if (elRep) elRep.textContent = discReprovadas.length > 0 ? discReprovadas.join(', ') : '---';
+}
+
+// Janela Modal de Parâmetros de Avaliação de Exame
+async function abrirModalParametrosExame() {
+  const modalEl = document.getElementById('modalParametrosExame');
+  if (!modalEl) return;
+
+  // Carregar parâmetros atuais do backend ou do estado
+  try {
+    const res = await apiFetch('/api/v1/pautas/exames/parametros');
+    if (res && res.success && res.parametros) {
+      const p = res.parametros;
+      const inpFreq = document.getElementById('inputParamPesoFreq');
+      const inpEx = document.getElementById('inputParamPesoExame');
+      const inpMin = document.getElementById('inputParamNotaMinima');
+      if (inpFreq) inpFreq.value = p.peso_frequencia;
+      if (inpEx) inpEx.value = p.peso_exame;
+      if (inpMin) inpMin.value = p.nota_minima_exame;
+    }
+  } catch (err) {
+    console.warn('Erro ao carregar parâmetros de exame:', err);
+  }
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  modal.show();
+}
+
+function aoMudarPesoFrequencia(val) {
+  const num = Math.max(0, Math.min(100, Number(val) || 0));
+  const comp = 100 - num;
+  const inpEx = document.getElementById('inputParamPesoExame');
+  if (inpEx) inpEx.value = comp;
+
+  verificarAlertaPesos(num, comp);
+}
+
+function aoMudarPesoExame(val) {
+  const num = Math.max(0, Math.min(100, Number(val) || 0));
+  const comp = 100 - num;
+  const inpFreq = document.getElementById('inputParamPesoFreq');
+  if (inpFreq) inpFreq.value = comp;
+
+  verificarAlertaPesos(comp, num);
+}
+
+function verificarAlertaPesos(pf, pe) {
+  const alerta = document.getElementById('alertaSomaPesos');
+  if (!alerta) return;
+  if (Math.round(pf + pe) !== 100) {
+    alerta.classList.remove('d-none');
+  } else {
+    alerta.classList.add('d-none');
+  }
+}
+
+async function salvarParametrosExame() {
+  const inpFreq = document.getElementById('inputParamPesoFreq');
+  const inpEx = document.getElementById('inputParamPesoExame');
+  const inpMin = document.getElementById('inputParamNotaMinima');
+
+  const pf = Number(inpFreq?.value || 50);
+  const pe = Number(inpEx?.value || 50);
+  const nm = Number(inpMin?.value || 10);
+
+  if (isNaN(pf) || isNaN(pe) || isNaN(nm)) {
+    mostrarToast('Preencha valores numéricos válidos.', 'warning');
+    return;
+  }
+
+  if (Math.round(pf + pe) !== 100) {
+    mostrarToast('A soma da percentagem de frequência e exame deve ser exatamente 100%.', 'danger');
+    return;
+  }
+
+  if (nm < 0 || nm > 20) {
+    mostrarToast('A nota mínima do exame deve estar entre 0 e 20 valores.', 'danger');
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/v1/pautas/exames/parametros/', {
+      method: 'POST',
+      body: JSON.stringify({
+        peso_frequencia: pf,
+        peso_exame: pe,
+        nota_minima_exame: nm
+      })
+    });
+
+    if (res && res.success) {
+      mostrarToast(res.message || 'Parâmetros de exame configurados com sucesso!', 'success');
+      const modalEl = document.getElementById('modalParametrosExame');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+      }
+      // Actualizar badge visual imediatamente
+      const badgeParam = document.getElementById('badgeParametrosAtivos');
+      if (badgeParam) {
+        badgeParam.textContent = `Freq: ${pf}% | Exame: ${pe}% | Mín: ${nm}`;
+      }
+      // Recarregar pauta de exames para atualizar todos os cálculos
+      await carregarPautaExamesTurma();
+    } else {
+      mostrarToast(res?.message || 'Erro ao guardar parâmetros.', 'danger');
+    }
+  } catch (err) {
+    console.error('Erro ao guardar parâmetros de exame:', err);
+    mostrarToast('Erro de comunicação ao guardar parâmetros.', 'danger');
+  }
 }
 
 async function salvarNotasExame() {
@@ -18311,6 +18629,7 @@ async function salvarNotasExame() {
         btnSalvar.classList.add('btn-primary');
         btnSalvar.innerHTML = `<i class="bi bi-floppy-fill me-1"></i> Guardar Notas de Exame`;
       }
+      // Recarregar dados para sincronizar cálculos com o backend
       await carregarPautaExamesTurma();
     } else {
       mostrarToast(res?.message || 'Erro ao guardar notas de exame.', 'danger');
@@ -18353,6 +18672,7 @@ function imprimirPautaExames() {
   window.print();
 }
 
+// Exportar globalmente para chamadas do HTML e navegação SPA
 window.carregarExames = carregarExames;
 window.filtrarTurmasExamesPorClasse = filtrarTurmasExamesPorClasse;
 window.carregarPautaExamesTurma = carregarPautaExamesTurma;
@@ -18361,3 +18681,7 @@ window.salvarNotasExame = salvarNotasExame;
 window.exportarPautaExamesExcel = exportarPautaExamesExcel;
 window.descarregarPautaExamesPdf = descarregarPautaExamesPdf;
 window.imprimirPautaExames = imprimirPautaExames;
+window.abrirModalParametrosExame = abrirModalParametrosExame;
+window.aoMudarPesoFrequencia = aoMudarPesoFrequencia;
+window.aoMudarPesoExame = aoMudarPesoExame;
+window.salvarParametrosExame = salvarParametrosExame;

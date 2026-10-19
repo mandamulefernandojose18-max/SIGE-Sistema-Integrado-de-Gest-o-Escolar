@@ -1,7 +1,8 @@
 // =====================================================================
 // SIGE - Módulo Exames | Pautas Oficiais de Exame (MEC / Moçambique)
 // Modelagem e Cálculo Estrito: Dados reais das pautas de frequência,
-// lançamento de notas de 1ª e 2ª época, e integração com Certificados e Declarações.
+// lançamento de notas de 1ª e 2ª época, janela de parâmetros (pesos e nota mínima),
+// e integração com Certificados e Declarações.
 // =====================================================================
 
 window._sigePautaExamesData = null;
@@ -140,6 +141,11 @@ async function carregarPautaExamesTurma() {
     const badgeTotal = document.getElementById('badgeTotalCandidatosExame');
     if (badgeTotal) badgeTotal.textContent = `${(d.alunos || []).length} Candidatos`;
 
+    const badgeParam = document.getElementById('badgeParametrosAtivos');
+    if (badgeParam && d.parametros) {
+      badgeParam.textContent = `Freq: ${d.parametros.peso_frequencia}% | Exame: ${d.parametros.peso_exame}% | Mín: ${d.parametros.nota_minima_exame}`;
+    }
+
     renderizarTabelaExamesHtml(d);
   } catch (err) {
     console.error('Erro ao carregar pauta de exames:', err);
@@ -159,6 +165,8 @@ function renderizarTabelaExamesHtml(d) {
   const disciplinasComExame = d.disciplinas_com_exame || [];
   const disciplinasSemExame = d.disciplinas_sem_exame || [];
   const alunos = d.alunos || [];
+  const params = d.parametros || { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10 };
+  const notaMinima = Number(params.nota_minima_exame || 10);
 
   if (alunos.length === 0) {
     container.innerHTML = `
@@ -244,9 +252,27 @@ function renderizarTabelaExamesHtml(d) {
       const e2Val = dData.exame_2epoca !== null && dData.exame_2epoca !== undefined ? dData.exame_2epoca : '';
       const vMed = dData.media !== undefined && dData.media !== null ? dData.media : '-';
 
-      const corMed = (typeof vMed === 'number' || !isNaN(Number(vMed))) 
+      const temE1 = e1Val !== '' && !isNaN(Number(e1Val));
+      const aprovou1e = temE1 && Number(e1Val) >= notaMinima;
+      const pode2e = temE1 && Number(e1Val) < notaMinima;
+
+      let estiloE1 = 'background: transparent;';
+      let estiloE2 = 'background: transparent;';
+      let titleE2 = 'Nota da 2ª época (se necessária)';
+
+      if (aprovou1e) {
+        estiloE1 = 'background: #dcfce7; font-weight: bold; color: #166534;';
+        estiloE2 = 'background: #f1f5f9; color: #94a3b8; cursor: not-allowed;';
+        titleE2 = `Aluno já aprovado na 1ª época (${e1Val} ≥ ${notaMinima})`;
+      } else if (pode2e) {
+        estiloE1 = 'background: #fee2e2; color: #991b1b;';
+        estiloE2 = 'background: #fef3c7; border: 1px dashed #f59e0b !important; font-weight: bold;';
+        titleE2 = `Não atingiu nota mínima (${e1Val} < ${notaMinima}). Elegível para a 2ª época!`;
+      }
+
+      const corMed = (typeof vMed === 'number' || (!isNaN(Number(vMed)) && vMed !== '-')) 
         ? (Number(vMed) >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold') 
-        : 'text-muted';
+        : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted');
 
       tdsDiscs += `
         <td class="text-center bg-light border-end font-monospace small">${vFreq}</td>
@@ -254,12 +280,14 @@ function renderizarTabelaExamesHtml(d) {
         <td class="p-0 text-center border-end" style="min-width: 48px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"
             value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; background: transparent;">
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; ${estiloE1}"
+            title="1ª Época: Mínimo ${notaMinima} valores para aprovação">
         </td>
         <td class="p-0 text-center border-end" style="min-width: 48px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"
             value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; background: transparent;">
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; ${estiloE2}"
+            title="${titleE2}">
         </td>
         <td class="text-center border-end font-monospace small ${corMed}" id="media_${aluno.id}_${d.id}">
           ${vMed}
@@ -271,7 +299,7 @@ function renderizarTabelaExamesHtml(d) {
     disciplinasSemExame.forEach(d => {
       const dData = discMap[d.id] || {};
       const vFreq = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
-      const corFreq = (typeof vFreq === 'number' || !isNaN(Number(vFreq))) 
+      const corFreq = (typeof vFreq === 'number' || (!isNaN(Number(vFreq)) && vFreq !== '-')) 
         ? (Number(vFreq) >= 9.5 ? 'text-success' : 'text-danger') 
         : 'text-muted';
       tdsDiscs += `
@@ -280,10 +308,11 @@ function renderizarTabelaExamesHtml(d) {
     });
 
     // Resultado Final do Aluno
-    const resAprov = String(resFinal.aprovado || 'Pendente').trim();
+    const resAprov = String(resFinal.aprovado || resFinal.resultado || 'Pendente').trim();
     let badgeResClass = 'bg-secondary';
     if (resAprov.includes('Aprovad')) badgeResClass = 'bg-success';
     else if (resAprov.includes('Reprovad') || resAprov.includes('Excluíd')) badgeResClass = 'bg-danger';
+    else if (resAprov.includes('2ª Época')) badgeResClass = 'bg-warning text-dark';
     else if (resAprov.includes('Admitid')) badgeResClass = 'bg-primary';
 
     const mfVal = resFinal.mf !== undefined && resFinal.mf !== null ? resFinal.mf : '-';
@@ -334,11 +363,13 @@ function renderizarTabelaExamesHtml(d) {
     const aprov = estat.aprovados || 0;
     const rep = estat.reprovados || 0;
     const adm = estat.admitidos || 0;
+    const seg = estat.segunda_epoca || 0;
     const taxa = estat.taxa_aprovacao || 0.0;
 
     boxEstat.innerHTML = `
       <div><strong>Total de Candidatos:</strong> <span class="badge bg-secondary ms-1">${tot}</span> (H: ${estat.homens || 0} | M: ${estat.mulheres || 0})</div>
       <div><strong>Aprovados:</strong> <span class="badge bg-success ms-1">${aprov}</span></div>
+      <div><strong>2ª Época:</strong> <span class="badge bg-warning text-dark ms-1">${seg}</span></div>
       <div><strong>Reprovados:</strong> <span class="badge bg-danger ms-1">${rep}</span></div>
       <div><strong>Admitidos ao Exame:</strong> <span class="badge bg-primary ms-1">${adm}</span></div>
       <div><strong>Taxa de Aprovação:</strong> <span class="badge bg-dark ms-1">${taxa}%</span></div>
@@ -397,6 +428,11 @@ function recalcularLinhaAlunoInterface(alunoId) {
   const aluno = (d.alunos || []).find(a => a.id === alunoId);
   if (!aluno) return;
 
+  const params = d.parametros || { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10 };
+  const pesoFreq = Number(params.peso_frequencia || 50);
+  const pesoExame = Number(params.peso_exame || 50);
+  const notaMinima = Number(params.nota_minima_exame || 10);
+
   const disciplinasComExame = d.disciplinas_com_exame || [];
   const disciplinasSemExame = d.disciplinas_sem_exame || [];
   const grauAno = d.turma?.grau_ano || '10ª Classe';
@@ -406,6 +442,7 @@ function recalcularLinhaAlunoInterface(alunoId) {
   const notasFinais = [];
   const discReprovadas = [];
   let temAlgumExame = false;
+  let alunoTem2ePendente = false;
 
   disciplinasComExame.forEach(disc => {
     const dId = disc.id;
@@ -415,21 +452,44 @@ function recalcularLinhaAlunoInterface(alunoId) {
 
     const e1 = mod && mod.exame_1epoca !== undefined ? mod.exame_1epoca : dData.exame_1epoca;
     const e2 = mod && mod.exame_2epoca !== undefined ? mod.exame_2epoca : dData.exame_2epoca;
-    const neEfetivo = e2 !== null && e2 !== undefined ? e2 : e1;
 
-    if (neEfetivo !== null && neEfetivo !== undefined) {
+    const e1Num = (e1 !== null && e1 !== undefined && e1 !== '') ? Number(e1) : null;
+    const e2Num = (e2 !== null && e2 !== undefined && e2 !== '') ? Number(e2) : null;
+
+    if (e1Num !== null || e2Num !== null) {
       temAlgumExame = true;
+    }
+
+    let neEfetivo = null;
+    let discEm2e = false;
+
+    if (e1Num !== null && e1Num >= notaMinima) {
+      // Passou logo na 1ª época!
+      neEfetivo = e1Num;
+    } else if (e1Num !== null && e1Num < notaMinima) {
+      // Não passou na 1ª época -> tem direito à 2ª época
+      if (e2Num !== null) {
+        neEfetivo = e2Num;
+      } else {
+        // Aguarda 2ª época
+        discEm2e = true;
+        alunoTem2ePendente = true;
+      }
+    } else if (e1Num === null && e2Num !== null) {
+      neEfetivo = e2Num;
     }
 
     const freqVal = typeof dData.frequencia_decimal === 'number' ? dData.frequencia_decimal : (typeof dData.frequencia === 'number' ? dData.frequencia : null);
     let mediaFinalDisc = null;
 
-    if (neEfetivo !== null && neEfetivo !== undefined) {
+    if (neEfetivo !== null) {
       if (freqVal !== null) {
-        mediaFinalDisc = Math.round((freqVal + neEfetivo) / 2);
+        mediaFinalDisc = Math.round((freqVal * (pesoFreq / 100)) + (neEfetivo * (pesoExame / 100)));
       } else {
         mediaFinalDisc = Math.round(neEfetivo);
       }
+    } else if (discEm2e) {
+      mediaFinalDisc = '2ª Época';
     } else if (freqVal !== null) {
       mediaFinalDisc = Math.round(freqVal);
     }
@@ -437,10 +497,16 @@ function recalcularLinhaAlunoInterface(alunoId) {
     const elMedia = document.getElementById(`media_${alunoId}_${dId}`);
     if (elMedia) {
       elMedia.textContent = mediaFinalDisc !== null ? mediaFinalDisc : '-';
-      elMedia.className = `text-center border-end font-monospace small ${mediaFinalDisc !== null && mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
+      if (typeof mediaFinalDisc === 'number') {
+        elMedia.className = `text-center border-end font-monospace small ${mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
+      } else if (mediaFinalDisc === '2ª Época') {
+        elMedia.className = `text-center border-end font-monospace small text-warning fw-bold`;
+      } else {
+        elMedia.className = `text-center border-end font-monospace small text-muted`;
+      }
     }
 
-    if (mediaFinalDisc !== null) {
+    if (typeof mediaFinalDisc === 'number') {
       notasFinais.push(mediaFinalDisc);
       if (mediaFinalDisc < 9.5) {
         discReprovadas.push(disc.nome);
@@ -461,7 +527,13 @@ function recalcularLinhaAlunoInterface(alunoId) {
   let resAprov = 'Pendente';
   let mfGlobal = '-';
 
-  if (notasFinais.length > 0) {
+  if (alunoTem2ePendente) {
+    resAprov = '2ª Época';
+    if (notasFinais.length > 0) {
+      const soma = notasFinais.reduce((acc, v) => acc + v, 0);
+      mfGlobal = Math.round(soma / notasFinais.length);
+    }
+  } else if (notasFinais.length > 0) {
     const soma = notasFinais.reduce((acc, v) => acc + v, 0);
     mfGlobal = Math.round(soma / notasFinais.length);
 
@@ -486,6 +558,7 @@ function recalcularLinhaAlunoInterface(alunoId) {
     let badgeCls = 'bg-secondary';
     if (resAprov.includes('Aprovad')) badgeCls = 'bg-success';
     else if (resAprov.includes('Reprovad') || resAprov.includes('Excluíd')) badgeCls = 'bg-danger';
+    else if (resAprov.includes('2ª Época')) badgeCls = 'bg-warning text-dark';
     else if (resAprov.includes('Admitid')) badgeCls = 'bg-primary';
     elRes.className = `badge ${badgeCls} px-2 py-1`;
   }
@@ -495,6 +568,116 @@ function recalcularLinhaAlunoInterface(alunoId) {
 
   const elRep = document.getElementById(`rep_aluno_${alunoId}`);
   if (elRep) elRep.textContent = discReprovadas.length > 0 ? discReprovadas.join(', ') : '---';
+}
+
+// Janela Modal de Parâmetros de Avaliação de Exame
+async function abrirModalParametrosExame() {
+  const modalEl = document.getElementById('modalParametrosExame');
+  if (!modalEl) return;
+
+  // Carregar parâmetros atuais do backend ou do estado
+  try {
+    const res = await apiFetch('/api/v1/pautas/exames/parametros');
+    if (res && res.success && res.parametros) {
+      const p = res.parametros;
+      const inpFreq = document.getElementById('inputParamPesoFreq');
+      const inpEx = document.getElementById('inputParamPesoExame');
+      const inpMin = document.getElementById('inputParamNotaMinima');
+      if (inpFreq) inpFreq.value = p.peso_frequencia;
+      if (inpEx) inpEx.value = p.peso_exame;
+      if (inpMin) inpMin.value = p.nota_minima_exame;
+    }
+  } catch (err) {
+    console.warn('Erro ao carregar parâmetros de exame:', err);
+  }
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  modal.show();
+}
+
+function aoMudarPesoFrequencia(val) {
+  const num = Math.max(0, Math.min(100, Number(val) || 0));
+  const comp = 100 - num;
+  const inpEx = document.getElementById('inputParamPesoExame');
+  if (inpEx) inpEx.value = comp;
+
+  verificarAlertaPesos(num, comp);
+}
+
+function aoMudarPesoExame(val) {
+  const num = Math.max(0, Math.min(100, Number(val) || 0));
+  const comp = 100 - num;
+  const inpFreq = document.getElementById('inputParamPesoFreq');
+  if (inpFreq) inpFreq.value = comp;
+
+  verificarAlertaPesos(comp, num);
+}
+
+function verificarAlertaPesos(pf, pe) {
+  const alerta = document.getElementById('alertaSomaPesos');
+  if (!alerta) return;
+  if (Math.round(pf + pe) !== 100) {
+    alerta.classList.remove('d-none');
+  } else {
+    alerta.classList.add('d-none');
+  }
+}
+
+async function salvarParametrosExame() {
+  const inpFreq = document.getElementById('inputParamPesoFreq');
+  const inpEx = document.getElementById('inputParamPesoExame');
+  const inpMin = document.getElementById('inputParamNotaMinima');
+
+  const pf = Number(inpFreq?.value || 50);
+  const pe = Number(inpEx?.value || 50);
+  const nm = Number(inpMin?.value || 10);
+
+  if (isNaN(pf) || isNaN(pe) || isNaN(nm)) {
+    mostrarToast('Preencha valores numéricos válidos.', 'warning');
+    return;
+  }
+
+  if (Math.round(pf + pe) !== 100) {
+    mostrarToast('A soma da percentagem de frequência e exame deve ser exatamente 100%.', 'danger');
+    return;
+  }
+
+  if (nm < 0 || nm > 20) {
+    mostrarToast('A nota mínima do exame deve estar entre 0 e 20 valores.', 'danger');
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/v1/pautas/exames/parametros/', {
+      method: 'POST',
+      body: JSON.stringify({
+        peso_frequencia: pf,
+        peso_exame: pe,
+        nota_minima_exame: nm
+      })
+    });
+
+    if (res && res.success) {
+      mostrarToast(res.message || 'Parâmetros de exame configurados com sucesso!', 'success');
+      const modalEl = document.getElementById('modalParametrosExame');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+      }
+      // Actualizar badge visual imediatamente
+      const badgeParam = document.getElementById('badgeParametrosAtivos');
+      if (badgeParam) {
+        badgeParam.textContent = `Freq: ${pf}% | Exame: ${pe}% | Mín: ${nm}`;
+      }
+      // Recarregar pauta de exames para atualizar todos os cálculos
+      await carregarPautaExamesTurma();
+    } else {
+      mostrarToast(res?.message || 'Erro ao guardar parâmetros.', 'danger');
+    }
+  } catch (err) {
+    console.error('Erro ao guardar parâmetros de exame:', err);
+    mostrarToast('Erro de comunicação ao guardar parâmetros.', 'danger');
+  }
 }
 
 async function salvarNotasExame() {
@@ -588,3 +771,7 @@ window.salvarNotasExame = salvarNotasExame;
 window.exportarPautaExamesExcel = exportarPautaExamesExcel;
 window.descarregarPautaExamesPdf = descarregarPautaExamesPdf;
 window.imprimirPautaExames = imprimirPautaExames;
+window.abrirModalParametrosExame = abrirModalParametrosExame;
+window.aoMudarPesoFrequencia = aoMudarPesoFrequencia;
+window.aoMudarPesoExame = aoMudarPesoExame;
+window.salvarParametrosExame = salvarParametrosExame;

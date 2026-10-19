@@ -13,7 +13,8 @@ from .views import (
     PautasEstatisticasGeraisXLSXView,
     PautaExamesView,
     PautaExamesXLSXView,
-    PautaExamesPDFView
+    PautaExamesPDFView,
+    ParametrosExamesView
 )
 
 urlpatterns = [
@@ -67,4 +68,6 @@ urlpatterns = [
     path('exames/turma/<uuid:turma_id>/xlsx/', PautaExamesXLSXView.as_view(), name='pauta_exames_xlsx'),
     path('exames/turma/<uuid:turma_id>/pdf', PautaExamesPDFView.as_view(), name='pauta_exames_pdf_no_slash'),
     path('exames/turma/<uuid:turma_id>/pdf/', PautaExamesPDFView.as_view(), name='pauta_exames_pdf'),
+    path('exames/parametros', ParametrosExamesView.as_view(), name='pauta_exames_parametros_no_slash'),
+    path('exames/parametros/', ParametrosExamesView.as_view(), name='pauta_exames_parametros'),
 ]

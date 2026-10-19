@@ -70,6 +70,11 @@ class Escola(models.Model):
     logo_base64 = models.TextField(blank=True, null=True)
     galeria_logos = models.JSONField(default=list, blank=True)
     config_classes_exames = models.JSONField(default=dict, blank=True)
+    config_parametros_exames = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuração de pesos e nota mínima dos exames (peso_frequencia, peso_exame, nota_minima_exame)"
+    )
     regime_curricular = models.CharField(
         max_length=20,
         default='CLASSES',
@@ -78,6 +83,27 @@ class Escola(models.Model):
             ('NIVEIS', 'Regime por Níveis (Nível 1, Nível 2...)')
         ]
     )
+
+    def get_config_parametros_exames(self):
+        cfg = self.config_parametros_exames or {}
+        try:
+            pf = float(cfg.get('peso_frequencia', 50))
+        except (ValueError, TypeError):
+            pf = 50.0
+        try:
+            pe = float(cfg.get('peso_exame', 50))
+        except (ValueError, TypeError):
+            pe = 50.0
+        try:
+            nm = float(cfg.get('nota_minima_exame', 10.0))
+        except (ValueError, TypeError):
+            nm = 10.0
+        return {
+            'peso_frequencia': pf,
+            'peso_exame': pe,
+            'nota_minima_exame': nm,
+        }
+
 
     # Identidade Visual, Tema e Imagem de Fundo da Instituição
     tema_codigo = models.CharField(max_length=50, default='padrao_azul')

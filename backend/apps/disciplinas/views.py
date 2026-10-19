@@ -22,12 +22,10 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
 
         classe = self.request.query_params.get('classe')
         if classe:
-            import re
-            m = re.search(r'\d+', classe)
-            if m:
-                qs = qs.filter(classe__icontains=m.group(0))
-            else:
-                qs = qs.filter(classe__iexact=classe)
+            from django.db.models import Q
+            c_clean = classe.strip()
+            c_alt = c_clean.replace('ª', 'a') if 'ª' in c_clean else c_clean.replace('a', 'ª')
+            qs = qs.filter(Q(classe__iexact=c_clean) | Q(classe__iexact=c_alt))
 
         area = self.request.query_params.get('area')
         if area:

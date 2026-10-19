@@ -252,20 +252,27 @@ A Pauta de Exames no SIGE materializa fielmente o modelo do MEC para publicaçã
    - As disciplinas da turma e as **Médias de Frequência da Disciplina (MFD)** têm origem estritamente nas avaliações dos 3 trimestres lançadas nas cadernetas e pautas de frequência. É proibido qualquer dado ou média fictícia.
    - A visualização é exclusiva para classes ou níveis parametrizados como **"Com Exame"** (padrão MEC: 10ª e 12ª Classes).
 
-2. **Estrutura de Colunas por Disciplina:**
+2. **Estrutura de Colunas e Fórmula Ponderada:**
    - **Disciplinas com Exame:** `M. Freq` | `1ª Época` | `2ª Época` | `NF` (Nota Final).
-     Fórmula da Nota Final:
-     $$\text{NF} = \text{round}\left(\frac{\text{MFreq} + \text{NE}}{2}\right)$$
-     *(Onde $\text{NE}$ é a nota da 1ª época ou, caso realizada, a nota da 2ª época).*
-   - **Disciplinas sem Exame (na mesma turma):** Exibe a coluna única `M. Freq` e a Nota Final é a própria média de frequência.
+     Fórmula da Nota Final com percentagens configuráveis:
+     $$\text{NF} = \text{round}\left(\frac{\text{MFreq} \times \text{Peso}_{\text{Freq}} + \text{NE} \times \text{Peso}_{\text{Exame}}}{100}\right)$$
+     *(Onde $\text{NE}$ é a nota de exame considerada, e $\text{Peso}_{\text{Freq}} + \text{Peso}_{\text{Exame}} = 100\%$, padrão: 50% Frequência e 50% Exame).*
+   - **Disciplinas sem Exame (na mesma turma):** Exibe a coluna única `M. Freq` e a Nota Final é a própria média de frequência (100%).
 
-3. **Deliberação Final e Estatística:**
-   - **Resultado Final:** `Aprovado`, `2ª Época` ou `Reprovado`.
-   - **Média Final Global:** Média aritmética de todas as Notas Finais das disciplinas.
+3. **Regra de Aprovação na 1ª Época e Direito à 2ª Época:**
+   - **Nota Mínima do Exame (Parametrizável de 0 a 20 valores, padrão: 10.0):**
+     - **Se a nota da 1ª Época $\ge \text{Nota Mínima}$:** O aluno é **Aprovado no Exame** na 1ª época. A nota de exame considerada é a da 1ª época ($\text{NE} = \text{Nota}_{\text{1ª}}$) e o aluno não necessita realizar a 2ª época.
+     - **Se a nota da 1ª Época $< \text{Nota Mínima}$:** O aluno não aprovou na 1ª época e **tem direito a realizar a 2ª Época**.
+       - Enquanto não realizar a 2ª época, a sua situação fica classificada como **`2ª Época`**.
+       - Ao realizar a 2ª época, a nota considerada para o cálculo da Média Final passa a ser a da 2ª época ($\text{NE} = \text{Nota}_{\text{2ª}}$). Se $\ge \text{Nota Mínima}$, o aluno é aprovado no exame; caso contrário, é reprovado.
+
+4. **Deliberação Final e Estatística:**
+   - **Resultado Final do Aluno:** `Aprovado`, `2ª Época` (caso tenha disciplina aguardando a 2ª época) ou `Reprovado`.
+   - **Média Final Global:** Média aritmética de todas as Notas Finais das disciplinas da matriz.
    - **Disciplinas em Atraso:** Relação nominal das matérias em que o aluno obteve nota final negativa.
    - **Quadro Estatístico Oficial:** Contabilização de Inscritos, Não Avaliados, Avaliados, Aprovados, 2ª Época e Reprovados, discriminados por Homens (HM) e Mulheres (M) com taxas percentuais de aproveitamento.
 
-4. **Alimentação Direta de Documentos Oficiais:**
+5. **Alimentação Direta de Documentos Oficiais:**
    - A pauta de exame homologada é a fonte exclusiva de notas para o **Certificado de Habilitações Literárias** e para a **Declaração Escolar com Notas** dos alunos concluintes de classes com exame.
 
 
