@@ -1216,51 +1216,143 @@ def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
     doc = docx.Document()
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.65)
 
+    # Determinação estrita do estado de liquidação e conformidade de pagamento
+    status_raw = str(getattr(pagamento, 'status', '')).upper().strip()
+    valor_pago_val = float(getattr(pagamento, 'valor_pago', 0) or 0)
+    tem_data_pag = bool(getattr(pagamento, 'data_pagamento', None))
+    is_pago = (status_raw == 'PAGO') and (tem_data_pag or valor_pago_val > 0)
+
+    # Dados sincronizados da Instituição
+    nome_escola = getattr(escola, 'nome', 'Instituição de Ensino')
+    provincia = getattr(escola, 'provincia', '') or 'Inhambane'
+    distrito = getattr(escola, 'distrito', '') or 'Massinga'
+    nuit = getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', None) or '---'
+    telefone = getattr(escola, 'telefone', '---')
+
+    p_rep = doc.add_paragraph()
+    p_rep.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_rep.paragraph_format.space_after = Pt(1)
+    r_rep = p_rep.add_run("REPÚBLICA DE MOÇAMBIQUE\nMINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    aplicar_fonte_times(r_rep, pt_size=10, bold=True)
+
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.paragraph_format.space_after = Pt(2)
-    r1 = p1.add_run(f"{escola.nome.upper()}")
-    aplicar_fonte_times(r1, pt_size=13, bold=True)
+    r1 = p1.add_run(f"{nome_escola.upper()}")
+    aplicar_fonte_times(r1, pt_size=12, bold=True)
 
+    p_info = doc.add_paragraph()
+    p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_info.paragraph_format.space_after = Pt(8)
+    r_info = p_info.add_run(f"NUIT: {nuit} | Província: {provincia} | Distrito: {distrito} | Tel: {telefone}")
+    aplicar_fonte_times(r_info, pt_size=9, italic=True)
+
+    num_rec = getattr(pagamento, 'recibo_numero', None) or f"REC-{pagamento.id}"
     p_tit = doc.add_paragraph()
     p_tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_tit.paragraph_format.space_after = Pt(12)
-    num_rec = getattr(pagamento, 'recibo_numero', None) or f"REC-{pagamento.id}"
-    r_tit = p_tit.add_run(f"RECIBO DE PAGAMENTO OFICIAL — {num_rec}")
+    p_tit.paragraph_format.space_after = Pt(4)
+    if is_pago:
+        r_tit = p_tit.add_run(f"RECIBO DE PAGAMENTO OFICIAL — {num_rec}")
+    else:
+        r_tit = p_tit.add_run(f"RECIBO / GUIA DE PAGAMENTO (NÃO PAGO) — {num_rec}")
     aplicar_fonte_times(r_tit, pt_size=12, bold=True)
+
+    # Banner de Estado
+    p_ban = doc.add_paragraph()
+    p_ban.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_ban.paragraph_format.space_after = Pt(10)
+    if is_pago:
+        r_ban = p_ban.add_run("[ SITUAÇÃO: PAGO / LIQUIDADO COM SUCESSO ]")
+        aplicar_fonte_times(r_ban, pt_size=11, bold=True, color_rgb=(21, 128, 61))
+    else:
+        r_ban = p_ban.add_run("[ ATENÇÃO: NÃO PAGO — PENDENTE DE LIQUIDAÇÃO ]")
+        aplicar_fonte_times(r_ban, pt_size=11, bold=True, color_rgb=(185, 28, 28))
 
     table = doc.add_table(rows=0, cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = 'Table Grid'
     aplicar_cant_split_tabela(table)
 
-    aluno = pagamento.aluno
+    aluno = getattr(pagamento, 'aluno', None)
+    nome_aluno = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper() if aluno else '---'
+    matricula = aluno.matricula if aluno else '---'
+    turma_nome = aluno.turma.nome if aluno and aluno.turma else '---'
+    grau_ano = getattr(aluno.turma, 'grau_ano', '') if aluno and aluno.turma else ''
+    turma_completa = f"{turma_nome} ({grau_ano})" if grau_ano else turma_nome
+    turno_sala = f"{getattr(aluno.turma, 'turno', '---')} / Sala: {getattr(aluno.turma, 'sala', '---')}" if aluno and aluno.turma else '---'
+    encarregado = getattr(aluno, 'encarregado_nome', '') or getattr(aluno, 'nome_pai', '') or getattr(aluno, 'nome_mae', '') or '---' if aluno else '---'
+
+    if is_pago:
+        valor_liq = f"{getattr(pagamento, 'valor_pago', None) or pagamento.valor} MT"
+        estado_txt = "PAGO"
+        metodo_txt = str(getattr(pagamento, 'metodo_pagamento', 'MPESA') or 'MPESA')
+        data_conf_txt = str(getattr(pagamento, 'data_pagamento', None) or pagamento.created_at)[:10]
+    else:
+        valor_liq = "0,00 MT (Aguardando Liquidação)"
+        estado_txt = "NÃO PAGO"
+        metodo_txt = "Pendente de Liquidação"
+        data_conf_txt = "Aguardando Confirmação"
+
     campos = [
-        ('Nome do Aluno:', f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper() if aluno else '---'),
-        ('Matrícula do Aluno:', aluno.matricula if aluno else '---'),
-        ('Turma:', aluno.turma.nome if aluno and aluno.turma else '---'),
-        ('Descrição do Serviço:', pagamento.descricao or 'Mensalidade / Propina'),
-        ('Mês de Referência:', str(pagamento.mes_referencia or '---')),
-        ('Valor Pago:', f"{pagamento.valor_pago or pagamento.valor} MT"),
-        ('Forma de Pagamento:', str(pagamento.metodo_pagamento or 'MPESA')),
-        ('Data de Confirmação:', str(pagamento.data_pagamento or pagamento.created_at)[:10])
+        ('Instituição de Ensino:', nome_escola.upper()),
+        ('Localização / Província:', f"{distrito}, {provincia}"),
+        ('Nome do Aluno:', nome_aluno),
+        ('Matrícula do Aluno:', matricula),
+        ('Turma / Classe:', turma_completa),
+        ('Turno / Instalações:', turno_sala),
+        ('Encarregado de Educação:', encarregado),
+        ('Descrição do Serviço:', getattr(pagamento, 'descricao', 'Mensalidade / Propina') or 'Mensalidade / Propina'),
+        ('Mês de Referência:', str(getattr(pagamento, 'mes_referencia', '---') or '---')),
+        ('Valor Total Cobrado:', f"{pagamento.valor} MT"),
+        ('Valor Liquidado:', valor_liq),
+        ('Situação / Estado:', estado_txt),
+        ('Forma de Pagamento:', metodo_txt),
+        ('Data de Vencimento:', str(getattr(pagamento, 'data_vencimento', '---') or '---')[:10]),
+        ('Data de Liquidação / Confirmação:', data_conf_txt)
     ]
 
     for label, val in campos:
         row = table.add_row()
         p0 = row.cells[0].paragraphs[0]
         r0 = p0.add_run(label)
-        aplicar_fonte_times(r0, pt_size=11, bold=True)
+        aplicar_fonte_times(r0, pt_size=10, bold=True)
 
         p1 = row.cells[1].paragraphs[0]
         r1 = p1.add_run(str(val))
-        aplicar_fonte_times(r1, pt_size=11)
+        if label == 'Situação / Estado:':
+            if is_pago:
+                aplicar_fonte_times(r1, pt_size=10, bold=True, color_rgb=(21, 128, 61))
+            else:
+                aplicar_fonte_times(r1, pt_size=10, bold=True, color_rgb=(185, 28, 28))
+        elif label == 'Valor Liquidado:' and not is_pago:
+            aplicar_fonte_times(r1, pt_size=10, bold=True, color_rgb=(185, 28, 28))
+        else:
+            aplicar_fonte_times(r1, pt_size=10)
 
-    doc.add_paragraph().paragraph_format.space_after = Pt(20)
+    doc.add_paragraph().paragraph_format.space_after = Pt(6)
+
+    # Aviso no rodapé
+    p_av = doc.add_paragraph()
+    p_av.paragraph_format.space_after = Pt(8)
+    if not is_pago:
+        r_av = p_av.add_run("AVISO: Este recibo possui a indicação expressa de NÃO PAGO. Não confere quitação de dívida até a respectiva liquidação e confirmação de pagamento no sistema.")
+        aplicar_fonte_times(r_av, pt_size=8.5, italic=True, color_rgb=(185, 28, 28))
+    else:
+        r_av = p_av.add_run("COMPROVATIVO DE QUITAÇÃO: Certifica-se que o valor indicado foi devidamente liquidado e confirmado no sistema oficial SIGE.")
+        aplicar_fonte_times(r_av, pt_size=8.5, italic=True, color_rgb=(21, 128, 61))
+
+    # Carimbo temporal
+    carimbo_dt = datetime.datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+    p_auth = doc.add_paragraph()
+    p_auth.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_auth.paragraph_format.space_after = Pt(14)
+    r_auth = p_auth.add_run(f"Processado por Computador aos {carimbo_dt} | Autenticação Digital SIGE")
+    aplicar_fonte_times(r_auth, pt_size=8, italic=True)
+
     p_ass = doc.add_paragraph()
     p_ass.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_ass = p_ass.add_run("A Secretaria Escolar\n\n__________________________________")
-    aplicar_fonte_times(r_ass, pt_size=11)
+    r_ass = p_ass.add_run("A Secretaria Escolar\n\n__________________________________\nAssinatura e Carimbo Oficial")
+    aplicar_fonte_times(r_ass, pt_size=9.5)
 
     buffer = io.BytesIO()
     doc.save(buffer)

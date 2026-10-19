@@ -36,9 +36,10 @@ git checkout "${DEPLOY_BRANCH}"
 git reset --hard "origin/${DEPLOY_BRANCH}"
 COMMIT_HASH=$(git rev-parse --short HEAD)
 COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
+SAFE_COMMIT_MSG=$(echo "${COMMIT_MSG}" | sed 's/"/\\"/g' | tr -d '\r\n')
 log_success "Código atualizado para o commit ${COMMIT_HASH}: \"${COMMIT_MSG}\""
 
-# Sincronizar automaticamente frontend/version.json e meta tag sige-build com o commit da VM
+# Sincronizar automaticamente frontend/version.json, meta tag sige-build e service-worker.js com o commit da VM
 if [ -f "frontend/version.json" ]; then
     cat <<EOF > frontend/version.json
 {
@@ -47,7 +48,7 @@ if [ -f "frontend/version.json" ]; then
   "data": "$(date '+%Y-%m-%d %H:%M:%S')",
   "nome": "SIGE SaaS",
   "commit": "${COMMIT_HASH}",
-  "novidades": "Melhorias de desempenho e actualizações automáticas de sistema."
+  "novidades": "${SAFE_COMMIT_MSG}"
 }
 EOF
     log_info "frontend/version.json sincronizado com o commit ${COMMIT_HASH}."
@@ -56,6 +57,11 @@ fi
 if [ -f "frontend/index.html" ]; then
     sed -i "s/<meta name=\"sige-build\" content=\".*\">/<meta name=\"sige-build\" content=\"${COMMIT_HASH}\">/g" frontend/index.html
     log_info "frontend/index.html sige-build sincronizado com o commit ${COMMIT_HASH}."
+fi
+
+if [ -f "frontend/service-worker.js" ]; then
+    sed -i "s/const CACHE_NAME = .*/const CACHE_NAME = 'sige-cache-${COMMIT_HASH}';/g" frontend/service-worker.js
+    log_info "frontend/service-worker.js CACHE_NAME sincronizado com o commit ${COMMIT_HASH}."
 fi
 
 # ------------------------------------------------------------------------------

@@ -302,14 +302,18 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 ### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas`)
 
 ### Módulo Curricular: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
-- **Página Dedicada e Autônoma de Gestão de Classes e Níveis:**
+- **Página Dedicada, Limpa e Autônoma de Gestão de Classes e Níveis:**
   - Acessível diretamente pelo menu lateral (**"Classes / Níveis & Exames"**) ou via botão de atalho no painel de Turmas.
-  - Disponibiliza interface dedicada para a ativação das classes do Sistema Nacional de Educação (SNE: **1ª à 12ª Classe**) ou dos **Níveis Técnicos (Nível 1 a Nível 10)**.
-- **Configuração Obrigatória do Regime de Exame por Classe / Nível:**
-  - Ao cadastrar qualquer classe ou nível, o utilizador define explicitamente:
+  - Interface minimalista e elegante (sem excesso de botões), com seletor de regime no cabeçalho (*Ensino Geral — Classes* ou *Ensino Técnico — Níveis*).
+  - **Zero Classes Fictícias:** O sistema não pré-popula nem injeta classes artificiais não existentes na instituição. Apenas as classes reais ativas da escola são exibidas, com estado vazio (*empty state*) elegante para novas instituições.
+- **Edição e Eliminação Completa de Classes:**
+  - **Edição Direta:** Permite renomear classes/níveis existentes e atualizar o respetivo estatuto de exame via modal rápido.
+  - **Eliminação Segura:** Botão de eliminação dedicado que remove a classe das configurações e do cache da instituição com confirmação prévia.
+  - **Alternância Instantânea (Inline Toggle):** Pílula interativa de 1 clique para comutar entre *Com Exame (Sim)* e *Sem Exame (Não)* sem sobrecarga visual.
+- **Configuração do Regime de Exame por Classe / Nível:**
+  - Ao cadastrar ou editar qualquer classe ou nível, o utilizador define:
     - **Sim — Com Exame:** Classe com realização de exame final/nacional (por regulamento do MINEDH: 10ª Classe e 12ª Classe).
     - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
-  - Inclui alternância rápida com 1 clique (toggle instantâneo) e botão para restaurar o **Padrão Oficial MEC**.
 - **Interligação Universal em Todo o Sistema:**
   - As classes cadastradas alimentam dinamicamente e em tempo real:
     - O formulário de Matrícula de Novos Alunos (`modalNovoAluno`);
@@ -835,5 +839,32 @@ O SIGE incorpora a **Central Operacional de Maximização do Gateway**, disponí
 1. **Topbar (Cabeçalho Superior):** Botão de acesso rápido `[ Gateway SMS & Pagamentos ]` visível nos painéis administrativos.
 2. **Sidebar (Menu Lateral):** Secção **Ferramentas & Integrações → Gateway SMS & Pagamentos** em `painel-superadmin`, `painel-escola` e `painel-financeiro`.
 3. **URL Direto Autenticado:** `https://sigesaas.duckdns.org/ferramentas/prompt-gateway`.
+
+---
+
+## 13. GESTÃO DE ACTUALIZAÇÕES PENDENTES DO SISTEMA (SIGE UPDATER)
+
+### 13.1 Princípio de Funcionamento Sob Demanda
+O SIGE implementa um mecanismo de deteção de actualizações sem indicadores permanentes na interface:
+- **Exibição Estritamente sob Demanda:** Não existem botões ou alertas persistentes quando a aplicação está na versão mais recente.
+- **Disparo Visual Quando Há Necessidade:** Sempre que um novo deploy é realizado no servidor, o sistema detecta que o build remoto difere do build actualmente em execução na janela do utilizador, exibindo imediatamente o Banner Flutuante (`#sigeBannerActualizacaoPendente`) e o botão de alerta no Topbar (`#btnActualizacaoPendente`).
+
+### 13.2 Ciclo de Deteção Multi-Gatilho
+1. **Verificação no Carregamento Inicial (2.5s):** Consulta `/version.json` 2.5 segundos após o `window.onload` para identificar se a página foi servida a partir de cache antigo (PWA/disco).
+2. **Ao Alternar ou Focar Abas (`visibilitychange`):** Dispara a checagem sempre que o utilizador regressa à aba do SIGE.
+3. **Polling Contínuo (60 segundos):** Durante a utilização activa, consulta silenciosamente o ficheiro estático `/version.json` a cada minuto.
+4. **Navegação Modular:** Validação oportunista ao alternar de tela ou módulo se tiverem passado mais de 30 segundos da última checagem.
+5. **Ciclo de Vida do Service Worker (`updatefound`):** O script de deploy actualiza o `CACHE_NAME` com o commit hash, acionando o evento nativo de novo worker instalado.
+
+### 13.3 Aplicação da Actualização em Um Clique
+- **Função `sigeAplicarActualizacao()`:**
+  1. Apresenta o modal de progresso *"A Actualizar o SIGE"*.
+  2. Envia mensagem `skipWaiting` para o Service Worker novo assumir o controlo.
+  3. Limpa integralmente o `CacheStorage` do navegador (`caches.delete()`).
+  4. Limpa as chaves temporárias de suspensão (`sige_snooze_build_`).
+  5. Força recarregamento limpo sem cache (`window.location.reload(true)`).
+- **Opção "Mais tarde" (`sigeFecharBannerActualizacao()`):**
+  - Suspende temporariamente o banner por 15 minutos para que o utilizador conclua uma ação sem perder o aviso.
+
 
 

@@ -1007,6 +1007,17 @@ class PautaExamesView(APIView):
         ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
         dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_letivo)
 
+        esc = escola or getattr(turma, 'escola', None)
+        if esc:
+            dados_exame['escola'] = {
+                'id': str(esc.id),
+                'nome': getattr(esc, 'nome', '') or 'Escola Secundária de Massinga',
+                'provincia': getattr(esc, 'provincia', '') or 'Inhambane',
+                'distrito': getattr(esc, 'distrito', '') or 'Massinga',
+                'codigo_escola': getattr(esc, 'codigo_escola', '') or '',
+                'logo': getattr(esc, 'logo', '') or '',
+            }
+
         return Response({
             'success': True,
             'data': dados_exame,

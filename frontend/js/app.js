@@ -371,17 +371,18 @@ function filtrarAlunosCaderneta() {
 // Obtém o build estático injetado no HTML atualmente carregado na janela do navegador
 const sigeCurrentBuild = () => {
   const meta = typeof document !== 'undefined' ? document.querySelector('meta[name="sige-build"]') : null;
-  return meta ? meta.getAttribute('content') : '20261017_1245';
+  return meta ? meta.getAttribute('content') : '';
 };
 
 const sigeUpdateState = {
   pendente: false,
   detalhes: null,
   registration: null,
-  workerEsperando: null
+  workerEsperando: null,
+  ultimoCheck: 0
 };
 
-// Notificar visualmente que há uma actualização pendente (SÓ E APENAS QUANDO A VERSÃO REMOTA FOR DIFERENTE)
+// Notificar visualmente que há uma actualização pendente (mostra quando houver necessidade através da actualização feita)
 window.sigeNotificarActualizacaoPendente = function(detalhes = {}) {
   sigeUpdateState.pendente = true;
   sigeUpdateState.detalhes = detalhes;
@@ -389,7 +390,15 @@ window.sigeNotificarActualizacaoPendente = function(detalhes = {}) {
   console.log('[SIGE UPDATER] Nova versão detectada para actualização:', detalhes);
 
   const buildId = detalhes.novoBuild || detalhes.novaVersao || 'novo';
-  const jaDispensado = typeof localStorage !== 'undefined' && localStorage.getItem('sige_dismissed_build_' + buildId) === 'true';
+  
+  // Respeita suspensão temporária ("Mais tarde") apenas se foi adiada há menos de 15 minutos
+  let dispensado = false;
+  if (typeof localStorage !== 'undefined') {
+    const snoozeAte = localStorage.getItem('sige_snooze_build_' + buildId);
+    if (snoozeAte && Date.now() < parseInt(snoozeAte, 10)) {
+      dispensado = true;
+    }
+  }
 
   // 1. Botão na Topbar (se existir)
   const btnTopbar = document.getElementById('btnActualizacaoPendente');
@@ -400,28 +409,29 @@ window.sigeNotificarActualizacaoPendente = function(detalhes = {}) {
     }
   }
 
-  // 2. Banner Flutuante (mostra apenas se o utilizador ainda não dispensou esta versão específica)
-  if (!jaDispensado) {
+  // 2. Banner Flutuante (mostra sempre que houver necessidade através de actualização)
+  if (!dispensado) {
     const banner = document.getElementById('sigeBannerActualizacaoPendente');
     const titulo = document.getElementById('sigeTituloActualizacao');
     const desc = document.getElementById('sigeDescricaoActualizacao');
     if (banner) {
-      if (titulo && detalhes.novaVersao) {
-        titulo.textContent = `Nova Versão Disponível (v${detalhes.novaVersao})`;
+      if (titulo) {
+        titulo.textContent = detalhes.novaVersao ? `Nova Actualização Disponível (v${detalhes.novaVersao})` : 'Nova Actualização Disponível';
       }
-      if (desc && (detalhes.novidades || detalhes.descricao)) {
-        desc.textContent = detalhes.novidades || detalhes.descricao || 'O sistema SIGE tem uma actualização pendente pronta a instalar.';
+      if (desc) {
+        desc.textContent = detalhes.novidades || detalhes.descricao || 'O sistema SIGE tem uma nova actualização pronta a instalar.';
       }
       banner.classList.remove('d-none');
     }
   }
 };
 
-// Fechar banner temporariamente ao clicar em "Mais tarde"
+// Fechar banner temporariamente ao clicar em "Mais tarde" (suspende por 15 minutos)
 window.sigeFecharBannerActualizacao = function() {
   const buildId = sigeUpdateState.detalhes?.novoBuild || sigeUpdateState.detalhes?.novaVersao || 'novo';
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('sige_dismissed_build_' + buildId, 'true');
+    const snoozeAte = Date.now() + 15 * 60 * 1000;
+    localStorage.setItem('sige_snooze_build_' + buildId, snoozeAte.toString());
   }
   const banner = document.getElementById('sigeBannerActualizacaoPendente');
   if (banner) {
@@ -440,14 +450,23 @@ window.sigeAplicarActualizacao = async function() {
   }
 
   try {
-    // 1. Enviar mensagem de ativação para o Service Worker
+    // 1. Limpar registos de snooze para que a nova versão abra limpa
+    if (typeof localStorage !== 'undefined') {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sige_snooze_build_') || key.startsWith('sige_dismissed_build_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+
+    // 2. Enviar mensagem de ativação para o Service Worker
     if (sigeUpdateState.workerEsperando) {
       sigeUpdateState.workerEsperando.postMessage({ action: 'skipWaiting' });
     } else if (sigeUpdateState.registration && sigeUpdateState.registration.waiting) {
       sigeUpdateState.registration.waiting.postMessage({ action: 'skipWaiting' });
     }
 
-    // 2. Limpar CacheStorage do navegador
+    // 3. Limpar CacheStorage do navegador
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
@@ -455,7 +474,7 @@ window.sigeAplicarActualizacao = async function() {
       } catch (err) {}
     }
 
-    // 3. Forçar recarregamento completo sem cache
+    // 4. Forçar recarregamento completo sem cache
     setTimeout(() => {
       window.location.reload(true);
     }, 600);
@@ -468,6 +487,7 @@ window.sigeAplicarActualizacao = async function() {
 async function sigeChecarVersaoServidor() {
   try {
     const timestamp = Date.now();
+    sigeUpdateState.ultimoCheck = timestamp;
     const resp = await fetch(`/version.json?_t=${timestamp}`, {
       cache: 'no-store',
       headers: {
@@ -496,21 +516,27 @@ async function sigeChecarVersaoServidor() {
   return false;
 }
 
-// Inicialização dos detectores em segundo plano (SÓ e APENAS verifica durante o uso)
+// Inicialização dos detectores em segundo plano (garante disparo fiável quando há nova versão)
 function inicializarDetectorActualizacoes() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js?v=20261017_1245').then((reg) => {
+      const buildAtual = sigeCurrentBuild() || Date.now();
+      navigator.serviceWorker.register('/service-worker.js?v=' + encodeURIComponent(buildAtual)).then((reg) => {
         sigeUpdateState.registration = reg;
+
+        // Se já houver um worker esperando ativação
+        if (reg.waiting) {
+          sigeUpdateState.workerEsperando = reg.waiting;
+          sigeChecarVersaoServidor();
+        }
 
         // Ao detectar novo worker instalado enquanto um já controlava a página
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (!newWorker) return;
-          if (!navigator.serviceWorker.controller) return; // Primeira instalação, ignora
 
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed') {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               sigeUpdateState.workerEsperando = newWorker;
               sigeChecarVersaoServidor();
             }
@@ -522,7 +548,14 @@ function inicializarDetectorActualizacoes() {
     });
   }
 
-  // Checar ao alternar abas (apenas dispara se houver novo deploy durante a sessão)
+  // Checar version.json logo 2.5 segundos após a carga da página (detecta se abriu a partir de cache)
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      sigeChecarVersaoServidor();
+    }, 2500);
+  });
+
+  // Checar ao alternar abas (detecta se houve deploy enquanto a aba esteve em segundo plano)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       if (sigeUpdateState.registration) {
@@ -532,13 +565,13 @@ function inicializarDetectorActualizacoes() {
     }
   });
 
-  // Polling silencioso a cada 10 minutos
+  // Polling a cada 60 segundos (1 minuto) durante o uso contínuo
   setInterval(() => {
     if (sigeUpdateState.registration) {
       sigeUpdateState.registration.update().catch(() => {});
     }
     sigeChecarVersaoServidor();
-  }, 10 * 60 * 1000);
+  }, 60 * 1000);
 }
 
 inicializarDetectorActualizacoes();
@@ -2532,6 +2565,11 @@ window.fecharSidebarMobile = fecharSidebarMobile;
 const cachePaginasModular = {};
 
 async function carregarPaginaModulo(painel, viewId) {
+  // Verificação de actualização oportunista ao navegar entre módulos (a cada 30s)
+  if (Date.now() - (sigeUpdateState.ultimoCheck || 0) > 30000) {
+    sigeChecarVersaoServidor();
+  }
+
   const container = document.getElementById('conteudo-modulo') || document.querySelector('main.content-area');
   if (!container) return null;
 
@@ -9659,18 +9697,7 @@ window.obterClassesExamesConfig = function() {
   } catch (_) {}
 
   const configApi = state.escola?.config_classes_exames || {};
-  const regime = window.obterRegimeCurricularInstituicao();
-  const padraoBase = regime === 'CLASSES' ? window.PADRAO_CLASSES_MOCAMBIQUE_EXAMES : window.PADRAO_NIVEIS_TECNICOS_EXAMES;
-  const config = { ...padraoBase, ...configApi, ...configLocal };
-
-  const niveis = typeof window.obterNiveisInstituicao === 'function' ? window.obterNiveisInstituicao() : [];
-  niveis.forEach(n => {
-    if (config[n] === undefined) {
-      config[n] = false;
-    }
-  });
-
-  return config;
+  return { ...configApi, ...configLocal };
 };
 
 window.classeTemExame = function(classeOuNivel) {
@@ -9711,43 +9738,6 @@ window.salvarClassesExamesConfig = async function(novoConfig) {
   }
 };
 
-window.alternarExameClasseRapido = async function(nomeClasse, novoStatus) {
-  const config = window.obterClassesExamesConfig();
-  config[nomeClasse] = Boolean(novoStatus);
-  await window.salvarClassesExamesConfig(config);
-
-  if (typeof window.mostrarNotificacao === 'function') {
-    const txt = novoStatus ? 'Com Exame (Sim)' : 'Sem Exame (Não)';
-    window.mostrarNotificacao(`A classe/nível "${nomeClasse}" foi configurada: ${txt}`, 'success');
-  }
-
-  fecharModal();
-  window.modalAdicionarNivelCurricular();
-
-  if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-  if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-  if (typeof carregarTurmasView === 'function') carregarTurmasView();
-};
-
-window.aplicarPadraoMecClassesExames = async function() {
-  const config = window.obterClassesExamesConfig();
-  Object.keys(window.PADRAO_CLASSES_MOCAMBIQUE_EXAMES).forEach(k => {
-    config[k] = window.PADRAO_CLASSES_MOCAMBIQUE_EXAMES[k];
-  });
-  await window.salvarClassesExamesConfig(config);
-
-  if (typeof window.mostrarNotificacao === 'function') {
-    window.mostrarNotificacao('Padrão Oficial MEC aplicado: 10ª e 12ª Classes Com Exame; restantes Sem Exame.', 'info');
-  }
-
-  fecharModal();
-  window.modalAdicionarNivelCurricular();
-
-  if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-  if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-  if (typeof carregarTurmasView === 'function') carregarTurmasView();
-};
-
 // ==================== CONTROLADOR DA PÁGINA: CLASSES-EXAMES ====================
 window.carregarPaginaClassesExames = async function(forcarRecarregamento = false) {
   const viewEl = document.getElementById('view-classes-exames');
@@ -9766,318 +9756,51 @@ window.carregarPaginaClassesExames = async function(forcarRecarregamento = false
         localStorage.setItem(`sige_regime_curricular_${escolaId}`, regime);
       }
       listaItens = res.data || [];
+      if (state.escola) {
+        state.escola.config_classes_exames = res.config_raw || {};
+        state.escola.regime_curricular = regime;
+      }
     }
   } catch (err) {
     console.warn('Carregamento de classes-exames da API:', err);
-  }
-
-  if (!listaItens || listaItens.length === 0) {
-    const cfg = window.obterClassesExamesConfig();
-    if (regime === 'CLASSES') {
-      const clsOficiais = [
-        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-      ];
-      listaItens = clsOficiais.map(c => ({
-        nome: c,
-        tem_exame: Boolean(cfg[c]),
-        tipo: 'CLASSE'
-      }));
-    } else {
-      const niveis = Object.keys(window.PADRAO_NIVEIS_TECNICOS_EXAMES);
-      listaItens = niveis.map(n => ({
-        nome: n,
-        tem_exame: Boolean(cfg[n]),
-        tipo: 'NIVEL'
-      }));
-    }
+    const cfg = state.escola?.config_classes_exames || {};
+    listaItens = Object.keys(cfg).map(k => ({
+      nome: k,
+      tem_exame: Boolean(cfg[k]),
+      tipo: regime === 'CLASSES' ? 'CLASSE' : 'NIVEL'
+    }));
   }
 
   state.regimeCurricular = regime;
   state.listaClassesExamesPagina = listaItens;
 
-  // Actualizar Radios e Estilos dos Cartões de Regime
-  const radioClasses = document.getElementById('radioRegimeClasses');
-  const radioNiveis = document.getElementById('radioRegimeNiveis');
-  const cardClasses = document.getElementById('cardRegimeClasses');
-  const cardNiveis = document.getElementById('cardRegimeNiveis');
+  const selRegime = document.getElementById('selectRegimeInstituicao');
+  if (selRegime) selRegime.value = regime;
+
   const badgeRegime = document.getElementById('badgeRegimeAtivo');
-  const kpiRegimeNome = document.getElementById('kpiRegimeNome');
-
-  if (radioClasses) radioClasses.checked = (regime === 'CLASSES');
-  if (radioNiveis) radioNiveis.checked = (regime === 'NIVEIS');
-
-  if (cardClasses && cardNiveis) {
-    if (regime === 'CLASSES') {
-      cardClasses.className = 'card h-100 border border-2 border-primary bg-primary-subtle shadow-sm p-3 cursor-pointer regime-card';
-      cardNiveis.className = 'card h-100 border bg-white p-3 cursor-pointer regime-card';
-    } else {
-      cardClasses.className = 'card h-100 border bg-white p-3 cursor-pointer regime-card';
-      cardNiveis.className = 'card h-100 border border-2 border-success bg-success-subtle shadow-sm p-3 cursor-pointer regime-card';
-    }
-  }
-
   if (badgeRegime) {
-    badgeRegime.className = regime === 'CLASSES' ? 'badge bg-primary px-3 py-2 fs-7' : 'badge bg-success px-3 py-2 fs-7';
     badgeRegime.innerHTML = regime === 'CLASSES'
-      ? '<i class="bi bi-mortarboard-fill me-1"></i> Regime Atual: Classes (1ª à 12ª)'
-      : '<i class="bi bi-layers-fill me-1"></i> Regime Atual: Níveis Técnicos (Nível 1, 2...)';
+      ? '<i class="bi bi-mortarboard me-1"></i> Classes SNE'
+      : '<i class="bi bi-layers me-1"></i> Níveis Técnicos';
   }
 
-  if (kpiRegimeNome) {
-    kpiRegimeNome.textContent = regime === 'CLASSES' ? 'Classes SNE' : 'Níveis Técnicos';
-    kpiRegimeNome.className = regime === 'CLASSES' ? 'fw-bold mb-0 text-primary' : 'fw-bold mb-0 text-success';
+  const btnLabel = document.getElementById('btnLabelNovaClasse');
+  if (btnLabel) {
+    btnLabel.textContent = regime === 'CLASSES' ? '+ Nova Classe' : '+ Novo Nível';
   }
 
-  // Alternar seletores do formulário conforme regime
-  const containerClasses = document.getElementById('containerSelecaoClasses');
-  const containerNiveis = document.getElementById('containerSelecaoNiveis');
-  const labelSelecaoNome = document.getElementById('labelCampoSelecaoNome');
-  const labelCriterioExame = document.getElementById('labelCriterioExame');
-  const tituloForm = document.getElementById('tituloFormularioCadastro');
-  const btnTextoCad = document.getElementById('btnTextoCadastrarItem');
-  const labelCardTotal = document.getElementById('labelCardTotalItens');
   const tituloTabela = document.getElementById('tituloTabelaItens');
-
-  if (regime === 'CLASSES') {
-    if (containerClasses) containerClasses.style.display = 'block';
-    if (containerNiveis) containerNiveis.style.display = 'none';
-    if (labelSelecaoNome) labelSelecaoNome.innerHTML = '<i class="bi bi-mortarboard me-1 text-primary"></i> Selecione a Classe (1ª à 12ª):';
-    if (labelCriterioExame) labelCriterioExame.innerHTML = '<i class="bi bi-question-diamond-fill text-primary me-1"></i> A Classe tem Exame: Sim ou Não?';
-    if (tituloForm) tituloForm.innerHTML = '<i class="bi bi-plus-circle-fill text-primary me-2"></i>2. Cadastrar / Configurar Classe (1ª à 12ª)';
-    if (btnTextoCad) btnTextoCad.textContent = '+ Cadastrar Classe';
-    if (labelCardTotal) labelCardTotal.textContent = 'Total de Classes';
-    if (tituloTabela) tituloTabela.innerHTML = '<i class="bi bi-table me-2 text-primary"></i>Classes Ativas & Critérios de Exame';
-  } else {
-    if (containerClasses) containerClasses.style.display = 'none';
-    if (containerNiveis) containerNiveis.style.display = 'block';
-    if (labelSelecaoNome) labelSelecaoNome.innerHTML = '<i class="bi bi-layers me-1 text-success"></i> Número do Nível (Nível 1, 2, 3...):';
-    if (labelCriterioExame) labelCriterioExame.innerHTML = '<i class="bi bi-question-diamond-fill text-success me-1"></i> O Nível tem Exame: Sim ou Não?';
-    if (tituloForm) tituloForm.innerHTML = '<i class="bi bi-plus-circle-fill text-success me-2"></i>2. Cadastrar / Configurar Nível (Nível 1, 2...)';
-    if (btnTextoCad) btnTextoCad.textContent = '+ Cadastrar Nível';
-    if (labelCardTotal) labelCardTotal.textContent = 'Total de Níveis';
-    if (tituloTabela) tituloTabela.innerHTML = '<i class="bi bi-table me-2 text-success"></i>Níveis Ativos & Critérios de Exame';
+  if (tituloTabela) {
+    tituloTabela.innerHTML = `<i class="bi bi-list-check me-2 text-primary"></i>${regime === 'CLASSES' ? 'Classes da Instituição' : 'Níveis da Instituição'}`;
   }
-
-  // Predefinir critério com base na classe/nível selecionado inicialmente
-  const valClasseInicial = document.getElementById('selectClasseSNE')?.value || '10ª Classe';
-  window.definirCriterioExameForm(window.classeTemExame(valClasseInicial));
 
   window.renderizarTabelaClassesExamesPagina();
-};
-
-window.selecionarRegimeCurricularInstituicao = async function(novoRegime) {
-  const regimeAtual = window.obterRegimeCurricularInstituicao();
-  if (novoRegime === regimeAtual && state.listaClassesExamesPagina && state.listaClassesExamesPagina.length > 0) return;
-
-  const nomeLegivel = novoRegime === 'CLASSES' ? 'Regime por Classes (1ª à 12ª)' : 'Regime por Níveis (Nível 1, 2...)';
-  if (!confirm(`Deseja alterar o modelo curricular da instituição para "${nomeLegivel}"?\n\nNo regime por Classes, o sistema só permite 1ª à 12ª Classe. No regime por Níveis, só permite Níveis (Nível 1, Nível 2...).`)) {
-    if (document.getElementById('radioRegimeClasses')) {
-      document.getElementById('radioRegimeClasses').checked = (regimeAtual === 'CLASSES');
-      document.getElementById('radioRegimeNiveis').checked = (regimeAtual === 'NIVEIS');
-    }
-    return;
-  }
-
-  await window.definirRegimeCurricularInstituicao(novoRegime);
-  if (typeof window.mostrarNotificacao === 'function') {
-    window.mostrarNotificacao(`Modelo estrutural alterado para: ${nomeLegivel}`, 'success');
-  }
-  await window.carregarPaginaClassesExames(true);
-  if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-  if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-  if (typeof carregarTurmasView === 'function') carregarTurmasView();
-};
-
-window.definirCriterioExameForm = function(temExame) {
-  const radioSim = document.getElementById('radioCriterioSim');
-  const radioNao = document.getElementById('radioCriterioNao');
-  const cardSim = document.getElementById('cardCriterioSim');
-  const cardNao = document.getElementById('cardCriterioNao');
-  const badgePreview = document.getElementById('badgePreviewCriterio');
-
-  if (radioSim) radioSim.checked = Boolean(temExame);
-  if (radioNao) radioNao.checked = !Boolean(temExame);
-
-  if (cardSim && cardNao) {
-    if (temExame) {
-      cardSim.className = 'card h-100 p-2 text-center criterio-card border border-2 border-danger bg-danger-subtle shadow-sm';
-      cardNao.className = 'card h-100 p-2 text-center criterio-card border bg-white';
-    } else {
-      cardSim.className = 'card h-100 p-2 text-center criterio-card border bg-white';
-      cardNao.className = 'card h-100 p-2 text-center criterio-card border border-2 border-secondary bg-secondary-subtle shadow-sm';
-    }
-  }
-
-  if (badgePreview) {
-    const regime = window.obterRegimeCurricularInstituicao();
-    const termo = regime === 'CLASSES' ? 'A Classe tem Exame' : 'O Nível tem Exame';
-    badgePreview.innerHTML = temExame
-      ? `${termo}: <strong class="text-danger"><i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)</strong>`
-      : `${termo}: <strong class="text-secondary"><i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)</strong>`;
-  }
-};
-
-window.salvarItemClasseNivel = async function(event) {
-  if (event) event.preventDefault();
-  const regime = window.obterRegimeCurricularInstituicao();
-  let nomeItem = '';
-
-  if (regime === 'CLASSES') {
-    nomeItem = document.getElementById('selectClasseSNE')?.value || '10ª Classe';
-  } else {
-    const num = parseInt(document.getElementById('inputNumeroNivel')?.value || '1', 10);
-    if (isNaN(num) || num < 1) {
-      alert('Por favor, informe um número de nível válido (ex: 1, 2, 3...).');
-      return;
-    }
-    nomeItem = `Nível ${num}`;
-  }
-
-  const temExame = Boolean(document.getElementById('radioCriterioSim')?.checked);
-
-  try {
-    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
-      method: 'POST',
-      body: JSON.stringify({
-        nome: nomeItem,
-        tem_exame: temExame,
-        regime: regime
-      })
-    });
-
-    if (res && res.success) {
-      if (typeof window.mostrarNotificacao === 'function') {
-        const txtExame = temExame ? 'Sim (Com Exame)' : 'Não (Sem Exame)';
-        const rotulo = regime === 'CLASSES' ? 'A Classe' : 'O Nível';
-        window.mostrarNotificacao(`${rotulo} "${nomeItem}" configurada: ${txtExame}`, 'success');
-      }
-      await window.carregarPaginaClassesExames(true);
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-      if (typeof carregarTurmasView === 'function') carregarTurmasView();
-    } else {
-      alert(res?.message || 'Erro ao guardar item curricular.');
-    }
-  } catch (err) {
-    alert('Erro de conexão ao salvar item.');
-  }
-};
-
-window.alternarExameItemPagina = async function(nomeItem, novoStatus) {
-  const regime = window.obterRegimeCurricularInstituicao();
-  try {
-    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
-      method: 'POST',
-      body: JSON.stringify({
-        nome: nomeItem,
-        tem_exame: Boolean(novoStatus),
-        regime: regime
-      })
-    });
-    if (res && res.success) {
-      const rotulo = regime === 'CLASSES' ? 'A Classe' : 'O Nível';
-      const statusTxt = novoStatus ? 'Sim (Com Exame)' : 'Não (Sem Exame)';
-      if (typeof window.mostrarNotificacao === 'function') {
-        window.mostrarNotificacao(`${rotulo} "${nomeItem}" agora tem exame: ${statusTxt}`, 'success');
-      }
-      await window.carregarPaginaClassesExames(true);
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-      if (typeof carregarTurmasView === 'function') carregarTurmasView();
-    }
-  } catch (err) {
-    console.error('Erro ao alternar exame:', err);
-  }
-};
-
-window.removerItemPagina = async function(nomeItem) {
-  if (!confirm(`Tem certeza que deseja remover "${nomeItem}" da lista de níveis da instituição?`)) return;
-  const regime = window.obterRegimeCurricularInstituicao();
-  try {
-    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
-      method: 'POST',
-      body: JSON.stringify({
-        remover_nome: nomeItem,
-        regime: regime
-      })
-    });
-    if (res && res.success) {
-      if (typeof window.mostrarNotificacao === 'function') {
-        window.mostrarNotificacao(`Item "${nomeItem}" removido com sucesso.`, 'info');
-      }
-      await window.carregarPaginaClassesExames(true);
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-      if (typeof carregarTurmasView === 'function') carregarTurmasView();
-    }
-  } catch (err) {
-    console.error('Erro ao remover item:', err);
-  }
-};
-
-window.definirExameEmMassa = async function(temExame) {
-  const regime = window.obterRegimeCurricularInstituicao();
-  const txt = temExame ? 'Sim (Com Exame)' : 'Não (Sem Exame)';
-  if (!confirm(`Deseja definir o critério "${txt}" para todas as classes/níveis ativas?`)) return;
-
-  const lista = state.listaClassesExamesPagina || [];
-  const atualizacoes = lista.map(i => ({ nome: i.nome, tem_exame: Boolean(temExame) }));
-
-  try {
-    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
-      method: 'POST',
-      body: JSON.stringify({
-        classes: atualizacoes,
-        regime: regime
-      })
-    });
-    if (res && res.success) {
-      if (typeof window.mostrarNotificacao === 'function') {
-        window.mostrarNotificacao(`Todas as classes/níveis foram configuradas com: ${txt}`, 'success');
-      }
-      await window.carregarPaginaClassesExames(true);
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-      if (typeof carregarTurmasView === 'function') carregarTurmasView();
-    }
-  } catch (err) {
-    console.error('Erro ao atualizar em massa:', err);
-  }
-};
-
-window.aplicarPadraoOficialRegime = async function() {
-  const regime = window.obterRegimeCurricularInstituicao();
-  const desc = regime === 'CLASSES'
-    ? 'Restaurar padrão oficial do MEC: 10ª e 12ª Classes Com Exame; 1ª à 9ª e 11ª Sem Exame.'
-    : 'Restaurar padrão oficial Técnico: Nível 3 e Nível 5 Com Exame; Níveis 1, 2 e 4 Sem Exame.';
-  if (!confirm(`Confirma a restauração das regras padrão oficiais?\n\n${desc}`)) return;
-
-  try {
-    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
-      method: 'POST',
-      body: JSON.stringify({
-        restaurar_padrao: true,
-        regime: regime
-      })
-    });
-    if (res && res.success) {
-      if (typeof window.mostrarNotificacao === 'function') {
-        window.mostrarNotificacao('Padrão oficial restaurado com sucesso!', 'success');
-      }
-      await window.carregarPaginaClassesExames(true);
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
-      if (typeof carregarTurmasView === 'function') carregarTurmasView();
-    }
-  } catch (err) {
-    console.error('Erro ao restaurar padrão oficial:', err);
-  }
 };
 
 window.renderizarTabelaClassesExamesPagina = function() {
   const tbody = document.getElementById('tbodyClassesExames');
   const placeholder = document.getElementById('placeholderSemItens');
+  const badgeTotal = document.getElementById('kpiTotalItensBadge');
   if (!tbody) return;
 
   const lista = state.listaClassesExamesPagina || [];
@@ -10092,17 +9815,7 @@ window.renderizarTabelaClassesExamesPagina = function() {
     return matchBusca && matchStatus;
   });
 
-  // Atualizar KPIs
-  const total = lista.length;
-  const totalComExame = lista.filter(i => i.tem_exame).length;
-  const totalSemExame = total - totalComExame;
-
-  const kpiTotal = document.getElementById('kpiTotalItens');
-  const kpiCom = document.getElementById('kpiComExame');
-  const kpiSem = document.getElementById('kpiSemExame');
-  if (kpiTotal) kpiTotal.textContent = total;
-  if (kpiCom) kpiCom.textContent = totalComExame;
-  if (kpiSem) kpiSem.textContent = totalSemExame;
+  if (badgeTotal) badgeTotal.textContent = lista.length;
 
   if (filtrados.length === 0) {
     tbody.innerHTML = '';
@@ -10115,31 +9828,28 @@ window.renderizarTabelaClassesExamesPagina = function() {
   tbody.innerHTML = filtrados.map((item, idx) => {
     const isClasse = item.tipo === 'CLASSE';
     const badgeRegime = isClasse
-      ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-mortarboard me-1"></i>Classe SNE</span>'
-      : '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-layers me-1"></i>Nível Técnico</span>';
+      ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-mortarboard me-1"></i>Classe SNE</span>'
+      : '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-layers me-1"></i>Nível Técnico</span>';
 
     const badgeExame = item.tem_exame
-      ? '<span class="badge bg-danger text-white px-3 py-2 fs-7 shadow-sm"><i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)</span>'
-      : '<span class="badge bg-secondary text-white px-3 py-2 fs-7 shadow-sm"><i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)</span>';
-
-    const btnRemover = isClasse
-      ? ''
-      : `<button class="btn btn-sm btn-outline-danger ms-1" onclick="removerItemPagina('${item.nome}')" title="Remover nível personalizado"><i class="bi bi-trash"></i></button>`;
+      ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill fw-semibold" onclick="window.alternarExameClasseInline('${item.nome}', false)" title="Clique para alterar para Sem Exame"><i class="bi bi-file-earmark-check-fill me-1"></i>Com Exame (Sim)</button>`
+      : `<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill fw-semibold" onclick="window.alternarExameClasseInline('${item.nome}', true)" title="Clique para alterar para Com Exame"><i class="bi bi-dash-circle me-1"></i>Sem Exame (Não)</button>`;
 
     return `
       <tr>
         <td class="text-center text-muted fw-bold">${idx + 1}</td>
         <td>
-          <div class="fw-bold text-dark fs-6">${item.nome}</div>
-          <small class="text-muted">${isClasse ? 'Educação Geral Moçambique' : 'Educação Profissional & Vocacional'}</small>
+          <span class="fw-bold text-dark fs-6">${item.nome}</span>
         </td>
         <td>${badgeRegime}</td>
         <td class="text-center">${badgeExame}</td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-primary fw-semibold" onclick="alternarExameItemPagina('${item.nome}', ${!item.tem_exame})" title="Alternar entre Com Exame (Sim) e Sem Exame (Não)">
-            <i class="bi bi-arrow-left-right me-1"></i> Alternar
+          <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="window.abrirModalEditarClasse('${item.nome}', ${item.tem_exame})" title="Editar classe">
+            <i class="bi bi-pencil-square me-1"></i>Editar
           </button>
-          ${btnRemover}
+          <button class="btn btn-sm btn-outline-danger py-1 px-2 ms-1" onclick="window.excluirClasseItem('${item.nome}')" title="Eliminar classe">
+            <i class="bi bi-trash3 me-1"></i>Eliminar
+          </button>
         </td>
       </tr>
     `;
@@ -10150,37 +9860,284 @@ window.filtrarTabelaClassesExames = function() {
   window.renderizarTabelaClassesExamesPagina();
 };
 
-window.focarFormularioItemCurricular = function() {
-  const card = document.getElementById('cardFormularioCadastro');
-  if (card) {
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    card.classList.add('border-primary');
-    setTimeout(() => card.classList.remove('border-primary'), 1500);
+window.selecionarRegimeCurricularInstituicao = async function(novoRegime) {
+  const regimeAtual = window.obterRegimeCurricularInstituicao();
+  if (novoRegime === regimeAtual) return;
+
+  const nomeLegivel = novoRegime === 'CLASSES' ? 'Classes (Ensino Geral)' : 'Níveis Técnicos';
+  if (!confirm(`Deseja alterar o regime da instituição para "${nomeLegivel}"?`)) {
+    const sel = document.getElementById('selectRegimeInstituicao');
+    if (sel) sel.value = regimeAtual;
+    return;
   }
-  const sel = document.getElementById('selectClasseSNE');
-  if (sel && sel.offsetParent !== null) sel.focus();
-  const inp = document.getElementById('inputNumeroNivel');
-  if (inp && inp.offsetParent !== null) inp.focus();
+
+  await window.definirRegimeCurricularInstituicao(novoRegime);
+  if (typeof window.mostrarNotificacao === 'function') {
+    window.mostrarNotificacao(`Regime alterado para: ${nomeLegivel}`, 'success');
+  }
+  await window.carregarPaginaClassesExames(true);
+  if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+  if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+  if (typeof carregarTurmasView === 'function') carregarTurmasView();
 };
 
-window.limparFormularioItem = function() {
-  window.definirCriterioExameForm(false);
-  const inp = document.getElementById('inputNumeroNivel');
-  if (inp) inp.value = '1';
-  const sel = document.getElementById('selectClasseSNE');
-  if (sel) sel.selectedIndex = 0;
+window.abrirModalNovaClasse = function() {
+  const regime = window.obterRegimeCurricularInstituicao();
+  const isClasse = regime === 'CLASSES';
+
+  const opcoesClassesSNE = [
+    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+  ].map(c => `<option value="${c}" ${c === '10ª Classe' ? 'selected' : ''}>${c}</option>`).join('');
+
+  abrirModal(isClasse ? 'Cadastrar Nova Classe' : 'Cadastrar Novo Nível', `
+    <form id="formModalNovaClasse" onsubmit="window.submeterNovaClasse(event)">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-secondary">
+          <i class="bi ${isClasse ? 'bi-mortarboard text-primary' : 'bi-layers text-success'} me-1"></i>
+          ${isClasse ? 'Selecione ou digite a Classe:' : 'Nível Técnico (ex: Nível 1, Nível 2...):'}
+        </label>
+        ${isClasse ? `
+          <select id="modalInputNomeClasse" class="form-select border-primary fw-semibold" onchange="window.aoMudarClasseNovaModal(this.value)">
+            ${opcoesClassesSNE}
+          </select>
+        ` : `
+          <div class="input-group">
+            <span class="input-group-text bg-light text-success fw-bold">Nível</span>
+            <input type="number" id="modalInputNumeroNivel" class="form-control border-success fw-bold" min="1" max="15" value="1" placeholder="Ex: 1">
+          </div>
+        `}
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label small fw-bold text-uppercase text-secondary mb-2">
+          <i class="bi bi-patch-question text-primary me-1"></i> Tem Exame Final?
+        </label>
+        <div class="d-flex gap-2">
+          <div class="form-check form-check-inline border rounded p-2 px-3 flex-grow-1" onclick="document.getElementById('radioExameNao').checked = true;" style="cursor: pointer;">
+            <input class="form-check-input" type="radio" name="modalExameRadio" id="radioExameNao" value="nao" checked>
+            <label class="form-check-label fw-semibold text-secondary small" for="radioExameNao" style="cursor: pointer;">
+              <i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)
+            </label>
+          </div>
+          <div class="form-check form-check-inline border rounded p-2 px-3 flex-grow-1" onclick="document.getElementById('radioExameSim').checked = true;" style="cursor: pointer;">
+            <input class="form-check-input" type="radio" name="modalExameRadio" id="radioExameSim" value="sim">
+            <label class="form-check-label fw-semibold text-danger small" for="radioExameSim" style="cursor: pointer;">
+              <i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+        <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold shadow-sm">
+          <i class="bi bi-check-lg me-1"></i> Salvar Classe
+        </button>
+      </div>
+    </form>
+  `);
+
+  window.aoMudarClasseNovaModal = function(val) {
+    const temExamePadrao = (val === '10ª Classe' || val === '12ª Classe');
+    const rSim = document.getElementById('radioExameSim');
+    const rNao = document.getElementById('radioExameNao');
+    if (rSim && rNao) {
+      rSim.checked = temExamePadrao;
+      rNao.checked = !temExamePadrao;
+    }
+  };
+  window.aoMudarClasseNovaModal('10ª Classe');
 };
 
-window.aoMudarSelecaoClasseForm = function(val) {
-  const temExame = window.classeTemExame(val);
-  window.definirCriterioExameForm(temExame);
+window.submeterNovaClasse = async function(event) {
+  if (event) event.preventDefault();
+  const regime = window.obterRegimeCurricularInstituicao();
+  let nomeItem = '';
+
+  if (regime === 'CLASSES') {
+    nomeItem = document.getElementById('modalInputNomeClasse')?.value || '';
+  } else {
+    const num = parseInt(document.getElementById('modalInputNumeroNivel')?.value || '1', 10);
+    nomeItem = `Nível ${isNaN(num) || num < 1 ? 1 : num}`;
+  }
+
+  if (!nomeItem.trim()) {
+    alert('Informe o nome da classe ou nível.');
+    return;
+  }
+
+  const temExame = Boolean(document.getElementById('radioExameSim')?.checked);
+
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: nomeItem.trim(),
+        tem_exame: temExame,
+        regime: regime
+      })
+    });
+
+    if (res && res.success) {
+      if (typeof window.mostrarNotificacao === 'function') {
+        const txt = temExame ? 'Com Exame (Sim)' : 'Sem Exame (Não)';
+        window.mostrarNotificacao(`"${nomeItem}" adicionada com sucesso: ${txt}`, 'success');
+      }
+      fecharModal();
+      await window.carregarPaginaClassesExames(true);
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+      if (typeof carregarTurmasView === 'function') carregarTurmasView();
+    } else {
+      alert(res?.message || 'Erro ao cadastrar.');
+    }
+  } catch (err) {
+    alert('Erro de conexão: ' + err.message);
+  }
 };
 
-window.aoMudarNumeroNivelForm = function(val) {
-  const nomeNivel = `Nível ${val || 1}`;
-  const temExame = window.classeTemExame(nomeNivel);
-  window.definirCriterioExameForm(temExame);
+window.abrirModalEditarClasse = function(nomeAtual, temExameAtual) {
+  abrirModal(`Editar: ${nomeAtual}`, `
+    <form id="formModalEditarClasse" onsubmit="window.submeterEdicaoClasse(event, '${nomeAtual}')">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-secondary">
+          <i class="bi bi-pencil-square text-primary me-1"></i> Nome da Classe / Nível:
+        </label>
+        <input type="text" id="modalEditNomeClasse" class="form-control fw-semibold" value="${nomeAtual}" required>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label small fw-bold text-uppercase text-secondary mb-2">
+          <i class="bi bi-patch-question text-primary me-1"></i> Regime de Exame Final:
+        </label>
+        <div class="d-flex gap-2">
+          <div class="form-check form-check-inline border rounded p-2 px-3 flex-grow-1" onclick="document.getElementById('radioEditExameNao').checked = true;" style="cursor: pointer;">
+            <input class="form-check-input" type="radio" name="modalEditExameRadio" id="radioEditExameNao" value="nao" ${!temExameAtual ? 'checked' : ''}>
+            <label class="form-check-label fw-semibold text-secondary small" for="radioEditExameNao" style="cursor: pointer;">
+              <i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)
+            </label>
+          </div>
+          <div class="form-check form-check-inline border rounded p-2 px-3 flex-grow-1" onclick="document.getElementById('radioEditExameSim').checked = true;" style="cursor: pointer;">
+            <input class="form-check-input" type="radio" name="modalEditExameRadio" id="radioEditExameSim" value="sim" ${temExameAtual ? 'checked' : ''}>
+            <label class="form-check-label fw-semibold text-danger small" for="radioEditExameSim" style="cursor: pointer;">
+              <i class="bi bi-file-earmark-check-fill me-1"></i> Sim (Com Exame)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+        <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold shadow-sm">
+          <i class="bi bi-check-lg me-1"></i> Salvar Alterações
+        </button>
+      </div>
+    </form>
+  `);
 };
+
+window.submeterEdicaoClasse = async function(event, nomeAntigo) {
+  if (event) event.preventDefault();
+  const novoNome = (document.getElementById('modalEditNomeClasse')?.value || '').trim();
+  if (!novoNome) {
+    alert('O nome da classe não pode estar em branco.');
+    return;
+  }
+  const temExame = Boolean(document.getElementById('radioEditExameSim')?.checked);
+  const regime = window.obterRegimeCurricularInstituicao();
+
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: novoNome,
+        nome_antigo: nomeAntigo,
+        tem_exame: temExame,
+        regime: regime
+      })
+    });
+
+    if (res && res.success) {
+      if (typeof window.mostrarNotificacao === 'function') {
+        window.mostrarNotificacao(`"${novoNome}" atualizada com sucesso!`, 'success');
+      }
+      fecharModal();
+      await window.carregarPaginaClassesExames(true);
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+      if (typeof carregarTurmasView === 'function') carregarTurmasView();
+    } else {
+      alert(res?.message || 'Erro ao editar classe.');
+    }
+  } catch (err) {
+    alert('Erro de conexão: ' + err.message);
+  }
+};
+
+window.excluirClasseItem = async function(nome) {
+  if (!confirm(`Tem certeza que deseja eliminar a classe/nível "${nome}" da instituição?`)) return;
+  const regime = window.obterRegimeCurricularInstituicao();
+
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
+      method: 'POST',
+      body: JSON.stringify({
+        remover_nome: nome,
+        regime: regime
+      })
+    });
+
+    if (res && res.success) {
+      if (typeof window.mostrarNotificacao === 'function') {
+        window.mostrarNotificacao(`"${nome}" eliminada com sucesso.`, 'info');
+      }
+      await window.carregarPaginaClassesExames(true);
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+      if (typeof carregarTurmasView === 'function') carregarTurmasView();
+    } else {
+      alert(res?.message || 'Erro ao eliminar classe.');
+    }
+  } catch (err) {
+    console.error('Erro ao eliminar:', err);
+    alert('Erro de conexão ao eliminar: ' + err.message);
+  }
+};
+
+window.alternarExameClasseInline = async function(nome, novoStatus) {
+  const regime = window.obterRegimeCurricularInstituicao();
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: nome,
+        tem_exame: Boolean(novoStatus),
+        regime: regime
+      })
+    });
+
+    if (res && res.success) {
+      const txt = novoStatus ? 'Com Exame (Sim)' : 'Sem Exame (Não)';
+      if (typeof window.mostrarNotificacao === 'function') {
+        window.mostrarNotificacao(`"${nome}" agora: ${txt}`, 'success');
+      }
+      await window.carregarPaginaClassesExames(true);
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarEscolaETurmas === 'function') carregarEscolaETurmas();
+      if (typeof carregarTurmasView === 'function') carregarTurmasView();
+    }
+  } catch (err) {
+    console.error('Erro ao alternar exame:', err);
+  }
+};
+
+// Aliases para compatibilidade
+window.salvarItemClasseNivel = window.submeterNovaClasse;
+window.alternarExameItemPagina = window.alternarExameClasseInline;
+window.removerItemPagina = window.excluirClasseItem;
+window.focarFormularioItemCurricular = window.abrirModalNovaClasse;
+
 
 window.obterNiveisInstituicao = function() {
   const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
@@ -10568,240 +10525,12 @@ window.modalNovaSeccaoAreaParaClasseAtiva = function() {
   modalNovaSeccaoArea(classeAtiva);
 };
 
-window.modalAdicionarNivelCurricular = async function() {
-  let listaAtual = [];
-  let regime = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
-  try {
-    const res = await apiFetch('/api/v1/escola-admin/classes-exames');
-    if (res && res.success) {
-      listaAtual = res.data || [];
-      if (res.regime) regime = res.regime;
-    }
-  } catch (_) {}
-
-  const isClasses = regime === 'CLASSES';
-  const nomeRegime = isClasses ? 'Classes (1ª à 12ª)' : 'Níveis Técnicos';
-  const corRegime = isClasses ? 'primary' : 'success';
-  const iconRegime = isClasses ? 'bi-mortarboard-fill' : 'bi-layers-fill';
-
-  const opcoesClasses = [
-    '1ª Classe','2ª Classe','3ª Classe','4ª Classe','5ª Classe','6ª Classe',
-    '7ª Classe','8ª Classe','9ª Classe','10ª Classe','11ª Classe','12ª Classe'
-  ].map(c => `<option value="${c}" ${c === '10ª Classe' ? 'selected' : ''}>${c}</option>`).join('');
-
-  const htmlLista = listaAtual.length === 0
-    ? '<tr><td colspan="3" class="text-center text-muted py-3"><i class="bi bi-info-circle me-1"></i>Nenhuma classe/nível configurado ainda.</td></tr>'
-    : listaAtual.map(item => {
-        const badgeExame = item.tem_exame
-          ? '<span class="badge bg-danger"><i class="bi bi-file-earmark-check-fill me-1"></i>Sim (Com Exame)</span>'
-          : '<span class="badge bg-secondary"><i class="bi bi-dash-circle me-1"></i>Não (Sem Exame)</span>';
-        const btnAlt = `<button class="btn btn-outline-primary btn-sm py-0 px-2 fw-semibold" onclick="alternarExameModalNivel('${item.nome}', ${!item.tem_exame})" title="Alternar critério de exame"><i class="bi bi-arrow-left-right me-1"></i>Alternar</button>`;
-        return `<tr><td class="fw-bold">${item.nome}</td><td class="text-center">${badgeExame}</td><td class="text-end">${btnAlt}</td></tr>`;
-      }).join('');
-
-  abrirModal('Cadastro de Classes / Níveis & Regime de Exame', `
-    <div class="mb-3 p-2 rounded border bg-${corRegime}-subtle d-flex align-items-center justify-content-between flex-wrap gap-2">
-      <div class="d-flex align-items-center gap-2">
-        <i class="bi ${iconRegime} text-${corRegime} fs-5"></i>
-        <div>
-          <strong class="text-${corRegime}">Regime da Instituição: ${nomeRegime}</strong>
-          <small class="text-muted d-block" style="font-size: 0.72rem;">Alterne entre ensino geral e ensino técnico</small>
-        </div>
-      </div>
-      <div class="btn-group btn-group-sm">
-        <button type="button" class="btn btn-${isClasses ? 'primary active fw-bold' : 'outline-primary'}" onclick="modalAlterarRegimeENivel('CLASSES')">
-          <i class="bi bi-mortarboard me-1"></i>Classes
-        </button>
-        <button type="button" class="btn btn-${!isClasses ? 'success active fw-bold' : 'outline-success'}" onclick="modalAlterarRegimeENivel('NIVEIS')">
-          <i class="bi bi-layers me-1"></i>Níveis
-        </button>
-      </div>
-    </div>
-
-    <form id="formModalNivelCurricular" onsubmit="salvarItemModalNivel(event)">
-      <div class="row g-2 mb-3">
-        <div class="col" id="modalContainerClasses" ${!isClasses ? 'style="display:none"' : ''}>
-          <label class="form-label small fw-semibold mb-1"><i class="bi bi-mortarboard me-1 text-primary"></i>Classe Curricular:</label>
-          <select id="modalSelectClasse" class="form-select border-primary fw-semibold" onchange="modalAtualizarPreviewExame(this.value)">
-            ${opcoesClasses}
-          </select>
-        </div>
-        <div class="col" id="modalContainerNiveis" ${isClasses ? 'style="display:none"' : ''}>
-          <label class="form-label small fw-semibold mb-1"><i class="bi bi-layers me-1 text-success"></i>Número do Nível Técnico:</label>
-          <div class="input-group">
-            <span class="input-group-text bg-light fw-bold text-success">Nível</span>
-            <input type="number" id="modalInputNivel" class="form-control border-success fw-bold" min="1" max="10" value="1" oninput="modalAtualizarPreviewExame('Nível ' + this.value)">
-          </div>
-        </div>
-      </div>
-
-      <!-- OPÇÃO COM EXAME / SEM EXAME -->
-      <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
-        <i class="bi bi-patch-question-fill me-1 text-primary"></i> A Classe tem Exame: Sim ou Não?
-      </label>
-      <div class="row g-2 mb-2">
-        <div class="col-6">
-          <div class="card p-2 text-center border criterio-card" id="modalCardSim" onclick="modalDefinirExame(true)" style="cursor:pointer;">
-            <input type="radio" name="modalExame" id="modalRadioSim" value="sim" style="display:none;">
-            <i class="bi bi-file-earmark-check-fill text-danger fs-3 mb-1"></i>
-            <div class="fw-bold text-danger small">SIM</div>
-            <span class="text-muted" style="font-size: 0.72rem;">Com Exame Final</span>
-          </div>
-        </div>
-        <div class="col-6">
-          <div class="card p-2 text-center border border-2 border-secondary bg-secondary-subtle criterio-card" id="modalCardNao" onclick="modalDefinirExame(false)" style="cursor:pointer;">
-            <input type="radio" name="modalExame" id="modalRadioNao" value="nao" checked style="display:none;">
-            <i class="bi bi-dash-circle text-secondary fs-3 mb-1"></i>
-            <div class="fw-bold text-secondary small">NÃO</div>
-            <span class="text-muted" style="font-size: 0.72rem;">Sem Exame (Avaliação Contínua)</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="p-2 bg-light rounded border small text-center mb-3">
-        <span id="modalBadgePreview">A Classe tem Exame: <strong class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Não (Sem Exame)</strong></span>
-      </div>
-
-      <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">
-        <i class="bi bi-plus-circle-fill me-1"></i> Cadastrar / Atualizar Classe
-      </button>
-    </form>
-
-    <hr class="my-3">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h6 class="fw-bold text-secondary text-uppercase small mb-0"><i class="bi bi-table me-1"></i> Classes Cadastradas na Escola</h6>
-      <button class="btn btn-link btn-sm p-0 text-decoration-none small text-warning fw-semibold" onclick="modalRestaurarPadraoMec()">
-        <i class="bi bi-arrow-counterclockwise me-1"></i>Padrão Oficial MEC
-      </button>
-    </div>
-    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
-      <table class="table table-sm table-hover mb-0">
-        <thead class="table-light sticky-top">
-          <tr>
-            <th>Classe / Nível</th>
-            <th class="text-center">Regime</th>
-            <th class="text-end">Ação</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyModalNiveis">${htmlLista}</tbody>
-      </table>
-    </div>
-
-    <div class="d-flex gap-2 mt-3 pt-2 border-top">
-      <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="fecharModal(); navegarPara('classes-exames');">
-        <i class="bi bi-arrow-right-circle me-1"></i> Abrir Página Completa de Classes / Níveis
-      </button>
-      <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Fechar</button>
-    </div>
-  `);
-
-  window.modalDefinirExame = function(temExame) {
-    const rSim = document.getElementById('modalRadioSim');
-    const rNao = document.getElementById('modalRadioNao');
-    const cSim = document.getElementById('modalCardSim');
-    const cNao = document.getElementById('modalCardNao');
-    const prev = document.getElementById('modalBadgePreview');
-    if (rSim) rSim.checked = Boolean(temExame);
-    if (rNao) rNao.checked = !Boolean(temExame);
-    if (cSim) cSim.className = `card p-2 text-center criterio-card border${temExame ? ' border-2 border-danger bg-danger-subtle shadow-sm' : ' bg-white'}`;
-    if (cNao) cNao.className = `card p-2 text-center criterio-card border${!temExame ? ' border-2 border-secondary bg-secondary-subtle shadow-sm' : ' bg-white'}`;
-    if (prev) prev.innerHTML = temExame
-      ? 'A Classe tem Exame: <strong class="text-danger"><i class="bi bi-file-earmark-check-fill me-1"></i>Sim (Com Exame)</strong>'
-      : 'A Classe tem Exame: <strong class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Não (Sem Exame)</strong>';
-  };
-
-  window.modalAtualizarPreviewExame = function(nomeItem) {
-    const temExame = typeof window.classeTemExame === 'function' ? window.classeTemExame(nomeItem) : (nomeItem.includes('10ª') || nomeItem.includes('12ª'));
-    window.modalDefinirExame(temExame);
-  };
-
-  window.alternarExameModalNivel = async function(nomeItem, novoStatus) {
-    const regimeLocal = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
-    try {
-      await apiFetch('/api/v1/escola-admin/classes-exames', {
-        method: 'POST',
-        body: JSON.stringify({ nome: nomeItem, tem_exame: Boolean(novoStatus), regime: regimeLocal })
-      });
-      if (typeof window.mostrarNotificacao === 'function') {
-        window.mostrarNotificacao(`"${nomeItem}" agora: ${novoStatus ? 'Com Exame (Sim)' : 'Sem Exame (Não)'}`, 'success');
-      }
-      fecharModal();
-      window.modalAdicionarNivelCurricular();
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarTurmas === 'function') carregarTurmas();
-      if (typeof carregarAlunos === 'function') carregarAlunos();
-    } catch (err) {
-      alert('Erro ao atualizar: ' + err.message);
-    }
-  };
-
-  window.modalAlterarRegimeENivel = async function(novoRegime) {
-    const regimeAtual = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
-    if (novoRegime === regimeAtual) return;
-    if (!confirm(`Alterar modelo para "${novoRegime === 'CLASSES' ? 'Classes (1ª à 12ª)' : 'Níveis Técnicos'}"?`)) return;
-    if (typeof window.definirRegimeCurricularInstituicao === 'function') {
-      await window.definirRegimeCurricularInstituicao(novoRegime);
-    }
-    fecharModal();
-    window.modalAdicionarNivelCurricular();
-  };
-
-  window.modalRestaurarPadraoMec = async function() {
-    if (!confirm('Deseja restaurar o padrão oficial do MEC (10ª e 12ª Com Exame, restantes Sem Exame)?')) return;
-    try {
-      await apiFetch('/api/v1/escola-admin/classes-exames', {
-        method: 'POST',
-        body: JSON.stringify({ restaurar_padrao: true })
-      });
-      if (typeof window.mostrarNotificacao === 'function') {
-        window.mostrarNotificacao('Padrão oficial MEC restaurado!', 'success');
-      }
-      fecharModal();
-      window.modalAdicionarNivelCurricular();
-      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-      if (typeof carregarTurmas === 'function') carregarTurmas();
-      if (typeof carregarAlunos === 'function') carregarAlunos();
-    } catch (err) {
-      alert('Erro ao restaurar: ' + err.message);
-    }
-  };
-
-  window.salvarItemModalNivel = async function(event) {
-    if (event) event.preventDefault();
-    const regimeLocal = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
-    let nomeItem = '';
-    if (regimeLocal === 'CLASSES') {
-      nomeItem = document.getElementById('modalSelectClasse')?.value || '10ª Classe';
-    } else {
-      const num = parseInt(document.getElementById('modalInputNivel')?.value || '1', 10);
-      nomeItem = `Nível ${isNaN(num) || num < 1 ? 1 : num}`;
-    }
-    const temExame = Boolean(document.getElementById('modalRadioSim')?.checked);
-    try {
-      const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
-        method: 'POST',
-        body: JSON.stringify({ nome: nomeItem, tem_exame: temExame, regime: regimeLocal })
-      });
-      if (res && res.success) {
-        if (typeof window.mostrarNotificacao === 'function') {
-          window.mostrarNotificacao(`"${nomeItem}" configurada: ${temExame ? 'Com Exame (Sim)' : 'Sem Exame (Não)'}`, 'success');
-        }
-        fecharModal();
-        window.modalAdicionarNivelCurricular();
-        if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
-        if (typeof carregarTurmas === 'function') carregarTurmas();
-        if (typeof carregarAlunos === 'function') carregarAlunos();
-      } else {
-        alert(res?.message || 'Erro ao guardar.');
-      }
-    } catch (err) {
-      alert('Erro de conexão: ' + err.message);
-    }
-  };
-
-  // Pré-visualização inicial
-  window.modalAtualizarPreviewExame('10ª Classe');
+window.modalAdicionarNivelCurricular = function() {
+  if (typeof window.abrirModalNovaClasse === 'function') {
+    window.abrirModalNovaClasse();
+  }
 };
+
 
 function modalNovaSeccaoArea(classePredefinida = '') {
   const classesOficiais = [
@@ -13619,50 +13348,84 @@ async function abrirModalReciboPagamento(pagamentoId) {
       return;
     }
     const d = res.data;
-    const safeName = (d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
+    const isPago = d.is_pago === true || (d.pagamento && d.pagamento.is_pago === true) || (d.pagamento && d.pagamento.status === 'PAGO' && (d.pagamento.data_pagamento || Number(d.pagamento.valor_pago || 0) > 0));
+    const statusLabel = isPago ? 'PAGO' : 'NÃO PAGO';
+    const statusClass = isPago ? 'bg-success' : 'bg-danger';
+    const textClass = isPago ? 'text-success' : 'text-danger';
+    const safeName = (d.aluno?.nome_completo || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
     const carimboDataHora = d.carimboDataHora || (new Date().toLocaleDateString('pt-PT') + ' ' + new Date().toLocaleTimeString('pt-PT'));
 
-    abrirModal(`Recibo Oficial de Pagamento — ${d.pagamento.recibo_numero || 'REC-2026'}`, `
-      <div id="modalAreaRecibo" class="p-3 bg-white">
+    abrirModal(`Recibo Oficial — ${d.pagamento.recibo_numero || 'REC-2026'} [${statusLabel}]`, `
+      <div id="modalAreaRecibo" class="p-4 bg-white position-relative" style="overflow: hidden; border-radius: 8px;">
+        <!-- Marca d'Água de Segurança -->
+        <div class="watermark-carimbo ${isPago ? 'watermark-pago' : 'watermark-nao-pago'}" style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 64px; font-weight: 900; letter-spacing: 5px; opacity: 0.12; pointer-events: none; user-select: none; z-index: 10; border: 5px ${isPago ? 'solid #16a34a; color: #16a34a' : 'dashed #dc2626; color: #dc2626'}; padding: 10px 40px; border-radius: 12px; white-space: nowrap;">
+          ${statusLabel}
+        </div>
+
         <div class="text-center border-bottom pb-3 mb-3">
-          <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 3px;" alt="Emblema Nacional">
-          <h6 class="fw-bold mb-1">${(d.escola?.nome || 'Escola Secundária').toUpperCase()}</h6>
-          <p class="text-muted small mb-0">NUIT: ${d.escola?.nif_cnpj || '-'} | Telefone: ${d.escola?.telefone || '-'}</p>
-          <h5 class="mt-2 fw-bold text-success text-uppercase">RECIBO DE PAGAMENTO DE PROPINAS</h5>
+          <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 4px;" alt="Emblema Nacional">
+          <div class="small fw-semibold text-uppercase text-secondary" style="letter-spacing: 0.5px;">República de Moçambique &bull; Ministério da Educação e Desenvolvimento Humano</div>
+          <h6 class="fw-bold mb-1 mt-1 text-dark">${(d.escola?.nome || 'Escola Secundária').toUpperCase()}</h6>
+          <p class="text-muted small mb-0">NUIT: ${d.escola?.nif_cnpj || '-'} &bull; ${d.escola?.distrito || '-'}, ${d.escola?.provincia || '-'} &bull; Tel: ${d.escola?.telefone || '-'}</p>
+          <h5 class="mt-3 fw-bold ${textClass} text-uppercase" style="letter-spacing: 0.5px;">
+            ${isPago ? 'RECIBO DE PAGAMENTO OFICIAL' : 'RECIBO / GUIA DE COBRANÇA (NÃO PAGO)'}
+          </h5>
           <span class="badge bg-light text-dark border fs-6">Recibo Nº: <strong>${d.pagamento.recibo_numero || 'REC-2026-001'}</strong></span>
         </div>
 
+        <!-- Banner Destacado de Situação -->
+        <div class="p-2 mb-3 rounded text-center fw-bold ${isPago ? 'bg-success bg-opacity-10 text-success border border-success' : 'bg-danger bg-opacity-10 text-danger border border-danger'}">
+          <i class="bi ${isPago ? 'bi-check-circle-fill' : 'bi-exclamation-octagon-fill'} me-2"></i>
+          SITUAÇÃO: ${statusLabel} ${isPago ? '(LIQUIDADO COM SUCESSO)' : '(PENDENTE DE LIQUIDAÇÃO)'}
+        </div>
+
         <div class="table-responsive">
-          <table class="table table-bordered table-sm small mb-3">
-            <tr><th class="bg-light w-35">Aluno:</th><td><strong>${d.aluno.nome}</strong> (Matrícula: ${d.aluno.matricula})</td></tr>
-            <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno.turma?.nome || '-'} (${d.aluno.turma?.grau_ano || '-'})</td></tr>
-            <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao}</td></tr>
-            <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia}</code></td></tr>
-            <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold text-success fs-5">${formatarMoeda(d.pagamento.valor)}</td></tr>
-            <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Numerário / POS'}</td></tr>
-            <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || d.pagamento.data_pagamento || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
-            <tr><th class="bg-light">Estado:</th><td><span class="badge bg-success">LIQUIDADO / PAGO</span></td></tr>
+          <table class="table table-bordered table-sm small mb-3 align-middle">
+            <tr><th class="bg-light w-35">Instituição:</th><td><strong>${d.escola?.nome || '-'}</strong> (${d.escola?.distrito || '-'}, ${d.escola?.provincia || '-'})</td></tr>
+            <tr><th class="bg-light">Aluno(a):</th><td><strong>${d.aluno?.nome_completo || d.aluno?.nome || '-'}</strong></td></tr>
+            <tr><th class="bg-light">Nº de Matrícula:</th><td><code>${d.aluno?.matricula || '-'}</code></td></tr>
+            <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno?.turma?.nome || '-'} (${d.aluno?.turma?.grau_ano || '-'}) ${d.aluno?.turma?.turno ? '&bull; Turno: ' + d.aluno?.turma?.turno : ''}</td></tr>
+            <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao || 'Mensalidade / Propina'}</td></tr>
+            <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia || '-'}</code></td></tr>
+            <tr><th class="bg-light">Valor Cobrado:</th><td><strong>${formatarMoeda(d.pagamento.valor || 0)}</strong></td></tr>
+            <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold ${textClass} fs-6">${isPago ? formatarMoeda(d.pagamento.valor_pago || d.pagamento.valor || 0) : '0,00 MZN (Pendente de Liquidação)'}</td></tr>
+            <tr><th class="bg-light">Estado / Situação:</th><td><span class="badge ${statusClass} fs-6">${statusLabel}</span></td></tr>
+            <tr><th class="bg-light">Forma de Liquidação:</th><td>${isPago ? (d.pagamento.metodo_pagamento || 'MPESA') : 'Pendente de Liquidação'}</td></tr>
+            <tr><th class="bg-light">Data de Confirmação:</th><td>${isPago ? (d.pagamento.data_pagamento || '-') : 'Aguardando Confirmação'}</td></tr>
           </table>
         </div>
 
+        <!-- Aviso Informativo -->
+        ${!isPago ? `
+          <div class="alert alert-danger py-2 px-3 small mb-3 border border-danger">
+            <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
+            <strong>ATENÇÃO:</strong> Este recibo expressa a condição de <strong>NÃO PAGO</strong>. O documento comprova unicamente a emissão da cobrança e não confere quitação de dívida até a respectiva liquidação no sistema ou por carteira móvel.
+          </div>
+        ` : `
+          <div class="alert alert-success py-2 px-3 small mb-3 border border-success">
+            <i class="bi bi-shield-check text-success me-1"></i>
+            <strong>COMPROVATIVO DE QUITAÇÃO:</strong> Certifica-se que o valor indicado foi devidamente liquidado e confirmado no sistema oficial SIGE.
+          </div>
+        `}
+
         <div class="alert alert-light border small text-muted text-center py-2 mb-3">
           <i class="bi bi-clock-history me-1 text-primary"></i>
-          Processado por Computador aos <strong>${carimboDataHora}</strong> | Autenticação Digital SIGE
+          Processado por Computador aos <strong>${carimboDataHora}</strong> | Autenticação Digital SIGE &bull; Sincronizado
         </div>
 
         <div class="row text-center pt-3 border-top small">
-          <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">A Secretaria / Tesouraria</p></div>
-          <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">O Aluno / Depositante</p></div>
+          <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">A Secretaria / Tesouraria<br><small class="text-muted">Assinatura e Carimbo</small></p></div>
+          <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">O Aluno / Depositante<br><small class="text-muted">Assinatura</small></p></div>
         </div>
       </div>
 
       <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top no-print">
         <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModal()">Fechar</button>
         <button type="button" class="btn btn-outline-primary btn-sm" onclick="descarregarReciboPdf('${pagamentoId}')">
-          <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (PDFKit)
+          <i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (Oficial)
         </button>
-        <button type="button" class="btn btn-primary btn-sm" onclick="imprimirElementoRecibo('modalAreaRecibo', 'Recibo_${safeName}_${d.pagamento.mes_referencia}')">
-          <i class="bi bi-printer me-1"></i> Imprimir Recibo Oficial
+        <button type="button" class="btn btn-primary btn-sm" onclick="imprimirElementoRecibo('modalAreaRecibo', 'Recibo_${safeName}_${d.pagamento.mes_referencia}_${statusLabel}')">
+          <i class="bi bi-printer me-1"></i> Imprimir Recibo
         </button>
       </div>
     `);
@@ -13676,7 +13439,7 @@ function imprimirElementoRecibo(elementId, titulo) {
   if (!el) return window.print();
   const originalTitle = document.title;
   document.title = titulo;
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  const printWindow = window.open('', '_blank', 'width=850,height=750');
   if (printWindow) {
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -13685,12 +13448,41 @@ function imprimirElementoRecibo(elementId, titulo) {
         <title>${titulo}</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
-          body { font-family: Arial, sans-serif; background: #fff; padding: 20px; }
-          @media print { .no-print { display: none !important; } }
+          body { font-family: 'Times New Roman', Times, serif; background: #fff; padding: 25px; color: #111; }
+          .watermark-carimbo {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 64px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            opacity: 0.15;
+            pointer-events: none;
+            user-select: none;
+            z-index: 10;
+            padding: 10px 40px;
+            border-radius: 12px;
+            white-space: nowrap;
+          }
+          .watermark-nao-pago {
+            color: #dc2626 !important;
+            border: 5px dashed #dc2626 !important;
+          }
+          .watermark-pago {
+            color: #16a34a !important;
+            border: 5px solid #16a34a !important;
+          }
+          @media print {
+            .no-print { display: none !important; }
+            body { padding: 10px; }
+          }
         </style>
       </head>
       <body>
-        ${el.innerHTML}
+        <div style="position: relative;">
+          ${el.innerHTML}
+        </div>
         <script>
           window.onload = function() { window.print(); };
         <\/script>

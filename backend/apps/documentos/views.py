@@ -103,12 +103,12 @@ def _obter_pagamento_e_escola(request, pagamento_id):
             aluno=aluno,
             descricao='Propina / Mensalidade Escolar',
             valor=1500,
-            valor_pago=1500,
+            valor_pago=0,
             mes_referencia=datetime.date.today().strftime('%m/%Y'),
             data_vencimento=datetime.date.today(),
-            data_pagamento=datetime.date.today(),
-            status='PAGO',
-            metodo_pagamento='MPESA',
+            data_pagamento=None,
+            status='PENDENTE',
+            metodo_pagamento='Pendente de Liquidação',
             recibo_numero=f"REC-{aluno.matricula or str(aluno.id)[:8].upper()}"
         )
         pagamento_sintetico.created_at = datetime.datetime.now()
@@ -880,35 +880,69 @@ class ReciboImpressaoView(APIView):
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         aluno = pagamento.aluno
+
+        status_raw = str(getattr(pagamento, 'status', '')).upper().strip()
+        valor_pago_val = float(getattr(pagamento, 'valor_pago', 0) or 0)
+        tem_data_pag = bool(getattr(pagamento, 'data_pagamento', None))
+        is_pago = (status_raw == 'PAGO') and (tem_data_pag or valor_pago_val > 0)
+
+        status_texto = 'PAGO' if is_pago else 'NÃO PAGO'
+        status_badge = 'success' if is_pago else 'danger'
+        valor_liquidado_str = str(getattr(pagamento, 'valor_pago', None) or pagamento.valor) if is_pago else '0.00'
+        metodo_str = (pagamento.metodo_pagamento or 'MPESA') if is_pago else 'Pendente de Liquidação'
+        data_pag_str = str(pagamento.data_pagamento or pagamento.created_at)[:10] if is_pago else 'Aguardando Liquidação'
+
         dados_rec = {
             'numero': pagamento.recibo_numero or f"REC-{pagamento.id}",
+            'is_pago': is_pago,
+            'status': status_texto,
+            'status_label': status_texto,
+            'status_badge': status_badge,
             'aluno': {
                 'id': str(aluno.id) if aluno else '',
                 'nome': aluno.nome if aluno else '',
                 'apelido': aluno.apelido or '' if aluno else '',
+                'nome_completo': f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper() if aluno else '',
                 'matricula': aluno.matricula if aluno else '',
                 'turma': {
-                    'nome': aluno.turma.nome if aluno and aluno.turma else '-'
-                } if aluno else None
+                    'nome': aluno.turma.nome if aluno and aluno.turma else '-',
+                    'grau_ano': getattr(aluno.turma, 'grau_ano', '-') if aluno and aluno.turma else '-',
+                    'turno': getattr(aluno.turma, 'turno', '-') if aluno and aluno.turma else '-',
+                    'sala': getattr(aluno.turma, 'sala', '-') if aluno and aluno.turma else '-',
+                } if aluno else None,
+                'encarregado': getattr(aluno, 'encarregado_nome', '') or getattr(aluno, 'nome_pai', '') or getattr(aluno, 'nome_mae', '') or '-',
+                'telefone': getattr(aluno, 'telefone', '') or getattr(aluno, 'encarregado_telefone', '') or '-'
             },
             'escola': {
-                'nome': escola.nome,
-                'nif_cnpj': getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', '400000000'),
-                'telefone': getattr(escola, 'telefone', '-')
+                'id': str(escola.id) if escola else '',
+                'nome': escola.nome if escola else '',
+                'nif_cnpj': getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', '-') or '-',
+                'provincia': getattr(escola, 'provincia', '-') or '-',
+                'distrito': getattr(escola, 'distrito', '-') or '-',
+                'endereco': getattr(escola, 'endereco', '-') or '-',
+                'telefone': getattr(escola, 'telefone', '-') or '-',
+                'email': getattr(escola, 'email', '-') or '-'
             },
             'pagamento': {
+                'id': str(pagamento.id),
                 'recibo_numero': pagamento.recibo_numero or f"REC-{pagamento.id}",
                 'descricao': pagamento.descricao,
                 'mes_referencia': pagamento.mes_referencia,
-                'valor': str(pagamento.valor_pago or pagamento.valor),
-                'metodo_pagamento': pagamento.metodo_pagamento or 'MPESA',
-                'data_pagamento': pagamento.data_pagamento or pagamento.created_at
+                'valor': str(pagamento.valor),
+                'valor_pago': valor_liquidado_str,
+                'is_pago': is_pago,
+                'status': status_texto,
+                'metodo_pagamento': metodo_str,
+                'data_pagamento': data_pag_str,
+                'data_vencimento': str(getattr(pagamento, 'data_vencimento', '') or '')[:10] if getattr(pagamento, 'data_vencimento', None) else '-',
             },
+            'carimboDataHora': datetime.datetime.now().strftime('%d/%m/%Y às %H:%M:%S'),
             'descricao': pagamento.descricao,
             'mes': pagamento.mes_referencia,
-            'valor': str(pagamento.valor_pago or pagamento.valor),
-            'metodo': pagamento.metodo_pagamento or 'MPESA',
-            'data': pagamento.data_pagamento or pagamento.created_at
+            'valor': str(pagamento.valor),
+            'valor_pago': valor_liquidado_str,
+            'metodo': metodo_str,
+            'data': data_pag_str
         }
         return Response({
             'success': True,

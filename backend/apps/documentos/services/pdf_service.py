@@ -519,24 +519,41 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         except Exception:
             pass
 
+    esc_obj = escola or dados_pauta.get('escola', {})
+    if isinstance(esc_obj, dict):
+        esc_nome = esc_obj.get('nome') or 'Escola Secundária de Massinga'
+        prov_str = esc_obj.get('provincia') or 'Inhambane'
+        dist_str = esc_obj.get('distrito') or 'Massinga'
+    else:
+        esc_nome = getattr(esc_obj, 'nome', '') or 'Escola Secundária de Massinga'
+        prov_str = getattr(esc_obj, 'provincia', '') or 'Inhambane'
+        dist_str = getattr(esc_obj, 'distrito', '') or 'Massinga'
+
+    esc_nome_clean = esc_nome.strip()
+    if not esc_nome_clean.upper().startswith('ESCOLA') and not esc_nome_clean.upper().startswith('INSTITUTO'):
+        esc_nome_clean = f"ESCOLA {esc_nome_clean}"
+
     style_hdr_rep = ParagraphStyle('PEHdrRep', alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
-    style_hdr_esc = ParagraphStyle('PEHdrEsc', alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
-    style_pauta_title = ParagraphStyle('PEPautaTitle', alignment=1, fontSize=11, leading=13, fontName='Times-Bold', textColor=colors.HexColor('#1e3a8a'))
+    style_hdr_min = ParagraphStyle('PEHdrMin', alignment=1, fontSize=8.5, leading=10, fontName='Times-Bold')
+    style_hdr_gov = ParagraphStyle('PEHdrGov', alignment=1, fontSize=7.5, leading=9, fontName='Times-Roman')
+    style_hdr_esc = ParagraphStyle('PEHdrEsc', alignment=1, fontSize=11, leading=13, fontName='Times-Bold', textColor=colors.HexColor('#0f172a'))
+    style_pauta_title = ParagraphStyle('PEPautaTitle', alignment=1, fontSize=10.5, leading=12.5, fontName='Times-Bold', textColor=colors.HexColor('#1e3a8a'))
     style_pauta_sub = ParagraphStyle('PEPautaSub', alignment=1, fontSize=8, leading=10, fontName='Times-Roman')
 
-    esc_nome = (getattr(escola, 'nome', '') or 'ESCOLA SECUNDÁRIA').upper()
     turma_info = dados_pauta.get('turma', {})
     turma_nome = turma_info.get('nome', 'Turma')
     grau_ano = turma_info.get('grau_ano', '10ª Classe')
     area_nome = turma_info.get('area', '')
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_hdr_rep))
-    elements.append(Paragraph(f"ESCOLA {esc_nome}", style_hdr_esc))
-    elements.append(Spacer(1, 0.1 * cm))
+    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO", style_hdr_min))
+    elements.append(Paragraph(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov_str.upper()} &nbsp;|&nbsp; SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist_str.upper()}", style_hdr_gov))
+    elements.append(Paragraph(esc_nome_clean.upper(), style_hdr_esc))
+    elements.append(Spacer(1, 0.12 * cm))
 
     sub_info = f"Classe/Área ou Secção: <b>{grau_ano} {('/ ' + area_nome) if area_nome else ''}</b> &nbsp;&nbsp;|&nbsp;&nbsp; <b>PAUTA DE EXAMES / Ano {ano_letivo}</b> &nbsp;&nbsp;|&nbsp;&nbsp; Turma: <b>{turma_nome}</b>"
     elements.append(Paragraph(sub_info, style_pauta_title))
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
     # Tabela da Pauta
     disciplinas_com_exame = dados_pauta.get('disciplinas_com_exame', [])
@@ -1966,28 +1983,96 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
     styles = getSampleStyleSheet()
     elements = []
 
-    elements.extend(gerar_cabecalho_minedh(styles, escola.nome, escola.provincia, escola.distrito))
+    # Determinação estrita do estado de liquidação e conformidade de pagamento
+    status_raw = str(getattr(pagamento, 'status', '')).upper().strip()
+    valor_pago_val = float(getattr(pagamento, 'valor_pago', 0) or 0)
+    tem_data_pag = bool(getattr(pagamento, 'data_pagamento', None))
+    is_pago = (status_raw == 'PAGO') and (tem_data_pag or valor_pago_val > 0)
 
+    # Dados sincronizados da Instituição
+    nome_escola = getattr(escola, 'nome', 'Instituição de Ensino')
+    provincia = getattr(escola, 'provincia', '') or 'Inhambane'
+    distrito = getattr(escola, 'distrito', '') or 'Massinga'
+    nuit = getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', None) or '---'
+    telefone = getattr(escola, 'telefone', '---')
+    email = getattr(escola, 'email', '---')
+    endereco = getattr(escola, 'endereco', '---')
+
+    elements.extend(gerar_cabecalho_minedh(styles, nome_escola, provincia, distrito))
+
+    # Dados de contacto institucional no cabeçalho
+    info_inst = f"NUIT: <b>{nuit}</b> &bull; Tel: <b>{telefone}</b> &bull; Email: <b>{email}</b> &bull; Endereço: <b>{distrito}, {provincia}</b>"
+    elements.append(Paragraph(info_inst, ParagraphStyle('RecInst', parent=styles['Normal'], alignment=1, fontSize=8, leading=10, fontName='Times-Roman', textColor=colors.HexColor('#475569'))))
+    elements.append(Spacer(1, 0.3 * cm))
+
+    # Número do recibo e título
     num_rec = getattr(pagamento, 'recibo_numero', None) or f"REC-{pagamento.id}"
-    style_title = ParagraphStyle('RecTitle', parent=styles['Normal'], alignment=1, fontSize=13, leading=16, fontName='Times-Bold')
-    elements.append(Paragraph(f"RECIBO DE PAGAMENTO OFICIAL — {num_rec}", style_title))
-    elements.append(Spacer(1, 0.4 * cm))
+    if is_pago:
+        titulo_doc = f"RECIBO DE PAGAMENTO OFICIAL — {num_rec}"
+        banner_html = '<font color="#15803d" size="11"><b>SITUAÇÃO: PAGO (LIQUIDADO COM SUCESSO)</b></font>'
+        banner_bg = colors.HexColor('#dcfce7')
+        banner_border = colors.HexColor('#16a34a')
+        estado_str = '<font color="#15803d"><b>PAGO</b></font>'
+        valor_liquidado = f"<b>{getattr(pagamento, 'valor_pago', None) or pagamento.valor} MT</b>"
+        metodo_str = str(getattr(pagamento, 'metodo_pagamento', 'MPESA') or 'MPESA')
+        data_confirmacao_str = str(getattr(pagamento, 'data_pagamento', None) or pagamento.created_at)[:10]
+    else:
+        titulo_doc = f"RECIBO / GUIA DE PAGAMENTO (NÃO PAGO) — {num_rec}"
+        banner_html = '<font color="#991b1b" size="11"><b>SITUAÇÃO: NÃO PAGO (PENDENTE DE LIQUIDAÇÃO)</b></font>'
+        banner_bg = colors.HexColor('#fee2e2')
+        banner_border = colors.HexColor('#dc2626')
+        estado_str = '<font color="#b91c1c"><b>NÃO PAGO</b></font>'
+        valor_liquidado = '<font color="#b91c1c"><b>0,00 MT (Aguardando Liquidação)</b></font>'
+        metodo_str = 'Pendente de Liquidação'
+        data_confirmacao_str = 'Aguardando Liquidação / Confirmação'
 
-    aluno = pagamento.aluno
+    style_title = ParagraphStyle('RecTitle', parent=styles['Normal'], alignment=1, fontSize=12.5, leading=15, fontName='Times-Bold')
+    elements.append(Paragraph(titulo_doc, style_title))
+    elements.append(Spacer(1, 0.25 * cm))
+
+    # Banner visual de estado (PAGO vs NÃO PAGO)
+    t_banner = Table([[Paragraph(banner_html, ParagraphStyle('BannerP', parent=styles['Normal'], alignment=1))]], colWidths=[18.0 * cm])
+    t_banner.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), banner_bg),
+        ('BOX', (0, 0), (-1, -1), 1.2, banner_border),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(t_banner)
+    elements.append(Spacer(1, 0.3 * cm))
+
+    # Dados sincronizados do Aluno / Usuário
+    aluno = getattr(pagamento, 'aluno', None)
+    nome_aluno = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper() if aluno else '---'
+    matricula = aluno.matricula if aluno else '---'
+    turma_nome = aluno.turma.nome if aluno and aluno.turma else '---'
+    grau_ano = getattr(aluno.turma, 'grau_ano', '') if aluno and aluno.turma else ''
+    turma_completa = f"{turma_nome} ({grau_ano})" if grau_ano else turma_nome
+    turno_sala = f"{getattr(aluno.turma, 'turno', '---')} &bull; Sala: {getattr(aluno.turma, 'sala', '---')}" if aluno and aluno.turma else '---'
+    encarregado = getattr(aluno, 'encarregado_nome', '') or getattr(aluno, 'nome_pai', '') or getattr(aluno, 'nome_mae', '') or '---' if aluno else '---'
+
     campos = [
-        ('Nome do Aluno:', f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper() if aluno else '---'),
-        ('Nº de Matrícula:', aluno.matricula if aluno else '---'),
-        ('Turma:', aluno.turma.nome if aluno and aluno.turma else '---'),
-        ('Descrição do Serviço:', pagamento.descricao or 'Mensalidade / Propina'),
-        ('Mês de Referência:', str(pagamento.mes_referencia or '---')),
-        ('Valor Total Pago:', f"<b>{pagamento.valor_pago or pagamento.valor} MT</b>"),
-        ('Forma de Pagamento:', str(pagamento.metodo_pagamento or 'MPESA')),
-        ('Data de Confirmação:', str(pagamento.data_pagamento or pagamento.created_at)[:10])
+        ('Instituição de Ensino:', f"<b>{nome_escola.upper()}</b>"),
+        ('Localização / Distrito:', f"{distrito}, {provincia}"),
+        ('Nome do Aluno:', f"<b>{nome_aluno}</b>"),
+        ('Nº de Matrícula:', matricula),
+        ('Turma / Classe:', turma_completa),
+        ('Turno / Instalações:', turno_sala),
+        ('Encarregado de Educação:', encarregado),
+        ('Descrição do Serviço:', getattr(pagamento, 'descricao', 'Mensalidade / Propina Escolar') or 'Mensalidade / Propina Escolar'),
+        ('Mês de Referência:', str(getattr(pagamento, 'mes_referencia', '---') or '---')),
+        ('Valor Total Cobrado:', f"<b>{pagamento.valor} MT</b>"),
+        ('Valor Efectivamente Liquidado:', valor_liquidado),
+        ('Situação / Estado:', estado_str),
+        ('Forma de Pagamento:', metodo_str),
+        ('Data de Vencimento:', str(getattr(pagamento, 'data_vencimento', '---') or '---')[:10]),
+        ('Data de Confirmação / Liquidação:', data_confirmacao_str)
     ]
 
     tabela_data = []
-    style_l = ParagraphStyle('RL', fontName='Times-Bold', fontSize=10.5, leading=14)
-    style_v = ParagraphStyle('RV', fontName='Times-Roman', fontSize=10.5, leading=14)
+    style_l = ParagraphStyle('RL', fontName='Times-Bold', fontSize=9.5, leading=12)
+    style_v = ParagraphStyle('RV', fontName='Times-Roman', fontSize=9.5, leading=12)
 
     for label, val in campos:
         tabela_data.append([Paragraph(label, style_l), Paragraph(str(val), style_v)])
@@ -1996,26 +2081,88 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
     t.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8fafc')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
     ]))
     elements.append(t)
-    elements.append(Spacer(1, 1.2 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
+
+    # Aviso informativo oficial (NÃO PAGO vs PAGO)
+    if not is_pago:
+        aviso_texto = (
+            "<b>ATENÇÃO:</b> Este recibo possui a indicação expressa de <b>NÃO PAGO</b>. "
+            "O presente documento comprova a emissão da cobrança, mas <b>NÃO constitui quitação de dívida</b> "
+            "nem comprova liquidação até que o respectivo pagamento seja efectuado e confirmado no sistema oficial SIGE."
+        )
+        aviso_bg = colors.HexColor('#fff1f2')
+        aviso_border = colors.HexColor('#fda4af')
+        aviso_color = colors.HexColor('#9f1239')
+    else:
+        aviso_texto = (
+            "<b>COMPROVATIVO DE QUITAÇÃO:</b> Certifica-se para os devidos efeitos que o valor acima indicado "
+            "foi devidamente liquidado e confirmado no sistema oficial de pagamentos do SIGE."
+        )
+        aviso_bg = colors.HexColor('#f0fdf4')
+        aviso_border = colors.HexColor('#86efac')
+        aviso_color = colors.HexColor('#166534')
+
+    t_aviso = Table([[Paragraph(f"<font color='{aviso_color}' size='7.5'>{aviso_texto}</font>", ParagraphStyle('AvisoP', fontName='Times-Roman', leading=9.5))]], colWidths=[18.0 * cm])
+    t_aviso.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), aviso_bg),
+        ('BOX', (0, 0), (-1, -1), 0.8, aviso_border),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(t_aviso)
+    elements.append(Spacer(1, 0.2 * cm))
+
+    # Autenticação digital e carimbo de tempo sincronizado
+    carimbo_dt = datetime.datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+    p_autenticacao = Paragraph(
+        f"Processado por Computador aos {carimbo_dt} &bull; Autenticação Digital SIGE &bull; Documento Sincronizado",
+        ParagraphStyle('Autenticacao', parent=styles['Normal'], alignment=1, fontSize=7, leading=9, fontName='Times-Italic', textColor=colors.HexColor('#64748b'))
+    )
+    elements.append(p_autenticacao)
+    elements.append(Spacer(1, 0.45 * cm))
 
     sig_data = [
-        ["A Secretaria Escolar", "O Utente / Pagador"],
+        ["A Secretaria / Tesouraria", "O Utente / Pagador"],
         ["\n__________________________________", "\n__________________________________"],
-        ["Assinatura e Carimbo", "Assinatura"]
+        ["Assinatura e Carimbo Oficial", "Assinatura"]
     ]
     t_sig = Table(sig_data, colWidths=[9.0 * cm, 9.0 * cm])
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     elements.append(KeepTogether(t_sig))
 
-    doc.build(elements)
+    # Marca d'água no canvas: 'NÃO PAGO' ou 'PAGO'
+    def desenhar_recibo_background(canvas, d_doc):
+        desenhar_moldura_e_marca_dagua(canvas, d_doc, moldura='simples', marca_dagua=True)
+        canvas.saveState()
+        w, h = d_doc.pagesize
+        canvas.setFont("Times-Bold", 58)
+        if not is_pago:
+            canvas.setFillColor(colors.HexColor('#dc2626'))
+            canvas.setFillAlpha(0.12)
+            canvas.translate(w / 2.0, h / 2.0)
+            canvas.rotate(45)
+            canvas.drawCentredString(0, 0, "NÃO PAGO")
+        else:
+            canvas.setFillColor(colors.HexColor('#16a34a'))
+            canvas.setFillAlpha(0.08)
+            canvas.translate(w / 2.0, h / 2.0)
+            canvas.rotate(45)
+            canvas.drawCentredString(0, 0, "PAGO")
+        canvas.restoreState()
+
+    doc.build(elements, onFirstPage=desenhar_recibo_background, onLaterPages=desenhar_recibo_background)
     buffer.seek(0)
     return buffer.getvalue()
 

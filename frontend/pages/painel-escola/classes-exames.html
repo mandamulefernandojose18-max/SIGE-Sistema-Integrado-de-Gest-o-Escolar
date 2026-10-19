@@ -1,307 +1,119 @@
 <!-- ===================================================================== -->
-<!-- SIGE - PAINEL-ESCOLA | Cadastro de Classes / Níveis & Regime de Exame -->
+<!-- SIGE - PAINEL-ESCOLA | Classes e Níveis - Regime de Exame -->
 <!-- Página independente do módulo: classes-exames.html -->
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
 <!-- ===================================================================== -->
 <section id="view-classes-exames" class="modulo-view" style="display: none;">
-  <!-- Cabeçalho Principal com Ações Rápidas -->
+  <!-- Cabeçalho Limpo e Moderno -->
   <div class="card p-4 mb-4 border-0 shadow-sm">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div>
         <div class="d-flex align-items-center gap-2 mb-1">
-          <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-            <i class="bi bi-layers-fill me-1"></i> Gestão Curricular & Pedagógica
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+            <i class="bi bi-layers-fill me-1"></i> Gestão Curricular
           </span>
-          <span id="badgeRegimeAtivo" class="badge bg-primary px-3 py-2 fs-7">
-            <i class="bi bi-mortarboard-fill me-1"></i> Regime Atual: Classes (1ª à 12ª)
+          <span id="badgeRegimeAtivo" class="badge bg-light text-secondary border px-2 py-1">
+            <i class="bi bi-mortarboard me-1"></i> Classes SNE
           </span>
         </div>
-        <h4 class="fw-bold text-dark mb-1">Cadastro de Classes ou Níveis</h4>
+        <h4 class="fw-bold text-dark mb-1">Classes e Níveis</h4>
         <p class="text-muted small mb-0">
-          Cadastre as classes ou níveis ministrados na escola e configure o regime de avaliação: 
-          <strong>Com Exame (Sim)</strong> para classes com exame final/nacional ou <strong>Sem Exame (Não)</strong> para avaliação contínua.
-          Estas classes são carregadas e interligadas automaticamente no cadastro de alunos, turmas, disciplinas e pautas.
+          Configure as classes ministradas na instituição e defina quais realizam <strong>exame final</strong>. As classes cadastradas aqui são refletidas automaticamente no cadastro de turmas, alunos e pautas.
         </p>
       </div>
-      <div class="d-flex flex-wrap gap-2 align-items-center">
-        <button class="btn btn-outline-warning btn-sm fw-semibold shadow-sm" onclick="aplicarPadraoOficialRegime()" title="Restaurar padrão oficial do MEC Moçambique (10ª e 12ª com exame)">
-          <i class="bi bi-arrow-counterclockwise me-1"></i> Padrão Oficial MEC
-        </button>
-        <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" onclick="modalAdicionarNivelCurricular()" title="Abrir modal rápido de cadastro">
-          <i class="bi bi-window me-1"></i> Modal Rápido
-        </button>
-        <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="focarFormularioItemCurricular()">
-          <i class="bi bi-plus-circle-fill me-1"></i> + Cadastrar Classe / Nível
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="input-group input-group-sm" style="width: auto;">
+          <label class="input-group-text bg-light text-muted small" for="selectRegimeInstituicao">Regime:</label>
+          <select id="selectRegimeInstituicao" class="form-select form-select-sm fw-semibold" onchange="selecionarRegimeCurricularInstituicao(this.value)">
+            <option value="CLASSES">Ensino Geral (Classes)</option>
+            <option value="NIVEIS">Ensino Técnico (Níveis)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="abrirModalNovaClasse()">
+          <i class="bi bi-plus-lg me-1"></i> <span id="btnLabelNovaClasse">+ Nova Classe</span>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Seleção do Modelo Curricular da Instituição -->
-  <div class="card p-4 mb-4 border-0 shadow-sm">
-    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-      <h6 class="fw-bold text-uppercase text-secondary mb-0">
-        <i class="bi bi-gear-wide-connected me-2 text-primary"></i>1. Modelo Curricular da Instituição
-      </h6>
-      <small class="text-muted">Alterne entre o modelo por Classes (Ensino Geral) ou Níveis (Técnico-Profissional)</small>
-    </div>
-    <div class="row g-3">
-      <div class="col-md-6">
-        <div class="card h-100 border border-2 border-primary bg-primary-subtle shadow-sm p-3 cursor-pointer regime-card" id="cardRegimeClasses" onclick="selecionarRegimeCurricularInstituicao('CLASSES')" style="cursor: pointer;">
-          <div class="d-flex align-items-center gap-3">
-            <div>
-              <input class="form-check-input me-2" type="radio" name="regimeInstituicao" id="radioRegimeClasses" value="CLASSES" checked onchange="selecionarRegimeCurricularInstituicao('CLASSES')">
-              <label for="radioRegimeClasses" class="fw-bold fs-6 text-primary mb-0" style="cursor: pointer;">
-                <i class="bi bi-mortarboard-fill me-2"></i>Classes SNE (Ensino Geral: 1ª à 12ª)
-              </label>
-            </div>
+  <!-- Destaque dos Parâmetros de Avaliação de Exame (% Frequência, % Exame e Nota Mínima) -->
+  <div class="card border border-warning border-opacity-50 bg-white p-3 mb-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-3">
+        <div class="bg-warning-subtle text-warning-emphasis p-2 rounded-circle fs-4 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+          <i class="bi bi-sliders2-vertical fs-5"></i>
+        </div>
+        <div>
+          <div class="fw-bold text-dark small text-uppercase">Parâmetros Oficiais de Avaliação de Exame (MEC)</div>
+          <div class="small text-muted">
+            <span class="badge bg-light text-primary border me-1 fw-semibold" id="classeExameBadgeParametros">Freq: 50% | Exame: 50% | Nota Mínima: 10.0</span>
+            <span>Fórmula Ponderada: <code>MF = (Freq × %Freq) + (Exame × %Exame)</code></span>
           </div>
-          <p class="text-muted small mb-0 mt-2">
-            Sistema Nacional de Educação de Moçambique. Permite cadastrar da <strong>1ª à 12ª Classe</strong>.
-            A <strong>10ª e 12ª Classes</strong> têm exame nacional obrigatório por regulamento ministerial.
-          </p>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="card h-100 border bg-white p-3 cursor-pointer regime-card" id="cardRegimeNiveis" onclick="selecionarRegimeCurricularInstituicao('NIVEIS')" style="cursor: pointer;">
-          <div class="d-flex align-items-center gap-3">
-            <div>
-              <input class="form-check-input me-2" type="radio" name="regimeInstituicao" id="radioRegimeNiveis" value="NIVEIS" onchange="selecionarRegimeCurricularInstituicao('NIVEIS')">
-              <label for="radioRegimeNiveis" class="fw-bold fs-6 text-success mb-0" style="cursor: pointer;">
-                <i class="bi bi-layers-fill me-2"></i>Níveis Técnicos (Técnico-Profissional / Vocacional)
-              </label>
-            </div>
-          </div>
-          <p class="text-muted small mb-0 mt-2">
-            Institutos Médios e Centros de Formação Profissional (ex: <strong>Nível 1, Nível 2, Nível 3...</strong>).
-            Geralmente Níveis 3 e 5 com exame de qualificação profissional.
-          </p>
-        </div>
+      <div>
+        <button class="btn btn-warning btn-sm fw-bold text-dark shadow-sm" onclick="navegarPara('exames')">
+          <i class="bi bi-sliders me-1"></i> Abrir & Configurar Parâmetros de Exame
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Indicadores & Métricas de Classes / Níveis -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div>
-          <span class="text-muted small text-uppercase fw-semibold" id="labelCardTotalItens">Total de Classes</span>
-          <h3 id="kpiTotalItens" class="fw-bold mb-0 text-dark">0</h3>
-          <small class="text-muted">Cadastradas e activas na escola</small>
-        </div>
-        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-          <i class="bi bi-layers"></i>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div>
-          <span class="text-muted small text-uppercase fw-semibold">Com Exame (Sim)</span>
-          <h3 id="kpiComExame" class="fw-bold mb-0 text-danger">0</h3>
-          <small class="text-danger fw-medium"><i class="bi bi-file-earmark-check-fill me-1"></i>Exame Final / Nacional</small>
-        </div>
-        <div class="stat-icon bg-danger bg-opacity-10 text-danger">
-          <i class="bi bi-file-earmark-check-fill"></i>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div>
-          <span class="text-muted small text-uppercase fw-semibold">Sem Exame (Não)</span>
-          <h3 id="kpiSemExame" class="fw-bold mb-0 text-secondary">0</h3>
-          <small class="text-secondary fw-medium"><i class="bi bi-dash-circle me-1"></i>Avaliação Contínua</small>
-        </div>
-        <div class="stat-icon bg-secondary bg-opacity-10 text-secondary">
-          <i class="bi bi-dash-circle"></i>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div>
-          <span class="text-muted small text-uppercase fw-semibold">Interligação</span>
-          <h3 class="fw-bold mb-0 text-success"><i class="bi bi-check2-circle me-1"></i>100%</h3>
-          <small class="text-success fw-medium">Sincronizado c/ Alunos e Turmas</small>
-        </div>
-        <div class="stat-icon bg-success bg-opacity-10 text-success">
-          <i class="bi bi-diagram-3-fill"></i>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row g-4">
-    <!-- Formulário Dedicado de Cadastro -->
-    <div class="col-lg-4">
-      <div class="card p-4 border-0 shadow-sm h-100" id="cardFormularioCadastro">
-        <h6 class="fw-bold text-uppercase text-secondary mb-3" id="tituloFormularioCadastro">
-          <i class="bi bi-plus-circle-fill text-primary me-2"></i>2. Cadastrar / Configurar Classe
+  <!-- Tabela de Classes / Níveis -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <h6 class="fw-bold mb-0 text-dark" id="tituloTabelaItens">
+          <i class="bi bi-list-check me-2 text-primary"></i>Classes da Instituição
         </h6>
-
-        <form id="formCadastrarItemCurricular" onsubmit="salvarItemClasseNivel(event)">
-          <!-- Campo 1: Seleção da Classe SNE -->
-          <div class="mb-3" id="containerSelecaoClasses">
-            <label class="form-label small fw-semibold" id="labelCampoSelecaoNome">
-              <i class="bi bi-mortarboard me-1 text-primary"></i> Selecione a Classe (1ª à 12ª):
-            </label>
-            <select id="selectClasseSNE" class="form-select border-primary fw-semibold" onchange="aoMudarSelecaoClasseForm(this.value)">
-              <option value="1ª Classe">1ª Classe</option>
-              <option value="2ª Classe">2ª Classe</option>
-              <option value="3ª Classe">3ª Classe</option>
-              <option value="4ª Classe">4ª Classe</option>
-              <option value="5ª Classe">5ª Classe</option>
-              <option value="6ª Classe">6ª Classe</option>
-              <option value="7ª Classe">7ª Classe</option>
-              <option value="8ª Classe">8ª Classe</option>
-              <option value="9ª Classe">9ª Classe</option>
-              <option value="10ª Classe" selected>10ª Classe (Com Exame por regulamento)</option>
-              <option value="11ª Classe">11ª Classe</option>
-              <option value="12ª Classe">12ª Classe (Com Exame por regulamento)</option>
-            </select>
-            <small class="text-muted d-block mt-1">Ao cadastrar, a classe fica disponível para novas turmas e matrículas.</small>
-          </div>
-
-          <!-- Campo 1 Alternativo: Seleção do Nível Técnico -->
-          <div class="mb-3" id="containerSelecaoNiveis" style="display: none;">
-            <label class="form-label small fw-semibold">
-              <i class="bi bi-layers me-1 text-success"></i> Número do Nível Técnico (1 a 10):
-            </label>
-            <div class="input-group">
-              <span class="input-group-text bg-light fw-bold text-success">Nível</span>
-              <input type="number" id="inputNumeroNivel" class="form-control border-success fw-bold" min="1" max="10" value="1" placeholder="Ex: 1" onchange="aoMudarNumeroNivelForm(this.value)" oninput="aoMudarNumeroNivelForm(this.value)">
-            </div>
-            <small class="text-muted d-block mt-1">Gera automaticamente: Nível 1, Nível 2, Nível 3, etc.</small>
-          </div>
-
-          <!-- Campo 2: Regime de Exame (Com Exame vs Sem Exame) -->
-          <div class="mb-4">
-            <label class="form-label small fw-bold text-uppercase text-secondary mb-2" id="labelCriterioExame">
-              <i class="bi bi-patch-question-fill text-primary me-1"></i> A Classe tem Exame: Sim ou Não?
-            </label>
-            <div class="row g-2">
-              <div class="col-6">
-                <div class="card h-100 p-2 text-center criterio-card border bg-white" id="cardCriterioSim" onclick="definirCriterioExameForm(true)" style="cursor: pointer;">
-                  <input class="form-check-input" type="radio" name="criterioExameFinal" id="radioCriterioSim" value="sim" style="display: none;">
-                  <i class="bi bi-file-earmark-check-fill text-danger fs-3 mb-1"></i>
-                  <div class="fw-bold text-danger small">SIM</div>
-                  <span class="text-muted" style="font-size: 0.72rem;">Com Exame Final</span>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="card h-100 p-2 text-center criterio-card border border-2 border-secondary bg-secondary-subtle shadow-sm" id="cardCriterioNao" onclick="definirCriterioExameForm(false)" style="cursor: pointer;">
-                  <input class="form-check-input" type="radio" name="criterioExameFinal" id="radioCriterioNao" value="nao" checked style="display: none;">
-                  <i class="bi bi-dash-circle text-secondary fs-3 mb-1"></i>
-                  <div class="fw-bold text-secondary small">NÃO</div>
-                  <span class="text-muted" style="font-size: 0.72rem;">Sem Exame (Avaliação Contínua)</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Preview Visual Dinâmico -->
-            <div class="mt-2 p-2 bg-light rounded border small text-center">
-              <span id="badgePreviewCriterio" class="text-muted">
-                A Classe tem Exame: <strong class="text-secondary"><i class="bi bi-dash-circle me-1"></i> Não (Sem Exame)</strong>
-              </span>
-            </div>
-          </div>
-
-          <div class="d-flex gap-2 mb-3">
-            <button type="submit" class="btn btn-primary fw-bold flex-grow-1 shadow-sm">
-              <i class="bi bi-plus-circle-fill me-1"></i> <span id="btnTextoCadastrarItem">+ Cadastrar Classe</span>
-            </button>
-            <button type="button" class="btn btn-outline-secondary" onclick="limparFormularioItem()" title="Repor seleções">
-              <i class="bi bi-arrow-repeat"></i>
-            </button>
-          </div>
-
-          <div class="p-2 bg-light rounded border small text-muted">
-            <i class="bi bi-info-circle me-1 text-primary"></i>
-            <strong>Interligação Automática:</strong> Ao salvar, esta classe ou nível fica imediatamente disponível para a matrícula de alunos, geração de turmas e pautas.
-          </div>
-
-          <hr class="my-3">
-          <div class="d-grid gap-2">
-            <button type="button" class="btn btn-outline-danger btn-sm fw-semibold" onclick="definirExameEmMassa(true)">
-              <i class="bi bi-check-all me-1"></i> Definir Todas Com Exame (Sim)
-            </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm fw-semibold" onclick="definirExameEmMassa(false)">
-              <i class="bi bi-dash-circle me-1"></i> Definir Todas Sem Exame (Não)
-            </button>
-          </div>
-        </form>
+        <span class="badge bg-secondary-subtle text-secondary" id="kpiTotalItensBadge">0</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <select id="filtroStatusExameSelect" class="form-select form-select-sm" style="width: 140px;" onchange="filtrarTabelaClassesExames()">
+          <option value="">Todos</option>
+          <option value="SIM">Com Exame</option>
+          <option value="NAO">Sem Exame</option>
+        </select>
+        <div class="input-group input-group-sm" style="width: 200px;">
+          <input type="search" id="filtroTextoClassesExames" class="form-control" placeholder="Pesquisar classe..." oninput="filtrarTabelaClassesExames()">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+        </div>
       </div>
     </div>
 
-    <!-- Tabela & Grelha das Classes/Níveis da Instituição -->
-    <div class="col-lg-8">
-      <div class="card p-4 border-0 shadow-sm">
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-          <div>
-            <h6 class="fw-bold text-uppercase text-secondary mb-0" id="tituloTabelaItens">
-              <i class="bi bi-table me-2 text-primary"></i>Classes Ativas &amp; Critérios de Exame
-            </h6>
-            <small class="text-muted">Lista das classes cadastradas na escola com o respetivo regime de exame</small>
-          </div>
-          <div class="d-flex gap-2 align-items-center flex-wrap">
-            <select id="filtroStatusExameSelect" class="form-select form-select-sm" style="width: auto;" onchange="filtrarTabelaClassesExames()">
-              <option value="">Todos os Critérios (Sim e Não)</option>
-              <option value="SIM">Apenas Com Exame (Sim)</option>
-              <option value="NAO">Apenas Sem Exame (Não)</option>
-            </select>
-            <div class="input-group input-group-sm" style="width: 220px;">
-              <input type="search" id="filtroTextoClassesExames" class="form-control" placeholder="Buscar classe ou nível..." oninput="filtrarTabelaClassesExames()">
-              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-            </div>
-          </div>
-        </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="text-center" style="width: 50px;">#</th>
+            <th>Classe / Nível</th>
+            <th>Regime</th>
+            <th class="text-center" style="width: 180px;">Regime de Exame</th>
+            <th class="text-end" style="width: 180px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyClassesExames">
+          <tr>
+            <td colspan="5" class="text-center py-4 text-muted">
+              <i class="bi bi-hourglass-split me-2"></i>A carregar classes...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-        <div class="alert alert-info d-flex align-items-start gap-2 py-2 small mb-3 border-0 bg-info-subtle" role="alert">
-          <i class="bi bi-shield-check text-info fs-5 mt-0 flex-shrink-0"></i>
-          <div>
-            <strong>Regra Oficial MINEDH / Moçambique:</strong>
-            No Sistema Nacional de Educação (SNE), a <strong>10ª Classe</strong> (Fim do 1º Ciclo Secundário) e a <strong>12ª Classe</strong> (Fim do 2º Ciclo Pré-Universitário) realizam <strong>Exame Nacional</strong>.
-            As restantes classes funcionam com <strong>Avaliação Contínua e Sistemática (ACS)</strong>.
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th class="text-center" style="width: 50px;">#</th>
-                <th>Classe / Nível</th>
-                <th>Modelo Curricular</th>
-                <th class="text-center">Regime de Exame</th>
-                <th class="text-end">Ações &amp; Alternar</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyClassesExames">
-              <tr>
-                <td colspan="5" class="text-center py-4 text-muted">
-                  <i class="bi bi-hourglass-split me-2"></i>A carregar classes e níveis...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div id="placeholderSemItens" style="display: none;" class="text-center py-5">
-          <i class="bi bi-layers text-muted" style="font-size: 3rem;"></i>
-          <h5 class="text-muted mt-3">Nenhuma Classe / Nível Cadastrado</h5>
-          <p class="text-muted small">Adicione as classes ministradas na sua escola pelo formulário ao lado ou aplique o padrão oficial do MEC.</p>
-          <div class="d-flex justify-content-center gap-2">
-            <button class="btn btn-outline-warning btn-sm fw-semibold" onclick="aplicarPadraoOficialRegime()">
-              <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar Padrão Oficial MEC
-            </button>
-            <button class="btn btn-primary btn-sm fw-semibold" onclick="focarFormularioItemCurricular()">
-              <i class="bi bi-plus-circle me-1"></i> Cadastrar Classe
-            </button>
-          </div>
+    <!-- Empty State Elegante -->
+    <div id="placeholderSemItens" style="display: none;" class="text-center py-5">
+      <div class="mb-3">
+        <div class="d-inline-flex p-3 rounded-circle bg-light text-muted">
+          <i class="bi bi-mortarboard" style="font-size: 2.2rem;"></i>
         </div>
       </div>
+      <h6 class="fw-bold text-dark mb-1">Nenhuma classe cadastrada</h6>
+      <p class="text-muted small mb-3">Cadastre as classes ministradas na escola para habilitar turmas, matrículas e pautas.</p>
+      <button class="btn btn-primary btn-sm fw-semibold" onclick="abrirModalNovaClasse()">
+        <i class="bi bi-plus-lg me-1"></i> Cadastrar Primeira Classe
+      </button>
     </div>
   </div>
 </section>

@@ -901,31 +901,35 @@ class ClassesExamesConfigView(APIView):
 
     @staticmethod
     def normalizar_nome_classe(nome_raw):
-        """Normaliza estritamente para uma das 12 classes oficiais do SNE ou retorna None."""
+        """Normaliza nome de classe sem erro de regex com indicador ordinal."""
         if not nome_raw:
             return None
         import re
         texto = str(nome_raw).strip()
-        match = re.search(r'\b(1[0-2]|[1-9])\b', texto)
-        if match:
-            num = int(match.group(1))
+        # Verificar se contém número de 1 a 12
+        m = re.search(r'(?<!\d)(1[0-2]|[1-9])(?!\d)', texto)
+        if m:
+            num = int(m.group(1))
             if 1 <= num <= 12:
                 return f"{num}ª Classe"
-        return None
+        # Nomes descritivos livres limpos (ex: Pré-escolar, Creche, Alfabetização, etc.)
+        limpo = ' '.join(texto.split())
+        return limpo if len(limpo) >= 2 else None
 
     @staticmethod
     def normalizar_nome_nivel(nome_raw):
-        """Normaliza estritamente para Nível X (numérico) ou retorna None."""
+        """Normaliza nome de nível."""
         if not nome_raw:
             return None
         import re
         texto = str(nome_raw).strip()
-        match = re.search(r'\b(\d+)\b', texto)
-        if match:
-            num = int(match.group(1))
+        m = re.search(r'(?<!\d)(\d+)(?!\d)', texto)
+        if m:
+            num = int(m.group(1))
             if num >= 1:
                 return f"Nível {num}"
-        return None
+        limpo = ' '.join(texto.split())
+        return limpo if len(limpo) >= 2 else None
 
     def get(self, request):
         from common.utils.tenant import get_tenant_escola
@@ -934,36 +938,42 @@ class ClassesExamesConfigView(APIView):
             return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
 
         regime = getattr(escola, 'regime_curricular', 'CLASSES') or 'CLASSES'
-        salvos = escola.config_classes_exames or {}
+        salvos = dict(escola.config_classes_exames or {})
+
+        # Sem classes fictícias: se salvos estiver vazio, obter apenas classes REAIS de turmas ativas da escola
         if not salvos:
-            if regime == 'CLASSES':
-                salvos = {c[0]: c[1] for c in self.CLASSES_SNE_PADRAO}
-            else:
-                salvos = {n[0]: n[1] for n in self.NIVEIS_PADRAO}
-            escola.config_classes_exames = salvos
-            escola.save(update_fields=['config_classes_exames', 'updated_at'])
+            from apps.turmas.models import Turma
+            turmas_graus = list(
+                Turma.objects.filter(escola=escola)
+                .exclude(grau_ano__isnull=True)
+                .exclude(grau_ano='')
+                .values_list('grau_ano', flat=True)
+                .distinct()
+            )
+            for g in turmas_graus:
+                if not g:
+                    continue
+                g_str = str(g).strip()
+                norm = self.normalizar_nome_classe(g_str) if regime == 'CLASSES' else self.normalizar_nome_nivel(g_str)
+                if norm:
+                    tem_ex = ('10' in norm or '12' in norm) if regime == 'CLASSES' else ('3' in norm or '5' in norm)
+                    salvos[norm] = tem_ex
+            if salvos:
+                escola.config_classes_exames = salvos
+                escola.save(update_fields=['config_classes_exames', 'updated_at'])
 
         resultado = []
-        if regime == 'CLASSES':
-            for nome_c, _ in self.CLASSES_SNE_PADRAO:
-                if nome_c in salvos:
-                    resultado.append({
-                        'nome': nome_c,
-                        'tem_exame': bool(salvos[nome_c]),
-                        'tipo': 'CLASSE'
-                    })
-        else:
-            niveis_salvos = [k for k in salvos if 'nível' in k.lower() or 'nivel' in k.lower()]
-            itens_ordenados = sorted(
-                niveis_salvos,
-                key=lambda x: int(''.join(filter(str.isdigit, x)) or 0)
-            )
-            for nome_n in itens_ordenados:
-                resultado.append({
-                    'nome': nome_n,
-                    'tem_exame': bool(salvos[nome_n]),
-                    'tipo': 'NIVEL'
-                })
+        def sort_key(item_nome):
+            import re
+            m = re.search(r'\d+', item_nome)
+            return (0, int(m.group(0))) if m else (1, item_nome.lower())
+
+        for nome, tem_exame in sorted(salvos.items(), key=lambda x: sort_key(x[0])):
+            resultado.append({
+                'nome': nome,
+                'tem_exame': bool(tem_exame),
+                'tipo': 'CLASSE' if regime == 'CLASSES' else 'NIVEL'
+            })
 
         return Response({
             'success': True,
@@ -991,7 +1001,7 @@ class ClassesExamesConfigView(APIView):
         regime_atual = getattr(escola, 'regime_curricular', 'CLASSES') or 'CLASSES'
         salvos = dict(escola.config_classes_exames or {})
 
-        # Restaurar padrão oficial MEC / Regulamentar
+        # Restaurar padrão oficial MEC / Regulamentar (apenas quando solicitado expressamente)
         if data.get('restaurar_padrao'):
             if regime_atual == 'CLASSES':
                 salvos = {c[0]: c[1] for c in self.CLASSES_SNE_PADRAO}
@@ -1002,10 +1012,12 @@ class ClassesExamesConfigView(APIView):
         if data.get('limpar_tudo'):
             salvos = {}
 
-        # Remover item específico
+        # Remover item específico (eliminação)
         if data.get('remover_nome'):
             nome_rem = str(data.get('remover_nome')).strip()
-            salvos.pop(nome_rem, None)
+            chaves_para_remover = [k for k in salvos if k.strip().lower() == nome_rem.lower()]
+            for k in chaves_para_remover:
+                salvos.pop(k, None)
             norm_c = self.normalizar_nome_classe(nome_rem)
             if norm_c:
                 salvos.pop(norm_c, None)
@@ -1013,29 +1025,26 @@ class ClassesExamesConfigView(APIView):
             if norm_n:
                 salvos.pop(norm_n, None)
 
-        # Adicionar / atualizar item único com validação estrita
+        # Edição de nome (se nome_antigo foi fornecido)
+        if data.get('nome_antigo') and 'nome' in data:
+            antigo = str(data['nome_antigo']).strip()
+            chaves_para_remover = [k for k in salvos if k.strip().lower() == antigo.lower()]
+            for k in chaves_para_remover:
+                salvos.pop(k, None)
+
+        # Adicionar / atualizar item único
         if 'nome' in data and not data.get('remover_nome'):
             nome_bruto = str(data['nome']).strip()
 
             if regime_atual == 'CLASSES':
-                nome_normalizado = self.normalizar_nome_classe(nome_bruto)
-                if not nome_normalizado:
-                    return Response({
-                        'success': False,
-                        'message': 'No regime por Classes, o sistema só permite adicionar da 1ª à 12ª Classe.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                nome_normalizado = self.normalizar_nome_classe(nome_bruto) or nome_bruto
                 if 'tem_exame' in data:
                     tem_exame = bool(data.get('tem_exame'))
                 else:
-                    tem_exame = (nome_normalizado in ['10ª Classe', '12ª Classe'])
+                    tem_exame = ('10' in nome_normalizado or '12' in nome_normalizado)
                 salvos[nome_normalizado] = tem_exame
             else:
-                nome_normalizado = self.normalizar_nome_nivel(nome_bruto)
-                if not nome_normalizado:
-                    return Response({
-                        'success': False,
-                        'message': 'No regime por Níveis, o sistema só permite adicionar Níveis numéricos (ex: Nível 1, Nível 2...).'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                nome_normalizado = self.normalizar_nome_nivel(nome_bruto) or nome_bruto
                 if 'tem_exame' in data:
                     tem_exame = bool(data.get('tem_exame'))
                 else:
@@ -1048,14 +1057,8 @@ class ClassesExamesConfigView(APIView):
                 if isinstance(item, dict) and 'nome' in item:
                     nb = str(item['nome']).strip()
                     te = bool(item.get('tem_exame', False))
-                    if regime_atual == 'CLASSES':
-                        norm = self.normalizar_nome_classe(nb)
-                        if norm:
-                            salvos[norm] = te
-                    else:
-                        norm = self.normalizar_nome_nivel(nb)
-                        if norm:
-                            salvos[norm] = te
+                    norm = self.normalizar_nome_classe(nb) if regime_atual == 'CLASSES' else self.normalizar_nome_nivel(nb)
+                    salvos[norm or nb] = te
 
         escola.config_classes_exames = salvos
         update_fields = ['config_classes_exames', 'updated_at']
@@ -1064,22 +1067,17 @@ class ClassesExamesConfigView(APIView):
         escola.save(update_fields=update_fields)
 
         resultado = []
-        if regime_atual == 'CLASSES':
-            for nome_c, _ in self.CLASSES_SNE_PADRAO:
-                if nome_c in salvos:
-                    resultado.append({
-                        'nome': nome_c,
-                        'tem_exame': bool(salvos[nome_c]),
-                        'tipo': 'CLASSE'
-                    })
-        else:
-            niveis_salvos = [k for k in salvos if 'nível' in k.lower() or 'nivel' in k.lower()]
-            for nome_n in sorted(niveis_salvos, key=lambda x: int(''.join(filter(str.isdigit, x)) or 0)):
-                resultado.append({
-                    'nome': nome_n,
-                    'tem_exame': bool(salvos[nome_n]),
-                    'tipo': 'NIVEL'
-                })
+        def sort_key(item_nome):
+            import re
+            m = re.search(r'\d+', item_nome)
+            return (0, int(m.group(0))) if m else (1, item_nome.lower())
+
+        for nome, tem_exame in sorted(salvos.items(), key=lambda x: sort_key(x[0])):
+            resultado.append({
+                'nome': nome,
+                'tem_exame': bool(tem_exame),
+                'tipo': 'CLASSE' if regime_atual == 'CLASSES' else 'NIVEL'
+            })
 
         return Response({
             'success': True,

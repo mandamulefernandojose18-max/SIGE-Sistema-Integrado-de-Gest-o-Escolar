@@ -902,6 +902,14 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             'nota_minima_exame': nota_minima,
             'nota_maxima_exame': 20.0
         },
+        'escola': {
+            'id': str(escola.id) if escola else '',
+            'nome': getattr(escola, 'nome', '') or 'Escola Secundária de Massinga',
+            'provincia': (getattr(escola, 'provincia', '') or 'Inhambane'),
+            'distrito': (getattr(escola, 'distrito', '') or 'Massinga'),
+            'codigo_escola': (getattr(escola, 'codigo_escola', '') or ''),
+            'logo': getattr(escola, 'logo', '') or '',
+        },
         'disciplinas': disciplinas_info,
         'disciplinas_com_exame': [d for d in disciplinas_info if d['tem_exame']],
         'disciplinas_sem_exame': [d for d in disciplinas_info if not d['tem_exame']],

@@ -270,7 +270,20 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
     total_cols = 5 + (len(disciplinas_com_exame) * 4) + (len(disciplinas_sem_exame) * 1) + 3
     end_col_letter = get_column_letter(total_cols)
 
-    esc_nome = (getattr(escola, 'nome', '') or 'ESCOLA SECUNDÁRIA').upper()
+    esc_obj = escola or dados_pauta.get('escola', {})
+    if isinstance(esc_obj, dict):
+        esc_nome = esc_obj.get('nome') or 'Escola Secundária de Massinga'
+        prov_str = esc_obj.get('provincia') or 'Inhambane'
+        dist_str = esc_obj.get('distrito') or 'Massinga'
+    else:
+        esc_nome = getattr(esc_obj, 'nome', '') or 'Escola Secundária de Massinga'
+        prov_str = getattr(esc_obj, 'provincia', '') or 'Inhambane'
+        dist_str = getattr(esc_obj, 'distrito', '') or 'Massinga'
+
+    esc_nome_clean = esc_nome.strip()
+    if not esc_nome_clean.upper().startswith('ESCOLA') and not esc_nome_clean.upper().startswith('INSTITUTO'):
+        esc_nome_clean = f"ESCOLA {esc_nome_clean}"
+
     grau_area = f"{turma_info.get('grau_ano', '')} / {turma_info.get('area', '')}".strip(' /')
 
     # Linha 1: REPÚBLICA DE MOÇAMBIQUE
@@ -280,9 +293,9 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
     ws['C1'].alignment = ALIGN_CENTER
     ws.row_dimensions[1].height = 22
 
-    # Linha 2: ESCOLA ...
+    # Linha 2: PROVÍNCIA, DISTRITO E ESCOLA
     ws.merge_cells(f'C2:{end_col_letter}2')
-    ws['C2'] = f"ESCOLA {esc_nome}"
+    ws['C2'] = f"PROVÍNCIA DE {prov_str.upper()} | DISTRITO DE {dist_str.upper()} — {esc_nome_clean.upper()}"
     ws['C2'].font = FONT_SUBTITLE
     ws['C2'].alignment = ALIGN_CENTER
     ws.row_dimensions[2].height = 20

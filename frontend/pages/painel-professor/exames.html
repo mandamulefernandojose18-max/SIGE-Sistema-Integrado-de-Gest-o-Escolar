@@ -1,0 +1,279 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-PROFESSOR | Pauta Oficial de Exames (Classes com Exame) -->
+<!-- Página independente do módulo: exames.html -->
+<!-- Isolamento estrito de nível: Espaço do Docente -->
+<!-- ===================================================================== -->
+<section id="view-exames" class="modulo-view" style="display: none;">
+  <!-- Barra de Filtros e Controlos -->
+  <div class="card p-4 mb-4 no-print border-0 shadow-sm">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1">
+            <i class="bi bi-layers-fill text-primary me-1"></i>Classe / Nível (com Exame)
+          </label>
+          <select id="exameClasseFilter" class="form-select form-select-sm" style="min-width: 180px;" onchange="filtrarTurmasExamesPorClasse()">
+            <option value="">A carregar classes com exame...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1">
+            <i class="bi bi-diagram-3-fill text-warning me-1"></i>Turma de Exame
+          </label>
+          <select id="exameTurmaSelect" class="form-select form-select-sm" style="min-width: 240px;" onchange="carregarPautaExamesTurma()">
+            <option value="">Selecione uma turma com exame...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1">
+            <i class="bi bi-calendar-event text-info me-1"></i>Ano Lectivo
+          </label>
+          <div class="sige-seletor-ano-box d-flex align-items-center">
+            <select id="exameAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo" onchange="carregarPautaExamesTurma()">
+              <option value="">-- Escolha ano Lectivo --</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarPautaExamesTurma()">
+              Buscar <i class="bi bi-search ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-warning btn-sm fw-bold shadow-sm text-dark px-3" onclick="alternarJanelaParametrosExame()" id="btnToggleParametrosCard" title="Configurar percentagem de frequência, percentagem de exame e nota mínima">
+          <i class="bi bi-sliders2-vertical me-1"></i> Parâmetros do Exame
+        </button>
+        <button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="salvarNotasExame()" id="btnSalvarNotasExame" title="Guardar alterações das notas de exame na base de dados">
+          <i class="bi bi-floppy-fill me-1"></i> Guardar Notas de Exame
+        </button>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-success" onclick="exportarPautaExamesExcel()" title="Descarregar ficheiro XLSX (Excel) idêntico ao modelo oficial">
+            <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+          </button>
+          <button type="button" class="btn btn-danger" onclick="descarregarPautaExamesPdf()" title="Descarregar documento em PDF oficial em formato Paisagem">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+          </button>
+          <button type="button" class="btn btn-dark" onclick="imprimirPautaExames()" title="Imprimir pauta de exames em folha horizontal (Landscape)">
+            <i class="bi bi-printer me-1"></i> Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerta Informativo e Guardrail Pedagógico -->
+    <div class="mt-3 pt-3 border-top d-flex flex-wrap align-items-center justify-content-between small text-muted gap-2">
+      <div>
+        <i class="bi bi-shield-check text-success me-1"></i>
+        <span><strong>Regime Oficial de Exames:</strong> As disciplinas e médias de frequência (proveniência) são extraídas diretamente das pautas de frequência dos 3 trimestres. As notas finais alimentam automaticamente os Certificados de Habilitações e Declarações Escolares.</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-light text-primary border fw-semibold px-2 py-1" id="badgeParametrosAtivos">Freq: 50% | Exame: 50% | Mín: 10.0</span>
+        <span class="badge bg-warning text-dark fw-bold px-2 py-1" id="badgeTotalCandidatosExame">0 Candidatos</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel / Janela Dedicada de Parâmetros de Avaliação de Exame (% Freq, % Exame e Nota Mínima) -->
+  <div id="cardJanelaParametrosExame" class="card border border-warning border-opacity-50 bg-white shadow-sm mb-4">
+    <div class="card-header bg-warning bg-opacity-10 border-bottom border-warning border-opacity-25 d-flex justify-content-between align-items-center py-2 px-3">
+      <span class="fw-bold text-dark small text-uppercase">
+        <i class="bi bi-sliders2-vertical text-warning me-2 fs-6"></i>Janela de Parâmetros de Avaliação de Exame (% Frequência, % Exame e Nota Mínima)
+      </span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-success px-2 py-1" id="badgeStatusSomaPesos">Soma: 100% OK</span>
+        <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" onclick="alternarJanelaParametrosExame()" title="Minimizar / Expandir Painel">
+          <i class="bi bi-dash-lg" id="iconeToggleParametros"></i>
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-3" id="corpoJanelaParametrosExame">
+      <div class="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <i class="bi bi-info-circle-fill me-1 text-primary"></i>
+          <strong>Fórmula Ponderada Oficial:</strong>
+          <span class="font-monospace fw-bold ms-1">Média Final = (Freq × <span id="labelFormulaFreq">50%</span>) + (Nota Exame × <span id="labelFormulaExame">50%</span>)</span>
+        </div>
+        <div class="text-muted small">
+          <i class="bi bi-shield-check text-success me-1"></i>Regulamento Geral de Avaliações MEC
+        </div>
+      </div>
+
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3 col-sm-6">
+          <label class="form-label small fw-bold text-dark mb-1">
+            <i class="bi bi-percent text-primary me-1"></i>% Nota de Frequência
+          </label>
+          <div class="input-group input-group-sm">
+            <input type="number" id="inlineParamPesoFreq" class="form-control fw-bold text-center border-primary" min="0" max="100" step="1" value="50" oninput="aoMudarPesoFrequenciaInline(this.value)">
+            <span class="input-group-text bg-light fw-bold">%</span>
+          </div>
+          <small class="text-muted d-block mt-1">Peso da proveniência dos 3 trimestres</small>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <label class="form-label small fw-bold text-dark mb-1">
+            <i class="bi bi-percent text-warning me-1"></i>% Nota de Exame
+          </label>
+          <div class="input-group input-group-sm">
+            <input type="number" id="inlineParamPesoExame" class="form-control fw-bold text-center border-warning" min="0" max="100" step="1" value="50" oninput="aoMudarPesoExameInline(this.value)">
+            <span class="input-group-text bg-light fw-bold">%</span>
+          </div>
+          <small class="text-muted d-block mt-1">Peso da nota do exame nacional/final</small>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <label class="form-label small fw-bold text-dark mb-1">
+            <i class="bi bi-award-fill text-success me-1"></i>Nota Mínima do Exame
+          </label>
+          <div class="input-group input-group-sm">
+            <input type="number" id="inlineParamNotaMinima" class="form-control fw-bold text-center text-success border-success" min="0" max="20" step="0.5" value="10.0">
+            <span class="input-group-text bg-light">Valores (Máx. 20)</span>
+          </div>
+          <small class="text-muted d-block mt-1">Nota para aprovar sem 2ª época</small>
+        </div>
+        <div class="col-md-3 col-sm-6 d-flex gap-2">
+          <button type="button" class="btn btn-primary btn-sm fw-bold flex-grow-1 shadow-sm py-2" onclick="salvarParametrosExameInline()" id="btnSalvarParametrosInline">
+            <i class="bi bi-check-circle-fill me-1"></i> Guardar Parâmetros
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="reporParametrosExamePadraoMEC()" title="Restaurar Padrão Oficial MEC (50% / 50% / 10.0 val)">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="alertaSomaPesosInline" class="alert alert-danger py-1 px-2 small mt-2 mb-0 d-none">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        A soma das percentagens de Frequência e de Exame deve totalizar rigorosamente 100%.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Parâmetros de Avaliação de Exame -->
+  <div class="modal fade" id="modalParametrosExame" tabindex="-1" aria-labelledby="modalParametrosExameLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0">
+        <div class="modal-header bg-primary text-white">
+          <h6 class="modal-title fw-bold" id="modalParametrosExameLabel">
+            <i class="bi bi-sliders me-2"></i>Parâmetros de Avaliação de Exame
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            <i class="bi bi-info-circle-fill me-1"></i>
+            A <strong>Média Final</strong> da disciplina com exame será calculada pela soma ponderada:
+            <div class="fw-bold mt-1 text-dark text-center font-monospace">
+              Média Final = (Freq × %Freq) + (Nota Exame × %Exame)
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                % Nota de Frequência
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inputParamPesoFreq" class="form-control" min="0" max="100" step="1" value="50" oninput="aoMudarPesoFrequencia(this.value)">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                % Nota de Exame
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inputParamPesoExame" class="form-control" min="0" max="100" step="1" value="50" oninput="aoMudarPesoExame(this.value)">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">
+              Nota Mínima do Exame (Aprovação Direta)
+            </label>
+            <div class="input-group input-group-sm">
+              <input type="number" id="inputParamNotaMinima" class="form-control" min="0" max="20" step="0.5" value="10.0">
+              <span class="input-group-text">Valores (Máx. 20)</span>
+            </div>
+            <div class="form-text small text-muted mt-1">
+              <i class="bi bi-check2-circle text-success me-1"></i>
+              Se a nota da <strong>1ª Época</strong> for igual ou superior à nota mínima, o aluno é <strong>Aprovado</strong> no exame. Caso contrário, o aluno pode e tem direito a realizar a <strong>2ª Época</strong>.
+            </div>
+          </div>
+
+          <div id="alertaSomaPesos" class="alert alert-warning py-1 px-2 small d-none">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            A soma das percentagens de Frequência e Exame deve totalizar rigorosamente 100%.
+          </div>
+        </div>
+        <div class="modal-footer bg-light p-3">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="salvarParametrosExame()">
+            <i class="bi bi-check-lg me-1"></i> Guardar Parâmetros
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Card da Pauta de Exames (Imprimível em Landscape) -->
+  <div id="subViewPautaExames" class="card p-4 printable-document shadow-sm border-0" style="background: #ffffff; min-height: 500px;">
+    <!-- Cabeçalho Oficial Idêntico ao Modelo Moçambicano -->
+    <div id="pautaExameCabecalhoOficial" class="text-center mb-3 p-3 bg-white rounded border shadow-sm">
+      <div class="d-flex justify-content-center mb-1">
+        <img id="pautaExameLogoImg" src="/img/emblema-mocambique.png" alt="Emblema Nacional" style="width: 52px; height: 52px; object-fit: contain;" onerror="this.onerror=null; this.src='/img/logo-sige.png';">
+      </div>
+      <h6 class="fw-bold mb-0 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.95rem;">REPÚBLICA DE MOÇAMBIQUE</h6>
+      <div class="small fw-bold text-dark text-uppercase mt-1" style="font-size: 0.82rem; letter-spacing: 0.8px;">
+        MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO
+      </div>
+      <div class="small text-secondary fw-semibold text-uppercase mt-1" id="pautaExameProvDistLinha" style="font-size: 0.82rem;">
+        PROVÍNCIA DE <span id="pautaExameProvincia" class="fw-bold text-dark">INHAMBANE</span> &nbsp;|&nbsp; 
+        DISTRITO DE <span id="pautaExameDistrito" class="fw-bold text-dark">MASSINGA</span>
+      </div>
+      <div class="x-small text-muted text-uppercase" id="pautaExameSDEJT" style="font-size: 0.75rem;">
+        SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA
+      </div>
+      <h5 class="fw-bold mb-1 text-uppercase text-primary mt-2" id="pautaExameEscolaNome" style="font-size: 1.25rem; letter-spacing: 0.5px;">ESCOLA SECUNDÁRIA DE MASSINGA</h5>
+      
+      <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 px-3 py-2 bg-light rounded border">
+        <span class="fw-bold text-dark small" id="pautaExameClasseArea">Classe / Área ou Secção: 10ª Classe</span>
+        <h6 class="fw-bold text-primary mb-0" id="pautaExameTituloAno" style="letter-spacing: 0.5px;">PAUTA DE EXAMES / Ano 2026</h6>
+        <span class="badge bg-primary px-3 py-2" id="pautaExameTurmaBadge">Turma: 10ª A</span>
+      </div>
+    </div>
+
+    <!-- Tabela Dinâmica da Pauta de Exames -->
+    <div class="table-responsive" id="containerTabelaPautaExames">
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-mortarboard fs-1 text-secondary opacity-50 d-block mb-2"></i>
+        <p class="mb-0">Selecione uma turma com regime de exame para visualizar e lançar notas de exame.</p>
+      </div>
+    </div>
+
+    <!-- Resumo Estatístico e Assinaturas no Rodapé -->
+    <div id="pautaExameRodapeOficial" class="mt-4 pt-3 border-top d-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 p-2 bg-light rounded small" id="pautaExameEstatisticasBox">
+        <!-- Inserido dinamicamente -->
+      </div>
+
+      <div class="row text-center mt-4 pt-3">
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director de Turma</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDT">Director de Turma</p>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director Pedagógico (DAP)</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDAP">Direcção Pedagógica</p>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director da Escola</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDir">Director da Escola</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
