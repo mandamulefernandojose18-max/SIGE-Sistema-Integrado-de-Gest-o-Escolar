@@ -83,14 +83,17 @@
 ### Módulo: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
 - **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
 - **Como aceder:** Clique em **"Classes / Níveis & Exames"** na barra lateral de navegação (categoria *Gestão Escolar*) ou pelo botão de atalho no painel de Turmas.
-- **Página Dedicada e Independente:**
-  - O SIGE disponibiliza uma página autónoma (`classes-exames.html` / `classes-exames.js`) dedicada ao registo das Classes (1ª à 12ª Classe) ou Níveis Técnicos (Nível 1 a Nível 10) ministrados na instituição.
+- **Página Dedicada, Limpa e Despoluída:**
+  - O SIGE disponibiliza uma interface minimalista e profissional (`classes-exames.html` / `classes-exames.js`), sem excesso de botões ou cartões poluídos, permitindo gerir directamente as classes ativas da instituição.
+- **Zero Classes Fictícias:**
+  - Apenas as classes efectivamente existentes e ministradas na instituição são listadas. Não há injeção de classes artificiais nem dados fictícios. Em caso de nova instituição, apresenta um estado limpo para início imediato.
+- **Edição e Eliminação Completa:**
+  - **Editar:** Cada linha dispõe de ação de edição para renomear a classe ou atualizar o estatuto de exame de forma instantânea.
+  - **Eliminar:** Botão de eliminação direta para remover com segurança classes ou níveis não mais lecionados na instituição.
 - **Seleção Obrigatória: A Classe tem Exame: Sim ou Não:**
-  - No formulário e no modal rápido, o utilizador define com cartões visuais e radio buttons:
+  - Pílula de alternância direta em 1 clique (*inline toggle*) na própria tabela e no modal rápido:
     - **Sim — Com Exame:** Classe com exame final ou exame nacional obrigatório (ex: 10ª e 12ª Classes no SNE Moçambique).
     - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
-  - Tabela com listagem completa, contadores analíticos e botão de **Alternância Instantânea (Sim / Não)** em 1 clique.
-  - Botão de restauração do **Padrão Oficial MEC**: restabelece automaticamente 10ª e 12ª Com Exame e as restantes Sem Exame.
 - **Interligação Automática com Todo o Sistema:**
   - Todas as classes cadastradas ficam instantaneamente disponíveis de forma sincronizada e automática em:
     - **Matrícula de Alunos (`modalNovoAluno`):** O seletor de classe carrega as classes ativas da instituição.

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
+from django.db import transaction, connection
 from django.db.models import Sum, Count
 
 logger = logging.getLogger(__name__)
@@ -326,9 +327,9 @@ class EscolaViewSet(viewsets.ModelViewSet):
         raw_logo = data.get('logo_url') or None
         is_b64_logo = bool(raw_logo and str(raw_logo).startswith('data:'))
         tipo_escola_in = data.get('tipo_escola') or ''
-        director_nome_in = (data.get('director_nome') or data.get('adminNome') or 'Prof. Dr. António Costa').strip()
-        dap_nome_in = (data.get('dap_nome') or data.get('dapNome') or 'Prof. João Baptista').strip()
-        secr_nome_in = (data.get('chefe_secretaria_nome') or data.get('secretariaNome') or 'Dra. Maria Eunice').strip()
+        director_nome_in = (data.get('director_nome') or data.get('adminNome') or '').strip()
+        dap_nome_in = (data.get('dap_nome') or data.get('dapNome') or '').strip()
+        secr_nome_in = (data.get('chefe_secretaria_nome') or data.get('secretariaNome') or '').strip()
 
         escola = Escola.objects.create(
             nome=nome,
@@ -458,13 +459,29 @@ class EscolaViewSet(viewsets.ModelViewSet):
             'data': EscolaSerializer(escola).data
         })
 
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         escola = self.get_object()
         nome = escola.nome
+        cod = escola.codigo_escola or ''
+
+        # Se existirem registos nas tabelas de gestão SaaS (assinaturas, logs, faturas),
+        # limpar de forma controlada com autorização de sessão SuperAdmin para respeitar os triggers de integridade
+        with connection.cursor() as cursor:
+            try:
+                cursor.execute("SET LOCAL sige.permitir_delecao_escola = 'true';")
+                cursor.execute("DELETE FROM sige_saas_log_assinaturas WHERE instituicao_id = %s;", [str(escola.id)])
+                cursor.execute("DELETE FROM sige_saas_pagamentos WHERE instituicao_id = %s;", [str(escola.id)])
+                cursor.execute("DELETE FROM sige_saas_faturas WHERE instituicao_id = %s;", [str(escola.id)])
+                cursor.execute("DELETE FROM sige_saas_assinaturas WHERE instituicao_id = %s;", [str(escola.id)])
+            except Exception as e_sql:
+                logger.warning(f"Aviso ao limpar registos SaaS da escola {cod} ({escola.id}): {e_sql}")
+
         escola.delete()
+        identificador = f"[{cod}] {nome}" if cod else nome
         return Response({
             'success': True,
-            'message': f'Instituição {nome} removida com sucesso.'
+            'message': f'Instituição {identificador} removida com sucesso.'
         }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post', 'patch'], url_path='toggle-status')

@@ -2955,7 +2955,7 @@ async function carregarPainelSaaS() {
                       <i class="bi bi-file-earmark-pdf"></i>
                     </button>
                     <!-- Botão Eliminar Escola (Exclusivo SuperAdmin) -->
-                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${nomeEscapado}')">
+                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${nomeEscapado}', '${e.codigo_escola || ''}')">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -14125,12 +14125,12 @@ function obterHtmlBoletimOficial(d) {
   const escolaNomeFormatado = escolaNome.toUpperCase().startsWith('ESCOLA') ? escolaNome.toUpperCase() : `ESCOLA SECUNDÁRIA DE ${escolaNome.toUpperCase()}`;
   const provincia = (escolaObj.provincia || 'Inhambane').toUpperCase();
   const distrito = (escolaObj.distrito || 'Morrumbene').toUpperCase();
-  const codigoEscola = escolaObj.codigo_escola || escolaObj.codigo || (state.tenant?.codigo_escola ? state.tenant.codigo_escola : 'ESC-1001');
+  const codigoEscola = escolaObj.codigo_escola || escolaObj.codigo || (state.tenant?.codigo_escola ? state.tenant.codigo_escola : '---');
   const anoLetivo = d.anoLetivo || d.anoLectivo || state.tenant?.ano_letivo_ativo || '2026';
 
   const alunoObj = d.aluno || {};
-  const alunoNome = (alunoObj.nomeCompleto || `${alunoObj.nome || ''} ${alunoObj.apelido || ''}`.trim() || 'GRAÇA MONDLANE MONDLANE').toUpperCase();
-  const matricula = alunoObj.matricula || alunoObj.codigo || 'MAT-2026-1006';
+  const alunoNome = (alunoObj.nomeCompleto || `${alunoObj.nome || ''} ${alunoObj.apelido || ''}`.trim() || '---').toUpperCase();
+  const matricula = alunoObj.matricula || alunoObj.codigo || '---';
 
   let classeTurma = '10ª Classe - 10ª Classe A';
   if (alunoObj.grau && alunoObj.turma) {
@@ -14541,23 +14541,23 @@ function obterHtmlCertificadoOficial(d) {
   const escolaNomeFormatado = escolaNome.startsWith('ESCOLA') ? escolaNome : `ESCOLA SECUNDÁRIA DE ${escolaNome}`;
   const provincia = (d.escola?.provincia || 'Inhambane');
   const distrito = (d.escola?.distrito || 'Massinga');
-  const directorNome = d.directorNome || 'Prof. Dr. António Costa';
-  const directorCarreira = d.directorCarreira || 'Especialista de Educação';
-  const chefeNome = d.chefeSecretariaNome || 'Dra. Maria Eunice';
-  const chefeCarreira = d.chefeSecretariaCarreira || 'Técnica Profissional';
+  const directorNome = d.directorNome || d.escola?.director_nome || '';
+  const directorCarreira = d.directorCarreira || d.escola?.director_carreira || '';
+  const chefeNome = d.chefeSecretariaNome || d.escola?.chefe_secretaria_nome || '';
+  const chefeCarreira = d.chefeSecretariaCarreira || d.escola?.chefe_secretaria_carreira || '';
 
-  const alunoNome = (d.aluno?.nomeCompleto || d.aluno?.nome || 'GRAÇA MONDLANE MONDLANE').toUpperCase();
-  const sexo = ((d.aluno?.genero || 'F').toUpperCase().startsWith('F')) ? 'Feminino' : 'Masculino';
-  const pai = d.aluno?.pai || 'Eduardo Mondlane Jr.';
-  const mae = d.aluno?.mae || 'Janet Mondlane';
-  const alunoDistrito = d.aluno?.distrito || 'Cidade de Maputo';
-  const alunoProvincia = d.aluno?.provincia || 'Maputo';
-  const anoLectivo = d.anoLectivo || d.anoLetivo || '2026';
-  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || d.aluno?.classe || '10ª Classe';
-  const area = d.area || d.aluno?.turma?.area || d.aluno?.area || 'Geral';
-  const matricula = d.aluno?.matricula || 'MAT-2026-1006';
+  const alunoNome = (d.aluno?.nomeCompleto || `${d.aluno?.nome || ''} ${d.aluno?.apelido || ''}`.trim() || d.aluno?.nome || '---').toUpperCase();
+  const sexo = ((d.aluno?.genero || '').toUpperCase().startsWith('F')) ? 'Feminino' : 'Masculino';
+  const pai = d.aluno?.pai || '---';
+  const mae = d.aluno?.mae || '---';
+  const alunoDistrito = d.aluno?.distrito || '---';
+  const alunoProvincia = d.aluno?.provincia || '---';
+  const anoLectivo = d.anoLectivo || d.anoLetivo || state.tenant?.ano_letivo_ativo || '2026';
+  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || d.aluno?.classe || '---';
+  const area = d.area || d.aluno?.turma?.area || d.aluno?.area || '---';
+  const matricula = d.aluno?.matricula || d.aluno?.codigo || '---';
 
-  let diaNasc = '09', mesNasc = 'Julho', anoNasc = '2008';
+  let diaNasc = '---', mesNasc = '---', anoNasc = '----';
   if (d.aluno?.data_nascimento) {
     const dt = new Date(d.aluno.data_nascimento);
     if (!isNaN(dt.getTime())) {
@@ -16764,8 +16764,9 @@ function gerarTabelaPautaHtml(d) {
   `;
 }
 
-async function eliminarEscolaSuperAdmin(escolaId, nome) {
-  if (!confirm(`ATENÇÃO ENGENHEIRO:\nTem a certeza que deseja ELIMINAR DEFINITIVAMENTE a escola [${nome}] e todos os seus dados?\nEsta operação não pode ser revertida!`)) return;
+async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
+  const rotulo = codigo ? `[${codigo}] ${nome}` : `[${nome}]`;
+  if (!confirm(`ATENÇÃO ENGENHEIRO:\nTem a certeza que deseja ELIMINAR DEFINITIVAMENTE a instituição ${rotulo} e todos os seus dados?\nEsta operação não pode ser revertida!`)) return;
 
   try {
     const res = await apiFetch(`/api/v1/saas-admin/escolas/${escolaId}`, {
@@ -18003,6 +18004,31 @@ async function carregarExames() {
   const container = document.getElementById('view-exames');
   if (!container) return;
 
+  // Actualizar imediatamente o cabeçalho oficial com a instituição ativa
+  try {
+    const escInit = window.state?.tenant || {};
+    const escNomeInit = (escInit.nome || 'Escola Secundária de Massinga').toUpperCase();
+    const provNomeInit = (escInit.provincia || 'Inhambane').toUpperCase();
+    const distNomeInit = (escInit.distrito || 'Massinga').toUpperCase();
+
+    const elEscInit = document.getElementById('pautaExameEscolaNome');
+    if (elEscInit) elEscInit.textContent = escNomeInit;
+    const elProvInit = document.getElementById('pautaExameProvincia');
+    if (elProvInit) elProvInit.textContent = provNomeInit;
+    const elDistInit = document.getElementById('pautaExameDistrito');
+    if (elDistInit) elDistInit.textContent = distNomeInit;
+    const elLogoInit = document.getElementById('pautaExameLogoImg');
+    if (elLogoInit && escInit.logo) elLogoInit.src = escInit.logo;
+  } catch (_) {}
+
+  // Carregar e sincronizar parâmetros de exame ativos
+  try {
+    const resParam = await apiFetch('/api/v1/pautas/exames/parametros');
+    if (resParam && resParam.success && resParam.parametros) {
+      atualizarCamposParametrosExameNaInterface(resParam.parametros);
+    }
+  } catch (_) {}
+
   try {
     // 1. Obter classes com regime de exame configurado
     let classesComExame = new Set(['10ª Classe', '12ª Classe']);
@@ -18113,10 +18139,21 @@ async function carregarPautaExamesTurma() {
     window._sigePautaExamesData = d;
     window._sigeNotasExameModificadas.clear();
 
-    // Actualizar Cabeçalhos
-    const escNome = (window.state?.tenant?.nome || 'ESCOLA SECUNDÁRIA').toUpperCase();
+    // Actualizar Cabeçalhos Oficiais Moçambique
+    const escData = d.escola || window.state?.tenant || {};
+    const escNome = (escData.nome || 'Escola Secundária de Massinga').toUpperCase();
+    const provNome = (escData.provincia || 'Inhambane').toUpperCase();
+    const distNome = (escData.distrito || 'Massinga').toUpperCase();
+
     const elEsc = document.getElementById('pautaExameEscolaNome');
     if (elEsc) elEsc.textContent = escNome;
+    const elProv = document.getElementById('pautaExameProvincia');
+    if (elProv) elProv.textContent = provNome;
+    const elDist = document.getElementById('pautaExameDistrito');
+    if (elDist) elDist.textContent = distNome;
+
+    const elLogo = document.getElementById('pautaExameLogoImg');
+    if (elLogo && escData.logo) elLogo.src = escData.logo;
 
     const grau = d.turma?.grau_ano || '10ª Classe';
     const area = d.turma?.area ? ` / ${d.turma.area}` : '';
@@ -18132,9 +18169,8 @@ async function carregarPautaExamesTurma() {
     const badgeTotal = document.getElementById('badgeTotalCandidatosExame');
     if (badgeTotal) badgeTotal.textContent = `${(d.alunos || []).length} Candidatos`;
 
-    const badgeParam = document.getElementById('badgeParametrosAtivos');
-    if (badgeParam && d.parametros) {
-      badgeParam.textContent = `Freq: ${d.parametros.peso_frequencia}% | Exame: ${d.parametros.peso_exame}% | Mín: ${d.parametros.nota_minima_exame}`;
+    if (d.parametros) {
+      atualizarCamposParametrosExameNaInterface(d.parametros);
     }
 
     renderizarTabelaExamesHtml(d);

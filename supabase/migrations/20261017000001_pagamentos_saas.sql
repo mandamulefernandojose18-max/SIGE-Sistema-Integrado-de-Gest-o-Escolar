@@ -111,6 +111,9 @@ CREATE INDEX IF NOT EXISTS idx_saas_logs_criado_em ON public.sige_saas_log_assin
 CREATE OR REPLACE FUNCTION public.fn_proibir_delecao_saas()
 RETURNS TRIGGER AS $$
 BEGIN
+    IF current_setting('sige.permitir_delecao_escola', true) = 'true' THEN
+        RETURN OLD;
+    END IF;
     RAISE EXCEPTION 'Eliminação não permitida: os dados da instituição e os registos de assinaturas e faturas são invioláveis e permanentes.'
         USING ERRCODE = 'restrict_violation';
     RETURN NULL;

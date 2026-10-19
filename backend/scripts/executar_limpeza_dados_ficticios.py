@@ -1,12 +1,13 @@
 import os
 import sys
 import django
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production' if os.environ.get('SIGE_ENV') == 'production' else 'config.settings.development')
 django.setup()
 
 from django.db import transaction
-from apps.tenants.models import Escola
+from apps.tenants.models import Escola, Plano, AssinaturaEscola
 from apps.disciplinas.models import Disciplina
 from apps.turmas.models import Turma
 from apps.alunos.models import Aluno
@@ -16,153 +17,119 @@ from apps.material_escolar.models import MaterialEscolar
 from apps.accounts.models import Usuario
 from apps.certificados.models import Certificado
 
-print("=" * 70)
-print("INICIANDO LIMPEZA DE DADOS FICTÍCIOS E CORREÇÃO DE DUPLICAÇÕES NO SIGE")
-print("=" * 70)
+print("=" * 75)
+print("SIGE — PURIFICAÇÃO E LIMPEZA INTEGRAL DE DADOS FICTÍCIOS")
+print("=" * 75)
 
 with transaction.atomic():
     # -------------------------------------------------------------
-    # 1. REMOVER ESCOLAS FICTÍCIAS E TODOS OS SEUS REGISTOS ASSOCIADOS
+    # 1. REMOVER ESCOLAS FICTÍCIAS, TEMPORÁRIAS E DUPLICADAS DE TESTE
     # -------------------------------------------------------------
-    escolas_ficticias = Escola.objects.filter(nif_cnpj__in=['5001234567', '5009876543'])
-    nomes_ficticios = list(escolas_ficticias.values_list('nome', flat=True))
-    ficticias_ids = list(escolas_ficticias.values_list('id', flat=True))
+    nifs_ficticios = ['000111222', '11224245', '5001234567', '5009876543']
+    escolas_ficticias = Escola.objects.filter(nif_cnpj__in=nifs_ficticios)
     
-    print(f"\n[1] Removendo escolas fictícias de demonstração: {nomes_ficticios}...")
+    # Também qualquer escola temporária chamada Test Temp ou similar
+    escolas_temp = Escola.objects.filter(nome__icontains='Test Temp')
+    todas_ficticias = (escolas_ficticias | escolas_temp).distinct()
+    
+    nomes_ficticios = list(todas_ficticias.values_list('nome', flat=True))
+    ficticias_ids = list(todas_ficticias.values_list('id', flat=True))
+    
+    print(f"\n[1] Identificadas {todas_ficticias.count()} instituições fictícias/de teste para eliminação: {nomes_ficticios}")
     
     # Remover utilizadores explicitamente associados às escolas fictícias
-    users_ficticios = Usuario.objects.filter(escola_id__in=ficticias_ids)
-    u_count = users_ficticios.count()
-    users_ficticios.delete()
-    print(f"    - {u_count} utilizadores fictícios removidos.")
+    users_ficticios_esc = Usuario.objects.filter(escola_id__in=ficticias_ids)
+    u_count = users_ficticios_esc.count()
+    users_ficticios_esc.delete()
+    print(f"    - {u_count} utilizadores vinculados a instituições de teste removidos.")
     
-    # Remover emails de teste seed remanescentes
-    emails_seed = [
-        'costa@sige.com', 'baptista@sige.com', 'eunice@sige.com',
-        'admin@escola.sige.com', 'admin.expirada@sige.com',
-        'silva@sige.com', 'santos@sige.com', 'mandamule@sige.com'
-    ]
-    u_seed_count = Usuario.objects.filter(email__in=emails_seed).delete()[0]
-    if u_seed_count:
-        print(f"    - {u_seed_count} utilizadores seed com emails fictícios eliminados.")
-
-    # Excluir as escolas fictícias (cascata limpa turmas, alunos, notas, disciplinas de demonstração)
-    for esc in escolas_ficticias:
+    # Eliminar as escolas fictícias (cascata limpa turmas, assinaturas, etc.)
+    for esc in todas_ficticias:
         nome_e = esc.nome
         esc.delete()
-        print(f"    - Escola fictícia '{nome_e}' eliminada com sucesso!")
+        print(f"    - Instituição fictícia '{nome_e}' eliminada com sucesso!")
 
     # -------------------------------------------------------------
-    # 2. REMOVER DISCIPLINAS EM ESCOLAS ONDE O USUÁRIO NÃO CADASTROU
+    # 2. REMOVER UTILIZADORES FICTÍCIOS E CONTAS DE TESTE RESIDUAIS
     # -------------------------------------------------------------
-    print("\n[2] Removendo disciplinas em escolas não cadastradas pelo utilizador...")
-    # Escola de Massinga: usuário não cadastrou disciplinas (foram injetadas em lote)
-    massinga = Escola.objects.filter(id='413ddf8a-ed24-4ef5-b5c4-009ed71c9e1a').first()
-    if massinga:
-        disc_m = Disciplina.objects.filter(escola=massinga)
-        count_m = disc_m.count()
-        disc_m.delete()
-        print(f"    - Escola Secundária de Massinga: {count_m} disciplinas não cadastradas removidas (total agora: 0).")
-
-        # Remover turmas duplicadas terminadas em '(1)' em Massinga
-        t_dup = Turma.objects.filter(escola=massinga, nome__contains='(1)')
-        count_t_dup = t_dup.count()
-        t_dup.delete()
-        print(f"    - Escola Secundária de Massinga: {count_t_dup} turmas duplicadas com sufixo (1) removidas.")
-
-    # -------------------------------------------------------------
-    # 2B. REMOVER CLASSES/TURMAS FICTÍCIAS EM TODAS AS INSTITUIÇÕES
-    #     QUE NÃO CADASTRARAM DISCIPLINAS
-    #
-    #     Política: Cada instituição de ensino tem as suas próprias
-    #     políticas (classes, turmas, plano curricular, secções, etc).
-    #     Turmas sem disciplinas associadas são resquícios de dados
-    #     fictícios/demo e devem ser eliminadas para não causar
-    #     inconsistências no sistema.
-    # -------------------------------------------------------------
-    print("\n[2B] Removendo classes/turmas fictícias em instituições sem disciplinas cadastradas...")
-    todas_escolas = Escola.objects.all()
-    total_turmas_removidas = 0
-
-    for escola in todas_escolas:
-        tem_disciplinas = Disciplina.objects.filter(escola=escola).exists()
-        if not tem_disciplinas:
-            turmas_ficticias = Turma.objects.filter(escola=escola)
-            qtd = turmas_ficticias.count()
-            if qtd > 0:
-                turmas_ficticias.delete()
-                total_turmas_removidas += qtd
-                print(f"    - '{escola.nome}': {qtd} classe(s)/turma(s) fictícia(s) removidas "
-                      f"(instituição sem disciplinas cadastradas).")
-            else:
-                print(f"    - '{escola.nome}': sem disciplinas e sem turmas — nada a remover.")
-        else:
-            disc_count = Disciplina.objects.filter(escola=escola).count()
-            turma_count = Turma.objects.filter(escola=escola).count()
-            print(f"    - '{escola.nome}': {disc_count} disciplina(s) e {turma_count} turma(s) mantidas "
-                  f"(instituição com disciplinas cadastradas).")
-
-    print(f"\n    [RESUMO 2B] Total de classes/turmas fictícias removidas: {total_turmas_removidas}")
+    print("\n[2] Removendo contas e utilizadores fictícios...")
+    emails_ficticios = [
+        'costa@sige.com', 'baptista@sige.com', 'eunice@sige.com',
+        'admin@escola.sige.com', 'admin.expirada@sige.com',
+        'silva@sige.com', 'santos@sige.com', 'mandamule@sige.com',
+        'temp@test.mz', 'colegio@sige.com', 'araujo@gmail.com',
+        # Contas automáticas com nomes fictícios de demonstração
+        'gd.0409s0001@sige.edu.mz', 'dp.0409s0001@sige.edu.mz', 'secr.0409s0001@sige.edu.mz',
+        'dp.0411s0001@sige.edu.mz', 'secr.0411s0001@sige.edu.mz',
+        'dp.0407s0001@sige.edu.mz', 'secr.0407s0001@sige.edu.mz'
+    ]
+    u_del = Usuario.objects.filter(email__in=emails_ficticios).delete()
+    print(f"    - {u_del[0]} utilizadores fictícios eliminados.")
 
     # -------------------------------------------------------------
-    # 3. LIMPAR DISCIPLINAS INJETADAS EM LOTE EM CAMBINE (MANTER APENAS AS REAIS)
+    # 3. CORRIGIR NOMES FIÉIS E REAIS DOS UTILIZADORES
     # -------------------------------------------------------------
+    print("\n[3] Restaurando nomes reais e fiéis de administradores...")
+    u_fernando = Usuario.objects.filter(email='mandamulefernandojose18@gmail.com').first()
+    if u_fernando:
+        nome_antigo = u_fernando.nome
+        u_fernando.nome = 'Fernando José Mandamule'
+        u_fernando.save(update_fields=['nome'])
+        print(f"    - Utilizador 'mandamulefernandojose18@gmail.com': '{nome_antigo}' -> '{u_fernando.nome}'.")
+
+    # SuperAdmins oficiais
+    for sa_email in ['mandamulefj@sige.com', 'admin.master@sige.com']:
+        sa = Usuario.objects.filter(email=sa_email).first()
+        if sa and sa.nome != 'Eng. Fernando Mandamule':
+            sa.nome = 'Eng. Fernando Mandamule'
+            sa.save(update_fields=['nome'])
+            print(f"    - SuperAdmin '{sa_email}' normalizado.")
+
+    # -------------------------------------------------------------
+    # 4. PURIFICAR DADOS DAS INSTITUIÇÕES OFICIAIS ATIVAS
+    # -------------------------------------------------------------
+    print("\n[4] Purificando cadastros das instituições ativas (sem nomes de directores fictícios)...")
+    
+    # A. Escola Secundária de Cambine
     cambine = Escola.objects.filter(id='da662d05-dc31-4206-8e08-48fe1a6b54e7').first()
     if cambine:
-        print("\n[3] Ajustando disciplinas na Escola Secundária de Cambine...")
-        qs_c = Disciplina.objects.filter(escola=cambine)
-        
-        # Identificar disciplinas que estão em uso real
-        em_uso_ids = set()
-        for n in Nota.objects.filter(escola=cambine).values_list('disciplina_id', flat=True):
-            if n: em_uso_ids.add(n)
-        for a in AlocacaoDocente.objects.filter(escola=cambine).values_list('disciplina_id', flat=True):
-            if a: em_uso_ids.add(a)
-        for m in MaterialEscolar.objects.filter(escola=cambine).values_list('disciplina_id', flat=True):
-            if m: em_uso_ids.add(m)
-            
-        # Disciplinas manuais cadastradas pelo usuário
-        manuais = [d for d in qs_c if not (d.created_at.month == 10 and d.created_at.day == 5 and d.created_at.hour == 10 and d.created_at.minute == 39)]
-        manuais_ids = {d.id for d in manuais}
-        
-        manter_ids = em_uso_ids.union(manuais_ids)
-        a_remover_c = qs_c.exclude(id__in=manter_ids)
-        count_rem_c = a_remover_c.count()
-        a_remover_c.delete()
-        print(f"    - Removidas {count_rem_c} disciplinas fictícias/injetadas em lote de Cambine.")
-        print(f"    - Disciplinas mantidas em Cambine ({Disciplina.objects.filter(escola=cambine).count()}):")
-        for d in Disciplina.objects.filter(escola=cambine).order_by('nome'):
-            print(f"        * {d.codigo} - {d.nome} ({d.classe})")
+        cambine.director_nome = 'Fernando José Mandamule'
+        cambine.director_carreira = 'Professor Técnico'
+        cambine.dap_nome = ''
+        cambine.chefe_secretaria_nome = ''
+        cambine.save(update_fields=['director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome'])
+        print(f"    - '{cambine.nome}': Director='{cambine.director_nome}', DAP e Secretaria purificados (em branco para dados fiéis).")
+
+        # Remover disciplina de teste 'bio-10' sem alunos nem notas em Cambine (Cambine só leciona 11ª Classe)
+        bio10 = Disciplina.objects.filter(escola=cambine, codigo='bio-10', notas__isnull=True, alocacaodocente__isnull=True).first()
+        if bio10:
+            bio10.delete()
+            print(f"    - Disciplina de teste 'bio-10' removida de Cambine.")
+
+    # B. Escola Secundária de Massinga
+    massinga = Escola.objects.filter(id='413ddf8a-ed24-4ef5-b5c4-009ed71c9e1a').first()
+    if massinga:
+        massinga.director_nome = ''
+        massinga.director_carreira = ''
+        massinga.dap_nome = ''
+        massinga.chefe_secretaria_nome = ''
+        massinga.save(update_fields=['director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome'])
+        print(f"    - '{massinga.nome}': Purificada, 100% limpa para receber os dados reais da direcção.")
+
+    # C. Qualquer outra escola com resquícios de 'Prof. Dr. António Costa'
+    escolas_com_costa = Escola.objects.filter(director_nome__icontains='Costa')
+    for e in escolas_com_costa:
+        e.director_nome = ''
+        e.director_carreira = ''
+        e.dap_nome = ''
+        e.chefe_secretaria_nome = ''
+        e.save(update_fields=['director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome'])
+        print(f"    - Instituição '{e.nome}': Resquício fictício eliminado.")
 
     # -------------------------------------------------------------
-    # 4. RESOLVER DUPLICAÇÕES DE CÓDIGOS E MATRÍCULAS DE ALUNOS
+    # 5. GARANTIR CODIFICAÇÃO E QR CODES OFICIAIS (SEM EXPOSIÇÃO DE IP)
     # -------------------------------------------------------------
-    if cambine:
-        print("\n[4] Atribuindo números sequenciais únicos a cada aluno (eliminando duplicatas de código)...")
-        turmas_cambine = Turma.objects.filter(escola=cambine).order_by('nome')
-        for t in turmas_cambine:
-            alunos_t = Aluno.objects.filter(escola=cambine, turma=t).order_by('created_at')
-            for idx, a in enumerate(alunos_t, start=1):
-                partes = (a.matricula or '').split('.')
-                base = '.'.join(partes[:5]) if len(partes) >= 5 else a.matricula
-                nova_mat = f"{base}.{idx:02d}"
-                
-                if a.matricula != nova_mat:
-                    print(f"    - Aluno '{a.nome}': {a.matricula} -> {nova_mat}")
-                    Aluno.objects.filter(id=a.id).update(matricula=nova_mat)
-                    
-                    # Atualizar conta Usuario associada
-                    u = Usuario.objects.filter(aluno_id=a.id).first()
-                    if u:
-                        u.codigo_acesso = nova_mat
-                        if not u.senha_redefinida:
-                            u.set_password(nova_mat)
-                        u.save(update_fields=['codigo_acesso', 'password'])
-
-    # -------------------------------------------------------------
-    # 5. ATUALIZAR QR CODES COM DOMÍNIO OFICIAL (SEM EXPOR IP)
-    # -------------------------------------------------------------
-    print("\n[5] Normalizando links de verificação de certificados para sigesaas.duckdns.org...")
+    print("\n[5] Verificando integridade e QR codes oficiais dos certificados...")
     certs = Certificado.objects.all()
     c_updated = 0
     for c in certs:
@@ -171,8 +138,8 @@ with transaction.atomic():
             c.qrcode_data = novo_qr
             c.save(update_fields=['qrcode_data'])
             c_updated += 1
-    print(f"    - {c_updated} certificados normalizados com o domínio oficial.")
+    print(f"    - {c_updated} certificados garantidos com HTTPS e domínio oficial sigesaas.duckdns.org.")
 
-print("\n" + "=" * 70)
-print("LIMPEZA E HIGIENIZAÇÃO DE DADOS CONCLUÍDA COM SUCESSO!")
-print("=" * 70)
+print("\n" + "=" * 75)
+print("SISTEMA TOTALMENTE PURIFICADO: PRONTO PARA RECEBER DADOS REAIS E FIÉIS!")
+print("=" * 75)

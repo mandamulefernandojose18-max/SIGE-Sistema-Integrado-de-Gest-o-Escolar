@@ -12,6 +12,31 @@ async function carregarExames() {
   const container = document.getElementById('view-exames');
   if (!container) return;
 
+  // Actualizar imediatamente o cabeçalho oficial com a instituição ativa
+  try {
+    const escInit = window.state?.tenant || {};
+    const escNomeInit = (escInit.nome || 'Escola Secundária de Massinga').toUpperCase();
+    const provNomeInit = (escInit.provincia || 'Inhambane').toUpperCase();
+    const distNomeInit = (escInit.distrito || 'Massinga').toUpperCase();
+
+    const elEscInit = document.getElementById('pautaExameEscolaNome');
+    if (elEscInit) elEscInit.textContent = escNomeInit;
+    const elProvInit = document.getElementById('pautaExameProvincia');
+    if (elProvInit) elProvInit.textContent = provNomeInit;
+    const elDistInit = document.getElementById('pautaExameDistrito');
+    if (elDistInit) elDistInit.textContent = distNomeInit;
+    const elLogoInit = document.getElementById('pautaExameLogoImg');
+    if (elLogoInit && escInit.logo) elLogoInit.src = escInit.logo;
+  } catch (_) {}
+
+  // Carregar e sincronizar parâmetros de exame ativos
+  try {
+    const resParam = await apiFetch('/api/v1/pautas/exames/parametros');
+    if (resParam && resParam.success && resParam.parametros) {
+      atualizarCamposParametrosExameNaInterface(resParam.parametros);
+    }
+  } catch (_) {}
+
   try {
     // 1. Obter classes com regime de exame configurado
     let classesComExame = new Set(['10ª Classe', '12ª Classe']);
@@ -122,10 +147,21 @@ async function carregarPautaExamesTurma() {
     window._sigePautaExamesData = d;
     window._sigeNotasExameModificadas.clear();
 
-    // Actualizar Cabeçalhos
-    const escNome = (window.state?.tenant?.nome || 'ESCOLA SECUNDÁRIA').toUpperCase();
+    // Actualizar Cabeçalhos Oficiais Moçambique
+    const escData = d.escola || window.state?.tenant || {};
+    const escNome = (escData.nome || 'Escola Secundária de Massinga').toUpperCase();
+    const provNome = (escData.provincia || 'Inhambane').toUpperCase();
+    const distNome = (escData.distrito || 'Massinga').toUpperCase();
+
     const elEsc = document.getElementById('pautaExameEscolaNome');
     if (elEsc) elEsc.textContent = escNome;
+    const elProv = document.getElementById('pautaExameProvincia');
+    if (elProv) elProv.textContent = provNome;
+    const elDist = document.getElementById('pautaExameDistrito');
+    if (elDist) elDist.textContent = distNome;
+
+    const elLogo = document.getElementById('pautaExameLogoImg');
+    if (elLogo && escData.logo) elLogo.src = escData.logo;
 
     const grau = d.turma?.grau_ano || '10ª Classe';
     const area = d.turma?.area ? ` / ${d.turma.area}` : '';
@@ -141,9 +177,8 @@ async function carregarPautaExamesTurma() {
     const badgeTotal = document.getElementById('badgeTotalCandidatosExame');
     if (badgeTotal) badgeTotal.textContent = `${(d.alunos || []).length} Candidatos`;
 
-    const badgeParam = document.getElementById('badgeParametrosAtivos');
-    if (badgeParam && d.parametros) {
-      badgeParam.textContent = `Freq: ${d.parametros.peso_frequencia}% | Exame: ${d.parametros.peso_exame}% | Mín: ${d.parametros.nota_minima_exame}`;
+    if (d.parametros) {
+      atualizarCamposParametrosExameNaInterface(d.parametros);
     }
 
     renderizarTabelaExamesHtml(d);
@@ -570,22 +605,66 @@ function recalcularLinhaAlunoInterface(alunoId) {
   if (elRep) elRep.textContent = discReprovadas.length > 0 ? discReprovadas.join(', ') : '---';
 }
 
-// Janela Modal de Parâmetros de Avaliação de Exame
+// Janela & Parâmetros Oficiais de Avaliação de Exame (MEC)
+function atualizarCamposParametrosExameNaInterface(p) {
+  if (!p) return;
+  const pf = p.peso_frequencia !== undefined ? Number(p.peso_frequencia) : 50;
+  const pe = p.peso_exame !== undefined ? Number(p.peso_exame) : 50;
+  const nm = p.nota_minima_exame !== undefined ? Number(p.nota_minima_exame) : 10.0;
+
+  // Atualizar inputs da janela inline
+  const inpInFreq = document.getElementById('inlineParamPesoFreq');
+  const inpInEx = document.getElementById('inlineParamPesoExame');
+  const inpInMin = document.getElementById('inlineParamNotaMinima');
+  if (inpInFreq) inpInFreq.value = pf;
+  if (inpInEx) inpInEx.value = pe;
+  if (inpInMin) inpInMin.value = nm;
+
+  // Atualizar inputs do modal flutuante
+  const inpModFreq = document.getElementById('inputParamPesoFreq');
+  const inpModEx = document.getElementById('inputParamPesoExame');
+  const inpModMin = document.getElementById('inputParamNotaMinima');
+  if (inpModFreq) inpModFreq.value = pf;
+  if (inpModEx) inpModEx.value = pe;
+  if (inpModMin) inpModMin.value = nm;
+
+  // Atualizar fórmulas visuais
+  const lblF = document.getElementById('labelFormulaFreq');
+  const lblE = document.getElementById('labelFormulaExame');
+  if (lblF) lblF.textContent = `${pf}%`;
+  if (lblE) lblE.textContent = `${pe}%`;
+
+  // Atualizar badges
+  const badgeParam = document.getElementById('badgeParametrosAtivos');
+  if (badgeParam) badgeParam.textContent = `Freq: ${pf}% | Exame: ${pe}% | Mín: ${nm}`;
+
+  const badgeClasse = document.getElementById('classeExameBadgeParametros');
+  if (badgeClasse) badgeClasse.textContent = `Freq: ${pf}% | Exame: ${pe}% | Nota Mínima: ${nm}`;
+
+  verificarAlertaPesos(pf, pe);
+}
+
+function alternarJanelaParametrosExame() {
+  const corpo = document.getElementById('corpoJanelaParametrosExame');
+  const icone = document.getElementById('iconeToggleParametros');
+  if (!corpo) return;
+  if (corpo.style.display === 'none') {
+    corpo.style.display = 'block';
+    if (icone) icone.className = 'bi bi-dash-lg';
+  } else {
+    corpo.style.display = 'none';
+    if (icone) icone.className = 'bi bi-plus-lg';
+  }
+}
+
 async function abrirModalParametrosExame() {
   const modalEl = document.getElementById('modalParametrosExame');
   if (!modalEl) return;
 
-  // Carregar parâmetros atuais do backend ou do estado
   try {
     const res = await apiFetch('/api/v1/pautas/exames/parametros');
     if (res && res.success && res.parametros) {
-      const p = res.parametros;
-      const inpFreq = document.getElementById('inputParamPesoFreq');
-      const inpEx = document.getElementById('inputParamPesoExame');
-      const inpMin = document.getElementById('inputParamNotaMinima');
-      if (inpFreq) inpFreq.value = p.peso_frequencia;
-      if (inpEx) inpEx.value = p.peso_exame;
-      if (inpMin) inpMin.value = p.nota_minima_exame;
+      atualizarCamposParametrosExameNaInterface(res.parametros);
     }
   } catch (err) {
     console.warn('Erro ao carregar parâmetros de exame:', err);
@@ -601,6 +680,17 @@ function aoMudarPesoFrequencia(val) {
   const inpEx = document.getElementById('inputParamPesoExame');
   if (inpEx) inpEx.value = comp;
 
+  // Sincronizar com inline
+  const inpInFreq = document.getElementById('inlineParamPesoFreq');
+  const inpInEx = document.getElementById('inlineParamPesoExame');
+  if (inpInFreq) inpInFreq.value = num;
+  if (inpInEx) inpInEx.value = comp;
+
+  const lblF = document.getElementById('labelFormulaFreq');
+  const lblE = document.getElementById('labelFormulaExame');
+  if (lblF) lblF.textContent = `${num}%`;
+  if (lblE) lblE.textContent = `${comp}%`;
+
   verificarAlertaPesos(num, comp);
 }
 
@@ -610,17 +700,55 @@ function aoMudarPesoExame(val) {
   const inpFreq = document.getElementById('inputParamPesoFreq');
   if (inpFreq) inpFreq.value = comp;
 
+  // Sincronizar com inline
+  const inpInFreq = document.getElementById('inlineParamPesoFreq');
+  const inpInEx = document.getElementById('inlineParamPesoExame');
+  if (inpInFreq) inpInFreq.value = comp;
+  if (inpInEx) inpInEx.value = num;
+
+  const lblF = document.getElementById('labelFormulaFreq');
+  const lblE = document.getElementById('labelFormulaExame');
+  if (lblF) lblF.textContent = `${comp}%`;
+  if (lblE) lblE.textContent = `${num}%`;
+
   verificarAlertaPesos(comp, num);
 }
 
+function aoMudarPesoFrequenciaInline(val) {
+  aoMudarPesoFrequencia(val);
+}
+
+function aoMudarPesoExameInline(val) {
+  aoMudarPesoExame(val);
+}
+
 function verificarAlertaPesos(pf, pe) {
-  const alerta = document.getElementById('alertaSomaPesos');
-  if (!alerta) return;
-  if (Math.round(pf + pe) !== 100) {
-    alerta.classList.remove('d-none');
+  const alertaModal = document.getElementById('alertaSomaPesos');
+  const alertaInline = document.getElementById('alertaSomaPesosInline');
+  const badgeSoma = document.getElementById('badgeStatusSomaPesos');
+
+  const valido = Math.round(pf + pe) === 100;
+  if (!valido) {
+    if (alertaModal) alertaModal.classList.remove('d-none');
+    if (alertaInline) alertaInline.classList.remove('d-none');
+    if (badgeSoma) {
+      badgeSoma.className = 'badge bg-danger px-2 py-1';
+      badgeSoma.textContent = `Soma: ${Math.round(pf + pe)}% (Inválido)`;
+    }
   } else {
-    alerta.classList.add('d-none');
+    if (alertaModal) alertaModal.classList.add('d-none');
+    if (alertaInline) alertaInline.classList.add('d-none');
+    if (badgeSoma) {
+      badgeSoma.className = 'badge bg-success px-2 py-1';
+      badgeSoma.textContent = 'Soma: 100% OK';
+    }
   }
+}
+
+async function reporParametrosExamePadraoMEC() {
+  const pPadrao = { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10.0 };
+  atualizarCamposParametrosExameNaInterface(pPadrao);
+  await salvarParametrosExameInline();
 }
 
 async function salvarParametrosExame() {
@@ -664,19 +792,90 @@ async function salvarParametrosExame() {
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
       }
-      // Actualizar badge visual imediatamente
-      const badgeParam = document.getElementById('badgeParametrosAtivos');
-      if (badgeParam) {
-        badgeParam.textContent = `Freq: ${pf}% | Exame: ${pe}% | Mín: ${nm}`;
-      }
+      atualizarCamposParametrosExameNaInterface({
+        peso_frequencia: pf,
+        peso_exame: pe,
+        nota_minima_exame: nm
+      });
+
       // Recarregar pauta de exames para atualizar todos os cálculos
-      await carregarPautaExamesTurma();
+      const turmaId = document.getElementById('exameTurmaSelect')?.value;
+      if (turmaId) {
+        await carregarPautaExamesTurma();
+      }
     } else {
       mostrarToast(res?.message || 'Erro ao guardar parâmetros.', 'danger');
     }
   } catch (err) {
     console.error('Erro ao guardar parâmetros de exame:', err);
     mostrarToast('Erro de comunicação ao guardar parâmetros.', 'danger');
+  }
+}
+
+async function salvarParametrosExameInline() {
+  const inpFreq = document.getElementById('inlineParamPesoFreq');
+  const inpEx = document.getElementById('inlineParamPesoExame');
+  const inpMin = document.getElementById('inlineParamNotaMinima');
+
+  const pf = Number(inpFreq?.value || 50);
+  const pe = Number(inpEx?.value || 50);
+  const nm = Number(inpMin?.value || 10);
+
+  if (isNaN(pf) || isNaN(pe) || isNaN(nm)) {
+    mostrarToast('Preencha valores numéricos válidos.', 'warning');
+    return;
+  }
+
+  if (Math.round(pf + pe) !== 100) {
+    mostrarToast('A soma da percentagem de frequência e exame deve ser exatamente 100%.', 'danger');
+    return;
+  }
+
+  if (nm < 0 || nm > 20) {
+    mostrarToast('A nota mínima do exame deve estar entre 0 e 20 valores.', 'danger');
+    return;
+  }
+
+  const btnSalvar = document.getElementById('btnSalvarParametrosInline');
+  if (btnSalvar) {
+    btnSalvar.disabled = true;
+    btnSalvar.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> A guardar...`;
+  }
+
+  try {
+    const res = await apiFetch('/api/v1/pautas/exames/parametros/', {
+      method: 'POST',
+      body: JSON.stringify({
+        peso_frequencia: pf,
+        peso_exame: pe,
+        nota_minima_exame: nm
+      })
+    });
+
+    if (res && res.success) {
+      mostrarToast(res.message || 'Parâmetros de exame configurados com sucesso!', 'success');
+      atualizarCamposParametrosExameNaInterface({
+        peso_frequencia: pf,
+        peso_exame: pe,
+        nota_minima_exame: nm
+      });
+
+      // Recarregar pauta de exames para atualizar todos os cálculos
+      const turmaId = document.getElementById('exameTurmaSelect')?.value;
+      if (turmaId) {
+        await carregarPautaExamesTurma();
+      }
+    } else {
+      mostrarToast(res?.message || 'Erro ao guardar parâmetros.', 'danger');
+    }
+  } catch (err) {
+    console.error('Erro ao guardar parâmetros de exame:', err);
+    mostrarToast('Erro de comunicação ao guardar parâmetros.', 'danger');
+  } finally {
+    if (btnSalvar) {
+      btnSalvar.disabled = false;
+      btnSalvar.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Guardar Parâmetros`;
+    }
   }
 }
 
@@ -775,3 +974,9 @@ window.abrirModalParametrosExame = abrirModalParametrosExame;
 window.aoMudarPesoFrequencia = aoMudarPesoFrequencia;
 window.aoMudarPesoExame = aoMudarPesoExame;
 window.salvarParametrosExame = salvarParametrosExame;
+window.alternarJanelaParametrosExame = alternarJanelaParametrosExame;
+window.aoMudarPesoFrequenciaInline = aoMudarPesoFrequenciaInline;
+window.aoMudarPesoExameInline = aoMudarPesoExameInline;
+window.salvarParametrosExameInline = salvarParametrosExameInline;
+window.reporParametrosExamePadraoMEC = reporParametrosExamePadraoMEC;
+window.atualizarCamposParametrosExameNaInterface = atualizarCamposParametrosExameNaInterface;

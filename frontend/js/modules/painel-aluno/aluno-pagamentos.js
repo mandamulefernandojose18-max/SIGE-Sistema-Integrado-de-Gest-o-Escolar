@@ -63,20 +63,21 @@ async function carregarAlunoPagamentos() {
                 </span>
               </td>
               <td class="text-end">
-                ${p.status === 'PAGO' ? `
+                <div class="d-inline-flex gap-1 align-items-center justify-content-end">
+                  ${p.status !== 'PAGO' ? `
+                    <button class="btn btn-sm btn-success fw-bold shadow-sm d-inline-flex align-items-center gap-1" onclick="modalPagarSaldoCarteiraAluno('${p.id}', ${p.valor || 0}, '${(p.descricao || 'Mensalidade Escolar').replace(/'/g, "\\'")}', '${p.mes_referencia || ''}')" title="Efectuar pagamento do saldo com M-Pesa ou e-Mola">
+                      <i class="bi bi-phone-fill"></i> <span>Pagar</span>
+                    </button>
+                  ` : ''}
                   <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
+                    <button class="btn ${p.status === 'PAGO' ? 'btn-outline-primary' : 'btn-outline-secondary'}" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo ${p.status === 'PAGO' ? '(Pago)' : '(Não Pago)'}">
                       <i class="bi bi-printer me-1"></i> Imprimir
                     </button>
-                    <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF">
+                    <button class="btn ${p.status === 'PAGO' ? 'btn-primary' : 'btn-outline-danger'}" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF ${p.status === 'PAGO' ? '(Pago)' : '(Não Pago)'}">
                       <i class="bi bi-file-earmark-pdf me-1"></i> PDF
                     </button>
                   </div>
-                ` : `
-                  <button class="btn btn-sm btn-success fw-bold shadow-sm d-inline-flex align-items-center gap-1" onclick="modalPagarSaldoCarteiraAluno('${p.id}', ${p.valor || 0}, '${(p.descricao || 'Mensalidade Escolar').replace(/'/g, "\\'")}', '${p.mes_referencia || ''}')" title="Efectuar pagamento do saldo com M-Pesa ou e-Mola">
-                    <i class="bi bi-phone-fill"></i> <span>Pagar com Carteira Móvel</span>
-                  </button>
-                `}
+                </div>
               </td>
             </tr>
           `).join('');
@@ -190,7 +191,36 @@ async function confirmarPagamentoSaldoAluno(event, id) {
   }
 }
 
+if (typeof window.imprimirReciboPagamento !== 'function') {
+  window.imprimirReciboPagamento = function(pagamentoId) {
+    if (typeof abrirModalReciboPagamento === 'function') {
+      abrirModalReciboPagamento(pagamentoId);
+    }
+  };
+}
+
+if (typeof window.descarregarReciboPdf !== 'function') {
+  window.descarregarReciboPdf = async function(pagamentoId) {
+    try {
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao('A emitir e descarregar recibo oficial em PDF...', 'info');
+      }
+      if (typeof downloadFicheiroBinario === 'function') {
+        await downloadFicheiroBinario(`/api/v1/impressao/recibo/${pagamentoId}/pdf`, `Recibo_${pagamentoId}.pdf`);
+      } else {
+        window.open(`/api/v1/impressao/recibo/${pagamentoId}/pdf`, '_blank');
+      }
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao('Recibo oficial descarregado com sucesso!', 'success');
+      }
+    } catch (err) {
+      alert('Erro ao descarregar recibo em PDF: ' + (err.message || ''));
+    }
+  };
+}
+
 window.modalPagarSaldoCarteiraAluno = modalPagarSaldoCarteiraAluno;
 window.aoMudarCarteiraAluno = aoMudarCarteiraAluno;
 window.confirmarPagamentoSaldoAluno = confirmarPagamentoSaldoAluno;
+
 

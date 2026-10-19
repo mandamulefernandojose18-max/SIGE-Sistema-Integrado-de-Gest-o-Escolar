@@ -114,7 +114,7 @@ async function carregarPainelSaaS() {
                       <i class="bi bi-file-earmark-pdf"></i>
                     </button>
                     <!-- Botão Eliminar Escola (Exclusivo SuperAdmin) -->
-                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${nomeEscapado}')">
+                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${nomeEscapado}', '${e.codigo_escola || ''}')">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -782,8 +782,9 @@ async function descarregarExtratoEscolaSuperAdmin(escolaId) {
 }
 
 // ==================== 8. ELIMINAR ESCOLA ====================
-async function eliminarEscolaSuperAdmin(escolaId, nome) {
-  if (!confirm(`ATENÇÃO ENGENHEIRO:\nTem a certeza que deseja ELIMINAR DEFINITIVAMENTE a instituição [${nome}] e todos os seus dados?\nEsta operação não pode ser revertida!`)) return;
+async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
+  const rotulo = codigo ? `[${codigo}] ${nome}` : `[${nome}]`;
+  if (!confirm(`ATENÇÃO ENGENHEIRO:\nTem a certeza que deseja ELIMINAR DEFINITIVAMENTE a instituição ${rotulo} e todos os seus dados?\nEsta operação não pode ser revertida!`)) return;
 
   try {
     const res = await apiFetch(`/api/v1/saas-admin/escolas/${escolaId}`, {

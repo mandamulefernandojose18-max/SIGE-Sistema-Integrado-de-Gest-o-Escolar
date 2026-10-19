@@ -21,7 +21,10 @@ def aplicar_fonte_times(run, pt_size=12, bold=False, italic=False, color_rgb=Non
     run.bold = bold
     run.italic = italic
     if color_rgb:
-        run.font.color.rgb = color_rgb
+        if isinstance(color_rgb, (tuple, list)):
+            run.font.color.rgb = RGBColor(*color_rgb)
+        else:
+            run.font.color.rgb = color_rgb
     else:
         run.font.color.rgb = RGBColor(0x11, 0x11, 0x11)
     

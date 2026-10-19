@@ -970,8 +970,8 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     escola_nome = escola.nome.upper()
     if not escola_nome.startswith('ESCOLA'):
         escola_nome = f"ESCOLA SECUNDÁRIA DE {escola_nome}"
-    dir_nome = director_nome or getattr(escola, 'director_nome', None) or 'Prof. Dr. António Costa'
-    dir_carreira = director_carreira or getattr(escola, 'director_carreira', 'Especialista de Educação')
+    dir_nome = director_nome or getattr(escola, 'director_nome', '') or ''
+    dir_carreira = director_carreira or getattr(escola, 'director_carreira', '') or ''
 
     style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
     style_gov = ParagraphStyle('Gov', parent=styles['Normal'], alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
@@ -988,10 +988,10 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     elements.append(Spacer(1, 0.5 * cm))
 
     aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
-    pai = getattr(aluno, 'pai', None) or 'Eduardo Mondlane Jr.'
-    mae = getattr(aluno, 'mae', None) or 'Janet Mondlane'
+    pai = (getattr(aluno, 'pai', '') or '').strip() or '---'
+    mae = (getattr(aluno, 'mae', '') or '').strip() or '---'
     doc_tipo = getattr(aluno, 'tipo_documento', 'Bilhete de Identidade') or 'Bilhete de Identidade'
-    doc_num = getattr(aluno, 'numero_documento', None) or getattr(aluno, 'bi_numero', None) or '110293847591F'
+    doc_num = (getattr(aluno, 'numero_documento', None) or getattr(aluno, 'bi_numero', None) or '').strip() or '---'
     grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '10ª Classe'
 
     corpo_texto = (
@@ -1164,10 +1164,10 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     escola_nome = escola.nome.upper()
     if not escola_nome.startswith('ESCOLA'):
         escola_nome = f"ESCOLA SECUNDÁRIA DE {escola_nome}"
-    dir_nome = kwargs.get('director_nome') or getattr(escola, 'director_nome', None) or 'Prof. Dr. António Costa'
-    dir_carreira = kwargs.get('director_carreira') or getattr(escola, 'director_carreira', 'Especialista de Educação')
-    chefe_nome = kwargs.get('chefe_secretaria_nome') or getattr(escola, 'chefe_secretaria_nome', 'Dra. Maria Eunice')
-    chefe_carreira = kwargs.get('chefe_secretaria_carreira') or getattr(escola, 'chefe_secretaria_carreira', 'Técnica Profissional')
+    dir_nome = kwargs.get('director_nome') or getattr(escola, 'director_nome', '') or ''
+    dir_carreira = kwargs.get('director_carreira') or getattr(escola, 'director_carreira', '') or ''
+    chefe_nome = kwargs.get('chefe_secretaria_nome') or getattr(escola, 'chefe_secretaria_nome', '') or ''
+    chefe_carreira = kwargs.get('chefe_secretaria_carreira') or getattr(escola, 'chefe_secretaria_carreira', '') or ''
 
     style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
     style_mec = ParagraphStyle('Mec', parent=styles['Normal'], alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
@@ -1185,17 +1185,17 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
     aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
     sexo = 'Feminino' if (getattr(aluno, 'genero', 'M') or '').upper().startswith('F') else 'Masculino'
-    nat_dist = getattr(aluno, 'distrito', 'Cidade de Maputo') or 'Cidade de Maputo'
-    nat_prov = getattr(aluno, 'provincia', 'Maputo') or 'Maputo'
-    pai = getattr(aluno, 'pai', 'Eduardo Mondlane Jr.') or 'Eduardo Mondlane Jr.'
-    mae = getattr(aluno, 'mae', 'Janet Mondlane') or 'Janet Mondlane'
-    grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '10ª Classe'
-    area = (aluno.turma.area if aluno.turma and aluno.turma.area else getattr(aluno, 'area', 'Geral')) or 'Geral'
+    nat_dist = getattr(aluno, 'distrito', '') or '---'
+    nat_prov = getattr(aluno, 'provincia', '') or '---'
+    pai = (getattr(aluno, 'pai', '') or '').strip() or '---'
+    mae = (getattr(aluno, 'mae', '') or '').strip() or '---'
+    grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '---'
+    area = (aluno.turma.area if aluno.turma and aluno.turma.area else getattr(aluno, 'area', '')) or '---'
 
     # Formatação de Data de Nascimento
-    dia_nasc = '09'
-    mes_nasc = 'Julho'
-    ano_nasc = '2008'
+    dia_nasc = '---'
+    mes_nasc = '---'
+    ano_nasc = '----'
     if getattr(aluno, 'data_nascimento', None):
         try:
             dn = str(aluno.data_nascimento)

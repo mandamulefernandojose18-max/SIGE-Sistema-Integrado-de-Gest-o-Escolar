@@ -620,8 +620,8 @@ function obterHtmlBoletimOficial(d) {
   const anoLetivo = d.anoLetivo || d.anoLectivo || state.tenant?.ano_letivo_ativo || '2026';
 
   const alunoObj = d.aluno || {};
-  const alunoNome = (alunoObj.nomeCompleto || `${alunoObj.nome || ''} ${alunoObj.apelido || ''}`.trim() || 'GRAÇA MONDLANE MONDLANE').toUpperCase();
-  const matricula = alunoObj.matricula || alunoObj.codigo || 'MAT-2026-1006';
+  const alunoNome = (alunoObj.nomeCompleto || `${alunoObj.nome || ''} ${alunoObj.apelido || ''}`.trim() || '---').toUpperCase();
+  const matricula = alunoObj.matricula || alunoObj.codigo || '---';
 
   let classeTurma = '10ª Classe - 10ª Classe A';
   if (alunoObj.grau && alunoObj.turma) {
@@ -1032,23 +1032,23 @@ function obterHtmlCertificadoOficial(d) {
   const escolaNomeFormatado = escolaNome.startsWith('ESCOLA') ? escolaNome : `ESCOLA SECUNDÁRIA DE ${escolaNome}`;
   const provincia = (d.escola?.provincia || 'Inhambane');
   const distrito = (d.escola?.distrito || 'Massinga');
-  const directorNome = d.directorNome || 'Prof. Dr. António Costa';
-  const directorCarreira = d.directorCarreira || 'Especialista de Educação';
-  const chefeNome = d.chefeSecretariaNome || 'Dra. Maria Eunice';
-  const chefeCarreira = d.chefeSecretariaCarreira || 'Técnica Profissional';
+  const directorNome = d.directorNome || d.escola?.director_nome || '';
+  const directorCarreira = d.directorCarreira || d.escola?.director_carreira || '';
+  const chefeNome = d.chefeSecretariaNome || d.escola?.chefe_secretaria_nome || '';
+  const chefeCarreira = d.chefeSecretariaCarreira || d.escola?.chefe_secretaria_carreira || '';
 
-  const alunoNome = (d.aluno?.nomeCompleto || d.aluno?.nome || 'GRAÇA MONDLANE MONDLANE').toUpperCase();
-  const sexo = ((d.aluno?.genero || 'F').toUpperCase().startsWith('F')) ? 'Feminino' : 'Masculino';
-  const pai = d.aluno?.pai || 'Eduardo Mondlane Jr.';
-  const mae = d.aluno?.mae || 'Janet Mondlane';
-  const alunoDistrito = d.aluno?.distrito || 'Cidade de Maputo';
-  const alunoProvincia = d.aluno?.provincia || 'Maputo';
-  const anoLectivo = d.anoLectivo || d.anoLetivo || '2026';
-  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || d.aluno?.classe || '10ª Classe';
-  const area = d.area || d.aluno?.turma?.area || d.aluno?.area || 'Geral';
-  const matricula = d.aluno?.matricula || 'MAT-2026-1006';
+  const alunoNome = (d.aluno?.nomeCompleto || `${d.aluno?.nome || ''} ${d.aluno?.apelido || ''}`.trim() || d.aluno?.nome || '---').toUpperCase();
+  const sexo = ((d.aluno?.genero || '').toUpperCase().startsWith('F')) ? 'Feminino' : 'Masculino';
+  const pai = d.aluno?.pai || '---';
+  const mae = d.aluno?.mae || '---';
+  const alunoDistrito = d.aluno?.distrito || '---';
+  const alunoProvincia = d.aluno?.provincia || '---';
+  const anoLectivo = d.anoLectivo || d.anoLetivo || state.tenant?.ano_letivo_ativo || '2026';
+  const grauClasse = d.grauAno || d.aluno?.turma?.grau_ano || d.aluno?.classe || '---';
+  const area = d.area || d.aluno?.turma?.area || d.aluno?.area || '---';
+  const matricula = d.aluno?.matricula || d.aluno?.codigo || '---';
 
-  let diaNasc = '09', mesNasc = 'Julho', anoNasc = '2008';
+  let diaNasc = '---', mesNasc = '---', anoNasc = '----';
   if (d.aluno?.data_nascimento) {
     const dt = new Date(d.aluno.data_nascimento);
     if (!isNaN(dt.getTime())) {
@@ -1242,46 +1242,84 @@ function renderizarRecibo(d) {
   if (!d.aluno) d.aluno = {};
   if (!d.escola) d.escola = {};
   if (!d.pagamento) d.pagamento = {};
+  const isPago = d.is_pago === true || (d.pagamento && d.pagamento.is_pago === true) || (d.pagamento && d.pagamento.status === 'PAGO' && (d.pagamento.data_pagamento || Number(d.pagamento.valor_pago || 0) > 0));
+  const statusLabel = isPago ? 'PAGO' : 'NÃO PAGO';
+  const statusClass = isPago ? 'bg-success' : 'bg-danger';
+  const textClass = isPago ? 'text-success' : 'text-danger';
   const preview = document.getElementById('printAreaPreview');
-  const safeName = (d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
+  const safeName = (d.aluno?.nome_completo || d.aluno?.nomeCompleto || d.aluno?.nome || 'Aluno').replace(/[^a-zA-Z0-9]/g, '_');
   const carimboDataHora = d.carimboDataHora || (new Date().toLocaleDateString('pt-PT') + ' ' + new Date().toLocaleTimeString('pt-PT'));
 
   preview.style.display = 'block';
   preview.innerHTML = `
-    <div class="text-center border-bottom pb-3 mb-3">
-      <h6 class="fw-bold mb-1">${d.escola.nome || 'Escola'}</h6>
-      <p class="text-muted small mb-0">NUIT: ${d.escola.nif_cnpj || '-'} | Telefone: ${d.escola.telefone || '-'}</p>
-      <h5 class="mt-2 fw-bold text-success text-uppercase">RECIBO DE PAGAMENTO DE PROPINAS</h5>
-      <span class="badge bg-light text-dark border">Recibo Nº: ${d.pagamento.recibo_numero || 'REC-2026-001'}</span>
-    </div>
+    <div class="position-relative p-4 bg-white" style="overflow: hidden; border-radius: 8px;">
+      <!-- Marca d'Água de Segurança -->
+      <div class="watermark-carimbo ${isPago ? 'watermark-pago' : 'watermark-nao-pago'}" style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 64px; font-weight: 900; letter-spacing: 5px; opacity: 0.12; pointer-events: none; user-select: none; z-index: 10; border: 5px ${isPago ? 'solid #16a34a; color: #16a34a' : 'dashed #dc2626; color: #dc2626'}; padding: 10px 40px; border-radius: 12px; white-space: nowrap;">
+        ${statusLabel}
+      </div>
 
-    <div class="table-responsive">
-      <table class="table table-bordered table-sm small mb-4">
-        <tr><th class="bg-light w-35">Aluno:</th><td>${d.aluno.nome || '-'} (Matrícula: ${d.aluno.matricula || '-'})</td></tr>
-        <tr><th class="bg-light">Turma:</th><td>${d.aluno.turma?.nome || '-'}</td></tr>
-        <tr><th class="bg-light">Descrição da Taxa:</th><td>${d.pagamento.descricao || '-'}</td></tr>
-        <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia || '-'}</code></td></tr>
-        <tr><th class="bg-light">Valor Pago:</th><td class="fw-bold text-success fs-6">${formatarMoeda(d.pagamento.valor || 0)}</td></tr>
-        <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Depósito / Transferência'}</td></tr>
-        <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
-      </table>
-    </div>
+      <div class="text-center border-bottom pb-3 mb-3">
+        <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 4px;" alt="Emblema Nacional">
+        <div class="small fw-semibold text-uppercase text-secondary" style="letter-spacing: 0.5px;">República de Moçambique &bull; Ministério da Educação e Desenvolvimento Humano</div>
+        <h6 class="fw-bold mb-1 mt-1 text-dark">${(d.escola.nome || 'Instituição de Ensino').toUpperCase()}</h6>
+        <p class="text-muted small mb-0">NUIT: ${d.escola.nif_cnpj || d.escola.nuit || '-'} &bull; ${d.escola.distrito || '-'}, ${d.escola.provincia || '-'} &bull; Tel: ${d.escola.telefone || '-'}</p>
+        <h5 class="mt-3 fw-bold ${textClass} text-uppercase" style="letter-spacing: 0.5px;">
+          ${isPago ? 'RECIBO DE PAGAMENTO OFICIAL' : 'RECIBO / GUIA DE COBRANÇA (NÃO PAGO)'}
+        </h5>
+        <span class="badge bg-light text-dark border fs-6">Recibo Nº: <strong>${d.pagamento.recibo_numero || d.numero || 'REC-2026-001'}</strong></span>
+      </div>
 
-    <!-- Carimbo com Data e Hora Oficial -->
-    <div class="alert alert-light border small text-muted text-center py-2 mb-4">
-      <i class="bi bi-clock-history me-1 text-primary"></i>
-      Processado por Computador aos <strong>${carimboDataHora}</strong> | Autenticação SIGE
-    </div>
+      <!-- Banner Destacado de Situação -->
+      <div class="p-2 mb-3 rounded text-center fw-bold ${isPago ? 'bg-success bg-opacity-10 text-success border border-success' : 'bg-danger bg-opacity-10 text-danger border border-danger'}">
+        <i class="bi ${isPago ? 'bi-check-circle-fill' : 'bi-exclamation-octagon-fill'} me-2"></i>
+        SITUAÇÃO: ${statusLabel} ${isPago ? '(LIQUIDADO COM SUCESSO)' : '(PENDENTE DE LIQUIDAÇÃO)'}
+      </div>
 
-    <div class="row text-center pt-3 border-top small">
-      <div class="col-6"><p class="mb-0 border-top pt-2 mx-4">A Secretaria / Tesouraria</p></div>
-      <div class="col-6"><p class="mb-0 border-top pt-2 mx-4">O Depositante</p></div>
-    </div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-sm small mb-3 align-middle">
+          <tr><th class="bg-light w-35">Instituição:</th><td><strong>${d.escola.nome || '-'}</strong> (${d.escola.distrito || '-'}, ${d.escola.provincia || '-'})</td></tr>
+          <tr><th class="bg-light">Aluno(a):</th><td><strong>${d.aluno.nome_completo || d.aluno.nome || '-'}</strong></td></tr>
+          <tr><th class="bg-light">Nº de Matrícula:</th><td><code>${d.aluno.matricula || '-'}</code></td></tr>
+          <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno.turma?.nome || '-'} (${d.aluno.turma?.grau_ano || '-'}) ${d.aluno.turma?.turno ? '&bull; Turno: ' + d.aluno.turma.turno : ''}</td></tr>
+          <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao || d.descricao || 'Mensalidade / Propina'}</td></tr>
+          <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia || d.mes || '-'}</code></td></tr>
+          <tr><th class="bg-light">Valor Cobrado:</th><td><strong>${formatarMoeda(d.pagamento.valor || d.valor || 0)}</strong></td></tr>
+          <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold ${textClass} fs-6">${isPago ? formatarMoeda(d.pagamento.valor_pago || d.pagamento.valor || d.valor || 0) : '0,00 MZN (Pendente de Liquidação)'}</td></tr>
+          <tr><th class="bg-light">Estado / Situação:</th><td><span class="badge ${statusClass} fs-6">${statusLabel}</span></td></tr>
+          <tr><th class="bg-light">Forma de Liquidação:</th><td>${isPago ? (d.pagamento.metodo_pagamento || d.metodo || 'MPESA') : 'Pendente de Liquidação'}</td></tr>
+          <tr><th class="bg-light">Data de Confirmação:</th><td>${isPago ? (d.pagamento.data_pagamento || d.data || '-') : 'Aguardando Confirmação'}</td></tr>
+        </table>
+      </div>
 
-    <div class="text-center mt-4 no-print">
-      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo('Recibo_${safeName}_${d.pagamento.mes_referencia || '2026'}')">
-        <i class="bi bi-printer me-2"></i> Imprimir Recibo
-      </button>
+      <!-- Aviso Informativo -->
+      ${!isPago ? `
+        <div class="alert alert-danger py-2 px-3 small mb-3 border border-danger">
+          <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
+          <strong>ATENÇÃO:</strong> Este recibo expressa a condição de <strong>NÃO PAGO</strong>. O documento comprova unicamente a emissão da cobrança e não confere quitação de dívida até a respectiva liquidação no sistema ou por carteira móvel.
+        </div>
+      ` : `
+        <div class="alert alert-success py-2 px-3 small mb-3 border border-success">
+          <i class="bi bi-shield-check text-success me-1"></i>
+          <strong>COMPROVATIVO DE QUITAÇÃO:</strong> Certifica-se que o valor indicado foi devidamente liquidado e confirmado no sistema oficial SIGE.
+        </div>
+      `}
+
+      <!-- Carimbo com Data e Hora Oficial Sincronizado -->
+      <div class="alert alert-light border small text-muted text-center py-2 mb-3">
+        <i class="bi bi-clock-history me-1 text-primary"></i>
+        Processado por Computador aos <strong>${carimboDataHora}</strong> | Autenticação Digital SIGE &bull; Sincronizado
+      </div>
+
+      <div class="row text-center pt-3 border-top small">
+        <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">A Secretaria / Tesouraria<br><small class="text-muted">Assinatura e Carimbo</small></p></div>
+        <div class="col-6"><p class="mb-0 border-top pt-2 mx-3">O Aluno / Depositante<br><small class="text-muted">Assinatura</small></p></div>
+      </div>
+
+      <div class="text-center mt-3 no-print">
+        <button class="btn btn-primary btn-sm" onclick="imprimirDocumentoComTitulo('Recibo_${safeName}_${d.pagamento.mes_referencia || d.mes || '2026'}_${statusLabel}')">
+          <i class="bi bi-printer me-2"></i> Imprimir Recibo
+        </button>
+      </div>
     </div>
   `;
 }
