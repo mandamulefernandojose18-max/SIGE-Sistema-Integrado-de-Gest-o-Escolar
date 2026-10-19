@@ -231,6 +231,17 @@
 
 ---
 
+### 2.11.1. Pauta Oficial de Exames Nacionais e Finais (`apps.pautas`)
+
+| Método | Endpoint | Permissão | Descrição |
+| :---: | :--- | :---: | :--- |
+| `GET` | `/api/v1/pautas/exames/turma/<uuid:turma_id>/` | Pedagógico | Retorna a Pauta Oficial de Exames consolidada com MFD real das frequências, notas de 1ª e 2ª época, NF, resultado, MF geral, disciplinas em atraso e quadro estatístico MEC. |
+| `POST`| `/api/v1/pautas/exames/turma/<uuid:turma_id>/salvar/` | Pedagógico | Grava e consolida as notas de exame (1ª e 2ª época) no modelo `NotaExame`, recalculando notas finais e resultados. |
+| `GET` | `/api/v1/pautas/exames/turma/<uuid:turma_id>/xlsx/`| Pedagógico | Download da folha de cálculo Excel (`.xlsx`) no modelo oficial de 3 níveis de cabeçalho do MEC. |
+| `GET` | `/api/v1/pautas/exames/turma/<uuid:turma_id>/pdf/` | Pedagógico | Download do mapa oficial da pauta de exames em formato PDF (A4 Paisagem). |
+
+---
+
 ### 2.12. Biblioteca Digital de Material Escolar (`apps.material_escolar`)
 
 | Método | Endpoint | Permissão | Descrição |

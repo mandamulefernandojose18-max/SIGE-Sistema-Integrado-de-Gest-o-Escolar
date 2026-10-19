@@ -244,4 +244,28 @@ A escolha do modelo estrutural é de responsabilidade da instituição e define 
 - **Se a Instituição escolher Regime por Níveis:**
   O sistema restringe e permite cadastrar **exclusivamente Níveis numéricos** (`Nível 1`, `Nível 2`, `Nível 3`, `Nível 4`, `Nível 5`...), atendendo a institutos médios técnicos, politécnicos e vocacionais. O critério oficial é: **"O Nível tem Exame: Sim ou Não"**.
 
+### 6.4. Pauta Oficial de Exames Nacionais e de Nível
+
+A Pauta de Exames no SIGE materializa fielmente o modelo do MEC para publicação de resultados finais:
+
+1. **Dados Reais e Integridade Absoluta:**
+   - As disciplinas da turma e as **Médias de Frequência da Disciplina (MFD)** têm origem estritamente nas avaliações dos 3 trimestres lançadas nas cadernetas e pautas de frequência. É proibido qualquer dado ou média fictícia.
+   - A visualização é exclusiva para classes ou níveis parametrizados como **"Com Exame"** (padrão MEC: 10ª e 12ª Classes).
+
+2. **Estrutura de Colunas por Disciplina:**
+   - **Disciplinas com Exame:** `M. Freq` | `1ª Época` | `2ª Época` | `NF` (Nota Final).
+     Fórmula da Nota Final:
+     $$\text{NF} = \text{round}\left(\frac{\text{MFreq} + \text{NE}}{2}\right)$$
+     *(Onde $\text{NE}$ é a nota da 1ª época ou, caso realizada, a nota da 2ª época).*
+   - **Disciplinas sem Exame (na mesma turma):** Exibe a coluna única `M. Freq` e a Nota Final é a própria média de frequência.
+
+3. **Deliberação Final e Estatística:**
+   - **Resultado Final:** `Aprovado`, `2ª Época` ou `Reprovado`.
+   - **Média Final Global:** Média aritmética de todas as Notas Finais das disciplinas.
+   - **Disciplinas em Atraso:** Relação nominal das matérias em que o aluno obteve nota final negativa.
+   - **Quadro Estatístico Oficial:** Contabilização de Inscritos, Não Avaliados, Avaliados, Aprovados, 2ª Época e Reprovados, discriminados por Homens (HM) e Mulheres (M) com taxas percentuais de aproveitamento.
+
+4. **Alimentação Direta de Documentos Oficiais:**
+   - A pauta de exame homologada é a fonte exclusiva de notas para o **Certificado de Habilitações Literárias** e para a **Declaração Escolar com Notas** dos alunos concluintes de classes com exame.
+
 

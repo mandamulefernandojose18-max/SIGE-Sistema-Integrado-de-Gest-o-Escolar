@@ -383,6 +383,22 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Painel Exclusivo do Director de Turma (`#view-director-turma`):**
   - Permite ao Director de Turma configurar e guardar os **Parâmetros da Sessão do Conselho de Avaliação** (Nome do Presidente, Data da Realização, Hora de Início e Hora de Término para o Iº, IIº e IIIº Trimestres), que são imediatamente refletidos na Acta Oficial em ecrã, PDF e Word.
 
+### Módulo 11.1: Pauta Oficial de Exames Nacionais e de Nível (`#view-exames`)
+- **Quem usa:** `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `DT` e `PROFESSOR`.
+- **Como aceder:** Clique em **"Exames"** na barra lateral de navegação (categoria *Avaliação & Notas*).
+- **Conformidade Normativa e Dados Reais:**
+  - As disciplinas e as médias de frequência (MFD) têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
+  - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True` ou 10ª / 12ª Classes).
+- **Estrutura Visual da Pauta:**
+  - Cabeçalho oficial de 3 níveis padronizado pelo MEC.
+  - Para disciplinas com exame: colunas `M. Freq`, `1ª Época`, `2ª Época` e `NF` ($\text{round}((\text{MFreq} + \text{NE})/2)$).
+  - Para disciplinas sem exame: exibição da coluna `M. Freq` (cuja nota é a própria Nota Final).
+  - Colunas de encerramento: **Resultado** (`Aprovado`, `2ª Época`, `Reprovado`), **Média Final Global** e **Disciplinas em Atraso**.
+- **Operações e Exportações:**
+  - Lançamento e recálculo instantâneo de notas de exame com gravação em lote no modelo `NotaExame`.
+  - Exportação fiel em planilha Excel (`.xlsx`), relatório PDF em A4 Paisagem e impressão direta com quadro estatístico e termos de homologação.
+  - **Alimentação Direta de Documentos:** As notas consolidadas nesta pauta alimentam diretamente o **Certificado de Habilitações** e a **Declaração Escolar com Notas**.
+
 ### Módulo 12: Estatística Oficial do Aproveitamento Pedagógico Escolar (`#view-estatisticas-aproveitamento`)
 Motor analítico completo (`GET /api/v1/dashboard/estatisticas-aproveitamento`) estruturado em **4 níveis de agregação** (todos discriminados por Género `H`, `M`, `HM` e `%`):
 1. **Resumo Global da Escola (`geral_escola`):** Total de turmas, matriculados, avaliados, aprovados (`%`), reprovados (`%`), sem notas e média global da escola.
@@ -527,7 +543,7 @@ erDiagram
     ALUNO ||--o{ CERTIFICADO : "titular"
 ```
 
-### Resumo das 17 Tabelas do Sistema (`sige_*`)
+### Resumo das 18 Tabelas do Sistema (`sige_*`)
 
 | # | Tabela SQL (`db_table`) | Modelo Django (`app.Model`) | Descrição e Restrições Principais (`Constraints`) |
 | :-: | :--- | :--- | :--- |
@@ -542,12 +558,13 @@ erDiagram
 | **9** | `sige_turmas` | `turmas.Turma` | Turmas por `grau_ano` (Classe), `area` (Secção), `turno`, `sala`, `capacidade_maxima`, FKs `director_turma` e `director_classe`. Unique: `(escola, grau_ano, nome, ano_letivo)`. |
 | **10** | `sige_disciplinas` | `disciplinas.Disciplina` | Matriz curricular por `classe` e `area`, `codigo`, `carga_horaria`. Unique: `(escola, codigo, ano_letivo)`. |
 | **11** | `sige_notas` | `notas.Nota` | Avaliações trimestrais (`teste1`..`teste4`, `trabalho`, `avaliacao_trimestral`, `media_final`, `faltas`, `comportamento`, `anotacao`, `resultado`). Unique: `(aluno, disciplina, turma, periodo)`. Check: `0 <= media_final <= 20` e `faltas >= 0`. |
-| **12** | `sige_permissoes_edicao_notas` | `notas.PermissaoEdicaoNotas` | Autorizações temporárias de desbloqueio de lançamento de notas concedidas pelo DAP/Direção. |
-| **13** | `sige_pautas` | `pautas.Pauta` | Estado de consolidação da pauta por turma e período (`ABERTA`, `EM_CONSOLIDACAO`, `FECHADA`). Unique: `(escola, turma, ano_letivo, periodo)`. |
-| **14** | `sige_material_escolar` | `material_escolar.MaterialEscolar` | Biblioteca digital de ficheiros (`conteudo_base64` ou `arquivo_url`) da 1ª à 12ª Classe. |
-| **15** | `sige_logs_impressao` | `documentos.LogImpressao` | Auditoria de documentos emitidos e armazenamento JSON de configurações de conselho de turma, homologações DT/DC e prazos trimestrais. |
-| **16** | `sige_documentos_salvos` | `documentos.DocumentoSalvo` | Cofre persistente de ficheiros PDF, DOCX e XLSX gerados pelo sistema (`conteudo_base64`, `mime_type`, `tamanho_bytes`). |
-| **17** | `sige_pagamentos` / `sige_certificados` | `pagamentos.Pagamento` & `certificados.Certificado` | `sige_pagamentos`: Mensalidades/propinas em MZN e recibos `REC-...` (Checks: `valor > 0`, `valor_pago >= 0`).<br>`sige_certificados`: Certificados oficiais com `codigo_autenticidade` único (`CERT-...`) e `qrcode_data`. |
+| **12** | `sige_notas_exame` | `notas.NotaExame` | Notas de exames nacionais e finais (`nota_frequencia`, `exame_1epoca`, `exame_2epoca`, `nota_final`, `resultado`). Unique: `(escola, aluno, disciplina, turma, ano_letivo)`. Alimenta Pauta de Exames, Certificados e Declarações. |
+| **13** | `sige_permissoes_edicao_notas` | `notas.PermissaoEdicaoNotas` | Autorizações temporárias de desbloqueio de lançamento de notas concedidas pelo DAP/Direção. |
+| **14** | `sige_pautas` | `pautas.Pauta` | Estado de consolidação da pauta por turma e período (`ABERTA`, `EM_CONSOLIDACAO`, `FECHADA`). Unique: `(escola, turma, ano_letivo, periodo)`. |
+| **15** | `sige_material_escolar` | `material_escolar.MaterialEscolar` | Biblioteca digital de ficheiros (`conteudo_base64` ou `arquivo_url`) da 1ª à 12ª Classe. |
+| **16** | `sige_logs_impressao` | `documentos.LogImpressao` | Auditoria de documentos emitidos e armazenamento JSON de configurações de conselho de turma, homologações DT/DC e prazos trimestrais. |
+| **17** | `sige_documentos_salvos` | `documentos.DocumentoSalvo` | Cofre persistente de ficheiros PDF, DOCX e XLSX gerados pelo sistema (`conteudo_base64`, `mime_type`, `tamanho_bytes`). |
+| **18** | `sige_pagamentos` / `sige_certificados` | `pagamentos.Pagamento` & `certificados.Certificado` | `sige_pagamentos`: Mensalidades/propinas em MZN e recibos `REC-...` (Checks: `valor > 0`, `valor_pago >= 0`).<br>`sige_certificados`: Certificados oficiais com `codigo_autenticidade` único (`CERT-...`) e `qrcode_data`. |
 
 ---
 
@@ -642,6 +659,10 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET/POST` | `/api/v1/pautas` | Autenticado / Pedagógico | Lista pautas ou cria/consolida pauta de uma turma e período. |
 | `GET` | `/api/v1/pautas/geral` | Pedagógico | Devolve a Pauta Geral da Turma e todos os cálculos demográficos da Acta do Conselho de Avaliação. |
 | `POST/PATCH` | `/api/v1/pautas/<pk>/fechar` e `/reabrir` | Direção / `DAP` | Homologa/fecha uma pauta (congelando notas) ou reabre para retificação. |
+| `GET` | `/api/v1/pautas/exames/turma/<turma_id>/` | Pedagógico | Retorna Pauta Oficial de Exames consolidada com MFD real, notas de 1ª/2ª época, NF e estatística MEC. |
+| `POST` | `/api/v1/pautas/exames/turma/<turma_id>/salvar/` | Pedagógico | Grava e recalcula as notas de exame (1ª e 2ª época) no modelo `NotaExame`. |
+| `GET` | `/api/v1/pautas/exames/turma/<turma_id>/xlsx/` | Pedagógico | Exportação da Pauta de Exames em Excel com cabeçalho oficial de 3 níveis. |
+| `GET` | `/api/v1/pautas/exames/turma/<turma_id>/pdf/` | Pedagógico | Emissão da Pauta Oficial de Exames em PDF A4 Paisagem com termos de homologação. |
 | `GET/POST` | `/api/v1/material-escolar` | Autenticado / Pedagógico | Lista materiais didáticos (1ª à 12ª Classe) ou publica novo ficheiro/manual. |
 | `GET` | `/api/v1/material-escolar/<pk>/download` | Autenticado | Descarrega o ficheiro binário do material escolar. |
 | `GET/POST` | `/api/v1/pagamentos` e `/gerar-turma` | Financeiro / Aluno | Lista propinas, cria cobrança individual ou gera mensalidades em lote para uma turma (com bloqueio estrito contra faturas duplicadas no mesmo mês: *"A factura já foi gerada no sistema."*). |

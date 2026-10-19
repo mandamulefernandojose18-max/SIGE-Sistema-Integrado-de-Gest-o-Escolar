@@ -265,6 +265,27 @@ Registo quantitativo e qualitativo de avaliações.
 
 ---
 
+### 2.11.1. `sige_notas_exame` (`apps.notas.models.NotaExame`)
+Armazenamento oficial das classificações de exames nacionais e finais de frequência (10ª e 12ª Classes ou níveis com exame). Estas notas alimentam a Pauta Oficial de Exames, o Certificado de Habilitações e a Declaração Escolar.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador único global (`uuid4`). |
+| `escola_id` | `UUID` (FK) | Não | Escola proprietária da avaliação (Isolamento Multi-tenant). |
+| `aluno_id` | `UUID` (FK) | Não | Aluno submetido a exame. |
+| `disciplina_id` | `UUID` (FK) | Não | Disciplina sujeita a exame ou com nota de frequência associada. |
+| `turma_id` | `UUID` (FK) | Não | Turma em que o aluno realizou o exame. |
+| `ano_letivo` | `INTEGER` | Não | Ano letivo de realização do exame (ex: 2026). |
+| `nota_frequencia` | `DECIMAL(4,2)`| Sim | Média de Frequência da Disciplina (MFD calculada das pautas trimestrais). |
+| `exame_1epoca` | `DECIMAL(4,2)`| Sim | Classificação obtida na 1ª Época de Exame (0.00 a 20.00). |
+| `exame_2epoca` | `DECIMAL(4,2)`| Sim | Classificação obtida na 2ª Época de Exame (0.00 a 20.00). |
+| `nota_final` | `DECIMAL(4,2)`| Sim | Nota Final da Disciplina após exame: `(MFreq + NE)/2` ou MFD se disciplina sem exame. |
+| `resultado` | `VARCHAR(20)` | Não | Estado final: `Aprovado`, `Reprovado`, `2ª Época`, `Pendente`. |
+| `data_atualizacao`| `TIMESTAMPTZ` | Não | Carimbo cronológico da última modificação. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, aluno_id, disciplina_id, turma_id, ano_letivo)`. |
+
+---
+
 ### 2.12. `sige_pautas` (`apps.pautas.models.Pauta`)
 Estado de consolidação e encerramento de pautas de turma.
 

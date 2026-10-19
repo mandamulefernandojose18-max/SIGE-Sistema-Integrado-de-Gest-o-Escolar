@@ -5,7 +5,7 @@
 
 ---
 
-## 📑 Índice dos 19 Módulos Funcionais
+## 📑 Índice dos Módulos Funcionais
 
 1. [Módulo 1: Portal Público de Auto-Inscrição](#módulo-1-portal-público-de-auto-inscrição-modalinscricaopublica)
 2. [Módulo 2: Painel Master SaaS (SuperAdmin)](#módulo-2-painel-master-saas-view-saas)
@@ -18,15 +18,16 @@
 9. [Módulo 9: Caderneta Electrónica do Professor](#módulo-9-caderneta-electrónica-do-professor-view-caderneta)
 10. [Módulo 10: Calendário de Notas e Desbloqueio](#módulo-10-calendário-de-notas-e-desbloqueio-view-desbloqueio)
 11. [Módulo 11: Pautas Gerais e Actas do Conselho de Avaliação](#módulo-11-pautas-gerais-e-actas-do-conselho-view-pautas)
-12. [Módulo 12: Estatística Oficial do Aproveitamento Pedagógico](#módulo-12-estatística-oficial-do-aproveitamento-view-estatisticas-aproveitamento)
-13. [Módulo 13: Emissão de Certificados com QR Code](#módulo-13-emissão-de-certificados-com-qr-code-view-certificados)
-14. [Módulo 14: Gestão Financeira e Propinas](#módulo-14-gestão-financeira-e-propinas-view-pagamentos)
-15. [Módulo 15: Central de Impressão e Cofre de Arquivos](#módulo-15-central-de-impressão-e-cofre-de-arquivos-view-impressao)
-16. [Módulo 16: Portal Privado do Aluno](#módulo-16-portal-privado-do-aluno-view-aluno-*)
-17. [Módulo 17: Cofre de Credenciais e Gestão de Senhas](#módulo-17-cofre-de-credenciais-e-gestão-de-senhas-view-usuarios-senhas)
-18. [Módulo 18: Auditoria e Registo de Acessos](#módulo-18-auditoria-e-registo-de-acessos-view-acessos)
-19. [Módulo 19: Assinatura e Pagamentos SaaS da Escola](#módulo-19-assinatura-e-pagamentos-saas-da-escola-view-assinatura-escola)
-20. [Módulo 20: Ferramentas & Prompt do Gateway](#módulo-20-ferramentas--prompt-do-gateway-view-prompt-gateway)
+12. [Módulo 11.1: Pauta Oficial de Exames Nacionais e de Nível](#módulo-111-pauta-oficial-de-exames-nacionais-e-de-nível-view-exames)
+13. [Módulo 12: Estatística Oficial do Aproveitamento Pedagógico](#módulo-12-estatística-oficial-do-aproveitamento-view-estatisticas-aproveitamento)
+14. [Módulo 13: Emissão de Certificados com QR Code](#módulo-13-emissão-de-certificados-com-qr-code-view-certificados)
+15. [Módulo 14: Gestão Financeira e Propinas](#módulo-14-gestão-financeira-e-propinas-view-pagamentos)
+16. [Módulo 15: Central de Impressão e Cofre de Arquivos](#módulo-15-central-de-impressão-e-cofre-de-arquivos-view-impressao)
+17. [Módulo 16: Portal Privado do Aluno](#módulo-16-portal-privado-do-aluno-view-aluno-*)
+18. [Módulo 17: Cofre de Credenciais e Gestão de Senhas](#módulo-17-cofre-de-credenciais-e-gestão-de-senhas-view-usuarios-senhas)
+19. [Módulo 18: Auditoria e Registo de Acessos](#módulo-18-auditoria-e-registo-de-acessos-view-acessos)
+20. [Módulo 19: Assinatura e Pagamentos SaaS da Escola](#módulo-19-assinatura-e-pagamentos-saas-da-escola-view-assinatura-escola)
+21. [Módulo 20: Ferramentas & Prompt do Gateway](#módulo-20-ferramentas--prompt-do-gateway-view-prompt-gateway)
 
 ---
 
@@ -148,6 +149,25 @@
 - **Aba 1 — Pauta Geral da Turma:** Mapa integral com todas as disciplinas da área da turma, médias trimestrais, MFD, faltas, média global e quadro estatístico do MEC.
 - **Aba 2 — Acta Oficial do Conselho de Avaliação:** Documento formal da sessão de avaliação com conversão automática de valores e percentagens **por extenso em língua portuguesa**, tabela demográfica consolidada e linhas para assinaturas institucionais.
 - **Painel do Director de Turma (`#view-director-turma`):** Configuração de data, hora de início/término e nome do Presidente da Sessão para cada trimestre.
+
+---
+
+### Módulo 11.1: Pauta Oficial de Exames Nacionais e de Nível (`#view-exames`)
+- **Quem usa:** `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `DT` e `PROFESSOR`.
+- **Como aceder:** Clique em **"Exames"** na barra lateral de navegação (categoria *Avaliação & Notas*).
+- **Princípio da Fidelidade e Dados Reais:**
+  - As disciplinas e as **Médias de Frequência** têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
+  - O seletor de turmas filtra dinamicamente e exibe apenas turmas pertencentes a classes ou níveis parametrizados como **"Com Exame"** (padrão MEC: 10ª e 12ª Classes).
+- **Estrutura Visual da Pauta:**
+  - Cabeçalho oficial de 3 níveis padronizado pelo MEC.
+  - **Disciplinas com Exame:** `M. Freq`, `1ª Época`, `2ª Época` e `NF` (calculada por $\text{round}((\text{MFreq} + \text{NE})/2)$).
+  - **Disciplinas sem Exame:** Exibição exclusiva de `M. Freq` (cuja nota é a própria Nota Final).
+  - Colunas de encerramento: **Resultado** (`Aprovado`, `2ª Época`, `Reprovado`), **Média Final Global** e **Disciplinas em Atraso**.
+- **Operações e Exportações:**
+  - **Lançamento de Notas de Exame:** Campos de entrada com recálculo em tempo real e botão **"Gravar Notas"** para persistência segura em `sige_notas_exame`.
+  - **Exportação Excel (`.xlsx`):** Gera a planilha oficial completa com formatação idêntica ao modelo ministerial.
+  - **Download PDF & Impressão:** Relatório em formato A4 Paisagem com quadro estatístico demográfico e assinaturas do Diretor da Escola, DAP e Diretor de Turma.
+- **Integração aos Documentos Oficiais:** As classificações consolidadas na Pauta de Exames alimentam diretamente o **Certificado de Habilitações** e a **Declaração Escolar com Notas** emitidos para o estudante.
 
 ---
 
