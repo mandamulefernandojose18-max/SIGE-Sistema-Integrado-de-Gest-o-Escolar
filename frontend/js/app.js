@@ -2007,6 +2007,7 @@ const MENUS_POR_PAINEL = {
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Pedagógico' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Pedagógico' },
+    { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Pedagógico' },
     { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Pedagógico' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Pedagógico' },
     { id: 'material-escolar', titulo: 'Material Escolar', icone: 'bi-book-half text-primary', categoria: 'Pedagógico' },
@@ -2021,6 +2022,7 @@ const MENUS_POR_PAINEL = {
     { id: 'professor-perfil', titulo: 'Meu Perfil Docente', icone: 'bi-person-lines-fill text-primary', categoria: 'Espaço do Docente' },
     { id: 'caderneta', titulo: 'Caderneta do Professor', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Espaço do Docente' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Espaço do Docente' },
+    { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Espaço do Docente' },
     { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Espaço do Docente' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística das Minhas Turmas', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Espaço do Docente' },
     { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Espaço do Docente' }
@@ -2695,6 +2697,7 @@ async function navegarPara(viewId) {
   if (viewId === 'disciplinas') carregarDisciplinas();
   if (viewId === 'caderneta') inicializarNavegacaoCaderneta();
   if (viewId === 'pautas') carregarPautas();
+  if (viewId === 'exames') carregarExames();
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
   if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento();
   if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
