@@ -2001,6 +2001,7 @@ const MENUS_POR_PAINEL = {
     { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão Escolar' },
     { id: 'assinatura-escola', titulo: 'Assinatura do Sistema', icone: 'bi-shield-lock-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
+    { id: 'classes-exames', titulo: 'Classes / Níveis & Exames', icone: 'bi-layers-fill text-success', categoria: 'Gestão Escolar' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
     { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
     { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Gestão Escolar' },
@@ -2691,7 +2692,7 @@ async function navegarPara(viewId) {
   if (viewId === 'saas') carregarPainelSaaS();
   if (viewId === 'escola') carregarEscolaETurmas();
   if (viewId === 'turmas') carregarTurmas();
-  if (viewId === 'classes-exames') { navegarPara('disciplinas'); return; }
+  if (viewId === 'classes-exames') { carregarPaginaClassesExames(); return; }
   if (viewId === 'alunos') carregarAlunos();
   if (viewId === 'professores') carregarProfessores();
   if (viewId === 'disciplinas') carregarDisciplinas();
@@ -7250,11 +7251,13 @@ async function modalEditarAluno(id) {
       `;
     }
 
-    const classesPadrao = [
-      '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-      '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-    ];
-    const classesSet = new Set(classesPadrao);
+    const classesAtivas = typeof window.obterClassesCurricularesAtivas === 'function'
+    ? window.obterClassesCurricularesAtivas()
+    : [
+        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+      ];
+  const classesSet = new Set(classesAtivas);
     turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
     if (a.classe) classesSet.add(a.classe.trim());
     if (a.turma_grau) classesSet.add(a.turma_grau.trim());
@@ -7772,11 +7775,13 @@ async function modalNovoAluno() {
     ? state.filtroAlunoClasse 
     : '10ª Classe';
 
-  const classesPadrao = [
-    '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-    '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
-  ];
-  const classesSet = new Set(classesPadrao);
+  const classesAtivas = typeof window.obterClassesCurricularesAtivas === 'function'
+    ? window.obterClassesCurricularesAtivas()
+    : [
+        '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+        '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+      ];
+  const classesSet = new Set(classesAtivas);
   turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
   const classesOrdenadas = Array.from(classesSet).sort((x, y) => {
     const numX = parseInt(x.replace(/\D/g, '')) || 0;
@@ -10361,6 +10366,59 @@ window.selecionarRegimeInstituicao = function(novoRegime) {
   carregarDisciplinas();
 };
 
+
+// ==================== INTERLIGAÇÃO CENTRALIZADA DE CLASSES / NÍVEIS ATIVOS ====================
+window.obterClassesCurricularesAtivas = function() {
+  const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id || state.user?.escola_id || 'padrao';
+  const regime = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
+
+  // 1. Classes salvas na configuração de exames da instituição
+  const configApi = state.escola?.config_classes_exames;
+  let classesDaConfig = [];
+  if (configApi && typeof configApi === 'object' && Object.keys(configApi).length > 0) {
+    classesDaConfig = Object.keys(configApi);
+  } else {
+    try {
+      const local = JSON.parse(localStorage.getItem(`sige_classes_ativas_${escolaId}`) || '[]');
+      if (Array.isArray(local) && local.length > 0) classesDaConfig = local;
+    } catch (_) {}
+  }
+
+  // 2. Extrair das turmas existentes na escola
+  const dasTurmas = (state.todasTurmas || state.turmasList || [])
+    .map(t => (t.grau_ano || '').trim())
+    .filter(Boolean);
+
+  // 3. Extrair dos alunos existentes
+  const dosAlunos = (state.alunosList || [])
+    .map(a => (a.classe || a.turma_grau || '').trim())
+    .filter(Boolean);
+
+  // 4. Se ainda estiver vazio, usar padrão oficial de Moçambique
+  const conjunto = new Set([...classesDaConfig, ...dasTurmas, ...dosAlunos]);
+  if (conjunto.size === 0) {
+    const padrao = regime === 'NIVEIS'
+      ? (window.LISTA_NIVEIS_OFICIAIS || ['Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5'])
+      : (window.LISTA_CLASSES_OFICIAIS || [
+          '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+          '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
+        ]);
+    padrao.forEach(c => conjunto.add(c));
+  }
+
+  const filtradas = Array.from(conjunto).filter(item => {
+    const isNivel = /n[ií]vel/i.test(item);
+    return regime === 'NIVEIS' ? isNivel : !isNivel;
+  });
+
+  return filtradas.sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+};
+
 window.obterClassesInstituicao = function() {
   const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
     || state.tenant?.id || state.user?.escola_id || 'padrao';
@@ -10510,8 +10568,239 @@ window.modalNovaSeccaoAreaParaClasseAtiva = function() {
   modalNovaSeccaoArea(classeAtiva);
 };
 
-window.modalAdicionarNivelCurricular = function() {
-  navegarPara('disciplinas');
+window.modalAdicionarNivelCurricular = async function() {
+  let listaAtual = [];
+  let regime = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/classes-exames');
+    if (res && res.success) {
+      listaAtual = res.data || [];
+      if (res.regime) regime = res.regime;
+    }
+  } catch (_) {}
+
+  const isClasses = regime === 'CLASSES';
+  const nomeRegime = isClasses ? 'Classes (1ª à 12ª)' : 'Níveis Técnicos';
+  const corRegime = isClasses ? 'primary' : 'success';
+  const iconRegime = isClasses ? 'bi-mortarboard-fill' : 'bi-layers-fill';
+
+  const opcoesClasses = [
+    '1ª Classe','2ª Classe','3ª Classe','4ª Classe','5ª Classe','6ª Classe',
+    '7ª Classe','8ª Classe','9ª Classe','10ª Classe','11ª Classe','12ª Classe'
+  ].map(c => `<option value="${c}" ${c === '10ª Classe' ? 'selected' : ''}>${c}</option>`).join('');
+
+  const htmlLista = listaAtual.length === 0
+    ? '<tr><td colspan="3" class="text-center text-muted py-3"><i class="bi bi-info-circle me-1"></i>Nenhuma classe/nível configurado ainda.</td></tr>'
+    : listaAtual.map(item => {
+        const badgeExame = item.tem_exame
+          ? '<span class="badge bg-danger"><i class="bi bi-file-earmark-check-fill me-1"></i>Sim (Com Exame)</span>'
+          : '<span class="badge bg-secondary"><i class="bi bi-dash-circle me-1"></i>Não (Sem Exame)</span>';
+        const btnAlt = `<button class="btn btn-outline-primary btn-sm py-0 px-2 fw-semibold" onclick="alternarExameModalNivel('${item.nome}', ${!item.tem_exame})" title="Alternar critério de exame"><i class="bi bi-arrow-left-right me-1"></i>Alternar</button>`;
+        return `<tr><td class="fw-bold">${item.nome}</td><td class="text-center">${badgeExame}</td><td class="text-end">${btnAlt}</td></tr>`;
+      }).join('');
+
+  abrirModal('Cadastro de Classes / Níveis & Regime de Exame', `
+    <div class="mb-3 p-2 rounded border bg-${corRegime}-subtle d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi ${iconRegime} text-${corRegime} fs-5"></i>
+        <div>
+          <strong class="text-${corRegime}">Regime da Instituição: ${nomeRegime}</strong>
+          <small class="text-muted d-block" style="font-size: 0.72rem;">Alterne entre ensino geral e ensino técnico</small>
+        </div>
+      </div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-${isClasses ? 'primary active fw-bold' : 'outline-primary'}" onclick="modalAlterarRegimeENivel('CLASSES')">
+          <i class="bi bi-mortarboard me-1"></i>Classes
+        </button>
+        <button type="button" class="btn btn-${!isClasses ? 'success active fw-bold' : 'outline-success'}" onclick="modalAlterarRegimeENivel('NIVEIS')">
+          <i class="bi bi-layers me-1"></i>Níveis
+        </button>
+      </div>
+    </div>
+
+    <form id="formModalNivelCurricular" onsubmit="salvarItemModalNivel(event)">
+      <div class="row g-2 mb-3">
+        <div class="col" id="modalContainerClasses" ${!isClasses ? 'style="display:none"' : ''}>
+          <label class="form-label small fw-semibold mb-1"><i class="bi bi-mortarboard me-1 text-primary"></i>Classe Curricular:</label>
+          <select id="modalSelectClasse" class="form-select border-primary fw-semibold" onchange="modalAtualizarPreviewExame(this.value)">
+            ${opcoesClasses}
+          </select>
+        </div>
+        <div class="col" id="modalContainerNiveis" ${isClasses ? 'style="display:none"' : ''}>
+          <label class="form-label small fw-semibold mb-1"><i class="bi bi-layers me-1 text-success"></i>Número do Nível Técnico:</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light fw-bold text-success">Nível</span>
+            <input type="number" id="modalInputNivel" class="form-control border-success fw-bold" min="1" max="10" value="1" oninput="modalAtualizarPreviewExame('Nível ' + this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- OPÇÃO COM EXAME / SEM EXAME -->
+      <label class="form-label small fw-bold text-uppercase text-secondary mb-1">
+        <i class="bi bi-patch-question-fill me-1 text-primary"></i> A Classe tem Exame: Sim ou Não?
+      </label>
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <div class="card p-2 text-center border criterio-card" id="modalCardSim" onclick="modalDefinirExame(true)" style="cursor:pointer;">
+            <input type="radio" name="modalExame" id="modalRadioSim" value="sim" style="display:none;">
+            <i class="bi bi-file-earmark-check-fill text-danger fs-3 mb-1"></i>
+            <div class="fw-bold text-danger small">SIM</div>
+            <span class="text-muted" style="font-size: 0.72rem;">Com Exame Final</span>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="card p-2 text-center border border-2 border-secondary bg-secondary-subtle criterio-card" id="modalCardNao" onclick="modalDefinirExame(false)" style="cursor:pointer;">
+            <input type="radio" name="modalExame" id="modalRadioNao" value="nao" checked style="display:none;">
+            <i class="bi bi-dash-circle text-secondary fs-3 mb-1"></i>
+            <div class="fw-bold text-secondary small">NÃO</div>
+            <span class="text-muted" style="font-size: 0.72rem;">Sem Exame (Avaliação Contínua)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-2 bg-light rounded border small text-center mb-3">
+        <span id="modalBadgePreview">A Classe tem Exame: <strong class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Não (Sem Exame)</strong></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">
+        <i class="bi bi-plus-circle-fill me-1"></i> Cadastrar / Atualizar Classe
+      </button>
+    </form>
+
+    <hr class="my-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="fw-bold text-secondary text-uppercase small mb-0"><i class="bi bi-table me-1"></i> Classes Cadastradas na Escola</h6>
+      <button class="btn btn-link btn-sm p-0 text-decoration-none small text-warning fw-semibold" onclick="modalRestaurarPadraoMec()">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Padrão Oficial MEC
+      </button>
+    </div>
+    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light sticky-top">
+          <tr>
+            <th>Classe / Nível</th>
+            <th class="text-center">Regime</th>
+            <th class="text-end">Ação</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyModalNiveis">${htmlLista}</tbody>
+      </table>
+    </div>
+
+    <div class="d-flex gap-2 mt-3 pt-2 border-top">
+      <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="fecharModal(); navegarPara('classes-exames');">
+        <i class="bi bi-arrow-right-circle me-1"></i> Abrir Página Completa de Classes / Níveis
+      </button>
+      <button type="button" class="btn btn-light btn-sm" onclick="fecharModal()">Fechar</button>
+    </div>
+  `);
+
+  window.modalDefinirExame = function(temExame) {
+    const rSim = document.getElementById('modalRadioSim');
+    const rNao = document.getElementById('modalRadioNao');
+    const cSim = document.getElementById('modalCardSim');
+    const cNao = document.getElementById('modalCardNao');
+    const prev = document.getElementById('modalBadgePreview');
+    if (rSim) rSim.checked = Boolean(temExame);
+    if (rNao) rNao.checked = !Boolean(temExame);
+    if (cSim) cSim.className = `card p-2 text-center criterio-card border${temExame ? ' border-2 border-danger bg-danger-subtle shadow-sm' : ' bg-white'}`;
+    if (cNao) cNao.className = `card p-2 text-center criterio-card border${!temExame ? ' border-2 border-secondary bg-secondary-subtle shadow-sm' : ' bg-white'}`;
+    if (prev) prev.innerHTML = temExame
+      ? 'A Classe tem Exame: <strong class="text-danger"><i class="bi bi-file-earmark-check-fill me-1"></i>Sim (Com Exame)</strong>'
+      : 'A Classe tem Exame: <strong class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Não (Sem Exame)</strong>';
+  };
+
+  window.modalAtualizarPreviewExame = function(nomeItem) {
+    const temExame = typeof window.classeTemExame === 'function' ? window.classeTemExame(nomeItem) : (nomeItem.includes('10ª') || nomeItem.includes('12ª'));
+    window.modalDefinirExame(temExame);
+  };
+
+  window.alternarExameModalNivel = async function(nomeItem, novoStatus) {
+    const regimeLocal = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
+    try {
+      await apiFetch('/api/v1/escola-admin/classes-exames', {
+        method: 'POST',
+        body: JSON.stringify({ nome: nomeItem, tem_exame: Boolean(novoStatus), regime: regimeLocal })
+      });
+      if (typeof window.mostrarNotificacao === 'function') {
+        window.mostrarNotificacao(`"${nomeItem}" agora: ${novoStatus ? 'Com Exame (Sim)' : 'Sem Exame (Não)'}`, 'success');
+      }
+      fecharModal();
+      window.modalAdicionarNivelCurricular();
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarTurmas === 'function') carregarTurmas();
+      if (typeof carregarAlunos === 'function') carregarAlunos();
+    } catch (err) {
+      alert('Erro ao atualizar: ' + err.message);
+    }
+  };
+
+  window.modalAlterarRegimeENivel = async function(novoRegime) {
+    const regimeAtual = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
+    if (novoRegime === regimeAtual) return;
+    if (!confirm(`Alterar modelo para "${novoRegime === 'CLASSES' ? 'Classes (1ª à 12ª)' : 'Níveis Técnicos'}"?`)) return;
+    if (typeof window.definirRegimeCurricularInstituicao === 'function') {
+      await window.definirRegimeCurricularInstituicao(novoRegime);
+    }
+    fecharModal();
+    window.modalAdicionarNivelCurricular();
+  };
+
+  window.modalRestaurarPadraoMec = async function() {
+    if (!confirm('Deseja restaurar o padrão oficial do MEC (10ª e 12ª Com Exame, restantes Sem Exame)?')) return;
+    try {
+      await apiFetch('/api/v1/escola-admin/classes-exames', {
+        method: 'POST',
+        body: JSON.stringify({ restaurar_padrao: true })
+      });
+      if (typeof window.mostrarNotificacao === 'function') {
+        window.mostrarNotificacao('Padrão oficial MEC restaurado!', 'success');
+      }
+      fecharModal();
+      window.modalAdicionarNivelCurricular();
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+      if (typeof carregarTurmas === 'function') carregarTurmas();
+      if (typeof carregarAlunos === 'function') carregarAlunos();
+    } catch (err) {
+      alert('Erro ao restaurar: ' + err.message);
+    }
+  };
+
+  window.salvarItemModalNivel = async function(event) {
+    if (event) event.preventDefault();
+    const regimeLocal = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
+    let nomeItem = '';
+    if (regimeLocal === 'CLASSES') {
+      nomeItem = document.getElementById('modalSelectClasse')?.value || '10ª Classe';
+    } else {
+      const num = parseInt(document.getElementById('modalInputNivel')?.value || '1', 10);
+      nomeItem = `Nível ${isNaN(num) || num < 1 ? 1 : num}`;
+    }
+    const temExame = Boolean(document.getElementById('modalRadioSim')?.checked);
+    try {
+      const res = await apiFetch('/api/v1/escola-admin/classes-exames', {
+        method: 'POST',
+        body: JSON.stringify({ nome: nomeItem, tem_exame: temExame, regime: regimeLocal })
+      });
+      if (res && res.success) {
+        if (typeof window.mostrarNotificacao === 'function') {
+          window.mostrarNotificacao(`"${nomeItem}" configurada: ${temExame ? 'Com Exame (Sim)' : 'Sem Exame (Não)'}`, 'success');
+        }
+        fecharModal();
+        window.modalAdicionarNivelCurricular();
+        if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+        if (typeof carregarTurmas === 'function') carregarTurmas();
+        if (typeof carregarAlunos === 'function') carregarAlunos();
+      } else {
+        alert(res?.message || 'Erro ao guardar.');
+      }
+    } catch (err) {
+      alert('Erro de conexão: ' + err.message);
+    }
+  };
+
+  // Pré-visualização inicial
+  window.modalAtualizarPreviewExame('10ª Classe');
 };
 
 function modalNovaSeccaoArea(classePredefinida = '') {

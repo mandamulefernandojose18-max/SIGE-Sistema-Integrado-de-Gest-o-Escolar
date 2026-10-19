@@ -250,7 +250,7 @@ function renderizarFiltrosAlunos() {
   const anoFiltro = state.filtroAlunoAno || state.tenant?.ano_letivo_ativo || '2026';
 
   // 1. Extrair classes únicas das turmas, alunos e disciplinas
-  const classesSet = new Set();
+  const classesSet = new Set(typeof window.obterClassesCurricularesAtivas === 'function' ? window.obterClassesCurricularesAtivas() : []);
   (state.todasTurmas || []).forEach(t => {
     if (t.grau_ano && (anoFiltro === 'TODOS' || !t.ano_letivo || String(t.ano_letivo) === String(anoFiltro))) {
       classesSet.add(t.grau_ano.trim());

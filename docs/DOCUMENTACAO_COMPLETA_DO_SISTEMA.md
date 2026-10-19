@@ -299,14 +299,29 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - **Controlo do Período de Inscrições Públicas:** Botão para abrir/fechar as inscrições online e definir as datas de início e encerramento.
   - **Controlo de Visibilidade de Notas (`permitir_visualizacao_notas`):** Permite ao DAP ou Director bloquear temporariamente a visualização de notas no Portal do Aluno durante períodos de conselho de notas ou manutenção de pautas.
 
-### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas` e `#view-escola`)
-- **Gestão de Classes ou Níveis e Critério de Exame no Módulo de Disciplinas (`#view-disciplinas`):**
-  - O sistema unifica a gestão curricular na página oficial **"Disciplinas"**, sem menus redundantes.
-  - **Escolha do Modelo Estrutural da Instituição:**
-    - A instituição seleciona no topo da página o seu modelo: **Classes (1ª à 12ª)** ou **Níveis (Nível 1, Nível 2...)**.
-    - **Restrição Estrita:** Se o regime for *Classes*, o seletor disponibiliza única e exclusivamente **1ª à 12ª Classe**. Se for *Níveis*, disponibiliza estritamente **Nível 1, Nível 2, Nível 3...**.
-    - **Zero Classes Fictícias:** Nenhuma classe ou nível fictício é pré-carregado. O utilizador adiciona as classes reais através do botão dropdown **"+ Adicionar Classe ▾"** (ou *"+ Adicionar Nível ▾"*).
-  - **Critério Obrigatório "Tem Exame: Sim ou Não" por Disciplina:**
+### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas`)
+
+### Módulo Curricular: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
+- **Página Dedicada e Autônoma de Gestão de Classes e Níveis:**
+  - Acessível diretamente pelo menu lateral (**"Classes / Níveis & Exames"**) ou via botão de atalho no painel de Turmas.
+  - Disponibiliza interface dedicada para a ativação das classes do Sistema Nacional de Educação (SNE: **1ª à 12ª Classe**) ou dos **Níveis Técnicos (Nível 1 a Nível 10)**.
+- **Configuração Obrigatória do Regime de Exame por Classe / Nível:**
+  - Ao cadastrar qualquer classe ou nível, o utilizador define explicitamente:
+    - **Sim — Com Exame:** Classe com realização de exame final/nacional (por regulamento do MINEDH: 10ª Classe e 12ª Classe).
+    - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
+  - Inclui alternância rápida com 1 clique (toggle instantâneo) e botão para restaurar o **Padrão Oficial MEC**.
+- **Interligação Universal em Todo o Sistema:**
+  - As classes cadastradas alimentam dinamicamente e em tempo real:
+    - O formulário de Matrícula de Novos Alunos (`modalNovoAluno`);
+    - O formulário de Edição de Dados do Aluno (`modalEditarAluno`);
+    - Os seletores de criação e geração de Turmas em Lote (`modalCriarTurmasEmLote`, `modalCriarTurma`);
+    - Os filtros hierárquicos de Turmas e Alunos;
+    - A matriz de disciplinas e pautas oficiais da instituição.
+
+### Módulo Curricular: Gestão de Disciplinas e Matriz por Secção (`#view-disciplinas`)
+- **Gestão de Disciplinas por Sub-páginas de Classe e Secção:**
+  - O sistema organiza o plano de estudos em abas horizontais de classes ativas.
+  - Dentro de cada classe, as disciplinas são agrupadas por área de estudo/secção (ex: Ciências com Biologia, Letras com Geografia, Tronco Comum).
     - Como na realidade pedagógica uma classe possui disciplinas com exame (ex: Língua Portuguesa, Matemática) e disciplinas sem exame (ex: TIC's, Educação Física), a definição é atribuída directamente por disciplina.
     - Cada linha da tabela de disciplinas possui botões toggle ergonómicos `[ Sim ]` `[ Não ]` que sincronizam em tempo real via API (`/api/v1/disciplinas/<id>/toggle-exame/`), além da escolha obrigatória no formulário de cadastro/edição.
 - **Controlo de Lotação em Tempo Real:**

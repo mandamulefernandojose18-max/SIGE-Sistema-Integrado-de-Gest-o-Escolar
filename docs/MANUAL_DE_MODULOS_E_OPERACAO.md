@@ -78,7 +78,26 @@
   - **Barra de Ocupação:** Indicadores coloridos de capacidade em tempo real (Verde $<80\%$, Amarelo $\ge 80\%$, Vermelho $100\%$ Lotada).
   - **Formação e Distribuição Automática:** Motor algorítmico que aloca alunos sem turma por ordem alfabética ou balanceamento de género.
   - **Renumerar Turmas:** Normaliza automaticamente os nomes das turmas (`Turma 1`, `Turma 2`, `Turma 3`...) evitando inconsistências.
-  - **Nomeação e Homologação de DT e DC:** O DAP nomeia o professor; o Diretor da Escola homologa formalmente o cargo, emitindo o código `DT...` ou `DC...` no Cofre de Senhas.
+---
+
+### Módulo: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
+- **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
+- **Como aceder:** Clique em **"Classes / Níveis & Exames"** na barra lateral de navegação (categoria *Gestão Escolar*) ou pelo botão de atalho no painel de Turmas.
+- **Página Dedicada e Independente:**
+  - O SIGE disponibiliza uma página autónoma (`classes-exames.html` / `classes-exames.js`) dedicada ao registo das Classes (1ª à 12ª Classe) ou Níveis Técnicos (Nível 1 a Nível 10) ministrados na instituição.
+- **Seleção Obrigatória: A Classe tem Exame: Sim ou Não:**
+  - No formulário e no modal rápido, o utilizador define com cartões visuais e radio buttons:
+    - **Sim — Com Exame:** Classe com exame final ou exame nacional obrigatório (ex: 10ª e 12ª Classes no SNE Moçambique).
+    - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
+  - Tabela com listagem completa, contadores analíticos e botão de **Alternância Instantânea (Sim / Não)** em 1 clique.
+  - Botão de restauração do **Padrão Oficial MEC**: restabelece automaticamente 10ª e 12ª Com Exame e as restantes Sem Exame.
+- **Interligação Automática com Todo o Sistema:**
+  - Todas as classes cadastradas ficam instantaneamente disponíveis de forma sincronizada e automática em:
+    - **Matrícula de Alunos (`modalNovoAluno`):** O seletor de classe carrega as classes ativas da instituição.
+    - **Edição de Alunos (`modalEditarAluno`):** As opções de classe refletem a matriz curricular da escola.
+    - **Filtros de Alunos e Turmas:** Listam as classes ativas cadastradas.
+    - **Criação de Turmas (Individual, Lote e Formação Automática):** Seletores de classe carregam as classes da instituição.
+    - **Matriz de Disciplinas e Caderneta:** Sincronização automática para inclusão curricular.
 
 ---
 

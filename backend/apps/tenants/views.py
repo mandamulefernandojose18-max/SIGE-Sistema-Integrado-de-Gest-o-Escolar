@@ -935,12 +935,16 @@ class ClassesExamesConfigView(APIView):
 
         regime = getattr(escola, 'regime_curricular', 'CLASSES') or 'CLASSES'
         salvos = escola.config_classes_exames or {}
-        if not isinstance(salvos, dict):
-            salvos = {}
+        if not salvos:
+            if regime == 'CLASSES':
+                salvos = {c[0]: c[1] for c in self.CLASSES_SNE_PADRAO}
+            else:
+                salvos = {n[0]: n[1] for n in self.NIVEIS_PADRAO}
+            escola.config_classes_exames = salvos
+            escola.save(update_fields=['config_classes_exames', 'updated_at'])
 
         resultado = []
         if regime == 'CLASSES':
-            # Retorna estritamente apenas as classes que a escola adicionou
             for nome_c, _ in self.CLASSES_SNE_PADRAO:
                 if nome_c in salvos:
                     resultado.append({
@@ -949,7 +953,6 @@ class ClassesExamesConfigView(APIView):
                         'tipo': 'CLASSE'
                     })
         else:
-            # Retorna estritamente apenas os níveis que a escola adicionou
             niveis_salvos = [k for k in salvos if 'nível' in k.lower() or 'nivel' in k.lower()]
             itens_ordenados = sorted(
                 niveis_salvos,
@@ -987,6 +990,13 @@ class ClassesExamesConfigView(APIView):
 
         regime_atual = getattr(escola, 'regime_curricular', 'CLASSES') or 'CLASSES'
         salvos = dict(escola.config_classes_exames or {})
+
+        # Restaurar padrão oficial MEC / Regulamentar
+        if data.get('restaurar_padrao'):
+            if regime_atual == 'CLASSES':
+                salvos = {c[0]: c[1] for c in self.CLASSES_SNE_PADRAO}
+            else:
+                salvos = {n[0]: n[1] for n in self.NIVEIS_PADRAO}
 
         # Limpar todas as classes/níveis
         if data.get('limpar_tudo'):

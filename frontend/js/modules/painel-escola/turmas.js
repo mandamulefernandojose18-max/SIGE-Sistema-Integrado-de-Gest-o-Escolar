@@ -99,7 +99,8 @@ function renderizarEstatisticasETabelaTurmas() {
   // Sincronizar dinamicamente o select de filtro apenas com as Classes ou Níveis reais das turmas da escola
   const elFiltroClasse = document.getElementById('filtroTurmasClasse');
   if (elFiltroClasse) {
-    const classesTurmas = Array.from(new Set(turmas.map(t => (t.grau_ano || '').trim()).filter(Boolean))).sort((a, b) => {
+    const ativasEscola = typeof window.obterClassesCurricularesAtivas === 'function' ? window.obterClassesCurricularesAtivas() : [];
+    const classesTurmas = Array.from(new Set([...ativasEscola, ...turmas.map(t => (t.grau_ano || '').trim()).filter(Boolean)])).sort((a, b) => {
       const numA = parseInt(a.replace(/\D/g, '')) || 0;
       const numB = parseInt(b.replace(/\D/g, '')) || 0;
       return numA - numB;
