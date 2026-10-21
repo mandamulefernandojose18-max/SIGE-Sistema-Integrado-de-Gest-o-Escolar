@@ -215,3 +215,28 @@ class TestPlanosPagamentoMultiTenant:
         ids_pags = [p['id'] for p in pags_retornados]
         assert str(pag_a.id) in ids_pags
         assert str(pag_b.id) not in ids_pags
+
+    def test_superadmin_eliminar_escola_com_sucesso(self):
+        """
+        O SuperAdmin pode eliminar definitivamente uma escola, mesmo que possua registos de gestão SaaS.
+        """
+        from apps.tenants.models import SaasPlano, SaasAssinatura
+        p_saas = SaasPlano.objects.create(nome='Plano Delete Test', preco_mensal=100)
+        nova_escola = Escola.objects.create(
+            nome='Escola Para Eliminar',
+            nif_cnpj='NIF_PARA_ELIMINAR_99',
+            email='del@sige.edu.mz',
+            status='ATIVA'
+        )
+        SaasAssinatura.objects.create(
+            instituicao=nova_escola,
+            plano=p_saas,
+            proxima_fatura_em='2026-11-01'
+        )
+
+        self.login('super@sige.co.mz', 'SuperPassword123!')
+        res = self.client.delete(f'/api/v1/saas-admin/escolas/{nova_escola.id}/')
+        assert res.status_code == 200
+        assert res.data.get('success') is True
+        assert not Escola.objects.filter(id=nova_escola.id).exists()
+

@@ -132,7 +132,7 @@ Registo institucional de cada Tenant na plataforma.
 | `config_parametros_exames` | `JSON` | Não | Parâmetros de avaliação de exame: percentagem de frequência (`peso_frequencia`), percentagem de exame (`peso_exame`) e nota mínima de exame (`nota_minima_exame`, escala 0 a 20). |
 | `regime_curricular` | `VARCHAR(20)` | Não | Modelo estrutural da instituição: `CLASSES` (permite exclusivamente da 1ª à 12ª Classe) ou `NIVEIS` (permite exclusivamente Níveis: Nível 1, Nível 2...). Padrão: `CLASSES`. |
 | `usar_emblema_nacional` | `BOOLEAN` | Não | Exibição do Emblema da República no cabeçalho. |
-| `director_nome` / `dap_nome` / `chefe_secretaria_nome` | `VARCHAR(255)` | Sim | Titulares oficiais dos órgãos diretivos. |
+| `director_nome` / `dap_nome` / `chefe_secretaria_nome` / `director_carreira` | `VARCHAR(255/100)` | Sim | Titulares oficiais dos órgãos diretivos (padrão vazio, estritamente sem dados fictícios; preenchido exclusivamente com dados reais e fiéis). |
 
 ---
 

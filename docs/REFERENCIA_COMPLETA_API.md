@@ -292,7 +292,8 @@
 | `GET` | `/api/v1/documentos/boletim/<uuid:aluno_id>/(pdf\|docx\|xlsx)` | Autenticado | Boletim Individual de Notas |
 | `GET` | `/api/v1/documentos/declaracao/<uuid:aluno_id>/(pdf\|docx\|xlsx)` | Autenticado | Declaração Escolar com Notas |
 | `GET` | `/api/v1/documentos/certificado/<uuid:aluno_id>/(pdf\|docx\|xlsx)` | Autenticado | Certificado com QR Code |
-| `GET` | `/api/v1/documentos/recibo/<uuid:pagamento_id>/(pdf\|docx)` | Financeiro | Recibo Oficial de Quitação |
+| `GET` | `/api/v1/impressao/recibo/<uuid:pagamento_id>/` | Autenticado | Dados JSON do recibo com status síncrono `PAGO` ou `NÃO PAGO` e dados completos da escola e do aluno |
+| `GET` | `/api/v1/impressao/recibo/<uuid:pagamento_id>/(pdf\|docx)` | Autenticado | Recibo Oficial (exibe `NÃO PAGO` com marca d'água para pendentes e `PAGO` após liquidação) |
 | `GET` | `/api/v1/documentos/ficha/<uuid:aluno_id>/(pdf\|docx)` | Secretaria | Ficha Biográfica do Estudante |
 | `GET` | `/api/v1/documentos/lote/turma/<uuid:turma_id>/(pdf\|docx\|xlsx)` | Pedagógico | Emissão em lote para toda a turma |
 

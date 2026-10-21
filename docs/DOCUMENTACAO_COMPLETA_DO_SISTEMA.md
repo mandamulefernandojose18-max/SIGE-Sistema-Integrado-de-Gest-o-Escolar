@@ -468,6 +468,8 @@ O módulo financeiro do SIGE implementa a gestão completa da tesouraria da inst
   - Suporta o registo do número de telefone móvel (`+258 84/85` ou `+258 86/87`) e do código/referência da transacção móvel para conciliação imediata.
   - Acesso direto e responsivo tanto para a gestão escolar/secretaria como para o próprio aluno no **Espaço do Aluno**, com botão dedicado *"Pagar com Carteira Móvel"*.
   - Gera automaticamente o número de recibo sequencial único (`REC-2026-00001`) pronto para impressão ou download em PDF/Word/Excel.
+  - **Regra Estrita de Recibos Não Pagos vs. Pagos:** Para todos os recibos não pagos ou pendentes de liquidação/confirmação, o sistema exibe taxativamente a menção **"NÃO PAGO"** (marca d'água de segurança na diagonal, banner vermelho de alerta, valor liquidado a 0,00 MT e nota expressa de que o documento não constitui quitação). Apenas após liquidação ou confirmação efetiva no sistema é que o recibo passa a indicar **"PAGO"** (com carimbo/marca d'água verde e quitação oficial).
+  - **Sincronização Total com Informações Atuais:** Todos os recibos (seja em modal web, impressão pelo navegador, PDF ReportLab ou Word DOCX) sincronizam em tempo real os dados atuais da instituição (Nome oficial, NUIT, Província, Distrito, Telefone, E-mail e Endereço) e do aluno (Nome completo, Matrícula canónica oficial, Turma, Grau/Classe, Turno, Sala e Encarregado de Educação), com carimbo digital de autenticação cronológica.
 - **KPIs Financeiros (`/pagamentos/stats`):** Total Recebido (MZN), Total Pendente (MZN), Total em Atraso (MZN), Taxa de Adimplência (%), Taxa de Inadimplência (%) e histórico mensal de faturação dos 12 meses do ano.
 
 ### Módulo 15: Central de Impressão Individual e em Lote (`#view-impressao`)
@@ -476,7 +478,7 @@ Centro unificado para emissão, pré-visualização em folha A4 e descarregament
   1. **Boletim Individual de Aproveitamento (`BOLETIM`)**
   2. **Declaração de Matrícula / Frequência / Notas (`DECLARACAO`)**
   3. **Certificado Oficial com QR Code (`CERTIFICADO`)**
-  4. **Recibo Oficial de Pagamento (`RECIBO`)**
+  4. **Recibo Oficial de Pagamento (`RECIBO`):** Exibe estritamente **"NÃO PAGO"** para cobranças pendentes e **"PAGO"** unicamente após liquidação/confirmação, com marca d'água de segurança e dados institucionais sincronizados.
   5. **Ficha Biográfica / Cadastro do Aluno (`FICHA`)**
   6. **Pauta Geral Oficial da Turma (`PAUTA_TURMA`)**
   7. **Acta Oficial do Conselho de Avaliação (`ACTA_CONSELHO`)**
@@ -627,7 +629,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET/POST` | `/api/v1/saas-admin/planos` | `SUPERADMIN` | Lista ou cria novos planos de subscrição SaaS. |
 | `PUT/PATCH` | `/api/v1/saas-admin/planos/<pk>` | `SUPERADMIN` | Atualiza preço, duração ou limites de um plano. |
 | `GET/POST` | `/api/v1/saas-admin/escolas` | `SUPERADMIN` | Lista todas as escolas ou regista uma nova instituição com geração automática de contas diretivas. |
-| `GET/PUT/PATCH/DELETE` | `/api/v1/saas-admin/escolas/<pk>` | `SUPERADMIN` | Consulta, edita contrato/dados ou elimina definitivamente uma escola. |
+| `GET/PUT/PATCH/DELETE` | `/api/v1/saas-admin/escolas/<pk>` | `SUPERADMIN` | Consulta, edita contrato/dados ou elimina definitivamente uma escola (com limpeza atómica autorizada de registos SaaS e confirmação explícita com código único). |
 | `PATCH` | `/api/v1/saas-admin/escolas/<pk>/toggle-status` | `SUPERADMIN` | Alterna o estado de uma escola entre `ATIVA` e `SUSPENSA` (ou `/status`). |
 | `POST` | `/api/v1/saas-admin/escolas/<pk>/renovar` | `SUPERADMIN` | Renova a assinatura da escola adicionando dias de vigência e reativando o acesso. |
 | `POST` | `/api/v1/saas-admin/cron/verificar-expiracoes` | `SUPERADMIN` | Executa varredura imediata de todas as assinaturas vencidas e marca-as como `EXPIRADA`. |
@@ -865,6 +867,16 @@ O SIGE implementa um mecanismo de deteção de actualizações sem indicadores p
   5. Força recarregamento limpo sem cache (`window.location.reload(true)`).
 - **Opção "Mais tarde" (`sigeFecharBannerActualizacao()`):**
   - Suspende temporariamente o banner por 15 minutos para que o utilizador conclua uma ação sem perder o aviso.
+
+---
+
+## 14. Governança, Higienização e Fidelidade Integral de Dados
+
+Em conformidade rigorosa com a directriz de manter o sistema puro para receber dados reais e fiéis:
+1. **Remoção Absoluta de Dados Fictícios:** Foram expurgados do banco de dados e do código-fonte todos os registros, escolas e utilizadores temporários de teste, bem como nomes pré-fixados de demonstração.
+2. **Campos Directivos Puros:** O modelo `Escola` possui campos de directoria (`director_nome`, `director_carreira`, `dap_nome`, `chefe_secretaria_nome`) com valor padrão vazio (`blank=True, default=''`), garantindo que apenas os membros reais nomeados por cada instituição constem nos cadastros e impressões oficiais.
+3. **Resguardo Legal de Documentos Emitidos:** Na ausência temporária de filiação ou número de identificação civil nos formulários, o motor de relatórios do SIGE adota preenchimento neutro (`---`), eliminando qualquer possibilidade de geração inadvertida de dados fictícios em certidões e certificados do MEC.
+
 
 
 

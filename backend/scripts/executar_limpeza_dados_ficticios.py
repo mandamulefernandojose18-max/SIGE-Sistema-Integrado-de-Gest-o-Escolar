@@ -6,8 +6,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production' if os.environ.get('SIGE_ENV') == 'production' else 'config.settings.development')
 django.setup()
 
-from django.db import transaction
-from apps.tenants.models import Escola, Plano, AssinaturaEscola
+from django.db import transaction, connection
+from apps.tenants.models import (
+    Escola, Plano, AssinaturaEscola,
+    SaasAssinatura, SaasLogAssinatura, SaasFatura, SaasPagamento
+)
 from apps.disciplinas.models import Disciplina
 from apps.turmas.models import Turma
 from apps.alunos.models import Aluno
@@ -22,6 +25,9 @@ print("SIGE — PURIFICAÇÃO E LIMPEZA INTEGRAL DE DADOS FICTÍCIOS")
 print("=" * 75)
 
 with transaction.atomic():
+    with connection.cursor() as cursor:
+        cursor.execute("SET LOCAL sige.permitir_delecao_escola = 'true';")
+
     # -------------------------------------------------------------
     # 1. REMOVER ESCOLAS FICTÍCIAS, TEMPORÁRIAS E DUPLICADAS DE TESTE
     # -------------------------------------------------------------
@@ -43,9 +49,18 @@ with transaction.atomic():
     users_ficticios_esc.delete()
     print(f"    - {u_count} utilizadores vinculados a instituições de teste removidos.")
     
-    # Eliminar as escolas fictícias (cascata limpa turmas, assinaturas, etc.)
+    # Eliminar registros SaaS antes de deletar a escola (com permissão administrativa ativa)
     for esc in todas_ficticias:
         nome_e = esc.nome
+        SaasLogAssinatura.objects.filter(instituicao=esc).delete()
+        SaasPagamento.objects.filter(fatura__assinatura__instituicao=esc).delete()
+        SaasFatura.objects.filter(assinatura__instituicao=esc).delete()
+        SaasAssinatura.objects.filter(instituicao=esc).delete()
+        AssinaturaEscola.objects.filter(escola=esc).delete()
+        Turma.objects.filter(escola=esc).delete()
+        Disciplina.objects.filter(escola=esc).delete()
+        Aluno.objects.filter(escola=esc).delete()
+        Professor.objects.filter(escola=esc).delete()
         esc.delete()
         print(f"    - Instituição fictícia '{nome_e}' eliminada com sucesso!")
 
@@ -101,7 +116,7 @@ with transaction.atomic():
         print(f"    - '{cambine.nome}': Director='{cambine.director_nome}', DAP e Secretaria purificados (em branco para dados fiéis).")
 
         # Remover disciplina de teste 'bio-10' sem alunos nem notas em Cambine (Cambine só leciona 11ª Classe)
-        bio10 = Disciplina.objects.filter(escola=cambine, codigo='bio-10', notas__isnull=True, alocacaodocente__isnull=True).first()
+        bio10 = Disciplina.objects.filter(escola=cambine, codigo='bio-10', notas__isnull=True, alocacoes__isnull=True).first()
         if bio10:
             bio10.delete()
             print(f"    - Disciplina de teste 'bio-10' removida de Cambine.")

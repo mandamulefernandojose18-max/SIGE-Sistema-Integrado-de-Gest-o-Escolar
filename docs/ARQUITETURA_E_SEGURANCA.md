@@ -221,3 +221,13 @@ Para mitigar falsificações de certificados e declarações escolares:
 3. O QR Code aponta para o validador público oficial:  
    `https://sigesaas.duckdns.org/verificar-certificado.html?codigo=CERT-XXXXXXXXXX`
 4. A rota da API `/api/v1/public/verificar-certificado/<codigo>` é pública e imune a bloqueios de assinatura, permitindo que ministérios, embaixadas, universidades e empresas comprovem a veracidade das notas emitidas a qualquer momento.
+
+---
+
+## 7. Governança e Fidelidade Absoluta de Dados (Zero Dados Fictícios)
+
+Em estrita conformidade com os princípios de confiabilidade jurídica e auditoria institucional do SIGE:
+1. **Eliminação Integral de Placeholders e Dados Fictícios:** É expressamente vedada a inserção de nomes simulados, dados de teste ou valores fictícios em modelos de dados, seeds, formulários ou relatórios oficiais (`pdf_service.py`, boletins e certificados).
+2. **Campos Directivos Nativos Limpos:** Modelos como `Escola` iniciam com valores padrão vazios para `director_nome`, `director_carreira`, `dap_nome` e `chefe_secretaria_nome`, exigindo que a instituição ou a autoridade escolar cadastre exclusivamente informações reais e fidedignas.
+3. **Imunidade de Dados Oficiais em Documentos:** Em casos de documentos emitidos com dados de filiação ou certidão incompletos na base escolar, o sistema utiliza marcadores neutros (`---`) em vez de nomes simulados, preservando o valor probatório e a integridade legal da documentação emitida perante o MEC.
+

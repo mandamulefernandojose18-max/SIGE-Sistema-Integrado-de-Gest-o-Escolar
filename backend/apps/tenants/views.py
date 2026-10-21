@@ -467,15 +467,21 @@ class EscolaViewSet(viewsets.ModelViewSet):
 
         # Se existirem registos nas tabelas de gestão SaaS (assinaturas, logs, faturas),
         # limpar de forma controlada com autorização de sessão SuperAdmin para respeitar os triggers de integridade
+        from .models import SaasAssinatura, SaasFatura, SaasPagamento, SaasLogAssinatura
         with connection.cursor() as cursor:
             try:
-                cursor.execute("SET LOCAL sige.permitir_delecao_escola = 'true';")
-                cursor.execute("DELETE FROM sige_saas_log_assinaturas WHERE instituicao_id = %s;", [str(escola.id)])
-                cursor.execute("DELETE FROM sige_saas_pagamentos WHERE instituicao_id = %s;", [str(escola.id)])
-                cursor.execute("DELETE FROM sige_saas_faturas WHERE instituicao_id = %s;", [str(escola.id)])
-                cursor.execute("DELETE FROM sige_saas_assinaturas WHERE instituicao_id = %s;", [str(escola.id)])
+                if connection.vendor == 'postgresql':
+                    cursor.execute("SET LOCAL sige.permitir_delecao_escola = 'true';")
             except Exception as e_sql:
-                logger.warning(f"Aviso ao limpar registos SaaS da escola {cod} ({escola.id}): {e_sql}")
+                logger.warning(f"Aviso ao definir permissão de sessão: {e_sql}")
+
+        try:
+            SaasLogAssinatura.objects.filter(instituicao_id=escola.id).delete()
+            SaasPagamento.objects.filter(instituicao_id=escola.id).delete()
+            SaasFatura.objects.filter(instituicao_id=escola.id).delete()
+            SaasAssinatura.objects.filter(instituicao_id=escola.id).delete()
+        except Exception as e_del:
+            logger.warning(f"Aviso ao limpar registos SaaS da escola {cod} ({escola.id}): {e_del}")
 
         escola.delete()
         identificador = f"[{cod}] {nome}" if cod else nome
