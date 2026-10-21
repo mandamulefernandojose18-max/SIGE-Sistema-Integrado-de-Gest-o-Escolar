@@ -189,7 +189,8 @@
 - **Como aceder:** Clique em **"Exames"** na barra lateral de navegação (categoria *Avaliação & Notas*).
 - **Princípio da Fidelidade e Dados Reais:**
   - As disciplinas e as **Médias de Frequência** têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
-  - O seletor de turmas filtra dinamicamente e exibe apenas turmas pertencentes a classes ou níveis parametrizados como **"Com Exame"** (padrão MEC: 10ª e 12ª Classes).
+  - O seletor de turmas filtra dinamicamente e exibe apenas turmas pertencentes a classes ou níveis parametrizados como **"Com Exame"** (padrão MEC: 10ª e 12ª Classes, bem como 11ª Classe ou níveis livremente parametrizados pela escola em *Regime Curricular & Classes com Exame*).
+  - **Resiliência e Diagnóstico Amigável na Interface:** Em turmas sem alunos matriculados ativos ou sem disciplinas cadastradas na secção, a interface exibe cartões informativos contextuais e botão de retry ("Tentar Novamente"), prevenindo mensagens genéricas de erro.
 - **Janela de Parâmetros de Avaliação de Exame (Botão "Parâmetros do Exame"):**
   - Permite aos responsáveis pedagógicos e diretores configurar os critérios de cálculo:
     - **% Nota de Frequência:** Percentual de peso da média de frequência (padrão: 50%).

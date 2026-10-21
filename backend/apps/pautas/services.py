@@ -559,22 +559,24 @@ def turma_tem_exame(turma, escola=None):
 def disciplina_tem_exame_na_turma(disciplina, turma):
     """
     Determina se uma disciplina específica realiza exame oficial na respectiva turma/classe.
-    Respeita a configuração explícita disciplina.tem_exame e a matriz curricular oficial MEC.
+    Respeita a configuração explícita disciplina.tem_exame, classes configuradas pela instituição
+    e a matriz curricular oficial MEC.
     """
     if getattr(disciplina, 'tem_exame', False):
         return True
 
     m_canon = identificar_materia_canonica(disciplina)
     grau = str(getattr(turma, 'grau_ano', '') or '').lower()
+    tem_regime_exame = turma_tem_exame(turma)
 
-    # 10ª Classe: 8 disciplinas de Exame Nacional (Português, Inglês, História, Geografia, Biologia, Química, Física, Matemática)
-    if re.search(r'(^|[^\d])10([ªaº\.\s]|$)', grau):
+    # 10ª Classe (ou turmas do 1º Ciclo com regime de exame):
+    if re.search(r'(^|[^\d])10([ªaº\.\s]|$)', grau) or (tem_regime_exame and not re.search(r'(^|[^\d])(11|12)([ªaº\.\s]|$)', grau)):
         if m_canon in {'LP', 'ING', 'HIS', 'GEO', 'BIO', 'QUI', 'FIS', 'MAT'}:
             return True
         return False
 
-    # 12ª Classe: Exames Nacionais por secção/área
-    if re.search(r'(^|[^\d])12([ªaº\.\s]|$)', grau):
+    # 11ª e 12ª Classes (ou 2º Ciclo com regime de exame): Exames por secção/área
+    if re.search(r'(^|[^\d])(11|12)([ªaº\.\s]|$)', grau) or tem_regime_exame:
         _, sub_area = categorizar_area(getattr(turma, 'area', ''), getattr(turma, 'nome', ''))
         if sub_area == 'CIENCIAS_BIOLOGIA' and m_canon in {'LP', 'MAT', 'BIO', 'QUI'}:
             return True
@@ -608,11 +610,12 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
 
     # Identificar quais têm exame e quais não têm
     disciplinas_info = []
+    disciplinas_objs_map = {}
     for d in disciplinas:
         tem_ex = disciplina_tem_exame_na_turma(d, turma)
+        disciplinas_objs_map[str(d.id)] = d
         disciplinas_info.append({
             'id': str(d.id),
-            'obj': d,
             'nome': d.nome,
             'codigo': d.codigo or '',
             'tem_exame': tem_ex
@@ -682,7 +685,7 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
 
         for d_info in disciplinas_info:
             d_id = d_info['id']
-            d_obj = d_info['obj']
+            d_obj = disciplinas_objs_map.get(d_id)
             tem_ex = d_info['tem_exame']
 
             # Calcular média de frequência real a partir dos trimestres

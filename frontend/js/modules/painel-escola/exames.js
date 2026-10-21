@@ -145,6 +145,9 @@ async function carregarPautaExamesTurma() {
 
     const d = res.data || res;
     window._sigePautaExamesData = d;
+    if (!window._sigeNotasExameModificadas) {
+      window._sigeNotasExameModificadas = new Map();
+    }
     window._sigeNotasExameModificadas.clear();
 
     // Actualizar Cabeçalhos Oficiais Moçambique
@@ -184,10 +187,16 @@ async function carregarPautaExamesTurma() {
     renderizarTabelaExamesHtml(d);
   } catch (err) {
     console.error('Erro ao carregar pauta de exames:', err);
+    const msg = err?.message || 'Erro de comunicação ao carregar pauta de exames.';
+    const safeMsg = typeof escapeHtml === 'function' ? escapeHtml(msg) : msg;
     container.innerHTML = `
-      <div class="alert alert-danger text-center my-4">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        Erro de comunicação ao carregar pauta de exames.
+      <div class="alert alert-danger text-center my-4 py-3">
+        <i class="bi bi-exclamation-triangle-fill fs-4 text-danger d-block mb-2"></i>
+        <div class="fw-bold mb-1">${safeMsg}</div>
+        <p class="small text-muted mb-3">Não foi possível carregar a pauta de exames desta turma.</p>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="carregarPautaExamesTurma()">
+          <i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente
+        </button>
       </div>
     `;
   }
@@ -205,9 +214,23 @@ function renderizarTabelaExamesHtml(d) {
 
   if (alunos.length === 0) {
     container.innerHTML = `
-      <div class="alert alert-info text-center my-4">
-        <i class="bi bi-info-circle-fill me-2"></i>
-        Não existem alunos matriculados ativos nesta turma de exame.
+      <div class="alert alert-info text-center my-4 py-3">
+        <i class="bi bi-info-circle-fill fs-4 text-info d-block mb-2"></i>
+        <div class="fw-semibold">Não existem alunos matriculados ativos nesta turma de exame.</div>
+        <small class="text-muted">Selecione outra turma no filtro acima para visualizar e lançar notas de exame.</small>
+      </div>
+    `;
+    const rodape = document.getElementById('pautaExameRodapeOficial');
+    if (rodape) rodape.classList.add('d-none');
+    return;
+  }
+
+  if (disciplinasComExame.length === 0 && disciplinasSemExame.length === 0) {
+    container.innerHTML = `
+      <div class="alert alert-warning text-center my-4 py-3">
+        <i class="bi bi-exclamation-triangle-fill fs-4 text-warning d-block mb-2"></i>
+        <div class="fw-semibold">Não foram encontradas disciplinas do plano curricular associadas à área desta turma.</div>
+        <small class="text-muted">Classe: ${d.turma?.grau_ano || ''} | Área: ${d.turma?.area || 'Geral'}</small>
       </div>
     `;
     const rodape = document.getElementById('pautaExameRodapeOficial');

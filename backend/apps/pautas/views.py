@@ -1002,7 +1002,10 @@ class PautaExamesView(APIView):
         escola = get_tenant_escola(request)
         turma = get_object_or_404(Turma, id=turma_id)
         if escola and turma.escola_id != escola.id:
-            return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
+            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+                escola = turma.escola
+            else:
+                return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
 
         ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
         dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_letivo)
@@ -1029,7 +1032,10 @@ class PautaExamesView(APIView):
         escola = get_tenant_escola(request)
         turma = get_object_or_404(Turma, id=turma_id)
         if escola and turma.escola_id != escola.id:
-            return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
+            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+                escola = turma.escola
+            else:
+                return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
 
         ano_letivo = request.data.get('ano_letivo') or getattr(escola, 'ano_letivo_ativo', '2026') or '2026'
         notas_payload = request.data.get('notas', [])
@@ -1122,7 +1128,10 @@ class PautaExamesXLSXView(APIView):
         escola = get_tenant_escola(request)
         turma = get_object_or_404(Turma, id=turma_id)
         if escola and turma.escola_id != escola.id:
-            return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
+            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+                escola = turma.escola
+            else:
+                return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
 
         ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
         orientacao = request.query_params.get('orientacao', 'landscape')
@@ -1145,7 +1154,10 @@ class PautaExamesPDFView(APIView):
         escola = get_tenant_escola(request)
         turma = get_object_or_404(Turma, id=turma_id)
         if escola and turma.escola_id != escola.id:
-            return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
+            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+                escola = turma.escola
+            else:
+                return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
 
         ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
         orientacao = request.query_params.get('orientacao', 'landscape')

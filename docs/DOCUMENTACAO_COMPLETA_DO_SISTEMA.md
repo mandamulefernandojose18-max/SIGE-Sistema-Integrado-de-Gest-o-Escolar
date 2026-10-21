@@ -412,7 +412,8 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Como aceder:** Clique em **"Exames"** na barra lateral de navegação (categoria *Avaliação & Notas*).
 - **Conformidade Normativa e Dados Reais:**
   - As disciplinas e as médias de frequência (MFD) têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
-  - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True` ou 10ª / 12ª Classes).
+  - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True`, 10ª, 11ª ou 12ª Classes).
+  - Em casos de turmas sem matrículas ativas ou sem disciplinas curriculares alocadas, a aplicação exibe alertas amigáveis explicativos e botão de repetição ("Tentar Novamente"), mantendo a estabilidade total da SPA.
 - **Janela Modal de Parâmetros de Exame:**
   - Permite configurar a percentagem da nota de frequência (% Freq, padrão 50%), a percentagem da nota de exame (% Exame, padrão 50%, totalizando 100%) e a nota mínima do exame (0 a 20 valores, padrão 10.0).
 - **Regras de Avaliação e 1ª / 2ª Época:**
