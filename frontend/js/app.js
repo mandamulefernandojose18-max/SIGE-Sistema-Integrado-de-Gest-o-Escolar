@@ -14385,7 +14385,7 @@ function renderizarBoletim(d) {
       <span class="badge bg-primary px-3 py-2"><i class="bi bi-file-earmark-check me-1"></i> Boletim de Aproveitamento Escolar Oficial A4</span>
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('BOLETIM', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Boletim - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${ano}`)">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Boletim_${safeName}_${ano}')">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -14556,7 +14556,7 @@ function renderizarDeclaracao(d) {
       <span class="badge bg-success px-3 py-2"><i class="bi bi-file-earmark-check me-1"></i> Declaração Oficial com Notas A4</span>
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('DECLARACAO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Declaracao - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${ano}`)">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Declaracao_${safeName}_${ano}')">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -14770,7 +14770,7 @@ function renderizarCertificado(d) {
           <i class="bi bi-shield-check me-1"></i> Validar Autenticidade
         </a>
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Certificado - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${ano}`)">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Certificado_${safeName}_${ano}')">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -14823,7 +14823,7 @@ function renderizarRecibo(d) {
     </div>
 
     <div class="text-center mt-4 no-print">
-      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo(`Recibo - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${d.pagamento?.mes_referencia || '2026'}`)">
+      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo('Recibo_${safeName}_${d.pagamento?.mes_referencia || '2026'}')">
         <i class="bi bi-printer me-2"></i> Imprimir Recibo
       </button>
     </div>
@@ -14867,7 +14867,7 @@ function renderizarFichaAluno(d) {
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('FICHA', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
         ${alunoId ? `<button class="btn btn-outline-primary btn-sm fw-semibold" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Descarregar Word (DOCX)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Ficha - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${anoLetivo}`)">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Ficha_${safeName}_${anoLetivo}')">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>

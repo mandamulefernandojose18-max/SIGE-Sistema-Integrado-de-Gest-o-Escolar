@@ -852,6 +852,7 @@ O SIGE incorpora a **Central Operacional de Maximização do Gateway**, disponí
 O SIGE implementa um mecanismo de deteção de actualizações sem indicadores permanentes na interface:
 - **Exibição Estritamente sob Demanda:** Não existem botões ou alertas persistentes quando a aplicação está na versão mais recente.
 - **Disparo Visual Quando Há Necessidade:** Sempre que um novo deploy é realizado no servidor, o sistema detecta que o build remoto difere do build actualmente em execução na janela do utilizador, exibindo imediatamente o Banner Flutuante (`#sigeBannerActualizacaoPendente`) e o botão de alerta no Topbar (`#btnActualizacaoPendente`).
+- **Comunicação Simples e Direta:** A notificação informa simplesmente que existe uma nova actualização pronta a instalar no sistema, com visual sóbrio e direto, sem detalhar mensagens de commit ou minúcias técnicas aos utilizadores finais.
 
 ### 13.2 Ciclo de Deteção Multi-Gatilho
 1. **Verificação no Carregamento Inicial (2.5s):** Consulta `/version.json` 2.5 segundos após o `window.onload` para identificar se a página foi servida a partir de cache antigo (PWA/disco).
