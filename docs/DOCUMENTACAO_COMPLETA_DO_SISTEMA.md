@@ -535,6 +535,17 @@ Implementado em `backend/apps/documentos/views.py`, o motor documental do SIGE g
 3. **Cofre Persistente de Documentos na Base de Dados (`DocumentoSalvo`):**
    - Cada vez que um PDF, DOCX ou XLSX é gerado (individualmente ou em lote), a função `_persistir_documento_bd()` armazena automaticamente uma cópia binária codificada em Base64 na tabela `sige_documentos_salvos` (mantendo os últimos 200 documentos por escola para otimização de espaço) e grava um registo de auditoria em `sige_logs_impressao`.
    - Através dos endpoints `/api/v1/documentos/salvos` e `/api/v1/documentos/salvos/<doc_id>/download`, a escola pode consultar o histórico de documentos emitidos e voltar a descarregar qualquer ficheiro exatamente como foi emitido.
+4. **Nomenclatura Padronizada de Download (`Nome do documento - Nome do aluno - Ano`):**
+   - Todo documento descarregado no sistema (individual ou via pré-visualização) adopta estritamente a nomenclatura:
+     `Nome do documento - Nome do aluno - Ano.extensao`
+     Exemplos:
+     - `Boletim - Joao Manuel Silva - 2026.pdf`
+     - `Declaracao - Maria Santos - 2026.docx`
+     - `Certificado - Carlos Tembe - 2026.xlsx`
+     - `Recibo - Joao Manuel Silva - 2026.pdf`
+     - `Ficha - Ana Paula Tembe - 2026.docx`
+   - Para lotes de turmas: `Boletins - 10A - 2026.pdf` ou `Declaracoes - 11B - 2026.docx`.
+   - O Django REST envia os cabeçalhos em conformidade com RFC 6266 e RFC 5987 (`Content-Disposition: attachment; filename="..."; filename*=UTF-8''...`), expostos através de `CORS_EXPOSE_HEADERS = ['content-disposition', 'content-type']`, garantindo que navegadores e gestores de ficheiros salvem com o nome formatado e limpo em qualquer sistema operativo.
 
 ---
 

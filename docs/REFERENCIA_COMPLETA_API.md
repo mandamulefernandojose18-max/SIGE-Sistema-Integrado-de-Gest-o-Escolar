@@ -287,6 +287,8 @@
 
 ### 2.15. Central de Impressão e Cofre de Arquivos (`apps.documentos`)
 
+> **Padrão de Download de Ficheiros:** Todos os endpoints documentais injetam cabeçalhos RFC 6266 `Content-Disposition: attachment; filename="<Nome>"; filename*=UTF-8''<Nome_Encoded>`, onde o nome do arquivo segue o formato obrigatório: `Nome do documento - Nome do aluno - Ano.<ext>` (ex.: `Boletim - Joao Manuel Silva - 2026.pdf`). Os cabeçalhos são expostos ao cliente via `CORS_EXPOSE_HEADERS`.
+
 | Método | Endpoint | Permissão | Formatos Suportados |
 | :---: | :--- | :---: | :---: |
 | `GET` | `/api/v1/documentos/boletim/<uuid:aluno_id>/(pdf\|docx\|xlsx)` | Autenticado | Boletim Individual de Notas |
