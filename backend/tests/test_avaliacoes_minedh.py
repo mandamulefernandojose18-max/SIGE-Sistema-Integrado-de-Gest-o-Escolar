@@ -113,3 +113,35 @@ def test_regra_12a_classe_reprova_se_tiver_nota_menor_que_8():
     assert res['aprovado'] is False
     assert res['resultado'] == 'Reprovado'
     assert res['temNotaInferiorA8'] is True
+
+
+def test_validacao_anotacao_mec_e_compatibilidade_minedh():
+    import pytest
+    from common.integrity import validar_anotacao_mec, validar_anotacao_minedh, InvalidDomainValueViolation
+
+    # Valida anotações aceitas
+    for sigla in ['D', 'T', 'VT', 'F', 'AM', 'PPF', 'PDF', None, '']:
+        validar_anotacao_mec(sigla)
+        validar_anotacao_minedh(sigla)
+
+    # Rejeita anotação inválida
+    with pytest.raises(InvalidDomainValueViolation):
+        validar_anotacao_mec('INVALIDA')
+
+    with pytest.raises(InvalidDomainValueViolation):
+        validar_anotacao_minedh('INVALIDA')
+
+
+def test_gerar_cabecalho_mec_e_compatibilidade():
+    from reportlab.lib.styles import getSampleStyleSheet
+    from apps.documentos.services.pdf_service import gerar_cabecalho_mec, gerar_cabecalho_minedh
+
+    styles = getSampleStyleSheet()
+    elems_mec = gerar_cabecalho_mec(styles, 'Escola Secundária de Massinga', 'Inhambane', 'Massinga')
+    elems_minedh = gerar_cabecalho_minedh(styles, 'Escola Secundária de Massinga', 'Inhambane', 'Massinga')
+
+    textos = [getattr(e, 'text', '') for e in elems_mec if hasattr(e, 'text')]
+    assert any('MINISTÉRIO DA EDUCAÇÃO E CULTURA' in t for t in textos)
+    assert not any('DESENVOLVIMENTO HUMANO' in t for t in textos)
+    assert len(elems_mec) == len(elems_minedh)
+

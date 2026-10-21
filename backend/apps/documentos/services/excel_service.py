@@ -932,7 +932,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     aplicar_estilo_intervalo(ws, 1, 1, max_cols_total, 1, font=FONT_TITLE, border=None, alignment=ALIGN_CENTER)
 
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=max_cols_total)
-    ws.cell(row=2, column=1, value="MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    ws.cell(row=2, column=1, value="MINISTÉRIO DA EDUCAÇÃO E CULTURA")
     aplicar_estilo_intervalo(ws, 1, 2, max_cols_total, 2, font=FONT_SUBTITLE, border=None, alignment=ALIGN_CENTER)
 
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=max_cols_total)
@@ -1412,7 +1412,7 @@ def gerar_estatisticas_gerais_xlsx(escola, ano_letivo, periodo, stats_data, orie
 
     # 1. Cabeçalho Oficial
     ws.merge_cells('A1:J1')
-    ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO"
+    ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E CULTURA"
     ws['A1'].font = FONT_SUBTITLE
     ws['A1'].alignment = ALIGN_CENTER
     ws.row_dimensions[1].height = 22
@@ -1696,7 +1696,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     ws.row_dimensions[1].height = 20
 
     ws.merge_cells('A2:AF2')
-    ws['A2'] = "MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO"
+    ws['A2'] = "MINISTÉRIO DA EDUCAÇÃO E CULTURA"
     ws['A2'].font = FONT_SUBTITLE
     ws['A2'].alignment = ALIGN_CENTER
     ws.row_dimensions[2].height = 20

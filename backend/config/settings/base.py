@@ -186,6 +186,10 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
     'x-tenant-id',
 ]
+CORS_EXPOSE_HEADERS = [
+    'content-disposition',
+    'content-type',
+]
 
 # OpenAPI / Swagger Documentation
 SPECTACULAR_SETTINGS = {

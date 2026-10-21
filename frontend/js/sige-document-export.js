@@ -44,7 +44,7 @@
   // Obter metadados da instituição activa
   function obterMetadadosInstituicao() {
     let escolaNome = 'ESCOLA SECUNDÁRIA GERAL';
-    let localidade = 'REPÚBLICA DE MOÇAMBIQUE | MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO';
+    let localidade = 'REPÚBLICA DE MOÇAMBIQUE | MINISTÉRIO DA EDUCAÇÃO E CULTURA';
     let anoLetivo = '2026';
 
     try {
@@ -67,7 +67,7 @@
 
     return {
       pais: 'REPÚBLICA DE MOÇAMBIQUE',
-      ministerio: 'MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO',
+      ministerio: 'MINISTÉRIO DA EDUCAÇÃO E CULTURA',
       escola: escolaNome,
       localidade: localidade,
       anoLetivo: anoLetivo,

@@ -101,7 +101,7 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p2.paragraph_format.space_after = Pt(2)
-    r2 = p2.add_run("MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    r2 = p2.add_run("MINISTÉRIO DA EDUCAÇÃO E CULTURA")
     aplicar_fonte_times(r2, pt_size=11, bold=True)
 
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
@@ -618,7 +618,7 @@ def gerar_acta_docx(turma, escola, periodo, ano_letivo, dados_alunos,
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p2.paragraph_format.space_after = Pt(2)
-    r2 = p2.add_run("MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    r2 = p2.add_run("MINISTÉRIO DA EDUCAÇÃO E CULTURA")
     aplicar_fonte_times(r2, pt_size=11, bold=True)
 
     prov_str = (getattr(escola, 'provincia', '') or 'Inhambane').upper()
@@ -1235,7 +1235,7 @@ def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
     p_rep = doc.add_paragraph()
     p_rep.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_rep.paragraph_format.space_after = Pt(1)
-    r_rep = p_rep.add_run("REPÚBLICA DE MOÇAMBIQUE\nMINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    r_rep = p_rep.add_run("REPÚBLICA DE MOÇAMBIQUE\nMINISTÉRIO DA EDUCAÇÃO E CULTURA")
     aplicar_fonte_times(r_rep, pt_size=10, bold=True)
 
     p1 = doc.add_paragraph()
@@ -1399,7 +1399,7 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.paragraph_format.space_after = Pt(1)
-    r1 = p1.add_run("REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO")
+    r1 = p1.add_run("REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E CULTURA")
     aplicar_fonte_times(r1, pt_size=10.5, bold=True)
 
     p2 = doc.add_paragraph()

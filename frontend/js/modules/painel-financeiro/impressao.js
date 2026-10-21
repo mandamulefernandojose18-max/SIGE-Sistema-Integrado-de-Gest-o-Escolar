@@ -1260,7 +1260,7 @@ function renderizarRecibo(d) {
 
       <div class="text-center border-bottom pb-3 mb-3">
         <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 4px;" alt="Emblema Nacional">
-        <div class="small fw-semibold text-uppercase text-secondary" style="letter-spacing: 0.5px;">República de Moçambique &bull; Ministério da Educação e Desenvolvimento Humano</div>
+        <div class="small fw-semibold text-uppercase text-secondary" style="letter-spacing: 0.5px;">República de Moçambique &bull; Ministério da Educação e Cultura</div>
         <h6 class="fw-bold mb-1 mt-1 text-dark">${(d.escola.nome || 'Instituição de Ensino').toUpperCase()}</h6>
         <p class="text-muted small mb-0">NUIT: ${d.escola.nif_cnpj || d.escola.nuit || '-'} &bull; ${d.escola.distrito || '-'}, ${d.escola.provincia || '-'} &bull; Tel: ${d.escola.telefone || '-'}</p>
         <h5 class="mt-3 fw-bold ${textClass} text-uppercase" style="letter-spacing: 0.5px;">

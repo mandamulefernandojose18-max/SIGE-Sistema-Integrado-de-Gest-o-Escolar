@@ -1,7 +1,7 @@
 # 🛡️ Arquitetura e Segurança do Sistema — SIGE (v2.5.0)
 
 > **Documento Oficial de Engenharia de Software, Segurança e Governança de Dados**  
-> **Conformidade:** Ministério da Educação e Desenvolvimento Humano da República de Moçambique (MEC)  
+> **Conformidade:** Ministério da Educação e Cultura da República de Moçambique (MEC)  
 > **Padrão:** ISO/IEC 27001, OWASP ASVS e Princípio de Defesa em Profundidade (*Defense-in-Depth*)
 
 ---

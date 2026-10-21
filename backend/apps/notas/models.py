@@ -76,7 +76,7 @@ class Nota(models.Model):
     def clean(self):
         from common.integrity import (
             validar_escala_nota, validar_faltas, validar_periodo_academico,
-            validar_comportamento, validar_anotacao_minedh,
+            validar_comportamento, validar_anotacao_mec, validar_anotacao_minedh,
             validar_integridade_tenant, verificar_pauta_permite_edicao_nota
         )
         # 1. Integridade de Isolamento Multi-Tenant
@@ -85,7 +85,7 @@ class Nota(models.Model):
         # 2. Integridade de Domínio
         validar_periodo_academico(self.periodo)
         validar_comportamento(self.comportamento)
-        validar_anotacao_minedh(self.anotacao)
+        validar_anotacao_mec(self.anotacao)
         validar_faltas(self.faltas)
 
         for campo in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral', 'media_final']:

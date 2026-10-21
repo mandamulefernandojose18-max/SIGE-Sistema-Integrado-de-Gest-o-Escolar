@@ -57,7 +57,7 @@ async function carregarEstatisticasAproveitamento() {
       <div class="text-center pb-3 mb-4 border-bottom position-relative">
         <img src="/img/emblema-mocambique.png" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 3px;" alt="Emblema Nacional">
         <h6 class="fw-bold mb-0 text-uppercase">REPÚBLICA DE MOÇAMBIQUE</h6>
-        <div class="text-muted small fw-semibold">MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO</div>
+        <div class="text-muted small fw-semibold">MINISTÉRIO DA EDUCAÇÃO E CULTURA</div>
         <h5 class="fw-bold text-primary mt-2 mb-0">${escolaNome.toUpperCase()}</h5>
         <div class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 mt-2 fs-6">
           MAPA CONSOLIDADO DO RENDIMENTO E APROVEITAMENTO PEDAGÓGICO — ${ano} (${periodo === 'GLOBAL' ? 'MÉDIA ANUAL / MFD' : periodo})

@@ -48,7 +48,7 @@ if [ -f "frontend/version.json" ]; then
   "data": "$(date '+%Y-%m-%d %H:%M:%S')",
   "nome": "SIGE SaaS",
   "commit": "${COMMIT_HASH}",
-  "novidades": "${SAFE_COMMIT_MSG}"
+  "novidades": "Nova actualização do sistema disponível."
 }
 EOF
     log_info "frontend/version.json sincronizado com o commit ${COMMIT_HASH}."

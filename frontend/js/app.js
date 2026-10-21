@@ -331,22 +331,41 @@ async function descarregarActaConselhoDocx(turmaIdExplicit = null, orientacaoExp
   await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_Turma_${ano}.docx`);
 }
 
+function obterNomeAlunoParaDownload(alunoId) {
+  if (!alunoId || alunoId === 'TODOS') return '';
+  const sel = document.getElementById('printSelectAluno');
+  if (sel && sel.value === alunoId) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.text && !opt.text.startsWith('--')) {
+      return opt.text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    }
+  }
+  if (window.state && state.alunoAtual?.id === alunoId && state.alunoAtual?.nome) {
+    return state.alunoAtual.nome.trim();
+  }
+  return '';
+}
+
 async function descarregarDocumentoOficialPdf(tipo, alunoOuTurmaId) {
   if (!alunoOuTurmaId) alunoOuTurmaId = await obterTurmaAtivaOuPrimeira();
   if (!alunoOuTurmaId) return;
   const t = String(tipo).toUpperCase();
+  const nomeAluno = (typeof obterNomeAlunoParaDownload === 'function') ? (obterNomeAlunoParaDownload(alunoOuTurmaId) || 'Estudante') : 'Estudante';
+  const ano = (window.state && state.anoLetivo) || '2026';
+  const nomePadrao = `${nomeAluno} - ${ano}`;
+
   if (t === 'BOLETIM') {
-    await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoOuTurmaId}/pdf`, `Boletim_${alunoOuTurmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoOuTurmaId}/pdf`, `Boletim - ${nomePadrao}.pdf`);
   } else if (t === 'DECLARACAO') {
-    await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoOuTurmaId}/pdf`, `Declaracao_${alunoOuTurmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoOuTurmaId}/pdf`, `Declaracao - ${nomePadrao}.pdf`);
   } else if (t === 'CERTIFICADO') {
-    await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoOuTurmaId}/pdf`, `Certificado_${alunoOuTurmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoOuTurmaId}/pdf`, `Certificado - ${nomePadrao}.pdf`);
   } else if (t === 'FICHA') {
-    await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoOuTurmaId}/pdf`, `Ficha_${alunoOuTurmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoOuTurmaId}/pdf`, `Ficha - ${nomePadrao}.pdf`);
   } else if (t === 'RECIBO') {
-    await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoOuTurmaId}/pdf`, `Recibo_${alunoOuTurmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoOuTurmaId}/pdf`, `Recibo - ${nomePadrao}.pdf`);
   } else if (t === 'PAUTA_TURMA' || t === 'PAUTA') {
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${alunoOuTurmaId}/pdf`, `Pauta_${alunoOuTurmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${alunoOuTurmaId}/pdf`, `Pauta - Turma - ${ano}.pdf`);
   }
 }
 
@@ -404,9 +423,7 @@ window.sigeNotificarActualizacaoPendente = function(detalhes = {}) {
   const btnTopbar = document.getElementById('btnActualizacaoPendente');
   if (btnTopbar) {
     btnTopbar.classList.remove('d-none');
-    if (detalhes.novaVersao) {
-      btnTopbar.title = `Actualização pendente para a versão ${detalhes.novaVersao}. Clique para actualizar.`;
-    }
+    btnTopbar.title = 'Nova actualização disponível. Clique para actualizar.';
   }
 
   // 2. Banner Flutuante (mostra sempre que houver necessidade através de actualização)
@@ -416,10 +433,10 @@ window.sigeNotificarActualizacaoPendente = function(detalhes = {}) {
     const desc = document.getElementById('sigeDescricaoActualizacao');
     if (banner) {
       if (titulo) {
-        titulo.textContent = detalhes.novaVersao ? `Nova Actualização Disponível (v${detalhes.novaVersao})` : 'Nova Actualização Disponível';
+        titulo.textContent = 'Nova Actualização Disponível';
       }
       if (desc) {
-        desc.textContent = detalhes.novidades || detalhes.descricao || 'O sistema SIGE tem uma nova actualização pronta a instalar.';
+        desc.textContent = 'Existe uma nova actualização pronta a instalar no sistema.';
       }
       banner.classList.remove('d-none');
     }
@@ -1423,9 +1440,18 @@ async function downloadFicheiroBinario(url, defaultFilename) {
 
     const disposition = res.headers.get('content-disposition');
     let filename = defaultFilename;
-    if (disposition && disposition.includes('filename=')) {
-      const match = disposition.match(/filename="?([^";]+)"?/);
-      if (match && match[1]) filename = match[1].trim();
+    if (disposition && disposition.includes('filename')) {
+      const starMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      if (starMatch && starMatch[1]) {
+        try {
+          filename = decodeURIComponent(starMatch[1].trim());
+        } catch (e) {
+          filename = starMatch[1].trim();
+        }
+      } else {
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        if (match && match[1]) filename = match[1].trim();
+      }
     }
 
     const arrayBuffer = await res.arrayBuffer();
@@ -9627,7 +9653,7 @@ function filtrarDisciplinasTabelaTexto() {
 }
 
 // ==================== GESTÃO DE CLASSES E NÍVEIS CURRICULARES (REGIME DE EXAME) ====================
-// Regra oficial MINEDH / MEC Moçambique:
+// Regra oficial MEC Moçambique (Ministério da Educação e Cultura):
 // 10ª Classe e 12ª Classe: Exame Nacional Obrigatório (Com Exame)
 // 1ª à 9ª e 11ª Classes: Avaliação Contínua e Sistemática (Sem Exame por padrão)
 window.PADRAO_CLASSES_MOCAMBIQUE_EXAMES = {
@@ -13364,7 +13390,7 @@ async function abrirModalReciboPagamento(pagamentoId) {
 
         <div class="text-center border-bottom pb-3 mb-3">
           <img src="/img/emblema-mocambique.png" style="width: 44px; height: 44px; margin-bottom: 4px;" alt="Emblema Nacional">
-          <div class="small fw-semibold text-uppercase text-secondary" style="letter-spacing: 0.5px;">República de Moçambique &bull; Ministério da Educação e Desenvolvimento Humano</div>
+          <div class="small fw-semibold text-uppercase text-secondary" style="letter-spacing: 0.5px;">República de Moçambique &bull; Ministério da Educação e Cultura</div>
           <h6 class="fw-bold mb-1 mt-1 text-dark">${(d.escola?.nome || 'Escola Secundária').toUpperCase()}</h6>
           <p class="text-muted small mb-0">NUIT: ${d.escola?.nif_cnpj || '-'} &bull; ${d.escola?.distrito || '-'}, ${d.escola?.provincia || '-'} &bull; Tel: ${d.escola?.telefone || '-'}</p>
           <h5 class="mt-3 fw-bold ${textClass} text-uppercase" style="letter-spacing: 0.5px;">
@@ -13740,44 +13766,47 @@ async function descarregarPdfCentral() {
   const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
+  const nomeAluno = (alunoId && alunoId !== 'TODOS') ? (obterNomeAlunoParaDownload(alunoId) || 'Estudante') : '';
+  const anoPadrao = (window.state && state.anoLetivo) || '2026';
+  const nomeDocPadrao = `${nomeAluno} - ${anoPadrao}`;
 
   if (tipo === 'PAUTA_TURMA') {
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${anoPadrao}&orientacao=${orientacao}`, `Pauta - Turma - ${anoPadrao}.pdf`);
   } else if (tipo === 'ACTA_CONSELHO') {
     const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
-    const params = new URLSearchParams({ anoLetivo: '2026', orientacao: orientacao });
+    const params = new URLSearchParams({ anoLetivo: anoPadrao, orientacao: orientacao });
     if (sessao.presidente) params.append('presidente', sessao.presidente);
     if (sessao.data) params.append('data', sessao.data);
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_${turmaId}.pdf`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta - Conselho - ${anoPadrao}.pdf`);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf?orientacao=${orientacao}`, `Boletim_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/pdf?orientacao=${orientacao}`, `Boletim - ${nomeDocPadrao}.pdf`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins - Turma - ${anoPadrao}.pdf`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf?orientacao=${orientacao}`, `Declaracao_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/pdf?orientacao=${orientacao}`, `Declaracao - ${nomeDocPadrao}.pdf`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes - Turma - ${anoPadrao}.pdf`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf?orientacao=${orientacao}`, `Certificado_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/pdf?orientacao=${orientacao}`, `Certificado - ${nomeDocPadrao}.pdf`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados - Turma - ${anoPadrao}.pdf`);
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf?orientacao=${orientacao}`, `Recibo_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/pdf?orientacao=${orientacao}`, `Recibo - ${nomeDocPadrao}.pdf`);
     } else if (turmaId) {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=RECIBO&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=RECIBO&orientacao=${orientacao}`, `Recibos - Turma - ${anoPadrao}.pdf`);
     }
   } else if (tipo === 'FICHA') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, `Ficha_${alunoId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, `Ficha - ${nomeDocPadrao}.pdf`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.pdf`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=FICHA&orientacao=${orientacao}`, `Fichas - Turma - ${anoPadrao}.pdf`);
     }
   } else {
     const preview = document.getElementById('printAreaPreview');
@@ -13790,47 +13819,50 @@ async function descarregarDocxCentral() {
   const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
+  const nomeAluno = (alunoId && alunoId !== 'TODOS') ? (obterNomeAlunoParaDownload(alunoId) || 'Estudante') : '';
+  const anoPadrao = (window.state && state.anoLetivo) || '2026';
+  const nomeDocPadrao = `${nomeAluno} - ${anoPadrao}`;
 
   if (tipo === 'PAUTA_TURMA') {
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.docx`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=${anoPadrao}&orientacao=${orientacao}`, `Pauta - Turma - ${anoPadrao}.docx`);
   } else if (tipo === 'ACTA_CONSELHO') {
     const sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}');
-    const params = new URLSearchParams({ anoLetivo: '2026', orientacao: orientacao });
+    const params = new URLSearchParams({ anoLetivo: anoPadrao, orientacao: orientacao });
     if (sessao.presidente) params.append('presidente', sessao.presidente);
     if (sessao.data) params.append('data', sessao.data);
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta_Conselho_${turmaId}.docx`);
+    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-docx?${params.toString()}`, `Acta - Conselho - ${anoPadrao}.docx`);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx?orientacao=${orientacao}`, `Boletim_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/docx?orientacao=${orientacao}`, `Boletim - ${nomeDocPadrao}.docx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins - Turma - ${anoPadrao}.docx`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx?orientacao=${orientacao}`, `Declaracao_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/docx?orientacao=${orientacao}`, `Declaracao - ${nomeDocPadrao}.docx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes - Turma - ${anoPadrao}.docx`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx?orientacao=${orientacao}`, `Certificado_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/docx?orientacao=${orientacao}`, `Certificado - ${nomeDocPadrao}.docx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados - Turma - ${anoPadrao}.docx`);
     }
   } else if (tipo === 'RECIBO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx?orientacao=${orientacao}`, `Recibo_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/recibo/${alunoId}/docx?orientacao=${orientacao}`, `Recibo - ${nomeDocPadrao}.docx`);
     } else if (turmaId) {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=RECIBO&orientacao=${orientacao}`, `Recibos_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=RECIBO&orientacao=${orientacao}`, `Recibos - Turma - ${anoPadrao}.docx`);
     }
   } else if (tipo === 'FICHA') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/docx?orientacao=${orientacao}`, `Ficha_${alunoId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/ficha/${alunoId}/docx?orientacao=${orientacao}`, `Ficha - ${nomeDocPadrao}.docx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=FICHA&orientacao=${orientacao}`, `Fichas_Turma_${turmaId}.docx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=FICHA&orientacao=${orientacao}`, `Fichas - Turma - ${anoPadrao}.docx`);
     }
   } else if (turmaId) {
-    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Documento_Turma_${turmaId}.docx`);
+    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/docx?tipo=BOLETIM&orientacao=${orientacao}`, `Documento - Turma - ${anoPadrao}.docx`);
   }
 }
 
@@ -13839,33 +13871,36 @@ async function descarregarXlsxCentral() {
   const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
+  const nomeAluno = (alunoId && alunoId !== 'TODOS') ? (obterNomeAlunoParaDownload(alunoId) || 'Estudante') : '';
+  const anoPadrao = (window.state && state.anoLetivo) || '2026';
+  const nomeDocPadrao = `${nomeAluno} - ${anoPadrao}`;
 
   if (!turmaId) return;
 
   if (tipo === 'ACTA_CONSELHO') {
-    await exportarActaConselhoExcel(turmaId, '2026', orientacao);
+    await exportarActaConselhoExcel(turmaId, anoPadrao, orientacao);
   } else if (tipo === 'PAUTA_TURMA') {
-    await exportarPautaGeralExcel(turmaId, '2026', orientacao);
+    await exportarPautaGeralExcel(turmaId, anoPadrao, orientacao);
   } else if (tipo === 'BOLETIM') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/xlsx?orientacao=${orientacao}`, `Boletim_${alunoId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/boletim/${alunoId}/xlsx?orientacao=${orientacao}`, `Boletim - ${nomeDocPadrao}.xlsx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins_Turma_${turmaId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=BOLETIM&orientacao=${orientacao}`, `Boletins - Turma - ${anoPadrao}.xlsx`);
     }
   } else if (tipo === 'DECLARACAO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/xlsx?orientacao=${orientacao}`, `Declaracao_${alunoId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/declaracao/${alunoId}/xlsx?orientacao=${orientacao}`, `Declaracao - ${nomeDocPadrao}.xlsx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes_Turma_${turmaId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=DECLARACAO&orientacao=${orientacao}`, `Declaracoes - Turma - ${anoPadrao}.docx`);
     }
   } else if (tipo === 'CERTIFICADO') {
     if (alunoId && alunoId !== 'TODOS') {
-      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/xlsx?orientacao=${orientacao}`, `Certificado_${alunoId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/certificado/${alunoId}/xlsx?orientacao=${orientacao}`, `Certificado - ${nomeDocPadrao}.xlsx`);
     } else {
-      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados_Turma_${turmaId}.xlsx`);
+      await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=CERTIFICADO&orientacao=${orientacao}`, `Certificados - Turma - ${anoPadrao}.xlsx`);
     }
   } else if (tipo === 'FICHA' || tipo === 'RECIBO') {
-    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=${tipo}&orientacao=${orientacao}`, `${tipo}_Turma_${turmaId}.xlsx`);
+    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/xlsx?tipo=${tipo}&orientacao=${orientacao}`, `${tipo} - Turma - ${anoPadrao}.xlsx`);
   } else {
     await exportarPautaGeralExcel(turmaId, '2026', orientacao);
   }
@@ -14350,7 +14385,7 @@ function renderizarBoletim(d) {
       <span class="badge bg-primary px-3 py-2"><i class="bi bi-file-earmark-check me-1"></i> Boletim de Aproveitamento Escolar Oficial A4</span>
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('BOLETIM', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Boletim_${safeName}_${ano}')">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Boletim - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${ano}`)">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -14521,7 +14556,7 @@ function renderizarDeclaracao(d) {
       <span class="badge bg-success px-3 py-2"><i class="bi bi-file-earmark-check me-1"></i> Declaração Oficial com Notas A4</span>
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('DECLARACAO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Declaracao_${safeName}_${ano}')">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Declaracao - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${ano}`)">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -14735,7 +14770,7 @@ function renderizarCertificado(d) {
           <i class="bi bi-shield-check me-1"></i> Validar Autenticidade
         </a>
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('CERTIFICADO', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Certificado_${safeName}_${ano}')">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Certificado - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${ano}`)">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -14788,7 +14823,7 @@ function renderizarRecibo(d) {
     </div>
 
     <div class="text-center mt-4 no-print">
-      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo('Recibo_${safeName}_${d.pagamento.mes_referencia || '2026'}')">
+      <button class="btn btn-primary" onclick="imprimirDocumentoComTitulo(`Recibo - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${d.pagamento?.mes_referencia || '2026'}`)">
         <i class="bi bi-printer me-2"></i> Imprimir Recibo
       </button>
     </div>
@@ -14832,7 +14867,7 @@ function renderizarFichaAluno(d) {
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('FICHA', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
         ${alunoId ? `<button class="btn btn-outline-primary btn-sm fw-semibold" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Descarregar Word (DOCX)</button>` : ''}
-        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Ficha_${safeName}_${anoLetivo}')">
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo(`Ficha - ${(d.aluno?.nomeCompleto || d.aluno?.nome || 'Estudante').replace(/[\\/:*?"<>|]/g, '').trim()} - ${anoLetivo}`)">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
       </div>
@@ -16905,7 +16940,7 @@ async function carregarEstatisticasAproveitamento() {
       <div class="text-center pb-3 mb-4 border-bottom position-relative">
         <img src="/img/emblema-mocambique.png" style="width: 52px; height: 52px; object-fit: contain; margin-bottom: 3px;" alt="Emblema Nacional">
         <h6 class="fw-bold mb-0 text-uppercase">REPÚBLICA DE MOÇAMBIQUE</h6>
-        <div class="text-muted small fw-semibold">MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO</div>
+        <div class="text-muted small fw-semibold">MINISTÉRIO DA EDUCAÇÃO E CULTURA</div>
         <h5 class="fw-bold text-primary mt-2 mb-0">${escolaNome.toUpperCase()}</h5>
         <div class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 mt-2 fs-6">
           MAPA CONSOLIDADO DO RENDIMENTO E APROVEITAMENTO PEDAGÓGICO — ${ano} (${periodo === 'GLOBAL' ? 'MÉDIA ANUAL / MFD' : periodo})

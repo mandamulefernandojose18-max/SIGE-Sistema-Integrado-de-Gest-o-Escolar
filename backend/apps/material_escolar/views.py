@@ -200,7 +200,7 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         escola_nome = material.escola.nome if material.escola else 'SIGE — Repositório Escolar'
         disc_nome = material.disciplina.nome if material.disciplina else 'Geral'
         elems = [
-            Paragraph("REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO", s_sub),
+            Paragraph("REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E CULTURA", s_sub),
             Paragraph(escola_nome.upper(), s_sub),
             Spacer(1, 0.6 * cm),
             Paragraph(material.titulo.upper(), s_tit),

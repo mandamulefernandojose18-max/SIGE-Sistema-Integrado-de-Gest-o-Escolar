@@ -97,7 +97,7 @@ def validar_comportamento(comportamento):
             f"Classificação de comportamento '{comportamento}' inválida. Valores aceitos: {', '.join(sorted(COMPORTAMENTOS_VALIDOS))}."
         )
 
-def validar_anotacao_minedh(anotacao):
+def validar_anotacao_mec(anotacao):
     """
     Valida as siglas oficiais de anotações em pautas e cadernetas do MEC:
     D=Dispensado, T=Transferido, VT=Vindo de Transferência, F=Falecido,
@@ -109,6 +109,9 @@ def validar_anotacao_minedh(anotacao):
         raise InvalidDomainValueViolation(
             f"Anotação '{anotacao}' inválida. Siglas normativas do MEC aceitas: {', '.join(sorted(ANOTACOES_VALIDAS))}."
         )
+
+# Compatibilidade retroativa:
+validar_anotacao_minedh = validar_anotacao_mec
 
 def validar_unicidade_codigo_sistema(codigo, exclude_aluno_id=None, exclude_prof_id=None, exclude_usuario_id=None, exclude_turma_id=None):
     """

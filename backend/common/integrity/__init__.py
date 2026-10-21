@@ -8,6 +8,7 @@ from .validators import (
     validar_nuit_mz,
     validar_periodo_academico,
     validar_comportamento,
+    validar_anotacao_mec,
     validar_anotacao_minedh,
 )
 from .exceptions import (
@@ -27,6 +28,7 @@ __all__ = [
     'validar_nuit_mz',
     'validar_periodo_academico',
     'validar_comportamento',
+    'validar_anotacao_mec',
     'validar_anotacao_minedh',
     'IntegrityRuleViolation',
     'CrossTenantViolation',

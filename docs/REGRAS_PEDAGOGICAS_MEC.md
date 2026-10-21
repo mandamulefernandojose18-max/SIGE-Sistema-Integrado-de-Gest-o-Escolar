@@ -1,6 +1,6 @@
 # 🇲🇿 Regras Pedagógicas e Curriculares Oficiais — MEC (Moçambique)
 
-> **Norma Regulamentadora:** Ministério da Educação e Desenvolvimento Humano da República de Moçambique (MEC / MINEDH)  
+> **Norma Regulamentadora:** Ministério da Educação e Cultura da República de Moçambique (MEC)  
 > **Sistema Educacional:** Sistema Nacional de Educação (SNE) — Ensino Secundário Geral (ESG)  
 > **Módulos de Código:** `backend/common/utils/avaliacoes_mocambique.py`, `backend/apps/pautas/services.py` e `backend/apps/disciplinas/services.py`
 
@@ -8,7 +8,7 @@
 
 ## 1. Enquadramento e Base Geográfica Oficial
 
-O SIGE implementa integralmente o arcabouço normativo do Ministério da Educação e Desenvolvimento Humano de Moçambique.
+O SIGE implementa integralmente o arcabouço normativo do Ministério da Educação e Cultura de Moçambique.
 
 ### 1.1. Divisão Político-Administrativa Oficial de Moçambique
 O sistema integra no seu banco de dados a totalidade das **11 Províncias** e **161 Distritos** de Moçambique (`backend/apps/tenants/models.py` e `geografia_mocambique.py`), estruturando o código oficial de cada escola com base na sua localização:

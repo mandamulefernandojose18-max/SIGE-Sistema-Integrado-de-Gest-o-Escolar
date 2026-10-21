@@ -12,7 +12,7 @@
 
 ## 📖 Visão Geral
 
-O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa **SaaS Multi-Tenant** projetada para centralizar, padronizar e automatizar integralmente as operações pedagógicas, curriculares, administrativas, financeiras e de certificação digital de instituições de ensino público e privado em **Moçambique**, em estrita conformidade com as normas do **MEC (Ministério da Educação e Desenvolvimento Humano)**.
+O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa **SaaS Multi-Tenant** projetada para centralizar, padronizar e automatizar integralmente as operações pedagógicas, curriculares, administrativas, financeiras e de certificação digital de instituições de ensino público e privado em **Moçambique**, em estrita conformidade com as normas do **MEC (Ministério da Educação e Cultura)**.
 
 > 📘 **Central Oficial de Documentação:**  
 > Aceda à **[Central de Documentação do SIGE (`docs/README.md`)](docs/README.md)** ou explore diretamente os guias especializados:

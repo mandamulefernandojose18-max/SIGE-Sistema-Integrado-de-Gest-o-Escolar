@@ -1,7 +1,7 @@
 # SIGE — Backend Django REST Framework (SaaS Multi-Tenant)
 
 ## Visão Geral
-Backend oficial do **SIGE — Sistema Integrado de Gestão Escolar**, reestruturado em **Python 3.12**, **Django 5.1** e **Django REST Framework (DRF)** com suporte a **PostgreSQL**, arquitetura **SaaS Multi-Tenant** e conformidade integral com as normas e avaliações do **MEC (Ministério da Educação e Desenvolvimento Humano de Moçambique)**.
+Backend oficial do **SIGE — Sistema Integrado de Gestão Escolar**, reestruturado em **Python 3.12**, **Django 5.1** e **Django REST Framework (DRF)** com suporte a **PostgreSQL**, arquitetura **SaaS Multi-Tenant** e conformidade integral com as normas e avaliações do **MEC (Ministério da Educação e Cultura de Moçambique)**.
 
 ---
 

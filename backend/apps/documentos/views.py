@@ -33,12 +33,62 @@ import datetime
 
 
 from rest_framework.permissions import IsAuthenticated, AllowAny
-import unicodedata, re
+import unicodedata, re, urllib.parse
+
+def _sanitizar_para_nome_arquivo(texto: str) -> str:
+    if not texto:
+        return ""
+    s = unicodedata.normalize('NFKD', str(texto)).encode('ascii', 'ignore').decode('ascii')
+    s = re.sub(r'[\\/:*?"<>|\x00-\x1f]', ' ', s)
+    s = re.sub(r'[^A-Za-z0-9 ._\-]+', ' ', s)
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip(' .-_')
+
+def _obter_nome_completo_aluno(aluno) -> str:
+    if not aluno:
+        return "Estudante"
+    nome = (getattr(aluno, 'nome', '') or '').strip()
+    apelido = (getattr(aluno, 'apelido', '') or '').strip()
+    if apelido and apelido.lower() not in nome.lower():
+        nome_completo = f"{nome} {apelido}".strip()
+    else:
+        nome_completo = nome or "Estudante"
+    return _sanitizar_para_nome_arquivo(nome_completo) or "Estudante"
+
+def _obter_ano_letivo_documento(aluno=None, escola=None, pagamento=None) -> str:
+    if aluno and getattr(aluno, 'turma', None) and getattr(aluno.turma, 'ano_letivo', None):
+        ano_turma = str(aluno.turma.ano_letivo).strip()
+        if ano_turma:
+            return _sanitizar_para_nome_arquivo(ano_turma)
+    if pagamento and getattr(pagamento, 'mes_referencia', None):
+        partes = str(pagamento.mes_referencia).strip().split('/')
+        if len(partes) == 2 and len(partes[1]) == 4:
+            return partes[1]
+    if aluno and getattr(aluno, 'ano_ingresso', None):
+        ano_ing = str(aluno.ano_ingresso).strip()
+        if ano_ing:
+            return _sanitizar_para_nome_arquivo(ano_ing)
+    if escola and getattr(escola, 'ano_letivo_ativo', None):
+        ano_esc = str(escola.ano_letivo_ativo).strip()
+        if ano_esc:
+            return _sanitizar_para_nome_arquivo(ano_esc)
+    return str(datetime.date.today().year)
+
+def _gerar_nome_documento_aluno(tipo_doc: str, aluno, ano: str = None, extensao: str = "pdf") -> str:
+    tipo_sanitizado = _sanitizar_para_nome_arquivo(tipo_doc) or "Documento"
+    aluno_sanitizado = _obter_nome_completo_aluno(aluno)
+    ano_sanitizado = _sanitizar_para_nome_arquivo(str(ano or datetime.date.today().year))
+    ext = extensao.lstrip('.').lower()
+    return f"{tipo_sanitizado} - {aluno_sanitizado} - {ano_sanitizado}.{ext}"
 
 def _safe_ascii_filename(nome: str) -> str:
-    s = unicodedata.normalize('NFKD', str(nome or 'documento')).encode('ascii', 'ignore').decode('ascii')
-    s = re.sub(r'[^A-Za-z0-9._-]+', '_', s).strip('_')
-    return s or 'documento'
+    return _sanitizar_para_nome_arquivo(nome) or 'documento'
+
+def _definir_content_disposition(response: HttpResponse, nome_arquivo: str) -> HttpResponse:
+    nome_quoted = nome_arquivo.replace('"', '')
+    nome_encoded = urllib.parse.quote(nome_arquivo)
+    response['Content-Disposition'] = f'attachment; filename="{nome_quoted}"; filename*=UTF-8\'\'{nome_encoded}'
+    return response
 
 def _registrar_log_impressao(escola, request, tipo_documento, descricao):
     try:
@@ -509,9 +559,10 @@ class BoletimPDFView(APIView):
 
         _registrar_log_impressao(escola, request, 'BOLETIM', f"Emissão PDF de Boletim de {aluno.nome}")
 
-        fname = _safe_ascii_filename(f"Boletim_{aluno.matricula or aluno.id}.pdf")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Boletim", aluno, ano_doc, "pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class BoletimDOCXView(APIView):
@@ -530,9 +581,10 @@ class BoletimDOCXView(APIView):
             orientacao=orientacao
         )
 
-        fname = _safe_ascii_filename(f"Boletim_{aluno.matricula or aluno.id}.docx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Boletim", aluno, ano_doc, "docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class BoletimXLSXView(APIView):
@@ -551,9 +603,10 @@ class BoletimXLSXView(APIView):
             orientacao=orientacao
         )
 
-        fname = _safe_ascii_filename(f"Boletim_{aluno.matricula or aluno.id}.xlsx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Boletim", aluno, ano_doc, "xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class DeclaracaoView(APIView):
@@ -599,9 +652,10 @@ class DeclaracaoPDFView(APIView):
 
         _registrar_log_impressao(escola, request, 'DECLARACAO', f"Emissão PDF de Declaração de {aluno.nome}")
 
-        fname = _safe_ascii_filename(f"Declaracao_{aluno.matricula or aluno.id}.pdf")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Declaracao", aluno, ano_doc, "pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class DeclaracaoDOCXView(APIView):
@@ -626,9 +680,10 @@ class DeclaracaoDOCXView(APIView):
             orientacao=orientacao
         )
 
-        fname = _safe_ascii_filename(f"Declaracao_{aluno.matricula or aluno.id}.docx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Declaracao", aluno, ano_doc, "docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class DeclaracaoXLSXView(APIView):
@@ -653,9 +708,10 @@ class DeclaracaoXLSXView(APIView):
             orientacao=orientacao
         )
 
-        fname = _safe_ascii_filename(f"Declaracao_{aluno.matricula or aluno.id}.xlsx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Declaracao", aluno, ano_doc, "xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class CertificadoImpressaoView(APIView):
@@ -706,9 +762,10 @@ class CertificadoPDFView(APIView):
 
         _registrar_log_impressao(escola, request, 'CERTIFICADO', f"Emissão PDF de Certificado de {aluno.nome}")
 
-        fname = _safe_ascii_filename(f"Certificado_{aluno.matricula or aluno.id}.pdf")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Certificado", aluno, ano_doc, "pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class CertificadoDOCXView(APIView):
@@ -736,9 +793,10 @@ class CertificadoDOCXView(APIView):
             orientacao=orientacao
         )
 
-        fname = _safe_ascii_filename(f"Certificado_{aluno.matricula or aluno.id}.docx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Certificado", aluno, ano_doc, "docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class CertificadoXLSXView(APIView):
@@ -766,9 +824,10 @@ class CertificadoXLSXView(APIView):
             orientacao=orientacao
         )
 
-        fname = _safe_ascii_filename(f"Certificado_{aluno.matricula or aluno.id}.xlsx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Certificado", aluno, ano_doc, "xlsx")
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 def _compilar_documentos_lote(request, turma, escola, tipo):
@@ -839,9 +898,11 @@ class LoteXLSXView(APIView):
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         xlsx_bytes = gerar_lote_xlsx(turma, escola, tipo, documentos, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Lote_{tipo}_{turma.nome}.xlsx")
+        ano_doc = turma.ano_letivo or escola.ano_letivo_ativo or str(datetime.date.today().year)
+        tipo_lbl = "Boletins" if tipo == 'BOLETIM' else ("Declaracoes" if tipo == 'DECLARACAO' else ("Certificados" if tipo == 'CERTIFICADO' else tipo.capitalize()))
+        fname = f"{tipo_lbl} - {turma.nome} - {ano_doc}.xlsx"
         response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class LotePDFView(APIView):
@@ -854,9 +915,11 @@ class LotePDFView(APIView):
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         pdf_bytes = gerar_lote_pdf(turma, escola, tipo, documentos, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Lote_{tipo}_{turma.nome}.pdf")
+        ano_doc = turma.ano_letivo or escola.ano_letivo_ativo or str(datetime.date.today().year)
+        tipo_lbl = "Boletins" if tipo == 'BOLETIM' else ("Declaracoes" if tipo == 'DECLARACAO' else ("Certificados" if tipo == 'CERTIFICADO' else tipo.capitalize()))
+        fname = f"{tipo_lbl} - {turma.nome} - {ano_doc}.pdf"
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class LoteDOCXView(APIView):
@@ -869,9 +932,11 @@ class LoteDOCXView(APIView):
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         docx_bytes = gerar_lote_docx(turma, escola, tipo, documentos, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Lote_{tipo}_{turma.nome}.docx")
+        ano_doc = turma.ano_letivo or escola.ano_letivo_ativo or str(datetime.date.today().year)
+        tipo_lbl = "Boletins" if tipo == 'BOLETIM' else ("Declaracoes" if tipo == 'DECLARACAO' else ("Certificados" if tipo == 'CERTIFICADO' else tipo.capitalize()))
+        fname = f"{tipo_lbl} - {turma.nome} - {ano_doc}.docx"
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class ReciboImpressaoView(APIView):
@@ -958,9 +1023,11 @@ class ReciboPDFView(APIView):
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_recibo_pdf(pagamento, escola, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Recibo_{pagamento.id}.pdf")
+        aluno = getattr(pagamento, 'aluno', None)
+        ano_doc = _obter_ano_letivo_documento(aluno, escola, pagamento)
+        fname = _gerar_nome_documento_aluno("Recibo", aluno, ano_doc, "pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class ReciboDOCXView(APIView):
@@ -971,9 +1038,11 @@ class ReciboDOCXView(APIView):
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_recibo_docx(pagamento, escola, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Recibo_{pagamento.id}.docx")
+        aluno = getattr(pagamento, 'aluno', None)
+        ano_doc = _obter_ano_letivo_documento(aluno, escola, pagamento)
+        fname = _gerar_nome_documento_aluno("Recibo", aluno, ano_doc, "docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class FichaAlunoView(APIView):
@@ -1038,9 +1107,10 @@ class FichaPDFView(APIView):
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_ficha_pdf(aluno, escola, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Ficha_{aluno.matricula or aluno.id}.pdf")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Ficha", aluno, ano_doc, "pdf")
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 class FichaDOCXView(APIView):
@@ -1051,9 +1121,10 @@ class FichaDOCXView(APIView):
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_ficha_docx(aluno, escola, orientacao=orientacao)
-        fname = _safe_ascii_filename(f"Ficha_{aluno.matricula or aluno.id}.docx")
+        ano_doc = _obter_ano_letivo_documento(aluno, escola)
+        fname = _gerar_nome_documento_aluno("Ficha", aluno, ano_doc, "docx")
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        _definir_content_disposition(response, fname)
         return response
 
 

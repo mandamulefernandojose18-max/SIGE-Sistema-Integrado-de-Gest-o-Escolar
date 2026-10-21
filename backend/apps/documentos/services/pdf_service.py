@@ -190,7 +190,7 @@ def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=T
 
     canvas.restoreState()
 
-def gerar_cabecalho_minedh(styles, escola_nome, provincia, distrito, compacto=False):
+def gerar_cabecalho_mec(styles, escola_nome, provincia, distrito, compacto=False):
     """Gera o cabeçalho padrão com emblema no topo."""
     elements = []
     img_sz = 1.0 * cm if compacto else 1.3 * cm
@@ -214,12 +214,15 @@ def gerar_cabecalho_minedh(styles, escola_nome, provincia, distrito, compacto=Fa
     dist_str = (distrito or 'Massinga').upper()
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_center_bold))
-    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO", style_center_bold))
+    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E CULTURA", style_center_bold))
     elements.append(Paragraph(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov_str}", style_center))
     elements.append(Paragraph(f"SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist_str}", style_center))
     elements.append(Paragraph(escola_nome.upper(), style_center_bold))
     elements.append(Spacer(1, 0.12 * cm if compacto else 0.25 * cm))
     return elements
+
+# Compatibilidade retroativa:
+gerar_cabecalho_minedh = gerar_cabecalho_mec
 
 # ==================== 1. PAUTA OFICIAL DA TURMA (HORIZONTAL / LANDSCAPE) ====================
 
@@ -546,7 +549,7 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     area_nome = turma_info.get('area', '')
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_hdr_rep))
-    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO", style_hdr_min))
+    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E CULTURA", style_hdr_min))
     elements.append(Paragraph(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov_str.upper()} &nbsp;|&nbsp; SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist_str.upper()}", style_hdr_gov))
     elements.append(Paragraph(esc_nome_clean.upper(), style_hdr_esc))
     elements.append(Spacer(1, 0.12 * cm))
@@ -1416,7 +1419,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     style_esc = ParagraphStyle('ActaHdrEsc', alignment=1, fontSize=9.5, leading=11, fontName='Times-Bold')
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_rep))
-    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E DESENVOLVIMENTO HUMANO", style_min))
+    elements.append(Paragraph("MINISTÉRIO DA EDUCAÇÃO E CULTURA", style_min))
     elements.append(Paragraph(f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov_str} | SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist_str}", style_gov))
     elements.append(Paragraph(esc_nome, style_esc))
     elements.append(Spacer(1, 0.1 * cm))
@@ -1859,7 +1862,7 @@ def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
     elements = []
 
     # 1. Cabeçalho Oficial MEC
-    elements.extend(gerar_cabecalho_minedh(styles, escola.nome, escola.provincia, escola.distrito))
+    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito))
 
     style_title = ParagraphStyle('FichaTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     elements.append(Paragraph("FICHA BIOGRÁFICA DO ALUNO", style_title))
@@ -1998,7 +2001,7 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
     email = getattr(escola, 'email', '---')
     endereco = getattr(escola, 'endereco', '---')
 
-    elements.extend(gerar_cabecalho_minedh(styles, nome_escola, provincia, distrito))
+    elements.extend(gerar_cabecalho_mec(styles, nome_escola, provincia, distrito))
 
     # Dados de contacto institucional no cabeçalho
     info_inst = f"NUIT: <b>{nuit}</b> &bull; Tel: <b>{telefone}</b> &bull; Email: <b>{email}</b> &bull; Endereço: <b>{distrito}, {provincia}</b>"
@@ -2210,7 +2213,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     dt_nome = dt_info.get('nome') or '-'
 
     # 1. Cabeçalho Institucional Oficial
-    elements.extend(gerar_cabecalho_minedh(styles, esc_nome, prov, dist, compacto=True))
+    elements.extend(gerar_cabecalho_mec(styles, esc_nome, prov, dist, compacto=True))
 
     style_title = ParagraphStyle('CadTitle', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=13, fontName='Times-Bold')
     style_meta = ParagraphStyle('CadMeta', parent=styles['Normal'], alignment=1, fontSize=8.0, leading=10, fontName='Times-Roman')
@@ -2510,7 +2513,7 @@ def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao=
     styles = getSampleStyleSheet()
     elements = []
 
-    elements.extend(gerar_cabecalho_minedh(styles, escola.nome, escola.provincia, escola.distrito))
+    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito))
 
     style_title = ParagraphStyle('LoteTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     style_sub = ParagraphStyle('LoteSub', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman')

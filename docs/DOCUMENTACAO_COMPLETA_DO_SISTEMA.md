@@ -3,7 +3,7 @@
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
 > **Versão do Sistema:** `2.5.0`  
-> **Conformidade Normativa:** Ministério da Educação e Desenvolvimento Humano da República de Moçambique (MEC)  
+> **Conformidade Normativa:** Ministério da Educação e Cultura da República de Moçambique (MEC)  
 > **Arquitetura:** Backend Django 5.1 + Django REST Framework (Python 3.12) | Frontend SPA/PWA Vanilla JS + Bootstrap 5 | PostgreSQL 16 (RLS) / SQLite3
 
 ### 🧭 Guias Especializados Complementares
@@ -24,7 +24,7 @@ Para consulta aprofundada por domínio técnico ou operacional:
 2. [Arquitetura Técnica e Stack Tecnológica](#2-arquitetura-técnica-e-stack-tecnológica)
 3. [Arquitetura Multi-Tenant, Assinaturas SaaS e Isolamento de Dados](#3-arquitetura-multi-tenant-assinaturas-saas-e-isolamento-de-dados)
 4. [Autenticação Inteligente, Perfis de Acesso (RBAC) e Códigos Oficiais](#4-autenticação-inteligente-perfis-de-acesso-rbac-e-códigos-oficiais)
-5. [Regras Pedagógicas e Curriculares Oficiais do MEC](#5-regras-pedagógicas-e-curriculares-oficiais-do-minedh)
+5. [Regras Pedagógicas e Curriculares Oficiais do MEC](#5-regras-pedagógicas-e-curriculares-oficiais-do-mec)
 6. [O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)](#6-o-que-faz-cada-módulo-do-sistema-19-módulos-e-fluxos-operacionais)
 7. [Motor de Geração Documental (PDF, Word DOCX, Excel XLSX) e Cofre de Documentos](#7-motor-de-geração-documental-pdf-word-docx-excel-xlsx-e-cofre-de-documentos)
 8. [Modelo de Dados Completo (17 Tabelas e Restrições de Integridade)](#8-modelo-de-dados-completo-17-tabelas-e-restrições-de-integridade)
@@ -177,6 +177,8 @@ No ecrã de login (`POST /api/v1/auth/login`), o campo de identificação aceita
 
 ## 5. Regras Pedagógicas e Curriculares Oficiais do MEC
 
+> **Norma Institucional e Padronização:** O SIGE opera em conformidade estrita e direta com as diretrizes e modelos do **MEC (Ministério da Educação e Cultura)** da República de Moçambique. Todos os cabeçalhos institucionais de documentos (PDF, DOCX, Excel), actas, boletins, pautas de frequência e exames nacionais, recibos e fichas biográficas estampam a chancela oficial: *"REPÚBLICA DE MOÇAMBIQUE — MINISTÉRIO DA EDUCAÇÃO E CULTURA"*.
+
 Toda a lógica pedagógica encontra-se centralizada em `backend/common/utils/avaliacoes_mocambique.py` e `backend/apps/pautas/services.py`, garantindo rigor normativo em todos os ecrãs e documentos impressos.
 
 ### 5.1 Geografia Oficial de Moçambique (`geografia_mocambique.py`)
@@ -312,7 +314,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - **Alternância Instantânea (Inline Toggle):** Pílula interativa de 1 clique para comutar entre *Com Exame (Sim)* e *Sem Exame (Não)* sem sobrecarga visual.
 - **Configuração do Regime de Exame por Classe / Nível:**
   - Ao cadastrar ou editar qualquer classe ou nível, o utilizador define:
-    - **Sim — Com Exame:** Classe com realização de exame final/nacional (por regulamento do MINEDH: 10ª Classe e 12ª Classe).
+    - **Sim — Com Exame:** Classe com realização de exame final/nacional (por regulamento do MEC: 10ª Classe e 12ª Classe).
     - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
 - **Interligação Universal em Todo o Sistema:**
   - As classes cadastradas alimentam dinamicamente e em tempo real:
