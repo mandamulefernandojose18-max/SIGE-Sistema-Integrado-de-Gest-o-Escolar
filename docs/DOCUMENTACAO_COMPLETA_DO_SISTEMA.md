@@ -895,3 +895,15 @@ Em conformidade rigorosa com a directriz de manter o sistema puro para receber d
 
 
 
+
+
+---
+
+## 15. Motor de Pautas de Exames Nacionais e Resiliência Multi-Tenant
+
+### 15.1 Arquitetura da Pauta de Exames
+O motor de exames (`apps.pautas.services.consolidar_pauta_exames`) consolida o desempenho académico anual e as notas de exames nacionais segundo as normas curriculares oficiais de Moçambique:
+- **Suporte Integral ao 2º Ciclo do ESG (11ª e 12ª Classes):** Além das classes terminais gerais (10ª e 12ª Classes), o sistema respeita a parametrização institucional (`config_classes_exames`), permitindo que escolas com regime de exames na 11ª Classe processem e emitam pautas oficiais com exames e disciplinas sem exame devidamente separadas.
+- **Serialização Estrita DRF:** O serviço de consolidação serializa exclusivamente estruturas primitivas JSON (dicionários, listas, inteiros e decimais formatados), eliminando quaisquer instâncias de modelos Django que possam interferir no pipeline do Django REST Framework.
+- **Resiliência Multi-Tenant para Direcção e SuperAdmin:** As views de pautas de exames (`PautaExamesView`, `PautaExamesXLSXView`, `PautaExamesPDFView`) identificam automaticamente a instituição vinculada à turma (`turma.escola`), prevenindo erros 403 Forbidden causados por descompasso temporário de cabeçalhos multi-tenant (`X-Tenant-ID`) em sessões administrativas.
+- **Experiência do Utilizador e Diagnóstico:** A interface web (`painel-escola/exames.js`) trata defensivamente turmas recém-criadas sem alunos activos matriculados ou sem disciplinas curriculares alocadas, apresentando mensagens orientadoras amigáveis e permitindo a repetição imediata via botão de nova tentativa.

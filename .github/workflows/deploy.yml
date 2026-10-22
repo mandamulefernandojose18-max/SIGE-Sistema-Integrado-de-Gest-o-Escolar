@@ -104,16 +104,18 @@ jobs:
     needs: verify-and-test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      VM_HOST: ${{ secrets.VM_HOST }}
 
     steps:
       - name: Validar Segredos da VM
         run: |
-          if [ -z "${{ secrets.VM_HOST }}" ]; then
+          if [ -z "$VM_HOST" ]; then
             echo "::warning title=Secrets da VM Ausentes::O segredo VM_HOST não foi configurado. Configure VM_HOST, VM_USER e VM_SSH_KEY no GitHub Secrets para que o deploy na VM seja executado automaticamente."
           fi
 
       - name: Executar Deploy Remoto na VM via SSH
-        if: secrets.VM_HOST != ''
+        if: env.VM_HOST != ''
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
