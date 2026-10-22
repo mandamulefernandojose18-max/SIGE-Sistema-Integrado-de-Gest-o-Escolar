@@ -663,16 +663,7 @@ function atualizarCamposParametrosExameNaInterface(p) {
 }
 
 function alternarJanelaParametrosExame() {
-  const corpo = document.getElementById('corpoJanelaParametrosExame');
-  const icone = document.getElementById('iconeToggleParametros');
-  if (!corpo) return;
-  if (corpo.style.display === 'none') {
-    corpo.style.display = 'block';
-    if (icone) icone.className = 'bi bi-dash-lg';
-  } else {
-    corpo.style.display = 'none';
-    if (icone) icone.className = 'bi bi-plus-lg';
-  }
+  abrirModalParametrosExame();
 }
 
 async function abrirModalParametrosExame() {
@@ -766,7 +757,7 @@ function verificarAlertaPesos(pf, pe) {
 async function reporParametrosExamePadraoMEC() {
   const pPadrao = { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10.0 };
   atualizarCamposParametrosExameNaInterface(pPadrao);
-  await salvarParametrosExameInline();
+  await salvarParametrosExame();
 }
 
 async function salvarParametrosExame() {
