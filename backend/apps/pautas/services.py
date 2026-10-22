@@ -578,15 +578,15 @@ def disciplina_tem_exame_na_turma(disciplina, turma):
     # 11ª e 12ª Classes (ou 2º Ciclo com regime de exame): Exames por secção/área
     if re.search(r'(^|[^\d])(11|12)([ªaº\.\s]|$)', grau) or tem_regime_exame:
         _, sub_area = categorizar_area(getattr(turma, 'area', ''), getattr(turma, 'nome', ''))
-        if sub_area == 'CIENCIAS_BIOLOGIA' and m_canon in {'LP', 'MAT', 'BIO', 'QUI'}:
+        if sub_area == 'CIENCIAS_BIOLOGIA' and m_canon in {'LP', 'MAT', 'BIO', 'QUI', 'ING', 'FILO'}:
             return True
-        elif sub_area == 'CIENCIAS_DESENHO' and m_canon in {'LP', 'MAT', 'FIS', 'DGD'}:
+        elif sub_area == 'CIENCIAS_DESENHO' and m_canon in {'LP', 'MAT', 'FIS', 'DGD', 'ING', 'FILO'}:
             return True
-        elif sub_area == 'CIENCIAS_GEOGRAFIA' and m_canon in {'LP', 'MAT', 'GEO', 'FIS'}:
+        elif sub_area == 'CIENCIAS_GEOGRAFIA' and m_canon in {'LP', 'MAT', 'GEO', 'FIS', 'QUI', 'ING', 'FILO'}:
             return True
-        elif sub_area in ('LETRAS_GEOGRAFIA', 'LETRAS_HISTORIA', 'LETRAS_GERAL') and m_canon in {'LP', 'HIS', 'GEO', 'FRAN'}:
+        elif sub_area in ('LETRAS_GEOGRAFIA', 'LETRAS_HISTORIA', 'LETRAS_GERAL') and m_canon in {'LP', 'HIS', 'GEO', 'FRAN', 'ING', 'FILO'}:
             return True
-        elif m_canon in {'LP', 'MAT'}:
+        elif m_canon in {'LP', 'MAT', 'ING', 'FILO', 'QUI', 'GEO', 'FIS', 'BIO'}:
             return True
         return False
 
