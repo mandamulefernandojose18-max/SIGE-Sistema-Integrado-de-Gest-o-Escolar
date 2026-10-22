@@ -415,16 +415,21 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True`, 10ª, 11ª ou 12ª Classes).
   - Em casos de turmas sem matrículas ativas ou sem disciplinas curriculares alocadas, a aplicação exibe alertas amigáveis explicativos e botão de repetição ("Tentar Novamente"), mantendo a estabilidade total da SPA.
 - **Janela Modal de Parâmetros de Exame:**
+  - Acessível exclusivamente pelo botão **"Parâmetros do Exame"** no topo da pauta (janela inline consolidada no modal para máxima área útil de exibição da pauta).
   - Permite configurar a percentagem da nota de frequência (% Freq, padrão 50%), a percentagem da nota de exame (% Exame, padrão 50%, totalizando 100%) e a nota mínima do exame (0 a 20 valores, padrão 10.0).
-- **Regras de Avaliação e 1ª / 2ª Época:**
-  - **1ª Época $\ge \text{Nota Mínima}$:** Aluno aprovado no exame, sendo dispensada a 2ª época.
-  - **1ª Época $< \text{Nota Mínima}$:** Aluno elegível e admitido à 2ª época (classificação provisória `2ª Época`). Ao lançar a 2ª época, a Média Final utiliza esta nota.
-- **Estrutura Visual da Pauta:**
-  - Cabeçalho oficial de 3 níveis padronizado pelo MEC.
-  - Para disciplinas com exame: colunas `M. Freq`, `1ª Época`, `2ª Época` e `NF` calculada por:
+- **Lançamento e Regras de Avaliação de Exame (1ª e 2ª Época):**
+  - **Lançamento de Notas:** Campos de entrada visíveis e desbloqueados para inserção ágil das notas de 1ª e 2ª época diretamente nas células da pauta.
+  - **Ausência de Nota de Exame:** Se o estudante não tiver nota lançada num dos exames (nem 1ª nem 2ª época), a Média final nessa disciplina é compulsoriamente fixada em **0** (zero).
+  - **Critério Rígido de Aprovação Global:**
+    - O resultado é **"Aprovado"** se e somente se o estudante tiver **todas as disciplinas positivas** ($\ge 9.5$) e média final global **$MF \ge 9.5$**.
+    - Em qualquer outro caso (se possuir uma ou mais disciplinas negativas ou $MF < 9.5$), o resultado é **"Reprovado"**.
+- **Estrutura Visual e Estilização Limpa da Pauta:**
+  - Cabeçalho oficial de 3 níveis padronizado pelo MEC (sem a antiga coluna transitória de proveniência).
+  - Para disciplinas com exame: colunas `Frequência`, `1ª`, `2ª` e `Média` calculada por:
     $$\text{NF} = \text{round}\left(\frac{\text{MFreq} \times \%_{\text{Freq}} + \text{NE} \times \%_{\text{Exame}}}{100}\right)$$
-  - Para disciplinas sem exame: exibição da coluna `M. Freq` (cuja nota é a própria Nota Final).
-  - Colunas de encerramento: **Resultado** (`Aprovado`, `2ª Época`, `Reprovado`), **Média Final Global** e **Disciplinas em Atraso**.
+  - Para disciplinas sem exame: exibição da coluna `Frequência` (cuja nota é a própria Nota Final).
+  - **Coluna de Resultado Sem Pintura:** Na coluna **Aprovado(a)**, as células não possuem preenchimento de cor de fundo (*background transparent*). O texto é exibido em **preto** para `"Aprovado"` e em **vermelho** (`#dc2626`) para `"Reprovado"`, mantendo total legibilidade e fidelidade visual na tela, no PDF e na planilha Excel (`.xlsx`).
+  - Colunas complementares de encerramento: **MF** (Média Final Global) e **Disciplina(s) que Reprovou**.
 - **Operações e Exportações:**
   - Lançamento e recálculo instantâneo de notas de exame com gravação em lote no modelo `NotaExame`.
   - Exportação fiel em planilha Excel (`.xlsx`), relatório PDF em A4 Paisagem e impressão direta com quadro estatístico e termos de homologação.

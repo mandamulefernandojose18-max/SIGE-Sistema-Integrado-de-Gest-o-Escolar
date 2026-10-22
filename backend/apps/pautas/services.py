@@ -772,29 +772,20 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                         media_disc_int = int(round(media_disc_val))
                     else:
                         media_disc_int = int(round(nota_exame_efetiva))
-                elif situacao_exame == '2ª Época':
-                    # Aguardando realização da 2ª época
-                    media_disc_int = None
-                elif mfreq_val is not None:
-                    media_disc_int = mfreq_int
                 else:
-                    media_disc_int = None
+                    # REGRA SOLICITADA: Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
+                    media_disc_int = 0
             else:
                 # Disciplina sem exame (a nota final é a própria frequência)
-                media_disc_int = mfreq_int
+                media_disc_int = mfreq_int if mfreq_int is not None else 0
                 situacao_exame = 'Sem Exame'
 
             # Situação na disciplina
-            if media_disc_int is not None:
-                aprov_disc = media_disc_int >= 9.5
-                res_disc = f"Aprovad{sufixo_genero}" if aprov_disc else f"Reprovad{sufixo_genero}"
-                if not aprov_disc:
-                    disciplinas_reprovadas.append(d_info['nome'])
-                notas_finais_calc.append({'disciplina': d_info['nome'], 'notaFinal': media_disc_int})
-            elif situacao_exame == '2ª Época':
-                res_disc = '2ª Época'
-            else:
-                res_disc = 'Sem Nota'
+            aprov_disc = (media_disc_int is not None and media_disc_int >= 9.5)
+            res_disc = f"Aprovad{sufixo_genero}" if aprov_disc else f"Reprovad{sufixo_genero}"
+            if not aprov_disc:
+                disciplinas_reprovadas.append(d_info['nome'])
+            notas_finais_calc.append({'disciplina': d_info['nome'], 'notaFinal': media_disc_int if media_disc_int is not None else 0})
 
             disciplinas_aluno[d_id] = {
                 'disciplina_id': d_id,
@@ -809,49 +800,28 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                 'pode_fazer_2epoca': pode_fazer_2epoca,
                 'situacao_exame': situacao_exame,
                 'nota_exame_efetiva': nota_exame_efetiva,
-                'media': media_disc_int if media_disc_int is not None else ('2ª Época' if situacao_exame == '2ª Época' else '-'),
+                'media': media_disc_int,
                 'resultado': res_disc,
                 'aprovado': media_disc_int >= 9.5 if media_disc_int is not None else False
             }
 
-        # Avaliar Resultado Final do Aluno
-        if aluno_tem_2epoca_pendente:
-            resultado_final = '2ª Época'
-            total_segunda_epoca += 1
-            if notas_finais_calc:
-                soma_finais = sum(n['notaFinal'] for n in notas_finais_calc)
-                mf_global = int(round(soma_finais / len(notas_finais_calc)))
-            else:
-                mf_global = '-'
-        elif notas_finais_calc:
+        # Avaliar Resultado Final do Aluno:
+        # REGRA SOLICITADA: 'Aprovado' se tiver todas as disciplinas Positivas e com média igual ou superior a 9.5, e caso contrário 'Reprovado'.
+        if notas_finais_calc:
             soma_finais = sum(n['notaFinal'] for n in notas_finais_calc)
             mf_global = int(round(soma_finais / len(notas_finais_calc)))
             total_negativas = len(disciplinas_reprovadas)
 
-            # Regras de Aprovação
-            if not is_12a:
-                aprovado_geral = (total_negativas == 0 and mf_global >= 9.5)
+            aprovado_geral = (total_negativas == 0 and mf_global >= 9.5)
+            resultado_final = f"Aprovad{sufixo_genero}" if aprovado_geral else f"Reprovad{sufixo_genero}"
+            if aprovado_geral:
+                total_aprovados += 1
             else:
-                tem_abaixo_de_8 = any(n['notaFinal'] < 8.0 for n in notas_finais_calc)
-                aprovado_geral = (mf_global >= 9.5 and total_negativas <= 2 and not tem_abaixo_de_8)
-
-            if tem_algum_exame:
-                resultado_final = f"Aprovad{sufixo_genero}" if aprovado_geral else f"Reprovad{sufixo_genero}"
-                if aprovado_geral:
-                    total_aprovados += 1
-                else:
-                    total_reprovados += 1
-            else:
-                # Aluno antes da realização dos exames: Admitido ou Excluído
-                if mf_global >= 9.5:
-                    resultado_final = f"Admitid{sufixo_genero}"
-                    total_admitidos += 1
-                else:
-                    resultado_final = f"Excluíd{sufixo_genero}"
-                    total_excluidos += 1
+                total_reprovados += 1
         else:
-            mf_global = '-'
-            resultado_final = 'Pendente'
+            mf_global = 0
+            resultado_final = f"Reprovad{sufixo_genero}"
+            total_reprovados += 1
 
         dados_alunos.append({
             'numero': idx,

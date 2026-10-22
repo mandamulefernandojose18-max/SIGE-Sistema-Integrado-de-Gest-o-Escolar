@@ -693,7 +693,8 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         res_mf = res_info.get('mf', '-')
         res_rep = str(res_info.get('disciplinas_reprovou', '---') or '---')
 
-        ap_st = st_green if 'Aprovad' in res_aprov else (st_red if 'Reprovad' in res_aprov or 'Excluíd' in res_aprov else st_c_bold)
+        # 'Aprovado' a preto e 'Reprovado' a vermelho (sem pintar fundo)
+        ap_st = ParagraphStyle('ApPreto', fontName='Times-Bold', fontSize=6.5, leading=7.5, textColor=colors.black, alignment=1) if 'Aprovad' in res_aprov else ParagraphStyle('ApVermelho', fontName='Times-Bold', fontSize=6.5, leading=7.5, textColor=colors.HexColor('#dc2626'), alignment=1)
         row.append(Paragraph(res_aprov, ap_st))
         row.append(Paragraph(str(res_mf), st_c_bold))
         row.append(Paragraph(res_rep, ParagraphStyle('SRep', fontName='Times-Roman', fontSize=5.5, leading=6.5, alignment=0)))

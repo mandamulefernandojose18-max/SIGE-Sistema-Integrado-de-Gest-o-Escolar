@@ -476,18 +476,14 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         res_mf = res_info.get('mf', '-')
         res_disc_rep = str(res_info.get('disciplinas_reprovou', '---') or '---')
 
-        # Aprovado(a)
+        # Aprovado(a): 'Aprovado' a preto e 'Reprovado' a vermelho (sem pintar fundo)
         c_ap = ws.cell(row=current_row, column=c_cursor, value=res_aprov)
         c_ap.alignment = ALIGN_CENTER
         c_ap.border = THIN_BORDER
         if 'Aprovad' in res_aprov:
-            c_ap.font = FONT_GREEN
-            c_ap.fill = FILL_ROW_SUCCESS
-        elif 'Reprovad' in res_aprov or 'Excluíd' in res_aprov:
-            c_ap.font = FONT_RED
-            c_ap.fill = FILL_ROW_DANGER
-        else:
             c_ap.font = FONT_REGULAR_BOLD
+        else:
+            c_ap.font = FONT_RED
 
         # MF
         c_mf = ws.cell(row=current_row, column=c_cursor + 1, value=res_mf if res_mf is not None else '-')

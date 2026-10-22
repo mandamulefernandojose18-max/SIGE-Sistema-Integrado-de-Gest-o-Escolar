@@ -1099,16 +1099,14 @@ class PautaExamesView(APIView):
             if nota_ex is not None:
                 if mfreq_num is not None:
                     nf_val = round((mfreq_num * (p_freq / 100.0)) + (nota_ex * (p_exame / 100.0)), 1)
-                    ne_obj.nota_final = round(nf_val)
+                    ne_obj.nota_final = int(round(nf_val))
                 else:
-                    ne_obj.nota_final = round(nota_ex)
+                    ne_obj.nota_final = int(round(nota_ex))
                 ne_obj.resultado = 'Aprovado' if ne_obj.nota_final >= 9.5 else 'Reprovado'
-            elif e1_num is not None and e1_num < n_min and e2_num is None:
-                ne_obj.nota_final = None
-                ne_obj.resultado = '2ª Época'
-            elif mfreq_num is not None:
-                ne_obj.nota_final = round(mfreq_num)
-                ne_obj.resultado = 'Pendente'
+            else:
+                # Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
+                ne_obj.nota_final = 0
+                ne_obj.resultado = 'Reprovado'
 
             ne_obj.save()
             salvos += 1

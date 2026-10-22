@@ -18357,17 +18357,17 @@ function renderizarTabelaExamesHtml(d) {
 
       tdsDiscs += `
         <td class="text-center bg-light border-end font-monospace small">${vFreq}</td>
-        <td class="p-0 text-center border-end" style="min-width: 48px;">
-          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"
+        <td class="p-1 text-center border-end align-middle" style="min-width: 52px;">
+          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-1 font-monospace input-exame-nota shadow-none"
             value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; ${estiloE1}"
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; background: #ffffff;"
             title="1ª Época: Mínimo ${notaMinima} valores para aprovação">
         </td>
-        <td class="p-0 text-center border-end" style="min-width: 48px;">
-          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"
+        <td class="p-1 text-center border-end align-middle" style="min-width: 52px;">
+          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-1 font-monospace input-exame-nota shadow-none"
             value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.8rem; ${estiloE2}"
-            title="${titleE2}">
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; background: #ffffff;"
+            title="2ª Época: Mínimo ${notaMinima} valores para aprovação">
         </td>
         <td class="text-center border-end font-monospace small ${corMed}" id="media_${aluno.id}_${d.id}">
           ${vMed}
@@ -18387,27 +18387,25 @@ function renderizarTabelaExamesHtml(d) {
       `;
     });
 
-    // Resultado Final do Aluno
-    const resAprov = String(resFinal.aprovado || resFinal.resultado || 'Pendente').trim();
-    let badgeResClass = 'bg-secondary';
-    if (resAprov.includes('Aprovad')) badgeResClass = 'bg-success';
-    else if (resAprov.includes('Reprovad') || resAprov.includes('Excluíd')) badgeResClass = 'bg-danger';
-    else if (resAprov.includes('2ª Época')) badgeResClass = 'bg-warning text-dark';
-    else if (resAprov.includes('Admitid')) badgeResClass = 'bg-primary';
+    // Resultado Final do Aluno: Aprovado a preto e Reprovado a vermelho (sem pintar fundo)
+    const rawRes = String(resFinal.aprovado || resFinal.resultado || `Reprovad${sufixoGen}`).trim();
+    const resAprov = rawRes.includes('Aprovad') ? `Aprovad${sufixoGen}` : `Reprovad${sufixoGen}`;
+    const corResClass = resAprov.includes('Aprovad') ? 'text-dark fw-bold' : 'text-danger fw-bold';
+    const corResStyle = resAprov.includes('Aprovad') ? 'color: #000000; font-weight: bold;' : 'color: #dc2626; font-weight: bold;';
 
-    const mfVal = resFinal.mf !== undefined && resFinal.mf !== null ? resFinal.mf : '-';
+    const mfVal = resFinal.mf !== undefined && resFinal.mf !== null ? resFinal.mf : 0;
     const discRep = resFinal.disciplinas_reprovou || '---';
 
     trsCorpo += `
       <tr id="linha_aluno_${aluno.id}">
-        <td class="text-center font-monospace text-muted small border-end">${aluno.numero || idx + 1}</td>
-        <td class="text-center font-monospace small border-end fw-semibold text-secondary">${aluno.candidato || aluno.matricula}</td>
-        <td class="text-start ps-2 text-dark fw-bold border-end small text-nowrap">${aluno.nome}</td>
-        <td class="text-center font-monospace small border-end">${aluno.genero}</td>
-        <td class="text-center small border-end text-muted">${aluno.turma}</td>
+        <td class="text-center font-monospace text-muted small border-end align-middle">${aluno.numero || idx + 1}</td>
+        <td class="text-center font-monospace small border-end fw-semibold text-secondary align-middle">${aluno.candidato || aluno.matricula}</td>
+        <td class="text-start ps-2 text-dark fw-bold border-end small text-nowrap align-middle">${aluno.nome}</td>
+        <td class="text-center font-monospace small border-end align-middle">${aluno.genero}</td>
+        <td class="text-center small border-end text-muted align-middle">${aluno.turma}</td>
         ${tdsDiscs}
-        <td class="text-center border-end">
-          <span class="badge ${badgeResClass} px-2 py-1" id="res_aluno_${aluno.id}" style="font-size: 0.72rem;">${resAprov}</span>
+        <td class="text-center border-end align-middle">
+          <span id="res_aluno_${aluno.id}" class="${corResClass}" style="font-size: 0.85rem; ${corResStyle}">${resAprov}</span>
         </td>
         <td class="text-center font-monospace fw-bold border-end" id="mf_aluno_${aluno.id}" style="font-size: 0.85rem;">
           ${mfVal}
@@ -18568,79 +18566,54 @@ function recalcularLinhaAlunoInterface(alunoId) {
       } else {
         mediaFinalDisc = Math.round(neEfetivo);
       }
-    } else if (discEm2e) {
-      mediaFinalDisc = '2ª Época';
-    } else if (freqVal !== null) {
-      mediaFinalDisc = Math.round(freqVal);
+    } else {
+      // REGRA SOLICITADA: Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
+      mediaFinalDisc = 0;
     }
 
     const elMedia = document.getElementById(`media_${alunoId}_${dId}`);
     if (elMedia) {
-      elMedia.textContent = mediaFinalDisc !== null ? mediaFinalDisc : '-';
-      if (typeof mediaFinalDisc === 'number') {
-        elMedia.className = `text-center border-end font-monospace small ${mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
-      } else if (mediaFinalDisc === '2ª Época') {
-        elMedia.className = `text-center border-end font-monospace small text-warning fw-bold`;
-      } else {
-        elMedia.className = `text-center border-end font-monospace small text-muted`;
-      }
+      elMedia.textContent = mediaFinalDisc;
+      elMedia.className = `text-center border-end font-monospace small align-middle ${mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
     }
 
-    if (typeof mediaFinalDisc === 'number') {
-      notasFinais.push(mediaFinalDisc);
-      if (mediaFinalDisc < 9.5) {
-        discReprovadas.push(disc.nome);
-      }
+    notasFinais.push(mediaFinalDisc);
+    if (mediaFinalDisc < 9.5) {
+      discReprovadas.push(disc.nome);
     }
   });
 
   disciplinasSemExame.forEach(disc => {
     const dData = aluno.disciplinas?.[disc.id] || {};
-    const fVal = typeof dData.frequencia === 'number' ? dData.frequencia : null;
-    if (fVal !== null) {
-      notasFinais.push(fVal);
-      if (fVal < 9.5) discReprovadas.push(disc.nome);
-    }
+    const fVal = typeof dData.frequencia === 'number' ? dData.frequencia : 0;
+    notasFinais.push(fVal);
+    if (fVal < 9.5) discReprovadas.push(disc.nome);
   });
 
-  // Atualizar Resultado Final
-  let resAprov = 'Pendente';
-  let mfGlobal = '-';
+  // Atualizar Resultado Final: 'Aprovado' se todas positivas e MF >= 9.5, caso contrário 'Reprovado'
+  let resAprov = `Reprovad${sufixoGen}`;
+  let mfGlobal = 0;
 
-  if (alunoTem2ePendente) {
-    resAprov = '2ª Época';
-    if (notasFinais.length > 0) {
-      const soma = notasFinais.reduce((acc, v) => acc + v, 0);
-      mfGlobal = Math.round(soma / notasFinais.length);
-    }
-  } else if (notasFinais.length > 0) {
+  if (notasFinais.length > 0) {
     const soma = notasFinais.reduce((acc, v) => acc + v, 0);
     mfGlobal = Math.round(soma / notasFinais.length);
 
-    let aprovadoGeral = false;
-    if (!is12a) {
-      aprovadoGeral = (discReprovadas.length === 0 && mfGlobal >= 9.5);
-    } else {
-      const temAbaixo8 = notasFinais.some(v => v < 8);
-      aprovadoGeral = (mfGlobal >= 9.5 && discReprovadas.length <= 2 && !temAbaixo8);
-    }
-
-    if (temAlgumExame) {
-      resAprov = aprovadoGeral ? `Aprovad${sufixoGen}` : `Reprovad${sufixoGen}`;
-    } else {
-      resAprov = mfGlobal >= 9.5 ? `Admitid${sufixoGen}` : `Excluíd${sufixoGen}`;
-    }
+    const aprovadoGeral = (discReprovadas.length === 0 && mfGlobal >= 9.5);
+    resAprov = aprovadoGeral ? `Aprovad${sufixoGen}` : `Reprovad${sufixoGen}`;
   }
 
   const elRes = document.getElementById(`res_aluno_${alunoId}`);
   if (elRes) {
     elRes.textContent = resAprov;
-    let badgeCls = 'bg-secondary';
-    if (resAprov.includes('Aprovad')) badgeCls = 'bg-success';
-    else if (resAprov.includes('Reprovad') || resAprov.includes('Excluíd')) badgeCls = 'bg-danger';
-    else if (resAprov.includes('2ª Época')) badgeCls = 'bg-warning text-dark';
-    else if (resAprov.includes('Admitid')) badgeCls = 'bg-primary';
-    elRes.className = `badge ${badgeCls} px-2 py-1`;
+    // Sem pintar: 'Aprovado' a preto e 'Reprovado' a vermelho
+    if (resAprov.includes('Aprovad')) {
+      elRes.className = 'text-dark fw-bold';
+      elRes.style.color = '#000000';
+    } else {
+      elRes.className = 'text-danger fw-bold';
+      elRes.style.color = '#dc2626';
+    }
+    elRes.style.background = 'transparent';
   }
 
   const elMf = document.getElementById(`mf_aluno_${alunoId}`);
