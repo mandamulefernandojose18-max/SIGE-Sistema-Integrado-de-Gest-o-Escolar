@@ -18298,55 +18298,55 @@ function renderizarTabelaExamesHtml(d) {
     return;
   }
 
-  // Montar Cabeçalhos da Tabela Fiel ao Modelo MEC
+  // Montar Cabeçalhos da Tabela Fiel ao Modelo MEC (Ajuste Fino ao Conteúdo)
   let thLinha1 = `
-    <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 45px; font-size: 0.72rem;">Nº de Ordem</th>
-    <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 85px; font-size: 0.72rem;">Nº Candidato</th>
-    <th rowspan="3" class="align-middle bg-primary text-white border-end text-start ps-2" style="min-width: 220px; font-size: 0.78rem;">Nome do Aluno</th>
-    <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 45px; font-size: 0.72rem;">Género</th>
-    <th rowspan="3" class="align-middle bg-primary text-white border-end" style="min-width: 70px; font-size: 0.72rem;">Turma</th>
+    <th rowspan="3" class="align-middle bg-primary text-white border-end text-nowrap px-2" style="font-size: 0.72rem;">Nº</th>
+    <th rowspan="3" class="align-middle bg-primary text-white border-end text-nowrap px-2" style="font-size: 0.72rem;">Nº Candidato</th>
+    <th rowspan="3" class="align-middle bg-primary text-white border-end text-start ps-2 text-nowrap px-3" style="font-size: 0.75rem;">Nome do Aluno</th>
+    <th rowspan="3" class="align-middle bg-primary text-white border-end text-nowrap px-1" style="font-size: 0.72rem;">Gén.</th>
+    <th rowspan="3" class="align-middle bg-primary text-white border-end text-nowrap px-2" style="font-size: 0.72rem;">Turma</th>
   `;
 
-  // Disciplinas com exame: 4 colunas cada
+  // Disciplinas com exame: 4 colunas cada (sem min-width artificial)
   disciplinasComExame.forEach(disc => {
-    thLinha1 += `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary fw-bold border-start border-end" style="font-size: 0.75rem;">${disc.nome}</th>`;
+    thLinha1 += `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary fw-bold border-start border-end text-nowrap px-2" style="font-size: 0.75rem;">${disc.nome}</th>`;
   });
 
   // Disciplinas sem exame: 1 coluna cada
   disciplinasSemExame.forEach(disc => {
-    thLinha1 += `<th rowspan="2" class="text-center bg-light text-dark fw-bold border-start border-end" style="font-size: 0.72rem; min-width: 75px;">${disc.nome}</th>`;
+    thLinha1 += `<th rowspan="2" class="text-center bg-light text-dark fw-bold border-start border-end text-nowrap px-2" style="font-size: 0.72rem;">${disc.nome}</th>`;
   });
 
   // RESULTADO FINAL: 3 colunas
-  thLinha1 += `<th colspan="3" class="text-center bg-dark text-white fw-bold border-start" style="font-size: 0.78rem;">RESULTADO FINAL</th>`;
+  thLinha1 += `<th colspan="3" class="text-center bg-dark text-white fw-bold border-start text-nowrap px-2" style="font-size: 0.75rem;">RESULTADO FINAL</th>`;
 
   // Linha 2 do cabeçalho
   let thLinha2 = '';
   disciplinasComExame.forEach(() => {
     thLinha2 += `
-      <th rowspan="2" class="bg-light text-dark fw-bold border-end align-middle" style="font-size: 0.68rem;">Frequência</th>
-      <th colspan="2" class="bg-warning bg-opacity-25 text-dark fw-bold border-end" style="font-size: 0.68rem;">Exame</th>
-      <th rowspan="2" class="bg-primary bg-opacity-10 text-primary fw-bold border-end align-middle" style="font-size: 0.68rem;">Média</th>
+      <th rowspan="2" class="bg-light text-dark fw-bold border-end align-middle text-nowrap px-1" style="font-size: 0.68rem;">Freq.</th>
+      <th colspan="2" class="bg-warning bg-opacity-25 text-dark fw-bold border-end text-nowrap px-1" style="font-size: 0.68rem;">Exame</th>
+      <th rowspan="2" class="bg-primary bg-opacity-10 text-primary fw-bold border-end align-middle text-nowrap px-1" style="font-size: 0.68rem;">Média</th>
     `;
   });
 
   thLinha2 += `
-    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end" style="min-width: 85px; font-size: 0.72rem;">Aprovado(a)</th>
-    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end" style="min-width: 50px; font-size: 0.72rem;">MF</th>
-    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold text-start ps-2" style="min-width: 160px; font-size: 0.72rem;">Disciplina(s) que Reprovou</th>
+    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end text-nowrap px-2" style="font-size: 0.72rem;">Resultado</th>
+    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end text-nowrap px-1" style="font-size: 0.72rem;">MF</th>
+    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold text-start ps-2 text-nowrap px-2" style="font-size: 0.72rem;">Disciplina(s) com Negativa</th>
   `;
 
   // Linha 3 do cabeçalho
   let thLinha3 = '';
   disciplinasComExame.forEach(() => {
     thLinha3 += `
-      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end" style="font-size: 0.65rem; min-width: 50px;">1ª</th>
-      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end" style="font-size: 0.65rem; min-width: 50px;">2ª</th>
+      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end text-nowrap p-0" style="font-size: 0.65rem; width: 44px; min-width: 44px; max-width: 44px;">1ª</th>
+      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end text-nowrap p-0" style="font-size: 0.65rem; width: 44px; min-width: 44px; max-width: 44px;">2ª</th>
     `;
   });
 
   disciplinasSemExame.forEach(() => {
-    thLinha3 += `<th class="bg-light text-muted border-end" style="font-size: 0.65rem;">Frequência</th>`;
+    thLinha3 += `<th class="bg-light text-muted border-end text-nowrap px-1" style="font-size: 0.65rem;">Freq.</th>`;
   });
 
   // Linhas dos Alunos
@@ -18389,24 +18389,24 @@ function renderizarTabelaExamesHtml(d) {
         : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted');
 
       tdsDiscs += `
-        <td class="text-center bg-light border-end font-monospace small">${vFreq}</td>
-        <td class="p-1 text-center border-end align-middle" style="min-width: 52px;">
-          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-1 font-monospace input-exame-nota shadow-none"
+        <td class="text-center bg-light border-end font-monospace small text-nowrap px-2">${vFreq}</td>
+        <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
+          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
             value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
             ${!podeEditar ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
-            style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
+            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
             title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `1ª Época: Mínimo ${notaMinima} valores para aprovação`}">
         </td>
-        <td class="p-1 text-center border-end align-middle" style="min-width: 52px;">
-          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-1 font-monospace input-exame-nota shadow-none"
+        <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
+          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
             value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
             ${!podeEditar ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
-            style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
+            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
             title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `2ª Época: Mínimo ${notaMinima} valores para aprovação`}">
         </td>
-        <td class="text-center border-end font-monospace small ${corMed}" id="media_${aluno.id}_${d.id}">
+        <td class="text-center border-end font-monospace small text-nowrap px-2 ${corMed}" id="media_${aluno.id}_${d.id}">
           ${vMed}
         </td>
       `;
@@ -18420,7 +18420,7 @@ function renderizarTabelaExamesHtml(d) {
         ? (Number(vFreq) >= 9.5 ? 'text-success' : 'text-danger') 
         : 'text-muted';
       tdsDiscs += `
-        <td class="text-center border-end font-monospace small ${corFreq}">${vFreq}</td>
+        <td class="text-center border-end font-monospace small text-nowrap px-2 ${corFreq}">${vFreq}</td>
       `;
     });
 
@@ -18435,19 +18435,19 @@ function renderizarTabelaExamesHtml(d) {
 
     trsCorpo += `
       <tr id="linha_aluno_${aluno.id}">
-        <td class="text-center font-monospace text-muted small border-end align-middle">${aluno.numero || idx + 1}</td>
-        <td class="text-center font-monospace small border-end fw-semibold text-secondary align-middle">${aluno.candidato || aluno.matricula}</td>
-        <td class="text-start ps-2 text-dark fw-bold border-end small text-nowrap align-middle">${aluno.nome}</td>
-        <td class="text-center font-monospace small border-end align-middle">${aluno.genero}</td>
-        <td class="text-center small border-end text-muted align-middle">${aluno.turma}</td>
+        <td class="text-center font-monospace text-muted small border-end align-middle text-nowrap px-2">${aluno.numero || idx + 1}</td>
+        <td class="text-center font-monospace small border-end fw-semibold text-secondary align-middle text-nowrap px-2">${aluno.candidato || aluno.matricula}</td>
+        <td class="text-start ps-2 text-dark fw-bold border-end small text-nowrap align-middle px-3">${aluno.nome}</td>
+        <td class="text-center font-monospace small border-end align-middle text-nowrap px-2">${aluno.genero}</td>
+        <td class="text-center small border-end text-muted align-middle text-nowrap px-2">${aluno.turma}</td>
         ${tdsDiscs}
-        <td class="text-center border-end align-middle">
-          <span id="res_aluno_${aluno.id}" class="${corResClass}" style="font-size: 0.85rem; ${corResStyle}">${resAprov}</span>
+        <td class="text-center border-end align-middle text-nowrap px-2">
+          <span id="res_aluno_${aluno.id}" class="${corResClass}" style="font-size: 0.82rem; ${corResStyle}">${resAprov}</span>
         </td>
-        <td class="text-center font-monospace fw-bold border-end" id="mf_aluno_${aluno.id}" style="font-size: 0.85rem;">
+        <td class="text-center font-monospace fw-bold border-end align-middle text-nowrap px-2" id="mf_aluno_${aluno.id}" style="font-size: 0.82rem;">
           ${mfVal}
         </td>
-        <td class="text-start ps-2 small text-danger font-monospace" id="rep_aluno_${aluno.id}" style="font-size: 0.7rem;">
+        <td class="text-start ps-2 small text-danger font-monospace align-middle text-nowrap px-3" id="rep_aluno_${aluno.id}" style="font-size: 0.72rem;">
           ${discRep}
         </td>
       </tr>
@@ -18455,7 +18455,7 @@ function renderizarTabelaExamesHtml(d) {
   });
 
   const htmlTabela = `
-    <table class="table table-bordered table-sm align-middle text-center sige-tabela-exames mb-0 border" style="font-size: 0.8rem;">
+    <table class="table table-bordered table-sm align-middle text-center sige-tabela-exames mb-0 border" style="font-size: 0.78rem; width: max-content !important; margin: 0 auto !important; border-collapse: collapse;">
       <thead>
         <tr class="align-middle">${thLinha1}</tr>
         <tr class="align-middle">${thLinha2}</tr>

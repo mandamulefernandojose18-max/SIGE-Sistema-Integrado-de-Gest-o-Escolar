@@ -711,7 +711,8 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     w_res = [1.5 * cm, 0.7 * cm, 2.5 * cm]
     espaco_discs = 28.5 * cm - sum(w_fixed) - sum(w_res)
     n_cols_discs = (len(disciplinas_com_exame) * 4) + len(disciplinas_sem_exame)
-    w_col_disc = max(0.42 * cm, espaco_discs / max(n_cols_discs, 1))
+    # Ajuste de largura proporcional e controlado pelo conteúdo: não expandir excessivamente quando há poucas disciplinas
+    w_col_disc = min(1.2 * cm, max(0.42 * cm, espaco_discs / max(n_cols_discs, 1)))
 
     col_widths = list(w_fixed)
     for _ in range(n_cols_discs):

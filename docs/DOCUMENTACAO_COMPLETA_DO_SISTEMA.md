@@ -431,6 +431,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
     - O resultado é **"Aprovado"** se e somente se o estudante tiver **todas as disciplinas positivas** ($\ge 9.5$) e média final global **$MF \ge 9.5$**.
     - Em qualquer outro caso (se possuir uma ou mais disciplinas negativas ou $MF < 9.5$), o resultado é **"Reprovado"**.
 - **Estrutura Visual e Estilização Limpa da Pauta:**
+  - **Ajuste Fino ao Conteúdo (AutoFit Content):** A largura da tabela e das colunas ajusta-se estritamente em função do conteúdo real de cada célula (`width: max-content`, `white-space: nowrap`, inputs compactos de 40px), eliminando vazios e espaçamentos artificiais em ecrãs largos.
   - Cabeçalho oficial de 3 níveis padronizado pelo MEC (sem a antiga coluna transitória de proveniência).
   - Para disciplinas com exame: colunas `Frequência`, `1ª`, `2ª` e `Média` calculada por:
     $$\text{NF} = \text{round}\left(\frac{\text{MFreq} \times \%_{\text{Freq}} + \text{NE} \times \%_{\text{Exame}}}{100}\right)$$
