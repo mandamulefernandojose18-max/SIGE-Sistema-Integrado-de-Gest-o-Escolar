@@ -340,9 +340,11 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         aplicar_estilo_intervalo(ws, c_start, 4, c_end, 4, font=FONT_HEADER, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
         # Linha 5 e 6:
-        # Col c_start: "Frequência" / "Proven."
-        ws.cell(row=5, column=c_start, value="de").font = FONT_SMALL_BOLD
-        ws.cell(row=6, column=c_start, value="Proven.").font = FONT_SMALL_BOLD
+        # Col c_start: Frequência
+        ws.merge_cells(start_row=5, start_column=c_start, end_row=6, end_column=c_start)
+        cell_f = ws.cell(row=5, column=c_start, value="Frequência")
+        cell_f.font = FONT_SMALL_BOLD
+        cell_f.alignment = ALIGN_CENTER
         # Col c_start + 1: Exame 1ª época
         ws.cell(row=5, column=c_start + 1, value="Exame").font = FONT_SMALL_BOLD
         ws.cell(row=6, column=c_start + 1, value="1ª").font = FONT_SMALL_BOLD

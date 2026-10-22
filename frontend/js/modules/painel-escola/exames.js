@@ -264,10 +264,9 @@ function renderizarTabelaExamesHtml(d) {
   let thLinha2 = '';
   disciplinasComExame.forEach(() => {
     thLinha2 += `
-      <th class="bg-light text-dark fw-bold border-end" style="font-size: 0.68rem;">de</th>
-      <th class="bg-light text-dark fw-bold border-end" style="font-size: 0.68rem;">Frequência</th>
+      <th rowspan="2" class="bg-light text-dark fw-bold border-end align-middle" style="font-size: 0.68rem;">Frequência</th>
       <th colspan="2" class="bg-warning bg-opacity-25 text-dark fw-bold border-end" style="font-size: 0.68rem;">Exame</th>
-      <th class="bg-primary bg-opacity-10 text-primary fw-bold border-end" style="font-size: 0.68rem;">Média</th>
+      <th rowspan="2" class="bg-primary bg-opacity-10 text-primary fw-bold border-end align-middle" style="font-size: 0.68rem;">Média</th>
     `;
   });
 
@@ -281,11 +280,8 @@ function renderizarTabelaExamesHtml(d) {
   let thLinha3 = '';
   disciplinasComExame.forEach(() => {
     thLinha3 += `
-      <th class="bg-light text-dark fw-semibold border-end" style="font-size: 0.65rem;">Proven.</th>
-      <th class="bg-light text-dark fw-semibold border-end" style="font-size: 0.65rem;">-</th>
       <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end" style="font-size: 0.65rem; min-width: 50px;">1ª</th>
       <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end" style="font-size: 0.65rem; min-width: 50px;">2ª</th>
-      <th class="bg-primary bg-opacity-10 text-primary fw-bold border-end" style="font-size: 0.65rem;">-</th>
     `;
   });
 
@@ -333,7 +329,6 @@ function renderizarTabelaExamesHtml(d) {
         : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted');
 
       tdsDiscs += `
-        <td class="text-center bg-light border-end font-monospace small">${vFreq}</td>
         <td class="text-center bg-light border-end font-monospace small">${vFreq}</td>
         <td class="p-0 text-center border-end" style="min-width: 48px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center border-0 p-1 font-monospace input-exame-nota"

@@ -607,17 +607,19 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         table_styles.append(('SPAN', (curr_col, 0), (curr_col + 3, 0)))
 
         row_hdr2.extend([
-            Paragraph("de", sh_sub),
             Paragraph("Frequência", sh_sub),
+            Paragraph("Exame", sh_sub),
             Paragraph("Exame", sh_sub),
             Paragraph("Média", sh_sub),
         ])
         row_hdr3.extend([
-            Paragraph("Proven.", sh_sub),
             Paragraph("", sh_sub),
-            Paragraph("1ª / 2ª", sh_sub),
+            Paragraph("1ª", sh_sub),
+            Paragraph("2ª", sh_sub),
             Paragraph("", sh_sub),
         ])
+        table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))
+        table_styles.append(('SPAN', (curr_col + 3, 1), (curr_col + 3, 2)))
         curr_col += 4
 
     # Disciplinas sem Exame
@@ -625,7 +627,8 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
         row_hdr1.append(Paragraph(d_nome_curto, sh_bold_w))
         row_hdr2.append(Paragraph("Frequência", sh_sub))
-        row_hdr3.append(Paragraph("Proven.", sh_sub))
+        row_hdr3.append(Paragraph("", sh_sub))
+        table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))
         curr_col += 1
 
     # Resultado Final
@@ -664,9 +667,11 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
 
             e_str = f"{v_e2}" if v_e2 is not None else (f"{v_e1}" if v_e1 is not None else "-")
 
+            e1_str = f"{v_e1}" if v_e1 is not None and v_e1 != "" else "-"
+            e2_str = f"{v_e2}" if v_e2 is not None and v_e2 != "" else "-"
             row.append(Paragraph(str(v_freq), st_c))
-            row.append(Paragraph(str(v_freq), st_c))
-            row.append(Paragraph(e_str, st_c))
+            row.append(Paragraph(e1_str, st_c))
+            row.append(Paragraph(e2_str, st_c))
 
             if isinstance(v_med, (int, float)):
                 m_st = st_green if v_med >= 9.5 else st_red
