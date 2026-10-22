@@ -41,6 +41,9 @@
 
       <!-- Botões de Ação -->
       <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm px-3" onclick="abrirModalProfessoresExame()" id="btnProfessoresExame" title="Indicar professores que poderão lançar notas de exame por classe">
+          <i class="bi bi-person-check-fill me-1"></i> Autorizar Professores
+        </button>
         <button type="button" class="btn btn-warning btn-sm fw-bold shadow-sm text-dark px-3" onclick="abrirModalParametrosExame()" id="btnParametrosExame" title="Configurar percentagem de frequência, percentagem de exame e nota mínima">
           <i class="bi bi-sliders2-vertical me-1"></i> Parâmetros do Exame
         </button>
@@ -176,6 +179,14 @@
       </div>
     </div>
 
+    <!-- Aviso de Permissão de Lançamento (quando em modo apenas leitura) -->
+    <div id="avisoBloqueioLancamentoExame" class="alert alert-warning py-2 px-3 small d-none mb-3 shadow-sm border-warning align-items-center">
+      <i class="bi bi-shield-lock-fill text-warning fs-5 me-2"></i>
+      <div>
+        <strong>Modo de Apenas Leitura:</strong> <span id="textoBloqueioLancamentoExame">O lançamento das notas de exame nesta classe está reservado ao Director Pedagógico ou professores autorizados por ele.</span>
+      </div>
+    </div>
+
     <!-- Tabela Dinâmica da Pauta de Exames -->
     <div class="table-responsive" id="containerTabelaPautaExames">
       <div class="text-center py-5 text-muted">
@@ -205,6 +216,91 @@
           <p class="mb-0 text-muted small">O Director da Escola</p>
           <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
           <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDir">Director da Escola</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Modal de Indicação de Professores Autorizados a Lançar Exames -->
+  <div class="modal fade" id="modalProfessoresExame" tabindex="-1" aria-labelledby="modalProfessoresExameLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content shadow border-0">
+        <div class="modal-header bg-primary text-white">
+          <h6 class="modal-title fw-bold" id="modalProfessoresExameLabel">
+            <i class="bi bi-person-check-fill me-2"></i>Professores Autorizados a Lançar Notas de Exame
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            <i class="bi bi-info-circle-fill me-1"></i>
+            Por defeito, o lançamento de notas de exame é da competência do <strong>Director Pedagógico</strong>. O Director Pedagógico pode usar esta janela para indicar os professores que terão permissão para lançar notas de exame em cada classe da instituição.
+          </div>
+
+          <!-- Classes com exame identificadas automaticamente -->
+          <div class="card bg-light border-0 p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div>
+                <span class="small fw-bold text-dark d-block">
+                  <i class="bi bi-layers-fill text-primary me-1"></i>Classes com Exame na Instituição (Detectadas Automaticamente):
+                </span>
+                <span class="text-muted small">Todas as classes que realizam exames estão listadas abaixo como colunas para atribuição aos professores.</span>
+              </div>
+              <div id="modalExameBadgesClasses" class="d-flex flex-wrap gap-1">
+                <span class="badge bg-secondary">A carregar classes...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Pesquisa de Professores e Ações Rápidas -->
+          <div class="row g-2 align-items-center mb-3">
+            <div class="col">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" id="filtroProfessoresExameInput" class="form-control" placeholder="Filtrar professor por nome, código ou especialidade..." oninput="filtrarTabelaProfessoresExame()">
+              </div>
+            </div>
+            <div class="col-auto">
+              <button type="button" class="btn btn-outline-primary btn-sm" onclick="marcarTodosProfessoresTodasClasses(true)" title="Autorizar todos os professores em todas as classes com exame">
+                <i class="bi bi-check-all me-1"></i> Autorizar Todos
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm ms-1" onclick="marcarTodosProfessoresTodasClasses(false)" title="Revogar autorizações de todos os professores">
+                <i class="bi bi-x me-1"></i> Revogar Todos
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabela de Atribuição de Professores x Classes -->
+          <div class="table-responsive border rounded" style="max-height: 380px;">
+            <table class="table table-hover table-sm align-middle mb-0 text-center" id="tabelaProfessoresExameModal">
+              <thead class="table-light sticky-top">
+                <tr id="theadProfessoresExameRow">
+                  <th class="text-start ps-3" style="min-width: 200px;">Professor</th>
+                  <th style="min-width: 120px;">Especialidade</th>
+                  <!-- Dynamic Columns for each Class with exam will be inserted here -->
+                  <th style="min-width: 100px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyProfessoresExameModal">
+                <tr>
+                  <td colspan="5" class="py-4 text-center text-muted">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    A carregar lista de professores e classes com exame...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="small text-muted mt-2 text-end" id="contadorProfessoresAutorizadosInfo">
+            0 professor(es) autorizado(s)
+          </div>
+        </div>
+        <div class="modal-footer bg-light p-3">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle me-1"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="salvarProfessoresAutorizadosExame()" id="btnSalvarProfessoresExame">
+            <i class="bi bi-floppy-fill me-1"></i> Guardar Autorizações
+          </button>
         </div>
       </div>
     </div>

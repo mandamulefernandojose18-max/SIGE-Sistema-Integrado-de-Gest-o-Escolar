@@ -414,6 +414,13 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - As disciplinas e as médias de frequência (MFD) têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
   - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True`, 10ª, 11ª ou 12ª Classes).
   - Em casos de turmas sem matrículas ativas ou sem disciplinas curriculares alocadas, a aplicação exibe alertas amigáveis explicativos e botão de repetição ("Tentar Novamente"), mantendo a estabilidade total da SPA.
+- **Competência de Lançamento e Autorização por Professor/Classe:**
+  - **Competência Primária:** Por padrão institucional, quem deve lançar as notas dos exames é o **Director Pedagógico** (`DAP`, e por extensão os administradores institucionais `DIRECTOR_ESCOLA`, `ADMIN_ESCOLA`, `SUPERADMIN`).
+  - **Janela Modal de Indicação de Professores Autorizados:**
+    - Através do botão **"Autorizar Professores"**, o Director Pedagógico pode indicar expressamente quais professores terão permissão para lançar as notas de exame.
+    - **Classes com Exame Automáticas:** Todas as classes/níveis que possuem regime de exame oficial na escola (ex: 10ª Classe, 12ª Classe, etc.) ficam **automaticamente disponíveis** nesta janela, sem necessidade de cadastro manual duplicado.
+    - O Director Pedagógico marca com precisão as classes em que cada professor poderá lançar as notas de exame.
+    - **Bloqueio de Segurança Inteligente:** Professores não indicados para uma determinada classe acessam a respectiva pauta estritamente em **modo de apenas leitura** (campos de exame desabilitados e botão de salvar bloqueado).
 - **Janela Modal de Parâmetros de Exame:**
   - Acessível exclusivamente pelo botão **"Parâmetros do Exame"** no topo da pauta (janela inline consolidada no modal para máxima área útil de exibição da pauta).
   - Permite configurar a percentagem da nota de frequência (% Freq, padrão 50%), a percentagem da nota de exame (% Exame, padrão 50%, totalizando 100%) e a nota mínima do exame (0 a 20 valores, padrão 10.0).
@@ -713,6 +720,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET` | `/api/v1/pautas/exames/turma/<turma_id>/xlsx/` | Pedagógico | Exportação da Pauta de Exames em Excel com cabeçalho oficial de 3 níveis. |
 | `GET` | `/api/v1/pautas/exames/turma/<turma_id>/pdf/` | Pedagógico | Emissão da Pauta Oficial de Exames em PDF A4 Paisagem com termos de homologação. |
 | `GET/POST` | `/api/v1/pautas/exames/parametros/` | Pedagógico / Direção | Consulta e configuração de pesos (% Freq + % Exame = 100%) e nota mínima do exame (0 a 20). |
+| `GET/POST` | `/api/v1/pautas/exames/professores-autorizados/` | `DAP` / Direção | Consulta e define professores autorizados pelo Director Pedagógico a lançar notas de exame por classe com exame disponível automaticamente. |
 | `GET/POST` | `/api/v1/material-escolar` | Autenticado / Pedagógico | Lista materiais didáticos (1ª à 12ª Classe) ou publica novo ficheiro/manual. |
 | `GET` | `/api/v1/material-escolar/<pk>/download` | Autenticado | Descarrega o ficheiro binário do material escolar. |
 | `GET/POST` | `/api/v1/pagamentos` e `/gerar-turma` | Financeiro / Aluno | Lista propinas, cria cobrança individual ou gera mensalidades em lote para uma turma (com bloqueio estrito contra faturas duplicadas no mesmo mês: *"A factura já foi gerada no sistema."*). |

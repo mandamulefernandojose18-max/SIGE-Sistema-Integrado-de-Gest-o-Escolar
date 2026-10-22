@@ -98,10 +98,14 @@ class Escola(models.Model):
             nm = float(cfg.get('nota_minima_exame', 10.0))
         except (ValueError, TypeError):
             nm = 10.0
+        profs_aut = cfg.get('professores_autorizados_exame', [])
+        if not isinstance(profs_aut, list):
+            profs_aut = []
         return {
             'peso_frequencia': pf,
             'peso_exame': pe,
             'nota_minima_exame': nm,
+            'professores_autorizados_exame': profs_aut,
         }
 
 

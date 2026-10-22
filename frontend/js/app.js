@@ -1,4 +1,3 @@
-
 // ==================== EXPORTAÇÃO E DOWNLOAD EM PDF (CADERNETA, PAUTA, ACTA E DOCUMENTOS) ====================
 function inicializarPatchHtml2Pdf() {
   if (!window.html2pdf || window.__html2pdfPatched) return;
@@ -18233,6 +18232,40 @@ function renderizarTabelaExamesHtml(d) {
   const container = document.getElementById('containerTabelaPautaExames');
   if (!container) return;
 
+  const podeEditar = d.pode_editar !== false;
+  const motivoBloqueio = d.motivo_bloqueio || '';
+
+  // Gerir exibição do aviso de permissão de lançamento e estado do botão de salvar
+  const elAviso = document.getElementById('avisoBloqueioLancamentoExame');
+  const elTextoBloqueio = document.getElementById('textoBloqueioLancamentoExame');
+  const btnSalvar = document.getElementById('btnSalvarNotasExame');
+  const btnProf = document.getElementById('btnProfessoresExame');
+
+  // Botão de autorizar professores visível apenas para Direcção / DAP
+  const userRole = (window.state?.user?.role || '').toUpperCase();
+  const isGestao = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'].includes(userRole) || !userRole;
+  if (btnProf) {
+    if (isGestao) btnProf.classList.remove('d-none');
+    else btnProf.classList.add('d-none');
+  }
+
+  if (elAviso && elTextoBloqueio) {
+    if (!podeEditar) {
+      elAviso.classList.remove('d-none');
+      elTextoBloqueio.textContent = motivoBloqueio || 'O lançamento das notas de exame nesta classe está reservado ao Director Pedagógico ou professores autorizados.';
+      if (btnSalvar) {
+        btnSalvar.setAttribute('disabled', 'true');
+        btnSalvar.classList.add('opacity-50');
+      }
+    } else {
+      elAviso.classList.add('d-none');
+      if (btnSalvar) {
+        btnSalvar.removeAttribute('disabled');
+        btnSalvar.classList.remove('opacity-50');
+      }
+    }
+  }
+
   const disciplinasComExame = d.disciplinas_com_exame || [];
   const disciplinasSemExame = d.disciplinas_sem_exame || [];
   const alunos = d.alunos || [];
@@ -18360,14 +18393,18 @@ function renderizarTabelaExamesHtml(d) {
         <td class="p-1 text-center border-end align-middle" style="min-width: 52px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-1 font-monospace input-exame-nota shadow-none"
             value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; background: #ffffff;"
-            title="1ª Época: Mínimo ${notaMinima} valores para aprovação">
+            ${!podeEditar ? 'disabled readonly' : ''}
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
+            style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
+            title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `1ª Época: Mínimo ${notaMinima} valores para aprovação`}">
         </td>
         <td class="p-1 text-center border-end align-middle" style="min-width: 52px;">
           <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-1 font-monospace input-exame-nota shadow-none"
             value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
-            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)" style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; background: #ffffff;"
-            title="2ª Época: Mínimo ${notaMinima} valores para aprovação">
+            ${!podeEditar ? 'disabled readonly' : ''}
+            onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
+            style="font-size: 0.82rem; height: 30px; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
+            title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `2ª Época: Mínimo ${notaMinima} valores para aprovação`}">
         </td>
         <td class="text-center border-end font-monospace small ${corMed}" id="media_${aluno.id}_${d.id}">
           ${vMed}
@@ -18989,3 +19026,290 @@ window.aoMudarPesoExameInline = aoMudarPesoExameInline;
 window.salvarParametrosExameInline = salvarParametrosExameInline;
 window.reporParametrosExamePadraoMEC = reporParametrosExamePadraoMEC;
 window.atualizarCamposParametrosExameNaInterface = atualizarCamposParametrosExameNaInterface;
+
+
+// =====================================================================
+// DELEGAÇÃO DE PERMISSÕES DE LANÇAMENTO DE EXAMES (DIRECTOR PEDAGÓGICO)
+// =====================================================================
+
+let _professoresExameCache = [];
+let _classesExameCache = [];
+let _autorizacoesExameCache = new Map();
+
+async function abrirModalProfessoresExame() {
+  const modalEl = document.getElementById('modalProfessoresExame');
+  if (!modalEl) return;
+
+  const bsModal = new bootstrap.Modal(modalEl);
+  bsModal.show();
+
+  const tbody = document.getElementById('tbodyProfessoresExameModal');
+  const theadRow = document.getElementById('theadProfessoresExameRow');
+  const badgesBox = document.getElementById('modalExameBadgesClasses');
+  const contadorInfo = document.getElementById('contadorProfessoresAutorizadosInfo');
+
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="py-4 text-center text-muted">
+          <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+          A carregar professores e classes com exame da instituição...
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    const res = await sigeFetch('/api/v1/pautas/exames/professores-autorizados/');
+    if (!res.ok) throw new Error('Falha ao consultar permissões de exames');
+    const data = await res.json();
+
+    _professoresExameCache = data.professores || [];
+    _classesExameCache = data.classes_com_exame || ['10ª Classe', '12ª Classe'];
+    _autorizacoesExameCache.clear();
+
+    const autorizacoes = data.autorizacoes || [];
+    autorizacoes.forEach(a => {
+      if (a.professor_id && a.ativo !== false) {
+        _autorizacoesExameCache.set(String(a.professor_id), new Set(a.classes || []));
+      }
+    });
+
+    // Renderizar badges das classes com exame disponíveis automaticamente
+    if (badgesBox) {
+      badgesBox.innerHTML = _classesExameCache.map(c => `
+        <span class="badge bg-primary px-2 py-1"><i class="bi bi-mortarboard me-1"></i>${c}</span>
+      `).join(' ');
+    }
+
+    // Renderizar cabeçalho da tabela com colunas dinâmicas para cada classe com exame
+    if (theadRow) {
+      let ths = `
+        <th class="text-start ps-3" style="min-width: 200px;">Professor</th>
+        <th style="min-width: 120px;">Especialidade</th>
+      `;
+      _classesExameCache.forEach(c => {
+        ths += `<th class="text-center" style="min-width: 100px;"><i class="bi bi-check2-circle text-primary me-1"></i>${c}</th>`;
+      });
+      ths += `<th style="min-width: 110px;">Ações Rápidas</th>`;
+      theadRow.innerHTML = ths;
+    }
+
+    renderizarLinhasProfessoresModalExame();
+
+  } catch (err) {
+    console.error('Erro ao abrir modal de professores autorizados:', err);
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="py-3 text-center text-danger">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Não foi possível carregar os dados de professores e classes.
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+function renderizarLinhasProfessoresModalExame() {
+  const tbody = document.getElementById('tbodyProfessoresExameModal');
+  const contadorInfo = document.getElementById('contadorProfessoresAutorizadosInfo');
+  if (!tbody) return;
+
+  const termo = (document.getElementById('filtroProfessoresExameInput')?.value || '').toLowerCase().trim();
+  const profsFiltrados = _professoresExameCache.filter(p => {
+    if (!termo) return true;
+    return (p.nome || '').toLowerCase().includes(termo) ||
+           (p.codigo || '').toLowerCase().includes(termo) ||
+           (p.especialidade || '').toLowerCase().includes(termo);
+  });
+
+  if (profsFiltrados.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="${_classesExameCache.length + 3}" class="py-4 text-center text-muted">
+          Nenhum professor encontrado com os critérios de pesquisa.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  let totalAutorizados = 0;
+  _professoresExameCache.forEach(p => {
+    const s = _autorizacoesExameCache.get(String(p.id));
+    if (s && s.size > 0) totalAutorizados++;
+  });
+
+  if (contadorInfo) {
+    contadorInfo.innerHTML = `<strong>${totalAutorizados}</strong> de <strong>${_professoresExameCache.length}</strong> professor(es) com autorização activa.`;
+  }
+
+  let trs = '';
+  profsFiltrados.forEach(p => {
+    const pId = String(p.id);
+    const classesAutorizadas = _autorizacoesExameCache.get(pId) || new Set();
+
+    let tdsClasses = '';
+    _classesExameCache.forEach(c => {
+      const isChecked = classesAutorizadas.has(c);
+      tdsClasses += `
+        <td class="text-center align-middle">
+          <input type="checkbox" class="form-check-input chk-prof-classe shadow-none"
+            style="width: 19px; height: 19px; cursor: pointer;"
+            data-prof-id="${pId}" data-classe="${c}"
+            ${isChecked ? 'checked' : ''}
+            onchange="aoAlternarPermissaoClasseProf('${pId}', '${c}', this.checked)">
+        </td>
+      `;
+    });
+
+    trs += `
+      <tr id="linha_prof_perm_${pId}">
+        <td class="text-start ps-3 align-middle">
+          <div class="fw-bold text-dark">${p.nome}</div>
+          <small class="text-muted font-monospace">${p.codigo || 'Docente'}</small>
+        </td>
+        <td class="align-middle text-muted small">${p.especialidade || '---'}</td>
+        ${tdsClasses}
+        <td class="align-middle">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="marcarClassesDoProfessor('${pId}', true)" title="Autorizar em todas as classes com exame">
+              Todas
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="marcarClassesDoProfessor('${pId}', false)" title="Revogar de todas as classes">
+              Nenhuma
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = trs;
+}
+
+function aoAlternarPermissaoClasseProf(pId, classe, isChecked) {
+  if (!_autorizacoesExameCache.has(pId)) {
+    _autorizacoesExameCache.set(pId, new Set());
+  }
+  const setClasses = _autorizacoesExameCache.get(pId);
+  if (isChecked) {
+    setClasses.add(classe);
+  } else {
+    setClasses.delete(classe);
+  }
+  atualizarContadorModalProfessores();
+}
+
+function marcarClassesDoProfessor(pId, marcar) {
+  if (!_autorizacoesExameCache.has(pId)) {
+    _autorizacoesExameCache.set(pId, new Set());
+  }
+  const setClasses = _autorizacoesExameCache.get(pId);
+  if (marcar) {
+    _classesExameCache.forEach(c => setClasses.add(c));
+  } else {
+    setClasses.clear();
+  }
+  renderizarLinhasProfessoresModalExame();
+}
+
+function marcarTodosProfessoresTodasClasses(marcar) {
+  _professoresExameCache.forEach(p => {
+    const pId = String(p.id);
+    if (!_autorizacoesExameCache.has(pId)) {
+      _autorizacoesExameCache.set(pId, new Set());
+    }
+    const setClasses = _autorizacoesExameCache.get(pId);
+    if (marcar) {
+      _classesExameCache.forEach(c => setClasses.add(c));
+    } else {
+      setClasses.clear();
+    }
+  });
+  renderizarLinhasProfessoresModalExame();
+}
+
+function filtrarTabelaProfessoresExame() {
+  renderizarLinhasProfessoresModalExame();
+}
+
+function atualizarContadorModalProfessores() {
+  let totalAutorizados = 0;
+  _professoresExameCache.forEach(p => {
+    const s = _autorizacoesExameCache.get(String(p.id));
+    if (s && s.size > 0) totalAutorizados++;
+  });
+  const contadorInfo = document.getElementById('contadorProfessoresAutorizadosInfo');
+  if (contadorInfo) {
+    contadorInfo.innerHTML = `<strong>${totalAutorizados}</strong> de <strong>${_professoresExameCache.length}</strong> professor(es) com autorização activa.`;
+  }
+}
+
+async function salvarProfessoresAutorizadosExame() {
+  const btn = document.getElementById('btnSalvarProfessoresExame');
+  const txtOriginal = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> A guardar...';
+  }
+
+  const payloadAutorizacoes = [];
+  _professoresExameCache.forEach(p => {
+    const pId = String(p.id);
+    const setClasses = _autorizacoesExameCache.get(pId);
+    if (setClasses && setClasses.size > 0) {
+      payloadAutorizacoes.push({
+        professor_id: pId,
+        professor_nome: p.nome,
+        classes: Array.from(setClasses),
+        ativo: true
+      });
+    }
+  });
+
+  try {
+    const res = await sigeFetch('/api/v1/pautas/exames/professores-autorizados/', {
+      method: 'POST',
+      body: JSON.stringify({ autorizacoes: payloadAutorizacoes })
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Erro ao guardar autorizações');
+    }
+
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao(json.message || 'Autorizações guardadas com sucesso!', 'success');
+    }
+
+    const modalEl = document.getElementById('modalProfessoresExame');
+    if (modalEl) {
+      const modalInst = bootstrap.Modal.getInstance(modalEl);
+      if (modalInst) modalInst.hide();
+    }
+
+    if (typeof carregarPautaExamesTurma === 'function') {
+      carregarPautaExamesTurma();
+    }
+  } catch (err) {
+    console.error('Erro ao guardar autorizações de exame:', err);
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao(err.message || 'Erro ao guardar autorizações', 'danger');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = txtOriginal;
+    }
+  }
+}
+
+window.abrirModalProfessoresExame = abrirModalProfessoresExame;
+window.renderizarLinhasProfessoresModalExame = renderizarLinhasProfessoresModalExame;
+window.aoAlternarPermissaoClasseProf = aoAlternarPermissaoClasseProf;
+window.marcarClassesDoProfessor = marcarClassesDoProfessor;
+window.marcarTodosProfessoresTodasClasses = marcarTodosProfessoresTodasClasses;
+window.filtrarTabelaProfessoresExame = filtrarTabelaProfessoresExame;
+window.salvarProfessoresAutorizadosExame = salvarProfessoresAutorizadosExame;
+

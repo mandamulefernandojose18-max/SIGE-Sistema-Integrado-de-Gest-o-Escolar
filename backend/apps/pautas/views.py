@@ -1021,6 +1021,45 @@ class PautaExamesView(APIView):
                 'logo': getattr(esc, 'logo', '') or '',
             }
 
+        # Validação de permissão de edição para o utilizador atual
+        user = getattr(request, 'user', None)
+        user_role = getattr(user, 'role', '') if user else ''
+        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+        pode_editar = True
+        motivo_bloqueio = ''
+
+        if user and getattr(user, 'is_authenticated', False) and not is_gestao:
+            if user_role == 'PROFESSOR':
+                prof_id = getattr(user, 'professor_id', None)
+                if not prof_id and getattr(user, 'email', None):
+                    from apps.professores.models import Professor
+                    p_obj = Professor.objects.filter(escola=esc, email=user.email).first()
+                    if p_obj:
+                        prof_id = p_obj.id
+
+                cfg_p = esc.get_config_parametros_exames() if hasattr(esc, 'get_config_parametros_exames') else {}
+                profs_aut = cfg_p.get('professores_autorizados_exame', [])
+                grau_turma = getattr(turma, 'grau_ano', '') or ''
+
+                autorizado = False
+                for aut in profs_aut:
+                    if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
+                        classes_aut = aut.get('classes', [])
+                        if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
+                            autorizado = True
+                            break
+
+                if not autorizado:
+                    pode_editar = False
+                    motivo_bloqueio = f"O lançamento de notas de exame na {grau_turma} é de competência do Director Pedagógico ou de professores expressamente autorizados."
+            else:
+                pode_editar = False
+                motivo_bloqueio = "Apenas o Director Pedagógico ou professores autorizados podem lançar notas de exame."
+
+        dados_exame['pode_editar'] = pode_editar
+        dados_exame['motivo_bloqueio'] = motivo_bloqueio
+        dados_exame['is_gestao'] = is_gestao
+
         return Response({
             'success': True,
             'data': dados_exame,
@@ -1036,6 +1075,44 @@ class PautaExamesView(APIView):
                 escola = turma.escola
             else:
                 return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
+
+        # Validação mandatória de permissão de salvamento de notas de exame
+        user = getattr(request, 'user', None)
+        user_role = getattr(user, 'role', '') if user else ''
+        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+
+        if user and getattr(user, 'is_authenticated', False) and not is_gestao:
+            if user_role == 'PROFESSOR':
+                prof_id = getattr(user, 'professor_id', None)
+                esc_target = escola or turma.escola
+                if not prof_id and getattr(user, 'email', None):
+                    from apps.professores.models import Professor
+                    p_obj = Professor.objects.filter(escola=esc_target, email=user.email).first()
+                    if p_obj:
+                        prof_id = p_obj.id
+
+                cfg_p = esc_target.get_config_parametros_exames() if hasattr(esc_target, 'get_config_parametros_exames') else {}
+                profs_aut = cfg_p.get('professores_autorizados_exame', [])
+                grau_turma = getattr(turma, 'grau_ano', '') or ''
+
+                autorizado = False
+                for aut in profs_aut:
+                    if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
+                        classes_aut = aut.get('classes', [])
+                        if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
+                            autorizado = True
+                            break
+
+                if not autorizado:
+                    return Response({
+                        'success': False,
+                        'message': f"Acesso negado: apenas o Director Pedagógico ou professores autorizados para a classe {grau_turma} podem lançar notas de exame."
+                    }, status=403)
+            else:
+                return Response({
+                    'success': False,
+                    'message': "Acesso negado: apenas o Director Pedagógico ou professores autorizados podem lançar notas de exame."
+                }, status=403)
 
         ano_letivo = request.data.get('ano_letivo') or getattr(escola, 'ano_letivo_ativo', '2026') or '2026'
         notas_payload = request.data.get('notas', [])
@@ -1236,11 +1313,11 @@ class ParametrosExamesView(APIView):
                 'message': 'A nota mínima do exame deve estar entre 0 e 20 valores.'
             }, status=400)
 
-        escola.config_parametros_exames = {
-            'peso_frequencia': pf,
-            'peso_exame': pe,
-            'nota_minima_exame': nm
-        }
+        cfg = dict(escola.config_parametros_exames or {})
+        cfg['peso_frequencia'] = pf
+        cfg['peso_exame'] = pe
+        cfg['nota_minima_exame'] = nm
+        escola.config_parametros_exames = cfg
         escola.save(update_fields=['config_parametros_exames'])
 
         return Response({
@@ -1249,5 +1326,114 @@ class ParametrosExamesView(APIView):
             'parametros': escola.get_config_parametros_exames()
         })
 
+class ProfessoresAutorizadosExamesView(APIView):
+    """
+    Endpoint para gerenciar permissões de lançamento de notas de exame por professor e por classe.
+    Competência primária: Director Pedagógico (DAP) ou Direcção da Escola.
+    Todas as classes com exame da instituição ficam automaticamente disponíveis.
+    """
+    permission_classes = [AllowAny]
 
+    def get(self, request):
+        from common.utils.tenant import get_tenant_escola
+        from apps.professores.models import Professor
+        from apps.pautas.services import obter_classes_com_exame_escola
+        from apps.tenants.models import Escola
+
+        escola = get_tenant_escola(request)
+        if not escola:
+            escola = Escola.objects.first()
+
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
+
+        user = getattr(request, 'user', None)
+        user_role = getattr(user, 'role', '') if user else ''
+        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+
+        # 1. Classes com exame da escola disponíveis automaticamente
+        classes_exame = obter_classes_com_exame_escola(escola)
+
+        # 2. Lista de professores ativos da escola
+        profs_qs = Professor.objects.filter(escola=escola, ativo=True).order_by('nome')
+        professores = []
+        for p in profs_qs:
+            professores.append({
+                'id': str(p.id),
+                'nome': p.nome,
+                'codigo': p.codigo or '',
+                'especialidade': p.especialidade or '',
+                'email': p.email or ''
+            })
+
+        # 3. Configurações atuais de professores autorizados
+        cfg_p = escola.get_config_parametros_exames()
+        profs_autorizados = cfg_p.get('professores_autorizados_exame', [])
+
+        return Response({
+            'success': True,
+            'classes_com_exame': classes_exame,
+            'professores': professores,
+            'autorizacoes': profs_autorizados,
+            'is_gestao': is_gestao
+        })
+
+    def post(self, request):
+        from common.utils.tenant import get_tenant_escola
+        from apps.tenants.models import Escola
+        from django.utils import timezone
+
+        escola = get_tenant_escola(request)
+        if not escola:
+            escola = Escola.objects.first()
+
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
+
+        user = getattr(request, 'user', None)
+        user_role = getattr(user, 'role', '') if user else ''
+        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+
+        if user and getattr(user, 'is_authenticated', False) and not is_gestao:
+            return Response({
+                'success': False,
+                'message': 'Apenas o Director Pedagógico ou administradores da escola podem configurar permissões de professores para lançamento de exames.'
+            }, status=403)
+
+        autorizacoes_payload = request.data.get('autorizacoes', [])
+        if not isinstance(autorizacoes_payload, list):
+            return Response({
+                'success': False,
+                'message': 'Formato inválido: lista de autorizações esperada.'
+            }, status=400)
+
+        cfg = dict(escola.config_parametros_exames or {})
+        autorizado_por = getattr(user, 'nome', '') or 'Director Pedagógico'
+        data_agora = timezone.now().isoformat()
+
+        novas_autorizacoes = []
+        for item in autorizacoes_payload:
+            p_id = item.get('professor_id')
+            p_nome = item.get('professor_nome', '')
+            classes = item.get('classes', [])
+            ativo = item.get('ativo', True)
+            if p_id and classes:
+                novas_autorizacoes.append({
+                    'professor_id': str(p_id),
+                    'professor_nome': p_nome,
+                    'classes': [str(c).strip() for c in classes if str(c).strip()],
+                    'ativo': bool(ativo),
+                    'autorizado_por': autorizado_por,
+                    'data_autorizacao': data_agora
+                })
+
+        cfg['professores_autorizados_exame'] = novas_autorizacoes
+        escola.config_parametros_exames = cfg
+        escola.save(update_fields=['config_parametros_exames'])
+
+        return Response({
+            'success': True,
+            'message': f'{len(novas_autorizacoes)} professor(es) configurado(s) com sucesso para lançamento de notas de exame!',
+            'autorizacoes': novas_autorizacoes
+        })
 

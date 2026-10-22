@@ -536,6 +536,43 @@ def obter_disciplinas_pauta_turma(turma):
 # REGRAS E CONSOLIDAÇÃO DA PAUTA DE EXAMES OFICIAIS (MEC / MOÇAMBIQUE)
 # =====================================================================
 
+def obter_classes_com_exame_escola(escola):
+    """
+    Retorna a lista de nomes de classes/níveis que possuem regime de exame na escola.
+    Garante que todas as classes com exame da instituição fiquem disponíveis automaticamente.
+    """
+    classes_exame = set()
+
+    # 1. Da configuração explícita de classes/níveis da instituição
+    cfg = getattr(escola, 'config_classes_exames', {}) or {}
+    if isinstance(cfg, dict):
+        for nome, tem_ex in cfg.items():
+            if tem_ex:
+                classes_exame.add(str(nome).strip())
+
+    # 2. Das turmas ativas da instituição
+    if escola:
+        from apps.turmas.models import Turma
+        turmas = Turma.objects.filter(escola=escola).exclude(grau_ano__isnull=True).exclude(grau_ano='')
+        for t in turmas:
+            if turma_tem_exame(t, escola):
+                classes_exame.add(t.grau_ano.strip())
+
+    # 3. Fallback nacional MEC se nenhuma configuração explícita existir
+    if not classes_exame:
+        regime = getattr(escola, 'regime_curricular', 'CLASSES') or 'CLASSES'
+        if regime == 'CLASSES':
+            classes_exame.update(['10ª Classe', '12ª Classe'])
+        else:
+            classes_exame.update(['Nível 3', 'Nível 5'])
+
+    def sort_key(c):
+        m = re.search(r'\d+', c)
+        return int(m.group(0)) if m else 999
+
+    return sorted(list(classes_exame), key=sort_key)
+
+
 def turma_tem_exame(turma, escola=None):
     """
     Verifica se a turma pertence a uma classe ou nível com regime de exame oficial.
