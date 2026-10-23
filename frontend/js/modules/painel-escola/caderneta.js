@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIGE - PAINEL-ESCOLA | Caderneta do Professor
  * Ficheiro de código independente do menu: caderneta.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -177,8 +177,6 @@ function renderizarBotoesAreasCaderneta(classe) {
       selectAloc.innerHTML = '<option value="">Sem turmas</option>';
       selectAloc.disabled = true;
     }
-    const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
-    if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
     limparCabecalhoCaderneta();
     return;
   }
@@ -244,8 +242,6 @@ function renderizarBotoesCadernetasDisponiveis(classe, area) {
       selectAloc.innerHTML = '<option value="">Nenhuma turma disponível nesta secção</option>';
       selectAloc.disabled = true;
     }
-    const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
-    if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
     limparCabecalhoCaderneta();
     return;
   }
@@ -266,28 +262,7 @@ function renderizarBotoesCadernetasDisponiveis(classe, area) {
     selectAloc.value = state.cadernetaAlocacaoSelecionadaId;
   }
 
-  // Renderizar botões rápidos de turmas para abertura direta ao clicar
-  const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
-  const containerBotoes = document.getElementById('containerBotoesTurmasCaderneta');
-  if (wrapperBotoes && containerBotoes) {
-    wrapperBotoes.style.setProperty('display', 'flex', 'important');
-    containerBotoes.innerHTML = alocsArea.map(a => {
-      const isActiva = a.id === state.cadernetaAlocacaoSelecionadaId;
-      const btnCls = isActiva ? 'btn-primary shadow-sm' : 'btn-outline-primary bg-white';
-      const turmaNome = a.turma?.nome || a.turma_nome || 'Turma';
-      const discNome = a.disciplina?.nome || a.disciplina_nome || '';
-      return `
-        <button type="button" class="btn btn-sm ${btnCls} fw-bold py-1 px-3 d-inline-flex align-items-center gap-1 turma-caderneta-btn"
-                data-aloc-id="${a.id}"
-                onclick="selecionarAlocacaoCaderneta('${a.id}')"
-                title="Clique para abrir ou visualizar a caderneta de ${turmaNome}">
-          <i class="bi bi-people-fill small"></i>
-          <span>${turmaNome}</span>
-          ${discNome ? `<span class="badge ${isActiva ? 'bg-light text-primary' : 'bg-primary-subtle text-primary border'} ms-1 small" style="font-size: 0.7rem;">${discNome}</span>` : ''}
-        </button>
-      `;
-    }).join('');
-  }
+  // Botoes rapidos de turmas removidos: seleccao feita pelo dropdown selectCadernetaAlocacao
 
   if (hiddenSelectAloc) {
     hiddenSelectAloc.innerHTML = alocsArea.map(a => 
@@ -304,20 +279,7 @@ window.aoMudarSelectAlocacaoCaderneta = function(alocId) {
   const hiddenSelectAloc = document.getElementById('cadernetaAlocacaoSelect');
   if (hiddenSelectAloc) hiddenSelectAloc.value = alocId;
 
-  // Actualizar estado activo dos botões de turmas
-  document.querySelectorAll('.turma-caderneta-btn').forEach(btn => {
-    const isActiva = btn.getAttribute('data-aloc-id') === alocId;
-    if (isActiva) {
-      btn.className = 'btn btn-sm btn-primary shadow-sm fw-bold py-1 px-3 d-inline-flex align-items-center gap-1 turma-caderneta-btn';
-      const badge = btn.querySelector('.badge');
-      if (badge) badge.className = 'badge bg-light text-primary ms-1 small';
-    } else {
-      btn.className = 'btn btn-sm btn-outline-primary bg-white fw-bold py-1 px-3 d-inline-flex align-items-center gap-1 turma-caderneta-btn';
-      const badge = btn.querySelector('.badge');
-      if (badge) badge.className = 'badge bg-primary-subtle text-primary border ms-1 small';
-    }
-  });
-
+  // Estado visual dos botoes removido junto com os proprios botoes
   carregarCadernetaDocente(alocId);
 };
 
@@ -328,10 +290,6 @@ window.selecionarAlocacaoCaderneta = function(alocacaoId) {
 };
 
 function limparCabecalhoCaderneta() {
-  const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
-  if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
-  const containerBotoes = document.getElementById('containerBotoesTurmasCaderneta');
-  if (containerBotoes) containerBotoes.innerHTML = '';
   if (document.getElementById('cadBoxDisciplina')) document.getElementById('cadBoxDisciplina').textContent = '-';
   if (document.getElementById('cadBoxProfessor')) document.getElementById('cadBoxProfessor').textContent = '-';
   if (document.getElementById('cadBoxContacto')) document.getElementById('cadBoxContacto').textContent = '-';
