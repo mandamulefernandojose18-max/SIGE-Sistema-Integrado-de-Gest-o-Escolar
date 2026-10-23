@@ -1,4 +1,4 @@
-"""
+﻿"""
 Serviço de Geração de PDFs Oficiais com ReportLab — SIGE
 Gera PDFs com fidelidade absoluta às normas oficiais do MEC (Moçambique)
 e ao layout padrão oficial (Certificados, Declarações, Boletins e Pautas).
@@ -276,8 +276,8 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
     style_pauta_sub = ParagraphStyle('PPautaSub', alignment=1, fontSize=8.5, leading=11, fontName='Times-Roman')
     elements.append(Paragraph(f"Turma: <b>{turma_nome}</b> | Classe: <b>{grau_ano}</b> | Turno: <b>{turno}</b> | Director de Turma: <b>{dt_nome}</b>", style_pauta_sub))
-    # Cabeçalho deve estar a 2cm antes do conteúdo
-    elements.append(Spacer(1, 2.0 * cm))
+    # Espaço reduzido entre subtítulo e tabela
+    elements.append(Spacer(1, 0.3 * cm))
 
     # 2. Tabela Oficial da Pauta em Múltiplos Níveis
     sh_nome = ParagraphStyle('HN', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=0)
@@ -445,19 +445,52 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
         table_data.append(row)
 
-    # Cálculo dinâmico das colunas para A4 Landscape (28.1cm total útil)
+    # Cálculo dinâmico das colunas — garante que TODA a tabela caiba na largura útil
+    # A4 Landscape: 29.7 cm página; margens 0.8 cm cada lado → útil = 28.1 cm
     util_cm = 28.1
-    w_nome = 5.2 * cm
-    w_gen = 0.8 * cm
-    w_med_trim = 0.8 * cm  # 3 cols = 2.4cm
-    w_neg = 0.7 * cm       # 4 cols = 2.8cm
-    w_med_geral = 1.1 * cm
-    w_res = 1.8 * cm
 
-    espaco_fixo = w_nome + w_gen + (w_med_trim * 3) + (w_neg * 4) + w_med_geral + w_res
-    resto_discs = util_cm * cm - espaco_fixo
+    # Proporções base das colunas fixas (serão escalonadas se necessário)
+    w_nome_base     = 5.2 * cm
+    w_gen_base      = 0.8 * cm
+    w_med_trim_base = 0.75 * cm   # 3 cols = 2.25 cm
+    w_neg_base      = 0.65 * cm  # 4 cols = 2.60 cm
+    w_med_geral_base = 1.0 * cm
+    w_res_base      = 1.6 * cm
+
     n_discs = max(len(disciplinas), 1)
-    w_subdisc = max(0.65 * cm, resto_discs / (n_discs * 4))
+    n_subdisc_total = n_discs * 4   # 4 subcolunas por disciplina (T1, T2, T3, MFD)
+
+    # Espaço fixo (sem disciplinas)
+    espaco_fixo = (w_nome_base + w_gen_base +
+                   (w_med_trim_base * 3) +
+                   (w_neg_base * 4) +
+                   w_med_geral_base + w_res_base)
+
+    # Largura ideal por subcoluna de disciplina (sem restrição mínima)
+    resto_discs = util_cm * cm - espaco_fixo
+    w_subdisc_ideal = resto_discs / n_subdisc_total
+
+    # Largura total bruta com a largura ideal
+    total_bruto = espaco_fixo + w_subdisc_ideal * n_subdisc_total
+
+    # Se ultrapassar a largura útil, escalonar tudo proporcionalmente
+    if total_bruto > util_cm * cm:
+        escala = (util_cm * cm) / total_bruto
+        w_nome      = w_nome_base      * escala
+        w_gen       = w_gen_base       * escala
+        w_med_trim  = w_med_trim_base  * escala
+        w_neg       = w_neg_base       * escala
+        w_med_geral = w_med_geral_base * escala
+        w_res       = w_res_base       * escala
+        w_subdisc   = w_subdisc_ideal  * escala
+    else:
+        w_nome      = w_nome_base
+        w_gen       = w_gen_base
+        w_med_trim  = w_med_trim_base
+        w_neg       = w_neg_base
+        w_med_geral = w_med_geral_base
+        w_res       = w_res_base
+        w_subdisc   = w_subdisc_ideal
 
     col_widths = [w_nome, w_gen]
     for _ in disciplinas:
