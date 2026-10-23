@@ -1,4 +1,4 @@
-// ==================== EXPORTAÇÃO E DOWNLOAD EM PDF (CADERNETA, PAUTA, ACTA E DOCUMENTOS) ====================
+﻿// ==================== EXPORTAÇÃO E DOWNLOAD EM PDF (CADERNETA, PAUTA, ACTA E DOCUMENTOS) ====================
 function inicializarPatchHtml2Pdf() {
   if (!window.html2pdf || window.__html2pdfPatched) return;
   try {
@@ -2419,12 +2419,12 @@ async function atualizarDadosModuloPorAno(ano) {
   } else if (view === 'pautas') {
     const sel = document.getElementById('pautaAnoSelect');
     if (sel) sel.value = ano;
-    if (typeof carregarPautas === 'function') await carregarPautas(ano);
+    if (typeof carregarPautas === 'function') await carregarPautas(ano, true);
     else if (typeof alternarVisualizacaoPautaTurma === 'function') alternarVisualizacaoPautaTurma();
   } else if (view === 'estatisticas-aproveitamento') {
     const sel = document.getElementById('statAnoFiltro');
     if (sel) sel.value = ano;
-    if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento();
+    if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento(true);
   } else if (view === 'caderneta' && typeof carregarCaderneta === 'function') {
     await carregarCaderneta();
   } else if (view === 'pagamentos' && typeof carregarPagamentos === 'function') {
@@ -2760,10 +2760,10 @@ async function navegarPara(viewId) {
   if (viewId === 'professores') carregarProfessores();
   if (viewId === 'disciplinas') carregarDisciplinas();
   if (viewId === 'caderneta') inicializarNavegacaoCaderneta();
-  if (viewId === 'pautas') carregarPautas();
+  if (viewId === 'pautas') carregarPautas(null, false);
   if (viewId === 'exames') carregarExames();
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
-  if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento();
+  if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento(false);
   if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
   if (viewId === 'certificados') carregarCertificados();
   if (viewId === 'pagamentos') carregarPagamentos();
@@ -12295,9 +12295,23 @@ function mudarSubAbaPauta(aba) {
   alternarVisualizacaoPautaTurma();
 }
 
-async function carregarPautas() {
+async function carregarPautas(anoParam, forcarBusca = false) {
+  // Nao buscar dados automaticamente — aguardar accao explicita do utilizador (clicar Buscar).
+  if (!forcarBusca && !anoParam) {
+    const selectTurma = document.getElementById('pautaTurmaSelect');
+    if (selectTurma) selectTurma.innerHTML = '<option value="">-- Selecione o Ano e clique em Buscar --</option>';
+    const ph = `<div class="text-center py-5 text-muted"><i class="bi bi-calendar2-check display-4 d-block mb-3 opacity-50"></i><p class="fw-semibold">Selecione o <strong>Ano Lectivo</strong> e clique em <strong>Buscar</strong> para visualizar os dados.</p></div>`;
+    const containerPauta = document.getElementById('containerTabelaPautaGeral');
+    if (containerPauta) containerPauta.innerHTML = ph;
+    const containerActa = document.getElementById('containerActaConselhoCorpo');
+    if (containerActa) containerActa.innerHTML = ph;
+    return;
+  }
   try {
-    const resTurmas = await apiFetch('/api/v1/escola-admin/turmas');
+    const selAno = document.getElementById('pautaAnoSelect');
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
+    const resTurmas = await apiFetch(`/api/v1/escola-admin/turmas${queryAno}`);
     const selectTurma = document.getElementById('pautaTurmaSelect');
     if (!selectTurma) return;
 
@@ -16888,9 +16902,13 @@ async function descarregarExtratoEscolaSuperAdmin(escolaId) {
 }
 
 // ==================== ESTATÍSTICA DO APROVEITAMENTO PEDAGÓGICO ESCOLAR ====================
-async function carregarEstatisticasAproveitamento() {
+async function carregarEstatisticasAproveitamento(forcarBusca = false) {
   const container = document.getElementById('containerEstatisticasDocumento');
   if (!container) return;
+  if (!forcarBusca) {
+    container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-calendar2-check display-4 d-block mb-3 opacity-50"></i><p class="fw-semibold">Selecione o <strong>Ano Lectivo</strong> e clique em <strong>Buscar</strong> para visualizar as estatísticas.</p></div>';
+    return;
+  }
 
   const ano = document.getElementById('statAnoFiltro')?.value || '2026';
   const periodo = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';

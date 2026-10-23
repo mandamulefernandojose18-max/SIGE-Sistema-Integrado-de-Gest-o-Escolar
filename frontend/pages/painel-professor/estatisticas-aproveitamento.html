@@ -1,4 +1,4 @@
-<!-- ===================================================================== -->
+﻿<!-- ===================================================================== -->
 <!-- SIGE - PAINEL-PROFESSOR | Estatística das Minhas Turmas -->
 <!-- Página independente do módulo: estatisticas-aproveitamento.html -->
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
@@ -14,10 +14,10 @@
               <div>
                 <label class="form-label very-small text-muted mb-0">Ano Lectivo</label>
                 <div class="sige-seletor-ano-box d-flex align-items-center">
-                  <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo" onchange="carregarEstatisticasAproveitamento()">
+                  <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo">
                     <option value="">-- Escolha ano Lectivo --</option>
                   </select>
-                  <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarEstatisticasAproveitamento()">
+                  <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarEstatisticasAproveitamento(true)">
                     Buscar <i class="bi bi-search ms-1"></i>
                   </button>
                 </div>
@@ -32,7 +32,7 @@
                 </select>
               </div>
               <div class="d-flex gap-1 align-self-end">
-                <button class="btn btn-outline-primary btn-sm" onclick="carregarEstatisticasAproveitamento()" title="Atualizar dados">
+                <button class="btn btn-outline-primary btn-sm" onclick="carregarEstatisticasAproveitamento(true)" title="Atualizar dados">
                   <i class="bi bi-arrow-repeat me-1"></i> Visualizar
                 </button>
                 <button class="btn btn-primary btn-sm" onclick="window.print()" title="Imprimir Relatório">

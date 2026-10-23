@@ -1,12 +1,16 @@
-/**
+﻿/**
  * SIGE - PAINEL-ESCOLA | Estatísticas de Aproveitamento
  * Ficheiro de código independente do menu: estatisticas-aproveitamento.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
  */
 // ==================== ESTATÍSTICA DO APROVEITAMENTO PEDAGÓGICO ESCOLAR ====================
-async function carregarEstatisticasAproveitamento() {
+async function carregarEstatisticasAproveitamento(forcarBusca = false) {
   const container = document.getElementById('containerEstatisticasDocumento');
   if (!container) return;
+  if (!forcarBusca) {
+    container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-calendar2-check display-4 d-block mb-3 opacity-50"></i><p class="fw-semibold">Selecione o <strong>Ano Lectivo</strong> e clique em <strong>Buscar</strong> para visualizar as estatísticas.</p></div>';
+    return;
+  }
 
   const selAno = document.getElementById('statAnoFiltro');
   const ano = (selAno && selAno.value) ? selAno.value : (state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026');

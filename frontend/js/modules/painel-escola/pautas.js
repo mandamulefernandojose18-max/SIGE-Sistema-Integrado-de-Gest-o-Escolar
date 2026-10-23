@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIGE - PAINEL-ESCOLA | Pautas & Actas Oficiais
  * Ficheiro de código independente do menu: pautas.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -27,7 +27,18 @@ function mudarSubAbaPauta(aba) {
   alternarVisualizacaoPautaTurma();
 }
 
-async function carregarPautas(anoParam) {
+async function carregarPautas(anoParam, forcarBusca = false) {
+  // Nao buscar dados automaticamente — aguardar accao explicita do utilizador (clicar Buscar).
+  if (!forcarBusca && !anoParam) {
+    const selectTurma = document.getElementById('pautaTurmaSelect');
+    if (selectTurma) selectTurma.innerHTML = '<option value="">-- Selecione o Ano e clique em Buscar --</option>';
+    const ph = `<div class="text-center py-5 text-muted"><i class="bi bi-calendar2-check display-4 d-block mb-3 opacity-50"></i><p class="fw-semibold">Selecione o <strong>Ano Lectivo</strong> e clique em <strong>Buscar</strong> para visualizar os dados.</p></div>`;
+    const containerPauta = document.getElementById('containerTabelaPautaGeral');
+    if (containerPauta) containerPauta.innerHTML = ph;
+    const containerActa = document.getElementById('containerActaConselhoCorpo');
+    if (containerActa) containerActa.innerHTML = ph;
+    return;
+  }
   try {
     const selAno = document.getElementById('pautaAnoSelect');
     const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
@@ -64,7 +75,7 @@ window.aoClicarBuscarPautaAno = async function() {
 
   if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
   try {
-    await carregarPautas(ano);
+    await carregarPautas(ano, true);
   } finally {
     if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
   }

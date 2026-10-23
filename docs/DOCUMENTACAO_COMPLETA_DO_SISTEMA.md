@@ -1,4 +1,4 @@
-# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
+﻿# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
 ### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
@@ -261,6 +261,11 @@ Em cada trimestre (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`), cada disciplina
     3. **Nenhuma nota negativa inferior a 8 valores** (se o aluno tiver qualquer disciplina com nota $\le 7$ valores, fica automaticamente **Reprovado**, independentemente da média geral).
 
 ---
+
+
+### 5.1. Regra de Consulta e Isolamento Temporal por Ano Lectivo
+- **Omissão Inicial dos Dados:** Em conformidade com o princípio de integridade de dados por exercício lectivo, todos os módulos e painéis do sistema (exceto o painel corporativo do Super Admin) iniciam sem exibir dados preliminares ou notas de anos anteriores.
+- **Acção Explicita do Utilizador:** As informações e dados analíticos (Pautas Oficiais, Actas de Conselho, Mapas Estatísticos, Turmas e Listagens) só são carregados e disponibilizados após o utilizador escolher o **Ano Lectivo** pretendido e clicar no botão **"Buscar"**.
 
 ## 6. O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)
 
