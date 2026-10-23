@@ -2283,18 +2283,15 @@ function renderizarSelectoresAnoLectivo(anoSelecionado) {
     { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true }
   ];
 
-  const anoAtivo = state.anoLetivoAtivo || state.tenant?.ano_letivo_ativo || '2026';
-  const anoSalvo = localStorage.getItem('sige_ano_letivo_selecionado');
-  const valorAtivo = anoSelecionado || state.anoLectivoVisualizacao || anoSalvo || anoAtivo;
+  const valorAtivo = (anoSelecionado !== undefined) ? anoSelecionado : (state.anoLectivoVisualizacao || '');
 
   // Montar as opções de acordo com o padrão exato da imagem:
-  // -- Escolha ano Lectivo --
-  // Ano Lectivo de 2026
+  // Inicia sempre em: -- Escolha ano Lectivo -- (valor vazio) até escolha manual do usuário
   let htmlOpcoes = '<option value="">-- Escolha ano Lectivo --</option>';
   anos.forEach(item => {
     const anoStr = String(item.ano);
     const desc = item.descricao || `Ano Lectivo de ${anoStr}`;
-    const sel = (anoStr === String(valorAtivo)) ? 'selected' : '';
+    const sel = (valorAtivo && anoStr === String(valorAtivo)) ? 'selected' : '';
     htmlOpcoes += `<option value="${anoStr}" ${sel}>${desc}</option>`;
   });
 
@@ -2362,12 +2359,17 @@ window.aoMudarSelectAnoLectivoGlobal = function(valor) {
 
 window.executarBuscaAnoLectivoGlobal = async function() {
   const selHeader = document.getElementById('headerSelectAnoLectivo');
-  const ano = (selHeader && selHeader.value) ? selHeader.value : (state.anoLectivoVisualizacao || state.anoLetivoAtivo || '2026');
+  const ano = (selHeader && selHeader.value) ? selHeader.value : state.anoLectivoVisualizacao;
+
+  if (!ano) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
+    }
+    return;
+  }
 
   state.anoLectivoVisualizacao = ano;
-  if (ano) {
-    localStorage.setItem('sige_ano_letivo_selecionado', ano);
-  }
+  localStorage.setItem('sige_ano_letivo_selecionado', ano);
 
   // Sincronizar em todos os selectores da interface
   renderizarSelectoresAnoLectivo(ano);

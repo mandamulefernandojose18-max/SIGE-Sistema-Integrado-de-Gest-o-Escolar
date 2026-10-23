@@ -66,12 +66,16 @@ async function carregarPautas(anoParam, forcarBusca = false) {
 window.aoClicarBuscarPautaAno = async function() {
   const sel = document.getElementById('pautaAnoSelect');
   const ano = sel ? sel.value : '';
-  if (ano) {
-    state.anoLectivoVisualizacao = ano;
-    localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  if (!ano) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
+    }
+    return;
   }
+  state.anoLectivoVisualizacao = ano;
+  localStorage.setItem('sige_ano_letivo_selecionado', ano);
   const selHeader = document.getElementById('headerSelectAnoLectivo');
-  if (selHeader && ano) selHeader.value = ano;
+  if (selHeader) selHeader.value = ano;
 
   if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
   try {
