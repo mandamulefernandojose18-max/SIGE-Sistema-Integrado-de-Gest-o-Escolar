@@ -2357,8 +2357,7 @@ window.aoMudarSelectAnoLectivoGlobal = function(valor) {
   } else {
     localStorage.removeItem('sige_ano_letivo_selecionado');
   }
-  // Ao escolher o ano, executa automaticamente a busca e atualização dos dados do ano escolhido
-  executarBuscaAnoLectivoGlobal();
+  // Dependência exclusiva do botão Buscar: a alteração no seletor apenas define o ano sem disparar busca automática
 };
 
 window.executarBuscaAnoLectivoGlobal = async function() {
@@ -2425,12 +2424,13 @@ async function atualizarDadosModuloPorAno(ano) {
     const sel = document.getElementById('statAnoFiltro');
     if (sel) sel.value = ano;
     if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento(true);
-  } else if (view === 'caderneta' && typeof carregarCaderneta === 'function') {
-    await carregarCaderneta();
+  } else if (view === 'caderneta') {
+    if (typeof carregarCadernetaDocente === 'function' && state.cadernetaAlocacaoSelecionadaId) await carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
+    else if (typeof inicializarNavegacaoCaderneta === 'function') await inicializarNavegacaoCaderneta(true);
   } else if (view === 'pagamentos' && typeof carregarPagamentos === 'function') {
     await carregarPagamentos();
   } else if (view === 'dashboard' && typeof carregarDashboardGeral === 'function') {
-    await carregarDashboardGeral();
+    await carregarDashboardGeral(ano, true);
   }
 }
 
@@ -2751,7 +2751,7 @@ async function navegarPara(viewId) {
   renderizarSelectoresAnoLectivo();
 
   // Gatilhos de carregamento específico
-  if (viewId === 'dashboard') carregarDashboardGeral();
+  if (viewId === 'dashboard') carregarDashboardGeral(null, false);
   if (viewId === 'saas') carregarPainelSaaS();
   if (viewId === 'escola') carregarEscolaETurmas();
   if (viewId === 'turmas') carregarTurmas();
@@ -2781,9 +2781,26 @@ async function navegarPara(viewId) {
 }
 
 // ==================== 1. DASHBOARD GERAL ====================
-async function carregarDashboardGeral() {
+async function carregarDashboardGeral(anoParam = null, forcarBusca = false) {
+  // Se chamado sem forçar a busca (ex: abertura inicial da view), omitir dados e exibir estado inicial
+  if (!forcarBusca && !anoParam) {
+    const elTotalAlunos = document.getElementById('statTotalAlunos');
+    if (elTotalAlunos) elTotalAlunos.textContent = '-';
+    const elAlunosAtivos = document.getElementById('statAlunosAtivos');
+    if (elAlunosAtivos) elAlunosAtivos.textContent = '-';
+    const elTotalProfs = document.getElementById('statTotalProfessores');
+    if (elTotalProfs) elTotalProfs.textContent = '-';
+    const elReceitaTotal = document.getElementById('statReceitaTotal');
+    if (elReceitaTotal) elReceitaTotal.innerHTML = '-';
+    const elReceitaPendente = document.getElementById('statReceitaPendente');
+    if (elReceitaPendente) elReceitaPendente.innerHTML = '-';
+    return;
+  }
   try {
-    const res = await apiFetch('/api/v1/dashboard/overview', { ignoreAuthRedirect: true });
+    const selAno = document.getElementById('headerSelectAnoLectivo');
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || '2026';
+    const queryAno = (ano && ano !== 'TODOS') ? ?ano_letivo= : '';
+    const res = await apiFetch(/api/v1/dashboard/overview, { ignoreAuthRedirect: true });
     if (!res.success || !res.data) return;
 
     const data = res.data;
@@ -11596,7 +11613,8 @@ function renderizarBotoesCadernetasDisponiveis(classe, area) {
     hiddenSelectAloc.value = state.cadernetaAlocacaoSelecionadaId;
   }
 
-  carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
+  // Dados omitidos na abertura inicial: aguardando clique em Buscar pelo seletor de ano ou busca
+  // carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
 }
 
 window.aoMudarSelectAlocacaoCaderneta = function(alocId) {

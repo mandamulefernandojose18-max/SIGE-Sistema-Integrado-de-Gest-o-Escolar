@@ -271,7 +271,8 @@ function renderizarBotoesCadernetasDisponiveis(classe, area) {
     hiddenSelectAloc.value = state.cadernetaAlocacaoSelecionadaId;
   }
 
-  carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
+  // Dados omitidos na abertura inicial: aguardando clique em Buscar pelo seletor de ano ou busca
+  // carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
 }
 
 window.aoMudarSelectAlocacaoCaderneta = function(alocId) {
