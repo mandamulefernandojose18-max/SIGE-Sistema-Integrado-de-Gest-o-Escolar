@@ -2799,8 +2799,8 @@ async function carregarDashboardGeral(anoParam = null, forcarBusca = false) {
   try {
     const selAno = document.getElementById('headerSelectAnoLectivo');
     const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || '2026';
-    const queryAno = (ano && ano !== 'TODOS') ? ?ano_letivo= : '';
-    const res = await apiFetch(/api/v1/dashboard/overview, { ignoreAuthRedirect: true });
+    const queryAno = (ano && ano !== 'TODOS') ? '?ano_letivo=' + encodeURIComponent(ano) : '';
+    const res = await apiFetch('/api/v1/dashboard/overview' + queryAno, { ignoreAuthRedirect: true });
     if (!res.success || !res.data) return;
 
     const data = res.data;
