@@ -56,7 +56,8 @@ fi
 
 if [ -f "frontend/index.html" ]; then
     sed -i "s/<meta name=\"sige-build\" content=\".*\">/<meta name=\"sige-build\" content=\"${COMMIT_HASH}\">/g" frontend/index.html
-    log_info "frontend/index.html sige-build sincronizado com o commit ${COMMIT_HASH}."
+    sed -i "s/?v=[0-9a-zA-Z_]*/?v=${COMMIT_HASH}/g" frontend/index.html
+    log_info "frontend/index.html sige-build e scripts sincronizados com o commit ${COMMIT_HASH}."
 fi
 
 if [ -f "frontend/service-worker.js" ]; then

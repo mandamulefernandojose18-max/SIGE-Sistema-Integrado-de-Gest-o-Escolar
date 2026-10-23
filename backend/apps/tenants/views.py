@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
 from django.db import transaction, connection
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 
 logger = logging.getLogger(__name__)
 

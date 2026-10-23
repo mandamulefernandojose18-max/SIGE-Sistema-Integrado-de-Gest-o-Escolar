@@ -122,6 +122,11 @@ O sistema aplica uma distinÃ§Ã£o arquitetural e de negÃ³cio estrita e inquebrÃ¡v
    - **Exclusividade Super Admin:** Geridos e aplicados unicamente pelo Super Administrador da plataforma para governar as instituiÃ§Ãµes escolares (licenciamento, quotas e contratos SaaS).
    - **Isolamento Total:** As definiÃ§Ãµes e valores dos planos SaaS **jamais refletem para os utilizadores finais das escolas** (alunos, encarregados, professores). O endpoint `/api/v1/planos/` Ã© protegido por `[IsAuthenticated, IsSuperAdmin]`, retornando `HTTP 403 Forbidden` a qualquer utilizador de escola comum.
    - **VigÃªncias DisponÃ­veis:** `MENSAL` (30 dias â€” padrÃ£o 2.500,00 MZN), `TRIMESTRAL` (90 dias), `SEMESTRAL` (180 dias) e `ANUAL` (365 dias), com limites contratados de `max_alunos` e `max_professores`.
+   - **Otimização de Desempenho e Resiliência Operacional (v2.5.1):**
+     - As consultas da API de escolas (`/api/v1/saas-admin/escolas/`) utilizam `select_related('plano')`, `prefetch_related('assinaturas__plano')` e anotações agregadas (`annotate(total_alunos=Count('alunos', distinct=True), total_professores=Count('professores', distinct=True))`), eliminando por completo o gargalo N+1 em bases com centenas de instituições.
+     - A API de métricas (`/api/v1/saas-admin/metrics/`) agrega contagens ativas, suspensas e expiradas em uma única transação SQL (`Count('id', filter=Q(status=...))`).
+     - O carregamento da interface frontend (`carregarPainelSaaS`) utiliza `Promise.allSettled`, garantindo que eventuais lentidões em um endpoint não bloqueiem a renderização das tabelas de instituições e planos vigentes.
+     - A injeção dinâmica de páginas e módulos implementa cache-busting estrito (`?v=<sige-build>`), forçando navegadores e PWA a utilizarem sempre os scripts e layouts mais recentes disponibilizados na produção.
    - **VerificaÃ§Ã£o em Tempo Real (`common/middleware/tenant_expiration.py`):** Interceta todas as requisiÃ§Ãµes privadas. Se a data atual ultrapassar `assinatura.data_fim`, retorna **HTTP 402 (Payment Required)**. Rotas isentas: `/health/`, `/api/v1/auth/*`, `/api/v1/saas-admin/*` e `/api/v1/public/*`.
 
 2. **Planos de Pagamento e Propinas PrÃ³prios da Escola B2C (`pagamentos.PlanoPagamentoEscola`):**

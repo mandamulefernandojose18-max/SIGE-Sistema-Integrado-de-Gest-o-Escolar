@@ -1,4 +1,4 @@
-﻿// ==================== EXPORTAÇÃO E DOWNLOAD EM PDF (CADERNETA, PAUTA, ACTA E DOCUMENTOS) ====================
+// ==================== EXPORTAÇÃO E DOWNLOAD EM PDF (CADERNETA, PAUTA, ACTA E DOCUMENTOS) ====================
 function inicializarPatchHtml2Pdf() {
   if (!window.html2pdf || window.__html2pdfPatched) return;
   try {
@@ -2619,7 +2619,8 @@ async function carregarPaginaModulo(painel, viewId) {
     return viewEl;
   }
 
-  const urlPagina = `/pages/${painel}/${viewId}.html`;
+  const buildParam = (typeof sigeCurrentBuild === 'function' && sigeCurrentBuild()) || Date.now();
+  const urlPagina = `/pages/${painel}/${viewId}.html?v=${encodeURIComponent(buildParam)}`;
   try {
     let html = cachePaginasModular[urlPagina];
     if (!html) {
@@ -2669,7 +2670,8 @@ async function carregarPaginaModulo(painel, viewId) {
 async function carregarScriptModulo(painel, viewId) {
   const idScript = `script-modulo-${painel}-${viewId}`;
   if (document.getElementById(idScript)) return;
-  const scriptUrl = `/js/modules/${painel}/${viewId}.js`;
+  const buildParam = (typeof sigeCurrentBuild === 'function' && sigeCurrentBuild()) || Date.now();
+  const scriptUrl = `/js/modules/${painel}/${viewId}.js?v=${encodeURIComponent(buildParam)}`;
   return new Promise((resolve) => {
     const s = document.createElement('script');
     s.id = idScript;

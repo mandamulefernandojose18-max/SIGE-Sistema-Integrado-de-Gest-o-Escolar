@@ -1,8 +1,8 @@
 {
-  "version": "2.5.0",
-  "build": "20261017_1505",
-  "data": "2026-10-17",
+  "version": "2.5.1",
+  "build": "20261023_1545",
+  "data": "2026-10-23",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Espectro visual completo de cores, barra de gradiente contínuo 360 e paleta harmónica pré-renderizada para cada instituição."
+  "novidades": "Resolução do carregamento paralelo de métricas, escolas e planos SaaS com cache-busting automático."
 }
