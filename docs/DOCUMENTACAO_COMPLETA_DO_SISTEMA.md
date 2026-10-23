@@ -380,7 +380,12 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Upload Local até 15 MB ou Link Externo:** Permite a professores e administradores publicar ficheiros em PDF, Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`), EPUB, ZIP ou imagens, classificados como `MANUAL`, `FICHA`, `LIVRO`, `EXERCICIOS`, `GUIA` ou `APOSTILA`, com download binário direto (`/material-escolar/<id>/download`).
 
 ### Módulo 9: Caderneta Electrónica do Professor (`#view-caderneta`)
-- **Navegação Hierárquica:** Seleção encadeada de `Classe` $\to$ `Secção/Área` $\to$ `Turma e Disciplina` $\to$ `Trimestre`.
+- **Navegação Hierárquica por Filtros Escaláveis ($n Cadernetas sem Limite):**
+  - Seleção encadeada e compacta via 4 dropdowns de filtro: 1. Classe / Grau $\to$ 2. Secção / Área $\to$ 3. Turma da Secção (Caderneta) $\to$ 4. Trimestre.
+  - **Zero Poluição Visual ($\mathcal{O}(1)$ na Interface):** Sem botões em grelha ou chips expansivos de turmas, suportando com elegância qualquer quantidade arbitrária de $n cadernetas sem sobrecarregar ou empilhar elementos na tela.
+- **Integridade Absoluta dos Dados Oficiais (Zero Dados Fictícios):**
+  - Proibição estrita de dados simulados, notas ou cadernetas fictícias (mockadas).
+  - Toda a árvore de seleção e a grelha de avaliações refletem exclusivamente as turmas, matrículas e alocações reais ativas no banco de dados. Caso o utilizador não possua alocações, o sistema exibe o estado vazio informativo correspondente.
 - **Visão Integrada dos 3 Trimestres + MFD:**
   - Exibe todos os alunos da turma por ordem alfabética com as colunas oficiais do 1º, 2º e 3º Trimestres (`1ª ACS`, `2ª ACS`, `3ª ACS`, `MAP`, `MAS`, `AT`, `MT`, `COM`, `Obs`) e a **Média Final da Disciplina (`MFD`)** + Situação Anual.
 - **Rodapé Estatístico Demográfico Automático por Coluna:**
