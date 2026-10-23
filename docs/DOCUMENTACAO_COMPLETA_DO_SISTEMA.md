@@ -122,11 +122,16 @@ O sistema aplica uma distinção arquitetural e de negócio estrita e inquebráv
    - **Exclusividade Super Admin:** Geridos e aplicados unicamente pelo Super Administrador da plataforma para governar as instituições escolares (licenciamento, quotas e contratos SaaS).
    - **Isolamento Total:** As definições e valores dos planos SaaS **jamais refletem para os utilizadores finais das escolas** (alunos, encarregados, professores). O endpoint `/api/v1/planos/` é protegido por `[IsAuthenticated, IsSuperAdmin]`, retornando `HTTP 403 Forbidden` a qualquer utilizador de escola comum.
    - **Vigências Disponíveis:** `MENSAL` (30 dias — padrão 2.500,00 MZN), `TRIMESTRAL` (90 dias), `SEMESTRAL` (180 dias) e `ANUAL` (365 dias), com limites contratados de `max_alunos` e `max_professores`.
-   - **Otimiza��o de Desempenho e Resili�ncia Operacional (v2.5.1):**
-     - As consultas da API de escolas (`/api/v1/saas-admin/escolas/`) utilizam `select_related('plano')`, `prefetch_related('assinaturas__plano')` e anota��es agregadas (`annotate(total_alunos=Count('alunos', distinct=True), total_professores=Count('professores', distinct=True))`), eliminando por completo o gargalo N+1 em bases com centenas de institui��es.
-     - A API de m�tricas (`/api/v1/saas-admin/metrics/`) agrega contagens ativas, suspensas e expiradas em uma �nica transa��o SQL (`Count('id', filter=Q(status=...))`).
-     - O carregamento da interface frontend (`carregarPainelSaaS`) utiliza `Promise.allSettled`, garantindo que eventuais lentid�es em um endpoint n�o bloqueiem a renderiza��o das tabelas de institui��es e planos vigentes.
-     - A inje��o din�mica de p�ginas e m�dulos implementa cache-busting estrito (`?v=<sige-build>`), for�ando navegadores e PWA a utilizarem sempre os scripts e layouts mais recentes disponibilizados na produ��o.
+   - **Otimizao de Desempenho e Resilincia Operacional (v2.5.1):**
+     - As consultas da API de escolas (`/api/v1/saas-admin/escolas/`) utilizam `select_related('plano')`, `prefetch_related('assinaturas__plano')` e anotaes agregadas (`annotate(total_alunos=Count('alunos', distinct=True), total_professores=Count('professores', distinct=True))`), eliminando por completo o gargalo N+1 em bases com centenas de instituies.
+     - A API de mtricas (`/api/v1/saas-admin/metrics/`) agrega contagens ativas, suspensas e expiradas em uma nica transao SQL (`Count('id', filter=Q(status=...))`).
+     - O carregamento da interface frontend (`carregarPainelSaaS`) utiliza `Promise.allSettled`, garantindo que eventuais lentides em um endpoint no bloqueiem a renderizao das tabelas de instituies e planos vigentes.
+     - A injeção dinâmica de páginas e módulos implementa cache-busting estrito (`?v=<sige-build>`), forçando navegadores e PWA a utilizarem sempre os scripts e layouts mais recentes disponibilizados na produção.
+   - **Correção Crítica de Carregamento Contínuo e Resiliência SaaS (v2.5.2):**
+     - Resolução do bloqueio no painel SuperAdmin onde as tabelas de escolas e planos permaneciam em processamento contínuo ("A carregar escolas...").
+     - Restauração integral das funções de ciclo de vida e bloqueio visual de ano letivo (`aplicarBloqueioVisualAnoNaoSelecionado`, `removerBloqueioVisualAnoNaoSelecionado`, `aoClicarBuscarAnoMestreView` e `executarGatilhosCarregamentoView`), impedindo que exceções ReferenceError interrompam os gatilhos de navegação.
+     - Otimização do `apiFetch` com recuperação resiliente de token em `sessionStorage`/`localStorage` e controle de timeout de 25s via `AbortController`.
+     - Eliminação de chamadas síncronas bloqueantes `document.write` de CDNs externos no HTML raiz, garantindo inicialização limpa e assíncrona das bibliotecas locais.
    - **Verificação em Tempo Real (`common/middleware/tenant_expiration.py`):** Interceta todas as requisições privadas. Se a data atual ultrapassar `assinatura.data_fim`, retorna **HTTP 402 (Payment Required)**. Rotas isentas: `/health/`, `/api/v1/auth/*`, `/api/v1/saas-admin/*` e `/api/v1/public/*`.
 
 2. **Planos de Pagamento e Propinas Próprios da Escola B2C (`pagamentos.PlanoPagamentoEscola`):**

@@ -895,3 +895,11 @@ window.eliminarEscolaSuperAdmin = eliminarEscolaSuperAdmin;
 window.processarLogoCadastroLocal = processarLogoCadastroLocal;
 window.processarUploadLogoModal = processarUploadLogoModal;
 
+// Auto-disparo imediato e resiliente se a tabela estiver em estado de carregamento
+if (typeof document !== 'undefined') {
+  const elEscolas = document.getElementById('tabelaSaasEscolas');
+  if (elEscolas && (elEscolas.innerHTML.includes('spinner-border') || elEscolas.innerHTML.includes('A carregar escolas'))) {
+    setTimeout(() => { carregarPainelSaaS(); }, 50);
+  }
+}
+

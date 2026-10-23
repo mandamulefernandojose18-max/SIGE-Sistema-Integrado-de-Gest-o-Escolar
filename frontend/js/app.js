@@ -1283,8 +1283,10 @@ async function apiFetch(endpoint, options = {}) {
     ...(options.headers || {})
   };
 
-  if (state.token) {
-    headers['Authorization'] = `Bearer ${state.token}`;
+  const currentToken = state.token || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token');
+  if (currentToken) {
+    if (!state.token) state.token = currentToken;
+    headers['Authorization'] = `Bearer ${currentToken}`;
   }
 
   // Garantir isolamento rigoroso de tenant em todas as chamadas à API (exceto rotas Master SaaS)
@@ -1303,8 +1305,15 @@ async function apiFetch(endpoint, options = {}) {
   }
 
   const targetUrl = options._fallbackUrl || formatarUrlApi(endpoint);
+  let timeoutId = null;
+  const fetchOptions = { ...options, headers };
+  if (!fetchOptions.signal && typeof AbortController !== 'undefined') {
+    const controller = new AbortController();
+    fetchOptions.signal = controller.signal;
+    timeoutId = setTimeout(() => controller.abort(), 25000);
+  }
   try {
-    const res = await fetch(targetUrl, { ...options, headers });
+    const res = await fetch(targetUrl, fetchOptions);
     
     // Tratamento seguro de tipo de conteúdo (JSON, texto ou corpo vazio)
     let json = null;
@@ -1407,6 +1416,8 @@ async function apiFetch(endpoint, options = {}) {
     }
     console.error('API Error:', err);
     throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
@@ -2782,7 +2793,9 @@ async function navegarPara(viewId) {
 
   // Gatilhos de carregamento específico
   if (viewId === 'dashboard') carregarDashboardGeral(null, false);
-  if (viewId === 'saas') carregarPainelSaaS();
+  if (viewId === 'saas') {
+    if (typeof carregarPainelSaaS === 'function') carregarPainelSaaS();
+  }
   if (viewId === 'escola') carregarEscolaETurmas();
   if (viewId === 'turmas') carregarTurmas();
   if (viewId === 'classes-exames') { carregarPaginaClassesExames(); return; }
@@ -19980,3 +19993,124 @@ window.aoClicarBuscarExamesPorAno = async function() {
     if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
   }
 };
+
+// =====================================================================
+// SIGE - Funções de Bloqueio Visual e Sincronização por Ano Lectivo
+// =====================================================================
+function aplicarBloqueioVisualAnoNaoSelecionado(viewEl, viewId) {
+  if (!viewEl) return;
+  
+  // Ocultar todos os filhos directos da view
+  Array.from(viewEl.children).forEach(child => {
+    if (!child.classList.contains('sige-filtro-ano-container-master')) {
+      child.style.display = 'none';
+      child.classList.add('sige-ocultado-por-ano');
+    }
+  });
+
+  // Criar ou exibir container mestre com o seletor exatamente como na imagem
+  let masterBox = viewEl.querySelector('.sige-filtro-ano-container-master');
+  if (!masterBox) {
+    masterBox = document.createElement('div');
+    masterBox.className = 'sige-filtro-ano-container-master card p-3 mb-4 no-print border-0 shadow-sm bg-light';
+    masterBox.innerHTML = `
+      <div class="d-flex align-items-center">
+        <div class="sige-seletor-ano-box d-flex align-items-center">
+          <select class="form-select form-select-sm sige-select-ano-lectivo sige-select-ano-view-local">
+            <option value="" selected>-- Escolha ano Lectivo --</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('${viewId}')">
+            Buscar <i class="bi bi-search ms-1"></i>
+          </button>
+        </div>
+      </div>
+    `;
+    viewEl.insertBefore(masterBox, viewEl.firstChild);
+  }
+  masterBox.style.display = 'block';
+
+  // Popular o seletor local
+  const selectLocal = masterBox.querySelector('.sige-select-ano-view-local');
+  if (selectLocal) {
+    const anos = (state.anosLectivos && state.anosLectivos.length > 0) ? state.anosLectivos : [
+      { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true }
+    ];
+    let html = '<option value="" selected>-- Escolha ano Lectivo --</option>';
+    anos.forEach(item => {
+      const anoStr = String(item.ano);
+      const desc = item.descricao || `Ano Lectivo de ${anoStr}`;
+      html += `<option value="${anoStr}">${desc}</option>`;
+    });
+    selectLocal.innerHTML = html;
+    selectLocal.value = '';
+  }
+}
+
+function removerBloqueioVisualAnoNaoSelecionado(viewEl) {
+  if (!viewEl) return;
+  const masterBox = viewEl.querySelector('.sige-filtro-ano-container-master');
+  if (masterBox) masterBox.style.display = 'none';
+
+  Array.from(viewEl.children).forEach(child => {
+    if (child.classList.contains('sige-ocultado-por-ano')) {
+      child.style.display = '';
+      child.classList.remove('sige-ocultado-por-ano');
+    }
+  });
+}
+
+window.aoClicarBuscarAnoMestreView = async function(viewId) {
+  const viewEl = document.getElementById(`view-${viewId}`);
+  const selLocal = viewEl?.querySelector('.sige-select-ano-view-local');
+  const selHeader = document.getElementById('headerSelectAnoLectivo');
+  const ano = selLocal?.value || selHeader?.value || state.anoLectivoVisualizacao;
+
+  if (!ano) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
+    }
+    return;
+  }
+
+  state.anoLectivoVisualizacao = ano;
+  if (selHeader) selHeader.value = ano;
+  if (selLocal) selLocal.value = ano;
+
+  // Sincronizar em todos os selectores
+  renderizarSelectoresAnoLectivo(ano);
+
+  // Revelar conteúdo da view
+  removerBloqueioVisualAnoNaoSelecionado(viewEl);
+
+  // Ativar loading
+  if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
+  try {
+    await executarGatilhosCarregamentoView(viewId, ano);
+  } finally {
+    if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
+  }
+};
+
+async function executarGatilhosCarregamentoView(viewId, ano) {
+  if (viewId === 'dashboard') await carregarDashboardGeral(ano, true);
+  if (viewId === 'turmas') await carregarTurmas(ano);
+  if (viewId === 'alunos') { state.filtroAlunoAno = ano; await carregarAlunos(ano); }
+  if (viewId === 'caderneta') { if (typeof carregarCadernetaDocente === 'function' && state.cadernetaAlocacaoSelecionadaId) await carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId); else if (typeof inicializarNavegacaoCaderneta === 'function') await inicializarNavegacaoCaderneta(true); }
+  if (viewId === 'pautas') await carregarPautas(ano, true);
+  if (viewId === 'exames') await carregarExames(ano, true);
+  if (viewId === 'director-turma') await carregarPainelDirectorTurma();
+  if (viewId === 'estatisticas-aproveitamento') await carregarEstatisticasAproveitamento(true);
+  if (viewId === 'material-escolar') await carregarPainelMaterialEscolar();
+  if (viewId === 'certificados') await carregarCertificados();
+  if (viewId === 'pagamentos') await carregarPagamentos();
+  if (viewId === 'impressao') await prepararCentralImpressao();
+  if (viewId === 'desbloqueio') await prepararDesbloqueioTrimestre();
+  if (viewId === 'aluno-perfil') await carregarAlunoPerfil();
+  if (viewId === 'aluno-notas') await carregarAlunoNotas();
+  if (viewId === 'aluno-pagamentos') await carregarAlunoPagamentos();
+  if (viewId === 'professor-perfil') await carregarPerfilDocenteIndividual();
+}
+
+window.aplicarBloqueioVisualAnoNaoSelecionado = aplicarBloqueioVisualAnoNaoSelecionado;
+window.removerBloqueioVisualAnoNaoSelecionado = removerBloqueioVisualAnoNaoSelecionado;
+window.executarGatilhosCarregamentoView = executarGatilhosCarregamentoView;

@@ -1,8 +1,8 @@
 {
-  "version": "2.5.1",
-  "build": "20261023_1545",
+  "version": "2.5.2",
+  "build": "20261023_2255",
   "data": "2026-10-23",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Resolução do carregamento paralelo de métricas, escolas e planos SaaS com cache-busting automático."
+  "novidades": "Resolução do carregamento e exibição da lista de escolas e planos no painel SuperAdmin SaaS, restauração de funções de bloqueio visual e remoção de scripts bloqueantes."
 }
