@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SIGE - PAINEL-PROFESSOR | Pautas & Actas das Minhas Turmas
  * Ficheiro de código independente do menu: pautas.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -143,7 +143,7 @@ async function carregarPautaGeral(turmaId) {
       `<th style="font-size: 0.65rem;">1º</th><th style="font-size: 0.65rem;">2º</th><th style="font-size: 0.65rem;">3º</th><th style="font-size: 0.65rem;" class="bg-light fw-bold">MFD</th>`
     ).join('');
 
-    const colSpanTotal = 2 + (disciplinas.length * 4) + 9;
+    const colSpanTotal = 3 + (disciplinas.length * 4) + 9;
 
     let trsAlunos = '';
     if (alunos.length === 0) {
@@ -157,7 +157,7 @@ async function carregarPautaGeral(turmaId) {
         </tr>
       `;
     } else {
-      trsAlunos = alunos.map(a => {
+      trsAlunos = alunos.map((a, idx) => {
         const notasDisc = a.notasDisciplinas || a.notas || {};
         const tdDisciplinas = disciplinas.map(disc => {
           const nd = notasDisc[disc.codigo || disc.id] || notasDisc[disc.id] || notasDisc[disc.nome] || {};
@@ -188,6 +188,7 @@ async function carregarPautaGeral(turmaId) {
 
         return `
           <tr>
+            <td style="width: 40px;"><strong>${a.numero || (idx + 1)}</strong></td>
             <td class="text-start ps-3 fw-semibold">${nomeCompleto}</td>
             <td><span class="badge ${isFem ? 'bg-info text-white' : 'bg-secondary text-white'}" style="min-width: 22px;">${isFem ? 'F' : 'M'}</span></td>
             ${tdDisciplinas}
@@ -219,6 +220,7 @@ async function carregarPautaGeral(turmaId) {
       <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: 1400px;">
         <thead class="table-light">
           <tr>
+            <th rowspan="2" class="align-middle" style="width: 40px;">Nº</th>
             <th rowspan="2" class="align-middle text-start ps-3" style="min-width: 170px;">Nome Completo do Aluno</th>
             <th rowspan="2" class="align-middle" style="width: 45px;">Gén</th>
             ${thDisciplinas}

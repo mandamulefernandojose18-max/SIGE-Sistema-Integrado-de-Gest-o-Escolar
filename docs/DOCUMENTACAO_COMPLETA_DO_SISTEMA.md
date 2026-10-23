@@ -404,10 +404,19 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Autorização Excecional de Desbloqueio (`PermissaoEdicaoNotas`):**
   - Quando um professor atrasa o lançamento por motivo justificado ou precisa retificar uma nota após o fecho do prazo/pauta, o DAP ou Director concede uma **Autorização de Edição Temporária** especificando a Turma, a Disciplina (ou todas), o Trimestre, o Professor (ou todos da turma) e o motivo formal, podendo revogá-la a qualquer instante.
 
-### Módulo 11: Pautas Gerais da Turma e Actas do Conselho de Avaliação (`#view-pautas` e `#view-director-turma`)
+### Módulo 11: Pautas Gerais da Turma e Actas do Conselho de Avaliação (#view-pautas e #view-director-turma)
 - **Sub-aba 1 — Pauta Geral Oficial da Turma:**
-  - Consolida num único mapa todas as disciplinas oficiais da secção/área da turma, apresentando para cada aluno as médias do `1ºT`, `2ºT`, `3ºT` e `MFD` em cada disciplina, Faltas acumuladas, Média Geral Global, Comportamento e Observação Final (`Aprovado`, `Reprovado`, `Transferido`, `Desistente`, etc.).
-  - Inclui o **Quadro Estatístico Oficial da Pauta** com apuramento de Matriculados, Avaliados, Positivos (`%`) e Negativos (`%`) discriminados por `H`, `M` e `HM` para os 3 trimestres e final anual.
+  - Consolida num único mapa todas as disciplinas oficiais da secção/área da turma, apresentando para cada aluno:
+    - **Nº de Ordem:** Número sequencial do aluno na turma.
+    - **Nome Completo do Aluno:** Nome e apelido oficiais sem abreviações forçadas.
+    - **Género (Gén):** Distinção visual padronizada (M / F).
+    - **Classificações por Disciplina:** 4 sub-colunas dedicadas por disciplina curricular (1º, 2º, 3º e MFD).
+    - **Médias Trimestrais:** Colunas discriminadas para 1º, 2º e 3º Trimestre.
+    - **Disciplinas Negativas:** Contagem exata de negativas por trimestre (1º, 2º, 3º) e Total acumulado.
+    - **Média Geral:** Classificação final calculada segundo o modelo oficial do MEC.
+    - **Resultado Final:** Situação final homologada (Aprovado, Reprovado, Transferido, Desistente, etc.).
+  - **Encaixe Milimétrico Proporcional (Zero Corte de Conteúdo):** Algoritmo dinâmico no backend (pdf_service.py) e frontend que distribui a largura útil da folha A4 Paisagem (28,7 cm) proporcionalmente para qualquer número de disciplinas $, impedindo estritamente cortes à esquerda (Nº e Nome) ou à direita (Negativas e Resultado).
+  - Inclui o **Quadro Estatístico Oficial da Pauta** com apuramento de Matriculados, Avaliados, Positivos (%) e Negativos (%) discriminados por H, M e HM para os 3 trimestres e final anual.
 - **Sub-aba 2 — Acta Oficial do Conselho de Avaliação:**
   - Gera automaticamente o documento formal da reunião do Conselho de Turma segundo o modelo do MEC:
     - Cabeçalho com Emblema da República, Governo da Província, Direção Distrital e Nome da Escola.

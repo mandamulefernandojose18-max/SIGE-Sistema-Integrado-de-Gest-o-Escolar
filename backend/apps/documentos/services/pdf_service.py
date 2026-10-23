@@ -1,4 +1,4 @@
-﻿"""
+"""
 Serviço de Geração de PDFs Oficiais com ReportLab — SIGE
 Gera PDFs com fidelidade absoluta às normas oficiais do MEC (Moçambique)
 e ao layout padrão oficial (Certificados, Declarações, Boletins e Pautas).
@@ -229,79 +229,85 @@ gerar_cabecalho_minedh = gerar_cabecalho_mec
 def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplinas, orientacao='landscape') -> bytes:
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
+    
+    # Margens estreitas (0.5cm) para garantir largura util maxima de 28.7cm no A4 Paisagem
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
-        rightMargin=0.8 * cm,
-        leftMargin=0.8 * cm,
-        topMargin=0.7 * cm,
-        bottomMargin=1.0 * cm
+        rightMargin=0.5 * cm,
+        leftMargin=0.5 * cm,
+        topMargin=0.5 * cm,
+        bottomMargin=0.6 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
 
-    # 1. Emblema e Cabeçalho Oficial no Topo
+    # 1. Emblema e Cabecalho Oficial no Topo
     if os.path.exists(EMBLEMA_PATH):
         try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
-            elements.append(Spacer(1, 0.1 * cm))
+            elements.append(RLImage(EMBLEMA_PATH, width=1.1 * cm, height=1.1 * cm))
+            elements.append(Spacer(1, 0.08 * cm))
         except Exception:
             pass
 
-    style_hdr_rep = ParagraphStyle('PHdrRep', alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
-    style_hdr_gov = ParagraphStyle('PHdrGov', alignment=1, fontSize=8.5, leading=11, fontName='Times-Roman')
-    style_hdr_esc = ParagraphStyle('PHdrEsc', alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
+    style_hdr_rep = ParagraphStyle('PHdrRep', alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
+    style_hdr_gov = ParagraphStyle('PHdrGov', alignment=1, fontSize=7.5, leading=9.5, fontName='Times-Roman')
+    style_hdr_esc = ParagraphStyle('PHdrEsc', alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
 
     prov_str = (getattr(escola, 'provincia', '') or 'Inhambane').upper()
     dist_str = (getattr(escola, 'distrito', '') or 'Morrumbene').upper()
-    esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundária').upper()
+    esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundaria').upper()
 
     elements.append(Paragraph("REPÚBLICA DE MOÇAMBIQUE", style_hdr_rep))
     elements.append(Paragraph(f"GOVERNO DA PROVÍNCIA DE {prov_str} | DISTRITO DE {dist_str}", style_hdr_gov))
     elements.append(Paragraph(esc_nome, style_hdr_esc))
-    elements.append(Spacer(1, 0.15 * cm))
+    elements.append(Spacer(1, 0.10 * cm))
 
-    # Título da Pauta a Roxo/Índigo (#4338ca)
+    # Titulo da Pauta Oficial
     style_pauta_title = ParagraphStyle(
-        'PPautaTitle', alignment=1, fontSize=11.5, leading=14, fontName='Times-Bold',
+        'PPautaTitle', alignment=1, fontSize=10.5, leading=12.5, fontName='Times-Bold',
         textColor=colors.HexColor('#4338ca')
     )
     elements.append(Paragraph(f"PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO {ano_letivo or 2026}", style_pauta_title))
 
-    # Subtítulo com dados da Turma
+    # Subtitulo com dados da Turma
     dt_nome = turma.director_turma.nome if getattr(turma, 'director_turma', None) else "Manuel"
     turma_nome = turma.nome if getattr(turma, 'nome', None) else '10ª Classe A'
     grau_ano = turma.grau_ano if getattr(turma, 'grau_ano', None) else '10ª Classe'
     turno = turma.turno if getattr(turma, 'turno', None) else 'MANHA'
 
-    style_pauta_sub = ParagraphStyle('PPautaSub', alignment=1, fontSize=8.5, leading=11, fontName='Times-Roman')
+    style_pauta_sub = ParagraphStyle('PPautaSub', alignment=1, fontSize=8, leading=10, fontName='Times-Roman')
     elements.append(Paragraph(f"Turma: <b>{turma_nome}</b> | Classe: <b>{grau_ano}</b> | Turno: <b>{turno}</b> | Director de Turma: <b>{dt_nome}</b>", style_pauta_sub))
-    # Espaço reduzido entre subtítulo e tabela
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
-    # 2. Tabela Oficial da Pauta em Múltiplos Níveis
-    sh_nome = ParagraphStyle('HN', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=0)
-    sh_gen = ParagraphStyle('HG', fontName='Times-Bold', fontSize=7.5, leading=9, alignment=1)
-    # Aumentar tamanho das letras na parte das disciplinas (sem abreviar)
-    sh_disc = ParagraphStyle('HD', fontName='Times-Bold', fontSize=8.5, leading=10, alignment=1, textColor=colors.HexColor('#4338ca'))
-    sh_meds = ParagraphStyle('HM', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=1)
-    sh_white = ParagraphStyle('HW', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=1, textColor=colors.white)
-    sh_sub = ParagraphStyle('HS', fontName='Times-Roman', fontSize=7, leading=8.5, alignment=1)
+    # 2. Tabela Oficial da Pauta com Encaixe Milimetrico
+    n_discs = max(len(disciplinas), 1)
+    font_disc_sz = 6.0 if n_discs >= 11 else 7.0
+    lead_disc = 7.0 if n_discs >= 11 else 8.0
 
-    st_nome = ParagraphStyle('TN', fontName='Times-Bold', fontSize=7.5, leading=9, alignment=0)
-    st_c = ParagraphStyle('TC', fontName='Times-Roman', fontSize=8, leading=9.5, alignment=1)
-    st_red = ParagraphStyle('TR', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_bold = ParagraphStyle('TB', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=1)
-    st_res_rep = ParagraphStyle('TRRep', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_res_apr = ParagraphStyle('TRApr', fontName='Times-Bold', fontSize=8, leading=9.5, alignment=1, textColor=colors.HexColor('#111827'))
+    sh_num = ParagraphStyle('HN', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
+    sh_nome = ParagraphStyle('HNome', fontName='Times-Bold', fontSize=7.0, leading=8.0, alignment=0)
+    sh_gen = ParagraphStyle('HG', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
+    sh_disc = ParagraphStyle('HD', fontName='Times-Bold', fontSize=font_disc_sz, leading=lead_disc, alignment=1, textColor=colors.HexColor('#4338ca'))
+    sh_meds = ParagraphStyle('HM', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1)
+    sh_white = ParagraphStyle('HW', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.white)
+    sh_sub = ParagraphStyle('HS', fontName='Times-Roman', fontSize=5.5, leading=6.5, alignment=1)
 
-    # Header Row 1
+    st_num = ParagraphStyle('TNum', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=1)
+    st_nome = ParagraphStyle('TN', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=0)
+    st_c = ParagraphStyle('TC', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=1)
+    st_red = ParagraphStyle('TR', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_bold = ParagraphStyle('TB', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
+    st_res_rep = ParagraphStyle('TRRep', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_res_apr = ParagraphStyle('TRApr', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#111827'))
+
+    # Header Row 1 (com Nº de Ordem, Nome Completo e Gén)
     row1 = [
+        Paragraph('Nº', sh_num),
         Paragraph('Nome Completo do Aluno', sh_nome),
         Paragraph('Gén', sh_gen)
     ]
     for d in disciplinas:
-        # Disciplinas sem abreviar
         raw_disc = getattr(d, 'nome', None) or getattr(d, 'codigo', None) or str(d)
         nome_disc_completo = obter_nome_completo_disciplina(raw_disc)
         row1.extend([Paragraph(nome_disc_completo, sh_disc), '', '', ''])
@@ -314,7 +320,7 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     ])
 
     # Header Row 2
-    row2 = ['', '']
+    row2 = ['', '', '']
     for _ in disciplinas:
         row2.extend([
             Paragraph('1º', sh_sub), Paragraph('2º', sh_sub), Paragraph('3º', sh_sub), Paragraph('MFD', sh_sub)
@@ -327,26 +333,27 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
     table_data = [row1, row2]
 
-    # Style do Table
+    # Estilos da Tabela
     table_styles = [
         ('SPAN', (0, 0), (0, 1)),
         ('SPAN', (1, 0), (1, 1)),
+        ('SPAN', (2, 0), (2, 1)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1.0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0.5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0.5),
     ]
 
-    col_idx = 2
+    col_idx = 3
     for _ in disciplinas:
         table_styles.append(('SPAN', (col_idx, 0), (col_idx + 3, 0)))
         table_styles.append(('BACKGROUND', (col_idx, 0), (col_idx + 3, 0), colors.HexColor('#eef2ff')))
         table_styles.append(('BACKGROUND', (col_idx + 3, 1), (col_idx + 3, -1), colors.HexColor('#f8fafc')))
         col_idx += 4
 
-    # Médias Trimestrais SPAN
+    # Medias Trimestrais SPAN
     table_styles.append(('SPAN', (col_idx, 0), (col_idx + 2, 0)))
     table_styles.append(('BACKGROUND', (col_idx, 0), (col_idx + 2, 0), colors.HexColor('#f1f5f9')))
     col_idx += 3
@@ -356,7 +363,7 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     table_styles.append(('BACKGROUND', (col_idx, 0), (col_idx + 3, 0), colors.HexColor('#f1f5f9')))
     col_idx += 4
 
-    # Média Geral SPAN
+    # Media Geral SPAN
     med_col = col_idx
     table_styles.append(('SPAN', (med_col, 0), (med_col, 1)))
     table_styles.append(('BACKGROUND', (med_col, 0), (med_col, 1), colors.HexColor('#4f46e5')))
@@ -367,14 +374,15 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     table_styles.append(('BACKGROUND', (res_col, 0), (res_col, 1), colors.HexColor('#1e293b')))
 
     # Linhas de Alunos
-    for a in dados_alunos:
+    for idx, a in enumerate(dados_alunos):
+        num_aluno = a.get('numero') or (idx + 1)
         nome_completo = a.get('nomeCompleto') or a.get('nome', '')
         gen = (a.get('genero') or 'M').upper()
-        # Badges para Gênero: M (escuro #334155) / F (ciano #0ea5e9)
         gen_color = '#0284c7' if gen.startswith('F') else '#334155'
         gen_html = f'<font color="{gen_color}"><b>{gen[:1]}</b></font>'
 
         row = [
+            Paragraph(str(num_aluno), st_num),
             Paragraph(nome_completo, st_nome),
             Paragraph(gen_html, st_c)
         ]
@@ -445,64 +453,33 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
         table_data.append(row)
 
-    # Cálculo dinâmico das colunas — garante que TODA a tabela caiba na largura útil
-    # A4 Landscape: 29.7 cm página; margens 0.8 cm cada lado → útil = 28.1 cm
-    util_cm = 28.1
+    # 3. Calculo Dinamico Milimetrico: soma EXATA = 28.7cm (A4 Paisagem sem cortes)
+    util_cm = 28.7
+    util_total = util_cm * cm
 
-    # Proporções base das colunas fixas (serão escalonadas se necessário)
-    w_nome_base     = 5.2 * cm
-    w_gen_base      = 0.8 * cm
-    w_med_trim_base = 0.75 * cm   # 3 cols = 2.25 cm
-    w_neg_base      = 0.65 * cm  # 4 cols = 2.60 cm
-    w_med_geral_base = 1.0 * cm
-    w_res_base      = 1.6 * cm
+    w_num = 0.70 * cm
+    w_gen = 0.55 * cm
+    w_med_col = 0.55 * cm
+    w_neg_col = 0.50 * cm
+    w_mg = 0.90 * cm
+    w_res = 1.50 * cm
+    w_nome = max(3.5 * cm, min(4.5 * cm, 5.0 * cm - (n_discs * 0.1 * cm)))
 
-    n_discs = max(len(disciplinas), 1)
-    n_subdisc_total = n_discs * 4   # 4 subcolunas por disciplina (T1, T2, T3, MFD)
+    espaco_fixo = w_num + w_nome + w_gen + (w_med_col * 3) + (w_neg_col * 4) + w_mg + w_res
+    resto_discs = util_total - espaco_fixo
+    w_subdisc = resto_discs / (n_discs * 4)
 
-    # Espaço fixo (sem disciplinas)
-    espaco_fixo = (w_nome_base + w_gen_base +
-                   (w_med_trim_base * 3) +
-                   (w_neg_base * 4) +
-                   w_med_geral_base + w_res_base)
-
-    # Largura ideal por subcoluna de disciplina (sem restrição mínima)
-    resto_discs = util_cm * cm - espaco_fixo
-    w_subdisc_ideal = resto_discs / n_subdisc_total
-
-    # Largura total bruta com a largura ideal
-    total_bruto = espaco_fixo + w_subdisc_ideal * n_subdisc_total
-
-    # Se ultrapassar a largura útil, escalonar tudo proporcionalmente
-    if total_bruto > util_cm * cm:
-        escala = (util_cm * cm) / total_bruto
-        w_nome      = w_nome_base      * escala
-        w_gen       = w_gen_base       * escala
-        w_med_trim  = w_med_trim_base  * escala
-        w_neg       = w_neg_base       * escala
-        w_med_geral = w_med_geral_base * escala
-        w_res       = w_res_base       * escala
-        w_subdisc   = w_subdisc_ideal  * escala
-    else:
-        w_nome      = w_nome_base
-        w_gen       = w_gen_base
-        w_med_trim  = w_med_trim_base
-        w_neg       = w_neg_base
-        w_med_geral = w_med_geral_base
-        w_res       = w_res_base
-        w_subdisc   = w_subdisc_ideal
-
-    col_widths = [w_nome, w_gen]
+    col_widths = [w_num, w_nome, w_gen]
     for _ in disciplinas:
         col_widths.extend([w_subdisc, w_subdisc, w_subdisc, w_subdisc])
-    col_widths.extend([w_med_trim, w_med_trim, w_med_trim])
-    col_widths.extend([w_neg, w_neg, w_neg, w_neg])
-    col_widths.extend([w_med_geral, w_res])
+    col_widths.extend([w_med_col, w_med_col, w_med_col])
+    col_widths.extend([w_neg_col, w_neg_col, w_neg_col, w_neg_col])
+    col_widths.extend([w_mg, w_res])
 
     t = Table(table_data, colWidths=col_widths, repeatRows=2)
     t.setStyle(TableStyle(table_styles))
     elements.append(t)
-    elements.append(Spacer(1, 0.5 * cm))
+    elements.append(Spacer(1, 0.4 * cm))
 
     # Assinaturas da Pauta (3 colunas: DT, DAP, Diretor)
     dap_nome = getattr(escola, 'dap_nome', 'O Director Pedagógico (DAP)') or 'O Director Pedagógico (DAP)'
@@ -518,8 +495,8 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     elements.append(KeepTogether(t_sig))
 
