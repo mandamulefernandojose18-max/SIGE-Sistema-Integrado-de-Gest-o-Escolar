@@ -689,6 +689,8 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST/PATCH` | `/api/v1/auth/usuarios-cofre/<pk>/redefinir-senha` | Admin / Direção / Secretaria | Redefine a senha de um utilizador e ativa/desativa a sua conta. |
 
 ### 9.3 Administração Master SaaS (`apps.tenants` — `/api/v1/saas-admin/`)
+> **Otimizacao de Alto Desempenho e Resiliencia:** Os endpoints de administracao Master SaaS utilizam consultas agregadas atomicas (select_related, prefetch_related e annotate), evitando consultas N+1. O Frontend consome metricas, escolas e planos em paralelo via Promise.allSettled, eliminando bloqueios em cascata, isolando rotas Master do header X-Tenant-ID e fornecendo botoes de recarregamento contextual para resiliencia de rede.
+
 | Método | Endpoint | Permissão | Descrição |
 | :---: | :--- | :---: | :--- |
 | `GET` | `/api/v1/saas-admin/metrics` | `SUPERADMIN` | Retorna MRR, ARR, Churn Rate, contagens de escolas, alunos, professores e dados para gráficos. |

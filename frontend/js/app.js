@@ -1287,11 +1287,18 @@ async function apiFetch(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${state.token}`;
   }
 
-  // Garantir isolamento rigoroso de tenant em todas as chamadas à API
+  // Garantir isolamento rigoroso de tenant em todas as chamadas à API (exceto rotas Master SaaS)
+  const isMasterSaasEndpoint = typeof endpoint === 'string' && (
+    endpoint.includes('/saas-admin/') ||
+    endpoint.includes('/saas/assinaturas') ||
+    endpoint.includes('/saas/resumo') ||
+    endpoint.includes('/saas/rotina-diaria') ||
+    endpoint.includes('/auth/')
+  );
   const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
     || state.tenant?.id
     || state.user?.escola_id;
-  if (activeTenantId && !headers['X-Tenant-ID']) {
+  if (activeTenantId && !headers['X-Tenant-ID'] && !isMasterSaasEndpoint) {
     headers['X-Tenant-ID'] = activeTenantId;
   }
 
@@ -2915,10 +2922,26 @@ function renderizarGraficoDashboardGenero(genero) {
 
 // ==================== 2. SUPERADMIN SAAS ====================
 async function carregarPainelSaaS() {
+  const tbodyEscolas = document.getElementById('tabelaSaasEscolas');
+  const tbodyPlanos = document.getElementById('tabelaSaasPlanos');
+
+  if (tbodyEscolas && !tbodyEscolas.innerHTML.includes('spinner-border')) {
+    tbodyEscolas.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>A carregar escolas...</td></tr>';
+  }
+  if (tbodyPlanos && !tbodyPlanos.innerHTML.includes('spinner-border')) {
+    tbodyPlanos.innerHTML = '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm text-warning me-2" role="status"></span>A carregar planos...</td></tr>';
+  }
+
   try {
-    const res = await apiFetch('/api/v1/saas-admin/metrics');
-    if (res && res.success) {
-      const d = res.data || res.metrics || {};
+    const [settledMetrics, settledEscolas, settledPlanos] = await Promise.allSettled([
+      apiFetch('/api/v1/saas-admin/metrics'),
+      apiFetch('/api/v1/saas-admin/escolas'),
+      apiFetch('/api/v1/saas-admin/planos')
+    ]);
+
+    // 1. Métricas do SaaS
+    if (settledMetrics.status === 'fulfilled' && settledMetrics.value && settledMetrics.value.success) {
+      const d = settledMetrics.value.data || settledMetrics.value.metrics || {};
       const mrr = Number(d.mrr ?? d.receitaMensalEstimada ?? 0);
       const arr = Number(d.arr ?? (mrr * 12));
       const churn = Number(d.churn ?? 0);
@@ -2945,18 +2968,18 @@ async function carregarPainelSaaS() {
       if (elExpiradas) elExpiradas.textContent = expiradas;
     }
 
-    // Tabela de Escolas
-    const resEscolas = await apiFetch('/api/v1/saas-admin/escolas');
-    if (resEscolas && resEscolas.success && Array.isArray(resEscolas.data)) {
-      const tbody = document.getElementById('tabelaSaasEscolas');
-      if (tbody) {
-        if (resEscolas.data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma escola cadastrada no momento.</td></tr>';
+    // 2. Tabela de Escolas
+    if (tbodyEscolas) {
+      if (settledEscolas.status === 'fulfilled' && settledEscolas.value && settledEscolas.value.success && Array.isArray(settledEscolas.value.data)) {
+        const listaEscolas = settledEscolas.value.data;
+        if (listaEscolas.length === 0) {
+          tbodyEscolas.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma escola cadastrada no momento.</td></tr>';
         } else {
-          tbody.innerHTML = resEscolas.data.map(e => {
+          tbodyEscolas.innerHTML = listaEscolas.map(e => {
             const ass = (e.assinaturas && e.assinaturas[0]) || e.assinatura_ativa || null;
             const dataFim = ass?.data_fim ? new Date(ass.data_fim).toLocaleDateString('pt-PT') : '-';
-            const isAtiva = e.status === 'ATIVA';
+            const statusUpper = (e.status || 'ATIVA').toUpperCase();
+            const isAtiva = statusUpper === 'ATIVA';
             const emblemaIcon = e.usar_emblema_nacional 
               ? '<span class="badge bg-warning text-dark me-1" title="Emblema Nacional">🇲🇿 Emblema</span>' 
               : '';
@@ -2970,6 +2993,10 @@ async function carregarPainelSaaS() {
             const codGD = e.codigo_gabinete_director || `GD${codEscola}`;
             const codDP = e.codigo_direccao_pedagogica || `DP${codEscola}`;
             const codSECR = e.codigo_secretaria || `SECR${codEscola}`;
+
+            let badgeClasse = 'bg-success';
+            if (statusUpper === 'SUSPENSA') badgeClasse = 'bg-warning text-dark';
+            else if (statusUpper === 'EXPIRADA' || statusUpper === 'INACTIVA') badgeClasse = 'bg-danger';
 
             return `
               <tr>
@@ -2994,31 +3021,26 @@ async function carregarPainelSaaS() {
                   <br><strong class="small text-success">${valorContrato}</strong>
                 </td>
                 <td><small>${escapeHtml(dataFim)}</small></td>
-                <td><span class="badge badge-${escapeHtml((e.status || 'ativa').toLowerCase())}">${escapeHtml(e.status)}</span></td>
+                <td><span class="badge ${badgeClasse}">${escapeHtml(statusUpper)}</span></td>
                 <td><small>${totalAlunos} alunos<br>${totalProfs} profs</small></td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
-                    <!-- Botão Entrar como Escola -->
-                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin (Acesso Imediato sem Credenciais)" onclick="alternarEscolaSuperAdmin('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}')">
+                    <button class="btn btn-primary" title="Entrar na Escola como SuperAdmin" onclick="alternarEscolaSuperAdmin('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}')">
                       <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
                     </button>
-                    <!-- Botão Toggle Ativar / Desativar -->
                     <button class="btn ${isAtiva ? 'btn-outline-danger' : 'btn-outline-success'}" 
                             title="${isAtiva ? 'Desactivar Escola' : 'Activar Escola'}"
-                            onclick="toggleStatusEscola('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}', '${escapeHtml(e.status)}')">
+                            onclick="toggleStatusEscola('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}', '${escapeHtml(statusUpper)}')">
                       <i class="bi ${isAtiva ? 'bi-toggle-on text-success' : 'bi-toggle-off text-danger'}"></i>
                       ${isAtiva ? 'Activa' : 'Inactiva'}
                     </button>
-                    <!-- Botão Editar Dados e Prazo -->
                     <button class="btn btn-outline-primary" title="Editar Dados & Prazo" onclick="modalEditarEscolaSuperAdmin('${escapeHtml(e.id)}')">
                       <i class="bi bi-pencil"></i>
                     </button>
-                    <!-- Botão Descarregar Extrato / Contrato -->
-                    <button class="btn btn-outline-info" title="Descarregar Extrato / Contrato da Escola" onclick="descarregarExtratoEscolaSuperAdmin('${e.id}')">
+                    <button class="btn btn-outline-info" title="Descarregar Extrato / Contrato da Escola" onclick="descarregarExtratoEscolaSuperAdmin('${escapeHtml(e.id)}')">
                       <i class="bi bi-file-earmark-pdf"></i>
                     </button>
-                    <!-- Botão Eliminar Escola (Exclusivo SuperAdmin) -->
-                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${e.id}', '${nomeEscapado}', '${e.codigo_escola || ''}')">
+                    <button class="btn btn-outline-danger" title="Eliminar Escola Definitivamente" onclick="eliminarEscolaSuperAdmin('${escapeHtml(e.id)}', '${escapeHtml(nomeEscapado)}', '${escapeHtml(e.codigo_escola || '')}')">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -3027,27 +3049,29 @@ async function carregarPainelSaaS() {
             `;
           }).join('');
         }
+      } else {
+        const errMsg = settledEscolas.reason?.message || (settledEscolas.value && settledEscolas.value.message) || 'Erro de comunicação ao carregar lista de instituições';
+        tbodyEscolas.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Falha ao carregar escolas (${escapeHtml(errMsg)}). <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarPainelSaaS()"><i class="bi bi-arrow-clockwise me-1"></i> Recarregar</button></td></tr>`;
       }
     }
 
-    // Tabela de Preços dos Planos
-    const resPlanos = await apiFetch('/api/v1/saas-admin/planos');
-    if (resPlanos && resPlanos.success && Array.isArray(resPlanos.data)) {
-      const tbodyPlanos = document.getElementById('tabelaSaasPlanos');
-      if (tbodyPlanos) {
-        if (resPlanos.data.length === 0) {
+    // 3. Tabela de Preços dos Planos
+    if (tbodyPlanos) {
+      if (settledPlanos.status === 'fulfilled' && settledPlanos.value && settledPlanos.value.success && Array.isArray(settledPlanos.value.data)) {
+        const listaPlanos = settledPlanos.value.data;
+        if (listaPlanos.length === 0) {
           tbodyPlanos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Nenhum plano cadastrado.</td></tr>';
         } else {
-          tbodyPlanos.innerHTML = resPlanos.data.map(p => {
+          tbodyPlanos.innerHTML = listaPlanos.map(p => {
             const precoNum = Number(p.preco || 0);
             return `
               <tr>
-                <td><strong>${p.nome}</strong></td>
+                <td><strong>${escapeHtml(p.nome)}</strong></td>
                 <td>${p.duracao_dias} dias</td>
                 <td><strong class="text-primary">${formatarMoeda(precoNum)}</strong></td>
-                <td><small class="text-muted">${p.descricao || 'Plano de subscrição SIGE'}</small></td>
+                <td><small class="text-muted">${escapeHtml(p.descricao || 'Plano de subscrição SIGE')}</small></td>
                 <td class="text-end">
-                  <button class="btn btn-outline-primary btn-sm" onclick="modalEditarPrecoPlano('${p.id}', '${p.nome}', ${precoNum})">
+                  <button class="btn btn-outline-primary btn-sm" onclick="modalEditarPrecoPlano('${escapeHtml(p.id)}', '${escapeHtml(p.nome)}', ${precoNum})">
                     <i class="bi bi-currency-exchange me-1"></i> Alterar Preço
                   </button>
                 </td>
@@ -3055,10 +3079,19 @@ async function carregarPainelSaaS() {
             `;
           }).join('');
         }
+      } else {
+        const errMsgPlanos = settledPlanos.reason?.message || (settledPlanos.value && settledPlanos.value.message) || 'Erro de comunicação ao carregar planos';
+        tbodyPlanos.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Falha ao carregar planos (${escapeHtml(errMsgPlanos)}). <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarPainelSaaS()"><i class="bi bi-arrow-clockwise me-1"></i> Recarregar</button></td></tr>`;
       }
     }
   } catch (err) {
     console.error('Erro ao carregar Painel SaaS:', err);
+    if (tbodyEscolas) {
+      tbodyEscolas.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Erro ao carregar escolas. <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarPainelSaaS()"><i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente</button></td></tr>`;
+    }
+    if (tbodyPlanos) {
+      tbodyPlanos.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Erro ao carregar planos. <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarPainelSaaS()"><i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente</button></td></tr>`;
+    }
   }
 }
 

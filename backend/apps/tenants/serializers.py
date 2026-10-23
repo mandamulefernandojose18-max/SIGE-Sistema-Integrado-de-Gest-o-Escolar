@@ -95,7 +95,11 @@ class EscolaSerializer(serializers.ModelSerializer):
         return value
 
     def get_assinatura_ativa(self, obj):
-        ass = obj.assinaturas.order_by('-data_fim').first()
+        if hasattr(obj, '_prefetched_objects_cache') and 'assinaturas' in obj._prefetched_objects_cache:
+            ass_list = sorted(obj.assinaturas.all(), key=lambda a: a.data_fim or a.created_at, reverse=True)
+            ass = ass_list[0] if ass_list else None
+        else:
+            ass = obj.assinaturas.order_by('-data_fim').first()
         if ass:
             val = float(ass.valor) if ass.valor is not None else 0.0
             return {
@@ -110,6 +114,11 @@ class EscolaSerializer(serializers.ModelSerializer):
         return None
 
     def get__count(self, obj):
+        if hasattr(obj, 'total_alunos_count') and hasattr(obj, 'total_professores_count'):
+            return {
+                'alunos': obj.total_alunos_count,
+                'professores': obj.total_professores_count
+            }
         from apps.alunos.models import Aluno
         from apps.professores.models import Professor
         return {

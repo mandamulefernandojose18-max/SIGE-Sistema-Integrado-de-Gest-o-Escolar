@@ -222,9 +222,14 @@ class SaaSMetricsView(APIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
-        total_escolas = Escola.objects.count()
-        escolas_ativas = Escola.objects.filter(status='ATIVA').count()
-        escolas_expiradas = Escola.objects.filter(status='EXPIRADA').count()
+        stats = Escola.objects.aggregate(
+            total=Count('id'),
+            ativas=Count('id', filter=Q(status='ATIVA')),
+            expiradas=Count('id', filter=Q(status='EXPIRADA'))
+        )
+        total_escolas = stats['total'] or 0
+        escolas_ativas = stats['ativas'] or 0
+        escolas_expiradas = stats['expiradas'] or 0
         total_alunos = Aluno.objects.count()
         total_professores = Professor.objects.count()
         mrr = AssinaturaEscola.objects.filter(status='ATIVA').aggregate(total=Sum('valor'))['total'] or 0
@@ -276,7 +281,10 @@ class PlanoViewSet(viewsets.ModelViewSet):
         return Response({'success': False, 'message': 'Preço não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class EscolaViewSet(viewsets.ModelViewSet):
-    queryset = Escola.objects.all()
+    queryset = Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').annotate(
+        total_alunos_count=Count('alunos', distinct=True),
+        total_professores_count=Count('professores', distinct=True)
+    ).all()
     serializer_class = EscolaSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
