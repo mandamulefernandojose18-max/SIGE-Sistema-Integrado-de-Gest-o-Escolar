@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIGE - PAINEL-ESCOLA | Turmas & Capacidade
  * Ficheiro de código independente do menu: turmas.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -7,7 +7,7 @@
 async function carregarTurmas(anoParam) {
   try {
     const selAno = document.getElementById('filtroTurmasAno');
-    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || state.tenant?.ano_letivo_ativo || '2026';
     const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
 
     const [resTurmas, resDisciplinas] = await Promise.all([
@@ -22,7 +22,7 @@ async function carregarTurmas(anoParam) {
       state.todasDisciplinas = resDisciplinas.data || [];
     }
     renderizarEstatisticasETabelaTurmas();
-    if (typeof renderizarSelectoresAnoLectivo === 'function') {
+    if (typeof renderizarSelectoresAnoLectivo === 'function' && anoParam) {
       renderizarSelectoresAnoLectivo(ano);
     }
   } catch (err) {

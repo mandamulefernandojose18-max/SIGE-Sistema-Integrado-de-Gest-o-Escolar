@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIGE - PAINEL-ESCOLA | Alunos & Matrículas
  * Ficheiro de código independente do menu: alunos.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -8,7 +8,7 @@ async function carregarAlunos(anoParam) {
   try {
     const selAno = document.getElementById('filtroAnoAlunos');
     const anoAtivo = state.tenant?.ano_letivo_ativo || '2026';
-    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || anoAtivo;
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || anoAtivo;
     state.filtroAlunoAno = ano;
 
     const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
@@ -63,12 +63,12 @@ function atualizarSeletorAnosAlunos() {
   const anosOrdenados = Array.from(anosSet)
     .filter(y => y && y.match(/^\d{4}$/) && parseInt(y) >= 2026)
     .sort((a, b) => parseInt(b) - parseInt(a));
-  const valorAtual = state.filtroAlunoAno || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || anoAtivo;
+  const valorAtual = state.filtroAlunoAno || state.anoLectivoVisualizacao || '';
 
   selAno.innerHTML = `
-    <option value="">-- Escolha ano Lectivo --</option>
+    <option value="" ${!valorAtual ? 'selected' : ''}>-- Escolha ano Lectivo --</option>
     ${anosOrdenados.map(ano => `
-      <option value="${ano}" ${String(valorAtual) === String(ano) ? 'selected' : ''}>
+      <option value="${ano}" ${(valorAtual && String(valorAtual) === String(ano)) ? 'selected' : ''}>
         Ano Lectivo de ${ano}
       </option>
     `).join('')}

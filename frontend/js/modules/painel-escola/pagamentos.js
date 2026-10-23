@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIGE - PAINEL-ESCOLA | Mensalidades & Propinas
  * Ficheiro de código independente do menu: pagamentos.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -6,7 +6,7 @@
 // ==================== 10. FINANCEIRO & MENSALIDADES ====================
 async function carregarPagamentos(anoParam) {
   try {
-    const ano = anoParam || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const ano = anoParam || state.anoLectivoVisualizacao || state.tenant?.ano_letivo_ativo || '2026';
     const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
 
     const [resP, resStats] = await Promise.all([

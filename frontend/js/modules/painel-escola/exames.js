@@ -1,4 +1,4 @@
-// =====================================================================
+﻿// =====================================================================
 // SIGE - Módulo Exames | Pautas Oficiais de Exame (MEC / Moçambique)
 // Modelagem e Cálculo Estrito: Dados reais das pautas de frequência,
 // lançamento de notas de 1ª e 2ª época, janela de parâmetros (pesos e nota mínima),
@@ -8,9 +8,21 @@
 window._sigePautaExamesData = null;
 window._sigeNotasExameModificadas = new Map();
 
-async function carregarExames() {
+async function carregarExames(anoParam = null, forcarBusca = false) {
   const container = document.getElementById('view-exames');
   if (!container) return;
+  const containerTabela = document.getElementById('containerTabelaPautaExames');
+  const rodape = document.getElementById('pautaExameRodapeOficial');
+  const cardFiltrosSec = document.getElementById('exameFiltrosSecundarios');
+  
+  // Enquanto não se escolher o ano e clicar em Buscar, ocultar todas as informações
+  if (!forcarBusca && !anoParam) {
+    if (containerTabela) containerTabela.innerHTML = '';
+    if (rodape) rodape.classList.add('d-none');
+    if (cardFiltrosSec) cardFiltrosSec.classList.add('d-none');
+    return;
+  }
+  if (cardFiltrosSec) cardFiltrosSec.classList.remove('d-none');
 
   // Actualizar imediatamente o cabeçalho oficial com a instituição ativa
   try {
@@ -103,7 +115,7 @@ function filtrarTurmasExamesPorClasse() {
       const area = t.area && !['geral', 'ensino geral', 'tronco comum'].includes(t.area.toLowerCase()) ? ` (${t.area})` : '';
       return `<option value="${t.id}">${t.grau_ano} &rarr; ${t.nome}${area}</option>`;
     }).join('');
-    carregarPautaExamesTurma();
+    const _anoSel = document.getElementById('exameAnoSelect')?.value; if (_anoSel) carregarPautaExamesTurma();
   } else {
     selectTurma.innerHTML = '<option value="">Nenhuma turma encontrada para esta classe</option>';
     document.getElementById('containerTabelaPautaExames').innerHTML = `
@@ -117,10 +129,16 @@ function filtrarTurmasExamesPorClasse() {
   }
 }
 
-async function carregarPautaExamesTurma() {
-  const turmaId = document.getElementById('exameTurmaSelect')?.value;
+async function carregarPautaExamesTurma(forcarBusca = true) {
   const anoSelect = document.getElementById('exameAnoSelect');
-  const anoLetivo = anoSelect?.value || (window.state?.tenant?.ano_letivo_ativo || '2026');
+  const anoLetivo = anoSelect?.value || state.anoLectivoVisualizacao;
+  if (!anoLetivo) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
+    }
+    return;
+  }
+  const turmaId = document.getElementById('exameTurmaSelect')?.value;
   const container = document.getElementById('containerTabelaPautaExames');
   if (!turmaId || !container) return;
 
@@ -902,8 +920,6 @@ async function salvarParametrosExameInline() {
 
 async function salvarNotasExame() {
   const turmaId = document.getElementById('exameTurmaSelect')?.value;
-  const anoSelect = document.getElementById('exameAnoSelect');
-  const anoLetivo = anoSelect?.value || (window.state?.tenant?.ano_letivo_ativo || '2026');
   if (!turmaId) {
     mostrarToast('Selecione uma turma de exame primeiro.', 'warning');
     return;
@@ -954,8 +970,6 @@ async function salvarNotasExame() {
 
 async function exportarPautaExamesExcel() {
   const turmaId = document.getElementById('exameTurmaSelect')?.value;
-  const anoSelect = document.getElementById('exameAnoSelect');
-  const anoLetivo = anoSelect?.value || (window.state?.tenant?.ano_letivo_ativo || '2026');
   if (!turmaId) {
     mostrarToast('Selecione uma turma com exame para exportar.', 'warning');
     return;
@@ -966,8 +980,6 @@ async function exportarPautaExamesExcel() {
 
 async function descarregarPautaExamesPdf() {
   const turmaId = document.getElementById('exameTurmaSelect')?.value;
-  const anoSelect = document.getElementById('exameAnoSelect');
-  const anoLetivo = anoSelect?.value || (window.state?.tenant?.ano_letivo_ativo || '2026');
   if (!turmaId) {
     mostrarToast('Selecione uma turma com exame para exportar.', 'warning');
     return;
@@ -1320,7 +1332,7 @@ async function salvarProfessoresAutorizadosExame() {
     }
 
     if (typeof carregarPautaExamesTurma === 'function') {
-      carregarPautaExamesTurma();
+      const _anoSel = document.getElementById('exameAnoSelect')?.value; if (_anoSel) carregarPautaExamesTurma();
     }
   } catch (err) {
     console.error('Erro ao guardar autorizações de exame:', err);
@@ -1754,3 +1766,29 @@ window.navegarAlunoFormularioExame = navegarAlunoFormularioExame;
 window.aoMudarNotaFormularioExame = aoMudarNotaFormularioExame;
 window.recalcularFormularioExame = recalcularFormularioExame;
 window.salvarNotasFormularioExame = salvarNotasFormularioExame;
+
+
+window.aoClicarBuscarExamesPorAno = async function() {
+  const sel = document.getElementById('exameAnoSelect');
+  const ano = sel ? sel.value : '';
+  if (!ano) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
+    }
+    return;
+  }
+  state.anoLectivoVisualizacao = ano;
+  localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  const selHeader = document.getElementById('headerSelectAnoLectivo');
+  if (selHeader) selHeader.value = ano;
+
+  const dynamicWrap = document.getElementById('exameConteudoDinamico');
+  if (dynamicWrap) dynamicWrap.classList.remove('d-none');
+
+  if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
+  try {
+    await carregarExames(ano, true);
+  } finally {
+    if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
+  }
+};

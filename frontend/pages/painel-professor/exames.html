@@ -4,40 +4,42 @@
 <!-- Isolamento estrito de nível: Espaço do Docente -->
 <!-- ===================================================================== -->
 <section id="view-exames" class="modulo-view" style="display: none;">
-  <!-- Barra de Filtros e Controlos -->
-  <div class="card p-4 mb-4 no-print border-0 shadow-sm">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-      <div class="d-flex flex-wrap align-items-center gap-3">
-        <div>
-          <label class="form-label small fw-bold text-muted mb-1">
-            <i class="bi bi-layers-fill text-primary me-1"></i>Classe / Nível (com Exame)
-          </label>
-          <select id="exameClasseFilter" class="form-select form-select-sm" style="min-width: 180px;" onchange="filtrarTurmasExamesPorClasse()">
-            <option value="">A carregar classes com exame...</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label small fw-bold text-muted mb-1">
-            <i class="bi bi-diagram-3-fill text-warning me-1"></i>Turma de Exame
-          </label>
-          <select id="exameTurmaSelect" class="form-select form-select-sm" style="min-width: 240px;" onchange="carregarPautaExamesTurma()">
-            <option value="">Selecione uma turma com exame...</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label small fw-bold text-muted mb-1">
-            <i class="bi bi-calendar-event text-info me-1"></i>Ano Lectivo
-          </label>
-          <div class="sige-seletor-ano-box d-flex align-items-center">
-            <select id="exameAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
-              <option value="">-- Escolha ano Lectivo --</option>
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como a imagem) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="exameAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarExamesPorAno()">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo de Exames: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="exameConteudoDinamico" class="d-none">
+    <div class="card p-4 mb-4 no-print border-0 shadow-sm">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div>
+            <label class="form-label small fw-bold text-muted mb-1">
+              <i class="bi bi-layers-fill text-primary me-1"></i>Classe / Nível (com Exame)
+            </label>
+            <select id="exameClasseFilter" class="form-select form-select-sm" style="min-width: 180px;" onchange="filtrarTurmasExamesPorClasse()">
+              <option value="">A carregar classes com exame...</option>
             </select>
-            <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarPautaExamesTurma()">
-              Buscar <i class="bi bi-search ms-1"></i>
-            </button>
+          </div>
+          <div>
+            <label class="form-label small fw-bold text-muted mb-1">
+              <i class="bi bi-diagram-3-fill text-warning me-1"></i>Turma de Exame
+            </label>
+            <select id="exameTurmaSelect" class="form-select form-select-sm" style="min-width: 240px;" onchange="carregarPautaExamesTurma()">
+              <option value="">Selecione uma turma com exame...</option>
+            </select>
           </div>
         </div>
-      </div>
 
       <!-- Botões de Ação -->
       <div class="d-flex flex-wrap align-items-center gap-2">
@@ -208,5 +210,6 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
 </section>

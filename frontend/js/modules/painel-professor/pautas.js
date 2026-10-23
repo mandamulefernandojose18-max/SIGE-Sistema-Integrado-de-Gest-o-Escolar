@@ -41,7 +41,7 @@ async function carregarPautas(anoParam, forcarBusca = false) {
   }
   try {
     const selAno = document.getElementById('pautaAnoSelect');
-    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || localStorage.getItem('sige_ano_letivo_selecionado') || state.tenant?.ano_letivo_ativo || '2026';
+    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || state.tenant?.ano_letivo_ativo || '2026';
     const queryAno = (ano && ano !== 'TODOS') ? `?ano_letivo=${encodeURIComponent(ano)}` : '';
 
     const resTurmas = await apiFetch(`/api/v1/escola-admin/turmas${queryAno}`);
