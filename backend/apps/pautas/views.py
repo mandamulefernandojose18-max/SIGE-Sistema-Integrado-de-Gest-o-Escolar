@@ -1038,20 +1038,29 @@ class PautaExamesView(APIView):
                         prof_id = p_obj.id
 
                 cfg_p = esc.get_config_parametros_exames() if hasattr(esc, 'get_config_parametros_exames') else {}
-                profs_aut = cfg_p.get('professores_autorizados_exame', [])
+                modo = cfg_p.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
                 grau_turma = getattr(turma, 'grau_ano', '') or ''
 
-                autorizado = False
-                for aut in profs_aut:
-                    if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
-                        classes_aut = aut.get('classes', [])
-                        if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
-                            autorizado = True
-                            break
+                if modo == 'TODOS_PROFESSORES':
+                    autorizado = True
+                elif modo == 'APENAS_DAP':
+                    autorizado = False
+                    motivo_bloqueio = "O lançamento das notas de exame nesta instituição é de competência exclusiva do Director Pedagógico."
+                else:
+                    # ALGUNS_PROFESSORES (indicados por classe)
+                    profs_aut = cfg_p.get('professores_autorizados_exame', [])
+                    autorizado = False
+                    for aut in profs_aut:
+                        if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
+                            classes_aut = aut.get('classes', [])
+                            if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
+                                autorizado = True
+                                break
+                    if not autorizado:
+                        motivo_bloqueio = f"O lançamento de notas de exame na {grau_turma} está reservado ao Director Pedagógico ou professores autorizados."
 
                 if not autorizado:
                     pode_editar = False
-                    motivo_bloqueio = f"O lançamento de notas de exame na {grau_turma} é de competência do Director Pedagógico ou de professores expressamente autorizados."
             else:
                 pode_editar = False
                 motivo_bloqueio = "Apenas o Director Pedagógico ou professores autorizados podem lançar notas de exame."
@@ -1092,21 +1101,30 @@ class PautaExamesView(APIView):
                         prof_id = p_obj.id
 
                 cfg_p = esc_target.get_config_parametros_exames() if hasattr(esc_target, 'get_config_parametros_exames') else {}
-                profs_aut = cfg_p.get('professores_autorizados_exame', [])
+                modo = cfg_p.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
                 grau_turma = getattr(turma, 'grau_ano', '') or ''
 
-                autorizado = False
-                for aut in profs_aut:
-                    if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
-                        classes_aut = aut.get('classes', [])
-                        if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
-                            autorizado = True
-                            break
+                if modo == 'TODOS_PROFESSORES':
+                    autorizado = True
+                elif modo == 'APENAS_DAP':
+                    autorizado = False
+                    msg_bloqueio = "Acesso negado: o lançamento das notas de exame nesta instituição é de competência exclusiva do Director Pedagógico."
+                else:
+                    # ALGUNS_PROFESSORES (indicados por classe)
+                    profs_aut = cfg_p.get('professores_autorizados_exame', [])
+                    autorizado = False
+                    for aut in profs_aut:
+                        if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
+                            classes_aut = aut.get('classes', [])
+                            if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
+                                autorizado = True
+                                break
+                    msg_bloqueio = f"Acesso negado: apenas o Director Pedagógico ou professores autorizados para a classe {grau_turma} podem lançar notas de exame."
 
                 if not autorizado:
                     return Response({
                         'success': False,
-                        'message': f"Acesso negado: apenas o Director Pedagógico ou professores autorizados para a classe {grau_turma} podem lançar notas de exame."
+                        'message': msg_bloqueio
                     }, status=403)
             else:
                 return Response({
@@ -1135,7 +1153,10 @@ class PautaExamesView(APIView):
                 if v is None or v == '' or v == '-':
                     return None
                 try:
-                    num = float(v)
+                    # Suporte a inteiros e decimais com vírgula ou ponto (1 ou 2 casas decimais) em [0, 20]
+                    v_str = str(v).strip().replace(',', '.')
+                    num = float(v_str)
+                    num = round(num, 2)
                     return max(0.0, min(20.0, num))
                 except (ValueError, TypeError):
                     return None
@@ -1366,15 +1387,17 @@ class ProfessoresAutorizadosExamesView(APIView):
                 'email': p.email or ''
             })
 
-        # 3. Configurações atuais de professores autorizados
+        # 3. Configurações atuais de professores autorizados e regime de lançamento
         cfg_p = escola.get_config_parametros_exames()
         profs_autorizados = cfg_p.get('professores_autorizados_exame', [])
+        modo_permissao = cfg_p.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
 
         return Response({
             'success': True,
             'classes_com_exame': classes_exame,
             'professores': professores,
             'autorizacoes': profs_autorizados,
+            'modo_permissao': modo_permissao,
             'is_gestao': is_gestao
         })
 
@@ -1400,12 +1423,13 @@ class ProfessoresAutorizadosExamesView(APIView):
                 'message': 'Apenas o Director Pedagógico ou administradores da escola podem configurar permissões de professores para lançamento de exames.'
             }, status=403)
 
+        modo_permissao = request.data.get('modo_permissao', 'ALGUNS_PROFESSORES')
+        if modo_permissao not in ('APENAS_DAP', 'ALGUNS_PROFESSORES', 'TODOS_PROFESSORES'):
+            modo_permissao = 'ALGUNS_PROFESSORES'
+
         autorizacoes_payload = request.data.get('autorizacoes', [])
         if not isinstance(autorizacoes_payload, list):
-            return Response({
-                'success': False,
-                'message': 'Formato inválido: lista de autorizações esperada.'
-            }, status=400)
+            autorizacoes_payload = []
 
         cfg = dict(escola.config_parametros_exames or {})
         autorizado_por = getattr(user, 'nome', '') or 'Director Pedagógico'
@@ -1427,13 +1451,21 @@ class ProfessoresAutorizadosExamesView(APIView):
                     'data_autorizacao': data_agora
                 })
 
+        cfg['modo_permissao_exames'] = modo_permissao
         cfg['professores_autorizados_exame'] = novas_autorizacoes
         escola.config_parametros_exames = cfg
         escola.save(update_fields=['config_parametros_exames'])
 
+        msg_modo = {
+            'APENAS_DAP': 'Lançamento restrito exclusivamente ao Director Pedagógico.',
+            'TODOS_PROFESSORES': 'Lançamento autorizado para todos os professores da instituição.',
+            'ALGUNS_PROFESSORES': f'{len(novas_autorizacoes)} professor(es) configurado(s) com autorização por classe.'
+        }.get(modo_permissao, 'Permissões atualizadas com sucesso!')
+
         return Response({
             'success': True,
-            'message': f'{len(novas_autorizacoes)} professor(es) configurado(s) com sucesso para lançamento de notas de exame!',
+            'message': f'Permissões de exames guardadas com sucesso! {msg_modo}',
+            'modo_permissao': modo_permissao,
             'autorizacoes': novas_autorizacoes
         })
 

@@ -752,8 +752,22 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
 
             # Obter registo de exame
             ne_obj = notas_exame_map.get((aluno.id, d_obj.id))
-            e1 = getattr(ne_obj, 'exame_1epoca', None) if ne_obj else None
-            e2 = getattr(ne_obj, 'exame_2epoca', None) if ne_obj else None
+            raw_e1 = getattr(ne_obj, 'exame_1epoca', None) if ne_obj else None
+            raw_e2 = getattr(ne_obj, 'exame_2epoca', None) if ne_obj else None
+
+            def format_num_exame(v):
+                if v is None:
+                    return None
+                try:
+                    num = float(v)
+                    if num == int(num):
+                        return int(num)
+                    return round(num, 2)
+                except (ValueError, TypeError):
+                    return v
+
+            e1 = format_num_exame(raw_e1)
+            e2 = format_num_exame(raw_e2)
 
             if e1 is not None or e2 is not None:
                 tem_algum_exame = True

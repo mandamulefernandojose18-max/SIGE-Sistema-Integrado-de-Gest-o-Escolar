@@ -18391,7 +18391,7 @@ function renderizarTabelaExamesHtml(d) {
       tdsDiscs += `
         <td class="text-center bg-light border-end font-monospace small text-nowrap px-2">${vFreq}</td>
         <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
-          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
+          <input type="number" step="0.01" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
             value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
             ${!podeEditar ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
@@ -18399,7 +18399,7 @@ function renderizarTabelaExamesHtml(d) {
             title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `1ª Época: Mínimo ${notaMinima} valores para aprovação`}">
         </td>
         <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
-          <input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
+          <input type="number" step="0.01" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
             value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
             ${!podeEditar ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
@@ -18512,6 +18512,7 @@ function aoMudarNotaExame(inputEl) {
 
   if (valStr !== '' && !isNaN(Number(valStr))) {
     valNum = Math.max(0, Math.min(20, Number(valStr)));
+    valNum = Math.round(valNum * 100) / 100; // Inteiros ou decimais com 1 ou 2 casas decimais em [0, 20]
     inputEl.value = valNum;
   } else {
     inputEl.value = '';
@@ -19035,6 +19036,56 @@ window.atualizarCamposParametrosExameNaInterface = atualizarCamposParametrosExam
 let _professoresExameCache = [];
 let _classesExameCache = [];
 let _autorizacoesExameCache = new Map();
+let _modoPermissaoExames = 'ALGUNS_PROFESSORES';
+
+function selecionarModoPermissaoExame(modo) {
+  _modoPermissaoExames = modo || 'ALGUNS_PROFESSORES';
+
+  const radioDap = document.getElementById('radioModoApenasDap');
+  const radioAlguns = document.getElementById('radioModoAlgunsProfessores');
+  const radioTodos = document.getElementById('radioModoTodosProfessores');
+
+  if (radioDap) radioDap.checked = (_modoPermissaoExames === 'APENAS_DAP');
+  if (radioAlguns) radioAlguns.checked = (_modoPermissaoExames === 'ALGUNS_PROFESSORES');
+  if (radioTodos) radioTodos.checked = (_modoPermissaoExames === 'TODOS_PROFESSORES');
+
+  const cardDap = document.getElementById('cardModoApenasDap');
+  const cardAlguns = document.getElementById('cardModoAlgunsProfessores');
+  const cardTodos = document.getElementById('cardModoTodosProfessores');
+
+  [cardDap, cardAlguns, cardTodos].forEach(c => {
+    if (c) {
+      c.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10', 'border-danger', 'bg-danger', 'border-success', 'bg-success');
+    }
+  });
+
+  const containerMatriz = document.getElementById('containerMatrizProfessoresClasses');
+  const avisoModo = document.getElementById('avisoModoPermissaoSelecionado');
+  const textoModo = document.getElementById('textoModoPermissaoSelecionado');
+
+  if (_modoPermissaoExames === 'APENAS_DAP') {
+    if (cardDap) cardDap.classList.add('border-danger', 'bg-danger', 'bg-opacity-10');
+    if (containerMatriz) containerMatriz.classList.add('d-none');
+    if (avisoModo && textoModo) {
+      avisoModo.className = 'alert alert-danger py-2 px-3 small mb-3';
+      textoModo.innerHTML = '<strong>Regime Exclusivo:</strong> O lançamento de notas de exame nesta instituição é exclusivo do <strong>Director Pedagógico</strong> e Directoria da Escola. Professores têm apenas acesso para consulta e visualização das pautas.';
+      avisoModo.classList.remove('d-none');
+    }
+  } else if (_modoPermissaoExames === 'TODOS_PROFESSORES') {
+    if (cardTodos) cardTodos.classList.add('border-success', 'bg-success', 'bg-opacity-10');
+    if (containerMatriz) containerMatriz.classList.add('d-none');
+    if (avisoModo && textoModo) {
+      avisoModo.className = 'alert alert-success py-2 px-3 small mb-3';
+      textoModo.innerHTML = '<strong>Regime Aberto:</strong> Todos os professores ativos da instituição têm permissão para lançar notas de exame em todas as turmas e classes com exame.';
+      avisoModo.classList.remove('d-none');
+    }
+  } else {
+    // ALGUNS_PROFESSORES (indicados)
+    if (cardAlguns) cardAlguns.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+    if (containerMatriz) containerMatriz.classList.remove('d-none');
+    if (avisoModo) avisoModo.classList.add('d-none');
+  }
+}
 
 async function abrirModalProfessoresExame() {
   const modalEl = document.getElementById('modalProfessoresExame');
@@ -19060,13 +19111,17 @@ async function abrirModalProfessoresExame() {
   }
 
   try {
-    const res = await sigeFetch('/api/v1/pautas/exames/professores-autorizados/');
-    if (!res.ok) throw new Error('Falha ao consultar permissões de exames');
-    const data = await res.json();
+    const data = await apiFetch('/api/v1/pautas/exames/professores-autorizados/');
+    if (!data || !data.success) {
+      throw new Error(data?.message || 'Falha ao consultar permissões de exames');
+    }
 
     _professoresExameCache = data.professores || [];
     _classesExameCache = data.classes_com_exame || ['10ª Classe', '12ª Classe'];
     _autorizacoesExameCache.clear();
+
+    const modo = data.modo_permissao || 'ALGUNS_PROFESSORES';
+    selecionarModoPermissaoExame(modo);
 
     const autorizacoes = data.autorizacoes || [];
     autorizacoes.forEach(a => {
@@ -19270,17 +19325,18 @@ async function salvarProfessoresAutorizadosExame() {
   });
 
   try {
-    const res = await sigeFetch('/api/v1/pautas/exames/professores-autorizados/', {
+    const json = await apiFetch('/api/v1/pautas/exames/professores-autorizados/', {
       method: 'POST',
-      body: JSON.stringify({ autorizacoes: payloadAutorizacoes })
+      body: JSON.stringify({
+        modo_permissao: _modoPermissaoExames,
+        autorizacoes: payloadAutorizacoes
+      })
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json.message || 'Erro ao guardar autorizações');
-    }
 
     if (typeof mostrarNotificacao === 'function') {
-      mostrarNotificacao(json.message || 'Autorizações guardadas com sucesso!', 'success');
+      mostrarNotificacao(json.message || 'Permissões guardadas com sucesso!', 'success');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast(json.message || 'Permissões guardadas com sucesso!', 'success');
     }
 
     const modalEl = document.getElementById('modalProfessoresExame');
@@ -19296,6 +19352,8 @@ async function salvarProfessoresAutorizadosExame() {
     console.error('Erro ao guardar autorizações de exame:', err);
     if (typeof mostrarNotificacao === 'function') {
       mostrarNotificacao(err.message || 'Erro ao guardar autorizações', 'danger');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast(err.message || 'Erro ao guardar autorizações', 'danger');
     }
   } finally {
     if (btn) {
@@ -19313,3 +19371,412 @@ window.marcarTodosProfessoresTodasClasses = marcarTodosProfessoresTodasClasses;
 window.filtrarTabelaProfessoresExame = filtrarTabelaProfessoresExame;
 window.salvarProfessoresAutorizadosExame = salvarProfessoresAutorizadosExame;
 
+
+// =====================================================================
+// FORMULÁRIO INDIVIDUAL DE LANÇAMENTO DE NOTAS DE EXAME
+// Pesquisa, seleção e formulário amigável de lançamento por candidato
+// =====================================================================
+window._formExameAlunoAtualId = null;
+window._formExameListaAlunos = [];
+
+function abrirModalFormularioLancamentoExame() {
+  const modalEl = document.getElementById('modalFormularioLancamentoExame');
+  if (!modalEl) return;
+
+  const d = window._sigePautaExamesData;
+  if (!d || !Array.isArray(d.alunos) || d.alunos.length === 0) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro uma turma com exame que contenha alunos matriculados.', 'warning');
+    } else if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma com exame que contenha alunos matriculados.', 'warning');
+    }
+    return;
+  }
+
+  const podeEditar = d.pode_editar !== false;
+  const btnSalvar = document.getElementById('btnSalvarFormExame');
+  const btnProximo = document.getElementById('btnSalvarEProximoFormExame');
+  if (btnSalvar) btnSalvar.style.display = podeEditar ? '' : 'none';
+  if (btnProximo) btnProximo.style.display = podeEditar ? '' : 'none';
+
+  // Atualizar badge dos parâmetros no modal
+  const params = d.parametros || { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10 };
+  const badgeParam = document.getElementById('formExameParametrosBadge');
+  if (badgeParam) {
+    badgeParam.textContent = `Freq: ${params.peso_frequencia || 50}% | Exame: ${params.peso_exame || 50}% | Mín: ${params.nota_minima_exame || 10}`;
+  }
+
+  window._formExameListaAlunos = d.alunos;
+
+  const inputBusca = document.getElementById('formExameAlunoSearch');
+  if (inputBusca) inputBusca.value = '';
+
+  popularSelectAlunosFormulario(d.alunos);
+
+  // Selecionar primeiro aluno ou o atual se já existir
+  const alunoId = window._formExameAlunoAtualId && d.alunos.some(a => a.id === window._formExameAlunoAtualId)
+    ? window._formExameAlunoAtualId
+    : d.alunos[0].id;
+
+  selecionarAlunoFormularioExame(alunoId);
+
+  const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  bsModal.show();
+}
+
+function popularSelectAlunosFormulario(alunos) {
+  const sel = document.getElementById('formExameAlunoSelect');
+  if (!sel) return;
+  if (!alunos || alunos.length === 0) {
+    sel.innerHTML = '<option value="">Nenhum candidato encontrado</option>';
+    return;
+  }
+  sel.innerHTML = alunos.map((a, idx) => `
+    <option value="${a.id}">Nº ${a.numero || idx + 1} - ${a.nome}</option>
+  `).join('');
+}
+
+function filtrarAlunosFormularioExame(termo) {
+  const t = (termo || '').toLowerCase().trim();
+  const todos = window._sigePautaExamesData?.alunos || [];
+  const filtrados = todos.filter(a => {
+    if (!t) return true;
+    return (a.nome || '').toLowerCase().includes(t) ||
+           String(a.numero || '').includes(t) ||
+           (a.matricula || '').toLowerCase().includes(t) ||
+           (a.candidato || '').toLowerCase().includes(t);
+  });
+
+  popularSelectAlunosFormulario(filtrados);
+  if (filtrados.length > 0) {
+    selecionarAlunoFormularioExame(filtrados[0].id);
+  } else {
+    const container = document.getElementById('formExameDisciplinasContainer');
+    if (container) {
+      container.innerHTML = '<div class="alert alert-warning text-center small my-2">Nenhum candidato encontrado com esse nome ou número.</div>';
+    }
+  }
+}
+
+function navegarAlunoFormularioExame(direcao) {
+  const lista = window._sigePautaExamesData?.alunos || [];
+  if (lista.length === 0) return;
+
+  const curId = window._formExameAlunoAtualId;
+  const curIdx = lista.findIndex(a => a.id === curId);
+  let novoIdx = curIdx + direcao;
+
+  if (novoIdx < 0) novoIdx = 0;
+  if (novoIdx >= lista.length) novoIdx = lista.length - 1;
+
+  const novoAluno = lista[novoIdx];
+  if (novoAluno) {
+    selecionarAlunoFormularioExame(novoAluno.id);
+  }
+}
+
+function selecionarAlunoFormularioExame(alunoId) {
+  window._formExameAlunoAtualId = alunoId;
+  const d = window._sigePautaExamesData;
+  if (!d) return;
+
+  const alunos = d.alunos || [];
+  const aluno = alunos.find(a => a.id === alunoId);
+  if (!aluno) return;
+
+  const sel = document.getElementById('formExameAlunoSelect');
+  if (sel && sel.value !== alunoId) sel.value = alunoId;
+
+  // Atualizar Ficha Resumo do Aluno
+  const elNome = document.getElementById('formExameAlunoNome');
+  const elNum = document.getElementById('formExameAlunoNumero');
+  const elCand = document.getElementById('formExameAlunoCandidato');
+  const elTurma = document.getElementById('formExameAlunoTurma');
+  const elIniciais = document.getElementById('formExameAlunoIniciais');
+  const elPosicao = document.getElementById('formExamePosicaoAlunoInfo');
+
+  const alunoIdx = alunos.findIndex(a => a.id === alunoId);
+  if (elNome) elNome.textContent = aluno.nome;
+  if (elNum) elNum.textContent = aluno.numero || (alunoIdx + 1);
+  if (elCand) elCand.textContent = aluno.candidato || aluno.matricula || '--';
+  if (elTurma) elTurma.textContent = aluno.turma || d.turma?.nome || '--';
+
+  if (elIniciais) {
+    const partes = (aluno.nome || '').trim().split(/\s+/);
+    const init = (partes[0]?.[0] || '') + (partes[partes.length - 1]?.[0] || '');
+    elIniciais.textContent = init.toUpperCase() || 'AL';
+  }
+
+  if (elPosicao) {
+    elPosicao.textContent = `Candidato ${alunoIdx + 1} de ${alunos.length}`;
+  }
+
+  // Renderizar disciplinas com exame do aluno
+  const container = document.getElementById('formExameDisciplinasContainer');
+  const podeEditar = d.pode_editar !== false;
+  const disciplinasComExame = d.disciplinas_com_exame || [];
+
+  if (disciplinasComExame.length === 0) {
+    if (container) {
+      container.innerHTML = `
+        <div class="alert alert-warning small text-center my-2">
+          Nenhuma disciplina com exame cadastrada para esta classe/turma.
+        </div>
+      `;
+    }
+    return;
+  }
+
+  let htmlDiscs = '';
+  disciplinasComExame.forEach(disc => {
+    const dData = aluno.disciplinas?.[disc.id] || {};
+    const chave = `${alunoId}_${disc.id}`;
+    const mod = window._sigeNotasExameModificadas.get(chave);
+
+    const e1 = (mod && mod.exame_1epoca !== undefined) ? mod.exame_1epoca : dData.exame_1epoca;
+    const e2 = (mod && mod.exame_2epoca !== undefined) ? mod.exame_2epoca : dData.exame_2epoca;
+
+    const e1Val = (e1 !== null && e1 !== undefined && e1 !== '') ? e1 : '';
+    const e2Val = (e2 !== null && e2 !== undefined && e2 !== '') ? e2 : '';
+
+    const freqVal = (dData.frequencia !== undefined && dData.frequencia !== null) ? dData.frequencia : '-';
+
+    htmlDiscs += `
+      <div class="card p-3 border shadow-none bg-white disc-exame-row" id="formDiscRow_${alunoId}_${disc.id}">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary px-2 py-1">${disc.codigo || 'EXAME'}</span>
+            <strong class="text-dark fs-6">${disc.nome}</strong>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="small text-muted">Média de Frequência:</span>
+            <span class="badge bg-light text-dark border font-monospace fs-6 px-2 py-1">${freqVal}</span>
+          </div>
+        </div>
+
+        <div class="row g-2 align-items-center">
+          <div class="col-md-4">
+            <label class="form-label x-small fw-bold text-muted mb-1">
+              <i class="bi bi-pencil me-1"></i>1ª Época (0 a 20)
+            </label>
+            <input type="number" step="0.01" min="0" max="20"
+              class="form-control form-control-sm text-center fw-bold font-monospace form-input-exame"
+              id="formInputE1_${alunoId}_${disc.id}"
+              placeholder="ex: 12 ou 14.5"
+              value="${e1Val}"
+              ${!podeEditar ? 'disabled readonly' : ''}
+              oninput="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)"
+              onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label x-small fw-bold text-muted mb-1">
+              <i class="bi bi-pencil me-1"></i>2ª Época (se necessária)
+            </label>
+            <input type="number" step="0.01" min="0" max="20"
+              class="form-control form-control-sm text-center fw-bold font-monospace form-input-exame"
+              id="formInputE2_${alunoId}_${disc.id}"
+              placeholder="ex: 10 ou 11.25"
+              value="${e2Val}"
+              ${!podeEditar ? 'disabled readonly' : ''}
+              oninput="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)"
+              onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label x-small fw-bold text-muted mb-1">
+              <i class="bi bi-calculator me-1"></i>Média Final da Disciplina
+            </label>
+            <div class="d-flex align-items-center justify-content-between p-1 px-2 border rounded bg-light">
+              <span class="font-monospace fw-bold fs-6" id="formDiscMedia_${alunoId}_${disc.id}">-</span>
+              <span class="badge" id="formDiscBadge_${alunoId}_${disc.id}">---</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  if (container) container.innerHTML = htmlDiscs;
+
+  recalcularFormularioExame(alunoId);
+}
+
+function aoMudarNotaFormularioExame(alunoId, discId, epoca, valor) {
+  let valStr = String(valor || '').trim().replace(',', '.');
+  let valNum = null;
+
+  if (valStr !== '' && !isNaN(Number(valStr))) {
+    valNum = Math.max(0, Math.min(20, Number(valStr)));
+    valNum = Math.round(valNum * 100) / 100; // Suporta decimais até 2 casas
+  }
+
+  const chave = `${alunoId}_${discId}`;
+  if (!window._sigeNotasExameModificadas.has(chave)) {
+    window._sigeNotasExameModificadas.set(chave, { aluno_id: alunoId, disciplina_id: discId });
+  }
+  const obj = window._sigeNotasExameModificadas.get(chave);
+  if (epoca === '1') obj.exame_1epoca = valNum;
+  if (epoca === '2') obj.exame_2epoca = valNum;
+
+  // Sincronizar input correspondente na tabela principal (se existir)
+  const inputTabela = document.querySelector(`input.input-exame-nota[data-aluno="${alunoId}"][data-disc="${discId}"][data-epoca="${epoca}"]`);
+  if (inputTabela) {
+    inputTabela.value = (valNum !== null) ? valNum : '';
+  }
+
+  // Recalcular cálculos na tabela principal
+  recalcularLinhaAlunoInterface(alunoId);
+
+  // Recalcular cálculos no modal do formulário
+  recalcularFormularioExame(alunoId);
+
+  // Destacar botão de salvar com indicação visual de alteração pendente
+  const btnSalvar = document.getElementById('btnSalvarNotasExame');
+  if (btnSalvar) {
+    btnSalvar.classList.add('btn-warning');
+    btnSalvar.classList.remove('btn-primary');
+    btnSalvar.innerHTML = `<i class="bi bi-floppy-fill me-1"></i> Guardar Alterações (${window._sigeNotasExameModificadas.size})`;
+  }
+}
+
+function recalcularFormularioExame(alunoId) {
+  const d = window._sigePautaExamesData;
+  if (!d) return;
+
+  const aluno = (d.alunos || []).find(a => a.id === alunoId);
+  if (!aluno) return;
+
+  const params = d.parametros || { peso_frequencia: 50, peso_exame: 50, nota_minima_exame: 10 };
+  const pesoFreq = Number(params.peso_frequencia || 50);
+  const pesoExame = Number(params.peso_exame || 50);
+  const notaMinima = Number(params.nota_minima_exame || 10);
+
+  const disciplinasComExame = d.disciplinas_com_exame || [];
+  const disciplinasSemExame = d.disciplinas_sem_exame || [];
+  const sufixoGen = (aluno.genero || 'M').toUpperCase().startsWith('F') ? 'a' : 'o';
+
+  const notasFinais = [];
+  const discReprovadas = [];
+
+  disciplinasComExame.forEach(disc => {
+    const dId = disc.id;
+    const dData = aluno.disciplinas?.[dId] || {};
+    const chave = `${alunoId}_${dId}`;
+    const mod = window._sigeNotasExameModificadas.get(chave);
+
+    const e1 = (mod && mod.exame_1epoca !== undefined) ? mod.exame_1epoca : dData.exame_1epoca;
+    const e2 = (mod && mod.exame_2epoca !== undefined) ? mod.exame_2epoca : dData.exame_2epoca;
+
+    const e1Num = (e1 !== null && e1 !== undefined && e1 !== '') ? Number(e1) : null;
+    const e2Num = (e2 !== null && e2 !== undefined && e2 !== '') ? Number(e2) : null;
+
+    let neEfetivo = null;
+    if (e1Num !== null && e1Num >= notaMinima) {
+      neEfetivo = e1Num;
+    } else if (e1Num !== null && e1Num < notaMinima) {
+      if (e2Num !== null) neEfetivo = e2Num;
+    } else if (e1Num === null && e2Num !== null) {
+      neEfetivo = e2Num;
+    }
+
+    const freqVal = typeof dData.frequencia_decimal === 'number' ? dData.frequencia_decimal : (typeof dData.frequencia === 'number' ? dData.frequencia : null);
+    let mediaFinalDisc = null;
+
+    if (neEfetivo !== null) {
+      if (freqVal !== null) {
+        mediaFinalDisc = Math.round((freqVal * (pesoFreq / 100)) + (neEfetivo * (pesoExame / 100)));
+      } else {
+        mediaFinalDisc = Math.round(neEfetivo);
+      }
+    } else {
+      // REGRA: Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
+      mediaFinalDisc = 0;
+    }
+
+    const elMedia = document.getElementById(`formDiscMedia_${alunoId}_${dId}`);
+    const elBadge = document.getElementById(`formDiscBadge_${alunoId}_${dId}`);
+    if (elMedia) {
+      elMedia.textContent = mediaFinalDisc;
+      elMedia.className = `font-monospace fw-bold fs-6 ${mediaFinalDisc >= 9.5 ? 'text-success' : 'text-danger'}`;
+    }
+    if (elBadge) {
+      if (mediaFinalDisc >= 9.5) {
+        elBadge.className = 'badge bg-success';
+        elBadge.textContent = 'Aprovado';
+      } else {
+        elBadge.className = 'badge bg-danger';
+        elBadge.textContent = 'Reprovado';
+      }
+    }
+
+    notasFinais.push(mediaFinalDisc);
+    if (mediaFinalDisc < 9.5) {
+      discReprovadas.push(disc.nome);
+    }
+  });
+
+  disciplinasSemExame.forEach(disc => {
+    const dData = aluno.disciplinas?.[disc.id] || {};
+    const fVal = typeof dData.frequencia === 'number' ? dData.frequencia : 0;
+    notasFinais.push(fVal);
+    if (fVal < 9.5) discReprovadas.push(disc.nome);
+  });
+
+  let resAprov = `Reprovad${sufixoGen}`;
+  let mfGlobal = 0;
+
+  if (notasFinais.length > 0) {
+    const soma = notasFinais.reduce((acc, v) => acc + v, 0);
+    mfGlobal = Math.round(soma / notasFinais.length);
+    const aprovadoGeral = (discReprovadas.length === 0 && mfGlobal >= 9.5);
+    resAprov = aprovadoGeral ? `Aprovad${sufixoGen}` : `Reprovad${sufixoGen}`;
+  }
+
+  const elResGeral = document.getElementById('formExameAlunoResultadoGeral');
+  if (elResGeral) {
+    elResGeral.textContent = `${resAprov} (MF: ${mfGlobal})`;
+    // Aprovado a preto e Reprovado a vermelho
+    if (resAprov.includes('Aprovad')) {
+      elResGeral.className = 'fw-bold fs-6';
+      elResGeral.style.color = '#000000';
+    } else {
+      elResGeral.className = 'fw-bold fs-6 text-danger';
+      elResGeral.style.color = '#dc2626';
+    }
+  }
+}
+
+async function salvarNotasFormularioExame(irParaProximo = false) {
+  const btn = irParaProximo ? document.getElementById('btnSalvarEProximoFormExame') : document.getElementById('btnSalvarFormExame');
+  const txtOriginal = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> A guardar...';
+  }
+
+  try {
+    await salvarNotasExame();
+    if (irParaProximo) {
+      navegarAlunoFormularioExame(1);
+    } else if (window._formExameAlunoAtualId) {
+      recalcularFormularioExame(window._formExameAlunoAtualId);
+    }
+  } catch (err) {
+    console.error('Erro ao guardar notas via formulário:', err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = txtOriginal;
+    }
+  }
+}
+
+window.selecionarModoPermissaoExame = selecionarModoPermissaoExame;
+window.abrirModalFormularioLancamentoExame = abrirModalFormularioLancamentoExame;
+window.filtrarAlunosFormularioExame = filtrarAlunosFormularioExame;
+window.selecionarAlunoFormularioExame = selecionarAlunoFormularioExame;
+window.navegarAlunoFormularioExame = navegarAlunoFormularioExame;
+window.aoMudarNotaFormularioExame = aoMudarNotaFormularioExame;
+window.recalcularFormularioExame = recalcularFormularioExame;
+window.salvarNotasFormularioExame = salvarNotasFormularioExame;

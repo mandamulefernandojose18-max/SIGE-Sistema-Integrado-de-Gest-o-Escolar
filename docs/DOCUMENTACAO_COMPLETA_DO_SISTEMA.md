@@ -414,13 +414,22 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - As disciplinas e as médias de frequência (MFD) têm origem estritamente nas cadernetas e pautas de frequência dos 3 trimestres. Proibido o uso de dados ou notas fictícias.
   - O seletor de turmas filtra dinamicamente e exibe exclusivamente turmas pertencentes a classes ou níveis com exame (`tem_exame: True`, 10ª, 11ª ou 12ª Classes).
   - Em casos de turmas sem matrículas ativas ou sem disciplinas curriculares alocadas, a aplicação exibe alertas amigáveis explicativos e botão de repetição ("Tentar Novamente"), mantendo a estabilidade total da SPA.
-- **Competência de Lançamento e Autorização por Professor/Classe:**
-  - **Competência Primária:** Por padrão institucional, quem deve lançar as notas dos exames é o **Director Pedagógico** (`DAP`, e por extensão os administradores institucionais `DIRECTOR_ESCOLA`, `ADMIN_ESCOLA`, `SUPERADMIN`).
-  - **Janela Modal de Indicação de Professores Autorizados:**
-    - Através do botão **"Autorizar Professores"**, o Director Pedagógico pode indicar expressamente quais professores terão permissão para lançar as notas de exame.
-    - **Classes com Exame Automáticas:** Todas as classes/níveis que possuem regime de exame oficial na escola (ex: 10ª Classe, 12ª Classe, etc.) ficam **automaticamente disponíveis** nesta janela, sem necessidade de cadastro manual duplicado.
-    - O Director Pedagógico marca com precisão as classes em que cada professor poderá lançar as notas de exame.
-    - **Bloqueio de Segurança Inteligente:** Professores não indicados para uma determinada classe acessam a respectiva pauta estritamente em **modo de apenas leitura** (campos de exame desabilitados e botão de salvar bloqueado).
+- **Regimes de Permissão de Lançamento (Configuráveis pelo DAP):**
+  - O Director Pedagógico (`DAP`) e a Direcção da Escola podem configurar a política de lançamento através da janela modal **"Autorizar Professores"**, escolhendo entre três regimes oficiais:
+    1. **Apenas o Director Pedagógico (`APENAS_DAP`):** Lançamento de notas de exame restrito exclusivamente ao DAP e administradores da escola. Professores têm acesso apenas para consulta e visualização das pautas.
+    2. **Alguns Professores (`ALGUNS_PROFESSORES`):** O DAP indica expressamente os professores autorizados e as classes específicas em que cada um pode lançar notas. Todas as classes com regime de exame na escola são detectadas automaticamente como colunas de atribuição.
+    3. **Todos os Professores (`TODOS_PROFESSORES`):** Todos os professores ativos da instituição ficam autorizados a lançar notas de exame em qualquer turma com regime de exame.
+  - **Bloqueio de Segurança Inteligente:** Usuários sem permissão para uma turma/classe visualizam a pauta em modo estrito de apenas leitura (inputs desabilitados e avisos explicativos).
+- **Duplo Modo de Lançamento de Notas de Exame:**
+  1. **Lançamento Direto na Tabela da Pauta:** Lançamento ágil célula a célula nos campos de 1ª e 2ª época de cada estudante, com recálculo instantâneo das médias e resultados.
+  2. **Lançamento via Formulário Individual ("Lançar as notas de Exame"):** Botão dedicado no topo que abre uma janela modal focada no candidato:
+     - Pesquisa e filtragem instantânea por nome ou número de matrícula.
+     - Seletor de candidato e botões de navegação sequencial rápida (*Anterior* e *Próximo*).
+     - Ficha resumida do aluno e grelha estruturada de todas as disciplinas com exame com exibição da Média de Frequência ($MFreq$), inputs de 1ª e 2ª época, pré-visualização da Média Final e status da disciplina.
+     - Exibição em tempo real do Resultado Geral e botões *"Guardar Notas"* e *"Guardar e Próximo"*.
+- **Regras Numéricas e Formato das Notas (0 a 20):**
+  - **Notas de Exame e Frequência:** Aceitam números inteiros e decimais com **1 ou 2 casas decimais** no intervalo de **0 a 20** (ex.: `10`, `12.5`, `9.75`, `14.25`), suportando tanto vírgula como ponto decimal.
+  - **Médias Estritamente Inteiras:** Por determinação oficial (*"excepto as médias devem ser números arredondando a um número inteiro"*), a Média Final da Disciplina e a Média Final Global ($MF$) são sempre números inteiros arredondados ao valor inteiro mais próximo (`int(round())` / `Math.round()`).
 - **Janela Modal de Parâmetros de Exame:**
   - Acessível exclusivamente pelo botão **"Parâmetros do Exame"** no topo da pauta (janela inline consolidada no modal para máxima área útil de exibição da pauta).
   - Permite configurar a percentagem da nota de frequência (% Freq, padrão 50%), a percentagem da nota de exame (% Exame, padrão 50%, totalizando 100%) e a nota mínima do exame (0 a 20 valores, padrão 10.0).

@@ -101,10 +101,12 @@ class Escola(models.Model):
         profs_aut = cfg.get('professores_autorizados_exame', [])
         if not isinstance(profs_aut, list):
             profs_aut = []
+        modo_perm = cfg.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
         return {
             'peso_frequencia': pf,
             'peso_exame': pe,
             'nota_minima_exame': nm,
+            'modo_permissao_exames': modo_perm,
             'professores_autorizados_exame': profs_aut,
         }
 
