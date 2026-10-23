@@ -1175,6 +1175,19 @@ class PautaExamesView(APIView):
 
             if mfreq_num is not None:
                 ne_obj.nota_frequencia = mfreq_num
+
+            # Regra Oficial de Admissão ao Exame:
+            # Se na nota de frequência tiver uma nota <= 9.4 (negativa), o aluno não tem direito ao exame:
+            # os campos de exame devem ficar vazios, não aceita notas e o resultado é 'Excluído'.
+            if mfreq_num is not None and mfreq_num <= 9.4:
+                ne_obj.exame_1epoca = None
+                ne_obj.exame_2epoca = None
+                ne_obj.nota_final = int(round(mfreq_num))
+                ne_obj.resultado = 'Excluído'
+                ne_obj.save()
+                salvos += 1
+                continue
+
             ne_obj.exame_1epoca = e1_num
             ne_obj.exame_2epoca = e2_num
 

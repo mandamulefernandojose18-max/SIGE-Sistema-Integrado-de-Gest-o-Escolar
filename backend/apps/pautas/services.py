@@ -664,9 +664,12 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
     # 3. Carregar notas de frequência de todos os trimestres
     todas_notas = list(Nota.objects.filter(turma=turma).select_related('disciplina'))
     notas_freq_map = {}
+    notas_freq_por_nome = {}
     for n in todas_notas:
         if n.disciplina_id:
             notas_freq_map[(n.aluno_id, n.disciplina_id, n.periodo)] = n
+        if n.disciplina and n.disciplina.nome:
+            notas_freq_por_nome[(n.aluno_id, n.disciplina.nome.strip().lower(), n.periodo)] = n
 
     # 4. Carregar notas de exame salvas
     notas_exame_objs = list(NotaExame.objects.filter(turma=turma, ano_letivo=ano_letivo))
@@ -726,16 +729,34 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             tem_ex = d_info['tem_exame']
 
             # Calcular média de frequência real a partir dos trimestres
+            # Obter registo de exame antecipadamente para fallback de frequência
+            ne_obj = notas_exame_map.get((aluno.id, d_obj.id))
+
+            # Calcular média de frequência real a partir dos trimestres ou do registo oficial
             def extrair_val(per):
-                n = notas_freq_map.get((aluno.id, d_obj.id, per))
+                n = (
+                    notas_freq_map.get((aluno.id, d_obj.id, per))
+                    or (notas_freq_por_nome.get((aluno.id, d_info['nome'].strip().lower(), per)) if d_info.get('nome') else None)
+                )
                 if not n:
                     return None
-                tem_avaliacoes = any(
-                    getattr(n, c, None) is not None and getattr(n, c, 0) > 0
-                    for c in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral']
-                )
-                if tem_avaliacoes or (n.media_final is not None and n.media_final > 0) or n.anotacao:
-                    return n.media_final
+                if n.media_final is not None:
+                    try:
+                        return float(n.media_final)
+                    except (ValueError, TypeError):
+                        pass
+                if hasattr(n, 'media_trimestral') and n.media_trimestral is not None:
+                    try:
+                        return float(n.media_trimestral)
+                    except (ValueError, TypeError):
+                        pass
+                testes = [getattr(n, c) for c in ['teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral'] if getattr(n, c, None) is not None]
+                if testes:
+                    try:
+                        valid_testes = [float(v) for v in testes]
+                        return round(sum(valid_testes) / len(valid_testes), 1)
+                    except (ValueError, TypeError):
+                        pass
                 return None
 
             t1 = extrair_val('1_TRIMESTRE')
@@ -746,12 +767,17 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             if vals_tri:
                 mfreq_val = round(sum(vals_tri) / len(vals_tri), 1)
                 mfreq_int = int(round(mfreq_val))
+            elif ne_obj and getattr(ne_obj, 'nota_frequencia', None) is not None:
+                try:
+                    mfreq_val = round(float(ne_obj.nota_frequencia), 1)
+                    mfreq_int = int(round(mfreq_val))
+                except (ValueError, TypeError):
+                    mfreq_val = None
+                    mfreq_int = None
             else:
                 mfreq_val = None
                 mfreq_int = None
 
-            # Obter registo de exame
-            ne_obj = notas_exame_map.get((aluno.id, d_obj.id))
             raw_e1 = getattr(ne_obj, 'exame_1epoca', None) if ne_obj else None
             raw_e2 = getattr(ne_obj, 'exame_2epoca', None) if ne_obj else None
 
@@ -777,7 +803,24 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             pode_fazer_2epoca = False
             situacao_exame = 'Pendente'
 
-            if tem_ex:
+            # REGRA OFICIAL DE ADMISSÃO AO EXAME:
+            # Se na nota de frequência tiver uma nota <= 9.4 (negativa), então o aluno
+            # NÃO TEM DIREITO AO EXAME, fica 'Excluído', e os campos de exame devem estar vazios.
+            e_excluido = (mfreq_val is not None and mfreq_val <= 9.4)
+
+            if e_excluido:
+                e1 = None
+                e2 = None
+                nota_exame_efetiva = None
+                aprovado_1epoca = False
+                pode_fazer_2epoca = False
+                situacao_exame = 'Excluído'
+                media_disc_int = mfreq_int if mfreq_int is not None else int(round(mfreq_val))
+                res_disc = 'Excluído'
+                aprov_disc = False
+                total_excluidos += 1
+                disciplinas_reprovadas.append(f"{d_info['nome']} (Excluído)")
+            elif tem_ex:
                 e1_val = float(e1) if e1 is not None else None
                 e2_val = float(e2) if e2 is not None else None
 
@@ -786,30 +829,30 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                     nota_exame_efetiva = e1_val
                     aprovado_1epoca = True
                     pode_fazer_2epoca = False
-                    situacao_exame = 'Aprovado 1ª Época'
+                    situacao_exame = 'Aprovado 1ª época'
                 elif e1_val is not None and e1_val < nota_minima:
                     # Não atingiu a nota mínima na 1ª época -> tem direito à 2ª época
                     if e2_val is not None:
                         nota_exame_efetiva = e2_val
                         pode_fazer_2epoca = False
                         if e2_val >= nota_minima:
-                            situacao_exame = 'Aprovado 2ª Época'
+                            situacao_exame = 'Aprovado 2ª época'
                         else:
-                            situacao_exame = 'Reprovado 2ª Época'
+                            situacao_exame = 'Reprovado 2ª época'
                     else:
                         # Ainda não realizou a 2ª época
                         nota_exame_efetiva = None
                         pode_fazer_2epoca = True
                         aluno_tem_2epoca_pendente = True
-                        situacao_exame = '2ª Época'
+                        situacao_exame = '2ª época'
                 elif e1_val is None and e2_val is not None:
                     # Realizou exame diretamente na 2ª época
                     nota_exame_efetiva = e2_val
                     pode_fazer_2epoca = False
                     if e2_val >= nota_minima:
-                        situacao_exame = 'Aprovado 2ª Época'
+                        situacao_exame = 'Aprovado 2ª época'
                     else:
-                        situacao_exame = 'Reprovado 2ª Época'
+                        situacao_exame = 'Reprovado 2ª época'
                 else:
                     # Nenhum exame lançado ainda
                     nota_exame_efetiva = None
@@ -824,18 +867,22 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                     else:
                         media_disc_int = int(round(nota_exame_efetiva))
                 else:
-                    # REGRA SOLICITADA: Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
+                    # Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
                     media_disc_int = 0
+
+                aprov_disc = (media_disc_int is not None and media_disc_int >= 9.5)
+                res_disc = f"Aprovad{sufixo_genero}" if aprov_disc else f"Reprovad{sufixo_genero}"
+                if not aprov_disc:
+                    disciplinas_reprovadas.append(d_info['nome'])
             else:
                 # Disciplina sem exame (a nota final é a própria frequência)
                 media_disc_int = mfreq_int if mfreq_int is not None else 0
                 situacao_exame = 'Sem Exame'
+                aprov_disc = (media_disc_int is not None and media_disc_int >= 9.5)
+                res_disc = f"Aprovad{sufixo_genero}" if aprov_disc else f"Reprovad{sufixo_genero}"
+                if not aprov_disc:
+                    disciplinas_reprovadas.append(d_info['nome'])
 
-            # Situação na disciplina
-            aprov_disc = (media_disc_int is not None and media_disc_int >= 9.5)
-            res_disc = f"Aprovad{sufixo_genero}" if aprov_disc else f"Reprovad{sufixo_genero}"
-            if not aprov_disc:
-                disciplinas_reprovadas.append(d_info['nome'])
             notas_finais_calc.append({'disciplina': d_info['nome'], 'notaFinal': media_disc_int if media_disc_int is not None else 0})
 
             disciplinas_aluno[d_id] = {
@@ -843,17 +890,18 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                 'nome': d_info['nome'],
                 'codigo': d_info['codigo'],
                 'tem_exame': tem_ex,
-                'frequencia': mfreq_int if mfreq_int is not None else '-',
+                'frequencia': format_num_exame(mfreq_val) if mfreq_val is not None else '-',
                 'frequencia_decimal': mfreq_val,
-                'exame_1epoca': e1,
-                'exame_2epoca': e2,
+                'excluido': e_excluido,
+                'exame_1epoca': e1 if not e_excluido else None,
+                'exame_2epoca': e2 if not e_excluido else None,
                 'aprovado_1epoca': aprovado_1epoca,
                 'pode_fazer_2epoca': pode_fazer_2epoca,
                 'situacao_exame': situacao_exame,
                 'nota_exame_efetiva': nota_exame_efetiva,
                 'media': media_disc_int,
                 'resultado': res_disc,
-                'aprovado': media_disc_int >= 9.5 if media_disc_int is not None else False
+                'aprovado': aprov_disc
             }
 
         # Avaliar Resultado Final do Aluno:

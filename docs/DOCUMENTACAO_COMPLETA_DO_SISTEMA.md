@@ -446,6 +446,17 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
      - Seletor de candidato e botões de navegação sequencial rápida (*Anterior* e *Próximo*).
      - Ficha resumida do aluno e grelha estruturada de todas as disciplinas com exame com exibição da Média de Frequência ($MFreq$), inputs de 1ª e 2ª época, pré-visualização da Média Final e status da disciplina.
      - Exibição em tempo real do Resultado Geral e botões *"Guardar Notas"* e *"Guardar e Próximo"*.
+- **Regras de Admissão, Exclusão e Avaliação de Exames:**
+  - **Critério Rígido de Admissão / Exclusão ao Exame:**
+    - Se a **Nota de Frequência** ($MFreq$) do aluno for **$\le 9.4$** (negativa), o estudante **não tem direito ao exame** e a sua situação nessa disciplina é estritamente fixada em **"Excluído"**.
+    - Para estudantes excluídos, os campos de nota de exame (1ª e 2ª época) ficam **vazios e bloqueados** (`disabled readonly`, não aceitando lançamento de notas). A Média Final da Disciplina reflete a frequência obtida e o status exibe **"Excluído" a vermelho**.
+    - Apenas estudantes com frequência **$\ge 9.5$** são admitidos à realização do exame.
+  - **Estilização Limpa sem Pintura de Fundo:**
+    - Os textos de situação e resultado (**Aprovado**, **Reprovado**, **Excluído**) não utilizam preenchimento nem badges coloridos (*background transparent*).
+    - **Aprovado:** Texto puro a **preto** (`#000000`, negrito).
+    - **Reprovado:** Texto puro a **vermelho** (`#dc2626`, negrito).
+    - **Excluído:** Texto puro a **vermelho** (`#dc2626`, negrito).
+  - **Campos Limpos sem Placeholders:** Os campos de entrada de notas de exame mantêm-se estritamente vazios quando sem valor (`placeholder=""`), sem textos artificiais de exemplo.
 - **Regras Numéricas e Formato das Notas (0 a 20):**
   - **Notas de Exame e Frequência:** Aceitam números inteiros e decimais com **1 ou 2 casas decimais** no intervalo de **0 a 20** (ex.: `10`, `12.5`, `9.75`, `14.25`), suportando tanto vírgula como ponto decimal.
   - **Médias Estritamente Inteiras:** Por determinação oficial (*"excepto as médias devem ser números arredondando a um número inteiro"*), a Média Final da Disciplina e a Média Final Global ($MF$) são sempre números inteiros arredondados ao valor inteiro mais próximo (`int(round())` / `Math.round()`).

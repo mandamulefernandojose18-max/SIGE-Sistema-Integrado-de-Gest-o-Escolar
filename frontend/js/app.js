@@ -18081,7 +18081,7 @@ async function eliminarMaterialEscolar(id, titulo) {
 // Compatibilidade retroativa:
 const PLANO_CURRICULAR_MINEDH_FRONTEND = PLANO_CURRICULAR_MEC_FRONTEND;
 
-// =====================================================================
+﻿// =====================================================================
 // SIGE - Módulo Exames | Pautas Oficiais de Exame (MEC / Moçambique)
 // Modelagem e Cálculo Estrito: Dados reais das pautas de frequência,
 // lançamento de notas de 1ª e 2ª época, janela de parâmetros (pesos e nota mínima),
@@ -18436,10 +18436,14 @@ function renderizarTabelaExamesHtml(d) {
     // Disciplinas com exame
     disciplinasComExame.forEach(d => {
       const dData = discMap[d.id] || {};
-      const vFreq = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
-      const e1Val = dData.exame_1epoca !== null && dData.exame_1epoca !== undefined ? dData.exame_1epoca : '';
-      const e2Val = dData.exame_2epoca !== null && dData.exame_2epoca !== undefined ? dData.exame_2epoca : '';
-      const vMed = dData.media !== undefined && dData.media !== null ? dData.media : '-';
+      const rawFreq = (dData.frequencia_decimal !== undefined && dData.frequencia_decimal !== null) ? dData.frequencia_decimal : dData.frequencia;
+      const freqNum = (rawFreq !== undefined && rawFreq !== null && rawFreq !== '-' && !isNaN(Number(rawFreq))) ? Number(rawFreq) : null;
+      const vFreq = (freqNum !== null) ? (freqNum % 1 === 0 ? freqNum : Number(freqNum.toFixed(2))) : (dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-');
+      const isExcluido = (freqNum !== null && freqNum <= 9.4);
+
+      const e1Val = (!isExcluido && dData.exame_1epoca !== null && dData.exame_1epoca !== undefined) ? dData.exame_1epoca : '';
+      const e2Val = (!isExcluido && dData.exame_2epoca !== null && dData.exame_2epoca !== undefined) ? dData.exame_2epoca : '';
+      const vMed = isExcluido ? vFreq : (dData.media !== undefined && dData.media !== null ? dData.media : '-');
 
       const temE1 = e1Val !== '' && !isNaN(Number(e1Val));
       const aprovou1e = temE1 && Number(e1Val) >= notaMinima;
@@ -18447,9 +18451,15 @@ function renderizarTabelaExamesHtml(d) {
 
       let estiloE1 = 'background: transparent;';
       let estiloE2 = 'background: transparent;';
+      let titleE1 = `1ª Época: Mínimo ${notaMinima} valores para aprovação`;
       let titleE2 = 'Nota da 2ª época (se necessária)';
 
-      if (aprovou1e) {
+      if (isExcluido) {
+        estiloE1 = 'background: #f8fafc; cursor: not-allowed; color: #94a3b8;';
+        estiloE2 = 'background: #f8fafc; cursor: not-allowed; color: #94a3b8;';
+        titleE1 = 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.';
+        titleE2 = 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.';
+      } else if (aprovou1e) {
         estiloE1 = 'background: #dcfce7; font-weight: bold; color: #166534;';
         estiloE2 = 'background: #f1f5f9; color: #94a3b8; cursor: not-allowed;';
         titleE2 = `Aluno já aprovado na 1ª época (${e1Val} ≥ ${notaMinima})`;
@@ -18459,34 +18469,37 @@ function renderizarTabelaExamesHtml(d) {
         titleE2 = `Não atingiu nota mínima (${e1Val} < ${notaMinima}). Elegível para a 2ª época!`;
       }
 
-      const corMed = (typeof vMed === 'number' || (!isNaN(Number(vMed)) && vMed !== '-')) 
-        ? (Number(vMed) >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold') 
-        : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted');
+      const corMed = isExcluido 
+        ? 'text-danger fw-bold' 
+        : ((typeof vMed === 'number' || (!isNaN(Number(vMed)) && vMed !== '-')) 
+          ? (Number(vMed) >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold') 
+          : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted'));
+
+      const textoMedExib = isExcluido ? `${vMed} (Excluído)` : vMed;
 
       tdsDiscs += `
         <td class="text-center bg-light border-end font-monospace small text-nowrap px-2">${vFreq}</td>
         <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
           <input type="number" step="0.01" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
-            value="${e1Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
-            ${!podeEditar ? 'disabled readonly' : ''}
+            value="${e1Val}" placeholder="" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
+            ${(!podeEditar || isExcluido) ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
-            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
-            title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `1ª Época: Mínimo ${notaMinima} valores para aprovação`}">
+            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${(!podeEditar || isExcluido) ? 'background: #f8fafc; cursor: not-allowed;' : estiloE1}"
+            title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : titleE1}">
         </td>
         <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
           <input type="number" step="0.01" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
-            value="${e2Val}" placeholder="-" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
-            ${!podeEditar ? 'disabled readonly' : ''}
+            value="${e2Val}" placeholder="" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
+            ${(!podeEditar || isExcluido || aprovou1e) ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
-            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${!podeEditar ? 'background: #f8fafc; cursor: not-allowed;' : 'background: #ffffff;'}"
-            title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : `2ª Época: Mínimo ${notaMinima} valores para aprovação`}">
+            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${(!podeEditar || isExcluido || aprovou1e) ? 'background: #f8fafc; cursor: not-allowed;' : estiloE2}"
+            title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : titleE2}">
         </td>
         <td class="text-center border-end font-monospace small text-nowrap px-2 ${corMed}" id="media_${aluno.id}_${d.id}">
-          ${vMed}
+          ${textoMedExib}
         </td>
       `;
     });
-
     // Disciplinas sem exame
     disciplinasSemExame.forEach(d => {
       const dData = discMap[d.id] || {};
@@ -18581,6 +18594,13 @@ function renderizarTabelaExamesHtml(d) {
 function aoMudarNotaExame(inputEl) {
   const alunoId = inputEl.getAttribute('data-aluno');
   const discId = inputEl.getAttribute('data-disc');
+  const dData = window._sigePautaExamesData?.alunos?.find(a => a.id === alunoId)?.disciplinas?.[discId] || {};
+  const rawFreq = (dData.frequencia_decimal !== undefined && dData.frequencia_decimal !== null) ? dData.frequencia_decimal : dData.frequencia;
+  const freqNum = (rawFreq !== undefined && rawFreq !== null && rawFreq !== '-' && !isNaN(Number(rawFreq))) ? Number(rawFreq) : null;
+  if (freqNum !== null && freqNum <= 9.4) {
+    inputEl.value = '';
+    return;
+  }
   const epoca = inputEl.getAttribute('data-epoca');
   let valStr = inputEl.value.trim().replace(',', '.');
   let valNum = null;
@@ -18671,7 +18691,20 @@ function recalcularLinhaAlunoInterface(alunoId) {
     }
 
     const freqVal = typeof dData.frequencia_decimal === 'number' ? dData.frequencia_decimal : (typeof dData.frequencia === 'number' ? dData.frequencia : null);
+    const isExcluido = (freqVal !== null && freqVal <= 9.4);
     let mediaFinalDisc = null;
+
+    if (isExcluido) {
+      mediaFinalDisc = Math.round(freqVal);
+      const elMedia = document.getElementById(`media_${alunoId}_${dId}`);
+      if (elMedia) {
+        elMedia.textContent = `${mediaFinalDisc} (Excluído)`;
+        elMedia.className = 'text-center border-end font-monospace small align-middle text-danger fw-bold';
+      }
+      notasFinais.push(mediaFinalDisc);
+      discReprovadas.push(`${disc.nome} (Excluído)`);
+      return;
+    }
 
     if (neEfetivo !== null) {
       if (freqVal !== null) {
@@ -19602,13 +19635,16 @@ function selecionarAlunoFormularioExame(alunoId) {
     const chave = `${alunoId}_${disc.id}`;
     const mod = window._sigeNotasExameModificadas.get(chave);
 
+    const rawFreq = (dData.frequencia_decimal !== undefined && dData.frequencia_decimal !== null) ? dData.frequencia_decimal : dData.frequencia;
+    const freqNum = (rawFreq !== undefined && rawFreq !== null && rawFreq !== '-' && !isNaN(Number(rawFreq))) ? Number(rawFreq) : null;
+    const freqExibicao = (freqNum !== null) ? (freqNum % 1 === 0 ? freqNum : Number(freqNum.toFixed(2))) : (dData.frequencia || '-');
+    const isExcluido = (freqNum !== null && freqNum <= 9.4);
+
     const e1 = (mod && mod.exame_1epoca !== undefined) ? mod.exame_1epoca : dData.exame_1epoca;
     const e2 = (mod && mod.exame_2epoca !== undefined) ? mod.exame_2epoca : dData.exame_2epoca;
 
-    const e1Val = (e1 !== null && e1 !== undefined && e1 !== '') ? e1 : '';
-    const e2Val = (e2 !== null && e2 !== undefined && e2 !== '') ? e2 : '';
-
-    const freqVal = (dData.frequencia !== undefined && dData.frequencia !== null) ? dData.frequencia : '-';
+    const e1Val = (!isExcluido && e1 !== null && e1 !== undefined && e1 !== '') ? e1 : '';
+    const e2Val = (!isExcluido && e2 !== null && e2 !== undefined && e2 !== '') ? e2 : '';
 
     htmlDiscs += `
       <div class="card p-3 border shadow-none bg-white disc-exame-row" id="formDiscRow_${alunoId}_${disc.id}">
@@ -19619,7 +19655,7 @@ function selecionarAlunoFormularioExame(alunoId) {
           </div>
           <div class="d-flex align-items-center gap-2">
             <span class="small text-muted">Média de Frequência:</span>
-            <span class="badge bg-light text-dark border font-monospace fs-6 px-2 py-1">${freqVal}</span>
+            <span class="badge bg-light text-dark border font-monospace fs-6 px-2 py-1" id="formDiscFreqBadge_${alunoId}_${disc.id}">${freqExibicao}</span>
           </div>
         </div>
 
@@ -19631,11 +19667,13 @@ function selecionarAlunoFormularioExame(alunoId) {
             <input type="number" step="0.01" min="0" max="20"
               class="form-control form-control-sm text-center fw-bold font-monospace form-input-exame"
               id="formInputE1_${alunoId}_${disc.id}"
-              placeholder="ex: 12 ou 14.5"
+              placeholder=""
               value="${e1Val}"
-              ${!podeEditar ? 'disabled readonly' : ''}
+              ${(!podeEditar || isExcluido) ? 'disabled readonly' : ''}
               oninput="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)"
-              onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)">
+              onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)"
+              style="${(!podeEditar || isExcluido) ? 'background: #f8fafc; cursor: not-allowed; border: 1px solid #e2e8f0;' : 'background: #ffffff;'}"
+              title="${isExcluido ? 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.' : (!podeEditar ? 'Lançamento reservado ao Director Pedagógico' : '')}">
           </div>
 
           <div class="col-md-4">
@@ -19645,11 +19683,13 @@ function selecionarAlunoFormularioExame(alunoId) {
             <input type="number" step="0.01" min="0" max="20"
               class="form-control form-control-sm text-center fw-bold font-monospace form-input-exame"
               id="formInputE2_${alunoId}_${disc.id}"
-              placeholder="ex: 10 ou 11.25"
+              placeholder=""
               value="${e2Val}"
-              ${!podeEditar ? 'disabled readonly' : ''}
+              ${(!podeEditar || isExcluido) ? 'disabled readonly' : ''}
               oninput="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)"
-              onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)">
+              onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)"
+              style="${(!podeEditar || isExcluido) ? 'background: #f8fafc; cursor: not-allowed; border: 1px solid #e2e8f0;' : 'background: #ffffff;'}"
+              title="${isExcluido ? 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.' : (!podeEditar ? 'Lançamento reservado ao Director Pedagógico' : '')}">
           </div>
 
           <div class="col-md-4">
@@ -19657,8 +19697,8 @@ function selecionarAlunoFormularioExame(alunoId) {
               <i class="bi bi-calculator me-1"></i>Média Final da Disciplina
             </label>
             <div class="d-flex align-items-center justify-content-between p-1 px-2 border rounded bg-light">
-              <span class="font-monospace fw-bold fs-6" id="formDiscMedia_${alunoId}_${disc.id}">-</span>
-              <span class="badge" id="formDiscBadge_${alunoId}_${disc.id}">---</span>
+              <span class="font-monospace fw-bold fs-6 ${isExcluido ? 'text-danger' : ''}" id="formDiscMedia_${alunoId}_${disc.id}">${isExcluido ? freqExibicao : '-'}</span>
+              <span id="formDiscBadge_${alunoId}_${disc.id}" class="fw-bold fs-6" style="${isExcluido ? 'color: #dc2626; background: transparent; border: none;' : 'background: transparent; border: none;'}">${isExcluido ? 'Excluído' : '---'}</span>
             </div>
           </div>
         </div>
@@ -19672,12 +19712,25 @@ function selecionarAlunoFormularioExame(alunoId) {
 }
 
 function aoMudarNotaFormularioExame(alunoId, discId, epoca, valor) {
+  const d = window._sigePautaExamesData;
+  const aluno = (d?.alunos || []).find(a => a.id === alunoId);
+  const dData = aluno?.disciplinas?.[discId] || {};
+  const rawFreq = (dData.frequencia_decimal !== undefined && dData.frequencia_decimal !== null) ? dData.frequencia_decimal : dData.frequencia;
+  const freqNum = (rawFreq !== undefined && rawFreq !== null && rawFreq !== '-' && !isNaN(Number(rawFreq))) ? Number(rawFreq) : null;
+  
+  // Se frequência <= 9.4, estudante está excluído do exame: não aceita lançar nota!
+  if (freqNum !== null && freqNum <= 9.4) {
+    const inputEl = document.getElementById(`formInputE${epoca}_${alunoId}_${discId}`);
+    if (inputEl) inputEl.value = '';
+    return;
+  }
+
   let valStr = String(valor || '').trim().replace(',', '.');
   let valNum = null;
 
   if (valStr !== '' && !isNaN(Number(valStr))) {
     valNum = Math.max(0, Math.min(20, Number(valStr)));
-    valNum = Math.round(valNum * 100) / 100; // Suporta decimais até 2 casas
+    valNum = Math.round(valNum * 100) / 100;
   }
 
   const chave = `${alunoId}_${discId}`;
@@ -19734,11 +19787,15 @@ function recalcularFormularioExame(alunoId) {
     const chave = `${alunoId}_${dId}`;
     const mod = window._sigeNotasExameModificadas.get(chave);
 
+    const rawFreq = (dData.frequencia_decimal !== undefined && dData.frequencia_decimal !== null) ? dData.frequencia_decimal : dData.frequencia;
+    const freqNum = (rawFreq !== undefined && rawFreq !== null && rawFreq !== '-' && !isNaN(Number(rawFreq))) ? Number(rawFreq) : null;
+    const isExcluido = (freqNum !== null && freqNum <= 9.4);
+
     const e1 = (mod && mod.exame_1epoca !== undefined) ? mod.exame_1epoca : dData.exame_1epoca;
     const e2 = (mod && mod.exame_2epoca !== undefined) ? mod.exame_2epoca : dData.exame_2epoca;
 
-    const e1Num = (e1 !== null && e1 !== undefined && e1 !== '') ? Number(e1) : null;
-    const e2Num = (e2 !== null && e2 !== undefined && e2 !== '') ? Number(e2) : null;
+    const e1Num = (!isExcluido && e1 !== null && e1 !== undefined && e1 !== '') ? Number(e1) : null;
+    const e2Num = (!isExcluido && e2 !== null && e2 !== undefined && e2 !== '') ? Number(e2) : null;
 
     let neEfetivo = null;
     if (e1Num !== null && e1Num >= notaMinima) {
@@ -19749,38 +19806,51 @@ function recalcularFormularioExame(alunoId) {
       neEfetivo = e2Num;
     }
 
-    const freqVal = typeof dData.frequencia_decimal === 'number' ? dData.frequencia_decimal : (typeof dData.frequencia === 'number' ? dData.frequencia : null);
     let mediaFinalDisc = null;
 
-    if (neEfetivo !== null) {
-      if (freqVal !== null) {
-        mediaFinalDisc = Math.round((freqVal * (pesoFreq / 100)) + (neEfetivo * (pesoExame / 100)));
+    if (isExcluido) {
+      mediaFinalDisc = (freqNum !== null) ? Math.round(freqNum) : 0;
+      const inp1 = document.getElementById(`formInputE1_${alunoId}_${dId}`);
+      const inp2 = document.getElementById(`formInputE2_${alunoId}_${dId}`);
+      if (inp1) { inp1.value = ''; inp1.disabled = true; inp1.readOnly = true; inp1.placeholder = ''; inp1.style.background = '#f8fafc'; inp1.style.cursor = 'not-allowed'; inp1.title = 'Estudante excluído do exame por frequência negativa (≤ 9.4)'; }
+      if (inp2) { inp2.value = ''; inp2.disabled = true; inp2.readOnly = true; inp2.placeholder = ''; inp2.style.background = '#f8fafc'; inp2.style.cursor = 'not-allowed'; inp2.title = 'Estudante excluído do exame por frequência negativa (≤ 9.4)'; }
+    } else if (neEfetivo !== null) {
+      if (freqNum !== null) {
+        mediaFinalDisc = Math.round((freqNum * (pesoFreq / 100)) + (neEfetivo * (pesoExame / 100)));
       } else {
         mediaFinalDisc = Math.round(neEfetivo);
       }
     } else {
-      // REGRA: Se não tem nota num dos exames (1ª ou 2ª) então a Média nessa disciplina é 0
       mediaFinalDisc = 0;
     }
 
     const elMedia = document.getElementById(`formDiscMedia_${alunoId}_${dId}`);
     const elBadge = document.getElementById(`formDiscBadge_${alunoId}_${dId}`);
     if (elMedia) {
-      elMedia.textContent = mediaFinalDisc;
-      elMedia.className = `font-monospace fw-bold fs-6 ${mediaFinalDisc >= 9.5 ? 'text-success' : 'text-danger'}`;
+      elMedia.textContent = isExcluido ? (freqNum !== null ? (freqNum % 1 === 0 ? freqNum : freqNum.toFixed(1)) : '-') : mediaFinalDisc;
+      elMedia.className = `font-monospace fw-bold fs-6 ${isExcluido ? 'text-danger' : (mediaFinalDisc >= 9.5 ? 'text-success' : 'text-danger')}`;
     }
     if (elBadge) {
-      if (mediaFinalDisc >= 9.5) {
-        elBadge.className = 'badge bg-success';
+      // NÃO PINTAR OS TEXTOS: Aprovado, Reprovado, Excluído (sem fundo de badge)
+      if (isExcluido) {
+        elBadge.textContent = 'Excluído';
+        elBadge.className = 'fw-bold fs-6';
+        elBadge.style.cssText = 'color: #dc2626; background: transparent; border: none;';
+      } else if (mediaFinalDisc >= 9.5) {
         elBadge.textContent = 'Aprovado';
+        elBadge.className = 'fw-bold fs-6';
+        elBadge.style.cssText = 'color: #000000; background: transparent; border: none;';
       } else {
-        elBadge.className = 'badge bg-danger';
         elBadge.textContent = 'Reprovado';
+        elBadge.className = 'fw-bold fs-6';
+        elBadge.style.cssText = 'color: #dc2626; background: transparent; border: none;';
       }
     }
 
     notasFinais.push(mediaFinalDisc);
-    if (mediaFinalDisc < 9.5) {
+    if (isExcluido) {
+      discReprovadas.push(`${disc.nome} (Excluído)`);
+    } else if (mediaFinalDisc < 9.5) {
       discReprovadas.push(disc.nome);
     }
   });
@@ -19805,13 +19875,13 @@ function recalcularFormularioExame(alunoId) {
   const elResGeral = document.getElementById('formExameAlunoResultadoGeral');
   if (elResGeral) {
     elResGeral.textContent = `${resAprov} (MF: ${mfGlobal})`;
-    // Aprovado a preto e Reprovado a vermelho
+    // NÃO PINTAR OS TEXTOS: 'Aprovado' a preto e 'Reprovado' a vermelho
     if (resAprov.includes('Aprovad')) {
       elResGeral.className = 'fw-bold fs-6';
-      elResGeral.style.color = '#000000';
+      elResGeral.style.cssText = 'color: #000000; background: transparent; border: none;';
     } else {
-      elResGeral.className = 'fw-bold fs-6 text-danger';
-      elResGeral.style.color = '#dc2626';
+      elResGeral.className = 'fw-bold fs-6';
+      elResGeral.style.cssText = 'color: #dc2626; background: transparent; border: none;';
     }
   }
 }
@@ -19875,118 +19945,3 @@ window.aoClicarBuscarExamesPorAno = async function() {
     if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(false);
   }
 };
-
-// ==================== GESTÃO DO FILTRO OBRIGATÓRIO DE ANO LECTIVO ====================
-function aplicarBloqueioVisualAnoNaoSelecionado(viewEl, viewId) {
-  if (!viewEl) return;
-  
-  // Ocultar todos os filhos directos da view
-  Array.from(viewEl.children).forEach(child => {
-    if (!child.classList.contains('sige-filtro-ano-container-master')) {
-      child.style.display = 'none';
-      child.classList.add('sige-ocultado-por-ano');
-    }
-  });
-
-  // Criar ou exibir container mestre com o seletor exatamente como na imagem
-  let masterBox = viewEl.querySelector('.sige-filtro-ano-container-master');
-  if (!masterBox) {
-    masterBox = document.createElement('div');
-    masterBox.className = 'sige-filtro-ano-container-master card p-3 mb-4 no-print border-0 shadow-sm bg-light';
-    masterBox.innerHTML = `
-      <div class="d-flex align-items-center">
-        <div class="sige-seletor-ano-box d-flex align-items-center">
-          <select class="form-select form-select-sm sige-select-ano-lectivo sige-select-ano-view-local">
-            <option value="" selected>-- Escolha ano Lectivo --</option>
-          </select>
-          <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('${viewId}')">
-            Buscar <i class="bi bi-search ms-1"></i>
-          </button>
-        </div>
-      </div>
-    `;
-    viewEl.insertBefore(masterBox, viewEl.firstChild);
-  }
-  masterBox.style.display = 'block';
-
-  // Popular o seletor local
-  const selectLocal = masterBox.querySelector('.sige-select-ano-view-local');
-  if (selectLocal) {
-    const anos = (state.anosLectivos && state.anosLectivos.length > 0) ? state.anosLectivos : [
-      { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true }
-    ];
-    let html = '<option value="" selected>-- Escolha ano Lectivo --</option>';
-    anos.forEach(item => {
-      const anoStr = String(item.ano);
-      const desc = item.descricao || `Ano Lectivo de ${anoStr}`;
-      html += `<option value="${anoStr}">${desc}</option>`;
-    });
-    selectLocal.innerHTML = html;
-    selectLocal.value = '';
-  }
-}
-
-function removerBloqueioVisualAnoNaoSelecionado(viewEl) {
-  if (!viewEl) return;
-  const masterBox = viewEl.querySelector('.sige-filtro-ano-container-master');
-  if (masterBox) masterBox.style.display = 'none';
-
-  Array.from(viewEl.children).forEach(child => {
-    if (child.classList.contains('sige-ocultado-por-ano')) {
-      child.style.display = '';
-      child.classList.remove('sige-ocultado-por-ano');
-    }
-  });
-}
-
-window.aoClicarBuscarAnoMestreView = async function(viewId) {
-  const viewEl = document.getElementById(`view-${viewId}`);
-  const selLocal = viewEl?.querySelector('.sige-select-ano-view-local');
-  const selHeader = document.getElementById('headerSelectAnoLectivo');
-  const ano = selLocal?.value || selHeader?.value || state.anoLectivoVisualizacao;
-
-  if (!ano) {
-    if (typeof mostrarToast === 'function') {
-      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
-    }
-    return;
-  }
-
-  state.anoLectivoVisualizacao = ano;
-  if (selHeader) selHeader.value = ano;
-  if (selLocal) selLocal.value = ano;
-
-  // Sincronizar em todos os selectores
-  renderizarSelectoresAnoLectivo(ano);
-
-  // Revelar conteúdo da view
-  removerBloqueioVisualAnoNaoSelecionado(viewEl);
-
-  // Ativar loading
-  setCarregandoBuscaAno(true);
-  try {
-    await executarGatilhosCarregamentoView(viewId, ano);
-  } finally {
-    setCarregandoBuscaAno(false);
-  }
-};
-
-async function executarGatilhosCarregamentoView(viewId, ano) {
-  if (viewId === 'dashboard') await carregarDashboardGeral(ano, true);
-  if (viewId === 'turmas') await carregarTurmas(ano);
-  if (viewId === 'alunos') { state.filtroAlunoAno = ano; await carregarAlunos(ano); }
-  if (viewId === 'caderneta') { if (typeof carregarCadernetaDocente === 'function' && state.cadernetaAlocacaoSelecionadaId) await carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId); else if (typeof inicializarNavegacaoCaderneta === 'function') await inicializarNavegacaoCaderneta(true); }
-  if (viewId === 'pautas') await carregarPautas(ano, true);
-  if (viewId === 'exames') await carregarExames(ano, true);
-  if (viewId === 'director-turma') await carregarPainelDirectorTurma();
-  if (viewId === 'estatisticas-aproveitamento') await carregarEstatisticasAproveitamento(true);
-  if (viewId === 'material-escolar') await carregarPainelMaterialEscolar();
-  if (viewId === 'certificados') await carregarCertificados();
-  if (viewId === 'pagamentos') await carregarPagamentos();
-  if (viewId === 'impressao') await prepararCentralImpressao();
-  if (viewId === 'desbloqueio') await prepararDesbloqueioTrimestre();
-  if (viewId === 'aluno-perfil') await carregarAlunoPerfil();
-  if (viewId === 'aluno-notas') await carregarAlunoNotas();
-  if (viewId === 'aluno-pagamentos') await carregarAlunoPagamentos();
-  if (viewId === 'professor-perfil') await carregarPerfilDocenteIndividual();
-}
