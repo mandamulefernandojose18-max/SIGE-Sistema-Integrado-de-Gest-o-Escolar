@@ -273,9 +273,15 @@ Em cada trimestre (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`), cada disciplina
 ---
 
 
-### 5.1. Regra de Consulta e Isolamento Temporal por Ano Lectivo
-- **Omissão Inicial dos Dados:** Em conformidade com o princípio de integridade de dados por exercício lectivo, todos os módulos e painéis do sistema (exceto o painel corporativo do Super Admin) iniciam sem exibir dados preliminares ou notas de anos anteriores.
-- **Acção Explicita do Utilizador:** As informações e dados analíticos (Pautas Oficiais, Actas de Conselho, Mapas Estatísticos, Turmas e Listagens) só são carregados e disponibilizados após o utilizador escolher o **Ano Lectivo** pretendido e clicar no botão **"Buscar"**.
+### 5.1. Regra de Consulta e Isolamento Temporal por Ano Lectivo (Ocultação Universal Inicial)
+- **Omissão Inicial Total dos Dados, Informações e Botões:** Em conformidade estrita com o princípio de integridade e isolamento temporal por exercício lectivo, **todas as páginas e módulos do sistema (exceto o painel corporativo do Super Admin)** iniciam em estado estritamente ocultado.
+- **Barra Superior Padronizada de Ano Lectivo:** Cada módulo apresenta no topo apenas o cartão leve com o seletor inicial padronizado `-- Escolha ano Lectivo --` e o respetivo botão **"Buscar"**, idêntico ao padrão oficial consolidado no módulo de Exames.
+- **Bloqueio Visual Nativo de Conteúdo:** Todos os botões de ação (ex.: cadastros, matrículas, lançamentos, consolidações), cartões de métricas/KPIs, tabelas, filtros e formulários residem dentro de um encapsulador dinâmico (`.sige-conteudo-modulo-dinamico d-none`). Permanecem 100% invisíveis até que o utilizador selecione explicitamente o ano letivo desejado e clique em **"Buscar"**.
+- **Acção Explícita do Utilizador:** Ao selecionar o Ano Lectivo e clicar em "Buscar" (seja na barra do módulo ou no cabeçalho global):
+  - O conteúdo dinâmico é revelado imediatamente;
+  - Os seletores de ano lectivo em toda a aplicação são sincronizados;
+  - O gatilho de busca oficial (`executarGatilhosCarregamentoView`) é invocado, carregando estritamente os registos reais associados àquele exercício lectivo.
+- **Isenção do Super Admin:** O painel do Super Admin SaaS Master (`#view-saas`, planos, contratos globais) permanece isento desta regra, uma vez que opera ao nível de governação global e infraestrutura contínua da plataforma SaaS.
 
 ## 6. O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)
 

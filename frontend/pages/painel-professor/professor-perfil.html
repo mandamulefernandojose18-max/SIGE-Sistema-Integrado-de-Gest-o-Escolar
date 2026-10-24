@@ -4,6 +4,23 @@
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
 <!-- ===================================================================== -->
       <section id="view-professor-perfil" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="professorPerfilAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('professor-perfil')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="professorPerfilConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
         <div class="card p-4 mb-4">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 border-bottom pb-3">
             <div>
@@ -27,4 +44,6 @@
             </div>
           </div>
         </div>
-      </section>
+      
+  </div>
+</section>

@@ -77,6 +77,13 @@ window.aoClicarBuscarPautaAno = async function() {
   const selHeader = document.getElementById('headerSelectAnoLectivo');
   if (selHeader) selHeader.value = ano;
 
+  const dynamicWrap = document.getElementById('pautasConteudoDinamico');
+  if (dynamicWrap) dynamicWrap.classList.remove('d-none');
+  const viewEl = document.getElementById('view-pautas');
+  if (viewEl && typeof removerBloqueioVisualAnoNaoSelecionado === 'function') {
+    removerBloqueioVisualAnoNaoSelecionado(viewEl);
+  }
+
   if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
   try {
     await carregarPautas(ano, true);

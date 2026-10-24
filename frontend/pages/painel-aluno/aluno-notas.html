@@ -4,6 +4,23 @@
 <!-- 3 Possibilidades de Visualização / Publicação: I, II, III Trimestres e Todos -->
 <!-- ===================================================================== -->
       <section id="view-aluno-notas" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="alunoNotasAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('aluno-notas')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="alunoNotasConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
         <!-- Banner de Notas Totalmente Bloqueadas/Suspensas -->
         <div id="bannerNotasBloqueadas" class="alert alert-warning d-none mb-3 shadow-sm">
           <i class="bi bi-lock-fill me-2 fs-5"></i>
@@ -89,4 +106,6 @@
             </table>
           </div>
         </div>
-      </section>
+      
+  </div>
+</section>

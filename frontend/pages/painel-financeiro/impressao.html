@@ -4,6 +4,23 @@
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
 <!-- ===================================================================== -->
       <section id="view-impressao" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="impressaoAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('impressao')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="impressaoConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
         <div class="card p-4 no-print mb-4">
           <h5 class="fw-bold mb-2"><i class="bi bi-printer me-2"></i>Central de Impressão de Documentos Oficiais</h5>
           <p class="text-muted small mb-3">Emita Boletins, Declarações, Certificados, Recibos e Fichas com formato oficial A4. Seleccione a modalidade individual ou emissão em lote por Turma.</p>
@@ -71,4 +88,6 @@
         <div id="printAreaPreview" class="printable-document card p-5 bg-white mx-auto shadow-sm" style="max-width: 860px; display: none;">
           <!-- Conteúdo dinâmico oficial renderizado via JavaScript -->
         </div>
-      </section>
+      
+  </div>
+</section>

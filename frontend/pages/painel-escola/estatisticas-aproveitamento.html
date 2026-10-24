@@ -4,6 +4,23 @@
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
 <!-- ===================================================================== -->
       <section id="view-estatisticas-aproveitamento" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('estatisticas-aproveitamento')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="estatisticasAproveitamentoConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
         <div class="card p-4 no-print mb-4">
           <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
@@ -11,17 +28,7 @@
               <p class="text-muted small mb-0">Monitoramento oficial do rendimento escolar por Turma, por Classe (7ª a 12ª), Geral da Escola e por Disciplina.</p>
             </div>
             <div class="d-flex gap-2 align-items-center flex-wrap">
-              <div>
-                <label class="form-label very-small text-muted mb-0">Ano Lectivo</label>
-                <div class="sige-seletor-ano-box d-flex align-items-center">
-                  <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo">
-                    <option value="">-- Escolha ano Lectivo --</option>
-                  </select>
-                  <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="carregarEstatisticasAproveitamento(true)">
-                    Buscar <i class="bi bi-search ms-1"></i>
-                  </button>
-                </div>
-              </div>
+              
               <div>
                 <label class="form-label very-small text-muted mb-0">Período / Trimestre</label>
                 <select id="statPeriodoFiltro" class="form-select form-select-sm" onchange="carregarEstatisticasAproveitamento()">
@@ -91,4 +98,6 @@
             <p class="small text-muted mt-2">A carregar estatísticas pedagógicas da escola...</p>
           </div>
         </div>
-      </section>
+      
+  </div>
+</section>

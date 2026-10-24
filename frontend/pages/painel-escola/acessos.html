@@ -4,6 +4,23 @@
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
 <!-- ===================================================================== -->
       <section id="view-acessos" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="acessosAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('acessos')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="acessosConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
         <div class="card p-4">
           <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <h5 class="fw-bold mb-0"><i class="bi bi-shield-check me-2"></i>Auditoria de Acessos e Logs de Segurança</h5>
@@ -36,4 +53,6 @@
             </table>
           </div>
         </div>
-      </section>
+      
+  </div>
+</section>

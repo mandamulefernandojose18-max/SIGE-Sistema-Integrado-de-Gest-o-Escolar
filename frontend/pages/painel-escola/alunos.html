@@ -4,6 +4,23 @@
 <!-- Isolamento estrito de nível: Acesso restrito a este painel -->
 <!-- ===================================================================== -->
       <section id="view-alunos" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="filtroAnoAlunos" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('alunos')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="alunosConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="stat-card">
@@ -51,14 +68,7 @@
               <p class="text-muted small mb-0">Selecione os filtros: <strong>Classe</strong> &rarr; <strong>Secção / Área</strong> &rarr; <strong>Turma</strong> para listar os alunos</p>
             </div>
             <div class="d-flex gap-2 align-items-center flex-wrap">
-              <div class="sige-seletor-ano-box d-flex align-items-center" title="Filtrar dados pelo Ano Lectivo (actual ou findos)">
-                <select id="filtroAnoAlunos" class="form-select form-select-sm sige-select-ano-lectivo">
-                  <option value="">-- Escolha ano Lectivo --</option>
-                </select>
-                <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAlunosPorAno()">
-                  Buscar <i class="bi bi-search ms-1"></i>
-                </button>
-              </div>
+              
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-danger btn-sm" onclick="exportarAlunosPdf()" title="Exportar lista de alunos em PDF">
                   <i class="bi bi-file-earmark-pdf me-1"></i> PDF
@@ -163,4 +173,6 @@
             </table>
           </div>
         </div>
-      </section>
+      
+  </div>
+</section>

@@ -3,6 +3,23 @@
 <!-- Maximização de Gateway: SMS, WhatsApp, Pagamentos Móveis e USSD     -->
 <!-- ===================================================================== -->
 <section id="view-prompt-gateway" class="modulo-view" style="display: none;">
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="promptGatewayAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('prompt-gateway')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="promptGatewayConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
   <!-- Cabeçalho Principal -->
   <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-4">
     <div>
@@ -721,6 +738,8 @@
         </div>
       </div>
     </div>
+
+  </div>
 
   </div>
 </section>

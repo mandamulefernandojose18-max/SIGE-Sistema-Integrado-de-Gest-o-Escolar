@@ -33,12 +33,23 @@ async function carregarTurmas(anoParam) {
 window.aplicarFiltroAnoTurmas = async function() {
   const sel = document.getElementById('filtroTurmasAno');
   const ano = sel ? sel.value : '';
-  if (ano) {
-    state.anoLectivoVisualizacao = ano;
-    localStorage.setItem('sige_ano_letivo_selecionado', ano);
+  if (!ano) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro um Ano Lectivo antes de clicar em Buscar.', 'warning');
+    }
+    return;
   }
+  state.anoLectivoVisualizacao = ano;
+  localStorage.setItem('sige_ano_letivo_selecionado', ano);
   const selHeader = document.getElementById('headerSelectAnoLectivo');
-  if (selHeader && ano) selHeader.value = ano;
+  if (selHeader) selHeader.value = ano;
+
+  const dynamicWrap = document.getElementById('turmasConteudoDinamico');
+  if (dynamicWrap) dynamicWrap.classList.remove('d-none');
+  const viewEl = document.getElementById('view-turmas');
+  if (viewEl && typeof removerBloqueioVisualAnoNaoSelecionado === 'function') {
+    removerBloqueioVisualAnoNaoSelecionado(viewEl);
+  }
 
   if (typeof setCarregandoBuscaAno === 'function') setCarregandoBuscaAno(true);
   try {
