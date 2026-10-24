@@ -209,6 +209,7 @@
   - **Lançamento de Notas de Exame:** Campos de entrada com recálculo em tempo real e botão **"Guardar Notas de Exame"** para persistência segura em `sige_notas_exame`.
   - **Exportação Excel (`.xlsx`):** Gera a planilha oficial completa com formatação idêntica ao modelo ministerial.
   - **Download PDF & Impressão:** Relatório em formato A4 Paisagem com quadro estatístico demográfico e assinaturas do Diretor da Escola, DAP e Diretor de Turma.
+  - **Resiliência e Feedback dos Botões:** Todos os botões de exportação (Excel, PDF, Imprimir, Guardar) contam com tratamento de erros, recuperação do ano lectivo e validação prévia de turma selecionada com aviso amigável.
 - **Integração aos Documentos Oficiais:** As classificações consolidadas na Pauta de Exames alimentam diretamente o **Certificado de Habilitações** e a **Declaração Escolar com Notas** emitidos para o estudante.
 
 ---

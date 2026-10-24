@@ -390,5 +390,16 @@ class TestPautasEDocumentos:
         assert ta3['t3']['avaliados']['hm'] == 1
         assert ta3['fimAno']['avaliados']['hm'] == 1
 
+    def test_pauta_exames_download_xlsx_e_pdf(self):
+        res_xlsx = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/xlsx?anoLetivo=2026')
+        assert res_xlsx.status_code == 200
+        assert res_xlsx['Content-Type'] == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        assert len(res_xlsx.content) > 0
+
+        res_pdf = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/pdf?anoLetivo=2026')
+        assert res_pdf.status_code == 200
+        assert res_pdf['Content-Type'] == 'application/pdf'
+        assert len(res_pdf.content) > 0
+
 
 

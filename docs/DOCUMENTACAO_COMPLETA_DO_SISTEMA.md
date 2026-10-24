@@ -543,6 +543,9 @@ O módulo financeiro do SIGE implementa a gestão completa da tesouraria da inst
   - **Sincronização Total com Informações Atuais:** Todos os recibos (seja em modal web, impressão pelo navegador, PDF ReportLab ou Word DOCX) sincronizam em tempo real os dados atuais da instituição (Nome oficial, NUIT, Província, Distrito, Telefone, E-mail e Endereço) e do aluno (Nome completo, Matrícula canónica oficial, Turma, Grau/Classe, Turno, Sala e Encarregado de Educação), com carimbo digital de autenticação cronológica.
 - **KPIs Financeiros (`/pagamentos/stats`):** Total Recebido (MZN), Total Pendente (MZN), Total em Atraso (MZN), Taxa de Adimplência (%), Taxa de Inadimplência (%) e histórico mensal de faturação dos 12 meses do ano.
 
+### 4.9.1 Resiliência de Botões de Exportação e Download de Documentos
+Todos os botões de descarregamento de documentos (Excel .xlsx, PDF .pdf, Word .docx e Impressão direta) possuem recuperação segura de contexto (Ano Lectivo ativo e Turma ativa), validação prévia de selecção com feedback amigável via notificação e fallback automático para geração client-side em caso de instabilidade de rede.
+
 ### Módulo 15: Central de Impressão Individual e em Lote (`#view-impressao`)
 Centro unificado para emissão, pré-visualização em folha A4 e descarregamento de todos os documentos escolares:
 - **7 Tipologias Documentais na Central:**
@@ -981,3 +984,10 @@ O motor de exames (`apps.pautas.services.consolidar_pauta_exames`) consolida o d
 - **Layout Padronizado de Colunas da Pauta de Exames:** Cada disciplina com exame contém estritamente 4 sub-colunas alinhadas: *Frequência*, *Exame 1ª*, *Exame 2ª* e *Média*, expurgando colunas redundantes e assegurando simetria matricial tanto na tabela web como nos relatórios XLSX e PDF.
 - **Unificação da Gestão de Parâmetros de Exame:** A configuração de percentagens ponderadas (Frequência vs Exame) e nota mínima de aprovação é acedida exclusivamente através do botão dedicado *"Parâmetros do Exame"* no topo da página, que abre o modal interactivo oficial, removendo caixas embutidas redundantes e maximizando o espaço visual para a pauta.
 - **Enquadramento de Disciplinas com Exame no 2º Ciclo (11ª e 12ª Classes):** As disciplinas de *Língua Inglesa*, *Introdução à Filosofia* e *Química* são reconhecidas com regime de exame (com campos de 1ª e 2ª época e cálculo de média ponderada final), harmonizando a matriz curricular oficial e as directrizes das instituições de ensino.
+
+### 15.2 Regra de Apresentação Visual de Notas: Valores Livres sem Pintura de Fundo
+Em cumprimento rigoroso com a directriz oficial do SIGE para cadernetas, pautas e exames:
+- **Proibição Absoluta de Pintura de Fundo:** Células, caixas e inputs de notas não utilizam preenchimentos coloridos de fundo (eliminando fundos verdes, vermelhos, rosas ou amarelos). Os valores são mantidos em caixas livres com fundo transparente e neutro.
+- **Diferenciação Cromática Pura do Texto:**
+  - **Notas Negativas (< 9.5 / < 10):** Tipografia a **Vermelho** (#dc2626, em negrito).
+  - **Notas Positivas (>= 9.5 / >= 10):** Tipografia a **Preto** (#000000, em negrito) — eliminando o texto verde e assegurando legibilidade máxima, sobriedade e total conformidade com as pautas oficiais impressas e digitais do MEC.

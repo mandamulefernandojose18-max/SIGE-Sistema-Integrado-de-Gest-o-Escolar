@@ -792,8 +792,17 @@ function salvarConfigSessaoActa(e, turmaId) {
 
 async function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
   const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
-  if (!turmaId) return;
-  const ano = anoExplicit || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar a acta em Excel.', 'warning');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro uma turma antes de descarregar a acta em Excel.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar a acta em Excel.');
+    }
+    return;
+  }
+  const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
 
   const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
@@ -855,3 +864,64 @@ async function modalGerarPauta() {
   });
 }
 
+
+
+async function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar a pauta em Excel.', 'warning');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro uma turma antes de descarregar a pauta em Excel.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar a pauta em Excel.');
+    }
+    return;
+  }
+  const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.xlsx`);
+}
+
+async function descarregarPautaGeralPdf(turmaIdExplicit = null, orientacaoExplicit = null) {
+  const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
+  const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  if (turmaId) {
+    const ok = await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.pdf`);
+    if (ok) return;
+  }
+  const el = document.getElementById('containerTabelaPautaGeral') || document.getElementById('subViewPautaGeral');
+  if (el && !el.innerText.includes('Selecione uma turma')) {
+    await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, orientacao);
+    return;
+  }
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao('Por favor, selecione primeiro uma turma para descarregar a pauta em PDF.', 'warning');
+  } else if (typeof mostrarToast === 'function') {
+    mostrarToast('Por favor, selecione primeiro uma turma para descarregar a pauta em PDF.', 'warning');
+  } else {
+    alert('Por favor, selecione primeiro uma turma para descarregar a pauta em PDF.');
+  }
+}
+
+function imprimirPautaGeralOficial() {
+  const turmaId = document.getElementById('pautaTurmaSelect')?.value;
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma para imprimir a pauta.', 'warning');
+    }
+    return;
+  }
+  const orientacao = document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
+  document.body.classList.remove('print-orientacao-landscape', 'print-orientacao-portrait');
+  document.body.classList.add(orientacao === 'landscape' ? 'print-orientacao-landscape' : 'print-orientacao-portrait');
+  window.print();
+}
+
+window.exportarPautaGeralExcel = exportarPautaGeralExcel;
+window.descarregarPautaGeralPdf = descarregarPautaGeralPdf;
+window.imprimirPautaGeralOficial = imprimirPautaGeralOficial;
+window.exportarActaConselhoExcel = exportarActaConselhoExcel;
+window.descarregarActaConselhoPdf = descarregarActaConselhoPdf;
+window.imprimirActaConselhoOficial = imprimirActaConselhoOficial;

@@ -1,8 +1,8 @@
 {
-  "version": "2.5.2",
-  "build": "20261023_2255",
-  "data": "2026-10-23",
+  "version": "2.5.3",
+  "build": "20261024_1700",
+  "data": "2026-10-24",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Resolução do carregamento e exibição da lista de escolas e planos no painel SuperAdmin SaaS, restauração de funções de bloqueio visual e remoção de scripts bloqueantes."
+  "novidades": "Padronização visual das notas: valores livres sem pintura de fundo, notas negativas a vermelho e notas positivas a preto."
 }

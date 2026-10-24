@@ -177,7 +177,7 @@ async function carregarDadosTurmaDT() {
               <button class="btn btn-outline-success btn-sm fw-semibold" onclick="exportarPautaGeralExcel('${dtTurmaAtivaId}', '${d.turma.ano_letivo}')">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel
               </button>
-              <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarPautaGeralPdf()">
+              <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarPautaGeralPdf('${dtTurmaAtivaId}')">
                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF
               </button>
               <button class="btn btn-primary btn-sm fw-semibold" onclick="window.print()">
@@ -206,7 +206,7 @@ async function carregarDadosTurmaDT() {
               <button class="btn btn-outline-success btn-sm fw-semibold" onclick="exportarActaConselhoExcel('${dtTurmaAtivaId}')">
                 <i class="bi bi-file-earmark-excel me-1"></i> Excel
               </button>
-              <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarActaConselhoPdf()">
+              <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarActaConselhoPdf('${dtTurmaAtivaId}')">
                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF
               </button>
               <button class="btn btn-primary btn-sm fw-semibold" onclick="window.print()">

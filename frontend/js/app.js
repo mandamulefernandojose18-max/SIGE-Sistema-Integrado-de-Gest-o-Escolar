@@ -219,7 +219,16 @@ async function obterAlocacaoAtivaOuPrimeira() {
 
 async function exportarPautaGeralExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
   const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
-  if (!turmaId) return;
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar a pauta em Excel.', 'warning');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro uma turma antes de descarregar a pauta em Excel.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar a pauta em Excel.');
+    }
+    return;
+  }
   const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/export-xlsx?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.xlsx`);
@@ -277,11 +286,21 @@ async function descarregarPautaGeralPdf(turmaIdExplicit = null, orientacaoExplic
   const ano = document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
   if (turmaId) {
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.pdf`);
-    return;
+    const ok = await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Geral_Turma_${ano}.pdf`);
+    if (ok) return;
   }
   const el = document.getElementById('containerTabelaPautaGeral') || document.getElementById('subViewPautaGeral');
-  if (el) await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, orientacao);
+  if (el && !el.innerText.includes('Selecione uma turma')) {
+    await exportarElementoParaPdf(el, `Pauta_Geral_Turma_${ano}.pdf`, orientacao);
+    return;
+  }
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao('Por favor, selecione primeiro uma turma para descarregar a pauta em PDF.', 'warning');
+  } else if (typeof mostrarToast === 'function') {
+    mostrarToast('Por favor, selecione primeiro uma turma para descarregar a pauta em PDF.', 'warning');
+  } else {
+    alert('Por favor, selecione primeiro uma turma para descarregar a pauta em PDF.');
+  }
 }
 
 async function descarregarPautaGeralDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
@@ -306,11 +325,21 @@ async function descarregarActaConselhoPdf(turmaIdExplicit = null, orientacaoExpl
     });
     if (sessao.presidente && !params.has('presidente')) params.append('presidente', sessao.presidente);
     if (sessao.data && !params.has('data')) params.append('data', sessao.data);
-    await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_Turma_${ano}.pdf`);
-    return;
+    const ok = await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, `Acta_Conselho_Turma_${ano}.pdf`);
+    if (ok) return;
   }
   const el = document.getElementById('containerActaConselhoCorpo') || document.getElementById('subViewActaConselho');
-  if (el) await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, orientacao);
+  if (el && !el.innerText.includes('Selecione uma turma')) {
+    await exportarElementoParaPdf(el, `Acta_Conselho_Turma_${ano}.pdf`, orientacao);
+    return;
+  }
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao('Por favor, selecione primeiro uma turma para descarregar a acta em PDF.', 'warning');
+  } else if (typeof mostrarToast === 'function') {
+    mostrarToast('Por favor, selecione primeiro uma turma para descarregar a acta em PDF.', 'warning');
+  } else {
+    alert('Por favor, selecione primeiro uma turma para descarregar a acta em PDF.');
+  }
 }
 
 async function descarregarActaConselhoDocx(turmaIdExplicit = null, orientacaoExplicit = null) {
@@ -13109,8 +13138,17 @@ function salvarConfigSessaoActa(e, turmaId) {
 
 async function exportarActaConselhoExcel(turmaIdExplicit = null, anoExplicit = null, orientacaoExplicit = null) {
   const turmaId = await obterTurmaAtivaOuPrimeira(turmaIdExplicit);
-  if (!turmaId) return;
-  const ano = anoExplicit || document.getElementById('pautaAnoFiltro')?.value || '2026';
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar a acta em Excel.', 'warning');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro uma turma antes de descarregar a acta em Excel.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar a acta em Excel.');
+    }
+    return;
+  }
+  const ano = anoExplicit || document.getElementById('pautaAnoSelect')?.value || document.getElementById('pautaAnoFiltro')?.value || '2026';
   const orientacao = orientacaoExplicit || document.getElementById('pautaOrientacaoSelect')?.value || 'landscape';
 
   const savedParamsRaw = localStorage.getItem('sige_acta_params_' + turmaId);
@@ -18490,34 +18528,42 @@ function renderizarTabelaExamesHtml(d) {
       const vMed = isExcluido ? vFreq : (dData.media !== undefined && dData.media !== null ? dData.media : '-');
 
       const temE1 = e1Val !== '' && !isNaN(Number(e1Val));
-      const aprovou1e = temE1 && Number(e1Val) >= notaMinima;
-      const pode2e = temE1 && Number(e1Val) < notaMinima;
+      const numE1 = temE1 ? Number(e1Val) : null;
+      const aprovou1e = temE1 && numE1 >= notaMinima;
+      const pode2e = temE1 && numE1 < notaMinima;
 
-      let estiloE1 = 'background: transparent;';
-      let estiloE2 = 'background: transparent;';
+      const temE2 = e2Val !== '' && !isNaN(Number(e2Val));
+      const numE2 = temE2 ? Number(e2Val) : null;
+
+      // Regra Oficial SIGE: NUNCA pintar fundos, valores livres com notas negativas a vermelho e positivas a preto
+      const corTextoE1 = temE1 ? (numE1 >= 9.5 ? 'color: #000000; font-weight: bold;' : 'color: #dc2626; font-weight: bold;') : 'color: #000000;';
+      const corTextoE2 = temE2 ? (numE2 >= 9.5 ? 'color: #000000; font-weight: bold;' : 'color: #dc2626; font-weight: bold;') : 'color: #000000;';
+
+      let estiloE1 = `background: transparent; ${corTextoE1}`;
+      let estiloE2 = `background: transparent; ${corTextoE2}`;
       let titleE1 = `1ª Época: Mínimo ${notaMinima} valores para aprovação`;
       let titleE2 = 'Nota da 2ª época (se necessária)';
 
       if (isExcluido) {
-        estiloE1 = 'background: #f8fafc; cursor: not-allowed; color: #94a3b8;';
-        estiloE2 = 'background: #f8fafc; cursor: not-allowed; color: #94a3b8;';
+        estiloE1 = 'background: transparent; cursor: not-allowed; color: #94a3b8; opacity: 0.6;';
+        estiloE2 = 'background: transparent; cursor: not-allowed; color: #94a3b8; opacity: 0.6;';
         titleE1 = 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.';
         titleE2 = 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.';
       } else if (aprovou1e) {
-        estiloE1 = 'background: #dcfce7; font-weight: bold; color: #166534;';
-        estiloE2 = 'background: #f1f5f9; color: #94a3b8; cursor: not-allowed;';
+        estiloE1 = `background: transparent; ${corTextoE1}`;
+        estiloE2 = `background: transparent; cursor: not-allowed; opacity: 0.6; ${corTextoE2}`;
         titleE2 = `Aluno já aprovado na 1ª época (${e1Val} ≥ ${notaMinima})`;
       } else if (pode2e) {
-        estiloE1 = 'background: #fee2e2; color: #991b1b;';
-        estiloE2 = 'background: #fef3c7; border: 1px dashed #f59e0b !important; font-weight: bold;';
+        estiloE1 = `background: transparent; ${corTextoE1}`;
+        estiloE2 = `background: transparent; ${corTextoE2}`;
         titleE2 = `Não atingiu nota mínima (${e1Val} < ${notaMinima}). Elegível para a 2ª época!`;
       }
 
       const corMed = isExcluido 
         ? 'text-danger fw-bold' 
         : ((typeof vMed === 'number' || (!isNaN(Number(vMed)) && vMed !== '-')) 
-          ? (Number(vMed) >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold') 
-          : (vMed === '2ª Época' ? 'text-warning fw-bold' : 'text-muted'));
+          ? (Number(vMed) >= 9.5 ? 'text-dark fw-bold' : 'text-danger fw-bold') 
+          : (vMed === '2ª Época' ? 'text-dark fw-bold' : 'text-muted'));
 
       const textoMedExib = isExcluido ? `${vMed} (Excluído)` : vMed;
 
@@ -18528,7 +18574,7 @@ function renderizarTabelaExamesHtml(d) {
             value="${e1Val}" placeholder="" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
             ${(!podeEditar || isExcluido) ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
-            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${(!podeEditar || isExcluido) ? 'background: #f8fafc; cursor: not-allowed;' : estiloE1}"
+            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${(!podeEditar || isExcluido) ? 'background: transparent; cursor: not-allowed; opacity: 0.6;' : estiloE1}"
             title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : titleE1}">
         </td>
         <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
@@ -18536,10 +18582,10 @@ function renderizarTabelaExamesHtml(d) {
             value="${e2Val}" placeholder="" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="2"
             ${(!podeEditar || isExcluido || aprovou1e) ? 'disabled readonly' : ''}
             onchange="aoMudarNotaExame(this)" oninput="aoMudarNotaExame(this)"
-            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${(!podeEditar || isExcluido || aprovou1e) ? 'background: #f8fafc; cursor: not-allowed;' : estiloE2}"
+            style="width: 40px; height: 26px; font-size: 0.8rem; border: 1px solid #cbd5e1; ${(!podeEditar || isExcluido || aprovou1e) ? 'background: transparent; cursor: not-allowed; opacity: 0.6; ' + corTextoE2 : estiloE2}"
             title="${!podeEditar ? 'Lançamento reservado ao Director Pedagógico ou professores autorizados' : titleE2}">
         </td>
-        <td class="text-center border-end font-monospace small text-nowrap px-2 ${corMed}" id="media_${aluno.id}_${d.id}">
+        <td class="text-center border-end font-monospace small text-nowrap px-2 ${corMed}" id="media_${aluno.id}_${d.id}" style="background: transparent;">
           ${textoMedExib}
         </td>
       `;
@@ -18549,7 +18595,7 @@ function renderizarTabelaExamesHtml(d) {
       const dData = discMap[d.id] || {};
       const vFreq = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
       const corFreq = (typeof vFreq === 'number' || (!isNaN(Number(vFreq)) && vFreq !== '-')) 
-        ? (Number(vFreq) >= 9.5 ? 'text-success' : 'text-danger') 
+        ? (Number(vFreq) >= 9.5 ? 'text-dark fw-bold' : 'text-danger fw-bold') 
         : 'text-muted';
       tdsDiscs += `
         <td class="text-center border-end font-monospace small text-nowrap px-2 ${corFreq}">${vFreq}</td>
@@ -18653,9 +18699,14 @@ function aoMudarNotaExame(inputEl) {
     valNum = Math.max(0, Math.min(20, Number(valStr)));
     valNum = Math.round(valNum * 100) / 100; // Inteiros ou decimais com 1 ou 2 casas decimais em [0, 20]
     inputEl.value = valNum;
+    inputEl.style.color = (valNum < 9.5) ? '#dc2626' : '#000000';
+    inputEl.style.fontWeight = 'bold';
   } else {
     inputEl.value = '';
+    inputEl.style.color = '#000000';
+    inputEl.style.fontWeight = 'normal';
   }
+  inputEl.style.background = 'transparent';
 
   const chave = `${alunoId}_${discId}`;
   if (!window._sigeNotasExameModificadas.has(chave)) {
@@ -18664,6 +18715,18 @@ function aoMudarNotaExame(inputEl) {
   const obj = window._sigeNotasExameModificadas.get(chave);
   if (epoca === '1') obj.exame_1epoca = valNum;
   if (epoca === '2') obj.exame_2epoca = valNum;
+
+  const inputModalEl = document.getElementById(`formInputE${epoca}_${alunoId}_${discId}`);
+  if (inputModalEl) {
+    if (valNum !== null) {
+      inputModalEl.style.color = (valNum < 9.5) ? '#dc2626' : '#000000';
+      inputModalEl.style.fontWeight = 'bold';
+    } else {
+      inputModalEl.style.color = '#000000';
+      inputModalEl.style.fontWeight = 'normal';
+    }
+    inputModalEl.style.background = 'transparent';
+  }
 
   // Recalcular dinamicamente Média da Disciplina e Resultado do Aluno na interface
   recalcularLinhaAlunoInterface(alunoId);
@@ -18764,7 +18827,9 @@ function recalcularLinhaAlunoInterface(alunoId) {
     const elMedia = document.getElementById(`media_${alunoId}_${dId}`);
     if (elMedia) {
       elMedia.textContent = mediaFinalDisc;
-      elMedia.className = `text-center border-end font-monospace small align-middle ${mediaFinalDisc >= 9.5 ? 'text-success fw-bold' : 'text-danger fw-bold'}`;
+      elMedia.className = `text-center border-end font-monospace small align-middle ${mediaFinalDisc >= 9.5 ? 'text-dark fw-bold' : 'text-danger fw-bold'}`;
+      elMedia.style.color = (mediaFinalDisc >= 9.5) ? '#000000' : '#dc2626';
+      elMedia.style.background = 'transparent';
     }
 
     notasFinais.push(mediaFinalDisc);
@@ -19090,6 +19155,8 @@ async function salvarNotasExame() {
     return;
   }
 
+  const anoSelect = document.getElementById('exameAnoSelect');
+  const anoLetivo = anoSelect?.value || window.state?.anoLectivoVisualizacao || '2026';
   const notasPayload = Array.from(window._sigeNotasExameModificadas.values());
   const btnSalvar = document.getElementById('btnSalvarNotasExame');
   if (btnSalvar) {
@@ -19131,24 +19198,55 @@ async function salvarNotasExame() {
 async function exportarPautaExamesExcel() {
   const turmaId = document.getElementById('exameTurmaSelect')?.value;
   if (!turmaId) {
-    mostrarToast('Selecione uma turma com exame para exportar.', 'warning');
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma com exame antes de descarregar o Excel.', 'warning');
+    } else if (typeof mostrarToast === 'function') {
+      mostrarToast('Por favor, selecione primeiro uma turma com exame antes de descarregar o Excel.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma com exame antes de descarregar o Excel.');
+    }
     return;
   }
+  const anoSelect = document.getElementById('exameAnoSelect');
+  const anoLetivo = anoSelect?.value || window.state?.anoLectivoVisualizacao || '2026';
   const nomeTurma = (document.getElementById('exameTurmaSelect')?.selectedOptions[0]?.text || 'Turma').replace(/[^\w\-]/g, '_');
   await downloadFicheiroBinario(`/api/v1/pautas/exames/turma/${turmaId}/xlsx?anoLetivo=${anoLetivo}`, `Pauta_Exames_${nomeTurma}_${anoLetivo}.xlsx`);
 }
 
 async function descarregarPautaExamesPdf() {
   const turmaId = document.getElementById('exameTurmaSelect')?.value;
-  if (!turmaId) {
-    mostrarToast('Selecione uma turma com exame para exportar.', 'warning');
+  const anoSelect = document.getElementById('exameAnoSelect');
+  const anoLetivo = anoSelect?.value || window.state?.anoLectivoVisualizacao || '2026';
+  const nomeTurma = (document.getElementById('exameTurmaSelect')?.selectedOptions[0]?.text || 'Turma').replace(/[^\w\-]/g, '_');
+
+  if (turmaId) {
+    const ok = await downloadFicheiroBinario(`/api/v1/pautas/exames/turma/${turmaId}/pdf?anoLetivo=${anoLetivo}`, `Pauta_Exames_${nomeTurma}_${anoLetivo}.pdf`);
+    if (ok) return;
+  }
+
+  const el = document.getElementById('subViewPautaExames');
+  if (el && !el.innerText.includes('Selecione uma turma')) {
+    await exportarElementoParaPdf(el, `Pauta_Exames_${nomeTurma}_${anoLetivo}.pdf`, 'landscape');
     return;
   }
-  const nomeTurma = (document.getElementById('exameTurmaSelect')?.selectedOptions[0]?.text || 'Turma').replace(/[^\w\-]/g, '_');
-  await downloadFicheiroBinario(`/api/v1/pautas/exames/turma/${turmaId}/pdf?anoLetivo=${anoLetivo}`, `Pauta_Exames_${nomeTurma}_${anoLetivo}.pdf`);
+
+  if (typeof mostrarNotificacao === 'function') {
+    mostrarNotificacao('Por favor, selecione primeiro uma turma com exame para descarregar o PDF.', 'warning');
+  } else if (typeof mostrarToast === 'function') {
+    mostrarToast('Por favor, selecione primeiro uma turma com exame para descarregar o PDF.', 'warning');
+  } else {
+    alert('Por favor, selecione primeiro uma turma com exame para descarregar o PDF.');
+  }
 }
 
 function imprimirPautaExames() {
+  const turmaId = document.getElementById('exameTurmaSelect')?.value;
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma com exame antes de imprimir.', 'warning');
+    }
+    return;
+  }
   document.body.classList.remove('print-orientacao-portrait');
   document.body.classList.add('print-orientacao-landscape');
   window.print();
@@ -19716,7 +19814,7 @@ function selecionarAlunoFormularioExame(alunoId) {
               ${(!podeEditar || isExcluido) ? 'disabled readonly' : ''}
               oninput="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)"
               onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '1', this.value)"
-              style="${(!podeEditar || isExcluido) ? 'background: #f8fafc; cursor: not-allowed; border: 1px solid #e2e8f0;' : 'background: #ffffff;'}"
+              style="border: 1px solid #cbd5e1; background: transparent; color: ${(e1Val !== '' && !isNaN(Number(e1Val))) ? (Number(e1Val) >= 9.5 ? '#000000' : '#dc2626') : '#000000'}; ${(!podeEditar || isExcluido) ? 'cursor: not-allowed; opacity: 0.6;' : ''}"
               title="${isExcluido ? 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.' : (!podeEditar ? 'Lançamento reservado ao Director Pedagógico' : '')}">
           </div>
 
@@ -19732,7 +19830,7 @@ function selecionarAlunoFormularioExame(alunoId) {
               ${(!podeEditar || isExcluido) ? 'disabled readonly' : ''}
               oninput="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)"
               onchange="aoMudarNotaFormularioExame('${alunoId}', '${disc.id}', '2', this.value)"
-              style="${(!podeEditar || isExcluido) ? 'background: #f8fafc; cursor: not-allowed; border: 1px solid #e2e8f0;' : 'background: #ffffff;'}"
+              style="border: 1px solid #cbd5e1; background: transparent; color: ${(e2Val !== '' && !isNaN(Number(e2Val))) ? (Number(e2Val) >= 9.5 ? '#000000' : '#dc2626') : '#000000'}; ${(!podeEditar || isExcluido) ? 'cursor: not-allowed; opacity: 0.6;' : ''}"
               title="${isExcluido ? 'Estudante excluído do exame por ter frequência negativa (≤ 9.4). Não tem direito ao exame.' : (!podeEditar ? 'Lançamento reservado ao Director Pedagógico' : '')}">
           </div>
 
@@ -19784,6 +19882,18 @@ function aoMudarNotaFormularioExame(alunoId, discId, epoca, valor) {
   const obj = window._sigeNotasExameModificadas.get(chave);
   if (epoca === '1') obj.exame_1epoca = valNum;
   if (epoca === '2') obj.exame_2epoca = valNum;
+
+  const inputModalEl = document.getElementById(`formInputE${epoca}_${alunoId}_${discId}`);
+  if (inputModalEl) {
+    if (valNum !== null) {
+      inputModalEl.style.color = (valNum < 9.5) ? '#dc2626' : '#000000';
+      inputModalEl.style.fontWeight = 'bold';
+    } else {
+      inputModalEl.style.color = '#000000';
+      inputModalEl.style.fontWeight = 'normal';
+    }
+    inputModalEl.style.background = 'transparent';
+  }
 
   // Sincronizar input correspondente na tabela principal (se existir)
   const inputTabela = document.querySelector(`input.input-exame-nota[data-aluno="${alunoId}"][data-disc="${discId}"][data-epoca="${epoca}"]`);
@@ -19872,7 +19982,9 @@ function recalcularFormularioExame(alunoId) {
     const elBadge = document.getElementById(`formDiscBadge_${alunoId}_${dId}`);
     if (elMedia) {
       elMedia.textContent = isExcluido ? (freqNum !== null ? (freqNum % 1 === 0 ? freqNum : freqNum.toFixed(1)) : '-') : mediaFinalDisc;
-      elMedia.className = `font-monospace fw-bold fs-6 ${isExcluido ? 'text-danger' : (mediaFinalDisc >= 9.5 ? 'text-success' : 'text-danger')}`;
+      elMedia.className = `font-monospace fw-bold fs-6 ${isExcluido ? 'text-danger' : (mediaFinalDisc >= 9.5 ? 'text-dark' : 'text-danger')}`;
+      elMedia.style.color = (mediaFinalDisc >= 9.5 && !isExcluido) ? '#000000' : '#dc2626';
+      elMedia.style.background = 'transparent';
     }
     if (elBadge) {
       // NÃO PINTAR OS TEXTOS: Aprovado, Reprovado, Excluído (sem fundo de badge)
@@ -20124,3 +20236,17 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
 window.aplicarBloqueioVisualAnoNaoSelecionado = aplicarBloqueioVisualAnoNaoSelecionado;
 window.removerBloqueioVisualAnoNaoSelecionado = removerBloqueioVisualAnoNaoSelecionado;
 window.executarGatilhosCarregamentoView = executarGatilhosCarregamentoView;
+
+
+window.exportarPautaGeralExcel = exportarPautaGeralExcel;
+window.descarregarPautaGeralPdf = descarregarPautaGeralPdf;
+window.descarregarPautaGeralDocx = descarregarPautaGeralDocx;
+window.imprimirPautaGeralOficial = imprimirPautaGeralOficial;
+window.exportarActaConselhoExcel = exportarActaConselhoExcel;
+window.descarregarActaConselhoPdf = descarregarActaConselhoPdf;
+window.descarregarActaConselhoDocx = descarregarActaConselhoDocx;
+window.imprimirActaConselhoOficial = imprimirActaConselhoOficial;
+window.descarregarCadernetaPdf = descarregarCadernetaPdf;
+window.descarregarCadernetaExcel = descarregarCadernetaExcel;
+window.descarregarCadernetaDocx = descarregarCadernetaDocx;
+window.exportarCadernetaWord = exportarCadernetaWord;

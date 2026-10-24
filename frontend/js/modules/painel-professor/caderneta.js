@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SIGE - PAINEL-PROFESSOR | Caderneta Oficial MEC
  * Ficheiro de código independente do menu: caderneta.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -626,7 +626,14 @@ async function exportarCadernetaExcel() {
     return;
   }
   const alocId = await obterAlocacaoAtivaOuPrimeira();
-  if (!alocId) return;
+  if (!alocId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro a classe, área e turma para descarregar a caderneta em Excel.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro a classe, área e turma para descarregar a caderneta em Excel.');
+    }
+    return;
+  }
   const url = `/api/v1/professores/caderneta/${alocId}/xlsx`;
   await downloadFicheiroBinario(url, `Caderneta_Oficial_2026.xlsx`);
 }
@@ -651,7 +658,14 @@ async function descarregarCadernetaPdf() {
     return;
   }
   const alocId = await obterAlocacaoAtivaOuPrimeira();
-  if (!alocId) return;
+  if (!alocId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro a classe, área e turma para descarregar a caderneta em PDF.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro a classe, área e turma para descarregar a caderneta em PDF.');
+    }
+    return;
+  }
   await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alocId}/pdf`, `Caderneta_Oficial_2026.pdf`);
 }
 

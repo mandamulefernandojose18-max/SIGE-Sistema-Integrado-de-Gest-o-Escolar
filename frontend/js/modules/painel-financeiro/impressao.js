@@ -232,6 +232,15 @@ async function descarregarPdfCentral() {
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
 
+  if (!turmaId && tipo !== 'RECIBO') {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar o PDF.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar o PDF.');
+    }
+    return;
+  }
+
   if (tipo === 'PAUTA_TURMA') {
     await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.pdf`);
   } else if (tipo === 'ACTA_CONSELHO') {
@@ -282,6 +291,15 @@ async function descarregarDocxCentral() {
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
 
+  if (!turmaId && tipo !== 'RECIBO') {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar o documento Word (.docx).', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar o documento Word (.docx).');
+    }
+    return;
+  }
+
   if (tipo === 'PAUTA_TURMA') {
     await downloadFicheiroBinario(`/api/v1/pautas/turma/${turmaId}/docx?anoLetivo=2026&orientacao=${orientacao}`, `Pauta_Oficial_${turmaId}.docx`);
   } else if (tipo === 'ACTA_CONSELHO') {
@@ -331,7 +349,14 @@ async function descarregarXlsxCentral() {
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
 
-  if (!turmaId) return;
+  if (!turmaId && tipo !== 'RECIBO') {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar o ficheiro Excel (.xlsx).', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar o ficheiro Excel (.xlsx).');
+    }
+    return;
+  }
 
   if (tipo === 'ACTA_CONSELHO') {
     await exportarActaConselhoExcel(turmaId, '2026', orientacao);
