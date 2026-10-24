@@ -12,7 +12,7 @@ from .prazos_service import verificar_prazo_lancamento_trimestre, obter_configur
 from apps.turmas.models import Turma
 from apps.disciplinas.models import Disciplina
 from apps.alunos.models import Aluno
-from apps.professores.models import Professor
+from apps.professores.models import Professor, AlocacaoDocente
 from common.utils.avaliacoes_mocambique import calcular_media_trimestral
 from common.permissions.rbac import IsEscolaAdmin
 from common.utils.tenant import get_tenant_escola
@@ -123,17 +123,36 @@ class NotaViewSet(viewsets.ModelViewSet):
 
         # Lançamento individual (modal caderneta)
         def _to_uuid(val):
-            if not val or str(val).strip().lower() in ('undefined', 'null', '', 'none'):
+            if not val:
+                return None
+            import uuid
+            if isinstance(val, uuid.UUID):
+                return val
+            if isinstance(val, dict):
+                inner = (
+                    val.get('id') or val.get('uuid') or val.get('pk') or
+                    val.get('aluno_id') or val.get('turma_id') or val.get('disciplina_id') or val.get('alocacao_id')
+                )
+                return _to_uuid(inner)
+            s = str(val).strip()
+            if s.lower() in ('undefined', 'null', '', 'none', '[object object]'):
                 return None
             try:
-                import uuid
-                return uuid.UUID(str(val).strip())
+                return uuid.UUID(s)
             except (ValueError, TypeError, AttributeError):
+                import re
+                m = re.search(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', s)
+                if m:
+                    try:
+                        return uuid.UUID(m.group(0))
+                    except Exception:
+                        pass
                 return None
 
-        aluno_raw = request.data.get('aluno_id')
-        turma_raw = request.data.get('turma_id')
-        disciplina_raw = request.data.get('disciplina_id')
+        alocacao_uuid = _to_uuid(request.data.get('alocacao_id') or request.data.get('alocacao'))
+        aluno_raw = request.data.get('aluno_id') or request.data.get('aluno')
+        turma_raw = request.data.get('turma_id') or request.data.get('turma')
+        disciplina_raw = request.data.get('disciplina_id') or request.data.get('disciplina')
         periodo = request.data.get('periodo')
 
         if periodo in ('TODOS', '', None) or periodo not in ('1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE', 'ANUAL'):
@@ -146,25 +165,39 @@ class NotaViewSet(viewsets.ModelViewSet):
         turma_uuid = _to_uuid(turma_raw)
         disciplina_uuid = _to_uuid(disciplina_raw)
 
-        if not aluno_uuid or not turma_uuid or not disciplina_uuid:
-            return Response({
-                'success': False,
-                'message': 'Campos obrigatórios em falta ou inválidos: aluno_id, turma_id e disciplina_id devem ser identificadores válidos.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             escola = get_tenant_escola(request)
             if not escola:
                 return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
-            turma = Turma.objects.filter(id=turma_uuid, escola=escola).first()
-            if not turma:
-                return Response({'success': False, 'message': 'Turma não encontrada para esta instituição.'}, status=status.HTTP_400_BAD_REQUEST)
-            disciplina = Disciplina.objects.filter(id=disciplina_uuid, escola=escola).first()
-            if not disciplina:
-                return Response({'success': False, 'message': 'Disciplina não encontrada para esta instituição.'}, status=status.HTTP_400_BAD_REQUEST)
-            aluno = Aluno.objects.filter(id=aluno_uuid, escola=escola).first()
+
+            aloc = None
+            if alocacao_uuid:
+                aloc = AlocacaoDocente.objects.filter(id=alocacao_uuid, escola=escola).select_related('turma', 'disciplina').first()
+
+            aluno = None
+            if aluno_uuid:
+                aluno = Aluno.objects.filter(id=aluno_uuid, escola=escola).first()
+
+            turma = None
+            if turma_uuid:
+                turma = Turma.objects.filter(id=turma_uuid, escola=escola).first()
+            if not turma and aloc and aloc.turma:
+                turma = aloc.turma
+            if not turma and aluno and aluno.turma:
+                turma = aluno.turma
+
+            disciplina = None
+            if disciplina_uuid:
+                disciplina = Disciplina.objects.filter(id=disciplina_uuid, escola=escola).first()
+            if not disciplina and aloc and aloc.disciplina:
+                disciplina = aloc.disciplina
+
             if not aluno:
                 return Response({'success': False, 'message': 'Aluno não encontrado para esta instituição.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not turma:
+                return Response({'success': False, 'message': 'Turma do aluno não encontrada.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not disciplina:
+                return Response({'success': False, 'message': 'Disciplina não encontrada para este lançamento.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Validação oficial de Prazos de Calendarização
             permitido, motivo, msg_prazo, _ = verificar_prazo_lancamento_trimestre(

@@ -743,13 +743,40 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
     `<option value="${a.codigo}">${a.codigo} — ${a.significado || a.nome || a.codigo}</option>`
   ).join('');
 
-  const idTurmaPadrao = String(resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || '').replace(/^undefined$/, '');
-  const idDisciplinaPadrao = String(resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || '').replace(/^undefined$/, '');
+  const aloc = (state.alocacoesDocente || []).find(a => a.id === state.alocacaoAtualId);
+  const extrairIdUuidSeguro = (val) => {
+    if (!val) return '';
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (['undefined', 'null', '', '[object object]'].includes(trimmed.toLowerCase())) return '';
+      const match = trimmed.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+      return match ? match[0] : (trimmed !== '[object Object]' ? trimmed : '');
+    }
+    if (typeof val === 'object') {
+      return extrairIdUuidSeguro(val.id || val.uuid || val.pk || val.turma_id || val.disciplina_id || val.aluno_id || val.alocacao_id);
+    }
+    return String(val);
+  };
+
+  const idTurmaPadrao = extrairIdUuidSeguro(resCaderneta.data?.turma) ||
+                        extrairIdUuidSeguro(resCaderneta.data?.alocacao?.turma) ||
+                        extrairIdUuidSeguro(aloc?.turma) ||
+                        extrairIdUuidSeguro(aloc?.turma_id);
+
+  const idDisciplinaPadrao = extrairIdUuidSeguro(resCaderneta.data?.disciplina) ||
+                             extrairIdUuidSeguro(resCaderneta.data?.alocacao?.disciplina) ||
+                             extrairIdUuidSeguro(aloc?.disciplina) ||
+                             extrairIdUuidSeguro(aloc?.disciplina_id);
+
+  const idAlocacaoPadrao = extrairIdUuidSeguro(state.alocacaoAtualId) ||
+                           extrairIdUuidSeguro(resCaderneta.data?.alocacao) ||
+                           extrairIdUuidSeguro(aloc);
 
   abrirModal('Lançar Avaliações do Aluno (Oficial MEC)', `
     <form id="formModalLancamentoNota">
       <input type="hidden" id="mlnTurmaId" value="${idTurmaPadrao}">
       <input type="hidden" id="mlnDisciplinaId" value="${idDisciplinaPadrao}">
+      <input type="hidden" id="mlnAlocacaoId" value="${idAlocacaoPadrao}">
       <div class="row g-2 mb-3">
         <div class="col-md-7">
           <label class="form-label small fw-semibold">Aluno Seleccionado</label>
@@ -955,30 +982,38 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
         else compAuto = 'E';
       }
 
-      // Obter IDs automaticamente da alocação da caderneta activa
-      const alunoId = document.getElementById('mlnAluno')?.value || alunoIdInicial;
-      let turmaId = document.getElementById('mlnTurmaId')?.value || resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || aloc?.turma_id || aloc?.turma?.id;
-      let disciplinaId = document.getElementById('mlnDisciplinaId')?.value || resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || aloc?.disciplina_id || aloc?.disciplina?.id;
+      // Obter IDs automaticamente da alocação da caderneta activa de forma 100% blindada
+      const alunoId = extrairIdUuidSeguro(document.getElementById('mlnAluno')?.value || alunoIdInicial);
+      let turmaId = extrairIdUuidSeguro(document.getElementById('mlnTurmaId')?.value) ||
+                    extrairIdUuidSeguro(resCaderneta.data?.turma) ||
+                    extrairIdUuidSeguro(resCaderneta.data?.alocacao?.turma) ||
+                    extrairIdUuidSeguro(aloc?.turma) ||
+                    extrairIdUuidSeguro(aloc?.turma_id);
+      let disciplinaId = extrairIdUuidSeguro(document.getElementById('mlnDisciplinaId')?.value) ||
+                         extrairIdUuidSeguro(resCaderneta.data?.disciplina) ||
+                         extrairIdUuidSeguro(resCaderneta.data?.alocacao?.disciplina) ||
+                         extrairIdUuidSeguro(aloc?.disciplina) ||
+                         extrairIdUuidSeguro(aloc?.disciplina_id);
+      const alocacaoId = extrairIdUuidSeguro(document.getElementById('mlnAlocacaoId')?.value) ||
+                         extrairIdUuidSeguro(state.alocacaoAtualId) ||
+                         extrairIdUuidSeguro(resCaderneta.data?.alocacao) ||
+                         extrairIdUuidSeguro(aloc);
 
-      if (!turmaId || turmaId === 'undefined') {
-        const alunoObj = resCaderneta.data?.alunos?.find(a => String(a.alunoId) === String(alunoId));
-        turmaId = alunoObj?.turmaId || alunoObj?.turma_id || resCaderneta.data?.turma?.id || aloc?.turma_id;
+      if (!turmaId) {
+        const alunoObj = resCaderneta.data?.alunos?.find(a => extrairIdUuidSeguro(a.alunoId) === alunoId);
+        turmaId = extrairIdUuidSeguro(alunoObj?.turmaId || alunoObj?.turma_id || resCaderneta.data?.turma);
       }
-      if (!disciplinaId || disciplinaId === 'undefined') {
-        disciplinaId = resCaderneta.data?.disciplina?.id || aloc?.disciplina_id;
-      }
-
-      if (!alunoId || alunoId === 'undefined' || !turmaId || turmaId === 'undefined' || !disciplinaId || disciplinaId === 'undefined') {
-        alert('Não foi possível identificar automaticamente o aluno, a turma ou a disciplina. Selecione uma turma na caderneta e tente novamente.');
-        return;
+      if (!disciplinaId) {
+        disciplinaId = extrairIdUuidSeguro(resCaderneta.data?.disciplina || aloc?.disciplina);
       }
 
       const periodoEscolhido = document.getElementById('mlnPeriodo')?.value || periodo;
 
       const body = {
         aluno_id: alunoId,
-        turma_id: turmaId,
-        disciplina_id: disciplinaId,
+        turma_id: turmaId || undefined,
+        disciplina_id: disciplinaId || undefined,
+        alocacao_id: alocacaoId || undefined,
         periodo: periodoEscolhido,
         teste1: vT1 !== null ? vT1 : null,
         teste2: vT2 !== null ? vT2 : null,

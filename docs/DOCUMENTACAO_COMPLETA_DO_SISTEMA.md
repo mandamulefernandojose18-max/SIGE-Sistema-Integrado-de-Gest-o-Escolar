@@ -1,4 +1,4 @@
-﻿# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
+# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
 ### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
@@ -999,3 +999,8 @@ Em cumprimento rigoroso com a directriz oficial do SIGE para cadernetas, pautas 
 - Sanitizacao de Identificadores (UUID) impedindo erro HTTP 500 no endpoint /api/v1/notas.
 - Suporte total a decimais com virgula (0,75; 6,5) e ponto (0.75; 6.5) no frontend e backend.
 - Fallback automatico para identificacao de turma e disciplina na caderneta escolar.
+
+### 15.3 Resolução Definitiva: Automatização e Blindagem dos Identificadores na Caderneta (aluno_id, turma_id, disciplina_id, alocacao_id)
+- **Eliminação de Exigência Manual de Identificadores:** O modal de lançamento de notas na caderneta opera com preenchimento 100% automático e invisível dos identificadores da caderneta (`aluno_id`, `turma_id`, `disciplina_id` e `alocacao_id`).
+- **Resolução e Resiliência no Backend:** O endpoint `/api/v1/notas` (`NotaViewSet.create`) suporta extração defensiva de UUID a partir de formatos heterogéneos (strings primitivas, dicionários com chave `id`, etc.) e resolve automaticamente `turma` e `disciplina` diretamente da `AlocacaoDocente` vinculada e da matrícula do aluno (`aluno.turma`), tornando impossível a recusa por identificadores não localizados.
+- **Blindagem no Frontend:** Os módulos de caderneta (`app.js`, `painel-escola/caderneta.js` e `painel-professor/caderneta.js`) utilizam `extrairIdUuidSeguro` e incluem `alocacao_id` no payload da requisição, assegurando que o professor apenas informe as notas e faltas do aluno.
