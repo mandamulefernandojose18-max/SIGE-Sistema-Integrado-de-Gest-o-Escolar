@@ -122,9 +122,18 @@ class NotaViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         # Lançamento individual (modal caderneta)
-        aluno_id = request.data.get('aluno_id')
-        turma_id = request.data.get('turma_id')
-        disciplina_id = request.data.get('disciplina_id')
+        def _to_uuid(val):
+            if not val or str(val).strip().lower() in ('undefined', 'null', '', 'none'):
+                return None
+            try:
+                import uuid
+                return uuid.UUID(str(val).strip())
+            except (ValueError, TypeError, AttributeError):
+                return None
+
+        aluno_raw = request.data.get('aluno_id')
+        turma_raw = request.data.get('turma_id')
+        disciplina_raw = request.data.get('disciplina_id')
         periodo = request.data.get('periodo')
 
         if periodo in ('TODOS', '', None) or periodo not in ('1_TRIMESTRE', '2_TRIMESTRE', '3_TRIMESTRE', 'ANUAL'):
@@ -133,13 +142,29 @@ class NotaViewSet(viewsets.ModelViewSet):
                 'message': 'Selecione um trimestre válido (1º, 2º ou 3º Trimestre) para gravar a avaliação.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if aluno_id and turma_id and disciplina_id and periodo:
+        aluno_uuid = _to_uuid(aluno_raw)
+        turma_uuid = _to_uuid(turma_raw)
+        disciplina_uuid = _to_uuid(disciplina_raw)
+
+        if not aluno_uuid or not turma_uuid or not disciplina_uuid:
+            return Response({
+                'success': False,
+                'message': 'Campos obrigatórios em falta ou inválidos: aluno_id, turma_id e disciplina_id devem ser identificadores válidos.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
             escola = get_tenant_escola(request)
             if not escola:
                 return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
-            turma = get_object_or_404(Turma, id=turma_id, escola=escola)
-            disciplina = get_object_or_404(Disciplina, id=disciplina_id, escola=escola)
-            aluno = get_object_or_404(Aluno, id=aluno_id, escola=escola)
+            turma = Turma.objects.filter(id=turma_uuid, escola=escola).first()
+            if not turma:
+                return Response({'success': False, 'message': 'Turma não encontrada para esta instituição.'}, status=status.HTTP_400_BAD_REQUEST)
+            disciplina = Disciplina.objects.filter(id=disciplina_uuid, escola=escola).first()
+            if not disciplina:
+                return Response({'success': False, 'message': 'Disciplina não encontrada para esta instituição.'}, status=status.HTTP_400_BAD_REQUEST)
+            aluno = Aluno.objects.filter(id=aluno_uuid, escola=escola).first()
+            if not aluno:
+                return Response({'success': False, 'message': 'Aluno não encontrado para esta instituição.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Validação oficial de Prazos de Calendarização
             permitido, motivo, msg_prazo, _ = verificar_prazo_lancamento_trimestre(
@@ -163,7 +188,7 @@ class NotaViewSet(viewsets.ModelViewSet):
                 if val is None or val == '':
                     return None
                 try:
-                    return float(val)
+                    return float(str(val).replace(',', '.'))
                 except (ValueError, TypeError):
                     return None
 
@@ -199,11 +224,11 @@ class NotaViewSet(viewsets.ModelViewSet):
                 'message': 'Avaliação gravada com sucesso.',
                 'data': NotaSerializer(nota_obj).data
             }, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
-
-        return Response({
-            'success': False,
-            'message': 'Campos obrigatórios em falta: aluno_id, turma_id, disciplina_id e periodo são todos necessários.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as err:
+            return Response({
+                'success': False,
+                'message': f'Erro ao processar avaliação: {str(err)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 class PrazosTrimestresView(APIView):
     permission_classes = [IsAuthenticated]

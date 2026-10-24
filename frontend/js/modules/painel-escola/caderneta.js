@@ -742,8 +742,8 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
     `<option value="${a.codigo}">${a.codigo} — ${a.significado || a.nome || a.codigo}</option>`
   ).join('');
 
-  const idTurmaPadrao = resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || '';
-  const idDisciplinaPadrao = resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || '';
+  const idTurmaPadrao = String(resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || '').replace(/^undefined$/, '');
+  const idDisciplinaPadrao = String(resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || '').replace(/^undefined$/, '');
 
   abrirModal('Lançar Avaliações do Aluno (Oficial MEC)', `
     <form id="formModalLancamentoNota">
@@ -913,11 +913,11 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
     e.preventDefault();
     try {
       const aloc = state.alocacoesDocente.find(a => a.id === state.alocacaoAtualId);
-      const strT1 = document.getElementById('mlnT1').value.trim();
-      const strT2 = document.getElementById('mlnT2').value.trim();
-      const strT3 = document.getElementById('mlnT3').value.trim();
-      const strMAP = document.getElementById('mlnTrabalho').value.trim();
-      const strAT = document.getElementById('mlnAT').value.trim();
+      const strT1 = (document.getElementById('mlnT1')?.value || '').trim().replace(',', '.');
+      const strT2 = (document.getElementById('mlnT2')?.value || '').trim().replace(',', '.');
+      const strT3 = (document.getElementById('mlnT3')?.value || '').trim().replace(',', '.');
+      const strMAP = (document.getElementById('mlnTrabalho')?.value || '').trim().replace(',', '.');
+      const strAT = (document.getElementById('mlnAT')?.value || '').trim().replace(',', '.');
 
       const vT1 = strT1 !== '' ? parseFloat(strT1) : null;
       const vT2 = strT2 !== '' ? parseFloat(strT2) : null;
@@ -956,10 +956,18 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
 
       // Obter IDs automaticamente da alocação da caderneta activa
       const alunoId = document.getElementById('mlnAluno')?.value || alunoIdInicial;
-      const turmaId = document.getElementById('mlnTurmaId')?.value || resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || aloc?.turma_id || aloc?.turma?.id;
-      const disciplinaId = document.getElementById('mlnDisciplinaId')?.value || resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || aloc?.disciplina_id || aloc?.disciplina?.id;
+      let turmaId = document.getElementById('mlnTurmaId')?.value || resCaderneta.data?.turma?.id || resCaderneta.data?.alocacao?.turma_id || aloc?.turma_id || aloc?.turma?.id;
+      let disciplinaId = document.getElementById('mlnDisciplinaId')?.value || resCaderneta.data?.disciplina?.id || resCaderneta.data?.alocacao?.disciplina_id || aloc?.disciplina_id || aloc?.disciplina?.id;
 
-      if (!alunoId || !turmaId || !disciplinaId) {
+      if (!turmaId || turmaId === 'undefined') {
+        const alunoObj = resCaderneta.data?.alunos?.find(a => String(a.alunoId) === String(alunoId));
+        turmaId = alunoObj?.turmaId || alunoObj?.turma_id || resCaderneta.data?.turma?.id || aloc?.turma_id;
+      }
+      if (!disciplinaId || disciplinaId === 'undefined') {
+        disciplinaId = resCaderneta.data?.disciplina?.id || aloc?.disciplina_id;
+      }
+
+      if (!alunoId || alunoId === 'undefined' || !turmaId || turmaId === 'undefined' || !disciplinaId || disciplinaId === 'undefined') {
         alert('Não foi possível identificar automaticamente o aluno, a turma ou a disciplina. Selecione uma turma na caderneta e tente novamente.');
         return;
       }
@@ -1002,11 +1010,11 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
 }
 
 function calcularPrevisoesCadernetaModal() {
-  const v1Str = document.getElementById('mlnT1')?.value?.trim() || '';
-  const v2Str = document.getElementById('mlnT2')?.value?.trim() || '';
-  const v3Str = document.getElementById('mlnT3')?.value?.trim() || '';
-  const mapStr = document.getElementById('mlnTrabalho')?.value?.trim() || '';
-  const atStr = document.getElementById('mlnAT')?.value?.trim() || '';
+  const v1Str = (document.getElementById('mlnT1')?.value || '').trim().replace(',', '.');
+  const v2Str = (document.getElementById('mlnT2')?.value || '').trim().replace(',', '.');
+  const v3Str = (document.getElementById('mlnT3')?.value || '').trim().replace(',', '.');
+  const mapStr = (document.getElementById('mlnTrabalho')?.value || '').trim().replace(',', '.');
+  const atStr = (document.getElementById('mlnAT')?.value || '').trim().replace(',', '.');
 
   const avaliacoes = [];
   if (v1Str !== '' && !isNaN(Number(v1Str))) avaliacoes.push(Number(v1Str));

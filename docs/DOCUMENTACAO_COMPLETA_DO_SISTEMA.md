@@ -994,3 +994,8 @@ Em cumprimento rigoroso com a directriz oficial do SIGE para cadernetas, pautas 
 - **Diferenciação Cromática Pura do Texto:**
   - **Notas Negativas (< 9.5 / < 10):** Tipografia a **Vermelho** (#dc2626, em negrito).
   - **Notas Positivas (>= 9.5 / >= 10):** Tipografia a **Preto** (#000000, em negrito) — eliminando o texto verde e assegurando legibilidade máxima, sobriedade e total conformidade com as pautas oficiais impressas e digitais do MEC.
+
+### Actualizacao: Robustez no Lancamento de Avaliacoes e Decimais com Virgula
+- Sanitizacao de Identificadores (UUID) impedindo erro HTTP 500 no endpoint /api/v1/notas.
+- Suporte total a decimais com virgula (0,75; 6,5) e ponto (0.75; 6.5) no frontend e backend.
+- Fallback automatico para identificacao de turma e disciplina na caderneta escolar.

@@ -16,7 +16,7 @@ def calcular_media_trimestral(dados: Dict[str, Any]) -> Dict[str, Any]:
         if val is None or val == '' or val == '-':
             return None
         try:
-            num = float(val)
+            num = float(str(val).replace(',', '.'))
             if 0.0 <= num <= 20.0:
                 return num
         except (ValueError, TypeError):
@@ -112,7 +112,7 @@ def avaliar_aprovacao_pauta(
         val = item.get('notaFinal') if item.get('notaFinal') is not None else item.get('mediaFinal')
         if val is not None and val != '-' and val != '---':
             try:
-                num = float(val)
+                num = float(str(val).replace(',', '.'))
                 notas_validas.append((item.get('disciplina') or '', num))
             except (ValueError, TypeError):
                 pass
