@@ -2249,6 +2249,7 @@ function atualizarBadgeTenant(tenant) {
 // ==================== GESTÃO AUTOMÁTICA E BUSCA POR ANO LECTIVO ====================
 async function carregarAnosLectivos() {
   state.anoLectivoVisualizacao = '';
+  state.anosPorView = {};
   localStorage.removeItem('sige_ano_letivo_selecionado');
   try {
     const res = await apiFetch('/api/v1/anos-letivos', { ignoreAuthRedirect: true });
@@ -2298,53 +2299,36 @@ function gerarAnosLectivosFallback() {
   state.anoLetivoAtivo = anoAtivo;
 }
 
-function renderizarSelectoresAnoLectivo(anoSelecionado) {
+function renderizarSelectoresAnoLectivo() {
   const anos = (state.anosLectivos && state.anosLectivos.length > 0) ? state.anosLectivos : [
     { ano: '2026', descricao: 'Ano Lectivo de 2026', ativo: true }
   ];
 
-  // Se não foi passado anoSelecionado explicitamente, manter SEMPRE vazio ('')
-  const valorAtivo = (anoSelecionado !== undefined && anoSelecionado !== null) ? String(anoSelecionado) : (state.anoLectivoVisualizacao ? String(state.anoLectivoVisualizacao) : '');
-
-  // Montar as opções de acordo com o padrão exato da imagem:
-  // Inicia sempre em: -- Escolha ano Lectivo -- (valor vazio) até escolha manual do usuário
-  let htmlOpcoes = '<option value="" ' + (!valorAtivo ? 'selected' : '') + '>-- Escolha ano Lectivo --</option>';
-  anos.forEach(item => {
-    const anoStr = String(item.ano);
-    const desc = item.descricao || `Ano Lectivo de ${anoStr}`;
-    const sel = (valorAtivo && anoStr === valorAtivo) ? 'selected' : '';
-    htmlOpcoes += `<option value="${anoStr}" ${sel}>${desc}</option>`;
-  });
-
-  const idsSelectores = [
-    'headerSelectAnoLectivo',
-    'filtroAnoAlunos',
-    'filtroTurmasAno',
-    'pautaAnoSelect',
-    'statAnoFiltro',
-    'filtroPagamentosAno'
-  ];
-
-  idsSelectores.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.innerHTML = htmlOpcoes;
-      if (valorAtivo) el.value = valorAtivo;
-    }
-  });
-
-  // Selectores por classe
   document.querySelectorAll('.sige-select-ano-lectivo').forEach(sel => {
-    if (!idsSelectores.includes(sel.id)) {
-      sel.innerHTML = htmlOpcoes;
-      if (valorAtivo) sel.value = valorAtivo;
-    }
+    const sec = sel.closest('section.modulo-view');
+    const vid = sec ? sec.id.replace('view-', '') : null;
+    const anoDestaView = vid && state.anosPorView ? state.anosPorView[vid] : null;
+
+    // Preservar valor específico desta view se houver, caso contrário manter vazio
+    const valorAtivo = anoDestaView ? String(anoDestaView) : '';
+
+    let htmlOpcoes = '<option value="" ' + (!valorAtivo ? 'selected' : '') + '>-- Escolha ano Lectivo --</option>';
+    anos.forEach(item => {
+      const anoStr = String(item.ano);
+      const desc = item.descricao || `Ano Lectivo de ${anoStr}`;
+      const isSel = (valorAtivo && anoStr === valorAtivo) ? 'selected' : '';
+      htmlOpcoes += `<option value="${anoStr}" ${isSel}>${desc}</option>`;
+    });
+
+    sel.innerHTML = htmlOpcoes;
+    sel.value = valorAtivo;
   });
 
-  // Atualizar badge de retrocompatibilidade
   const elBadge = document.getElementById('headerAnoLetivo');
   if (elBadge) {
-    elBadge.textContent = `Ano Lectivo: ${valorAtivo || anoAtivo}`;
+    const activeView = (typeof obterViewAtiva === 'function') ? obterViewAtiva() : (state.currentView || '');
+    const anoAtivoView = (state.anosPorView && state.anosPorView[activeView]) || '';
+    elBadge.textContent = anoAtivoView ? `Ano Lectivo: ${anoAtivoView}` : 'Ano Lectivo: --';
   }
 }
 
@@ -2369,18 +2353,25 @@ function setCarregandoBuscaAno(carregando) {
 window.setCarregandoBuscaAno = setCarregandoBuscaAno;
 
 window.aoMudarSelectAnoLectivoGlobal = function(valor) {
-  state.anoLectivoVisualizacao = valor;
+  const currentViewId = obterViewAtiva();
   if (valor) {
-    localStorage.setItem('sige_ano_letivo_selecionado', valor);
+    if (!state.anosPorView) state.anosPorView = {};
+    state.anosPorView[currentViewId] = valor;
+    state.anoLectivoVisualizacao = valor;
   } else {
-    localStorage.removeItem('sige_ano_letivo_selecionado');
+    if (state.anosPorView) delete state.anosPorView[currentViewId];
+    state.anoLectivoVisualizacao = '';
+    const curViewEl = document.getElementById("view-" + currentViewId);
+    if (curViewEl) aplicarBloqueioVisualAnoNaoSelecionado(curViewEl, currentViewId);
   }
-  // Dependência exclusiva do botão Buscar: a alteração no seletor apenas define o ano sem disparar busca automática
 };
 
 window.executarBuscaAnoLectivoGlobal = async function() {
+  const currentViewId = obterViewAtiva();
+  const curViewEl = document.getElementById('view-' + currentViewId);
+  const selLocal = curViewEl?.querySelector('.sige-select-ano-lectivo');
   const selHeader = document.getElementById('headerSelectAnoLectivo');
-  const ano = (selHeader && selHeader.value) ? selHeader.value : state.anoLectivoVisualizacao;
+  const ano = (selLocal && selLocal.value) || (selHeader && selHeader.value) || (state.anosPorView && state.anosPorView[currentViewId]);
 
   if (!ano) {
     if (typeof mostrarToast === 'function') {
@@ -2389,19 +2380,19 @@ window.executarBuscaAnoLectivoGlobal = async function() {
     return;
   }
 
+  // Define o ano EXCLUSIVAMENTE para a página/módulo ativo no momento
+  if (!state.anosPorView) state.anosPorView = {};
+  state.anosPorView[currentViewId] = ano;
   state.anoLectivoVisualizacao = ano;
-  localStorage.setItem('sige_ano_letivo_selecionado', ano);
 
-  // Sincronizar em todos os selectores da interface
-  renderizarSelectoresAnoLectivo(ano);
+  if (selLocal) selLocal.value = ano;
+  if (selHeader) selHeader.value = ano;
 
-  // Ativar símbolo de carregamento visual no botão/seletor
+  // Revelar conteúdo EXCLUSIVAMENTE da view ativa
+  if (curViewEl) removerBloqueioVisualAnoNaoSelecionado(curViewEl);
+
   setCarregandoBuscaAno(true);
-
   try {
-    const currentViewId = obterViewAtiva();
-    const curViewEl = document.getElementById('view-' + currentViewId);
-    if (curViewEl) removerBloqueioVisualAnoNaoSelecionado(curViewEl);
     await executarGatilhosCarregamentoView(currentViewId, ano);
   } catch (err) {
     console.error('[BUSCA-ANO] Erro ao carregar dados do ano lectivo:', err);
@@ -2779,15 +2770,20 @@ async function navegarPara(viewId) {
   renderizarSelectoresAnoLectivo();
 
   // REGRA MESTRA: Em todos os painéis e módulos (excepto painel-superadmin),
-  // se o Ano Lectivo ainda não foi selecionado e buscado, tudo fica ocultado
-  // e exibe-se apenas a barra com '-- Escolha ano Lectivo --' e o botão 'Buscar'.
+  // cada página/módulo funciona de forma 100% INDEPENDENTE.
+  // A escolha do ano lectivo numa página NÃO influencia as outras páginas.
+  // Cada página só carrega e exibe dados após a escolha do ano lectivo NA PRÓPRIA PÁGINA.
   if (painel !== 'painel-superadmin') {
-    const anoAtualEscolhido = state.anoLectivoVisualizacao;
-    if (!anoAtualEscolhido) {
+    const anoDestaView = state.anosPorView ? state.anosPorView[viewId] : null;
+    if (!anoDestaView) {
       aplicarBloqueioVisualAnoNaoSelecionado(viewEl, viewId);
-      return;
+      const selLocal = viewEl?.querySelector('.sige-select-ano-lectivo');
+      if (selLocal) selLocal.value = '';
+      return; // NÃO carrega nem busca dados desta página até que o usuário escolha o ano e clique Buscar!
     } else {
       removerBloqueioVisualAnoNaoSelecionado(viewEl);
+      const selLocal = viewEl?.querySelector('.sige-select-ano-lectivo');
+      if (selLocal) selLocal.value = anoDestaView;
     }
   }
 
@@ -19978,8 +19974,9 @@ window.aoClicarBuscarExamesPorAno = async function() {
     }
     return;
   }
+  if (!state.anosPorView) state.anosPorView = {};
+  state.anosPorView['exames'] = ano;
   state.anoLectivoVisualizacao = ano;
-  localStorage.setItem('sige_ano_letivo_selecionado', ano);
   const selHeader = document.getElementById('headerSelectAnoLectivo');
   if (selHeader) selHeader.value = ano;
 
@@ -20037,8 +20034,7 @@ function removerBloqueioVisualAnoNaoSelecionado(viewEl) {
 window.aoClicarBuscarAnoMestreView = async function(viewId) {
   const viewEl = document.getElementById(`view-${viewId}`);
   const selLocal = viewEl?.querySelector('.sige-select-ano-lectivo');
-  const selHeader = document.getElementById('headerSelectAnoLectivo');
-  const ano = selLocal?.value || selHeader?.value || state.anoLectivoVisualizacao;
+  const ano = selLocal ? selLocal.value : '';
 
   if (!ano) {
     if (typeof mostrarToast === 'function') {
@@ -20047,15 +20043,12 @@ window.aoClicarBuscarAnoMestreView = async function(viewId) {
     return;
   }
 
+  // Gravar o ano EXCLUSIVAMENTE para esta página/módulo
+  if (!state.anosPorView) state.anosPorView = {};
+  state.anosPorView[viewId] = ano;
   state.anoLectivoVisualizacao = ano;
-  localStorage.setItem('sige_ano_letivo_selecionado', ano);
-  if (selHeader) selHeader.value = ano;
-  if (selLocal) selLocal.value = ano;
 
-  // Sincronizar em todos os selectores
-  renderizarSelectoresAnoLectivo(ano);
-
-  // Revelar conteúdo da view
+  // Revelar conteúdo EXCLUSIVAMENTE desta view
   removerBloqueioVisualAnoNaoSelecionado(viewEl);
 
   // Ativar loading

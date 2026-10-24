@@ -88,11 +88,10 @@ window.aoClicarBuscarAlunosPorAno = async function() {
     }
     return;
   }
+  if (!state.anosPorView) state.anosPorView = {};
+  state.anosPorView['alunos'] = ano;
   state.filtroAlunoAno = ano;
   state.anoLectivoVisualizacao = ano;
-  localStorage.setItem('sige_ano_letivo_selecionado', ano);
-  const selHeader = document.getElementById('headerSelectAnoLectivo');
-  if (selHeader) selHeader.value = ano;
 
   const dynamicWrap = document.getElementById('alunosConteudoDinamico');
   if (dynamicWrap) dynamicWrap.classList.remove('d-none');

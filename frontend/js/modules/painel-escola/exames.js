@@ -1847,8 +1847,9 @@ window.aoClicarBuscarExamesPorAno = async function() {
     }
     return;
   }
+  if (!state.anosPorView) state.anosPorView = {};
+  state.anosPorView['exames'] = ano;
   state.anoLectivoVisualizacao = ano;
-  localStorage.setItem('sige_ano_letivo_selecionado', ano);
   const selHeader = document.getElementById('headerSelectAnoLectivo');
   if (selHeader) selHeader.value = ano;
 
