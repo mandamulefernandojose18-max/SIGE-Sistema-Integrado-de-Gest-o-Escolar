@@ -403,3 +403,86 @@ class TestPautasEDocumentos:
 
 
 
+
+    def test_permissoes_parciais_exames_por_grupo_disciplina(self):
+        from apps.professores.models import Professor, AlocacaoDocente
+
+        # 1. Criar dois professores da disciplina de Matemática e um de Física
+        prof_mat1 = Professor.objects.create(escola=self.escola, nome='Prof João Matemática', especialidade='Matemática', email='prof.mat1@escola.mz', ativo=True)
+        prof_mat2 = Professor.objects.create(escola=self.escola, nome='Prof Pedro Matemática', especialidade='Matemática', email='prof.mat2@escola.mz', ativo=True)
+        prof_fis = Professor.objects.create(escola=self.escola, nome='Prof Ana Física', especialidade='Física', email='prof.fis@escola.mz', ativo=True)
+
+        AlocacaoDocente.objects.create(escola=self.escola, professor=prof_mat1, disciplina=self.disc1, turma=self.turma)
+        AlocacaoDocente.objects.create(escola=self.escola, professor=prof_mat2, disciplina=self.disc1, turma=self.turma)
+        AlocacaoDocente.objects.create(escola=self.escola, professor=prof_fis, disciplina=self.disc2, turma=self.turma)
+
+        # Usuários para autenticar os professores
+        u_mat1 = Usuario.objects.create_user(email='prof.mat1@escola.mz', password='PassProf123!', role='PROFESSOR', escola=self.escola, professor_id=prof_mat1.id)
+        u_mat2 = Usuario.objects.create_user(email='prof.mat2@escola.mz', password='PassProf123!', role='PROFESSOR', escola=self.escola, professor_id=prof_mat2.id)
+
+        # 2. Consultar endpoint de professores autorizados (como admin)
+        res_profs = self.client.get('/api/v1/pautas/exames/professores-autorizados/')
+        assert res_profs.status_code == 200
+        data_profs = res_profs.data
+        assert data_profs['success'] is True
+        assert 'disciplinas_com_exame' in data_profs
+        assert len(data_profs['disciplinas_com_exame']) >= 2
+
+        # 3. DAP configura permissão parcial: Do grupo de Matemática, APENAS prof_mat1 pode lançar Matemática na 10ª Classe
+        res_save_perm = self.client.post('/api/v1/pautas/exames/professores-autorizados/', {
+            'modo_permissao': 'ALGUNS_PROFESSORES',
+            'autorizacoes': [
+                {
+                    'professor_id': str(prof_mat1.id),
+                    'professor_nome': prof_mat1.nome,
+                    'classes': ['10ª Classe'],
+                    'disciplinas': ['Matemática'],
+                    'ativo': True
+                }
+            ]
+        }, format='json')
+        assert res_save_perm.status_code == 200
+        assert res_save_perm.data['success'] is True
+        assert len(res_save_perm.data['autorizacoes']) == 1
+        assert res_save_perm.data['autorizacoes'][0]['disciplinas'] == ['Matemática']
+
+        # 4. Prof Mat 1 (autorizado parcialmente para Matemática) consulta a pauta da turma
+        login_mat1 = self.client.post('/api/v1/auth/login/', {'email': 'prof.mat1@escola.mz', 'password': 'PassProf123!'}, format='json')
+        client_mat1 = APIClient()
+        client_mat1.credentials(HTTP_AUTHORIZATION=f"Bearer {login_mat1.data['token']}")
+
+        res_pauta_mat1 = client_mat1.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/')
+        assert res_pauta_mat1.status_code == 200
+        d_pauta1 = res_pauta_mat1.data['data']
+        assert d_pauta1['pode_editar'] is True
+        assert d_pauta1['is_permissao_parcial'] is True
+        assert str(self.disc1.id) in d_pauta1['disciplinas_autorizadas_ids']
+        assert str(self.disc2.id) not in d_pauta1['disciplinas_autorizadas_ids']
+        assert 'Matemática' in d_pauta1['disciplinas_autorizadas_nomes']
+
+        # 5. Prof Mat 1 lança notas: Matemática tem sucesso, Física é ignorada ou barrada
+        res_post_notas = client_mat1.post(f'/api/v1/pautas/exames/turma/{self.turma.id}/', {
+            'ano_letivo': '2026',
+            'notas': [
+                {'aluno_id': str(self.aluno.id), 'disciplina_id': str(self.disc1.id), 'exame_1epoca': 14.5, 'frequencia': 15.0},
+                {'aluno_id': str(self.aluno.id), 'disciplina_id': str(self.disc2.id), 'exame_1epoca': 12.0, 'frequencia': 14.0}
+            ]
+        }, format='json')
+        assert res_post_notas.status_code == 200
+        # Apenas 1 nota (Matemática) foi salva
+        assert res_post_notas.data['salvos'] == 1
+
+        # 6. Prof Mat 2 (mesmo grupo de disciplina, mas NÃO autorizado pelo DAP) é bloqueado
+        login_mat2 = self.client.post('/api/v1/auth/login/', {'email': 'prof.mat2@escola.mz', 'password': 'PassProf123!'}, format='json')
+        client_mat2 = APIClient()
+        client_mat2.credentials(HTTP_AUTHORIZATION=f"Bearer {login_mat2.data['token']}")
+
+        res_pauta_mat2 = client_mat2.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/')
+        assert res_pauta_mat2.status_code == 200
+        assert res_pauta_mat2.data['data']['pode_editar'] is False
+
+        res_post_mat2 = client_mat2.post(f'/api/v1/pautas/exames/turma/{self.turma.id}/', {
+            'ano_letivo': '2026',
+            'notas': [{'aluno_id': str(self.aluno.id), 'disciplina_id': str(self.disc1.id), 'exame_1epoca': 15.0}]
+        }, format='json')
+        assert res_post_mat2.status_code == 403
