@@ -630,6 +630,290 @@ def disciplina_tem_exame_na_turma(disciplina, turma):
     return False
 
 
+
+
+def obter_disciplinas_com_exame_escola(escola):
+    """
+    Retorna as disciplinas que realizam exame oficial na instituicao escolar,
+    agrupadas por nome e identificando o grupo de professores associados
+    (por especialidade e/ou alocacao docente).
+    """
+    if not escola:
+        return []
+
+    from apps.disciplinas.models import Disciplina
+    from apps.professores.models import Professor, AlocacaoDocente
+    from apps.turmas.models import Turma
+
+    classes_exame = set(obter_classes_com_exame_escola(escola))
+    turmas_exame = list(Turma.objects.filter(escola=escola).exclude(grau_ano__isnull=True))
+    turmas_exame = [t for t in turmas_exame if turma_tem_exame(t, escola)]
+
+    todas_discs = list(Disciplina.objects.filter(escola=escola))
+    profs_ativos = list(Professor.objects.filter(escola=escola, ativo=True).order_by('nome'))
+    alocacoes = list(AlocacaoDocente.objects.filter(escola=escola).select_related('professor', 'disciplina'))
+
+    profs_por_disc_id = {}
+    profs_por_disc_nome = {}
+    for al in alocacoes:
+        if not al.professor or not al.disciplina:
+            continue
+        p_id = str(al.professor.id)
+        d_id = str(al.disciplina.id)
+        d_nome_norm = al.disciplina.nome.strip().lower()
+
+        if d_id not in profs_por_disc_id:
+            profs_por_disc_id[d_id] = set()
+        profs_por_disc_id[d_id].add(p_id)
+
+        if d_nome_norm not in profs_por_disc_nome:
+            profs_por_disc_nome[d_nome_norm] = set()
+        profs_por_disc_nome[d_nome_norm].add(p_id)
+
+    discs_exame_map = {}
+
+    for d in todas_discs:
+        nome_clean = d.nome.strip()
+        nome_norm = nome_clean.lower()
+        codigo_clean = (d.codigo or '').strip()
+
+        tem_ex = getattr(d, 'tem_exame', False)
+        classes_onde_tem_ex = set()
+
+        if not tem_ex and turmas_exame:
+            for t in turmas_exame:
+                if disciplina_tem_exame_na_turma(d, t):
+                    tem_ex = True
+                    if t.grau_ano:
+                        classes_onde_tem_ex.add(t.grau_ano.strip())
+        elif tem_ex:
+            if d.classe and any(c.lower() in d.classe.lower() for c in classes_exame):
+                classes_onde_tem_ex.add(d.classe.strip())
+            else:
+                classes_onde_tem_ex.update(classes_exame)
+
+        if not tem_ex:
+            m_canon = identificar_materia_canonica(d)
+            if m_canon in {'LP', 'MAT', 'ING', 'HIS', 'GEO', 'BIO', 'QUI', 'FIS', 'FILO', 'DGD', 'FRAN'}:
+                tem_ex = True
+                classes_onde_tem_ex.update(classes_exame)
+
+        if tem_ex:
+            if nome_norm not in discs_exame_map:
+                discs_exame_map[nome_norm] = {
+                    'nome': nome_clean,
+                    'codigo': codigo_clean,
+                    'ids': [str(d.id)],
+                    'classes': set(classes_onde_tem_ex) if classes_onde_tem_ex else set(classes_exame),
+                }
+            else:
+                discs_exame_map[nome_norm]['ids'].append(str(d.id))
+                if classes_onde_tem_ex:
+                    discs_exame_map[nome_norm]['classes'].update(classes_onde_tem_ex)
+
+    resultado = []
+    for nome_norm, info in sorted(discs_exame_map.items(), key=lambda x: x[1]['nome']):
+        prof_ids_grupo = set()
+
+        for d_id in info['ids']:
+            prof_ids_grupo.update(profs_por_disc_id.get(d_id, set()))
+        prof_ids_grupo.update(profs_por_disc_nome.get(nome_norm, set()))
+
+        for p in profs_ativos:
+            p_id = str(p.id)
+            p_esp = (p.especialidade or '').strip().lower()
+            if p_esp and (p_esp in nome_norm or nome_norm in p_esp or any(pal in p_esp for pal in nome_norm.split() if len(pal) > 3)):
+                prof_ids_grupo.add(p_id)
+
+        profs_grupo_detalhe = []
+        for p in profs_ativos:
+            p_id = str(p.id)
+            if p_id in prof_ids_grupo:
+                profs_grupo_detalhe.append({
+                    'id': p_id,
+                    'nome': p.nome,
+                    'codigo': p.codigo or '',
+                    'especialidade': p.especialidade or '',
+                    'email': p.email or ''
+                })
+
+        resultado.append({
+            'nome': info['nome'],
+            'codigo': info['codigo'],
+            'ids': info['ids'],
+            'classes': sorted(list(info['classes'])),
+            'professores_grupo': profs_grupo_detalhe,
+            'professores_ids': sorted(list(prof_ids_grupo))
+        })
+
+    return resultado
+
+
+def resolver_permissoes_exames_usuario(user, escola, turma=None, disciplinas_info=None):
+    """
+    Resolve as permissoes do utilizador para lancamento de notas de exame.
+    Suporta:
+    - APENAS_DAP: Exclusivo do DAP e gestao.
+    - TODOS_PROFESSORES: Todos os professores ativos.
+    - ALGUNS_PROFESSORES: Permissao delegada por classe e por grupo de disciplina (parcial).
+    """
+    user_role = getattr(user, 'role', '') if user else ''
+    is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+
+    if not user or not getattr(user, 'is_authenticated', False):
+        return {
+            'pode_editar': False,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': [],
+            'disciplinas_autorizadas_nomes': [],
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': 'Autenticacao necessaria para lancar notas de exame.'
+        }
+
+    if is_gestao:
+        return {
+            'pode_editar': True,
+            'is_gestao': True,
+            'disciplinas_autorizadas_ids': None,
+            'disciplinas_autorizadas_nomes': None,
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': ''
+        }
+
+    if user_role != 'PROFESSOR':
+        return {
+            'pode_editar': False,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': [],
+            'disciplinas_autorizadas_nomes': [],
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': 'Apenas o Director Pedagogico ou professores autorizados podem lancar notas de exame.'
+        }
+
+    esc = escola or (getattr(turma, 'escola', None) if turma else None)
+    cfg_p = esc.get_config_parametros_exames() if (esc and hasattr(esc, 'get_config_parametros_exames')) else {}
+    modo = cfg_p.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
+
+    if modo == 'TODOS_PROFESSORES':
+        return {
+            'pode_editar': True,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': None,
+            'disciplinas_autorizadas_nomes': None,
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': ''
+        }
+
+    if modo == 'APENAS_DAP':
+        return {
+            'pode_editar': False,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': [],
+            'disciplinas_autorizadas_nomes': [],
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': 'O lancamento das notas de exame nesta instituicao e de competencia exclusiva do Director Pedagogico.'
+        }
+
+    prof_id = getattr(user, 'professor_id', None)
+    if not prof_id and getattr(user, 'email', None) and esc:
+        from apps.professores.models import Professor
+        p_obj = Professor.objects.filter(escola=esc, email=user.email).first()
+        if p_obj:
+            prof_id = p_obj.id
+
+    grau_turma = getattr(turma, 'grau_ano', '') or ''
+    profs_aut = cfg_p.get('professores_autorizados_exame', [])
+
+    autorizacao_prof = None
+    for aut in profs_aut:
+        if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
+            autorizacao_prof = aut
+            break
+
+    if not autorizacao_prof:
+        return {
+            'pode_editar': False,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': [],
+            'disciplinas_autorizadas_nomes': [],
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': f'O lancamento de notas de exame nesta classe esta reservado ao Director Pedagogico ou professores autorizados.'
+        }
+
+    classes_aut = autorizacao_prof.get('classes', [])
+    if classes_aut and not any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
+        return {
+            'pode_editar': False,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': [],
+            'disciplinas_autorizadas_nomes': [],
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': f'Nao possui autorizacao para lancar notas de exame na classe {grau_turma}.'
+        }
+
+    discs_aut = autorizacao_prof.get('disciplinas', [])
+    if not discs_aut or '*' in discs_aut:
+        return {
+            'pode_editar': True,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': None,
+            'disciplinas_autorizadas_nomes': None,
+            'is_permissao_parcial': False,
+            'motivo_bloqueio': ''
+        }
+
+    discs_aut_norm = [str(d).strip().lower() for d in discs_aut if str(d).strip()]
+
+    if disciplinas_info is None and turma:
+        from apps.pautas.services import obter_disciplinas_pauta_turma, disciplina_tem_exame_na_turma
+        discs_t = obter_disciplinas_pauta_turma(turma)
+        disciplinas_info = [
+            {'id': str(d.id), 'nome': d.nome, 'codigo': d.codigo or '', 'tem_exame': disciplina_tem_exame_na_turma(d, turma)}
+            for d in discs_t
+        ]
+
+    disciplinas_com_exame = [d for d in (disciplinas_info or []) if d.get('tem_exame')]
+
+    permitidas_ids = []
+    permitidas_nomes = []
+    for d in disciplinas_com_exame:
+        d_id = str(d.get('id', ''))
+        d_nome = str(d.get('nome', '')).strip().lower()
+        d_cod = str(d.get('codigo', '')).strip().lower()
+
+        match = False
+        for alvo in discs_aut_norm:
+            if alvo == d_id.lower() or alvo == d_cod or alvo == d_nome or alvo in d_nome or d_nome in alvo:
+                match = True
+                break
+        if match:
+            permitidas_ids.append(d['id'])
+            permitidas_nomes.append(d.get('nome', ''))
+
+    if not permitidas_ids:
+        return {
+            'pode_editar': False,
+            'is_gestao': False,
+            'disciplinas_autorizadas_ids': [],
+            'disciplinas_autorizadas_nomes': [],
+            'is_permissao_parcial': True,
+            'motivo_bloqueio': f'Nao possui autorizacao para lancar notas de exame nas disciplinas com exame desta turma ({grau_turma}).'
+        }
+
+    is_parcial = (len(permitidas_ids) < len(disciplinas_com_exame))
+    nomes_str = ', '.join(permitidas_nomes)
+    motivo = f'Lancamento Parcial Activo: autorizado exclusivamente para: {nomes_str}.' if is_parcial else ''
+
+    return {
+        'pode_editar': True,
+        'is_gestao': False,
+        'disciplinas_autorizadas_ids': permitidas_ids,
+        'disciplinas_autorizadas_nomes': permitidas_nomes,
+        'is_permissao_parcial': is_parcial,
+        'motivo_bloqueio': motivo
+    }
+
+
 def consolidar_pauta_exames(turma, ano_letivo='2026'):
     """
     Gera a Pauta Oficial de Exames do SIGE estruturada fielmente ao modelo do MEC:

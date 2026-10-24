@@ -19,6 +19,8 @@ from apps.documentos.services.excel_service import (
 from apps.documentos.services.docx_service import gerar_pauta_docx, gerar_acta_docx
 
 from .services import (
+    resolver_permissoes_exames_usuario,
+    obter_disciplinas_com_exame_escola,
     obter_disciplinas_pauta_turma,
     extrair_numero_classe,
     categorizar_area,
@@ -1021,53 +1023,20 @@ class PautaExamesView(APIView):
                 'logo': getattr(esc, 'logo', '') or '',
             }
 
-        # Validação de permissão de edição para o utilizador atual
+        # Permissões de edição e lançamento de notas de exame (com suporte a permissão parcial por grupo de disciplina)
         user = getattr(request, 'user', None)
-        user_role = getattr(user, 'role', '') if user else ''
-        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
-        pode_editar = True
-        motivo_bloqueio = ''
-
-        if user and getattr(user, 'is_authenticated', False) and not is_gestao:
-            if user_role == 'PROFESSOR':
-                prof_id = getattr(user, 'professor_id', None)
-                if not prof_id and getattr(user, 'email', None):
-                    from apps.professores.models import Professor
-                    p_obj = Professor.objects.filter(escola=esc, email=user.email).first()
-                    if p_obj:
-                        prof_id = p_obj.id
-
-                cfg_p = esc.get_config_parametros_exames() if hasattr(esc, 'get_config_parametros_exames') else {}
-                modo = cfg_p.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
-                grau_turma = getattr(turma, 'grau_ano', '') or ''
-
-                if modo == 'TODOS_PROFESSORES':
-                    autorizado = True
-                elif modo == 'APENAS_DAP':
-                    autorizado = False
-                    motivo_bloqueio = "O lançamento das notas de exame nesta instituição é de competência exclusiva do Director Pedagógico."
-                else:
-                    # ALGUNS_PROFESSORES (indicados por classe)
-                    profs_aut = cfg_p.get('professores_autorizados_exame', [])
-                    autorizado = False
-                    for aut in profs_aut:
-                        if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
-                            classes_aut = aut.get('classes', [])
-                            if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
-                                autorizado = True
-                                break
-                    if not autorizado:
-                        motivo_bloqueio = f"O lançamento de notas de exame na {grau_turma} está reservado ao Director Pedagógico ou professores autorizados."
-
-                if not autorizado:
-                    pode_editar = False
-            else:
-                pode_editar = False
-                motivo_bloqueio = "Apenas o Director Pedagógico ou professores autorizados podem lançar notas de exame."
-
-        dados_exame['pode_editar'] = pode_editar
-        dados_exame['motivo_bloqueio'] = motivo_bloqueio
-        dados_exame['is_gestao'] = is_gestao
+        perm_info = resolver_permissoes_exames_usuario(
+            user=user,
+            escola=esc,
+            turma=turma,
+            disciplinas_info=dados_exame.get('disciplinas')
+        )
+        dados_exame['pode_editar'] = perm_info['pode_editar']
+        dados_exame['motivo_bloqueio'] = perm_info['motivo_bloqueio']
+        dados_exame['is_gestao'] = perm_info['is_gestao']
+        dados_exame['disciplinas_autorizadas_ids'] = perm_info['disciplinas_autorizadas_ids']
+        dados_exame['disciplinas_autorizadas_nomes'] = perm_info['disciplinas_autorizadas_nomes']
+        dados_exame['is_permissao_parcial'] = perm_info['is_permissao_parcial']
 
         return Response({
             'success': True,
@@ -1085,58 +1054,36 @@ class PautaExamesView(APIView):
             else:
                 return Response({'success': False, 'message': 'Acesso negado: a turma pertence a outra instituição.'}, status=403)
 
-        # Validação mandatória de permissão de salvamento de notas de exame
+        # Validação mandatória de permissão de salvamento de notas de exame (integral ou parcial por disciplina)
         user = getattr(request, 'user', None)
-        user_role = getattr(user, 'role', '') if user else ''
-        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+        perm_info = resolver_permissoes_exames_usuario(
+            user=user,
+            escola=escola or turma.escola,
+            turma=turma
+        )
+        if not perm_info['pode_editar']:
+            return Response({
+                'success': False,
+                'message': perm_info['motivo_bloqueio'] or "Acesso negado: apenas o Director Pedagógico ou professores autorizados podem lançar notas de exame."
+            }, status=403)
 
-        if user and getattr(user, 'is_authenticated', False) and not is_gestao:
-            if user_role == 'PROFESSOR':
-                prof_id = getattr(user, 'professor_id', None)
-                esc_target = escola or turma.escola
-                if not prof_id and getattr(user, 'email', None):
-                    from apps.professores.models import Professor
-                    p_obj = Professor.objects.filter(escola=esc_target, email=user.email).first()
-                    if p_obj:
-                        prof_id = p_obj.id
-
-                cfg_p = esc_target.get_config_parametros_exames() if hasattr(esc_target, 'get_config_parametros_exames') else {}
-                modo = cfg_p.get('modo_permissao_exames', 'ALGUNS_PROFESSORES')
-                grau_turma = getattr(turma, 'grau_ano', '') or ''
-
-                if modo == 'TODOS_PROFESSORES':
-                    autorizado = True
-                elif modo == 'APENAS_DAP':
-                    autorizado = False
-                    msg_bloqueio = "Acesso negado: o lançamento das notas de exame nesta instituição é de competência exclusiva do Director Pedagógico."
-                else:
-                    # ALGUNS_PROFESSORES (indicados por classe)
-                    profs_aut = cfg_p.get('professores_autorizados_exame', [])
-                    autorizado = False
-                    for aut in profs_aut:
-                        if str(aut.get('professor_id')) == str(prof_id) and aut.get('ativo', True):
-                            classes_aut = aut.get('classes', [])
-                            if not classes_aut or any(c.lower() in grau_turma.lower() or grau_turma.lower() in c.lower() for c in classes_aut):
-                                autorizado = True
-                                break
-                    msg_bloqueio = f"Acesso negado: apenas o Director Pedagógico ou professores autorizados para a classe {grau_turma} podem lançar notas de exame."
-
-                if not autorizado:
-                    return Response({
-                        'success': False,
-                        'message': msg_bloqueio
-                    }, status=403)
-            else:
-                return Response({
-                    'success': False,
-                    'message': "Acesso negado: apenas o Director Pedagógico ou professores autorizados podem lançar notas de exame."
-                }, status=403)
+        discs_permitidas = perm_info.get('disciplinas_autorizadas_ids')
 
         ano_letivo = request.data.get('ano_letivo') or getattr(escola, 'ano_letivo_ativo', '2026') or '2026'
         notas_payload = request.data.get('notas', [])
 
         if not isinstance(notas_payload, list):
             return Response({'success': False, 'message': 'Formato inválido: lista de notas esperada.'}, status=400)
+
+        # Restrição de salvamento estritamente para disciplinas autorizadas em regime parcial
+        if discs_permitidas is not None:
+            discs_permitidas_set = set(str(x) for x in discs_permitidas)
+            notas_payload = [item for item in notas_payload if str(item.get('disciplina_id')) in discs_permitidas_set]
+            if not notas_payload:
+                return Response({
+                    'success': False,
+                    'message': 'Nenhuma nota de disciplina autorizada foi submetida para gravação nesta turma.'
+                }, status=403)
 
         salvos = 0
         for item in notas_payload:
@@ -1385,19 +1332,32 @@ class ProfessoresAutorizadosExamesView(APIView):
         user_role = getattr(user, 'role', '') if user else ''
         is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
 
-        # 1. Classes com exame da escola disponíveis automaticamente
+        # 1. Classes e Disciplinas com exame da escola disponíveis automaticamente
         classes_exame = obter_classes_com_exame_escola(escola)
+        disciplinas_com_exame = obter_disciplinas_com_exame_escola(escola)
 
-        # 2. Lista de professores ativos da escola
+        # 2. Lista de professores ativos da escola com disciplinas alocadas
+        from apps.professores.models import AlocacaoDocente
+        alocacoes_qs = AlocacaoDocente.objects.filter(escola=escola).select_related('disciplina', 'professor')
+        alocs_map = {}
+        for al in alocacoes_qs:
+            if al.professor_id and al.disciplina:
+                p_id_str = str(al.professor_id)
+                if p_id_str not in alocs_map:
+                    alocs_map[p_id_str] = set()
+                alocs_map[p_id_str].add(al.disciplina.nome)
+
         profs_qs = Professor.objects.filter(escola=escola, ativo=True).order_by('nome')
         professores = []
         for p in profs_qs:
+            p_id_str = str(p.id)
             professores.append({
-                'id': str(p.id),
+                'id': p_id_str,
                 'nome': p.nome,
                 'codigo': p.codigo or '',
                 'especialidade': p.especialidade or '',
-                'email': p.email or ''
+                'email': p.email or '',
+                'disciplinas_alocadas': sorted(list(alocs_map.get(p_id_str, set())))
             })
 
         # 3. Configurações atuais de professores autorizados e regime de lançamento
@@ -1408,6 +1368,7 @@ class ProfessoresAutorizadosExamesView(APIView):
         return Response({
             'success': True,
             'classes_com_exame': classes_exame,
+            'disciplinas_com_exame': disciplinas_com_exame,
             'professores': professores,
             'autorizacoes': profs_autorizados,
             'modo_permissao': modo_permissao,
@@ -1453,12 +1414,14 @@ class ProfessoresAutorizadosExamesView(APIView):
             p_id = item.get('professor_id')
             p_nome = item.get('professor_nome', '')
             classes = item.get('classes', [])
+            disciplinas = item.get('disciplinas', [])
             ativo = item.get('ativo', True)
-            if p_id and classes:
+            if p_id and (classes or disciplinas):
                 novas_autorizacoes.append({
                     'professor_id': str(p_id),
                     'professor_nome': p_nome,
                     'classes': [str(c).strip() for c in classes if str(c).strip()],
+                    'disciplinas': [str(d).strip() for d in disciplinas if str(d).strip()],
                     'ativo': bool(ativo),
                     'autorizado_por': autorizado_por,
                     'data_autorizacao': data_agora
