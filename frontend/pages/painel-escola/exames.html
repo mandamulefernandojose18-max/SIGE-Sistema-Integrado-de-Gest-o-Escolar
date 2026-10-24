@@ -297,62 +297,140 @@
 
           <!-- Content da Matriz (Visível apenas quando 'ALGUNS_PROFESSORES' está ativo) -->
           <div id="containerMatrizProfessoresClasses">
-            <!-- Classes com exame identificadas automaticamente -->
-            <div class="card bg-white border p-3 mb-3">
-              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <!-- Abas de Gestão de Permissões: Por Grupo de Disciplina vs Matriz por Professor -->
+            <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-primary fw-bold" id="btnAbaGrupoDisciplina" onclick="alternarAbaPermissoesExame('disciplina')">
+                  <i class="bi bi-folder-check me-1"></i>Por Grupo de Disciplina (Parcial)
+                </button>
+                <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnAbaPorProfessor" onclick="alternarAbaPermissoesExame('professor')">
+                  <i class="bi bi-person-lines-fill me-1"></i>Matriz Geral por Professor
+                </button>
+              </div>
+              <div class="small text-muted" id="modalExameBadgesClassesWrapper">
+                <span class="fw-semibold text-dark me-1">Classes com Exame:</span>
+                <span id="modalExameBadgesClasses" class="d-inline-flex flex-wrap gap-1"></span>
+              </div>
+            </div>
+
+            <!-- PAINEL 1: POR GRUPO DE DISCIPLINA (Foco: num grupo de professores de uma certa disciplina, quem ou quais devem lançar) -->
+            <div id="painelPermissaoGrupoDisciplina">
+              <div class="alert alert-light border small text-muted mb-3 py-2 d-flex align-items-center">
+                <i class="bi bi-info-circle-fill text-primary fs-5 me-2 flex-shrink-0"></i>
                 <div>
-                  <span class="small fw-bold text-dark d-block">
-                    <i class="bi bi-layers-fill text-primary me-1"></i>Classes com Exame na Instituição (Detectadas Automaticamente):
-                  </span>
-                  <span class="text-muted small">Todas as classes com exame configurado aparecem abaixo como colunas para indicação de professores.</span>
+                  <strong>Delegação Parcial por Disciplina:</strong> Selecione a disciplina com exame abaixo para definir, no respectivo <strong>grupo de professores dessa disciplina</strong>, quem ou quais professores estão autorizados a lançar notas de exame e em quais classes.
                 </div>
-                <div id="modalExameBadgesClasses" class="d-flex flex-wrap gap-1">
-                  <span class="badge bg-secondary">A carregar classes...</span>
+              </div>
+
+              <!-- Seletor em Pills de Disciplinas com Exame -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="bi bi-journal-bookmark-fill text-primary me-1"></i>Disciplinas com Exame na Instituição:
+                </label>
+                <div class="d-flex flex-wrap gap-1 p-2 bg-light border rounded" id="containerBotoesDisciplinasExame">
+                  <div class="spinner-border spinner-border-sm text-primary my-1" role="status"></div>
+                </div>
+              </div>
+
+              <!-- Caixa do Grupo de Disciplina Ativo -->
+              <div class="card border shadow-none bg-white mb-3" id="cardGrupoDisciplinaAtiva">
+                <div class="card-header bg-light py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary fs-6 px-2 py-1" id="badgeNomeDisciplinaAtiva">Matemática</span>
+                    <span class="badge bg-secondary small" id="badgeClassesDisciplinaAtiva">10ª Classe, 12ª Classe</span>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="marcarTodosProfessoresGrupoAtivo(true)">
+                      <i class="bi bi-check-all me-1"></i>Autorizar Todos do Grupo
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="marcarTodosProfessoresGrupoAtivo(false)">
+                      <i class="bi bi-x me-1"></i>Revogar Todos do Grupo
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div class="table-responsive" style="max-height: 290px;">
+                    <table class="table table-hover table-sm align-middle mb-0 text-center" id="tabelaGrupoDisciplinaAtiva">
+                      <thead class="table-light sticky-top">
+                        <tr>
+                          <th class="text-start ps-3" style="min-width: 180px;">Professor do Grupo</th>
+                          <th style="min-width: 110px;">Especialidade</th>
+                          <th style="min-width: 120px;">Autorização</th>
+                          <th style="min-width: 150px;">Classes Autorizadas</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbodyGrupoDisciplinaAtiva">
+                        <!-- Inserido dinamicamente -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <!-- Rodapé para adicionar outro professor que não pertença primariamente a este grupo -->
+                <div class="card-footer bg-light py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 480px;">
+                    <label class="small text-muted text-nowrap mb-0"><i class="bi bi-person-plus-fill text-success me-1"></i>Incluir outro docente neste grupo:</label>
+                    <select class="form-select form-select-sm" id="selectAdicionarDocenteGrupo">
+                      <option value="">Selecionar professor da instituição...</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-success text-nowrap" onclick="adicionarProfessorAoGrupoAtivo()">
+                      Adicionar
+                    </button>
+                  </div>
+                  <div class="small text-muted" id="contadorGrupoDisciplinaInfo">
+                    0 autorizados nesta disciplina
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Barra de Pesquisa de Professores e Ações Rápidas -->
-            <div class="row g-2 align-items-center mb-3">
-              <div class="col">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                  <input type="text" id="filtroProfessoresExameInput" class="form-control" placeholder="Filtrar professor por nome, código ou especialidade..." oninput="filtrarTabelaProfessoresExame()">
+            <!-- PAINEL 2: MATRIZ GERAL POR PROFESSOR -->
+            <div id="painelPermissaoPorProfessor" class="d-none">
+              <!-- Barra de Pesquisa de Professores e Ações Rápidas -->
+              <div class="row g-2 align-items-center mb-3">
+                <div class="col">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="filtroProfessoresExameInput" class="form-control" placeholder="Filtrar professor por nome, código ou especialidade..." oninput="filtrarTabelaProfessoresExame()">
+                  </div>
+                </div>
+                <div class="col-auto">
+                  <button type="button" class="btn btn-outline-primary btn-sm" onclick="marcarTodosProfessoresTodasClasses(true)" title="Autorizar todos os professores em todas as classes com exame">
+                    <i class="bi bi-check-all me-1"></i> Autorizar Todos
+                  </button>
+                  <button type="button" class="btn btn-outline-danger btn-sm ms-1" onclick="marcarTodosProfessoresTodasClasses(false)" title="Revogar autorizações de todos os professores">
+                    <i class="bi bi-x me-1"></i> Revogar Todos
+                  </button>
                 </div>
               </div>
-              <div class="col-auto">
-                <button type="button" class="btn btn-outline-primary btn-sm" onclick="marcarTodosProfessoresTodasClasses(true)" title="Autorizar todos os professores em todas as classes com exame">
-                  <i class="bi bi-check-all me-1"></i> Autorizar Todos
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm ms-1" onclick="marcarTodosProfessoresTodasClasses(false)" title="Revogar autorizações de todos os professores">
-                  <i class="bi bi-x me-1"></i> Revogar Todos
-                </button>
+
+              <!-- Tabela de Atribuição de Professores x Classes e Disciplinas -->
+              <div class="table-responsive border rounded" style="max-height: 340px;">
+                <table class="table table-hover table-sm align-middle mb-0 text-center" id="tabelaProfessoresExameModal">
+                  <thead class="table-light sticky-top">
+                    <tr id="theadProfessoresExameRow">
+                      <th class="text-start ps-3" style="min-width: 170px;">Professor</th>
+                      <th style="min-width: 110px;">Especialidade</th>
+                      <th style="min-width: 180px;">Disciplinas Autorizadas</th>
+                      <!-- Colunas Dinâmicas de Classes -->
+                      <th style="min-width: 90px;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyProfessoresExameModal">
+                    <tr>
+                      <td colspan="5" class="py-4 text-center text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        A carregar lista de professores e classes com exame...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            <!-- Tabela de Atribuição de Professores x Classes -->
-            <div class="table-responsive border rounded" style="max-height: 380px;">
-              <table class="table table-hover table-sm align-middle mb-0 text-center" id="tabelaProfessoresExameModal">
-                <thead class="table-light sticky-top">
-                  <tr id="theadProfessoresExameRow">
-                    <th class="text-start ps-3" style="min-width: 200px;">Professor</th>
-                    <th style="min-width: 120px;">Especialidade</th>
-                    <!-- Dynamic Columns for each Class with exam will be inserted here -->
-                    <th style="min-width: 100px;">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyProfessoresExameModal">
-                  <tr>
-                    <td colspan="5" class="py-4 text-center text-muted">
-                      <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                      A carregar lista de professores e classes com exame...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="small text-muted mt-2 text-end" id="contadorProfessoresAutorizadosInfo">
-              0 professor(es) autorizado(s)
+            <!-- Resumo e Contadores Globais -->
+            <div class="small text-muted mt-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <span id="contadorProfessoresAutorizadosInfo">0 professor(es) autorizado(s)</span>
+              <span id="resumoDisciplinasDelegadasInfo" class="badge bg-light text-primary border">Carregando...</span>
             </div>
           </div>
         </div>

@@ -416,9 +416,14 @@ class TestPautasEDocumentos:
         AlocacaoDocente.objects.create(escola=self.escola, professor=prof_mat2, disciplina=self.disc1, turma=self.turma)
         AlocacaoDocente.objects.create(escola=self.escola, professor=prof_fis, disciplina=self.disc2, turma=self.turma)
 
-        # Usuários para autenticar os professores
-        u_mat1 = Usuario.objects.create_user(email='prof.mat1@escola.mz', password='PassProf123!', role='PROFESSOR', escola=self.escola, professor_id=prof_mat1.id)
-        u_mat2 = Usuario.objects.create_user(email='prof.mat2@escola.mz', password='PassProf123!', role='PROFESSOR', escola=self.escola, professor_id=prof_mat2.id)
+        # Os usuários dos professores são criados automaticamente no save de Professor com senha = codigo
+        u_mat1 = Usuario.objects.filter(professor_id=prof_mat1.id).first()
+        u_mat1.set_password('PassProf123!')
+        u_mat1.save()
+
+        u_mat2 = Usuario.objects.filter(professor_id=prof_mat2.id).first()
+        u_mat2.set_password('PassProf123!')
+        u_mat2.save()
 
         # 2. Consultar endpoint de professores autorizados (como admin)
         res_profs = self.client.get('/api/v1/pautas/exames/professores-autorizados/')
@@ -447,7 +452,7 @@ class TestPautasEDocumentos:
         assert res_save_perm.data['autorizacoes'][0]['disciplinas'] == ['Matemática']
 
         # 4. Prof Mat 1 (autorizado parcialmente para Matemática) consulta a pauta da turma
-        login_mat1 = self.client.post('/api/v1/auth/login/', {'email': 'prof.mat1@escola.mz', 'password': 'PassProf123!'}, format='json')
+        login_mat1 = self.client.post('/api/v1/auth/login/', {'email': u_mat1.email, 'password': 'PassProf123!'}, format='json')
         client_mat1 = APIClient()
         client_mat1.credentials(HTTP_AUTHORIZATION=f"Bearer {login_mat1.data['token']}")
 
@@ -473,7 +478,7 @@ class TestPautasEDocumentos:
         assert res_post_notas.data['salvos'] == 1
 
         # 6. Prof Mat 2 (mesmo grupo de disciplina, mas NÃO autorizado pelo DAP) é bloqueado
-        login_mat2 = self.client.post('/api/v1/auth/login/', {'email': 'prof.mat2@escola.mz', 'password': 'PassProf123!'}, format='json')
+        login_mat2 = self.client.post('/api/v1/auth/login/', {'email': u_mat2.email, 'password': 'PassProf123!'}, format='json')
         client_mat2 = APIClient()
         client_mat2.credentials(HTTP_AUTHORIZATION=f"Bearer {login_mat2.data['token']}")
 

@@ -1,8 +1,8 @@
 {
-  "version": "2.5.3",
-  "build": "20261024_1700",
+  "version": "2.5.4",
+  "build": "20261024_1802",
   "data": "2026-10-24",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Padronização visual das notas: valores livres sem pintura de fundo, notas negativas a vermelho e notas positivas a preto."
+  "novidades": "Permissões de lançamento de notas de exame com suporte a delegação parcial por grupo de disciplina e classe."
 }

@@ -19275,12 +19275,16 @@ window.atualizarCamposParametrosExameNaInterface = atualizarCamposParametrosExam
 
 // =====================================================================
 // DELEGAÇÃO DE PERMISSÕES DE LANÇAMENTO DE EXAMES (DIRECTOR PEDAGÓGICO)
+// SUPORTE A REGIME INTEGRAL E PARCIAL POR GRUPO DE DISCIPLINA E CLASSE
 // =====================================================================
 
 let _professoresExameCache = [];
 let _classesExameCache = [];
-let _autorizacoesExameCache = new Map();
+let _disciplinasExameCache = [];
+let _autorizacoesExameCache = new Map(); // profId -> { professor_id, professor_nome, classes: Set(), disciplinas: Set(), ativo: true }
 let _modoPermissaoExames = 'ALGUNS_PROFESSORES';
+let _abaAtivaPermissoesExame = 'disciplina'; // 'disciplina' ou 'professor'
+let _disciplinaAtivaPermissoes = null;
 
 function selecionarModoPermissaoExame(modo) {
   _modoPermissaoExames = modo || 'ALGUNS_PROFESSORES';
@@ -19331,27 +19335,61 @@ function selecionarModoPermissaoExame(modo) {
   }
 }
 
+function alternarAbaPermissoesExame(aba) {
+  _abaAtivaPermissoesExame = aba || 'disciplina';
+
+  const btnDisc = document.getElementById('btnAbaGrupoDisciplina');
+  const btnProf = document.getElementById('btnAbaPorProfessor');
+  const painelDisc = document.getElementById('painelPermissaoGrupoDisciplina');
+  const painelProf = document.getElementById('painelPermissaoPorProfessor');
+
+  if (_abaAtivaPermissoesExame === 'disciplina') {
+    if (btnDisc) {
+      btnDisc.className = 'btn btn-primary fw-bold';
+    }
+    if (btnProf) {
+      btnProf.className = 'btn btn-outline-secondary fw-semibold';
+    }
+    if (painelDisc) painelDisc.classList.remove('d-none');
+    if (painelProf) painelProf.classList.add('d-none');
+    renderizarPainelGrupoDisciplina();
+  } else {
+    if (btnDisc) {
+      btnDisc.className = 'btn btn-outline-secondary fw-semibold';
+    }
+    if (btnProf) {
+      btnProf.className = 'btn btn-primary fw-bold';
+    }
+    if (painelDisc) painelDisc.classList.add('d-none');
+    if (painelProf) painelProf.classList.remove('d-none');
+    renderizarLinhasProfessoresModalExame();
+  }
+}
+
 async function abrirModalProfessoresExame() {
   const modalEl = document.getElementById('modalProfessoresExame');
   if (!modalEl) return;
 
-  const bsModal = new bootstrap.Modal(modalEl);
+  const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
   bsModal.show();
 
   const tbody = document.getElementById('tbodyProfessoresExameModal');
   const theadRow = document.getElementById('theadProfessoresExameRow');
   const badgesBox = document.getElementById('modalExameBadgesClasses');
-  const contadorInfo = document.getElementById('contadorProfessoresAutorizadosInfo');
+  const containerDiscs = document.getElementById('containerBotoesDisciplinasExame');
 
   if (tbody) {
     tbody.innerHTML = `
       <tr>
         <td colspan="5" class="py-4 text-center text-muted">
           <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-          A carregar professores e classes com exame da instituição...
+          A carregar professores, disciplinas e classes com exame da instituição...
         </td>
       </tr>
     `;
+  }
+  if (containerDiscs) {
+    containerDiscs.innerHTML = '<div class="spinner-border spinner-border-sm text-primary my-1" role="status"></div>';
   }
 
   try {
@@ -19362,6 +19400,7 @@ async function abrirModalProfessoresExame() {
 
     _professoresExameCache = data.professores || [];
     _classesExameCache = data.classes_com_exame || ['10ª Classe', '12ª Classe'];
+    _disciplinasExameCache = data.disciplinas_com_exame || [];
     _autorizacoesExameCache.clear();
 
     const modo = data.modo_permissao || 'ALGUNS_PROFESSORES';
@@ -19370,31 +19409,49 @@ async function abrirModalProfessoresExame() {
     const autorizacoes = data.autorizacoes || [];
     autorizacoes.forEach(a => {
       if (a.professor_id && a.ativo !== false) {
-        _autorizacoesExameCache.set(String(a.professor_id), new Set(a.classes || []));
+        const pId = String(a.professor_id);
+        _autorizacoesExameCache.set(pId, {
+          professor_id: pId,
+          professor_nome: a.professor_nome || '',
+          classes: new Set(a.classes || []),
+          disciplinas: new Set(a.disciplinas || []),
+          ativo: true
+        });
       }
     });
 
-    // Renderizar badges das classes com exame disponíveis automaticamente
+    // Renderizar badges das classes com exame detectadas
     if (badgesBox) {
       badgesBox.innerHTML = _classesExameCache.map(c => `
         <span class="badge bg-primary px-2 py-1"><i class="bi bi-mortarboard me-1"></i>${c}</span>
       `).join(' ');
     }
 
-    // Renderizar cabeçalho da tabela com colunas dinâmicas para cada classe com exame
+    // Selecionar primeira disciplina com exame
+    if (_disciplinasExameCache.length > 0 && !_disciplinaAtivaPermissoes) {
+      _disciplinaAtivaPermissoes = _disciplinasExameCache[0].nome;
+    }
+
+    // Popular select de docentes para inclusão em grupos
+    popularSelectDocentesGrupo();
+
+    // Renderizar cabeçalho da tabela com colunas dinâmicas para cada classe com exame na Matriz por Professor
     if (theadRow) {
       let ths = `
-        <th class="text-start ps-3" style="min-width: 200px;">Professor</th>
-        <th style="min-width: 120px;">Especialidade</th>
+        <th class="text-start ps-3" style="min-width: 170px;">Professor</th>
+        <th style="min-width: 110px;">Especialidade</th>
+        <th style="min-width: 180px;">Disciplinas com Exame</th>
       `;
       _classesExameCache.forEach(c => {
-        ths += `<th class="text-center" style="min-width: 100px;"><i class="bi bi-check2-circle text-primary me-1"></i>${c}</th>`;
+        ths += `<th class="text-center" style="min-width: 90px;"><i class="bi bi-check2-circle text-primary me-1"></i>${c}</th>`;
       });
-      ths += `<th style="min-width: 110px;">Ações Rápidas</th>`;
+      ths += `<th style="min-width: 90px;">Ações</th>`;
       theadRow.innerHTML = ths;
     }
 
-    renderizarLinhasProfessoresModalExame();
+    // Renderizar a aba ativa
+    alternarAbaPermissoesExame(_abaAtivaPermissoesExame || 'disciplina');
+    atualizarContadoresGlobais();
 
   } catch (err) {
     console.error('Erro ao abrir modal de professores autorizados:', err);
@@ -19402,7 +19459,7 @@ async function abrirModalProfessoresExame() {
       tbody.innerHTML = `
         <tr>
           <td colspan="5" class="py-3 text-center text-danger">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i> Não foi possível carregar os dados de professores e classes.
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Não foi possível carregar os dados de professores e disciplinas.
           </td>
         </tr>
       `;
@@ -19410,9 +19467,250 @@ async function abrirModalProfessoresExame() {
   }
 }
 
+function popularSelectDocentesGrupo() {
+  const sel = document.getElementById('selectAdicionarDocenteGrupo');
+  if (!sel) return;
+
+  let opts = '<option value="">Selecionar professor da instituição...</option>';
+  _professoresExameCache.forEach(p => {
+    opts += `<option value="${p.id}">${p.nome} (${p.especialidade || p.codigo || 'Docente'})</option>`;
+  });
+  sel.innerHTML = opts;
+}
+
+function renderizarPainelGrupoDisciplina() {
+  renderizarBotoesDisciplinasExame();
+  renderizarGrupoDisciplinaAtiva();
+  atualizarContadoresGlobais();
+}
+
+function renderizarBotoesDisciplinasExame() {
+  const container = document.getElementById('containerBotoesDisciplinasExame');
+  if (!container) return;
+
+  if (_disciplinasExameCache.length === 0) {
+    container.innerHTML = '<span class="text-muted small">Nenhuma disciplina com exame cadastrada.</span>';
+    return;
+  }
+
+  let html = '';
+  _disciplinasExameCache.forEach(d => {
+    const isAtiva = (_disciplinaAtivaPermissoes === d.nome);
+    // Calcular quantos professores estão autorizados para esta disciplina
+    let countAut = 0;
+    _autorizacoesExameCache.forEach(aut => {
+      if (aut && (aut.disciplinas.has(d.nome) || aut.disciplinas.size === 0) && aut.classes.size > 0) {
+        countAut++;
+      }
+    });
+
+    const badgeCls = isAtiva ? 'bg-white text-primary' : (countAut > 0 ? 'bg-primary text-white' : 'bg-light text-muted border');
+    const btnCls = isAtiva ? 'btn-primary shadow-sm' : 'btn-outline-primary';
+
+    html += `
+      <button type="button" class="btn ${btnCls} btn-sm py-1 px-2 text-nowrap d-flex align-items-center gap-1"
+        onclick="selecionarDisciplinaPermissoes('${d.nome}')">
+        <i class="bi bi-journal-text"></i>
+        <span>${d.nome}</span>
+        <span class="badge ${badgeCls} rounded-pill" style="font-size: 0.72rem;">${countAut}</span>
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function selecionarDisciplinaPermissoes(discNome) {
+  _disciplinaAtivaPermissoes = discNome;
+  renderizarPainelGrupoDisciplina();
+}
+
+function renderizarGrupoDisciplinaAtiva() {
+  const disc = _disciplinasExameCache.find(d => d.nome === _disciplinaAtivaPermissoes) || _disciplinasExameCache[0];
+  if (!disc) return;
+
+  _disciplinaAtivaPermissoes = disc.nome;
+
+  const badgeNome = document.getElementById('badgeNomeDisciplinaAtiva');
+  const badgeClasses = document.getElementById('badgeClassesDisciplinaAtiva');
+  const tbody = document.getElementById('tbodyGrupoDisciplinaAtiva');
+  const contadorInfo = document.getElementById('contadorGrupoDisciplinaInfo');
+
+  if (badgeNome) badgeNome.textContent = disc.nome;
+  if (badgeClasses) badgeClasses.textContent = (disc.classes || _classesExameCache).join(', ');
+
+  // Montar lista de professores pertencentes a este grupo:
+  // 1. Professores do grupo da disciplina (por especialidade ou alocação)
+  const profIdsSet = new Set((disc.professores_ids || []).map(String));
+
+  // 2. Professores já autorizados nesta disciplina
+  _autorizacoesExameCache.forEach((aut, pId) => {
+    if (aut && aut.disciplinas.has(disc.nome)) {
+      profIdsSet.add(String(pId));
+    }
+  });
+
+  // Converter para objetos completos
+  const listaProfsGrupo = _professoresExameCache.filter(p => profIdsSet.has(String(p.id)));
+
+  if (!tbody) return;
+
+  if (listaProfsGrupo.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="py-4 text-center text-muted">
+          <div><i class="bi bi-people fs-4 text-secondary d-block mb-1"></i>Nenhum professor alocado ou com especialidade em ${disc.nome}.</div>
+          <small class="text-primary">Utilize o campo abaixo para incluir professores da escola neste grupo de disciplina.</small>
+        </td>
+      </tr>
+    `;
+    if (contadorInfo) contadorInfo.textContent = `0 autorizados em ${disc.nome}`;
+    return;
+  }
+
+  let totalAutorizadosDisc = 0;
+  let trs = '';
+
+  listaProfsGrupo.forEach(p => {
+    const pId = String(p.id);
+    const aut = _autorizacoesExameCache.get(pId);
+    const isAutorizadoDisc = Boolean(aut && (aut.disciplinas.has(disc.nome) || aut.disciplinas.size === 0) && aut.classes.size > 0);
+
+    if (isAutorizadoDisc) totalAutorizadosDisc++;
+
+    const classesDaDisc = (disc.classes && disc.classes.length > 0) ? disc.classes : _classesExameCache;
+    let checkboxesClasses = '';
+
+    classesDaDisc.forEach(c => {
+      const temClasse = Boolean(aut && (aut.classes.has(c) || aut.classes.size === 0));
+      checkboxesClasses += `
+        <div class="form-check form-check-inline m-0 me-2">
+          <input class="form-check-input chk-classe-prof-disc" type="checkbox"
+            id="chk_c_${pId}_${disc.nome}_${c}"
+            ${temClasse && isAutorizadoDisc ? 'checked' : ''}
+            ${!isAutorizadoDisc ? 'disabled' : ''}
+            onchange="aoAlternarClasseProfDisciplina('${pId}', '${disc.nome}', '${c}', this.checked)">
+          <label class="form-check-label x-small cursor-pointer" for="chk_c_${pId}_${disc.nome}_${c}">
+            ${c}
+          </label>
+        </div>
+      `;
+    });
+
+    trs += `
+      <tr class="${isAutorizadoDisc ? 'table-primary bg-opacity-10' : ''}">
+        <td class="text-start ps-3 align-middle">
+          <div class="fw-bold text-dark">${p.nome}</div>
+          <small class="text-muted font-monospace">${p.codigo || 'Docente'}</small>
+        </td>
+        <td class="align-middle text-muted small">${p.especialidade || '---'}</td>
+        <td class="align-middle">
+          <div class="form-check form-switch d-inline-block m-0">
+            <input class="form-check-input" type="checkbox" role="switch"
+              style="cursor: pointer; width: 34px; height: 18px;"
+              id="switch_aut_${pId}_${disc.nome}"
+              ${isAutorizadoDisc ? 'checked' : ''}
+              onchange="aoAlternarPermissaoProfDisciplina('${pId}', '${disc.nome}', this.checked)">
+            <label class="form-check-label small ms-1 ${isAutorizadoDisc ? 'text-primary fw-bold' : 'text-muted'}" for="switch_aut_${pId}_${disc.nome}">
+              ${isAutorizadoDisc ? 'Autorizado' : 'Não autorizado'}
+            </label>
+          </div>
+        </td>
+        <td class="align-middle text-start ps-2">
+          ${checkboxesClasses}
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = trs;
+
+  if (contadorInfo) {
+    contadorInfo.innerHTML = `<strong>${totalAutorizadosDisc}</strong> de <strong>${listaProfsGrupo.length}</strong> professor(es) autorizados em ${disc.nome}`;
+  }
+}
+
+function aoAlternarPermissaoProfDisciplina(pId, discNome, isChecked) {
+  const pIdStr = String(pId);
+  const prof = _professoresExameCache.find(p => String(p.id) === pIdStr);
+
+  if (!_autorizacoesExameCache.has(pIdStr)) {
+    _autorizacoesExameCache.set(pIdStr, {
+      professor_id: pIdStr,
+      professor_nome: prof?.nome || '',
+      classes: new Set(_classesExameCache),
+      disciplinas: new Set(),
+      ativo: true
+    });
+  }
+
+  const aut = _autorizacoesExameCache.get(pIdStr);
+
+  if (isChecked) {
+    aut.disciplinas.add(discNome);
+    if (aut.classes.size === 0) {
+      _classesExameCache.forEach(c => aut.classes.add(c));
+    }
+  } else {
+    aut.disciplinas.delete(discNome);
+    if (aut.disciplinas.size === 0) {
+      _autorizacoesExameCache.delete(pIdStr);
+    }
+  }
+
+  renderizarPainelGrupoDisciplina();
+}
+
+function aoAlternarClasseProfDisciplina(pId, discNome, classe, isChecked) {
+  const pIdStr = String(pId);
+  const aut = _autorizacoesExameCache.get(pIdStr);
+  if (!aut) return;
+
+  if (isChecked) {
+    aut.classes.add(classe);
+    aut.disciplinas.add(discNome);
+  } else {
+    aut.classes.delete(classe);
+  }
+
+  renderizarPainelGrupoDisciplina();
+}
+
+function adicionarProfessorAoGrupoAtivo() {
+  const sel = document.getElementById('selectAdicionarDocenteGrupo');
+  const profId = sel?.value;
+  if (!profId) {
+    if (typeof mostrarToast === 'function') mostrarToast('Selecione um professor para incluir.', 'warning');
+    return;
+  }
+
+  aoAlternarPermissaoProfDisciplina(profId, _disciplinaAtivaPermissoes, true);
+  if (sel) sel.value = '';
+
+  const prof = _professoresExameCache.find(p => String(p.id) === String(profId));
+  if (typeof mostrarToast === 'function') {
+    mostrarToast(`${prof?.nome || 'Professor'} incluído e autorizado para ${_disciplinaAtivaPermissoes}!`, 'success');
+  }
+}
+
+function marcarTodosProfessoresGrupoAtivo(marcar) {
+  const disc = _disciplinasExameCache.find(d => d.nome === _disciplinaAtivaPermissoes);
+  if (!disc) return;
+
+  const profIdsSet = new Set((disc.professores_ids || []).map(String));
+  _autorizacoesExameCache.forEach((aut, pId) => {
+    if (aut && aut.disciplinas.has(disc.nome)) profIdsSet.add(String(pId));
+  });
+
+  profIdsSet.forEach(pId => {
+    aoAlternarPermissaoProfDisciplina(pId, disc.nome, marcar);
+  });
+
+  renderizarPainelGrupoDisciplina();
+}
+
 function renderizarLinhasProfessoresModalExame() {
   const tbody = document.getElementById('tbodyProfessoresExameModal');
-  const contadorInfo = document.getElementById('contadorProfessoresAutorizadosInfo');
   if (!tbody) return;
 
   const termo = (document.getElementById('filtroProfessoresExameInput')?.value || '').toLowerCase().trim();
@@ -19426,7 +19724,7 @@ function renderizarLinhasProfessoresModalExame() {
   if (profsFiltrados.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="${_classesExameCache.length + 3}" class="py-4 text-center text-muted">
+        <td colspan="${_classesExameCache.length + 4}" class="py-4 text-center text-muted">
           Nenhum professor encontrado com os critérios de pesquisa.
         </td>
       </tr>
@@ -19434,20 +19732,12 @@ function renderizarLinhasProfessoresModalExame() {
     return;
   }
 
-  let totalAutorizados = 0;
-  _professoresExameCache.forEach(p => {
-    const s = _autorizacoesExameCache.get(String(p.id));
-    if (s && s.size > 0) totalAutorizados++;
-  });
-
-  if (contadorInfo) {
-    contadorInfo.innerHTML = `<strong>${totalAutorizados}</strong> de <strong>${_professoresExameCache.length}</strong> professor(es) com autorização activa.`;
-  }
-
   let trs = '';
   profsFiltrados.forEach(p => {
     const pId = String(p.id);
-    const classesAutorizadas = _autorizacoesExameCache.get(pId) || new Set();
+    const aut = _autorizacoesExameCache.get(pId);
+    const classesAutorizadas = aut ? aut.classes : new Set();
+    const discsAutorizadas = aut ? aut.disciplinas : new Set();
 
     let tdsClasses = '';
     _classesExameCache.forEach(c => {
@@ -19463,6 +19753,18 @@ function renderizarLinhasProfessoresModalExame() {
       `;
     });
 
+    // Disciplinas badges ou seletor rápido
+    let badgesDiscs = '';
+    if (discsAutorizadas.size === 0 && classesAutorizadas.size > 0) {
+      badgesDiscs = '<span class="badge bg-success bg-opacity-75">Todas as Disciplinas</span>';
+    } else if (discsAutorizadas.size === 0) {
+      badgesDiscs = '<span class="text-muted small">Nenhuma disciplina</span>';
+    } else {
+      badgesDiscs = Array.from(discsAutorizadas).map(d => `
+        <span class="badge bg-primary bg-opacity-75 py-1 px-2 m-1" style="font-size: 0.73rem;">${d}</span>
+      `).join('');
+    }
+
     trs += `
       <tr id="linha_prof_perm_${pId}">
         <td class="text-start ps-3 align-middle">
@@ -19470,6 +19772,11 @@ function renderizarLinhasProfessoresModalExame() {
           <small class="text-muted font-monospace">${p.codigo || 'Docente'}</small>
         </td>
         <td class="align-middle text-muted small">${p.especialidade || '---'}</td>
+        <td class="align-middle text-center">
+          <div class="d-flex flex-wrap justify-content-center align-items-center">
+            ${badgesDiscs}
+          </div>
+        </td>
         ${tdsClasses}
         <td class="align-middle">
           <div class="btn-group btn-group-sm">
@@ -19486,30 +19793,54 @@ function renderizarLinhasProfessoresModalExame() {
   });
 
   tbody.innerHTML = trs;
+  atualizarContadoresGlobais();
 }
 
 function aoAlternarPermissaoClasseProf(pId, classe, isChecked) {
-  if (!_autorizacoesExameCache.has(pId)) {
-    _autorizacoesExameCache.set(pId, new Set());
+  const pIdStr = String(pId);
+  const prof = _professoresExameCache.find(p => String(p.id) === pIdStr);
+
+  if (!_autorizacoesExameCache.has(pIdStr)) {
+    _autorizacoesExameCache.set(pIdStr, {
+      professor_id: pIdStr,
+      professor_nome: prof?.nome || '',
+      classes: new Set(),
+      disciplinas: new Set(),
+      ativo: true
+    });
   }
-  const setClasses = _autorizacoesExameCache.get(pId);
+  const aut = _autorizacoesExameCache.get(pIdStr);
   if (isChecked) {
-    setClasses.add(classe);
+    aut.classes.add(classe);
   } else {
-    setClasses.delete(classe);
+    aut.classes.delete(classe);
+    if (aut.classes.size === 0 && aut.disciplinas.size === 0) {
+      _autorizacoesExameCache.delete(pIdStr);
+    }
   }
-  atualizarContadorModalProfessores();
+  atualizarContadoresGlobais();
 }
 
 function marcarClassesDoProfessor(pId, marcar) {
-  if (!_autorizacoesExameCache.has(pId)) {
-    _autorizacoesExameCache.set(pId, new Set());
+  const pIdStr = String(pId);
+  const prof = _professoresExameCache.find(p => String(p.id) === pIdStr);
+
+  if (!_autorizacoesExameCache.has(pIdStr)) {
+    _autorizacoesExameCache.set(pIdStr, {
+      professor_id: pIdStr,
+      professor_nome: prof?.nome || '',
+      classes: new Set(),
+      disciplinas: new Set(),
+      ativo: true
+    });
   }
-  const setClasses = _autorizacoesExameCache.get(pId);
+  const aut = _autorizacoesExameCache.get(pIdStr);
   if (marcar) {
-    _classesExameCache.forEach(c => setClasses.add(c));
+    _classesExameCache.forEach(c => aut.classes.add(c));
   } else {
-    setClasses.clear();
+    aut.classes.clear();
+    aut.disciplinas.clear();
+    _autorizacoesExameCache.delete(pIdStr);
   }
   renderizarLinhasProfessoresModalExame();
 }
@@ -19518,13 +19849,21 @@ function marcarTodosProfessoresTodasClasses(marcar) {
   _professoresExameCache.forEach(p => {
     const pId = String(p.id);
     if (!_autorizacoesExameCache.has(pId)) {
-      _autorizacoesExameCache.set(pId, new Set());
+      _autorizacoesExameCache.set(pId, {
+        professor_id: pId,
+        professor_nome: p.nome,
+        classes: new Set(),
+        disciplinas: new Set(),
+        ativo: true
+      });
     }
-    const setClasses = _autorizacoesExameCache.get(pId);
+    const aut = _autorizacoesExameCache.get(pId);
     if (marcar) {
-      _classesExameCache.forEach(c => setClasses.add(c));
+      _classesExameCache.forEach(c => aut.classes.add(c));
     } else {
-      setClasses.clear();
+      aut.classes.clear();
+      aut.disciplinas.clear();
+      _autorizacoesExameCache.delete(pId);
     }
   });
   renderizarLinhasProfessoresModalExame();
@@ -19534,15 +19873,31 @@ function filtrarTabelaProfessoresExame() {
   renderizarLinhasProfessoresModalExame();
 }
 
-function atualizarContadorModalProfessores() {
+function atualizarContadoresGlobais() {
   let totalAutorizados = 0;
-  _professoresExameCache.forEach(p => {
-    const s = _autorizacoesExameCache.get(String(p.id));
-    if (s && s.size > 0) totalAutorizados++;
+  let totalComDisciplinaEspecifica = 0;
+
+  _autorizacoesExameCache.forEach(aut => {
+    if (aut && (aut.classes.size > 0 || aut.disciplinas.size > 0)) {
+      totalAutorizados++;
+      if (aut.disciplinas.size > 0) totalComDisciplinaEspecifica++;
+    }
   });
+
   const contadorInfo = document.getElementById('contadorProfessoresAutorizadosInfo');
   if (contadorInfo) {
     contadorInfo.innerHTML = `<strong>${totalAutorizados}</strong> de <strong>${_professoresExameCache.length}</strong> professor(es) com autorização activa.`;
+  }
+
+  const badgeDelegadas = document.getElementById('resumoDisciplinasDelegadasInfo');
+  if (badgeDelegadas) {
+    if (totalComDisciplinaEspecifica > 0) {
+      badgeDelegadas.innerHTML = `<i class="bi bi-shield-check me-1"></i>${totalComDisciplinaEspecifica} docente(s) com permissão parcial por disciplina`;
+      badgeDelegadas.className = 'badge bg-primary-subtle text-primary border';
+    } else {
+      badgeDelegadas.innerHTML = `<i class="bi bi-check-all me-1"></i>Autorizações integrais por classe`;
+      badgeDelegadas.className = 'badge bg-light text-muted border';
+    }
   }
 }
 
@@ -19555,14 +19910,13 @@ async function salvarProfessoresAutorizadosExame() {
   }
 
   const payloadAutorizacoes = [];
-  _professoresExameCache.forEach(p => {
-    const pId = String(p.id);
-    const setClasses = _autorizacoesExameCache.get(pId);
-    if (setClasses && setClasses.size > 0) {
+  _autorizacoesExameCache.forEach(aut => {
+    if (aut && (aut.classes.size > 0 || aut.disciplinas.size > 0)) {
       payloadAutorizacoes.push({
-        professor_id: pId,
-        professor_nome: p.nome,
-        classes: Array.from(setClasses),
+        professor_id: aut.professor_id,
+        professor_nome: aut.professor_nome,
+        classes: Array.from(aut.classes),
+        disciplinas: Array.from(aut.disciplinas),
         ativo: true
       });
     }
@@ -19577,27 +19931,34 @@ async function salvarProfessoresAutorizadosExame() {
       })
     });
 
+    if (!json || !json.success) {
+      throw new Error(json?.message || 'Erro ao guardar permissões de exames.');
+    }
+
     if (typeof mostrarNotificacao === 'function') {
-      mostrarNotificacao(json.message || 'Permissões guardadas com sucesso!', 'success');
+      mostrarNotificacao(json.message || 'Permissões salvas com sucesso!', 'success');
     } else if (typeof mostrarToast === 'function') {
-      mostrarToast(json.message || 'Permissões guardadas com sucesso!', 'success');
+      mostrarToast(json.message || 'Permissões salvas com sucesso!', 'success');
     }
 
     const modalEl = document.getElementById('modalProfessoresExame');
     if (modalEl) {
-      const modalInst = bootstrap.Modal.getInstance(modalEl);
-      if (modalInst) modalInst.hide();
+      const bsModal = bootstrap.Modal.getInstance(modalEl);
+      if (bsModal) bsModal.hide();
     }
 
-    if (typeof carregarPautaExamesTurma === 'function') {
-      const _anoSel = document.getElementById('exameAnoSelect')?.value; if (_anoSel) carregarPautaExamesTurma();
+    // Recarregar pauta da turma selecionada para aplicar permissões imediatamente
+    const turmaId = document.getElementById('exameTurmaSelect')?.value;
+    if (turmaId) {
+      await carregarPautaExamesTurma();
     }
+
   } catch (err) {
-    console.error('Erro ao guardar autorizações de exame:', err);
+    console.error('Erro ao salvar permissões de professores de exame:', err);
     if (typeof mostrarNotificacao === 'function') {
-      mostrarNotificacao(err.message || 'Erro ao guardar autorizações', 'danger');
+      mostrarNotificacao(err.message || 'Erro ao guardar permissões.', 'error');
     } else if (typeof mostrarToast === 'function') {
-      mostrarToast(err.message || 'Erro ao guardar autorizações', 'danger');
+      mostrarToast(err.message || 'Erro ao guardar permissões.', 'error');
     }
   } finally {
     if (btn) {
@@ -19607,13 +19968,14 @@ async function salvarProfessoresAutorizadosExame() {
   }
 }
 
-window.abrirModalProfessoresExame = abrirModalProfessoresExame;
-window.renderizarLinhasProfessoresModalExame = renderizarLinhasProfessoresModalExame;
-window.aoAlternarPermissaoClasseProf = aoAlternarPermissaoClasseProf;
-window.marcarClassesDoProfessor = marcarClassesDoProfessor;
-window.marcarTodosProfessoresTodasClasses = marcarTodosProfessoresTodasClasses;
-window.filtrarTabelaProfessoresExame = filtrarTabelaProfessoresExame;
 window.salvarProfessoresAutorizadosExame = salvarProfessoresAutorizadosExame;
+window.alternarAbaPermissoesExame = alternarAbaPermissoesExame;
+window.selecionarDisciplinaPermissoes = selecionarDisciplinaPermissoes;
+window.aoAlternarPermissaoProfDisciplina = aoAlternarPermissaoProfDisciplina;
+window.aoAlternarClasseProfDisciplina = aoAlternarClasseProfDisciplina;
+window.adicionarProfessorAoGrupoAtivo = adicionarProfessorAoGrupoAtivo;
+window.marcarTodosProfessoresGrupoAtivo = marcarTodosProfessoresGrupoAtivo;
+
 
 
 // =====================================================================
