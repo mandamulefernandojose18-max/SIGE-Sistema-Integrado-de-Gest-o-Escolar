@@ -622,6 +622,10 @@ Implementado em `backend/apps/documentos/views.py`, o motor documental do SIGE g
    - Para lotes de turmas: `Boletins - 10A - 2026.pdf` ou `Declaracoes - 11B - 2026.docx`.
    - O Django REST envia os cabeçalhos em conformidade com RFC 6266 e RFC 5987 (`Content-Disposition: attachment; filename="..."; filename*=UTF-8''...`), expostos através de `CORS_EXPOSE_HEADERS = ['content-disposition', 'content-type']`, garantindo que navegadores e gestores de ficheiros salvem com o nome formatado e limpo em qualquer sistema operativo.
 
+5. **Padrão de Layout e Espaçamentos Milimétricos Oficiais (Certificados, Declarações e Similares):**
+   - **Espaçamento de 2.0 cm após o Cabeçalho:** Entre o cabeçalho institucional / título do documento (*CERTIFICADO DE HABILITAÇÕES*, *Declaração*, *Boletim de Aproveitamento*, etc.) e o corpo de texto subsequente, aplica-se rigorosamente uma distância vertical de **2,0 cm** (`Spacer(1, 2.0 * cm)` no ReportLab e `Pt(56.7)` no Word `.docx`).
+   - **Ancoragem a 1,0 cm da Margem Inferior:** O bloco de encerramento oficial (menção aos livros de termo/pauta, datação por extenso em português de Moçambique, campos de conferência e assinaturas oficiais do Chefe da Secretaria e Director da Escola com QR Code de autenticidade criptográfica) é ancorado dinamicamente a **1,0 cm da margem inferior** (`bottomMargin = 1.0 * cm` e classe `PushToBottomSpacer`), garantindo posicionamento estético constante no fundo da folha e enquadramento perfeito em página única A4 sem quebras indesejadas.
+
 ---
 
 ## 8. Modelo de Dados Completo (17 Tabelas e Restrições de Integridade)

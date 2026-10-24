@@ -386,7 +386,8 @@ def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
 
 def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, orientacao='portrait') -> bytes:
     doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.65)
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
 
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
@@ -421,7 +422,7 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     # Título
     p_tit = doc.add_paragraph()
     p_tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_tit.paragraph_format.space_after = Pt(14)
+    p_tit.paragraph_format.space_after = Pt(56.7)  # Rigorosamente 2.0 cm do cabeçalho
     r_tit = p_tit.add_run("DECLARAÇÃO COM NOTAS")
     aplicar_fonte_times(r_tit, pt_size=14, bold=True)
 
@@ -505,7 +506,8 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
 def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait') -> bytes:
     doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.65)
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
 
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
@@ -532,7 +534,7 @@ def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_g
 
     p_tit = doc.add_paragraph()
     p_tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_tit.paragraph_format.space_after = Pt(14)
+    p_tit.paragraph_format.space_after = Pt(56.7)  # Rigorosamente 2.0 cm do cabeçalho
     r_tit = p_tit.add_run("CERTIFICADO DE HABILITAÇÕES LITERÁRIAS")
     aplicar_fonte_times(r_tit, pt_size=14, bold=True)
 

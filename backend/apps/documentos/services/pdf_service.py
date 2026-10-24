@@ -19,7 +19,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, KeepTogether, PageBreak
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, KeepTogether, PageBreak, Flowable
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
@@ -149,11 +149,64 @@ def obter_tamanho_pagina(orientacao='portrait', padrao='portrait'):
         return landscape(A4)
     return A4
 
+MESES_PT = {
+    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+    5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+    9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+}
+
+def formatar_data_extenso_pt(dt=None):
+    """Retorna a data por extenso em português moçambicano oficial."""
+    if dt is None:
+        dt = datetime.date.today()
+    mes = MESES_PT.get(dt.month, str(dt.month))
+    return f"{dt.day:02d} de {mes} de {dt.year}"
+
+class PushToBottomSpacer(Flowable):
+    """
+    Espaçador vertical dinâmico que empurra rigorosamente os elementos de fecho,
+    datação e assinaturas para ficarem a 1.0 cm da margem inferior da folha,
+    assegurando que o documento ocupe exactamente 1 página sem transbordamentos.
+    """
+    def __init__(self, bottom_elements, min_spacing=0.15 * cm):
+        super().__init__()
+        self.bottom_elements = bottom_elements
+        self.min_spacing = min_spacing
+        self.width = 0
+        self.height = 0
+
+    def wrap(self, availWidth, availHeight):
+        total_bottom_h = 0
+        for elem in self.bottom_elements:
+            if hasattr(elem, '_content'):
+                for c in elem._content:
+                    try:
+                        _, ch = c.wrap(availWidth, availHeight)
+                        total_bottom_h += ch
+                    except Exception:
+                        pass
+            else:
+                try:
+                    _, h = elem.wrap(availWidth, availHeight)
+                    total_bottom_h += h
+                except Exception:
+                    pass
+        needed = availHeight - total_bottom_h
+        if needed > self.min_spacing:
+            self.height = needed
+        else:
+            self.height = self.min_spacing
+        return (0, self.height)
+
+    def draw(self):
+        pass
+
 def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=True):
     """
     Desenha no canvas do ReportLab a moldura periférica oficial e a marca d'água central.
     - moldura='dupla': Borda dupla ornamental oficial para Certificado de Habilitações.
     - moldura='simples': Borda retangular única oficial para Declarações e Boletins.
+    Ajustada para harmonizar com a margem inferior de 1.0 cm.
     """
     canvas.saveState()
     width, height = doc.pagesize
@@ -161,15 +214,15 @@ def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=T
     if moldura == 'dupla':
         # Linha externa mais espessa
         canvas.setStrokeColor(colors.HexColor('#111111'))
-        canvas.setLineWidth(2.2)
-        canvas.rect(0.8 * cm, 0.8 * cm, width - 1.6 * cm, height - 1.6 * cm)
+        canvas.setLineWidth(2.0)
+        canvas.rect(0.65 * cm, 0.65 * cm, width - 1.3 * cm, height - 1.3 * cm)
         # Linha interna mais fina
         canvas.setLineWidth(0.7)
-        canvas.rect(0.96 * cm, 0.96 * cm, width - 1.92 * cm, height - 1.92 * cm)
+        canvas.rect(0.82 * cm, 0.82 * cm, width - 1.64 * cm, height - 1.64 * cm)
     elif moldura == 'simples':
         canvas.setStrokeColor(colors.HexColor('#222222'))
         canvas.setLineWidth(1.2)
-        canvas.rect(0.8 * cm, 0.8 * cm, width - 1.6 * cm, height - 1.6 * cm)
+        canvas.rect(0.7 * cm, 0.7 * cm, width - 1.4 * cm, height - 1.4 * cm)
 
     # Marca d'água suave no centro
     if marca_dagua and os.path.exists(EMBLEMA_PATH):
@@ -769,8 +822,8 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         pagesize=page_size,
         rightMargin=1.5 * cm,
         leftMargin=1.5 * cm,
-        topMargin=1.2 * cm,
-        bottomMargin=1.2 * cm
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -812,7 +865,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     # Título do Boletim
     style_title = ParagraphStyle('DocTitle', alignment=1, fontSize=11, leading=13.5, fontName='Times-Bold')
     elements.append(Paragraph(f"BOLETIM DE APROVEITAMENTO ESCOLAR — ANO LECTIVO {ano_letivo or 2026}", style_title))
-    elements.append(Spacer(1, 0.45 * cm))
+    elements.append(Spacer(1, 2.0 * cm))
 
     # Caixa de Dados do Aluno
     turma_nome = aluno.turma.nome if aluno.turma else '10ª Classe A'
@@ -928,6 +981,9 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     elements.append(t_notas)
     elements.append(Spacer(1, 0.25 * cm))
 
+    # ==================== ELEMENTOS INFERIORES ANCORADOS A 1.0 CM DA MARGEM ====================
+    bottom_elements = []
+
     # Decisão do Conselho
     if count_disciplinas > 0:
         decisao_texto = f"<b>Decisão do Conselho:</b> Resultado pedagógico do aluno: <b>{sit_global_txt}</b> com média global de <b>{media_global_num}</b> valores."
@@ -935,8 +991,8 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         decisao_texto = "<b>Decisão do Conselho:</b> O aluno ainda não possui avaliações concluídas na caderneta."
 
     style_dec = ParagraphStyle('Dec', fontName='Times-Roman', fontSize=9.5, leading=13)
-    elements.append(Paragraph(decisao_texto, style_dec))
-    elements.append(Spacer(1, 0.6 * cm))
+    bottom_elements.append(Paragraph(decisao_texto, style_dec))
+    bottom_elements.append(Spacer(1, 0.4 * cm))
 
     # Assinaturas Oficiais (O Director de Turma | O Director da Escola)
     sig_data = [
@@ -951,7 +1007,12 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
         ('FONTSIZE', (0, 0), (-1, -1), 9.5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
-    elements.append(KeepTogether(t_sig))
+    bottom_elements.append(t_sig)
+
+    # Ancoragem dinâmica a 1.0 cm da margem inferior
+    elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
+    for bel in bottom_elements:
+        elements.append(bel)
 
     # Compilação com moldura simples e marca d'água
     doc.build(
@@ -972,8 +1033,8 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
         pagesize=page_size,
         rightMargin=1.5 * cm,
         leftMargin=1.5 * cm,
-        topMargin=1.2 * cm,
-        bottomMargin=1.2 * cm
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -1005,7 +1066,7 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     elements.append(Paragraph(escola_nome, style_school))
     elements.append(Spacer(1, 0.12 * cm))
     elements.append(Paragraph("<u>Declaração</u>", style_title))
-    elements.append(Spacer(1, 0.5 * cm))
+    elements.append(Spacer(1, 2.0 * cm))
 
     aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
     pai = (getattr(aluno, 'pai', '') or '').strip() or '---'
@@ -1098,7 +1159,9 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     med_val_str = f"( {round(float(media_global))} ) valores." if (media_global not in (None, '-', '---')) else "( --- )"
     style_med = ParagraphStyle('MedDecl', fontName='Times-Bold', fontSize=10.5, leading=13)
     elements.append(Paragraph(f"Média global da Classe: {med_val_str}", style_med))
-    elements.append(Spacer(1, 0.2 * cm))
+
+    # ==================== ELEMENTOS INFERIORES ANCORADOS A 1.0 CM DA MARGEM ====================
+    bottom_elements = []
 
     # Parágrafo do livro do termo de exames
     resultado_str = "Reprovado" if (media_global not in (None, '-', '---') and float(media_global) < 9.5) else "Aprovado"
@@ -1108,13 +1171,13 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
         f"Por ser verdade e me haver sido solicitada, mandei passar a presente declaração que vai por mim assinada "
         f"e autenticada com o carimbo a tinta de óleo em uso nesta instituição."
     )
-    elements.append(Paragraph(fecho_texto, style_body))
-    elements.append(Spacer(1, 0.25 * cm))
+    bottom_elements.append(Paragraph(fecho_texto, style_body))
+    bottom_elements.append(Spacer(1, 0.2 * cm))
 
-    # Datação à direita
-    hoje = datetime.date.today().strftime('%d de %B de %Y')
-    elements.append(Paragraph(f"Maputo, aos {hoje}", ParagraphStyle('PData', fontName='Times-Roman', fontSize=10, alignment=2)))
-    elements.append(Spacer(1, 0.25 * cm))
+    # Datação à direita em Português Oficial
+    hoje = formatar_data_extenso_pt()
+    bottom_elements.append(Paragraph(f"{prov}, aos {hoje}", ParagraphStyle('PData', fontName='Times-Roman', fontSize=10, alignment=2)))
+    bottom_elements.append(Spacer(1, 0.2 * cm))
 
     # Campos de conferência
     conf_data = [
@@ -1125,15 +1188,15 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     ]
     t_conf = Table(conf_data, colWidths=[9.0 * cm, 9.0 * cm])
     t_conf.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
-    elements.append(t_conf)
-    elements.append(Spacer(1, 0.25 * cm))
+    bottom_elements.append(t_conf)
+    bottom_elements.append(Spacer(1, 0.2 * cm))
 
     # Assinatura Centralizada do Diretor da Escola
     sig_data = [
         ["O Director da Escola"],
         ["___________________________________"],
-        [dir_nome],
-        [f"/{dir_carreira}/"]
+        [dir_nome if dir_nome else "A Direcção"],
+        [f"/{dir_carreira}/" if dir_carreira else ""]
     ]
     t_sig = Table(sig_data, colWidths=[18.0 * cm])
     t_sig.setStyle(TableStyle([
@@ -1144,7 +1207,12 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
         ('FONTSIZE', (0, 0), (-1, -1), 9.5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
-    elements.append(KeepTogether(t_sig))
+    bottom_elements.append(t_sig)
+
+    # Ancoragem dinâmica a 1.0 cm da margem inferior
+    elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
+    for bel in bottom_elements:
+        elements.append(bel)
 
     # Compilação com moldura simples e marca d'água
     doc.build(
@@ -1165,8 +1233,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         pagesize=page_size,
         rightMargin=1.5 * cm,
         leftMargin=1.5 * cm,
-        topMargin=1.2 * cm,
-        bottomMargin=1.2 * cm
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -1201,7 +1269,7 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     elements.append(Paragraph(f"<u>a) {escola_nome}</u>", style_school))
     elements.append(Spacer(1, 0.1 * cm))
     elements.append(Paragraph("<u><b>CERTIFICADO DE HABILITAÇÕES</b></u>", style_title))
-    elements.append(Spacer(1, 0.4 * cm))
+    elements.append(Spacer(1, 2.0 * cm))
 
     aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
     sexo = 'Feminino' if (getattr(aluno, 'genero', 'M') or '').upper().startswith('F') else 'Masculino'
@@ -1229,8 +1297,9 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         except Exception:
             pass
 
+    chefe_ident = f"<b>{chefe_nome}</b>" + (f", <i>/{chefe_carreira}/</i>" if chefe_carreira else "") + ", " if chefe_nome else ""
     corpo = (
-        f"b) <b>{chefe_nome}</b>, <i>/{chefe_carreira}/</i>, Chefe da secretaria da <b>{escola_nome}</b>, "
+        f"b) {chefe_ident}Chefe da secretaria da <b>{escola_nome}</b>, "
         f"distrito de <b>{dist}</b>, província de <b>{prov}</b>, CERTIFICO em cumprimento do despacho exarado em requerimento "
         f"que fica arquivado nesta secretaria que <b>{aluno_nome}</b>, do Sexo <b>{sexo}</b>, natural de <b>{nat_dist}</b>, "
         f"distrito de <b>{nat_dist}</b>, província de <b>{nat_prov}</b>, nascido no dia <b>{dia_nasc} de {mes_nasc} de {ano_nasc}</b>, "
@@ -1327,7 +1396,9 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
     style_med = ParagraphStyle('MedGlobal', parent=styles['Normal'], fontSize=11, leading=14, fontName='Times-Bold', alignment=1)
     elements.append(Paragraph(texto_med, style_med))
-    elements.append(Spacer(1, 0.18 * cm))
+
+    # ==================== ELEMENTOS INFERIORES ANCORADOS A 1.0 CM DA MARGEM ====================
+    bottom_elements = []
 
     # Texto de Encerramento Oficial
     pauta_num = kwargs.get('pauta_num', '01')
@@ -1338,13 +1409,13 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         f"Os resultados constam da pauta nº <b>{pauta_num}</b> e do livro de Termo de Exames nº <b>{termo_num}</b>, código do aluno <b>{matricula}</b>.<br/>"
         f"E, por ser verdade passo o presente certificado que assino e autentico a tinta de óleo/selo branco em uso neste Estabelecimento de Ensino."
     )
-    elements.append(Paragraph(fecho, style_body))
-    elements.append(Spacer(1, 0.2 * cm))
+    bottom_elements.append(Paragraph(fecho, style_body))
+    bottom_elements.append(Spacer(1, 0.18 * cm))
 
-    # Datação
-    hoje = datetime.date.today().strftime('%d de %B de %Y')
-    elements.append(Paragraph(f"{dist}, aos {hoje}", ParagraphStyle('PCertData', fontName='Times-Roman', fontSize=9.5, alignment=1)))
-    elements.append(Spacer(1, 0.22 * cm))
+    # Datação em Português
+    hoje = formatar_data_extenso_pt()
+    bottom_elements.append(Paragraph(f"{dist}, aos {hoje}", ParagraphStyle('PCertData', fontName='Times-Roman', fontSize=9.5, alignment=1)))
+    bottom_elements.append(Spacer(1, 0.22 * cm))
 
     # QR Code e Autenticidade Digital
     cod = codigo_autenticidade or f"CERT-MZ-5001234567-{matricula}-{ano_letivo or 2026}"
@@ -1359,8 +1430,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         Spacer(1, 0.12 * cm),
         Paragraph("<b>O Chefe da Secretaria</b>", ParagraphStyle('AChefe', fontName='Times-Bold', fontSize=9, leading=11, alignment=1)),
         Paragraph("_____________________________", ParagraphStyle('ALinha1', fontName='Times-Roman', fontSize=9, alignment=1)),
-        Paragraph(f"<b>{chefe_nome}</b>", ParagraphStyle('AChefeN', fontName='Times-Bold', fontSize=8.5, leading=11, alignment=1)),
-        Paragraph(f"<i>/{chefe_carreira}/</i>", ParagraphStyle('AChefeC', fontName='Times-Italic', fontSize=8, leading=10, alignment=1)),
+        Paragraph(f"<b>{chefe_nome}</b>" if chefe_nome else "&nbsp;", ParagraphStyle('AChefeN', fontName='Times-Bold', fontSize=8.5, leading=11, alignment=1)),
+        Paragraph(f"<i>/{chefe_carreira}/</i>" if chefe_carreira else "&nbsp;", ParagraphStyle('AChefeC', fontName='Times-Italic', fontSize=8, leading=10, alignment=1)),
     ]
 
     col_meio_content = [
@@ -1374,8 +1445,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         Spacer(1, 0.12 * cm),
         Paragraph("<b>O Director da Escola</b>", ParagraphStyle('ADir', fontName='Times-Bold', fontSize=9, leading=11, alignment=1)),
         Paragraph("_____________________________", ParagraphStyle('ALinha2', fontName='Times-Roman', fontSize=9, alignment=1)),
-        Paragraph(f"<b>{dir_nome}</b>", ParagraphStyle('ADirN', fontName='Times-Bold', fontSize=8.5, leading=11, alignment=1)),
-        Paragraph(f"<i>/{dir_carreira}/</i>", ParagraphStyle('ADirC', fontName='Times-Italic', fontSize=8, leading=10, alignment=1)),
+        Paragraph(f"<b>{dir_nome}</b>" if dir_nome else "&nbsp;", ParagraphStyle('ADirN', fontName='Times-Bold', fontSize=8.5, leading=11, alignment=1)),
+        Paragraph(f"<i>/{dir_carreira}/</i>" if dir_carreira else "&nbsp;", ParagraphStyle('ADirC', fontName='Times-Italic', fontSize=8, leading=10, alignment=1)),
     ]
 
     t_sigs = Table([[col_esq_content, col_meio_content, col_dir_content]], colWidths=[6.5 * cm, 5.0 * cm, 6.5 * cm])
@@ -1387,7 +1458,12 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
-    elements.append(KeepTogether(t_sigs))
+    bottom_elements.append(t_sigs)
+
+    # Ancoragem dinâmica a 1.0 cm da margem inferior
+    elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
+    for bel in bottom_elements:
+        elements.append(bel)
 
     # Compilação com moldura dupla ornamental e marca d'água
     doc.build(
@@ -1872,8 +1948,8 @@ def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
         pagesize=page_size,
         rightMargin=1.5 * cm,
         leftMargin=1.5 * cm,
-        topMargin=0.9 * cm,
-        bottomMargin=0.9 * cm
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -1981,7 +2057,9 @@ def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
         ('FONTSIZE', (0, 0), (-1, -1), 8.5),
     ]))
-    elements.append(KeepTogether(t_sig))
+    bottom_elements = [t_sig]
+    elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
+    elements.extend(bottom_elements)
 
     doc.build(elements)
     buffer.seek(0)
@@ -1997,8 +2075,8 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
         pagesize=page_size,
         rightMargin=1.5 * cm,
         leftMargin=1.5 * cm,
-        topMargin=1.2 * cm,
-        bottomMargin=1.2 * cm
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -2144,9 +2222,6 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
         f"Processado por Computador aos {carimbo_dt} &bull; Autenticação Digital SIGE &bull; Documento Sincronizado",
         ParagraphStyle('Autenticacao', parent=styles['Normal'], alignment=1, fontSize=7, leading=9, fontName='Times-Italic', textColor=colors.HexColor('#64748b'))
     )
-    elements.append(p_autenticacao)
-    elements.append(Spacer(1, 0.45 * cm))
-
     sig_data = [
         ["A Secretaria / Tesouraria", "O Utente / Pagador"],
         ["\n__________________________________", "\n__________________________________"],
@@ -2160,7 +2235,14 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
         ('TOPPADDING', (0, 0), (-1, -1), 1),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
-    elements.append(KeepTogether(t_sig))
+    
+    bottom_elements = [
+        p_autenticacao,
+        Spacer(1, 0.25 * cm),
+        t_sig
+    ]
+    elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
+    elements.extend(bottom_elements)
 
     # Marca d'água no canvas: 'NÃO PAGO' ou 'PAGO'
     def desenhar_recibo_background(canvas, d_doc):
