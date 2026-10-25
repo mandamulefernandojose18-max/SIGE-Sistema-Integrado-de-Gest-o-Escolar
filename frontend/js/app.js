@@ -13994,7 +13994,34 @@ async function aoSelecionarTurmaImpressao() {
 }
 
 function alternarCamposImpressao(tipo) {
-  // Ajustes dinâmicos de interface
+  const selAluno = document.getElementById('printSelectAluno');
+  const selOrientacao = document.getElementById('printOrientacaoSelect');
+
+  if (tipo === 'PAUTA_TURMA' || tipo === 'PAUTA_EXAME' || tipo === 'CADERNETA' || tipo === 'ESTATISTICAS') {
+    if (selOrientacao && selOrientacao.value === 'auto') {
+      definirOrientacaoDocumentoCentral('landscape');
+    }
+    if (selAluno) {
+      selAluno.innerHTML = '<option value="TODOS">-- Toda a Turma (Documento Colectivo Oficial) --</option>';
+      selAluno.disabled = true;
+    }
+  } else if (tipo === 'ACTA_CONSELHO') {
+    if (selOrientacao && selOrientacao.value === 'auto') {
+      definirOrientacaoDocumentoCentral('portrait');
+    }
+    if (selAluno) {
+      selAluno.innerHTML = '<option value="TODOS">-- Toda a Turma (Acta de Conselho de Turma) --</option>';
+      selAluno.disabled = true;
+    }
+  } else {
+    if (selOrientacao && selOrientacao.value === 'auto') {
+      definirOrientacaoDocumentoCentral('portrait');
+    }
+    if (selAluno) {
+      selAluno.disabled = false;
+      aoSelecionarTurmaImpressao();
+    }
+  }
 }
 
 async function carregarVisualizacaoImpressao() {
@@ -14011,6 +14038,22 @@ async function carregarVisualizacaoImpressao() {
       if (tipo === 'PAUTA_TURMA') {
         const res = await apiFetch(`/api/v1/pautas/turma/${turmaId}/completa`);
         if (res.success) renderizarPautaGeralImpressao(res.data);
+        return;
+      }
+      if (tipo === 'PAUTA_EXAME') {
+        const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+        const res = await apiFetch(`/api/v1/pautas/exames/turma/${turmaId}?anoLetivo=${ano}`);
+        if (res && res.success) {
+          renderizarPautaExameImpressao(res.data || res);
+        } else {
+          throw new Error(res?.message || 'Falha ao carregar pauta de exames');
+        }
+        return;
+      }
+      if (tipo === 'ESTATISTICAS') {
+        const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+        await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=${ano}&periodo=GLOBAL`, `Estatisticas_Aproveitamento_${ano}.xlsx`);
+        preview.innerHTML = `<div class="alert alert-success text-center">Ficheiro Excel de Estatísticas Gerais transferido com sucesso!</div>`;
         return;
       }
       if (tipo === 'ACTA_CONSELHO') {
@@ -14056,11 +14099,19 @@ async function carregarVisualizacaoImpressao() {
       } else {
         carregarReciboIndividual(alunoId);
       }
-    } else if (tipo === 'PAUTA_TURMA' || tipo === 'ACTA_CONSELHO') {
+    } else if (tipo === 'PAUTA_TURMA' || tipo === 'PAUTA_EXAME' || tipo === 'ACTA_CONSELHO' || tipo === 'ESTATISTICAS') {
       if (turmaId) {
         if (tipo === 'PAUTA_TURMA') {
           const res = await apiFetch(`/api/v1/pautas/turma/${turmaId}/completa`);
           if (res.success) renderizarPautaGeralImpressao(res.data);
+        } else if (tipo === 'PAUTA_EXAME') {
+          const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+          const res = await apiFetch(`/api/v1/pautas/exames/turma/${turmaId}?anoLetivo=${ano}`);
+          if (res && res.success) renderizarPautaExameImpressao(res.data || res);
+        } else if (tipo === 'ESTATISTICAS') {
+          const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+          await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=${ano}&periodo=GLOBAL`, `Estatisticas_Aproveitamento_${ano}.xlsx`);
+          preview.innerHTML = `<div class="alert alert-success text-center">Ficheiro Excel de Estatísticas Gerais transferido com sucesso!</div>`;
         } else {
           await carregarActaConselho(turmaId);
           const containerActa = document.getElementById('containerActaConselhoCorpo');
@@ -14086,9 +14137,9 @@ function obterOrientacaoAtiva(tipoDoc = null) {
   }
 
   // Se estiver a manipular Pauta ou Acta
-  if (docTipo === 'PAUTA_TURMA' || docTipo === 'PAUTA') {
+  if (docTipo === 'PAUTA_TURMA' || docTipo === 'PAUTA' || docTipo === 'PAUTA_EXAME' || docTipo === 'CADERNETA' || docTipo === 'ESTATISTICAS') {
     if (seletorPauta && seletorPauta.value) return seletorPauta.value;
-    return 'landscape'; // Pauta Oficial é estritamente Horizontal por defeito
+    return 'landscape'; // Pautas e Cadernetas são estritamente Horizontais por defeito
   }
 
   if (docTipo === 'ACTA_CONSELHO' || docTipo === 'ACTA') {
@@ -14334,7 +14385,12 @@ async function descarregarZipCentral() {
     return;
   }
 
-  await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/zip?tipo=${tipo}&orientacao=${orientacao}`, `Pacote_Lote_${tipo}_Turma_${turmaId}.zip`);
+  if (tipo === 'PAUTA_EXAME') {
+    const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/zip?tipo=PAUTA_EXAME&orientacao=${orientacao}`, `Pacote_Pauta_Exames_${turmaId}_${ano}.zip`);
+  } else {
+    await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/zip?tipo=${tipo}&orientacao=${orientacao}`, `Pacote_Lote_${tipo}_Turma_${turmaId}.zip`);
+  }
 }
 
 async function carregarReciboIndividual(pagamentoId) {

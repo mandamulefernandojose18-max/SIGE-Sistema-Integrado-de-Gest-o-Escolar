@@ -253,6 +253,7 @@
 
 ### Módulo 15: Central de Impressão e Cofre de Arquivos (`#view-impressao`)
 - **Quem usa:** Todos os utilizadores autorizados.
+- **Tipologias Suportadas:** Boletim Escolar, Declaração Escolar com Notas, Certificado de Habilitações, Recibo de Propina, Ficha Biográfica do Aluno, Pauta Geral da Turma, Pauta Oficial de Exames do MEC, Acta do Conselho de Avaliação, Caderneta do Professor e Estatísticas Gerais de Rendimento.
 - **Emissão Individual ou em Lote:** Impressão individual ou em lote de todos os alunos de uma turma num único arquivo paginado.
 - **Nomenclatura Obrigatória de Download:** Todos os documentos são descarregados rigorosamente no formato:
   `Nome do documento - Nome do aluno - Ano.extensao` (ex.: `Boletim - Joao Manuel Silva - 2026.pdf`, `Declaracao - Maria Santos - 2026.docx`, `Certificado - Carlos Tembe - 2026.pdf`, `Recibo - Joao Manuel Silva - 2026.pdf`, `Ficha - Joao Manuel Silva - 2026.docx`). Para turmas em lote: `Boletins - 10A - 2026.pdf`.

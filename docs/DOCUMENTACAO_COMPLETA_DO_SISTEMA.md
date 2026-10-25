@@ -558,14 +558,17 @@ Todos os botões de descarregamento de documentos (Excel .xlsx, PDF .pdf, Word .
 
 ### Módulo 15: Central de Impressão Individual e em Lote (`#view-impressao`)
 Centro unificado para emissão, pré-visualização em folha A4 e descarregamento de todos os documentos escolares:
-- **7 Tipologias Documentais na Central:**
+- **10 Tipologias Documentais na Central (Disponíveis em PDF, Word `.docx`, Excel `.xlsx` e ZIP):**
   1. **Boletim Individual de Aproveitamento (`BOLETIM`)**
   2. **Declaração de Matrícula / Frequência / Notas (`DECLARACAO`)**
   3. **Certificado Oficial com QR Code (`CERTIFICADO`)**
   4. **Recibo Oficial de Pagamento (`RECIBO`):** Exibe estritamente **"NÃO PAGO"** para cobranças pendentes e **"PAGO"** unicamente após liquidação/confirmação, com marca d'água de segurança e dados institucionais sincronizados.
   5. **Ficha Biográfica / Cadastro do Aluno (`FICHA`)**
   6. **Pauta Geral Oficial da Turma (`PAUTA_TURMA`)**
-  7. **Acta Oficial do Conselho de Avaliação (`ACTA_CONSELHO`)**
+  7. **Pauta Oficial de Exames do MEC (`PAUTA_EXAME`):** Tabela padronizada nacionalmente com subdivisões curriculares oficiais (Frequência, Exame 1ª Época, Exame 2ª Época, Média da Disciplina), disciplinas sem exame e resultado final (MF, Aprovado/Reprovado e disciplinas em atraso).
+  8. **Acta Oficial do Conselho de Avaliação (`ACTA_CONSELHO`)**
+  9. **Caderneta do Professor (`CADERNETA`)**
+  10. **Estatísticas Gerais de Rendimento Escolar (`ESTATISTICAS`)**
 - **Modo Individual vs. Modo Lote por Turma (Simultaneidade de Lista + Todos os Documentos):**
   - O operador pode selecionar **um Aluno específico** ou escolher **"Todos os Alunos da Turma (Emissão em Lote)"**.
   - **Entrega Simultânea da Lista e dos Documentos:** Na emissão ou descarregamento em lote, o sistema gera e descarrega simultaneamente a lista oficial nominal dos emitidos e todos os próprios documentos individuais de cada aluno:

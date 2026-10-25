@@ -239,6 +239,7 @@
 | `POST`| `/api/v1/pautas/exames/turma/<uuid:turma_id>/salvar/` | Pedagógico | Grava e consolida as notas de exame (1ª e 2ª época) no modelo `NotaExame`, recalculando notas finais e resultados. |
 | `GET` | `/api/v1/pautas/exames/turma/<uuid:turma_id>/xlsx/`| Pedagógico | Download da folha de cálculo Excel (`.xlsx`) no modelo oficial de 3 níveis de cabeçalho do MEC. |
 | `GET` | `/api/v1/pautas/exames/turma/<uuid:turma_id>/pdf/` | Pedagógico | Download do mapa oficial da pauta de exames em formato PDF (A4 Paisagem). |
+| `GET` | `/api/v1/pautas/exames/turma/<uuid:turma_id>/docx/` | Pedagógico | Download da pauta oficial de exames em formato Word (.docx editável) em Times New Roman 12, espaçamento 1,5. |
 | `GET` | `/api/v1/pautas/exames/parametros/` | Pedagógico | Consulta os parâmetros ativos da instituição: % frequência (`peso_frequencia`), % exame (`peso_exame`) e nota mínima de exame (`nota_minima_exame`). |
 | `POST`| `/api/v1/pautas/exames/parametros/` | Direção / `DAP` | Configura as percentagens (% Freq + % Exame = 100%) e nota mínima (0 a 20) para o cálculo da Média Final e elegibilidade da 2ª época. |
 
