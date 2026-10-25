@@ -14083,6 +14083,23 @@ async function descarregarXlsxCentral() {
   }
 }
 
+async function descarregarZipCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
+  const orientacao = obterOrientacaoAtiva(tipo);
+
+  if (!turmaId) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma antes de descarregar o pacote ZIP.', 'warning');
+    } else {
+      alert('Por favor, selecione primeiro uma turma antes de descarregar o pacote ZIP.');
+    }
+    return;
+  }
+
+  await downloadFicheiroBinario(`/api/v1/impressao/lote/turma/${turmaId}/zip?tipo=${tipo}&orientacao=${orientacao}`, `Pacote_Lote_${tipo}_Turma_${turmaId}.zip`);
+}
+
 async function carregarReciboIndividual(pagamentoId) {
   const preview = document.getElementById('printAreaPreview');
   preview.style.display = 'block';
@@ -15157,17 +15174,112 @@ function renderizarLoteImpressao(lista) {
   const docs = Array.isArray(lista) ? lista : (lista?.documentos || []);
   const tipoDoc = lista?.tipoDocumento || 'DOCUMENTO';
   const preview = document.getElementById('printAreaPreview');
+  if (!preview) return;
   preview.style.display = 'block';
+
+  const turmaNome = docs[0]?.aluno?.turma || 'Turma';
+  const grauAno = docs[0]?.aluno?.classe || '';
+  const anoLetivo = docs[0]?.anoLectivo || docs[0]?.anoLetivo || '2026';
+  const carimboDataHora = new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const mapaEmissaoHtml = `
+    <div class="printable-document mb-5 p-4 bg-white border" style="page-break-after: always; break-after: page; page-break-inside: avoid; min-height: 297mm; box-sizing: border-box; font-family: 'Times New Roman', Times, serif;">
+      <!-- Cabeçalho Oficial -->
+      <div class="text-center mb-3">
+        <h6 class="fw-bold mb-1" style="font-size: 13pt;">REPÚBLICA DE MOÇAMBIQUE</h6>
+        <div class="fw-semibold text-muted small" style="font-size: 10pt;">MINISTÉRIO DA EDUCAÇÃO E CULTURA</div>
+        <div class="fw-bold fs-5 text-uppercase mt-1" style="font-size: 12pt;">${docs[0]?.escola?.nome || 'ESCOLA SECUNDÁRIA'}</div>
+        <div class="small text-muted" style="font-size: 9pt;">SISTEMA INTEGRADO DE GESTÃO ESCOLAR (SIGE)</div>
+      </div>
+
+      <div class="text-center my-3 pb-2 border-bottom">
+        <h5 class="fw-bold text-uppercase mb-1" style="font-size: 12pt; color: #1e3a8a;">
+          MAPA OFICIAL DE EMISSÃO EM LOTE — ${tipoDoc}S
+        </h5>
+        <div class="small text-dark" style="font-size: 9.5pt;">
+          <strong>Turma:</strong> ${turmaNome} ${grauAno ? `(${grauAno})` : ''} &nbsp;|&nbsp; 
+          <strong>Ano Lectivo:</strong> ${anoLetivo} &nbsp;|&nbsp; 
+          <strong>Total de Alunos:</strong> ${docs.length} emitidos
+        </div>
+      </div>
+
+      <!-- Tabela Nominal com Lista de Documentos Emitidos -->
+      <table class="table table-sm table-bordered align-middle my-3" style="font-size: 9pt; width: 100%; border-collapse: collapse;">
+        <thead style="background-color: #1e3a8a; color: #ffffff; text-align: center;">
+          <tr>
+            <th style="width: 35px; padding: 6px 4px; color: #fff;">Nº</th>
+            <th style="padding: 6px 8px; text-align: left; color: #fff;">Nome Completo do Aluno</th>
+            <th style="width: 100px; padding: 6px 4px; text-align: center; color: #fff;">Nº Matrícula</th>
+            <th style="width: 90px; padding: 6px 4px; text-align: center; color: #fff;">Média Global</th>
+            <th style="width: 130px; padding: 6px 4px; text-align: center; color: #fff;">Situação Pedagógica</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${docs.map((docItem, idx) => {
+            const al = docItem.aluno || {};
+            const nome = al.nomeCompleto || al.nome || `Aluno ${idx + 1}`;
+            const mat = al.matricula || '-';
+            const med = docItem.mediaGlobal || docItem.mediaGeral || '-';
+            const sit = docItem.situacaoGlobal || docItem.resultadoFinal || 'Aprovado';
+            const isRep = String(sit).toLowerCase().includes('rep') || String(sit).toLowerCase().includes('exc');
+            return `
+              <tr>
+                <td style="text-align: center; font-weight: bold; padding: 4px;">${idx + 1}</td>
+                <td style="padding: 4px 8px; text-transform: uppercase;">${nome}</td>
+                <td style="text-align: center; padding: 4px;">${mat}</td>
+                <td style="text-align: center; font-weight: bold; padding: 4px;">${med}</td>
+                <td style="text-align: center; font-weight: bold; padding: 4px; color: ${isRep ? '#dc2626' : '#166534'};">${sit}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+
+      <!-- Resumo e Assinaturas Oficiais -->
+      <div class="row text-center mt-5 pt-4" style="margin-top: 50px;">
+        <div class="col-6">
+          <p class="mb-5 small fw-bold">O Director de Turma</p>
+          <div style="border-top: 1px solid #333; width: 80%; margin: 0 auto; padding-top: 5px;" class="small">
+            Assinatura e Carimbo
+          </div>
+        </div>
+        <div class="col-6">
+          <p class="mb-5 small fw-bold">A Direcção da Escola</p>
+          <div style="border-top: 1px solid #333; width: 80%; margin: 0 auto; padding-top: 5px;" class="small">
+            Director da Escola
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 40px; font-size: 8pt; text-align: center; color: #555; border-top: 1px dashed #ccc; padding-top: 4px;">
+        Processado por Computador pelo SIGE aos <strong>${carimboDataHora}</strong> | Mapa Oficial da Relação Nominal dos Emitidos
+      </div>
+    </div>
+  `;
+
   preview.innerHTML = `
-    <div class="no-print mb-4 p-3 bg-light border rounded d-flex justify-content-between align-items-center">
+    <div class="no-print mb-4 p-3 bg-light border rounded d-flex flex-wrap justify-content-between align-items-center gap-2">
       <div>
         <strong class="text-primary fs-5">Lote Processado: ${docs.length} Documentos</strong>
-        <span class="d-block small text-muted">Cada documento possui formatação A4 oficial e quebra de página automática.</span>
+        <span class="d-block small text-muted">Inclui simultaneamente o Mapa Oficial (Lista Nominal) e todos os ${docs.length} documentos oficiais individuais.</span>
       </div>
-      <button class="btn btn-primary" onclick="window.print()">
-        <i class="bi bi-printer me-2"></i> Imprimir Todo o Lote
-      </button>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-warning btn-sm fw-semibold" onclick="descarregarZipCentral()">
+          <i class="bi bi-file-earmark-zip me-1"></i> Baixar ZIP (.zip)
+        </button>
+        <button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarPdfCentral()">
+          <i class="bi bi-file-earmark-pdf me-1"></i> Baixar PDF (.pdf)
+        </button>
+        <button class="btn btn-primary btn-sm fw-semibold" onclick="window.print()">
+          <i class="bi bi-printer me-1"></i> Imprimir Todo o Lote
+        </button>
+      </div>
     </div>
+
+    <!-- PÁGINA 1: MAPA OFICIAL DE EMISSÃO EM LOTE (LISTA NOMINAL) -->
+    ${mapaEmissaoHtml}
+
+    <!-- PÁGINAS 2..N: TODOS OS DOCUMENTOS INDIVIDUAIS DE CADA ALUNO -->
     ${docs.map((item, i) => {
       if (tipoDoc === 'CERTIFICADO' || (item.titulo && item.titulo.includes('CERTIFICADO'))) {
         return `<div class="mb-4" style="page-break-after: always; break-after: page; page-break-inside: avoid;">${obterHtmlCertificadoOficial(item)}</div>`;
@@ -15177,7 +15289,7 @@ function renderizarLoteImpressao(lista) {
         return `<div class="mb-4" style="page-break-after: always; break-after: page; page-break-inside: avoid;">${obterHtmlBoletimOficial(item)}</div>`;
       }
       return `
-        <div class="printable-document mb-5 pb-5 border-bottom" style="page-break-after: always; page-break-inside: avoid;">
+        <div class="printable-document mb-5 pb-5 border-bottom" style="page-break-after: always; break-after: page; page-break-inside: avoid;">
           <div class="text-center border-bottom pb-3 mb-3">
             <h6 class="fw-bold mb-1">REPÚBLICA DE MOÇAMBIQUE</h6>
             <h5 class="fw-bold text-primary mb-1">${item.titulo || 'DOCUMENTO ESCOLAR OFICIAL'}</h5>

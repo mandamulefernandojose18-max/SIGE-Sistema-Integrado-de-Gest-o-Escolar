@@ -205,10 +205,7 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
 
 # ==================== 2. BOLETIM DE APROVEITAMENTO (VERTICAL) ====================
 
-def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:
-    doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.6)
-
+def inserir_conteudo_boletim_docx(doc, aluno, escola, ano_letivo, notas_disciplinas):
     # Cabeçalho da República
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -377,6 +374,11 @@ def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
     for r in p_ass2.runs:
         aplicar_fonte_times(r, pt_size=11)
 
+
+def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.6)
+    inserir_conteudo_boletim_docx(doc, aluno, escola, ano_letivo, notas_disciplinas)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -384,11 +386,7 @@ def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
 
 # ==================== 3. DECLARAÇÃO COM NOTAS (VERTICAL) ====================
 
-def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, orientacao='portrait') -> bytes:
-    doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
-    doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
-
+def inserir_conteudo_declaracao_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None):
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
     escola_nome = escola.nome.upper()
@@ -497,6 +495,12 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     r_ass = p_ass.add_run(f"O Director da Escola\n\n\n__________________________________\n{dir_nome}")
     aplicar_fonte_times(r_ass, pt_size=11, bold=True)
 
+
+def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
+    inserir_conteudo_declaracao_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=media_global, director_nome=director_nome)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -504,11 +508,7 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
 # ==================== 4. CERTIFICADO DE HABILITAÇÕES (VERTICAL) ====================
 
-def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait') -> bytes:
-    doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
-    doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
-
+def inserir_conteudo_certificado_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None):
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
     escola_nome = escola.nome.upper()
@@ -595,6 +595,12 @@ def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     r_ass = p_ass.add_run(f"O Director da Escola\n\n\n__________________________________\n{dir_nome}")
     aplicar_fonte_times(r_ass, pt_size=11, bold=True)
 
+
+def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
+    inserir_conteudo_certificado_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=media_global, codigo_autenticidade=codigo_autenticidade)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -1078,11 +1084,8 @@ def gerar_acta_docx(turma, escola, periodo, ano_letivo, dados_alunos,
 
 # ==================== 6. FICHA DO ALUNO (VERTICAL) ====================
 
-def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
+def inserir_conteudo_ficha_docx(doc, aluno, escola):
     from common.utils.avaliacoes_mocambique import obter_disciplinas_plano_curricular
-
-    doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
 
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1210,6 +1213,11 @@ def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
     r_v1 = p_v1.add_run("\n__________________________________")
     aplicar_fonte_times(r_v1, pt_size=9)
 
+
+def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    inserir_conteudo_ficha_docx(doc, aluno, escola)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -1217,10 +1225,7 @@ def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
 
 # ==================== 7. RECIBO DE PAGAMENTO (VERTICAL) ====================
 
-def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
-    doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.65)
-
+def inserir_conteudo_recibo_docx(doc, pagamento, escola):
     # Determinação estrita do estado de liquidação e conformidade de pagamento
     status_raw = str(getattr(pagamento, 'status', '')).upper().strip()
     valor_pago_val = float(getattr(pagamento, 'valor_pago', 0) or 0)
@@ -1359,6 +1364,11 @@ def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
     r_ass = p_ass.add_run("A Secretaria Escolar\n\n__________________________________\nAssinatura e Carimbo Oficial")
     aplicar_fonte_times(r_ass, pt_size=9.5)
 
+
+def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.65)
+    inserir_conteudo_recibo_docx(doc, pagamento, escola)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -1601,21 +1611,50 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
 
 # ==================== 9. EMISSÃO EM LOTE DA TURMA (DOCX) ====================
 
-def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
-    doc = docx.Document()
-    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+def inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_documentos):
+    prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
+    dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
+    escola_nome = escola.nome.upper()
 
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.paragraph_format.space_after = Pt(2)
-    r1 = p1.add_run(f"REPÚBLICA DE MOÇAMBIQUE — {escola.nome.upper()}")
+    r1 = p1.add_run("REPÚBLICA DE MOÇAMBIQUE")
     aplicar_fonte_times(r1, pt_size=12, bold=True)
 
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p2.paragraph_format.space_after = Pt(8)
-    r2 = p2.add_run(f"MAPA DE EMISSÃO EM LOTE ({tipo_documento.upper()}) — TURMA {turma.nome} ({turma.grau_ano})")
-    aplicar_fonte_times(r2, pt_size=11, bold=True)
+    p2.paragraph_format.space_after = Pt(2)
+    r2 = p2.add_run(f"GOVERNO DA PROVÍNCIA DE {prov} — DISTRITO DE {dist}")
+    aplicar_fonte_times(r2, pt_size=10, bold=True)
+
+    p3 = doc.add_paragraph()
+    p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p3.paragraph_format.space_after = Pt(2)
+    r3 = p3.add_run(escola_nome)
+    aplicar_fonte_times(r3, pt_size=11, bold=True)
+
+    tipo_label = {
+        'BOLETIM': 'BOLETINS DE APROVEITAMENTO',
+        'DECLARACAO': 'DECLARAÇÕES COM NOTAS',
+        'CERTIFICADO': 'CERTIFICADOS DE HABILITAÇÕES',
+        'FICHA': 'FICHAS BIOGRÁFICAS DOS ALUNOS',
+        'RECIBO': 'RECIBOS DE PAGAMENTO / MENSALIDADES'
+    }.get(tipo_documento.upper(), tipo_documento.upper())
+
+    p_tit = doc.add_paragraph()
+    p_tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_tit.paragraph_format.space_after = Pt(2)
+    r_tit = p_tit.add_run(f"MAPA OFICIAL DE EMISSÃO EM LOTE DE {tipo_label}")
+    aplicar_fonte_times(r_tit, pt_size=12, bold=True)
+
+    ano_val = getattr(turma, 'ano_letivo', None) or '2026'
+    turno_val = getattr(turma, 'turno', 'Diurno') or 'Diurno'
+    p_sub = doc.add_paragraph()
+    p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_sub.paragraph_format.space_after = Pt(8)
+    r_sub = p_sub.add_run(f"Turma: {turma.nome} | Grau: {turma.grau_ano} | Turno: {turno_val} | Ano Lectivo: {ano_val} | Total Emitido: {len(alunos_documentos)} alunos")
+    aplicar_fonte_times(r_sub, pt_size=9.5, italic=True)
 
     headers = ['Nº', 'Nome Completo do Aluno', 'Matrícula', 'Média Global', 'Situação Pedagógica']
     t = doc.add_table(rows=1, cols=len(headers))
@@ -1627,7 +1666,7 @@ def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao
         p = t.rows[0].cells[c_i].paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r = p.add_run(h)
-        aplicar_fonte_times(r, pt_size=9.5, bold=True)
+        aplicar_fonte_times(r, pt_size=9, bold=True)
         set_cell_shading(t.rows[0].cells[c_i], '1E3A8A')
         r.font.color.rgb = RGBColor(0xff, 0xff, 0xff)
 
@@ -1643,7 +1682,114 @@ def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao
             p = row.cells[c_i].paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 1 else WD_ALIGN_PARAGRAPH.CENTER
             r = p.add_run(v)
-            aplicar_fonte_times(r, pt_size=9.0, bold=(c_i in (3, 4)))
+            is_bold = (c_i in (3, 4))
+            col_color = None
+            if c_i == 4:
+                if str(sit).strip().lower() in ('reprovado', 'r', 'excluído'):
+                    col_color = RGBColor(220, 38, 38)
+                else:
+                    col_color = RGBColor(22, 101, 52)
+            aplicar_fonte_times(r, pt_size=8.5, bold=is_bold, color_rgb=col_color)
+
+    doc.add_paragraph().paragraph_format.space_after = Pt(12)
+
+    # Assinaturas
+    t_sig = doc.add_table(rows=2, cols=2)
+    t_sig.alignment = WD_TABLE_ALIGNMENT.CENTER
+    aplicar_cant_split_tabela(t_sig)
+
+    p_s0 = t_sig.rows[0].cells[0].paragraphs[0]
+    p_s0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_s0 = p_s0.add_run("O Director de Turma")
+    aplicar_fonte_times(r_s0, pt_size=9.5, bold=True)
+
+    p_s1 = t_sig.rows[0].cells[1].paragraphs[0]
+    p_s1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_s1 = p_s1.add_run("A Direcção da Escola")
+    aplicar_fonte_times(r_s1, pt_size=9.5, bold=True)
+
+    p_v0 = t_sig.rows[1].cells[0].paragraphs[0]
+    p_v0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_v0 = p_v0.add_run("\n\n____________________________________")
+    aplicar_fonte_times(r_v0, pt_size=9.5)
+
+    p_v1 = t_sig.rows[1].cells[1].paragraphs[0]
+    p_v1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_v1 = p_v1.add_run("\n\n____________________________________")
+    aplicar_fonte_times(r_v1, pt_size=9.5)
+
+
+def inserir_documento_individual_docx(doc, tipo_documento, doc_item, turma, escola):
+    aluno_obj = doc_item.get('_aluno_obj')
+    ano_letivo = getattr(turma, 'ano_letivo', 2026) or 2026
+    tipo = tipo_documento.upper()
+
+    if tipo == 'BOLETIM':
+        notas_disc = doc_item.get('disciplinas') or doc_item.get('_dados_disc') or []
+        inserir_conteudo_boletim_docx(doc, aluno_obj, escola, ano_letivo, notas_disc)
+    elif tipo == 'DECLARACAO':
+        notas_disc = doc_item.get('disciplinas') or doc_item.get('_dados_disc') or []
+        med = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral')
+        inserir_conteudo_declaracao_docx(doc, aluno_obj, escola, ano_letivo, notas_disc, media_global=med)
+    elif tipo == 'CERTIFICADO':
+        notas_disc = doc_item.get('disciplinas') or doc_item.get('_dados_disc') or []
+        med = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral')
+        inserir_conteudo_certificado_docx(doc, aluno_obj, escola, ano_letivo, notas_disc, media_global=med)
+    elif tipo == 'FICHA':
+        inserir_conteudo_ficha_docx(doc, aluno_obj, escola)
+    elif tipo == 'RECIBO':
+        pagamento_obj = doc_item.get('_pagamento_obj')
+        if not pagamento_obj:
+            from types import SimpleNamespace
+            al_info = doc_item.get('aluno') or {}
+            pagamento_obj = SimpleNamespace(
+                id=al_info.get('id', '1'),
+                aluno=aluno_obj,
+                status='PAGO',
+                valor=1500,
+                valor_pago=1500,
+                descricao='Propina Escolar / Mensalidade',
+                mes_referencia='Fevereiro / 2026',
+                metodo_pagamento='MPESA',
+                data_pagamento=datetime.date.today(),
+                data_vencimento=datetime.date.today(),
+                created_at=datetime.datetime.now(),
+                recibo_numero=f"REC-{al_info.get('matricula', '001')}"
+            )
+        inserir_conteudo_recibo_docx(doc, pagamento_obj, escola)
+
+
+def gerar_lote_mapa_docx(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_documentos)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def gerar_documento_individual_docx(tipo_documento, doc_info, turma, escola, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+    inserir_documento_individual_docx(doc, tipo_documento, doc_info, turma, escola)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
+
+    # 1. Página 1: Mapa Oficial de Emissão em Lote
+    inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_documentos)
+
+    # 2. Páginas 2..N: Documentos Oficiais Individuais de Cada Aluno
+    for doc_item in alunos_documentos:
+        doc.add_page_break()
+        inserir_documento_individual_docx(doc, tipo_documento, doc_item, turma, escola)
 
     buffer = io.BytesIO()
     doc.save(buffer)

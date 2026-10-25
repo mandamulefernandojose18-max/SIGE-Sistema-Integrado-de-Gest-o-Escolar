@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 
+import zipfile
+import io
 from .models import LogImpressao, DocumentoSalvo
 from apps.alunos.models import Aluno
 from apps.notas.models import Nota
@@ -17,11 +19,13 @@ from apps.certificados.models import Certificado
 from common.utils.avaliacoes_mocambique import avaliar_aprovacao_pauta, obter_disciplinas_plano_curricular
 from .services.pdf_service import (
     gerar_boletim_pdf, gerar_declaracao_pdf, gerar_certificado_pdf,
-    gerar_ficha_pdf, gerar_recibo_pdf, gerar_lote_pdf
+    gerar_ficha_pdf, gerar_recibo_pdf, gerar_lote_pdf,
+    gerar_lote_mapa_pdf, gerar_documento_individual_pdf
 )
 from .services.docx_service import (
     gerar_boletim_docx, gerar_declaracao_docx, gerar_certificado_docx,
-    gerar_ficha_docx, gerar_recibo_docx, gerar_lote_docx
+    gerar_ficha_docx, gerar_recibo_docx, gerar_lote_docx,
+    gerar_lote_mapa_docx, gerar_documento_individual_docx
 )
 from .services.excel_service import (
     gerar_boletim_xlsx, gerar_declaracao_xlsx, gerar_certificado_xlsx,
@@ -843,6 +847,15 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
         for c in Certificado.objects.filter(escola=escola, aluno__in=alunos, tipo='CONCLUSAO'):
             certs_por_aluno[c.aluno_id] = c
 
+    pagamentos_por_aluno = {}
+    if tipo == 'RECIBO' and alunos:
+        try:
+            for p in Pagamento.objects.filter(aluno__in=alunos).order_by('-data_pagamento', '-created_at'):
+                if p.aluno_id not in pagamentos_por_aluno:
+                    pagamentos_por_aluno[p.aluno_id] = p
+        except Exception:
+            pass
+
     documentos = []
     for aluno in alunos:
         aluno.turma = turma
@@ -862,8 +875,47 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
                 aluno, escola, dados_disc, media_global, avaliacao,
                 getattr(request, 'user', None), cert_prefetched=certs_por_aluno.get(aluno.id)
             )
+        elif tipo == 'FICHA':
+            doc = {
+                'id': str(aluno.id),
+                'aluno': {
+                    'id': str(aluno.id),
+                    'nome': aluno.nome,
+                    'nomeCompleto': f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip(),
+                    'matricula': aluno.matricula,
+                    'classe': getattr(turma, 'grau_ano', '10ª Classe'),
+                    'turma': turma.nome,
+                    'turno': getattr(turma, 'turno', 'Diurno'),
+                    'dataNascimento': str(aluno.data_nascimento or '---'),
+                    'pai': getattr(aluno, 'pai', '---'),
+                    'mae': getattr(aluno, 'mae', '---'),
+                },
+                'tipo': 'FICHA',
+                'mediaGlobal': media_global,
+                'situacaoGlobal': avaliacao,
+            }
+        elif tipo == 'RECIBO':
+            pag_obj = pagamentos_por_aluno.get(aluno.id)
+            doc = {
+                'id': str(aluno.id),
+                'aluno': {
+                    'id': str(aluno.id),
+                    'nome': aluno.nome,
+                    'nomeCompleto': f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip(),
+                    'matricula': aluno.matricula,
+                    'classe': getattr(turma, 'grau_ano', '10ª Classe'),
+                    'turma': turma.nome,
+                },
+                'tipo': 'RECIBO',
+                'mediaGlobal': media_global,
+                'situacaoGlobal': avaliacao,
+                '_pagamento_obj': pag_obj
+            }
         else:
             doc = montar_payload_boletim(aluno, escola, dados_disc, media_global, avaliacao)
+
+        doc['_aluno_obj'] = aluno
+        doc['_dados_disc'] = dados_disc
         documentos.append(doc)
     return documentos
 
@@ -875,16 +927,21 @@ class LoteImpressaoView(APIView):
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
+        # Sanitiza documentos para resposta JSON (remove instâncias de modelos internos)
+        docs_json = []
+        for d in documentos:
+            docs_json.append({k: v for k, v in d.items() if not k.startswith('_')})
+
         retorno = {
             'success': True,
             'tipoDocumento': tipo,
-            'total': len(documentos),
-            'documentos': documentos
+            'total': len(docs_json),
+            'documentos': docs_json
         }
         retorno['data'] = {
             'tipoDocumento': tipo,
-            'total': len(documentos),
-            'documentos': documentos
+            'total': len(docs_json),
+            'documentos': docs_json
         }
         return Response(retorno)
 
@@ -936,6 +993,45 @@ class LoteDOCXView(APIView):
         tipo_lbl = "Boletins" if tipo == 'BOLETIM' else ("Declaracoes" if tipo == 'DECLARACAO' else ("Certificados" if tipo == 'CERTIFICADO' else tipo.capitalize()))
         fname = f"{tipo_lbl} - {turma.nome} - {ano_doc}.docx"
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        _definir_content_disposition(response, fname)
+        return response
+
+class LoteZIPView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, turma_id):
+        turma, escola = _obter_turma_e_escola(request, turma_id)
+        tipo = request.query_params.get('tipo', 'BOLETIM').upper()
+        orientacao = request.query_params.get('orientacao', 'portrait')
+        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
+
+        ano_doc = turma.ano_letivo or escola.ano_letivo_ativo or str(datetime.date.today().year)
+        tipo_lbl = "Boletins" if tipo == 'BOLETIM' else ("Declaracoes" if tipo == 'DECLARACAO' else ("Certificados" if tipo == 'CERTIFICADO' else tipo.capitalize()))
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # 1. Mapa Oficial da Lista dos Emitidos em Lote (PDF)
+            mapa_bytes = gerar_lote_mapa_pdf(turma, escola, tipo, documentos, orientacao=orientacao)
+            mapa_name = f"00_MAPA_OFICIAL_EMISSAO_{tipo}_{_sanitizar_para_nome_arquivo(turma.nome)}.pdf"
+            zip_file.writestr(mapa_name, mapa_bytes)
+
+            # 2. Documento Unificado Completo (Lista + Todos os Documentos) (PDF)
+            unificado_bytes = gerar_lote_pdf(turma, escola, tipo, documentos, orientacao=orientacao)
+            unif_name = f"TODOS_DOCUMENTOS_COMPLETO_{tipo}_{_sanitizar_para_nome_arquivo(turma.nome)}.pdf"
+            zip_file.writestr(unif_name, unificado_bytes)
+
+            # 3. Todos os Documentos Individuais de Cada Aluno (PDF)
+            for idx, doc_item in enumerate(documentos, start=1):
+                al_info = doc_item.get('aluno') or {}
+                nome_aluno = _sanitizar_para_nome_arquivo(al_info.get('nomeCompleto') or al_info.get('nome') or f"Aluno_{idx}")
+                mat = _sanitizar_para_nome_arquivo(al_info.get('matricula') or str(idx))
+                doc_bytes = gerar_documento_individual_pdf(tipo, doc_item, turma, escola, orientacao=orientacao)
+                doc_name = f"documentos_individuais/{idx:02d}_{tipo}_{nome_aluno}_{mat}.pdf"
+                zip_file.writestr(doc_name, doc_bytes)
+
+        zip_buffer.seek(0)
+        fname = f"PACOTE_LOTE_{tipo_lbl}_{_sanitizar_para_nome_arquivo(turma.nome)}_{ano_doc}.zip"
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
         _definir_content_disposition(response, fname)
         return response
 

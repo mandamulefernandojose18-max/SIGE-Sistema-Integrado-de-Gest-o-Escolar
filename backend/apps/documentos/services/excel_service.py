@@ -5,6 +5,7 @@ com colunas auto-ajustadas (sem corte de textos nem '###'), bordas completas,
 e controle de orientação de impressão (Landscape para Pauta e Portrait para Boletins/Declarações).
 """
 import io
+import re
 import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -23,6 +24,7 @@ FONT_RED = Font(name='Times New Roman', size=10, bold=True, color='DC2626')
 FONT_GREEN = Font(name='Times New Roman', size=10, bold=True, color='15803D')
 
 FILL_NAVY = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
+FILL_LIGHT_GRAY = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
 FILL_LIGHT = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
 FILL_GRAY = PatternFill(start_color='E2E8F0', end_color='E2E8F0', fill_type='solid')
 
@@ -1342,14 +1344,192 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
 
 # ==================== 6. EMISSÃO EM LOTE (XLSX) ====================
 
+def _adicionar_aba_aluno_lote(wb, idx, doc_item, tipo_documento, turma, escola, orientacao='portrait'):
+    aluno_info = doc_item.get('aluno', {})
+    nome = aluno_info.get('nomeCompleto') or aluno_info.get('nome') or f"Aluno_{idx}"
+    mat = aluno_info.get('matricula') or '-'
+    
+    safe_name = re.sub(r'[\:\/\?\*\[\]]', '', str(nome))[:20]
+    tab_title = f"{idx:02d} - {safe_name}".strip()[:31]
+    
+    existing_titles = [s.title for s in wb.worksheets]
+    if tab_title in existing_titles:
+        tab_title = f"{tab_title[:27]}_{idx}"
+
+    ws = wb.create_sheet(title=tab_title)
+    configurar_pagina_excel(ws, orientacao=orientacao)
+
+    tipo = tipo_documento.upper()
+    ano_val = getattr(turma, 'ano_letivo', 2026) or 2026
+    prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
+    dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
+
+    ws.merge_cells('A1:F1')
+    ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
+    ws['A1'].font = FONT_TITLE
+    ws['A1'].alignment = ALIGN_CENTER
+
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f"GOVERNO DA PROVÍNCIA DE {prov} — SDEJT DE {dist}"
+    ws['A2'].font = FONT_SUBTITLE
+    ws['A2'].alignment = ALIGN_CENTER
+
+    ws.merge_cells('A3:F3')
+    ws['A3'] = escola.nome.upper()
+    ws['A3'].font = FONT_TITLE
+    ws['A3'].alignment = ALIGN_CENTER
+
+    tipo_titulos = {
+        'BOLETIM': f"BOLETIM DE APROVEITAMENTO ESCOLAR — ANO LECTIVO {ano_val}",
+        'DECLARACAO': f"DECLARAÇÃO COM NOTAS — ANO LECTIVO {ano_val}",
+        'CERTIFICADO': f"CERTIFICADO DE HABILITAÇÕES LITERÁRIAS — {ano_val}",
+        'FICHA': "FICHA BIOGRÁFICA DO ALUNO",
+        'RECIBO': "RECIBO DE PAGAMENTO OFICIAL"
+    }
+    ws.merge_cells('A4:F4')
+    ws['A4'] = tipo_titulos.get(tipo, f"DOCUMENTO ESCOLAR ({tipo}) — {ano_val}")
+    ws['A4'].font = FONT_SUBTITLE
+    ws['A4'].alignment = ALIGN_CENTER
+
+    ws['A6'] = "Nome do Aluno:"
+    ws['A6'].font = FONT_REGULAR_BOLD
+    ws.merge_cells('B6:D6')
+    ws['B6'] = str(nome).upper()
+    ws['B6'].font = FONT_REGULAR_BOLD
+
+    ws['E6'] = "Classe/Turma:"
+    ws['E6'].font = FONT_REGULAR_BOLD
+    ws['F6'] = f"{getattr(turma, 'grau_ano', '')} - {turma.nome}"
+    ws['F6'].font = FONT_REGULAR
+
+    ws['A7'] = "Nº Matrícula:"
+    ws['A7'].font = FONT_REGULAR_BOLD
+    ws['B7'] = str(mat)
+    ws['B7'].font = FONT_REGULAR
+
+    ws['E7'] = "Turno / Ano:"
+    ws['E7'].font = FONT_REGULAR_BOLD
+    ws['F7'] = f"{getattr(turma, 'turno', 'Diurno')} | {ano_val}"
+    ws['F7'].font = FONT_REGULAR
+
+    for r in range(6, 8):
+        for c in range(1, 7):
+            ws.cell(row=r, column=c).border = THIN_BORDER
+
+    if tipo in ('BOLETIM', 'DECLARACAO', 'CERTIFICADO'):
+        headers = ['Disciplina Curricular', '1º Trimestre', '2º Trimestre', '3º Trimestre', 'Média Final', 'Situação']
+        for c_idx, h in enumerate(headers, start=1):
+            cell = ws.cell(row=9, column=c_idx, value=h)
+            cell.font = FONT_HEADER
+            cell.fill = FILL_NAVY
+            cell.alignment = ALIGN_CENTER
+            cell.border = THIN_BORDER
+
+        discs = doc_item.get('disciplinas') or doc_item.get('_dados_disc') or []
+        cur_r = 10
+        for d in discs:
+            d_nome = d.get('nome') or d.get('disciplina') or 'Disciplina'
+            t1 = d.get('t1', d.get('trimestre1', '-'))
+            t2 = d.get('t2', d.get('trimestre2', '-'))
+            t3 = d.get('t3', d.get('trimestre3', '-'))
+            mf = d.get('media_anual', d.get('mediaFinal', d.get('media_final', d.get('nota', '-'))))
+            sit_d = 'Aprovado' if str(mf).replace(',', '.').replace('-', '0') != '-' and float(str(mf).replace(',', '.').replace('-', '0') or 0) >= 9.5 else 'Pendente'
+
+            ws.cell(row=cur_r, column=1, value=str(d_nome)).alignment = ALIGN_LEFT
+            ws.cell(row=cur_r, column=2, value=str(t1 if t1 is not None else '-')).alignment = ALIGN_CENTER
+            ws.cell(row=cur_r, column=3, value=str(t2 if t2 is not None else '-')).alignment = ALIGN_CENTER
+            ws.cell(row=cur_r, column=4, value=str(t3 if t3 is not None else '-')).alignment = ALIGN_CENTER
+            ws.cell(row=cur_r, column=5, value=str(mf if mf is not None else '-')).alignment = ALIGN_CENTER
+            ws.cell(row=cur_r, column=6, value=sit_d).alignment = ALIGN_CENTER
+
+            for col_i in range(1, 7):
+                c = ws.cell(row=cur_r, column=col_i)
+                c.font = FONT_REGULAR
+                c.border = THIN_BORDER
+            cur_r += 1
+
+        ws.cell(row=cur_r, column=1, value="MÉDIA GLOBAL & RESULTADO").font = FONT_HEADER
+        ws.cell(row=cur_r, column=1).fill = FILL_LIGHT_GRAY
+        med_glob = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
+        sit_glob = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        ws.cell(row=cur_r, column=5, value=str(med_glob)).font = FONT_HEADER
+        ws.cell(row=cur_r, column=5).alignment = ALIGN_CENTER
+        ws.cell(row=cur_r, column=6, value=str(sit_glob)).font = FONT_HEADER
+        ws.cell(row=cur_r, column=6).alignment = ALIGN_CENTER
+        for col_i in range(1, 7):
+            ws.cell(row=cur_r, column=col_i).border = THIN_BORDER
+
+        ass_r = cur_r + 3
+        ws.cell(row=ass_r, column=1, value="O Director de Turma: __________________________________").font = FONT_REGULAR_BOLD
+        ws.cell(row=ass_r, column=4, value="A Direcção da Escola: __________________________________").font = FONT_REGULAR_BOLD
+
+    elif tipo == 'FICHA':
+        campos = [
+            ('Nome Completo:', str(nome).upper()),
+            ('Número de Matrícula:', str(mat)),
+            ('Data de Nascimento:', str(aluno_info.get('dataNascimento', '---'))),
+            ('Filiação (Pai):', str(aluno_info.get('pai', '---'))),
+            ('Filiação (Mãe):', str(aluno_info.get('mae', '---'))),
+            ('Classe & Turma:', f"{getattr(turma, 'grau_ano', '')} - {turma.nome}"),
+            ('Ano Lectivo:', str(ano_val)),
+            ('Situação Escolar:', 'Matriculado e Regular')
+        ]
+        cur_r = 9
+        for lbl, v in campos:
+            ws.cell(row=cur_r, column=1, value=lbl).font = FONT_REGULAR_BOLD
+            ws.cell(row=cur_r, column=1).fill = FILL_LIGHT_GRAY
+            ws.cell(row=cur_r, column=1).border = THIN_BORDER
+            ws.merge_cells(start_row=cur_r, start_column=2, end_row=cur_r, end_column=6)
+            ws.cell(row=cur_r, column=2, value=v).font = FONT_REGULAR
+            for col_i in range(1, 7):
+                ws.cell(row=cur_r, column=col_i).border = THIN_BORDER
+            cur_r += 1
+
+        ass_r = cur_r + 2
+        ws.cell(row=ass_r, column=1, value="A Secretaria Escolar: __________________________________").font = FONT_REGULAR_BOLD
+        ws.cell(row=ass_r, column=4, value="O Encarregado: __________________________________").font = FONT_REGULAR_BOLD
+
+    elif tipo == 'RECIBO':
+        campos = [
+            ('Nome do Aluno:', str(nome).upper()),
+            ('Número de Matrícula:', str(mat)),
+            ('Descrição:', 'Propina Escolar / Mensalidade Regular'),
+            ('Mês de Referência:', 'Fevereiro / 2026'),
+            ('Valor Cobrado:', '1.500,00 MT'),
+            ('Valor Liquidado:', '1.500,00 MT'),
+            ('Estado do Pagamento:', 'PAGO / LIQUIDADO COM SUCESSO'),
+            ('Método de Pagamento:', 'MPESA / BANCÁRIO'),
+            ('Data de Liquidação:', datetime.date.today().strftime('%d/%m/%Y'))
+        ]
+        cur_r = 9
+        for lbl, v in campos:
+            ws.cell(row=cur_r, column=1, value=lbl).font = FONT_REGULAR_BOLD
+            ws.cell(row=cur_r, column=1).fill = FILL_LIGHT_GRAY
+            ws.cell(row=cur_r, column=1).border = THIN_BORDER
+            ws.merge_cells(start_row=cur_r, start_column=2, end_row=cur_r, end_column=6)
+            c2 = ws.cell(row=cur_r, column=2, value=v)
+            c2.font = FONT_REGULAR_BOLD if 'PAGO' in v else FONT_REGULAR
+            for col_i in range(1, 7):
+                ws.cell(row=cur_r, column=col_i).border = THIN_BORDER
+            cur_r += 1
+
+        ass_r = cur_r + 2
+        ws.cell(row=ass_r, column=1, value="A Secretaria Financeira: __________________________________").font = FONT_REGULAR_BOLD
+
+    auto_ajustar_colunas(ws, padding=3)
+    ws.column_dimensions['A'].width = 28
+    ws.column_dimensions['B'].width = 18
+
+
 def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
     wb = openpyxl.Workbook()
+    # 1. Página 1: Mapa Oficial de Emissão em Lote
     ws = wb.active
-    ws.title = f"Lote {tipo_documento[:15]}"
+    ws.title = "Mapa de Emissão"
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     ws.merge_cells('A1:F1')
-    ws['A1'] = f"{escola.nome.upper()} — EMISSÃO EM LOTE DE {tipo_documento.upper()}S"
+    ws['A1'] = f"{escola.nome.upper()} — MAPA OFICIAL DE EMISSÃO EM LOTE ({tipo_documento.upper()}S)"
     ws['A1'].font = FONT_TITLE
     ws['A1'].alignment = ALIGN_CENTER
 
@@ -1388,8 +1568,16 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
 
         cur_row += 1
 
+    ass_row = cur_row + 2
+    ws.cell(row=ass_row, column=2, value="O Director de Turma: _____________________________").font = FONT_REGULAR_BOLD
+    ws.cell(row=ass_row, column=5, value="A Direcção da Escola: _____________________________").font = FONT_REGULAR_BOLD
+
     auto_ajustar_colunas(ws, padding=3)
     ws.column_dimensions['B'].width = 34
+
+    # 2. Abas 2..N: Documentos Individuais de Cada Aluno
+    for idx, doc_item in enumerate(alunos_documentos, start=1):
+        _adicionar_aba_aluno_lote(wb, idx, doc_item, tipo_documento, turma, escola, orientacao=orientacao)
 
     buffer = io.BytesIO()
     wb.save(buffer)

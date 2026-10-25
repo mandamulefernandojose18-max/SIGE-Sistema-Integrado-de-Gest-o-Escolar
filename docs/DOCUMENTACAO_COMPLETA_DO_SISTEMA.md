@@ -559,10 +559,18 @@ Centro unificado para emissão, pré-visualização em folha A4 e descarregament
   5. **Ficha Biográfica / Cadastro do Aluno (`FICHA`)**
   6. **Pauta Geral Oficial da Turma (`PAUTA_TURMA`)**
   7. **Acta Oficial do Conselho de Avaliação (`ACTA_CONSELHO`)**
-- **Modo Individual vs. Modo Lote por Turma:**
-  - O operador pode selecionar **um Aluno específico** ou escolher **"Todos os Alunos da Turma (Emissão em Lote)"**, gerando num único ficheiro multi-página todos os boletins, declarações, certificados, recibos ou fichas da turma inteira.
+- **Modo Individual vs. Modo Lote por Turma (Simultaneidade de Lista + Todos os Documentos):**
+  - O operador pode selecionar **um Aluno específico** ou escolher **"Todos os Alunos da Turma (Emissão em Lote)"**.
+  - **Entrega Simultânea da Lista e dos Documentos:** Na emissão ou descarregamento em lote, o sistema gera e descarrega simultaneamente a lista oficial nominal dos emitidos e todos os próprios documentos individuais de cada aluno:
+    - **PDF Unificado em Lote (`.pdf`):** A Página 1 contém obrigatoriamente o **Mapa Oficial de Emissão em Lote (Relação Nominal dos Emitidos)** com cabeçalho da República, dados da turma, médias globais, resultados pedagógicos e campos de assinatura; as páginas seguintes contêm todos os documentos oficiais individuais de cada aluno com quebra de página automática.
+    - **Word em Lote (`.docx`):** A Página 1 apresenta o Mapa Oficial de Emissão e, após quebra de página, seguem-se todos os documentos individuais formatados em Times New Roman.
+    - **Excel em Lote (`.xlsx`):** A Folha 1 é o **Mapa de Emissão** e as abas subsequentes contêm a folha detalhada com as notas ou dados de cada aluno individualmente.
+    - **Pacote ZIP em Lote (`.zip`):** Endpoint dedicado (`/api/v1/impressao/lote/turma/<turma_id>/zip`) que descarrega um arquivo ZIP organizado com:
+      1. `00_MAPA_OFICIAL_EMISSAO_<TIPO>_<TURMA>.pdf` (a lista oficial dos emitidos).
+      2. `TODOS_DOCUMENTOS_COMPLETO_<TIPO>_<TURMA>.pdf` (o documento único completo unificado).
+      3. Pasta `documentos_individuais/` com todos os ficheiros PDF individuais de cada estudante da turma (`01_<TIPO>_<NOME>_<MATRICULA>.pdf`).
 - **Escolha de Orientação e Formato:**
-  - Permite alternar entre orientação **Automática**, **Vertical (Retrato / Portrait)** ou **Horizontal (Paisagem / Landscape)** e exportar em **PDF (`.pdf`)**, **Word (`.docx`)** ou **Excel (`.xlsx`)**.
+  - Permite alternar entre orientação **Automática**, **Vertical (Retrato / Portrait)** ou **Horizontal (Paisagem / Landscape)** e exportar em **PDF (`.pdf`)**, **Word (`.docx`)**, **Excel (`.xlsx`)** ou **Pacote ZIP (`.zip`)**.
 
 ### Módulo 16: Portal Privado do Aluno (`#view-aluno-perfil`, `#view-aluno-notas`, `#view-aluno-pagamentos`)
 Quando um estudante acede com o seu Código Oficial de Estudante:

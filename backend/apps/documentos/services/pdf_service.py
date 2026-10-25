@@ -814,17 +814,7 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
 
 # ==================== 2. BOLETIM DE APROVEITAMENTO (VERTICAL / PORTRAIT) ====================
 
-def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:
-    buffer = io.BytesIO()
-    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=page_size,
-        rightMargin=1.5 * cm,
-        leftMargin=1.5 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
-    )
+def construir_elementos_boletim(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait'):
     styles = getSampleStyleSheet()
     elements = []
 
@@ -868,10 +858,10 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     elements.append(Spacer(1, 2.0 * cm))
 
     # Caixa de Dados do Aluno
-    turma_nome = aluno.turma.nome if aluno.turma else '10ª Classe A'
-    grau_nome = aluno.turma.grau_ano if (aluno.turma and aluno.turma.grau_ano) else '10ª Classe'
+    turma_nome = aluno.turma.nome if (hasattr(aluno, 'turma') and aluno.turma) else '10ª Classe A'
+    grau_nome = aluno.turma.grau_ano if (hasattr(aluno, 'turma') and aluno.turma and aluno.turma.grau_ano) else '10ª Classe'
     classe_turma = f"{grau_nome} - {turma_nome}" if grau_nome not in turma_nome else turma_nome
-    turno_aluno = getattr(aluno.turma, 'turno', 'Manhã') if aluno.turma else 'Manhã'
+    turno_aluno = getattr(aluno.turma, 'turno', 'Manhã') if (hasattr(aluno, 'turma') and aluno.turma) else 'Manhã'
     if str(turno_aluno).upper() == 'MANHA':
         turno_aluno = 'Manhã'
 
@@ -918,7 +908,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     total_media = 0
     count_disciplinas = 0
 
-    for item in notas_disciplinas:
+    for item in (notas_disciplinas or []):
         nome_d = item.get('nome') or item.get('disciplina') or 'Disciplina'
         t1 = item.get('t1', item.get('trimestre1', '---'))
         t2 = item.get('t2', item.get('trimestre2', '---'))
@@ -1014,6 +1004,22 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     for bel in bottom_elements:
         elements.append(bel)
 
+    return elements
+
+
+def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    elements = construir_elementos_boletim(aluno, escola, ano_letivo, notas_disciplinas, orientacao=orientacao)
+
     # Compilação com moldura simples e marca d'água
     doc.build(
         elements,
@@ -1025,17 +1031,7 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
 
 # ==================== 3. DECLARAÇÃO COM NOTAS (VERTICAL / PORTRAIT) ====================
 
-def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, director_carreira=None, orientacao='portrait') -> bytes:
-    buffer = io.BytesIO()
-    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=page_size,
-        rightMargin=1.5 * cm,
-        leftMargin=1.5 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
-    )
+def construir_elementos_declaracao(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, director_carreira=None, orientacao='portrait'):
     styles = getSampleStyleSheet()
     elements = []
 
@@ -1073,7 +1069,7 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     mae = (getattr(aluno, 'mae', '') or '').strip() or '---'
     doc_tipo = getattr(aluno, 'tipo_documento', 'Bilhete de Identidade') or 'Bilhete de Identidade'
     doc_num = (getattr(aluno, 'numero_documento', None) or getattr(aluno, 'bi_numero', None) or '').strip() or '---'
-    grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '10ª Classe'
+    grau_classe = (aluno.turma.grau_ano if (hasattr(aluno, 'turma') and aluno.turma and aluno.turma.grau_ano) else getattr(aluno, 'classe', None)) or '10ª Classe'
 
     corpo_texto = (
         f"Para os devidos efeitos se declara que <b>{aluno_nome}</b>, filho(a) de <b>{pai}</b> e de <b>{mae}</b>, "
@@ -1214,6 +1210,31 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     for bel in bottom_elements:
         elements.append(bel)
 
+    return elements
+
+
+def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, director_carreira=None, orientacao='portrait') -> bytes:
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    elements = construir_elementos_declaracao(
+        aluno=aluno,
+        escola=escola,
+        ano_letivo=ano_letivo,
+        notas_disciplinas=notas_disciplinas,
+        media_global=media_global,
+        director_nome=director_nome,
+        director_carreira=director_carreira,
+        orientacao=orientacao
+    )
+
     # Compilação com moldura simples e marca d'água
     doc.build(
         elements,
@@ -1225,17 +1246,7 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
 
 # ==================== 4. CERTIFICADO DE HABILITAÇÕES (VERTICAL / PORTRAIT) ====================
 
-def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait', **kwargs) -> bytes:
-    buffer = io.BytesIO()
-    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=page_size,
-        rightMargin=1.5 * cm,
-        leftMargin=1.5 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
-    )
+def construir_elementos_certificado(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait', **kwargs):
     styles = getSampleStyleSheet()
     elements = []
 
@@ -1277,8 +1288,8 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     nat_prov = getattr(aluno, 'provincia', '') or '---'
     pai = (getattr(aluno, 'pai', '') or '').strip() or '---'
     mae = (getattr(aluno, 'mae', '') or '').strip() or '---'
-    grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '---'
-    area = (aluno.turma.area if aluno.turma and aluno.turma.area else getattr(aluno, 'area', '')) or '---'
+    grau_classe = (aluno.turma.grau_ano if (hasattr(aluno, 'turma') and aluno.turma and aluno.turma.grau_ano) else getattr(aluno, 'classe', None)) or '---'
+    area = (aluno.turma.area if (hasattr(aluno, 'turma') and aluno.turma and aluno.turma.area) else getattr(aluno, 'area', '')) or '---'
 
     # Formatação de Data de Nascimento
     dia_nasc = '---'
@@ -1464,6 +1475,31 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
     for bel in bottom_elements:
         elements.append(bel)
+
+    return elements
+
+
+def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait', **kwargs) -> bytes:
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    elements = construir_elementos_certificado(
+        aluno=aluno,
+        escola=escola,
+        ano_letivo=ano_letivo,
+        notas_disciplinas=notas_disciplinas,
+        media_global=media_global,
+        codigo_autenticidade=codigo_autenticidade,
+        orientacao=orientacao,
+        **kwargs
+    )
 
     # Compilação com moldura dupla ornamental e marca d'água
     doc.build(
@@ -1938,19 +1974,9 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
 
 # ==================== 6. FICHA DO ALUNO (VERTICAL) ====================
 
-def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
+def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
     from common.utils.avaliacoes_mocambique import obter_disciplinas_plano_curricular
 
-    buffer = io.BytesIO()
-    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=page_size,
-        rightMargin=1.5 * cm,
-        leftMargin=1.5 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
-    )
     styles = getSampleStyleSheet()
     elements = []
 
@@ -2060,14 +2086,10 @@ def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
     bottom_elements = [t_sig]
     elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
     elements.extend(bottom_elements)
+    return elements
 
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer.getvalue()
 
-# ==================== 7. RECIBO DE PAGAMENTO (VERTICAL) ====================
-
-def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
+def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
     doc = SimpleDocTemplate(
@@ -2078,6 +2100,14 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
         topMargin=1.0 * cm,
         bottomMargin=1.0 * cm
     )
+    elements = construir_elementos_ficha(aluno, escola, orientacao=orientacao)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+# ==================== 7. RECIBO DE PAGAMENTO (VERTICAL) ====================
+
+def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
     styles = getSampleStyleSheet()
     elements = []
 
@@ -2243,6 +2273,26 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
     ]
     elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))
     elements.extend(bottom_elements)
+    return elements
+
+
+def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    elements = construir_elementos_recibo(pagamento, escola, orientacao=orientacao)
+
+    status_raw = str(getattr(pagamento, 'status', '')).upper().strip()
+    valor_pago_val = float(getattr(pagamento, 'valor_pago', 0) or 0)
+    tem_data_pag = bool(getattr(pagamento, 'data_pagamento', None))
+    is_pago = (status_raw == 'PAGO') and (tem_data_pag or valor_pago_val > 0)
 
     # Marca d'água no canvas: 'NÃO PAGO' ou 'PAGO'
     def desenhar_recibo_background(canvas, d_doc):
@@ -2598,17 +2648,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
 
 # ==================== 9. EMISSÃO EM LOTE DA TURMA (PDF) ====================
 
-def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
-    buffer = io.BytesIO()
-    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=page_size,
-        rightMargin=1.2 * cm,
-        leftMargin=1.2 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm
-    )
+def construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait'):
     styles = getSampleStyleSheet()
     elements = []
 
@@ -2616,10 +2656,12 @@ def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao=
 
     style_title = ParagraphStyle('LoteTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     style_sub = ParagraphStyle('LoteSub', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman')
-    elements.append(Paragraph(f"MAPA DE EMISSÃO EM LOTE — {tipo_documento.upper()}", style_title))
+    tipo_lbl = "BOLETINS DE APROVEITAMENTO" if tipo_documento == 'BOLETIM' else ("DECLARAÇÕES COM NOTAS" if tipo_documento == 'DECLARACAO' else ("CERTIFICADOS DE HABILITAÇÕES" if tipo_documento == 'CERTIFICADO' else ("FICHAS BIOGRÁFICAS" if tipo_documento == 'FICHA' else ("RECIBOS DE PAGAMENTO" if tipo_documento == 'RECIBO' else tipo_documento.upper()))))
+    elements.append(Paragraph(f"MAPA OFICIAL DE EMISSÃO EM LOTE — {tipo_lbl}", style_title))
+    ano_doc = turma.ano_letivo or getattr(escola, 'ano_letivo_ativo', '2026')
     elements.append(Paragraph(
-        f"<b>Turma:</b> {turma.nome} ({turma.grau_ano}) | <b>Ano Lectivo:</b> {turma.ano_letivo or getattr(escola, 'ano_letivo_ativo', '2026')} | "
-        f"<b>Total de Alunos:</b> {len(alunos_documentos)}",
+        f"<b>Turma:</b> {turma.nome} ({turma.grau_ano}) | <b>Ano Lectivo:</b> {ano_doc} | "
+        f"<b>Total de Alunos Emitidos:</b> {len(alunos_documentos)}",
         style_sub
     ))
     elements.append(Spacer(1, 0.35 * cm))
@@ -2659,6 +2701,187 @@ def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao=
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     elements.append(t)
+    elements.append(Spacer(1, 0.4 * cm))
+
+    # Assinaturas da Direcção
+    sig_mapa = [
+        ["__________________________________", "__________________________________"],
+        ["O Director de Turma", "O Director da Escola"],
+        ["", getattr(escola, 'director_nome', 'A Direcção')]
+    ]
+    t_sig_mapa = Table(sig_mapa, colWidths=[9.0 * cm, 9.0 * cm])
+    t_sig_mapa.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9.0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(KeepTogether(t_sig_mapa))
+    return elements
+
+
+def gerar_lote_mapa_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
+    """Gera apenas o Mapa / Relação Nominal Oficial de Emissão em Lote (1 Página)."""
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    elements = construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_documentos, orientacao=orientacao)
+    doc.build(
+        elements,
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+    )
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def gerar_documento_individual_pdf(tipo, doc_item, escola, ano_doc, orientacao='portrait') -> bytes:
+    """Gera o documento individual avulso em PDF para um aluno."""
+    aluno_obj = doc_item.get('_aluno_obj')
+    notas_disc = doc_item.get('disciplinas') or doc_item.get('_dados_disc') or []
+    media_glob = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral')
+    media_pdf = media_glob if media_glob != '-' else None
+
+    if tipo == 'DECLARACAO':
+        return gerar_declaracao_pdf(
+            aluno=aluno_obj,
+            escola=escola,
+            ano_letivo=ano_doc,
+            notas_disciplinas=notas_disc,
+            media_global=media_pdf,
+            director_nome=getattr(escola, 'director_nome', None),
+            orientacao=orientacao
+        )
+    elif tipo == 'CERTIFICADO':
+        return gerar_certificado_pdf(
+            aluno=aluno_obj,
+            escola=escola,
+            ano_letivo=ano_doc,
+            notas_disciplinas=notas_disc,
+            media_global=media_pdf,
+            codigo_autenticidade=doc_item.get('codigoAutenticidade') or f"CERT-{aluno_obj.matricula}-2026",
+            orientacao=orientacao
+        )
+    elif tipo == 'FICHA':
+        return gerar_ficha_pdf(
+            aluno=aluno_obj,
+            escola=escola,
+            orientacao=orientacao
+        )
+    elif tipo == 'RECIBO':
+        pag_obj = doc_item.get('_pagamento_obj')
+        if pag_obj:
+            return gerar_recibo_pdf(
+                pagamento=pag_obj,
+                escola=escola,
+                orientacao=orientacao
+            )
+        else:
+            return gerar_boletim_pdf(
+                aluno=aluno_obj,
+                escola=escola,
+                ano_letivo=ano_doc,
+                notas_disciplinas=notas_disc,
+                orientacao=orientacao
+            )
+    else: # BOLETIM
+        return gerar_boletim_pdf(
+            aluno=aluno_obj,
+            escola=escola,
+            ano_letivo=ano_doc,
+            notas_disciplinas=notas_disc,
+            orientacao=orientacao
+        )
+
+
+def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao='portrait') -> bytes:
+    """
+    Gera o pacote completo de Emissão em Lote da Turma em PDF:
+    - Página 1: Mapa Oficial de Emissão em Lote (Relação Nominal dos Emitidos).
+    - Páginas 2..N: Todos os próprios documentos oficiais de cada aluno com quebra de página automática.
+    """
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='portrait')
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm
+    )
+    elements = []
+
+    # 1. PÁGINA 1: LISTA / MAPA OFICIAL DE EMISSÃO EM LOTE
+    elements.extend(construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_documentos, orientacao=orientacao))
+
+    # 2. SEGUIDO DOS PRÓPRIOS DOCUMENTOS INDIVIDUAIS DE CADA ALUNO
+    ano_doc = turma.ano_letivo or getattr(escola, 'ano_letivo_ativo', '2026')
+    for doc_item in alunos_documentos:
+        elements.append(PageBreak())
+        aluno_obj = doc_item.get('_aluno_obj')
+        notas_disc = doc_item.get('disciplinas') or doc_item.get('_dados_disc') or []
+        media_glob = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral')
+        media_pdf = media_glob if media_glob != '-' else None
+
+        if tipo_documento == 'DECLARACAO':
+            elem_aluno = construir_elementos_declaracao(
+                aluno=aluno_obj,
+                escola=escola,
+                ano_letivo=ano_doc,
+                notas_disciplinas=notas_disc,
+                media_global=media_pdf,
+                director_nome=getattr(escola, 'director_nome', None),
+                orientacao=orientacao
+            )
+        elif tipo_documento == 'CERTIFICADO':
+            elem_aluno = construir_elementos_certificado(
+                aluno=aluno_obj,
+                escola=escola,
+                ano_letivo=ano_doc,
+                notas_disciplinas=notas_disc,
+                media_global=media_pdf,
+                codigo_autenticidade=doc_item.get('codigoAutenticidade') or f"CERT-{aluno_obj.matricula}-2026",
+                orientacao=orientacao
+            )
+        elif tipo_documento == 'FICHA':
+            elem_aluno = construir_elementos_ficha(
+                aluno=aluno_obj,
+                escola=escola,
+                orientacao=orientacao
+            )
+        elif tipo_documento == 'RECIBO':
+            pag_obj = doc_item.get('_pagamento_obj')
+            if pag_obj:
+                elem_aluno = construir_elementos_recibo(
+                    pagamento=pag_obj,
+                    escola=escola,
+                    orientacao=orientacao
+                )
+            else:
+                elem_aluno = construir_elementos_boletim(
+                    aluno=aluno_obj,
+                    escola=escola,
+                    ano_letivo=ano_doc,
+                    notas_disciplinas=notas_disc,
+                    orientacao=orientacao
+                )
+        else: # BOLETIM padrão
+            elem_aluno = construir_elementos_boletim(
+                aluno=aluno_obj,
+                escola=escola,
+                ano_letivo=ano_doc,
+                notas_disciplinas=notas_disc,
+                orientacao=orientacao
+            )
+        elements.extend(elem_aluno)
 
     doc.build(
         elements,

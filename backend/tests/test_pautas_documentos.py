@@ -491,3 +491,35 @@ class TestPautasEDocumentos:
             'notas': [{'aluno_id': str(self.aluno.id), 'disciplina_id': str(self.disc1.id), 'exame_1epoca': 15.0}]
         }, format='json')
         assert res_post_mat2.status_code == 403
+
+    def test_emissao_lote_completa_com_mapa_e_todos_documentos_alunos(self):
+        # 1. Lote PDF: deve conter Mapa Oficial + Documentos de Cada Aluno
+        res_pdf = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/pdf?tipo=BOLETIM')
+        assert res_pdf.status_code == 200
+        assert res_pdf['Content-Type'] == 'application/pdf'
+        assert len(res_pdf.content) > 1000
+
+        # 2. Lote DOCX: deve conter Mapa Oficial + Documentos de Cada Aluno
+        res_docx = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/docx?tipo=BOLETIM')
+        assert res_docx.status_code == 200
+        assert 'wordprocessingml' in res_docx['Content-Type']
+        assert len(res_docx.content) > 1000
+
+        # 3. Lote XLSX: deve conter folha Mapa de Emissao + aba individual para cada aluno
+        res_xlsx = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/xlsx?tipo=BOLETIM')
+        assert res_xlsx.status_code == 200
+        assert 'spreadsheetml' in res_xlsx['Content-Type']
+        assert len(res_xlsx.content) > 1000
+
+        # 4. Lote ZIP: deve conter Mapa Oficial + Documento Completo Unificado + Documentos Individuais
+        res_zip = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/zip?tipo=BOLETIM')
+        assert res_zip.status_code == 200
+        assert res_zip['Content-Type'] == 'application/zip'
+        assert len(res_zip.content) > 1000
+
+        import zipfile, io
+        with zipfile.ZipFile(io.BytesIO(res_zip.content)) as zf:
+            zip_names = zf.namelist()
+            assert any('00_MAPA_OFICIAL_EMISSAO' in n for n in zip_names)
+            assert any('TODOS_DOCUMENTOS_COMPLETO' in n for n in zip_names)
+            assert any('documentos_individuais' in n for n in zip_names)
