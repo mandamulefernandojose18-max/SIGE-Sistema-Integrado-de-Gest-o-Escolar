@@ -69,6 +69,27 @@ class Escola(models.Model):
     codigo_escola = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     logo_base64 = models.TextField(blank=True, null=True)
     galeria_logos = models.JSONField(default=list, blank=True)
+    modo_uso_logo = models.CharField(
+        max_length=30,
+        default='DOCUMENTOS',
+        choices=[
+            ('DOCUMENTOS', 'Uso nos Documentos (Cabeçalho)'),
+            ('DOCUMENTOS_E_MARCA_DAGUA', 'Uso nos Documentos e Marca de Água'),
+            ('APENAS_MARCA_DAGUA', 'Usar Só e Só como Marca de Água')
+        ]
+    )
+    marca_dagua_url = models.TextField(blank=True, null=True)
+    marca_dagua_base64 = models.TextField(blank=True, null=True)
+    marca_dagua_modo = models.CharField(
+        max_length=30,
+        default='EMBLEMA_NACIONAL',
+        choices=[
+            ('EMBLEMA_NACIONAL', 'Emblema Nacional Oficial'),
+            ('MESMO_LOGO', 'Mesmo Logótipo dos Documentos'),
+            ('ESPECIFICA', 'Imagem Específica de Marca de Água'),
+            ('NENHUM', 'Sem Marca de Água')
+        ]
+    )
     config_classes_exames = models.JSONField(default=dict, blank=True)
     config_parametros_exames = models.JSONField(
         default=dict,

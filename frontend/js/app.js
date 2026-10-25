@@ -2865,8 +2865,8 @@ async function carregarDashboardGeral(anoParam = null, forcarBusca = false) {
     return;
   }
   try {
-    const selAno = document.getElementById('headerSelectAnoLectivo');
-    const ano = anoParam || (selAno ? selAno.value : null) || state.anoLectivoVisualizacao || '2026';
+    const selAno = document.querySelector('#view-dashboard .sige-select-ano-lectivo');
+    const ano = anoParam || (selAno ? selAno.value : null) || (state.anosPorView && state.anosPorView['dashboard']) || state.anoLectivoVisualizacao || '2026';
     const queryAno = (ano && ano !== 'TODOS') ? '?ano_letivo=' + encodeURIComponent(ano) : '';
     const res = await apiFetch('/api/v1/dashboard/overview' + queryAno, { ignoreAuthRedirect: true });
     if (!res.success || !res.data) return;

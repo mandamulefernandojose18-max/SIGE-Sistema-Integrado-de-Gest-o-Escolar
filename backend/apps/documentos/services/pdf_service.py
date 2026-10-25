@@ -316,7 +316,53 @@ class PushToBottomSpacer(Flowable):
     def draw(self):
         pass
 
-def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=True):
+import base64
+from reportlab.lib.utils import ImageReader
+
+def obter_imagereader_para_reportlab(img_ref):
+    if not img_ref:
+        return None
+    try:
+        if isinstance(img_ref, str) and img_ref.startswith('data:image'):
+            _, b64data = img_ref.split(',', 1)
+            raw = base64.b64decode(b64data)
+            return ImageReader(io.BytesIO(raw))
+        if isinstance(img_ref, str) and (os.path.exists(img_ref) or img_ref.startswith('http://') or img_ref.startswith('https://')):
+            return ImageReader(img_ref)
+    except Exception:
+        pass
+    return None
+
+def resolver_marca_dagua_escola(escola):
+    if not escola:
+        return ImageReader(EMBLEMA_PATH) if os.path.exists(EMBLEMA_PATH) else None
+    modo_md = getattr(escola, 'marca_dagua_modo', 'EMBLEMA_NACIONAL') or 'EMBLEMA_NACIONAL'
+    modo_logo = getattr(escola, 'modo_uso_logo', 'DOCUMENTOS') or 'DOCUMENTOS'
+
+    if modo_md == 'NENHUM':
+        return None
+
+    # Possibilidade 1: Usar só e só como marca de água (específico)
+    if modo_md == 'ESPECIFICA' or modo_logo == 'APENAS_MARCA_DAGUA':
+        md_img = getattr(escola, 'marca_dagua_url', None) or getattr(escola, 'marca_dagua_base64', None)
+        if md_img:
+            r = obter_imagereader_para_reportlab(md_img)
+            if r:
+                return r
+
+    # Possibilidade 2: Uso nos documentos e marca de água
+    if modo_logo == 'DOCUMENTOS_E_MARCA_DAGUA' or modo_md == 'MESMO_LOGO':
+        logo_img = getattr(escola, 'logo_url', None) or getattr(escola, 'logo_base64', None)
+        if logo_img:
+            r = obter_imagereader_para_reportlab(logo_img)
+            if r:
+                return r
+
+    if os.path.exists(EMBLEMA_PATH):
+        return ImageReader(EMBLEMA_PATH)
+    return None
+
+def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=True, escola=None):
     """
     Desenha no canvas do ReportLab a moldura periférica oficial e a marca d'água central.
     - moldura='dupla': Borda dupla ornamental oficial para Certificado de Habilitações.
@@ -340,31 +386,45 @@ def desenhar_moldura_e_marca_dagua(canvas, doc, moldura='simples', marca_dagua=T
         canvas.rect(0.7 * cm, 0.7 * cm, width - 1.4 * cm, height - 1.4 * cm)
 
     # Marca d'água suave no centro
-    if marca_dagua and os.path.exists(EMBLEMA_PATH):
-        try:
-            canvas.setFillAlpha(0.08)
-            wm_size = 9.5 * cm
-            canvas.drawImage(
-                EMBLEMA_PATH,
-                (width - wm_size) / 2.0,
-                (height - wm_size) / 2.0,
-                width=wm_size,
-                height=wm_size,
-                mask='auto',
-                preserveAspectRatio=True
-            )
-        except Exception:
-            pass
+    if marca_dagua:
+        img_reader = resolver_marca_dagua_escola(escola)
+        if img_reader:
+            try:
+                canvas.setFillAlpha(0.08)
+                wm_size = 9.5 * cm
+                canvas.drawImage(
+                    img_reader,
+                    (width - wm_size) / 2.0,
+                    (height - wm_size) / 2.0,
+                    width=wm_size,
+                    height=wm_size,
+                    mask='auto',
+                    preserveAspectRatio=True
+                )
+            except Exception:
+                pass
 
     canvas.restoreState()
 
-def gerar_cabecalho_mec(styles, escola_nome, provincia, distrito, compacto=False):
-    """Gera o cabeçalho padrão com emblema no topo."""
+def gerar_cabecalho_mec(styles, escola_nome, provincia, distrito, compacto=False, escola=None):
+    """Gera o cabeçalho padrão com emblema/logótipo no topo."""
     elements = []
     img_sz = 1.0 * cm if compacto else 1.3 * cm
-    if os.path.exists(EMBLEMA_PATH):
+    logo_reader = None
+    if escola:
+        usar_emblema = getattr(escola, 'usar_emblema_nacional', True)
+        modo_logo = getattr(escola, 'modo_uso_logo', 'DOCUMENTOS')
+        if not usar_emblema and modo_logo in ('DOCUMENTOS', 'DOCUMENTOS_E_MARCA_DAGUA'):
+            custom_logo = getattr(escola, 'logo_url', None) or getattr(escola, 'logo_base64', None)
+            if custom_logo:
+                logo_reader = obter_imagereader_para_reportlab(custom_logo)
+    
+    if not logo_reader and os.path.exists(EMBLEMA_PATH):
+        logo_reader = ImageReader(EMBLEMA_PATH)
+
+    if logo_reader:
         try:
-            elements.append(RLImage(EMBLEMA_PATH, width=img_sz, height=img_sz))
+            elements.append(RLImage(logo_reader, width=img_sz, height=img_sz))
             elements.append(Spacer(1, 0.08 * cm if compacto else 0.15 * cm))
         except Exception:
             pass

@@ -275,7 +275,8 @@ Em cada trimestre (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`), cada disciplina
 
 ### 5.1. Regra de Consulta e Isolamento Temporal por Ano Lectivo (Ocultação Universal Inicial e Independência por Página)
 - **Omissão Inicial Total dos Dados, Informações e Botões:** Em conformidade estrita com o princípio de integridade e isolamento temporal por exercício lectivo, **todas as páginas e módulos do sistema (exceto o painel corporativo do Super Admin)** iniciam em estado estritamente ocultado.
-- **Barra Superior Padronizada de Ano Lectivo:** Cada módulo apresenta no topo apenas o cartão leve com o seletor inicial padronizado `-- Escolha ano Lectivo --` e o respetivo botão **"Buscar"**, idêntico ao padrão oficial consolidado no módulo de Exames.
+- **Barra Superior Padronizada de Ano Lectivo (Um Seletor por Página/Módulo):** Cada módulo apresenta no topo apenas um cartão leve com o seletor inicial padronizado `-- Escolha ano Lectivo --` e o respetivo botão **"Buscar"**, idêntico ao padrão oficial consolidado no módulo de Exames.
+- **Eliminação Absoluta de Duplicações Visuais:** O seletor de Ano Lectivo reside estritamente em cada página/módulo (`.sige-seletor-ano-box`). Foi terminantemente removido qualquer seletor redundante do cabeçalho global (`header.topbar`), garantindo que o utilizador nunca visualize elementos duplicados na mesma página.
 - **Bloqueio Visual Nativo de Conteúdo:** Todos os botões de ação (ex.: cadastros, matrículas, lançamentos, consolidações), cartões de métricas/KPIs, tabelas, filtros e formulários residem dentro de um encapsulador dinâmico (`.sige-conteudo-modulo-dinamico d-none`). Permanecem 100% invisíveis até que o utilizador selecione explicitamente o ano letivo desejado e clique em **"Buscar"**.
 - **Independência Estrita Entre Páginas e Módulos:**
   - A escolha do Ano Lectivo numa página ou módulo **opera de forma 100% isolada e independente**.
@@ -633,12 +634,18 @@ Implementado em `backend/apps/documentos/views.py`, o motor documental do SIGE g
 5. **Padrão de Layout e Espaçamentos Milimétricos Oficiais (Certificados, Declarações e Similares):**
    - **Espaçamento de 2.0 cm após o Cabeçalho:** Entre o cabeçalho institucional / título do documento (*CERTIFICADO DE HABILITAÇÕES*, *Declaração*, *Boletim de Aproveitamento*, etc.) e o corpo de texto subsequente, aplica-se rigorosamente uma distância vertical de **2,0 cm** (`Spacer(1, 2.0 * cm)` no ReportLab e `Pt(56.7)` no Word `.docx`).
    - **Ancoragem a 1,0 cm da Margem Inferior:** O bloco de encerramento oficial (menção aos livros de termo/pauta, datação por extenso em português de Moçambique, campos de conferência e assinaturas oficiais do Chefe da Secretaria e Director da Escola com QR Code de autenticidade criptográfica) é ancorado dinamicamente a **1,0 cm da margem inferior** (`bottomMargin = 1.0 * cm` e classe `PushToBottomSpacer`), garantindo posicionamento estético constante no fundo da folha e enquadramento perfeito em página única A4 sem quebras indesejadas.
-
-6. **Padrão Tipográfico Universal Inviolável (Times New Roman, Tamanho 12, Espaçamento 1,5):**
-   - Todo e qualquer documento descarregado do sistema em **PDF**, **DOCX** e **XLSX** adopta rigorosamente e sem excepção:
-     - **Tipografia Universal:** Estritamente em **Times New Roman** (no Word/Excel) e família Times (Times-Roman, Times-Bold, Times-Italic no ReportLab / jsPDF).
-     - **Tamanho de Fonte Único:** Rigorosamente **tamanho 12** (Pt(12) no Word, ontSize = 12 no ReportLab e size = 12 no openpyxl / ExcelJS).
-     - **Espaçamento de Linha Oficial:** Rigorosamente **espaçamento 1,5** (paragraph_format.line_spacing = 1.5 no Word DOCX, leading = 18 pt no ReportLab PDF para texto em 12 pt, e altura de linha proporcional mínima >= 22 pt em folhas de cálculo Excel XLSX).
+
+
+6. **Padrão Tipográfico Universal Inviolável (Times New Roman, Tamanho 12, Espaçamento 1,5):**
+
+   - Todo e qualquer documento descarregado do sistema em **PDF**, **DOCX** e **XLSX** adopta rigorosamente e sem excepção:
+
+     - **Tipografia Universal:** Estritamente em **Times New Roman** (no Word/Excel) e família Times (Times-Roman, Times-Bold, Times-Italic no ReportLab / jsPDF).
+
+     - **Tamanho de Fonte Único:** Rigorosamente **tamanho 12** (Pt(12) no Word, ontSize = 12 no ReportLab e size = 12 no openpyxl / ExcelJS).
+
+     - **Espaçamento de Linha Oficial:** Rigorosamente **espaçamento 1,5** (paragraph_format.line_spacing = 1.5 no Word DOCX, leading = 18 pt no ReportLab PDF para texto em 12 pt, e altura de linha proporcional mínima >= 22 pt em folhas de cálculo Excel XLSX).
+
 
 ---
 
