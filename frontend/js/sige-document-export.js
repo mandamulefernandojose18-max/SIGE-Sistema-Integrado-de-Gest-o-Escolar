@@ -166,22 +166,22 @@
     // Cabeçalho institucional desenhado no topo da página
     function desenharCabecalhoOficial() {
       doc.setFont('times', 'bold');
-      doc.setFontSize(11);
+      doc.setFontSize(12);
       doc.setTextColor(20, 30, 60);
       doc.text(meta.pais, pageWidth / 2, 12, { align: 'center' });
 
       doc.setFont('times', 'normal');
-      doc.setFontSize(8.5);
+      doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
       doc.text(meta.ministerio, pageWidth / 2, 16.5, { align: 'center' });
 
       doc.setFont('times', 'bold');
-      doc.setFontSize(10.5);
+      doc.setFontSize(12);
       doc.setTextColor(30, 58, 138); // Navy blue oficial
       doc.text(meta.escola, pageWidth / 2, 21.5, { align: 'center' });
 
       doc.setFont('times', 'italic');
-      doc.setFontSize(7.5);
+      doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
       doc.text(meta.localidade, pageWidth / 2, 25.5, { align: 'center' });
 
@@ -199,7 +199,7 @@
       // Subtítulo / Metadados da turma ou período
       if (subtitulo) {
         doc.setFont('times', 'normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(12);
         doc.setTextColor(70, 70, 70);
         doc.text(subtitulo, pageWidth / 2, 37.5, { align: 'center' });
       }
@@ -217,7 +217,7 @@
       doc.roundedRect(marginX, startY, pageWidth - (marginX * 2), 10, 1, 1, 'FD');
 
       doc.setFont('times', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(12);
       doc.setTextColor(30, 41, 59);
 
       const colW = (pageWidth - (marginX * 2)) / metaKeys.length;
@@ -243,7 +243,7 @@
           margin: { left: marginX, right: marginX, bottom: 25 },
           styles: {
             font: 'times',
-            fontSize: isLandscape ? 7.5 : 8,
+            fontSize: 12,
             cellPadding: 1.8,
             overflow: 'linebreak',
             lineColor: [203, 213, 225],
@@ -254,7 +254,7 @@
             textColor: [255, 255, 255],
             fontStyle: 'bold',
             halign: 'center',
-            fontSize: isLandscape ? 8 : 8.5
+            fontSize: 12
           },
           alternateRowStyles: {
             fillColor: [248, 250, 252]
@@ -273,7 +273,7 @@
             // Rodapé em cada página
             const strPage = `Página ${data.pageNumber} | SIGE — Sistema Integrado de Gestão Escolar`;
             doc.setFont('times', 'italic');
-            doc.setFontSize(7.5);
+            doc.setFontSize(12);
             doc.setTextColor(140, 140, 140);
             doc.text(strPage, marginX, pageHeight - 8);
             doc.text(`Emitido em: ${meta.dataEmissao}`, pageWidth - marginX, pageHeight - 8, { align: 'right' });
@@ -294,7 +294,7 @@
       const sigY = finalY + 12;
 
       doc.setFont('times', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(12);
       doc.setTextColor(50, 50, 50);
 
       // Assinatura 1: O Professor / Responsável
@@ -352,7 +352,7 @@
     const r1 = worksheet.addRow([meta.pais + ' — ' + meta.ministerio]);
     worksheet.mergeCells(1, 1, 1, totalCols);
     r1.height = 22;
-    r1.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    r1.getCell(1).font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
     r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
     r1.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -368,7 +368,7 @@
     const r3 = worksheet.addRow([titulo.toUpperCase() + (subtitulo ? ` | ${subtitulo}` : '')]);
     worksheet.mergeCells(3, 1, 3, totalCols);
     r3.height = 20;
-    r3.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+    r3.getCell(1).font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FF1E293B' } };
     r3.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
     r3.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -377,7 +377,7 @@
     const r4 = worksheet.addRow([metaStr ? `${metaStr}  |  Emissão: ${meta.dataEmissao}` : `Ano Lectivo: ${meta.anoLetivo}  |  Data de Emissão: ${meta.dataEmissao}`]);
     worksheet.mergeCells(4, 1, 4, totalCols);
     r4.height = 18;
-    r4.getCell(1).font = { name: 'Times New Roman', size: 8.5, italic: true, color: { argb: 'FF64748B' } };
+    r4.getCell(1).font = { name: 'Times New Roman', size: 12, italic: true, color: { argb: 'FF64748B' } };
     r4.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
     r4.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -385,7 +385,7 @@
     const cabecalhoRow = worksheet.addRow(cabecalhos);
     cabecalhoRow.height = 25;
     cabecalhoRow.eachCell((cell) => {
-      cell.font = { name: 'Times New Roman', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
       cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       cell.border = {
@@ -403,7 +403,7 @@
       const isAlt = idx % 2 === 1;
 
       row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Times New Roman', size: 9 };
+        cell.font = { name: 'Times New Roman', size: 12 };
         if (isAlt) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         }
@@ -421,7 +421,7 @@
           cell.value = numVal;
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
           if (numVal >= 0 && numVal < 9.5) {
-            cell.font = { name: 'Times New Roman', size: 9, bold: true, color: { argb: 'FFDC2626' } };
+            cell.font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FFDC2626' } };
           }
         } else {
           cell.alignment = { vertical: 'middle', horizontal: colNum <= 3 ? 'left' : 'center' };
@@ -487,23 +487,23 @@
     const elementosCorpo = [
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 60 },
+        spacing: { line: 360, after: 60 },
         children: [
           new TextRun({
             text: meta.pais,
             bold: true,
-            size: 20, // 10pt
+            size: 24, // 10pt
             font: 'Times New Roman'
           })
         ]
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 60 },
+        spacing: { line: 360, after: 60 },
         children: [
           new TextRun({
             text: meta.ministerio,
-            size: 16, // 8pt
+            size: 24, // 8pt
             color: '64748B',
             font: 'Times New Roman'
           })
@@ -511,12 +511,12 @@
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 120 },
+        spacing: { line: 360, after: 120 },
         children: [
           new TextRun({
             text: meta.escola,
             bold: true,
-            size: 22, // 11pt
+            size: 24, // 11pt
             color: '1E3A8A',
             font: 'Times New Roman'
           })
@@ -524,14 +524,14 @@
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 200 },
+        spacing: { line: 360, after: 200 },
         border: {
           bottom: { style: BorderStyle.SINGLE, size: 8, color: '1E3A8A', space: 4 }
         },
         children: [
           new TextRun({
             text: meta.localidade,
-            size: 15,
+            size: 24,
             color: '94A3B8',
             italics: true,
             font: 'Times New Roman'
@@ -540,7 +540,7 @@
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 100, after: 80 },
+        spacing: { line: 360, before: 100, after: 80 },
         children: [
           new TextRun({
             text: titulo.toUpperCase(),
@@ -557,11 +557,11 @@
       elementosCorpo.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { after: 160 },
+          spacing: { line: 360, after: 160 },
           children: [
             new TextRun({
               text: subtitulo,
-              size: 17,
+              size: 24,
               color: '475569',
               font: 'Times New Roman'
             })
@@ -587,7 +587,7 @@
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({ text: `${k}: `, bold: true, size: 16, font: 'Times New Roman' }),
-                new TextRun({ text: String(v || '-'), size: 16, font: 'Times New Roman' })
+                new TextRun({ text: String(v || '-'), size: 24, font: 'Times New Roman' })
               ]
             })
           ]
@@ -601,7 +601,7 @@
         })
       );
 
-      elementosCorpo.push(new Paragraph({ spacing: { after: 160 } }));
+      elementosCorpo.push(new Paragraph({ spacing: { line: 360, after: 160 } }));
     }
 
     // Montar Tabela Principal
@@ -624,11 +624,12 @@
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
+                spacing: { line: 360 },
                 children: [
                   new TextRun({
                     text: h,
                     bold: true,
-                    size: 16,
+                    size: 24,
                     color: 'FFFFFF',
                     font: 'Times New Roman'
                   })
@@ -659,10 +660,11 @@
                 children: [
                   new Paragraph({
                     alignment: colIdx <= 2 ? AlignmentType.LEFT : AlignmentType.CENTER,
+                    spacing: { line: 360 },
                     children: [
                       new TextRun({
                         text: String(val || '-'),
-                        size: 15,
+                        size: 24,
                         font: 'Times New Roman',
                         bold: isNeg,
                         color: isNeg ? 'DC2626' : '1E293B'
@@ -685,7 +687,7 @@
     }
 
     // Assinaturas Oficiais
-    elementosCorpo.push(new Paragraph({ spacing: { before: 300, after: 100 } }));
+    elementosCorpo.push(new Paragraph({ spacing: { line: 360, before: 300, after: 100 } }));
     const assinaturasTable = new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
@@ -702,7 +704,7 @@
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
                   border: { top: { style: BorderStyle.SINGLE, size: 4, color: '94A3B8' } },
-                  children: [new TextRun({ text: 'O Professor / Técnico', size: 15, font: 'Times New Roman' })]
+                  children: [new TextRun({ text: 'O Professor / Técnico', size: 24, font: 'Times New Roman' })]
                 })
               ]
             }),
@@ -717,7 +719,7 @@
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
                   border: { top: { style: BorderStyle.SINGLE, size: 4, color: '94A3B8' } },
-                  children: [new TextRun({ text: 'O Director de Turma / DAE', size: 15, font: 'Times New Roman' })]
+                  children: [new TextRun({ text: 'O Director de Turma / DAE', size: 24, font: 'Times New Roman' })]
                 })
               ]
             }),
@@ -732,7 +734,7 @@
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
                   border: { top: { style: BorderStyle.SINGLE, size: 4, color: '94A3B8' } },
-                  children: [new TextRun({ text: 'O Director da Instituição', size: 15, font: 'Times New Roman' })]
+                  children: [new TextRun({ text: 'O Director da Instituição', size: 24, font: 'Times New Roman' })]
                 })
               ]
             })

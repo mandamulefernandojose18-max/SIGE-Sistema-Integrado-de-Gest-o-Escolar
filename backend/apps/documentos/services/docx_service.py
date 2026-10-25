@@ -1,6 +1,6 @@
 """
 Serviço de Exportação em Word (DOCX) — SIGE (Sistema Integrado de Gestão Escolar)
-Gera documentos oficiais rigorosamente formatados em Times New Roman, tamanho 12,
+Gera documentos oficiais rigorosamente formatados em Times New Roman, tamanho 12, espaçamento 1,5,
 com margens ajustadas, sem corte de conteúdo e controle preciso de orientação
 (Horizontal/Landscape para Pautas e Vertical/Portrait para Boletins, Declarações e Certificados).
 """
@@ -15,9 +15,12 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 def aplicar_fonte_times(run, pt_size=12, bold=False, italic=False, color_rgb=None):
-    """Aplica estritamente a fonte Times New Roman em run do Word."""
+    """
+    Aplica estritamente a fonte Times New Roman em run do Word.
+    Regra Mandatória SIGE: Todo/qualquer documento descarregado é sempre em Times New Roman, tamanho 12.
+    """
     run.font.name = 'Times New Roman'
-    run.font.size = Pt(pt_size)
+    run.font.size = Pt(12)  # Regra universal do sistema: tamanho 12 fixo
     run.bold = bold
     run.italic = italic
     if color_rgb:
@@ -35,7 +38,7 @@ def aplicar_fonte_times(run, pt_size=12, bold=False, italic=False, color_rgb=Non
     rFonts.set(qn('w:cs'), 'Times New Roman')
 
 def configurar_secao_pagina(doc, orientacao='portrait', margem_pol=0.6):
-    """Configura tamanho A4 e orientação de forma rigorosa."""
+    """Configura tamanho A4, orientação e estilo global em Times New Roman 12 com espaçamento 1,5."""
     section = doc.sections[0]
     section.top_margin = Inches(margem_pol)
     section.bottom_margin = Inches(margem_pol)
@@ -50,6 +53,44 @@ def configurar_secao_pagina(doc, orientacao='portrait', margem_pol=0.6):
         section.orientation = WD_ORIENTATION.PORTRAIT
         section.page_width = Inches(8.27)    # 210 mm
         section.page_height = Inches(11.69)  # 297 mm
+
+    # Configuração mandatória do estilo normal
+    try:
+        normal_style = doc.styles['Normal']
+        normal_style.font.name = 'Times New Roman'
+        normal_style.font.size = Pt(12)
+        normal_style.paragraph_format.line_spacing = 1.5
+        rPr = normal_style.element.get_or_add_rPr()
+        rFonts = rPr.get_or_add_rFonts()
+        rFonts.set(qn('w:ascii'), 'Times New Roman')
+        rFonts.set(qn('w:hAnsi'), 'Times New Roman')
+        rFonts.set(qn('w:cs'), 'Times New Roman')
+    except Exception:
+        pass
+
+def finalizar_formatacao_documento_docx(doc):
+    """
+    Passagem final mandatória em todo documento DOCX antes do salvamento:
+    Garante que 100% dos parágrafos (texto geral e no interior de tabelas)
+    estejam rigorosamente em tamanho 12, espaçamento 1,5 e em Times New Roman.
+    """
+    for p in doc.paragraphs:
+        p.paragraph_format.line_spacing = 1.5
+        for r in p.runs:
+            aplicar_fonte_times(r, pt_size=12, bold=r.bold, italic=r.italic, color_rgb=getattr(getattr(r, 'font', None), 'color', None) and r.font.color.rgb)
+
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    p.paragraph_format.line_spacing = 1.5
+                    for r in p.runs:
+                        aplicar_fonte_times(r, pt_size=12, bold=r.bold, italic=r.italic, color_rgb=getattr(getattr(r, 'font', None), 'color', None) and r.font.color.rgb)
+
+def salvar_docx_padronizado(doc, buffer):
+    """Aplica a padronização universal obrigatória (Times New Roman 12, espaçamento 1,5) e grava o buffer."""
+    finalizar_formatacao_documento_docx(doc)
+    doc.save(buffer)
 
 def aplicar_cant_split_tabela(table):
     """Impede que linhas da tabela sejam cortadas de forma indesejada entre páginas."""
@@ -199,7 +240,7 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     aplicar_fonte_times(r_foot, pt_size=9, italic=True, color_rgb=RGBColor(100, 100, 100))
 
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -380,7 +421,7 @@ def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.6)
     inserir_conteudo_boletim_docx(doc, aluno, escola, ano_letivo, notas_disciplinas)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -502,7 +543,7 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
     inserir_conteudo_declaracao_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=media_global, director_nome=director_nome)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -602,7 +643,7 @@ def gerar_certificado_docx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     doc.sections[0].bottom_margin = Inches(0.3937)  # 1.0 cm da margem inferior
     inserir_conteudo_certificado_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=media_global, codigo_autenticidade=codigo_autenticidade)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1078,7 +1119,7 @@ def gerar_acta_docx(turma, escola, periodo, ano_letivo, dados_alunos,
         aplicar_fonte_times(r, pt_size=8.5)
 
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1219,7 +1260,7 @@ def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
     inserir_conteudo_ficha_docx(doc, aluno, escola)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1370,7 +1411,7 @@ def gerar_recibo_docx(pagamento, escola, orientacao='portrait') -> bytes:
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.65)
     inserir_conteudo_recibo_docx(doc, pagamento, escola)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1604,7 +1645,7 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
     add_single_row_stat("Média da Coluna", [_v_doc(k, lambda s: s.get('media', 0)) for k in stat_cols], bg_color='DBEAFE', bold=True)
 
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1764,7 +1805,7 @@ def gerar_lote_mapa_docx(turma, escola, tipo_documento, alunos_documentos, orien
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
     inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_documentos)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1774,7 +1815,7 @@ def gerar_documento_individual_docx(tipo_documento, doc_info, turma, escola, ori
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
     inserir_documento_individual_docx(doc, tipo_documento, doc_info, turma, escola)
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1792,7 +1833,7 @@ def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao
         inserir_documento_individual_docx(doc, tipo_documento, doc_item, turma, escola)
 
     buffer = io.BytesIO()
-    doc.save(buffer)
+    salvar_docx_padronizado(doc, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 

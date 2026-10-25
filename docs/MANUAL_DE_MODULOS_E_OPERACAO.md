@@ -256,7 +256,7 @@
 - **Emissão Individual ou em Lote:** Impressão individual ou em lote de todos os alunos de uma turma num único arquivo paginado.
 - **Nomenclatura Obrigatória de Download:** Todos os documentos são descarregados rigorosamente no formato:
   `Nome do documento - Nome do aluno - Ano.extensao` (ex.: `Boletim - Joao Manuel Silva - 2026.pdf`, `Declaracao - Maria Santos - 2026.docx`, `Certificado - Carlos Tembe - 2026.pdf`, `Recibo - Joao Manuel Silva - 2026.pdf`, `Ficha - Joao Manuel Silva - 2026.docx`). Para turmas em lote: `Boletins - 10A - 2026.pdf`.
-- **Três Formatos Nativos:** PDF vetorial de alta definição, Word (.docx editável em Times New Roman) e Excel (.xlsx formatado para impressão A4).
+- **Três Formatos Nativos Padronizados:** PDF vetorial de alta definição, Word (.docx editável) e Excel (.xlsx formatado para impressão A4), todos rigorosamente padronizados em **Times New Roman, tamanho 12 e espaçamento 1,5**.
 - **Cofre Histórico (`DocumentoSalvo`):** Arquivo de todos os documentos gerados pelo sistema para download posterior.
 
 ---

@@ -19,9 +19,124 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, KeepTogether, PageBreak, Flowable
+    SimpleDocTemplate as _ReportLabSimpleDocTemplate, Paragraph as _ReportLabParagraph,
+    Spacer, Table, TableStyle as _ReportLabTableStyle, Image as RLImage, KeepTogether, PageBreak, Flowable
 )
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet as _orig_getSampleStyleSheet, ParagraphStyle
+
+# Padronização universal SIGE: Times New Roman, Tamanho 12, Espaçamento 1,5 (leading 18 pt)
+_orig_ps_init = ParagraphStyle.__init__
+def _sige_ps_init(self, name, parent=None, **kw):
+    fn = kw.get('fontName', getattr(parent, 'fontName', 'Times-Roman'))
+    if not fn or 'Times' not in fn:
+        fn = 'Times-Roman'
+    kw['fontName'] = fn
+    kw['fontSize'] = 12
+    kw['leading'] = 18
+    _orig_ps_init(self, name, parent, **kw)
+ParagraphStyle.__init__ = _sige_ps_init
+
+class Paragraph(_ReportLabParagraph):
+    """
+    Parágrafo Padronizado do SIGE:
+    Substitui tags inline <font size="..."> para manter estritamente tamanho 12 pt.
+    """
+    def __init__(self, text, style, *args, **kwargs):
+        if isinstance(text, str) and 'size=' in text.lower():
+            text = re.sub(r'(?i)size\s*=\s*["\']?[0-9.]+(?:pt)?["\']?', 'size="12"', text)
+        super().__init__(text, style, *args, **kwargs)
+
+class TableStyle(_ReportLabTableStyle):
+    """
+    TableStyle Padronizado do SIGE:
+    Assegura que qualquer instrução FONTSIZE em tabelas utilize 12 pt e LEADING 18 pt.
+    """
+    def __init__(self, cmds=None):
+        novos_cmds = []
+        if cmds:
+            for cmd in cmds:
+                op = cmd[0]
+                if op == 'FONTSIZE':
+                    novos_cmds.append(('FONTSIZE', cmd[1], cmd[2], 12))
+                    novos_cmds.append(('LEADING', cmd[1], cmd[2], 18))
+                elif op == 'LEADING':
+                    novos_cmds.append(('LEADING', cmd[1], cmd[2], 18))
+                elif op == 'FONTNAME':
+                    fn = cmd[3]
+                    if not fn or 'Times' not in fn:
+                        fn = 'Times-Roman'
+                    novos_cmds.append(('FONTNAME', cmd[1], cmd[2], fn))
+                else:
+                    novos_cmds.append(cmd)
+        super().__init__(novos_cmds)
+
+    def add(self, *cmd):
+        op = cmd[0]
+        if op == 'FONTSIZE':
+            super().add('FONTSIZE', cmd[1], cmd[2], 12)
+            super().add('LEADING', cmd[1], cmd[2], 18)
+        elif op == 'LEADING':
+            super().add('LEADING', cmd[1], cmd[2], 18)
+        elif op == 'FONTNAME':
+            fn = cmd[3]
+            if not fn or 'Times' not in fn:
+                fn = 'Times-Roman'
+            super().add('FONTNAME', cmd[1], cmd[2], fn)
+        else:
+            super().add(*cmd)
+
+def getSampleStyleSheet():
+    ss = _orig_getSampleStyleSheet()
+    for s in ss.byName.values():
+        if hasattr(s, 'fontName'):
+            if not s.fontName or 'Times' not in s.fontName:
+                s.fontName = 'Times-Roman'
+        if hasattr(s, 'fontSize'):
+            s.fontSize = 12
+        if hasattr(s, 'leading'):
+            s.leading = 18
+    return ss
+
+def padronizar_elementos_pdf(elements):
+    """
+    Garante que todos os elementos e tabelas respeitem:
+    - Times New Roman
+    - Tamanho 12 pt
+    - Espaçamento 1,5 linhas (leading 18 pt)
+    """
+    for elem in elements:
+        if isinstance(elem, _ReportLabParagraph):
+            if hasattr(elem, 'style') and elem.style:
+                s = elem.style
+                if hasattr(s, 'fontName') and (not s.fontName or 'Times' not in s.fontName):
+                    s.fontName = 'Times-Roman'
+                if hasattr(s, 'fontSize'):
+                    s.fontSize = 12
+                if hasattr(s, 'leading'):
+                    s.leading = 18
+        elif isinstance(elem, Table):
+            if hasattr(elem, '_cellvalues'):
+                for row in elem._cellvalues:
+                    for c in row:
+                        if isinstance(c, _ReportLabParagraph):
+                            if hasattr(c, 'style') and c.style:
+                                if hasattr(c.style, 'fontName') and (not c.style.fontName or 'Times' not in c.style.fontName):
+                                    c.style.fontName = 'Times-Roman'
+                                if hasattr(c.style, 'fontSize'):
+                                    c.style.fontSize = 12
+                                if hasattr(c.style, 'leading'):
+                                    c.style.leading = 18
+                        elif isinstance(c, (list, tuple)):
+                            padronizar_elementos_pdf(c)
+        elif hasattr(elem, '_content') and isinstance(elem._content, (list, tuple)):
+            padronizar_elementos_pdf(elem._content)
+        elif hasattr(elem, 'Elements') and isinstance(elem.Elements, (list, tuple)):
+            padronizar_elementos_pdf(elem.Elements)
+
+class SimpleDocTemplate(_ReportLabSimpleDocTemplate):
+    def build(self, flowables, **kwargs):
+        padronizar_elementos_pdf(flowables)
+        return super().build(flowables, **kwargs)
 
 # Localização do Emblema Oficial da República de Moçambique
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))

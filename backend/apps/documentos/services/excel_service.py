@@ -12,16 +12,16 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import RowBreak, ColBreak
 
-# Estilos padrão Times New Roman
-FONT_TITLE = Font(name='Times New Roman', size=13, bold=True, color='000000')
-FONT_SUBTITLE = Font(name='Times New Roman', size=11, bold=True, color='333333')
-FONT_HEADER = Font(name='Times New Roman', size=10, bold=True, color='FFFFFF')
-FONT_REGULAR = Font(name='Times New Roman', size=11, bold=False, color='000000')
-FONT_REGULAR_BOLD = Font(name='Times New Roman', size=11, bold=True, color='000000')
-FONT_SMALL = Font(name='Times New Roman', size=9.5, bold=False, color='222222')
-FONT_SMALL_BOLD = Font(name='Times New Roman', size=9.5, bold=True, color='000000')
-FONT_RED = Font(name='Times New Roman', size=10, bold=True, color='DC2626')
-FONT_GREEN = Font(name='Times New Roman', size=10, bold=True, color='15803D')
+# Estilos padrão Times New Roman — Rigorosamente Tamanho 12 e Espaçamento 1,5
+FONT_TITLE = Font(name='Times New Roman', size=12, bold=True, color='000000')
+FONT_SUBTITLE = Font(name='Times New Roman', size=12, bold=True, color='333333')
+FONT_HEADER = Font(name='Times New Roman', size=12, bold=True, color='FFFFFF')
+FONT_REGULAR = Font(name='Times New Roman', size=12, bold=False, color='000000')
+FONT_REGULAR_BOLD = Font(name='Times New Roman', size=12, bold=True, color='000000')
+FONT_SMALL = Font(name='Times New Roman', size=12, bold=False, color='222222')
+FONT_SMALL_BOLD = Font(name='Times New Roman', size=12, bold=True, color='000000')
+FONT_RED = Font(name='Times New Roman', size=12, bold=True, color='DC2626')
+FONT_GREEN = Font(name='Times New Roman', size=12, bold=True, color='15803D')
 
 FILL_NAVY = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
 FILL_LIGHT_GRAY = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
@@ -43,14 +43,42 @@ THICK_BOTTOM_BORDER = Border(
     bottom=Side(style='medium', color='1E3A8A')
 )
 
-FONT_TINY = Font(name='Times New Roman', size=8.5, bold=False, color='000000')
-FONT_TINY_BOLD = Font(name='Times New Roman', size=8.5, bold=True, color='000000')
-FONT_HEADER_SM = Font(name='Times New Roman', size=8.5, bold=True, color='FFFFFF')
-FONT_MUTED_ITALIC = Font(name='Times New Roman', size=8.5, italic=True, color='64748B')
-FONT_SUCCESS_SM = Font(name='Times New Roman', size=8.5, bold=True, color='166534')
-FONT_DANGER_SM = Font(name='Times New Roman', size=8.5, bold=True, color='DC2626')
-FONT_GREEN_SM = Font(name='Times New Roman', size=8.5, bold=True, color='059669')
-FONT_RED_SM = Font(name='Times New Roman', size=8.5, bold=True, color='DC2626')
+FONT_TINY = Font(name='Times New Roman', size=12, bold=False, color='000000')
+FONT_TINY_BOLD = Font(name='Times New Roman', size=12, bold=True, color='000000')
+FONT_HEADER_SM = Font(name='Times New Roman', size=12, bold=True, color='FFFFFF')
+FONT_MUTED_ITALIC = Font(name='Times New Roman', size=12, italic=True, color='64748B')
+FONT_SUCCESS_SM = Font(name='Times New Roman', size=12, bold=True, color='166534')
+FONT_DANGER_SM = Font(name='Times New Roman', size=12, bold=True, color='DC2626')
+FONT_GREEN_SM = Font(name='Times New Roman', size=12, bold=True, color='059669')
+FONT_RED_SM = Font(name='Times New Roman', size=12, bold=True, color='DC2626')
+
+def finalizar_formatacao_documento_xlsx(wb):
+    for ws in wb.worksheets:
+        ws.sheet_format.defaultRowHeight = 22
+        for r_idx in range(1, ws.max_row + 1):
+            cur_h = ws.row_dimensions[r_idx].height
+            if cur_h is None or cur_h < 22:
+                ws.row_dimensions[r_idx].height = 22
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.value is not None or cell.comment or (cell.fill and getattr(cell.fill, 'fill_type', None)):
+                    curr_font = cell.font
+                    if curr_font:
+                        cell.font = Font(
+                            name='Times New Roman',
+                            size=12,
+                            bold=curr_font.bold,
+                            italic=curr_font.italic,
+                            color=curr_font.color,
+                            underline=curr_font.underline,
+                            strike=curr_font.strike
+                        )
+                    else:
+                        cell.font = FONT_REGULAR
+
+def salvar_xlsx_padronizado(wb, buffer):
+    finalizar_formatacao_documento_xlsx(wb)
+    wb.save(buffer)
 
 FILL_SUCCESS = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
 FILL_ROW_HM = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
@@ -242,7 +270,7 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     ws.column_dimensions['B'].width = 32  # Nome completo com espaço amplo
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -527,7 +555,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
     ws.column_dimensions['C'].width = 28  # Nome do Aluno
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -684,7 +712,7 @@ def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
     ws.column_dimensions['A'].width = 28
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -772,7 +800,7 @@ def gerar_declaracao_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     ws.column_dimensions['B'].width = 24
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -850,7 +878,7 @@ def gerar_certificado_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     ws.column_dimensions['B'].width = 24
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1338,7 +1366,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     ws.col_breaks = ColBreak()
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1580,7 +1608,7 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
         _adicionar_aba_aluno_lote(wb, idx, doc_item, tipo_documento, turma, escola, orientacao=orientacao)
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -1834,7 +1862,7 @@ def gerar_estatisticas_gerais_xlsx(escola, ano_letivo, periodo, stats_data, orie
     ws.column_dimensions['D'].width = 26
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -2169,7 +2197,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
             ws.column_dimensions[col_letter].width = 7.5
 
     buffer = io.BytesIO()
-    wb.save(buffer)
+    salvar_xlsx_padronizado(wb, buffer)
     buffer.seek(0)
     return buffer.getvalue()
 

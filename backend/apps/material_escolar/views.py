@@ -193,9 +193,9 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
         styles = getSampleStyleSheet()
-        s_tit = ParagraphStyle('MTit', parent=styles['Normal'], fontName='Times-Bold', fontSize=14, leading=18, alignment=1)
-        s_sub = ParagraphStyle('MSub', parent=styles['Normal'], fontName='Times-Bold', fontSize=11, leading=15, alignment=1)
-        s_body = ParagraphStyle('MBody', parent=styles['Normal'], fontName='Times-Roman', fontSize=11, leading=16)
+        s_tit = ParagraphStyle('MTit', parent=styles['Normal'], fontName='Times-Bold', fontSize=12, leading=18, alignment=1)
+        s_sub = ParagraphStyle('MSub', parent=styles['Normal'], fontName='Times-Bold', fontSize=12, leading=18, alignment=1)
+        s_body = ParagraphStyle('MBody', parent=styles['Normal'], fontName='Times-Roman', fontSize=12, leading=18)
 
         escola_nome = material.escola.nome if material.escola else 'SIGE — Repositório Escolar'
         disc_nome = material.disciplina.nome if material.disciplina else 'Geral'
