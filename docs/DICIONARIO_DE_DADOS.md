@@ -121,6 +121,9 @@ Registo institucional de cada Tenant na plataforma.
 | `inscricoes_inicio` / `fim` | `DATE` | Sim | Janela temporal de inscrições online. |
 | `logo_base64` | `TEXT` | Sim | Imagem do logótipo institucional em Base64 para PDFs. |
 | `galeria_logos` | `JSON` | Não | Catálogo e galeria de logótipos institucionais disponíveis. |
+| `modo_uso_logo` | `VARCHAR(30)` | Não | Modo de uso do logótipo: `DOCUMENTOS` (cabeçalho), `DOCUMENTOS_E_MARCA_DAGUA` (ambos), `APENAS_MARCA_DAGUA`. |
+| `marca_dagua_url` / `base64` | `TEXT` | Sim | Imagem específica carregada exclusivamente para actuar como Marca d'Água. |
+| `marca_dagua_modo` | `VARCHAR(30)` | Não | Modo da Marca d'Água: `EMBLEMA_NACIONAL`, `MESMO_LOGO`, `ESPECIFICA`, `NENHUM`. |
 | `tema_codigo` | `VARCHAR(50)` | Não | Código do tema de cores oficial (`padrao_azul`, `indigo_save`, etc.). |
 | `tema_cor_primaria` / `tema_cor_hover` | `VARCHAR(20)` | Sim | Cores primária e hover da instituição para botões e cabeçalhos. |
 | `tema_cor_sidebar` / `tema_cor_sidebar_ativa` | `VARCHAR(20)` | Sim | Cores da barra lateral e elemento activo do menu. |

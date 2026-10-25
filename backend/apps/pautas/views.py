@@ -16,7 +16,7 @@ from apps.documentos.services.pdf_service import gerar_pauta_pdf, gerar_acta_pdf
 from apps.documentos.services.excel_service import (
     gerar_pauta_xlsx, gerar_acta_xlsx, gerar_estatisticas_gerais_xlsx, gerar_pauta_exames_xlsx
 )
-from apps.documentos.services.docx_service import gerar_pauta_docx, gerar_acta_docx
+from apps.documentos.services.docx_service import gerar_pauta_docx, gerar_acta_docx, gerar_pauta_exames_docx
 
 from .services import (
     resolver_permissoes_exames_usuario,
@@ -1224,6 +1224,32 @@ class PautaExamesPDFView(APIView):
         safe_turma = re.sub(r'[^\w\-]', '_', turma.nome)
         fname = f"Pauta_Exames_{safe_turma}_{ano_letivo}.pdf"
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        return response
+
+
+class PautaExamesDOCXView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, turma_id):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        turma = get_object_or_404(Turma, id=turma_id)
+        if escola and turma.escola_id != escola.id:
+            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+                escola = turma.escola
+            else:
+                return Response({'success': False, 'message': 'Acesso negado.'}, status=403)
+
+        ano_letivo = request.query_params.get('anoLetivo', getattr(escola, 'ano_letivo_ativo', '2026') or '2026')
+        orientacao = request.query_params.get('orientacao', 'landscape')
+
+        dados = consolidar_pauta_exames(turma, ano_letivo=ano_letivo)
+        docx_bytes = gerar_pauta_exames_docx(dados, escola or turma.escola, ano_letivo=ano_letivo, orientacao=orientacao)
+
+        safe_turma = re.sub(r'[^\w\-]', '_', turma.nome)
+        fname = f"Pauta_Exames_{safe_turma}_{ano_letivo}.docx"
+        response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         response['Content-Disposition'] = f'attachment; filename="{fname}"'
         return response
 

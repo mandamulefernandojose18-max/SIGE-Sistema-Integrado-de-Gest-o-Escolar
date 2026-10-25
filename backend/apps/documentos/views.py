@@ -952,6 +952,17 @@ class LoteXLSXView(APIView):
         turma, escola = _obter_turma_e_escola(request, turma_id)
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
         orientacao = request.query_params.get('orientacao', 'portrait')
+        ano_doc = turma.ano_letivo or (getattr(escola, 'ano_letivo_ativo', None) if escola else None) or str(datetime.date.today().year)
+
+        if tipo == 'PAUTA_EXAME':
+            from apps.pautas.services import consolidar_pauta_exames
+            from apps.documentos.services.excel_service import gerar_pauta_exames_xlsx
+            dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_doc)
+            xlsx_bytes = gerar_pauta_exames_xlsx(dados_exame, escola or turma.escola, ano_letivo=ano_doc, orientacao=orientacao)
+            fname = f"Pauta_Exames_{_sanitizar_para_nome_arquivo(turma.nome)}_{ano_doc}.xlsx"
+            response = HttpResponse(xlsx_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            _definir_content_disposition(response, fname)
+            return response
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         xlsx_bytes = gerar_lote_xlsx(turma, escola, tipo, documentos, orientacao=orientacao)
@@ -969,6 +980,17 @@ class LotePDFView(APIView):
         turma, escola = _obter_turma_e_escola(request, turma_id)
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
         orientacao = request.query_params.get('orientacao', 'portrait')
+        ano_doc = turma.ano_letivo or (getattr(escola, 'ano_letivo_ativo', None) if escola else None) or str(datetime.date.today().year)
+
+        if tipo == 'PAUTA_EXAME':
+            from apps.pautas.services import consolidar_pauta_exames
+            from apps.documentos.services.pdf_service import gerar_pauta_exames_pdf
+            dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_doc)
+            pdf_bytes = gerar_pauta_exames_pdf(dados_exame, escola or turma.escola, ano_letivo=ano_doc, orientacao=orientacao)
+            fname = f"Pauta_Exames_{_sanitizar_para_nome_arquivo(turma.nome)}_{ano_doc}.pdf"
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            _definir_content_disposition(response, fname)
+            return response
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         pdf_bytes = gerar_lote_pdf(turma, escola, tipo, documentos, orientacao=orientacao)
@@ -986,6 +1008,17 @@ class LoteDOCXView(APIView):
         turma, escola = _obter_turma_e_escola(request, turma_id)
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
         orientacao = request.query_params.get('orientacao', 'portrait')
+        ano_doc = turma.ano_letivo or (getattr(escola, 'ano_letivo_ativo', None) if escola else None) or str(datetime.date.today().year)
+
+        if tipo == 'PAUTA_EXAME':
+            from apps.pautas.services import consolidar_pauta_exames
+            from apps.documentos.services.docx_service import gerar_pauta_exames_docx
+            dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_doc)
+            docx_bytes = gerar_pauta_exames_docx(dados_exame, escola or turma.escola, ano_letivo=ano_doc, orientacao=orientacao)
+            fname = f"Pauta_Exames_{_sanitizar_para_nome_arquivo(turma.nome)}_{ano_doc}.docx"
+            response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            _definir_content_disposition(response, fname)
+            return response
         documentos = _compilar_documentos_lote(request, turma, escola, tipo)
 
         docx_bytes = gerar_lote_docx(turma, escola, tipo, documentos, orientacao=orientacao)
@@ -1003,9 +1036,34 @@ class LoteZIPView(APIView):
         turma, escola = _obter_turma_e_escola(request, turma_id)
         tipo = request.query_params.get('tipo', 'BOLETIM').upper()
         orientacao = request.query_params.get('orientacao', 'portrait')
-        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
+        ano_doc = turma.ano_letivo or (getattr(escola, 'ano_letivo_ativo', None) if escola else None) or str(datetime.date.today().year)
 
-        ano_doc = turma.ano_letivo or escola.ano_letivo_ativo or str(datetime.date.today().year)
+        if tipo == 'PAUTA_EXAME':
+            from apps.pautas.services import consolidar_pauta_exames
+            from apps.documentos.services.pdf_service import gerar_pauta_exames_pdf
+            from apps.documentos.services.excel_service import gerar_pauta_exames_xlsx
+            from apps.documentos.services.docx_service import gerar_pauta_exames_docx
+
+            dados_exame = consolidar_pauta_exames(turma, ano_letivo=ano_doc)
+            safe_t = _sanitizar_para_nome_arquivo(turma.nome)
+
+            pdf_b = gerar_pauta_exames_pdf(dados_exame, escola or turma.escola, ano_letivo=ano_doc, orientacao='landscape')
+            xlsx_b = gerar_pauta_exames_xlsx(dados_exame, escola or turma.escola, ano_letivo=ano_doc, orientacao='landscape')
+            docx_b = gerar_pauta_exames_docx(dados_exame, escola or turma.escola, ano_letivo=ano_doc, orientacao='landscape')
+
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                zip_file.writestr(f"Pauta_Exames_{safe_t}_{ano_doc}.pdf", pdf_b)
+                zip_file.writestr(f"Pauta_Exames_{safe_t}_{ano_doc}.xlsx", xlsx_b)
+                zip_file.writestr(f"Pauta_Exames_{safe_t}_{ano_doc}.docx", docx_b)
+
+            zip_buffer.seek(0)
+            fname = f"PACOTE_PAUTA_EXAMES_{safe_t}_{ano_doc}.zip"
+            response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+            _definir_content_disposition(response, fname)
+            return response
+
+        documentos = _compilar_documentos_lote(request, turma, escola, tipo)
         tipo_lbl = "Boletins" if tipo == 'BOLETIM' else ("Declaracoes" if tipo == 'DECLARACAO' else ("Certificados" if tipo == 'CERTIFICADO' else tipo.capitalize()))
 
         zip_buffer = io.BytesIO()

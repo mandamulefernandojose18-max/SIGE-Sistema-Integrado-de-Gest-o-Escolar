@@ -142,7 +142,13 @@ O sistema aplica uma distinção arquitetural e de negócio estrita e inquebráv
 A identidade visual, paleta cromática, marcas d'água e configurações operacionais de cada escola são 100% independentes e isoladas:
 
 1. **Camada de Dados Relacional (`tenants.Escola`):**
-   - Cada escola armazena em colunas dedicadas o seu `tema_codigo`, `tema_cor_primaria`, `tema_cor_hover`, `tema_cor_sidebar`, `tema_cor_sidebar_ativa`, `imagem_fundo_url`, `imagem_fundo_modo`, `imagem_fundo_opacidade`, `galeria_fundos` e `galeria_logos`.
+   - Cada escola armazena em colunas dedicadas o seu `tema_codigo`, `tema_cor_primaria`, `tema_cor_hover`, `tema_cor_sidebar`, `tema_cor_sidebar_ativa`, `imagem_fundo_url`, `imagem_fundo_modo`, `imagem_fundo_opacidade`, `galeria_fundos`, `galeria_logos`, `modo_uso_logo`, `marca_dagua_url` e `marca_dagua_modo`.
+   - **Gestão Flexível de Logótipos e Marcas d'Água por Instituição:**
+     - **Possibilidade 1 (Só e Só como Marca de Água):** A instituição pode carregar um logótipo ou imagem específico destinado exclusivamente a atuar como Marca d'Água suave no fundo de pautas, cadernetas, boletins, certificados e relatórios (`marca_dagua_modo = 'ESPECIFICA'`).
+     - **Possibilidade 2 (Uso em Documentos com 2 Opções):** A instituição pode carregar um logótipo próprio para cabeçalhos com duas opções de aplicação:
+       - *Opção A:* Uso estrito nos Documentos (`modo_uso_logo = 'DOCUMENTOS'`).
+       - *Opção B:* Uso simultâneo nos Documentos e como Marca d'Água (`modo_uso_logo = 'DOCUMENTOS_E_MARCA_DAGUA'`).
+     - **Galeria e Importação Contínua:** Mantém-se sempre a possibilidade de carregar/importar múltiplas imagens e logótipos via upload local ou link/URL para a galeria da instituição, sem limites de imagens salvas.
    - Apenas ficheiros e itens de upload próprios da escola (`tipo: 'UPLOAD'`) são persistidos nos campos JSON, enquanto opções padrão de sistema (Emblema Nacional, Marca SIGE, Sem Imagem) são providas dinamicamente pelo motor do sistema.
    - As alterações realizadas nas **Definições da Escola** e logótipos vigoram exclusivamente na instituição ativa e jamais contaminam outras escolas.
 

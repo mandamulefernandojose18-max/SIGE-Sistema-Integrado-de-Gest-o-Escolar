@@ -352,7 +352,65 @@ class TestMultiTenancy:
         assert res_super_b.status_code == 200
         assert res_super_b.data['data']['tema_codigo'] == 'padrao_azul'
         assert res_super_b.data['data']['director_nome'] == 'Director Beta Original'
+    def test_isolamento_total_logotipo_e_marca_dagua_entre_escolas(self):
+        from apps.documentos.services.pdf_service import resolver_marca_dagua_escola
 
+        # 1. Escola A configura: Logótipo nos Documentos e Imagem Específica de Marca de Água
+        login_a = self.client.post('/api/v1/auth/login/', {'email': 'admin.a@sige.mz', 'password': 'PassA123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_a.data['token']}")
 
+        res_put_a = self.client.put('/api/v1/escola-admin/info', {
+            'usar_emblema_nacional': False,
+            'logo_url': 'https://sigesaas.duckdns.org/media/logos/alfa_docs.png',
+            'modo_uso_logo': 'DOCUMENTOS',
+            'marca_dagua_url': 'https://sigesaas.duckdns.org/media/logos/alfa_marca_dagua_especifica.png',
+            'marca_dagua_modo': 'ESPECIFICA',
+            'galeria_logos': [
+                {'id': 'logo_1', 'nome': 'Logótipo Alfa', 'url': 'https://sigesaas.duckdns.org/media/logos/alfa_docs.png', 'destino': 'DOCUMENTOS'},
+                {'id': 'md_1', 'nome': 'Marca d\'Água Alfa', 'url': 'https://sigesaas.duckdns.org/media/logos/alfa_marca_dagua_especifica.png', 'destino': 'APENAS_MARCA_DAGUA'}
+            ]
+        }, format='json')
+        assert res_put_a.status_code == 200
+        dados_a = res_put_a.data['data']
+        assert dados_a['modo_uso_logo'] == 'DOCUMENTOS'
+        assert dados_a['marca_dagua_modo'] == 'ESPECIFICA'
+        assert dados_a['marca_dagua_url'] == 'https://sigesaas.duckdns.org/media/logos/alfa_marca_dagua_especifica.png'
+        assert len(dados_a['galeria_logos']) == 2
 
+        # 2. Escola B configura: Logótipo para Documentos E Marca de Água simultaneamente
+        login_b = self.client.post('/api/v1/auth/login/', {'email': 'admin.b@sige.mz', 'password': 'PassB123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_b.data['token']}")
+
+        res_put_b = self.client.put('/api/v1/escola-admin/info', {
+            'usar_emblema_nacional': False,
+            'logo_url': 'https://sigesaas.duckdns.org/media/logos/beta_ambos.png',
+            'modo_uso_logo': 'DOCUMENTOS_E_MARCA_DAGUA',
+            'marca_dagua_modo': 'MESMO_LOGO',
+            'galeria_logos': [
+                {'id': 'logo_beta', 'nome': 'Logótipo Beta', 'url': 'https://sigesaas.duckdns.org/media/logos/beta_ambos.png', 'destino': 'DOCUMENTOS_E_MARCA_DAGUA'}
+            ]
+        }, format='json')
+        assert res_put_b.status_code == 200
+        dados_b = res_put_b.data['data']
+        assert dados_b['modo_uso_logo'] == 'DOCUMENTOS_E_MARCA_DAGUA'
+        assert dados_b['marca_dagua_modo'] == 'MESMO_LOGO'
+        assert dados_b['logo_url'] == 'https://sigesaas.duckdns.org/media/logos/beta_ambos.png'
+        assert len(dados_b['galeria_logos']) == 1
+
+        # 3. Validar isolamento estrito: Escola B NUNCA tem as imagens nem opções da Escola A
+        res_get_b = self.client.get('/api/v1/escola-admin/info')
+        assert res_get_b.status_code == 200
+        assert res_get_b.data['data']['marca_dagua_url'] is None
+        assert res_get_b.data['data']['modo_uso_logo'] == 'DOCUMENTOS_E_MARCA_DAGUA'
+        assert 'alfa' not in str(res_get_b.data['data'])
+
+        # 4. Validar resolução independente de marca d'água em documentos (PDF service)
+        self.escola_a.refresh_from_db()
+        self.escola_b.refresh_from_db()
+
+        md_a = resolver_marca_dagua_escola(self.escola_a)
+        md_b = resolver_marca_dagua_escola(self.escola_b)
+        assert md_a is not None
+        assert md_b is not None
+        assert md_a != md_b
 

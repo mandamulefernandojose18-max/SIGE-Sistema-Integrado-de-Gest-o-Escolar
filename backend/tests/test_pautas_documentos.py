@@ -401,6 +401,11 @@ class TestPautasEDocumentos:
         assert res_pdf['Content-Type'] == 'application/pdf'
         assert len(res_pdf.content) > 0
 
+        res_docx = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/docx?anoLetivo=2026')
+        assert res_docx.status_code == 200
+        assert res_docx['Content-Type'] == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        assert len(res_docx.content) > 0
+
 
 
 

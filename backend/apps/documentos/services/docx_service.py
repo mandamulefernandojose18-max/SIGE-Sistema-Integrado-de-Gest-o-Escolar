@@ -1837,3 +1837,221 @@ def gerar_lote_docx(turma, escola, tipo_documento, alunos_documentos, orientacao
     buffer.seek(0)
     return buffer.getvalue()
 
+
+# ==================== PAUTA OFICIAL DE EXAMES (WORD / DOCX) ====================
+
+def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='landscape') -> bytes:
+    """
+    Gera o documento oficial da Pauta de Exames em formato Word (.docx)
+    fiel ao modelo oficial do MEC em orientação Horizontal (Landscape)
+    respeitando a padronização mandatória Times New Roman 12, espaçamento 1,5.
+    """
+    doc = docx.Document()
+    configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.4)
+
+    esc_obj = escola or dados_pauta.get('escola', {})
+    if isinstance(esc_obj, dict):
+        esc_nome = esc_obj.get('nome') or 'Escola Secundária de Massinga'
+        prov_str = esc_obj.get('provincia') or 'Inhambane'
+        dist_str = esc_obj.get('distrito') or 'Massinga'
+    else:
+        esc_nome = getattr(esc_obj, 'nome', '') or 'Escola Secundária de Massinga'
+        prov_str = getattr(esc_obj, 'provincia', '') or 'Inhambane'
+        dist_str = getattr(esc_obj, 'distrito', '') or 'Massinga'
+
+    esc_nome_clean = esc_nome.strip()
+    if not esc_nome_clean.upper().startswith('ESCOLA') and not esc_nome_clean.upper().startswith('INSTITUTO'):
+        esc_nome_clean = f"ESCOLA {esc_nome_clean}"
+
+    turma_info = dados_pauta.get('turma', {})
+    turma_nome = turma_info.get('nome', 'Turma')
+    grau_ano = turma_info.get('grau_ano', '10ª Classe')
+    area_nome = turma_info.get('area', '')
+
+    # Cabeçalho da República
+    p1 = doc.add_paragraph()
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.space_after = Pt(2)
+    r1 = p1.add_run("REPÚBLICA DE MOÇAMBIQUE")
+    aplicar_fonte_times(r1, pt_size=12, bold=True)
+
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_after = Pt(2)
+    r2 = p2.add_run("MINISTÉRIO DA EDUCAÇÃO E CULTURA")
+    aplicar_fonte_times(r2, pt_size=11, bold=True)
+
+    p3 = doc.add_paragraph()
+    p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p3.paragraph_format.space_after = Pt(2)
+    r3 = p3.add_run(f"GOVERNO DA PROVÍNCIA DE {prov_str.upper()} — SDEJT DE {dist_str.upper()}")
+    aplicar_fonte_times(r3, pt_size=10, bold=False)
+
+    p_esc = doc.add_paragraph()
+    p_esc.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_esc.paragraph_format.space_after = Pt(4)
+    r_esc = p_esc.add_run(esc_nome_clean.upper())
+    aplicar_fonte_times(r_esc, pt_size=12, bold=True)
+
+    p_tit = doc.add_paragraph()
+    p_tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_tit.paragraph_format.space_after = Pt(4)
+    r_tit = p_tit.add_run(f"PAUTA OFICIAL DE EXAMES — ANO LECTIVO {ano_letivo}")
+    aplicar_fonte_times(r_tit, pt_size=12, bold=True)
+
+    p_sub = doc.add_paragraph()
+    p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_sub.paragraph_format.space_after = Pt(8)
+    area_desc = f" | Área/Secção: {area_nome}" if area_nome else ""
+    r_sub = p_sub.add_run(f"Classe: {grau_ano}{area_desc} | Turma: {turma_nome}")
+    aplicar_fonte_times(r_sub, pt_size=10, italic=True)
+
+    disciplinas_com_exame = dados_pauta.get('disciplinas_com_exame', [])
+    disciplinas_sem_exame = dados_pauta.get('disciplinas_sem_exame', [])
+    alunos = dados_pauta.get('alunos', [])
+
+    # Construir tabela
+    # Total de colunas = 5 fixas + len(com_exame)*4 + len(sem_exame)*1 + 3 resultado
+    num_cols = 5 + (len(disciplinas_com_exame) * 4) + (len(disciplinas_sem_exame) * 1) + 3
+    table = doc.add_table(rows=2, cols=num_cols)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.style = 'Table Grid'
+    aplicar_cant_split_tabela(table)
+
+    # Linha 0 e 1 de cabeçalho
+    # Colunas fixas 0 a 4
+    hdr_fixos = ['Nº', 'Nº Cand.', 'Nome do Aluno', 'Gén.', 'Turma']
+    for idx_c, nome_c in enumerate(hdr_fixos):
+        cell_top = table.cell(0, idx_c)
+        cell_bot = table.cell(1, idx_c)
+        cell_top.merge(cell_bot)
+        cell_top.text = ""
+        p = cell_top.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(nome_c)
+        aplicar_fonte_times(r, pt_size=9, bold=True)
+
+    curr_col = 5
+    for d in disciplinas_com_exame:
+        d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
+        # Merge colunas de exame na linha 0
+        c_start = table.cell(0, curr_col)
+        c_end = table.cell(0, curr_col + 3)
+        c_start.merge(c_end)
+        c_start.text = ""
+        p = c_start.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(d_nome_curto)
+        aplicar_fonte_times(r, pt_size=9, bold=True)
+
+        sub_labels = ['Freq.', 'Ex. 1ª', 'Ex. 2ª', 'Média']
+        for sub_idx, sub_lbl in enumerate(sub_labels):
+            cell_sub = table.cell(1, curr_col + sub_idx)
+            cell_sub.text = ""
+            p_sub = cell_sub.paragraphs[0]
+            p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r_sub = p_sub.add_run(sub_lbl)
+            aplicar_fonte_times(r_sub, pt_size=8, bold=True)
+
+        curr_col += 4
+
+    for d in disciplinas_sem_exame:
+        d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
+        cell_top = table.cell(0, curr_col)
+        cell_bot = table.cell(1, curr_col)
+        cell_top.merge(cell_bot)
+        cell_top.text = ""
+        p = cell_top.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(d_nome_curto)
+        aplicar_fonte_times(r, pt_size=9, bold=True)
+
+        curr_col += 1
+
+    # RESULTADO FINAL
+    c_res_start = table.cell(0, curr_col)
+    c_res_end = table.cell(0, curr_col + 2)
+    c_res_start.merge(c_res_end)
+    c_res_start.text = ""
+    p_rf = c_res_start.paragraphs[0]
+    p_rf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_rf = p_rf.add_run("RESULTADO FINAL")
+    aplicar_fonte_times(r_rf, pt_size=9, bold=True)
+
+    res_sub_labels = ['Resultado', 'MF', 'Disc. Reprovou']
+    for s_idx, s_lbl in enumerate(res_sub_labels):
+        cell_sub = table.cell(1, curr_col + s_idx)
+        cell_sub.text = ""
+        p_s = cell_sub.paragraphs[0]
+        p_s.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_s = p_s.add_run(s_lbl)
+        aplicar_fonte_times(r_s, pt_size=8, bold=True)
+
+    # Inserir alunos
+    if not alunos:
+        row = table.add_row()
+        row.cells[0].text = '-'
+        row.cells[1].text = '-'
+        row.cells[2].text = 'Nenhum aluno registado nesta turma'
+        for ci in range(3, num_cols):
+            row.cells[ci].text = '-'
+    else:
+        for idx, aluno in enumerate(alunos, start=1):
+            row = table.add_row()
+            cells = row.cells
+            cells[0].text = str(aluno.get('numero', idx))
+            cells[1].text = str(aluno.get('candidato', aluno.get('matricula', '-')))
+            cells[2].text = str(aluno.get('nome', ''))
+            cells[3].text = str(aluno.get('genero', ''))
+            cells[4].text = str(aluno.get('turma', turma_nome))
+
+            c_pos = 5
+            disc_map = aluno.get('disciplinas', {})
+            for d in disciplinas_com_exame:
+                d_data = disc_map.get(d['id']) or {}
+                v_freq = d_data.get('frequencia', '-')
+                v_e1 = d_data.get('exame_1epoca')
+                v_e2 = d_data.get('exame_2epoca')
+                v_med = d_data.get('media', '-')
+
+                cells[c_pos].text = str(v_freq if v_freq is not None else '-')
+                cells[c_pos + 1].text = str(v_e1 if v_e1 is not None and v_e1 != "" else '-')
+                cells[c_pos + 2].text = str(v_e2 if v_e2 is not None and v_e2 != "" else '-')
+                cells[c_pos + 3].text = str(v_med if v_med is not None else '-')
+                c_pos += 4
+
+            for d in disciplinas_sem_exame:
+                d_data = disc_map.get(d['id']) or {}
+                v_freq = d_data.get('frequencia', '-')
+                cells[c_pos].text = str(v_freq if v_freq is not None else '-')
+                c_pos += 1
+
+            res_info = aluno.get('resultado_final', {})
+            res_aprov = str(res_info.get('aprovado', '') or 'Pendente').strip()
+            res_mf = res_info.get('mf', '-')
+            res_rep = str(res_info.get('disciplinas_reprovou', '---') or '---')
+
+            cells[c_pos].text = res_aprov
+            cells[c_pos + 1].text = str(res_mf if res_mf is not None else '-')
+            cells[c_pos + 2].text = res_rep
+
+            for ci, c in enumerate(cells):
+                if c.paragraphs:
+                    p = c.paragraphs[0]
+                    if ci != 2:
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for r in p.runs:
+                        aplicar_fonte_times(r, pt_size=8.5)
+
+    doc.add_paragraph()
+    p_foot = doc.add_paragraph()
+    p_foot.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    r_foot = p_foot.add_run(f"Documento processado informaticamente pelo SIGE • {datetime.date.today().strftime('%d/%m/%Y')}")
+    aplicar_fonte_times(r_foot, pt_size=9, italic=True, color_rgb=RGBColor(100, 100, 100))
+
+    buffer = io.BytesIO()
+    salvar_docx_padronizado(doc, buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+

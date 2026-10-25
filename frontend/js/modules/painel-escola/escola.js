@@ -436,7 +436,10 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       distrito: document.getElementById('confEscolaDistrito').value,
       usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked,
       logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || '',
-      galeria_logos: window.obterGaleriaLogosEscola()
+      modo_uso_logo: document.getElementById('confEscolaModoUsoLogo')?.value || 'DOCUMENTOS',
+      marca_dagua_url: document.getElementById('confEscolaMarcaDaguaFinalValue')?.value || '',
+      marca_dagua_modo: document.getElementById('confEscolaMarcaDaguaModo')?.value || 'EMBLEMA_NACIONAL',
+      galeria_logos: (typeof window.obterGaleriaLogosEscola === 'function') ? window.obterGaleriaLogosEscola() : []
     };
     const res = await apiFetch('/api/v1/escola-admin/info', {
       method: 'PUT',

@@ -2525,6 +2525,7 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
     state.filtroAlunoTurma = 'TODAS';
     const nomeLimpo = (escolaNome || '').replace(/\\'/g, "'");
     state.tenant = { id: escolaId, nome: nomeLimpo || 'Escola Seleccionada', status: st || 'ATIVA' };
+    state.escolaAtual = { id: escolaId, nome: nomeLimpo || 'Escola Seleccionada', status: st || 'ATIVA' };
 
     // Sincronizar o selector de tenants no topo
     const select = document.getElementById('superAdminTenantSelect');
@@ -2562,6 +2563,7 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       const res = await apiFetch('/api/v1/escola-admin/info', { ignoreAuthRedirect: true });
       if (res && res.success && res.data) {
         state.tenant = res.data;
+        state.escolaAtual = res.data;
         atualizarBadgeTenant(state.tenant);
         if (typeof aplicarTemaEFundoInstituicao === 'function') {
           aplicarTemaEFundoInstituicao(state.tenant);
@@ -3784,17 +3786,21 @@ async function carregarEscolaETurmas() {
       setTxt('labelBadgeDP', codDP);
       setTxt('labelBadgeSECR', codSECR);
 
-      // Logótipo da Escola & Catálogo de Identidade Visual
+      // Logótipo da Escola & Catálogo de Identidade Visual (Isolado)
       if (e.galeria_logos && Array.isArray(e.galeria_logos)) {
         state.escolaAtual.galeria_logos = e.galeria_logos;
         if (state.tenant) state.tenant.galeria_logos = e.galeria_logos;
       }
+      state.escolaAtual.modo_uso_logo = e.modo_uso_logo || 'DOCUMENTOS';
+      state.escolaAtual.marca_dagua_url = e.marca_dagua_url || null;
+      state.escolaAtual.marca_dagua_modo = e.marca_dagua_modo || 'EMBLEMA_NACIONAL';
+
       const logoVal = e.logo_url || e.logo_base64 || '';
       const finalLogoInput = document.getElementById('confEscolaLogoFinalValue');
       if (finalLogoInput) finalLogoInput.value = logoVal;
       const urlInput = document.getElementById('confEscolaLogoUrl');
       if (urlInput) urlInput.value = '';
-      window.atualizarVisualizacaoLogo(logoVal, e.usar_emblema_nacional);
+      window.atualizarVisualizacaoIdentidadeVisual();
       if (typeof window.renderizarGaleriaLogos === 'function') {
         window.renderizarGaleriaLogos();
       }
@@ -4165,6 +4171,54 @@ function abrirAlunosDaTurma(turmaId, grauAno) {
   }, 100);
 }
 
+// ==================== LOGÓTIPO & MARCA D'ÁGUA DA INSTITUIÇÃO (ISOLAMENTO MULTI-TENANT) ====================
+
+// Obtém o logótipo oficial para cabeçalhos de documentos da instituição ativa
+function obterLogoDocumentosEscola(escola = null) {
+  const e = escola || state.escolaAtual || state.tenant || {};
+  const usarEmblema = e.usar_emblema_nacional !== false;
+  const modoLogo = e.modo_uso_logo || 'DOCUMENTOS';
+  const logo = e.logo_url || e.logo_base64;
+
+  if (modoLogo === 'APENAS_MARCA_DAGUA') {
+    return 'img/emblema-mocambique.png';
+  }
+  if (!usarEmblema && logo && !logo.includes('emblema-mocambique.png')) {
+    return logo;
+  }
+  return 'img/emblema-mocambique.png';
+}
+window.obterLogoDocumentosEscola = obterLogoDocumentosEscola;
+
+// Obtém a imagem da marca d'água oficial da instituição ativa
+function obterMarcaDaguaEscola(escola = null) {
+  const e = escola || state.escolaAtual || state.tenant || {};
+  const modoMd = e.marca_dagua_modo || 'EMBLEMA_NACIONAL';
+  const modoLogo = e.modo_uso_logo || 'DOCUMENTOS';
+
+  if (modoMd === 'NENHUM') {
+    return null;
+  }
+
+  // 1. Possibilidade 1: Usar só e só como marca de água (específica)
+  if (modoMd === 'ESPECIFICA' || modoLogo === 'APENAS_MARCA_DAGUA') {
+    const mdEspecifica = e.marca_dagua_url || e.marca_dagua_base64;
+    if (mdEspecifica) return mdEspecifica;
+  }
+
+  // 2. Possibilidade 2: Usar nos documentos e marca de água
+  if (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA' || modoMd === 'MESMO_LOGO') {
+    const logoProprio = e.logo_url || e.logo_base64;
+    if (logoProprio && !logoProprio.includes('emblema-mocambique.png')) {
+      return logoProprio;
+    }
+  }
+
+  // Padrão Moçambique: Emblema Nacional Oficial
+  return 'img/emblema-mocambique.png';
+}
+window.obterMarcaDaguaEscola = obterMarcaDaguaEscola;
+
 function obterGaleriaLogosEscola() {
   const e = state.escolaAtual || state.tenant || {};
   const eId = (e.id || '').toString().trim();
@@ -4194,10 +4248,25 @@ function obterGaleriaLogosEscola() {
   if (logoAtual && !logoAtual.includes('emblema-mocambique.png')) {
     if (!galeria.some(g => g.url === logoAtual)) {
       galeria.unshift({
-        id: 'logo_anterior_' + (eId || Date.now()),
+        id: 'logo_docs_' + (eId || Date.now()),
         nome: 'Logótipo da Escola',
         url: logoAtual,
         tipo: 'SALVO',
+        destino: e.modo_uso_logo || 'DOCUMENTOS',
+        criado_em: new Date().toISOString()
+      });
+    }
+  }
+
+  const mdAtual = e.marca_dagua_url || e.marca_dagua_base64;
+  if (mdAtual && !mdAtual.includes('emblema-mocambique.png')) {
+    if (!galeria.some(g => g.url === mdAtual)) {
+      galeria.push({
+        id: 'logo_md_' + (eId || Date.now()),
+        nome: 'Marca de Água Específica',
+        url: mdAtual,
+        tipo: 'SALVO',
+        destino: 'APENAS_MARCA_DAGUA',
         criado_em: new Date().toISOString()
       });
     }
@@ -4214,15 +4283,105 @@ function obterGaleriaLogosEscola() {
 }
 window.obterGaleriaLogosEscola = obterGaleriaLogosEscola;
 
+function atualizarVisualizacaoIdentidadeVisual() {
+  const e = state.escolaAtual || state.tenant || {};
+  const imgLogo = document.getElementById('confEscolaLogoPreview');
+  const statusLogo = document.getElementById('confEscolaLogoStatus');
+  const badgeModoLogo = document.getElementById('confEscolaModoLogoBadge');
+
+  const imgMd = document.getElementById('confEscolaMarcaDaguaPreview');
+  const statusMd = document.getElementById('confEscolaMarcaDaguaStatus');
+  const badgeModoMd = document.getElementById('confEscolaMarcaDaguaModoBadge');
+
+  const logoDocs = obterLogoDocumentosEscola(e);
+  const marcaDagua = obterMarcaDaguaEscola(e);
+  const usarEmblema = e.usar_emblema_nacional !== false;
+  const modoLogo = e.modo_uso_logo || 'DOCUMENTOS';
+  const modoMd = e.marca_dagua_modo || 'EMBLEMA_NACIONAL';
+
+  // Atualizar Logótipo de Documentos
+  if (imgLogo) imgLogo.src = logoDocs || 'img/emblema-mocambique.png';
+  if (statusLogo) {
+    if (usarEmblema || !e.logo_url || logoDocs.includes('emblema-mocambique.png')) {
+      statusLogo.textContent = 'Emblema Nacional (Oficial)';
+    } else {
+      const galeria = (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : [];
+      const item = galeria.find(g => g.url === (e.logo_url || e.logo_base64));
+      statusLogo.textContent = item?.nome ? `Logótipo: ${item.nome}` : 'Logótipo Próprio Activo';
+    }
+  }
+  if (badgeModoLogo) {
+    if (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA') {
+      badgeModoLogo.className = 'badge bg-primary text-white border text-truncate d-block mt-1';
+      badgeModoLogo.innerHTML = '<i class="bi bi-layers-fill me-1"></i>Documentos + Marca de Água';
+    } else if (modoLogo === 'APENAS_MARCA_DAGUA') {
+      badgeModoLogo.className = 'badge bg-secondary text-white border text-truncate d-block mt-1';
+      badgeModoLogo.innerHTML = '<i class="bi bi-droplet-half me-1"></i>Só Marca de Água';
+    } else {
+      badgeModoLogo.className = 'badge bg-light text-dark border text-truncate d-block mt-1';
+      badgeModoLogo.innerHTML = '<i class="bi bi-file-earmark-text me-1"></i>Apenas Documentos';
+    }
+  }
+
+  // Atualizar Marca d'Água
+  if (imgMd) {
+    imgMd.src = marcaDagua || 'img/emblema-mocambique.png';
+    imgMd.style.display = marcaDagua ? 'inline-block' : 'none';
+  }
+  if (statusMd) {
+    if (modoMd === 'NENHUM' || !marcaDagua) {
+      statusMd.textContent = 'Sem Marca de Água';
+    } else if (modoMd === 'ESPECIFICA' || modoLogo === 'APENAS_MARCA_DAGUA') {
+      const galeria = (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : [];
+      const item = galeria.find(g => g.url === (e.marca_dagua_url || e.marca_dagua_base64));
+      statusMd.textContent = item?.nome ? `Específica: ${item.nome}` : 'Imagem Específica Activa';
+    } else if (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA' || modoMd === 'MESMO_LOGO') {
+      statusMd.textContent = 'Mesmo Logótipo dos Docs';
+    } else {
+      statusMd.textContent = 'Emblema Nacional (Oficial)';
+    }
+  }
+  if (badgeModoMd) {
+    if (modoMd === 'NENHUM' || !marcaDagua) {
+      badgeModoMd.className = 'badge bg-danger-subtle text-danger border text-truncate d-block mt-1';
+      badgeModoMd.textContent = 'Desativada';
+    } else if (modoMd === 'ESPECIFICA' || modoLogo === 'APENAS_MARCA_DAGUA') {
+      badgeModoMd.className = 'badge bg-info text-dark border text-truncate d-block mt-1';
+      badgeModoMd.textContent = 'Imagem Específica';
+    } else if (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA' || modoMd === 'MESMO_LOGO') {
+      badgeModoMd.className = 'badge bg-primary text-white border text-truncate d-block mt-1';
+      badgeModoMd.textContent = 'Sincronizada c/ Logótipo';
+    } else {
+      badgeModoMd.className = 'badge bg-light text-secondary border text-truncate d-block mt-1';
+      badgeModoMd.textContent = 'Emblema Nacional';
+    }
+  }
+
+  // Sincronizar inputs hidden
+  const inLogo = document.getElementById('confEscolaLogoFinalValue');
+  if (inLogo) inLogo.value = e.logo_url || e.logo_base64 || '';
+  const inModoLogo = document.getElementById('confEscolaModoUsoLogo');
+  if (inModoLogo) inModoLogo.value = modoLogo;
+  const inMd = document.getElementById('confEscolaMarcaDaguaFinalValue');
+  if (inMd) inMd.value = e.marca_dagua_url || e.marca_dagua_base64 || '';
+  const inModoMd = document.getElementById('confEscolaMarcaDaguaModo');
+  if (inModoMd) inModoMd.value = modoMd;
+}
+window.atualizarVisualizacaoIdentidadeVisual = atualizarVisualizacaoIdentidadeVisual;
+window.atualizarVisualizacaoLogo = atualizarVisualizacaoIdentidadeVisual;
+
 function renderizarGaleriaLogos() {
   const container = document.getElementById('galeriaLogosContainer');
   if (!container) return;
 
   const galeria = obterGaleriaLogosEscola();
   const e = state.escolaAtual || state.tenant || {};
-  const logoAtivoAtual = document.getElementById('confEscolaLogoFinalValue')?.value ?? (e.logo_url || e.logo_base64 || '');
+  const logoAtivoAtual = e.logo_url || e.logo_base64 || '';
+  const mdAtivaAtual = e.marca_dagua_url || e.marca_dagua_base64 || '';
   const checkEmblema = document.getElementById('confEscolaEmblema');
   const usarEmblema = checkEmblema ? checkEmblema.checked : (e.usar_emblema_nacional !== false);
+  const modoLogo = e.modo_uso_logo || 'DOCUMENTOS';
+  const modoMd = e.marca_dagua_modo || 'EMBLEMA_NACIONAL';
 
   const contadorEl = document.getElementById('contadorGaleriaLogos');
   if (contadorEl) {
@@ -4230,43 +4389,56 @@ function renderizarGaleriaLogos() {
     contadorEl.textContent = `${total} disponível${total > 1 ? 'is' : ''}`;
   }
 
-  const isEmblemaAtivo = Boolean(usarEmblema || !logoAtivoAtual || logoAtivoAtual === 'img/emblema-mocambique.png');
+  const isEmblemaEmDocs = Boolean(usarEmblema || !logoAtivoAtual || logoAtivoAtual === 'img/emblema-mocambique.png');
+  const isEmblemaEmMd = Boolean(modoMd === 'EMBLEMA_NACIONAL');
 
   let html = `
-    <!-- 1. Emblema Nacional Oficial (Permanente e sempre disponível) -->
-    <div class="col-6 col-sm-6 col-md-6 col-lg-6">
-      <div class="card h-100 p-2 text-center logo-card-item cursor-pointer ${isEmblemaAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
-           onclick="selecionarLogotipoGaleria('emblema_nacional')"
-           title="Clique para usar o Emblema Nacional Oficial"
-           style="cursor: pointer; transition: all 0.2s; min-height: 120px;">
+    <!-- 1. Emblema Nacional Oficial Moçambicano (Padrão Oficial Permanente) -->
+    <div class="col-12 col-sm-6 col-md-6 col-lg-6">
+      <div class="card h-100 p-2 text-center logo-card-item ${isEmblemaEmDocs ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+           style="transition: all 0.2s; min-height: 140px;">
         <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 mb-1" style="height: 60px;">
           <img src="img/emblema-mocambique.png" alt="Emblema Nacional" style="max-height: 100%; max-width: 100%; object-fit: contain;">
         </div>
         <div class="small fw-bold text-truncate text-dark" style="font-size: 0.74rem;" title="Emblema Nacional (Padrão Oficial)">
           Emblema Nacional
         </div>
-        <div class="mt-1">
-          ${isEmblemaAtivo 
-            ? '<span class="badge bg-primary text-white" style="font-size: 0.68rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
-            : '<span class="badge bg-light text-secondary border" style="font-size: 0.68rem;"><i class="bi bi-hand-index-thumb me-1"></i>Usar este</span>'}
+        <div class="d-flex flex-wrap justify-content-center gap-1 my-1">
+          ${isEmblemaEmDocs ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Docs</span>' : ''}
+          ${isEmblemaEmMd ? '<span class="badge bg-info text-dark" style="font-size: 0.65rem;"><i class="bi bi-droplet-half me-1"></i>Marca d\'Água</span>' : ''}
+          ${(!isEmblemaEmDocs && !isEmblemaEmMd) ? '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Disponível</span>' : ''}
+        </div>
+        <div class="d-flex justify-content-center gap-1 mt-1">
+          <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS')" title="Usar no cabeçalho dos documentos">
+            Docs
+          </button>
+          <button type="button" class="btn btn-xs btn-outline-info text-dark py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'APENAS_MARCA_DAGUA')" title="Usar só e só como marca d\'água">
+            Marca d\'Água
+          </button>
+          <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS_E_MARCA_DAGUA')" title="Usar nos documentos e marca d\'água">
+            Ambos
+          </button>
         </div>
       </div>
     </div>
   `;
 
   galeria.forEach((item, idx) => {
-    const isAtivo = !isEmblemaAtivo && (logoAtivoAtual === item.url);
+    const isAtivoEmDocs = (!isEmblemaEmDocs && logoAtivoAtual === item.url && modoLogo !== 'APENAS_MARCA_DAGUA');
+    const isAtivoEmMd = (
+      (modoMd === 'ESPECIFICA' && mdAtivaAtual === item.url) ||
+      (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA' && logoAtivoAtual === item.url)
+    );
     const nomeExibicao = item.nome || `Logótipo ${idx + 1}`;
+    
     html += `
-      <div class="col-6 col-sm-6 col-md-6 col-lg-6">
-        <div class="card h-100 p-2 text-center logo-card-item cursor-pointer position-relative ${isAtivo ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
-             onclick="selecionarLogotipoGaleria('${item.id}')"
-             title="Clique para alternar para este logótipo"
-             style="cursor: pointer; transition: all 0.2s; min-height: 120px;">
+      <div class="col-12 col-sm-6 col-md-6 col-lg-6">
+        <div class="card h-100 p-2 text-center logo-card-item position-relative ${(isAtivoEmDocs || isAtivoEmMd) ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
+             style="transition: all 0.2s; min-height: 140px;">
           <button type="button" class="btn btn-sm btn-danger py-0 px-1 position-absolute top-0 end-0 m-1 rounded-circle shadow-sm"
                   style="font-size: 0.65rem; width: 22px; height: 22px; line-height: 1; padding: 0; z-index: 2;"
                   onclick="event.stopPropagation(); removerLogotipoDaGaleria('${item.id}')"
-                  title="Eliminar este logótipo da galeria">
+                  title="Eliminar este logótipo da galeria desta escola">
             <i class="bi bi-trash"></i>
           </button>
           <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 mb-1" style="height: 60px;">
@@ -4275,10 +4447,21 @@ function renderizarGaleriaLogos() {
           <div class="small fw-bold text-truncate text-dark" style="font-size: 0.74rem;" title="${nomeExibicao}">
             ${nomeExibicao}
           </div>
-          <div class="mt-1">
-            ${isAtivo 
-              ? '<span class="badge bg-primary text-white" style="font-size: 0.68rem;"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>' 
-              : '<span class="badge bg-light text-secondary border" style="font-size: 0.68rem;"><i class="bi bi-hand-index-thumb me-1"></i>Usar este</span>'}
+          <div class="d-flex flex-wrap justify-content-center gap-1 my-1">
+            ${isAtivoEmDocs ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Docs</span>' : ''}
+            ${isAtivoEmMd ? '<span class="badge bg-info text-dark" style="font-size: 0.65rem;"><i class="bi bi-droplet-half me-1"></i>Marca d\'Água</span>' : ''}
+            ${(!isAtivoEmDocs && !isAtivoEmMd) ? '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Galeria</span>' : ''}
+          </div>
+          <div class="d-flex justify-content-center gap-1 mt-1">
+            <button type="button" class="btn btn-xs ${isAtivoEmDocs && !isAtivoEmMd ? 'btn-primary text-white' : 'btn-outline-primary'} py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'DOCUMENTOS')" title="1. Usar apenas nos cabeçalhos dos documentos">
+              Docs
+            </button>
+            <button type="button" class="btn btn-xs ${isAtivoEmDocs && isAtivoEmMd ? 'btn-success text-white' : 'btn-outline-success'} py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'DOCUMENTOS_E_MARCA_DAGUA')" title="2. Usar nos documentos E marca d\'água">
+              Docs + MD
+            </button>
+            <button type="button" class="btn btn-xs ${!isAtivoEmDocs && isAtivoEmMd ? 'btn-info text-dark' : 'btn-outline-info text-dark'} py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'APENAS_MARCA_DAGUA')" title="3. Usar só e só como marca d\'água">
+              Só MD
+            </button>
           </div>
         </div>
       </div>
@@ -4289,48 +4472,87 @@ function renderizarGaleriaLogos() {
 }
 window.renderizarGaleriaLogos = renderizarGaleriaLogos;
 
-async function selecionarLogotipoGaleria(id) {
-  const finalInput = document.getElementById('confEscolaLogoFinalValue');
-  const checkEmblema = document.getElementById('confEscolaEmblema');
+async function aplicarDestinoLogotipo(id, destino) {
   const e = state.escolaAtual || state.tenant || {};
-
-  let logoUrlParaSalvar = '';
-  let usarEmblemaParaSalvar = false;
+  let logoUrlParaSalvar = e.logo_url || '';
+  let usarEmblemaParaSalvar = e.usar_emblema_nacional !== false;
+  let modoUsoLogoParaSalvar = e.modo_uso_logo || 'DOCUMENTOS';
+  let marcaDaguaUrlParaSalvar = e.marca_dagua_url || '';
+  let marcaDaguaModoParaSalvar = e.marca_dagua_modo || 'EMBLEMA_NACIONAL';
 
   if (id === 'emblema_nacional') {
-    if (finalInput) finalInput.value = '';
-    if (checkEmblema) checkEmblema.checked = true;
-    logoUrlParaSalvar = '';
-    usarEmblemaParaSalvar = true;
-    atualizarVisualizacaoLogo('', true);
+    if (destino === 'DOCUMENTOS') {
+      usarEmblemaParaSalvar = true;
+      logoUrlParaSalvar = '';
+      modoUsoLogoParaSalvar = 'DOCUMENTOS';
+    } else if (destino === 'APENAS_MARCA_DAGUA') {
+      marcaDaguaModoParaSalvar = 'EMBLEMA_NACIONAL';
+      marcaDaguaUrlParaSalvar = '';
+    } else if (destino === 'DOCUMENTOS_E_MARCA_DAGUA') {
+      usarEmblemaParaSalvar = true;
+      logoUrlParaSalvar = '';
+      modoUsoLogoParaSalvar = 'DOCUMENTOS_E_MARCA_DAGUA';
+      marcaDaguaModoParaSalvar = 'EMBLEMA_NACIONAL';
+      marcaDaguaUrlParaSalvar = '';
+    }
   } else {
     const galeria = obterGaleriaLogosEscola();
     const item = galeria.find(g => g.id === id);
     if (!item) return;
 
-    if (finalInput) finalInput.value = item.url;
-    if (checkEmblema) checkEmblema.checked = false;
-    logoUrlParaSalvar = item.url;
-    usarEmblemaParaSalvar = false;
-    atualizarVisualizacaoLogo(item.url, false);
+    if (destino === 'DOCUMENTOS') {
+      usarEmblemaParaSalvar = false;
+      logoUrlParaSalvar = item.url;
+      modoUsoLogoParaSalvar = 'DOCUMENTOS';
+      item.destino = 'DOCUMENTOS';
+      if (marcaDaguaModoParaSalvar === 'MESMO_LOGO') {
+        marcaDaguaUrlParaSalvar = item.url;
+      }
+    } else if (destino === 'DOCUMENTOS_E_MARCA_DAGUA') {
+      usarEmblemaParaSalvar = false;
+      logoUrlParaSalvar = item.url;
+      modoUsoLogoParaSalvar = 'DOCUMENTOS_E_MARCA_DAGUA';
+      marcaDaguaModoParaSalvar = 'MESMO_LOGO';
+      marcaDaguaUrlParaSalvar = item.url;
+      item.destino = 'DOCUMENTOS_E_MARCA_DAGUA';
+    } else if (destino === 'APENAS_MARCA_DAGUA') {
+      marcaDaguaModoParaSalvar = 'ESPECIFICA';
+      marcaDaguaUrlParaSalvar = item.url;
+      item.destino = 'APENAS_MARCA_DAGUA';
+    }
   }
 
-  renderizarGaleriaLogos();
-
+  // Atualizar estado em memória
   if (state.escolaAtual) {
     state.escolaAtual.logo_url = logoUrlParaSalvar || null;
     state.escolaAtual.usar_emblema_nacional = usarEmblemaParaSalvar;
+    state.escolaAtual.modo_uso_logo = modoUsoLogoParaSalvar;
+    state.escolaAtual.marca_dagua_url = marcaDaguaUrlParaSalvar || null;
+    state.escolaAtual.marca_dagua_modo = marcaDaguaModoParaSalvar;
   }
   if (state.tenant) {
     state.tenant.logo_url = logoUrlParaSalvar || null;
     state.tenant.usar_emblema_nacional = usarEmblemaParaSalvar;
+    state.tenant.modo_uso_logo = modoUsoLogoParaSalvar;
+    state.tenant.marca_dagua_url = marcaDaguaUrlParaSalvar || null;
+    state.tenant.marca_dagua_modo = marcaDaguaModoParaSalvar;
   }
 
+  const checkEmblema = document.getElementById('confEscolaEmblema');
+  if (checkEmblema) checkEmblema.checked = usarEmblemaParaSalvar;
+
+  atualizarVisualizacaoIdentidadeVisual();
+  renderizarGaleriaLogos();
+
+  // Auto-salvar no backend
   try {
     const galeria = obterGaleriaLogosEscola();
     const body = {
       usar_emblema_nacional: usarEmblemaParaSalvar,
       logo_url: logoUrlParaSalvar,
+      modo_uso_logo: modoUsoLogoParaSalvar,
+      marca_dagua_url: marcaDaguaUrlParaSalvar,
+      marca_dagua_modo: marcaDaguaModoParaSalvar,
       galeria_logos: galeria
     };
     await apiFetch('/api/v1/escola-admin/info', {
@@ -4338,37 +4560,47 @@ async function selecionarLogotipoGaleria(id) {
       body: JSON.stringify(body)
     });
     if (typeof mostrarToast === 'function') {
-      mostrarToast(
-        usarEmblemaParaSalvar 
-          ? 'Emblema Nacional oficial activado com sucesso!' 
-          : 'Logótipo alterado e activado com sucesso!',
-        'success'
-      );
+      const msg = (destino === 'APENAS_MARCA_DAGUA')
+        ? 'Marca de Água configurada com sucesso!'
+        : (destino === 'DOCUMENTOS_E_MARCA_DAGUA')
+          ? 'Logótipo aplicado nos Documentos e Marca de Água com sucesso!'
+          : 'Logótipo aplicado nos Documentos com sucesso!';
+      mostrarToast(msg, 'success');
     }
   } catch (err) {
-    console.warn('Erro ao auto-salvar permuta de logótipo:', err);
+    console.warn('Erro ao auto-salvar configuração de logótipo:', err);
   }
 }
-window.selecionarLogotipoGaleria = selecionarLogotipoGaleria;
+window.aplicarDestinoLogotipo = aplicarDestinoLogotipo;
+window.selecionarLogotipoGaleria = function(id) {
+  aplicarDestinoLogotipo(id, 'DOCUMENTOS');
+};
 
-async function adicionarLogotipoAGaleria(url, nome = '') {
+async function adicionarLogotipoAGaleria(url, nome = '', destinoEscolhido = null) {
   if (!url || !url.trim()) return;
   const urlLimpo = url.trim();
   const galeria = obterGaleriaLogosEscola();
   const e = state.escolaAtual || state.tenant || {};
 
+  const destino = destinoEscolhido || document.getElementById('confEscolaDestinoUpload')?.value || 'DOCUMENTOS';
+
   const existente = galeria.find(g => g.url === urlLimpo);
   if (existente) {
-    await selecionarLogotipoGaleria(existente.id);
+    if (destino !== 'APENAS_GALERIA') {
+      await aplicarDestinoLogotipo(existente.id, destino);
+    } else {
+      renderizarGaleriaLogos();
+    }
     return;
   }
 
   const novoId = 'logo_' + Date.now();
   const novoItem = {
     id: novoId,
-    nome: nome || `Logótipo ${galeria.length + 1}`,
+    nome: nome || `Imagem ${galeria.length + 1}`,
     url: urlLimpo,
     tipo: 'UPLOAD',
+    destino: destino,
     criado_em: new Date().toISOString()
   };
 
@@ -4385,7 +4617,20 @@ async function adicionarLogotipoAGaleria(url, nome = '') {
   if (state.escolaAtual) state.escolaAtual.galeria_logos = galeria;
   if (state.tenant) state.tenant.galeria_logos = galeria;
 
-  await selecionarLogotipoGaleria(novoId);
+  if (destino !== 'APENAS_GALERIA') {
+    await aplicarDestinoLogotipo(novoId, destino);
+  } else {
+    renderizarGaleriaLogos();
+    try {
+      await apiFetch('/api/v1/escola-admin/info', {
+        method: 'PUT',
+        body: JSON.stringify({ galeria_logos: galeria })
+      });
+      if (typeof mostrarToast === 'function') {
+        mostrarToast('Imagem guardada na galeria da instituição.', 'success');
+      }
+    } catch (_) {}
+  }
 }
 window.adicionarLogotipoAGaleria = adicionarLogotipoAGaleria;
 
@@ -4394,7 +4639,7 @@ async function removerLogotipoDaGaleria(id) {
     alert('O Emblema Nacional Oficial é padrão do sistema e não pode ser eliminado.');
     return;
   }
-  if (!confirm('Deseja realmente eliminar este logótipo da galeria?')) {
+  if (!confirm('Deseja realmente eliminar este logótipo da galeria desta instituição?')) {
     return;
   }
 
@@ -4414,10 +4659,21 @@ async function removerLogotipoDaGaleria(id) {
   if (state.escolaAtual) state.escolaAtual.galeria_logos = galeria;
   if (state.tenant) state.tenant.galeria_logos = galeria;
 
-  const finalInput = document.getElementById('confEscolaLogoFinalValue');
-  if (itemRemovido && finalInput && finalInput.value === itemRemovido.url) {
-    await selecionarLogotipoGaleria('emblema_nacional');
-  } else {
+  let reporDocs = false;
+  let reporMd = false;
+  if (itemRemovido) {
+    if (e.logo_url === itemRemovido.url) reporDocs = true;
+    if (e.marca_dagua_url === itemRemovido.url) reporMd = true;
+  }
+
+  if (reporDocs) {
+    await aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS');
+  }
+  if (reporMd) {
+    await aplicarDestinoLogotipo('emblema_nacional', 'APENAS_MARCA_DAGUA');
+  }
+
+  if (!reporDocs && !reporMd) {
     renderizarGaleriaLogos();
     try {
       await apiFetch('/api/v1/escola-admin/info', {
@@ -4431,25 +4687,6 @@ async function removerLogotipoDaGaleria(id) {
   }
 }
 window.removerLogotipoDaGaleria = removerLogotipoDaGaleria;
-
-function atualizarVisualizacaoLogo(logoSrc, usarEmblema = true) {
-  const img = document.getElementById('confEscolaLogoPreview');
-  const statusEl = document.getElementById('confEscolaLogoStatus');
-  const btnRemover = document.getElementById('btnRemoverLogo');
-
-  if (!usarEmblema && logoSrc && logoSrc.trim() && !logoSrc.includes('emblema-mocambique.png')) {
-    if (img) img.src = logoSrc;
-    const galeria = (typeof obterGaleriaLogosEscola === 'function') ? obterGaleriaLogosEscola() : [];
-    const item = galeria.find(g => g.url === logoSrc);
-    if (statusEl) statusEl.textContent = item?.nome ? `Logótipo: ${item.nome}` : 'Logótipo Próprio Activo';
-    if (btnRemover) btnRemover.style.display = 'inline-block';
-  } else {
-    if (img) img.src = 'img/emblema-mocambique.png';
-    if (statusEl) statusEl.textContent = 'Emblema Nacional (Padrão Oficial)';
-    if (btnRemover) btnRemover.style.display = 'none';
-  }
-}
-window.atualizarVisualizacaoLogo = atualizarVisualizacaoLogo;
 
 function processarUploadLogoLocal(input) {
   const file = input.files?.[0];
@@ -4469,7 +4706,8 @@ function processarUploadLogoLocal(input) {
   reader.onload = async function(e) {
     const dataUrl = e.target.result;
     const nomeFicheiro = file.name ? file.name.replace(/\.[^/.]+$/, "") : `Logótipo`;
-    await adicionarLogotipoAGaleria(dataUrl, nomeFicheiro);
+    const destinoEscolhido = document.getElementById('confEscolaDestinoUpload')?.value || 'DOCUMENTOS';
+    await adicionarLogotipoAGaleria(dataUrl, nomeFicheiro, destinoEscolhido);
     input.value = '';
   };
   reader.readAsDataURL(file);
@@ -4482,24 +4720,20 @@ async function processarUrlLogo(url) {
     return;
   }
   const urlLimpo = url.trim();
-  await adicionarLogotipoAGaleria(urlLimpo, 'Logótipo Web');
+  const destinoEscolhido = document.getElementById('confEscolaDestinoUpload')?.value || 'DOCUMENTOS';
+  await adicionarLogotipoAGaleria(urlLimpo, 'Logótipo Web', destinoEscolhido);
   const inputEl = document.getElementById('confEscolaLogoUrl');
   if (inputEl) inputEl.value = '';
 }
 window.processarUrlLogo = processarUrlLogo;
 
-async function removerLogotipoEscola() {
-  await selecionarLogotipoGaleria('emblema_nacional');
-}
-window.removerLogotipoEscola = removerLogotipoEscola;
-
 async function alternarEmblemaCheck(checked) {
   if (checked) {
-    await selecionarLogotipoGaleria('emblema_nacional');
+    await aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS');
   } else {
     const galeria = obterGaleriaLogosEscola();
     if (galeria.length > 0) {
-      await selecionarLogotipoGaleria(galeria[0].id);
+      await aplicarDestinoLogotipo(galeria[0].id, 'DOCUMENTOS');
     }
   }
 }
@@ -5584,6 +5818,9 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
       distrito: document.getElementById('confEscolaDistrito').value,
       usar_emblema_nacional: document.getElementById('confEscolaEmblema').checked,
       logo_url: document.getElementById('confEscolaLogoFinalValue')?.value || '',
+      modo_uso_logo: document.getElementById('confEscolaModoUsoLogo')?.value || 'DOCUMENTOS',
+      marca_dagua_url: document.getElementById('confEscolaMarcaDaguaFinalValue')?.value || '',
+      marca_dagua_modo: document.getElementById('confEscolaMarcaDaguaModo')?.value || 'EMBLEMA_NACIONAL',
       galeria_logos: (typeof obterGaleriaLogosEscola === 'function') 
         ? obterGaleriaLogosEscola().filter(g => g && g.tipo === 'UPLOAD') 
         : [],
