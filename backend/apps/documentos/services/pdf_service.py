@@ -2156,7 +2156,7 @@ def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
     elements = []
 
     # 1. Cabeçalho Oficial MEC
-    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito))
+    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito, escola=escola))
 
     style_title = ParagraphStyle('FichaTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     elements.append(Paragraph("FICHA BIOGRÁFICA DO ALUNO", style_title))
@@ -2301,7 +2301,7 @@ def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
     email = getattr(escola, 'email', '---')
     endereco = getattr(escola, 'endereco', '---')
 
-    elements.extend(gerar_cabecalho_mec(styles, nome_escola, provincia, distrito))
+    elements.extend(gerar_cabecalho_mec(styles, nome_escola, provincia, distrito, escola=escola))
 
     # Dados de contacto institucional no cabeçalho
     info_inst = f"NUIT: <b>{nuit}</b> &bull; Tel: <b>{telefone}</b> &bull; Email: <b>{email}</b> &bull; Endereço: <b>{distrito}, {provincia}</b>"
@@ -2827,7 +2827,7 @@ def construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_document
     styles = getSampleStyleSheet()
     elements = []
 
-    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito))
+    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito, escola=escola))
 
     style_title = ParagraphStyle('LoteTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     style_sub = ParagraphStyle('LoteSub', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman')
