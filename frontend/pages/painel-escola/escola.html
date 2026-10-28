@@ -142,36 +142,42 @@
                     Configure o logótipo de cabeçalho para <strong>Pautas, Cadernetas, Boletins e Certificados</strong> e defina a imagem de <strong>Marca d'Água</strong> oficial desta escola (100% isolada e independente).
                   </p>
 
-                  <!-- 1. PAINEL DE STATUS: LOGÓTIPO DE DOCUMENTOS & MARCA D'ÁGUA EM USO -->
-                  <div class="row g-2 mb-3">
-                    <!-- Logótipo dos Documentos (Cabeçalho) -->
-                    <div class="col-12 col-md-6">
-                      <div class="p-2 bg-white rounded border border-primary shadow-xs h-100 d-flex align-items-center gap-2">
-                        <div id="previewLogoDocsContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-xs" style="width: 58px; height: 58px; min-width: 58px; overflow: hidden;">
+                  <!-- 1. PAINEL DE STATUS: LOGÓTIPO DE DOCUMENTOS & MARCA D'ÁGUA EM USO (LARGURA TOTAL SEM SOBREPOSIÇÃO) -->
+                  <div class="d-flex flex-column gap-2 mb-3">
+                    <!-- Logótipo dos Documentos (Cabeçalho Oficial) -->
+                    <div class="p-2 bg-white rounded-3 border border-primary shadow-xs">
+                      <div class="d-flex align-items-center gap-3">
+                        <div id="previewLogoDocsContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-xs flex-shrink-0" style="width: 54px; height: 54px; overflow: hidden;">
                           <img id="confEscolaLogoPreview" src="img/emblema-mocambique.png" alt="Logótipo Documentos" style="max-width: 100%; max-height: 100%; object-fit: contain;">
                         </div>
                         <div class="flex-grow-1 min-w-0">
-                          <div class="d-flex align-items-center gap-1 mb-1">
-                            <span class="badge bg-primary" style="font-size: 0.65rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Cabeçalho Docs</span>
+                          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            <span class="badge bg-primary text-white px-2 py-1" style="font-size: 0.72rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Cabeçalho de Documentos</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.68rem;"><i class="bi bi-check-circle-fill me-1"></i>Em Uso</span>
                           </div>
-                          <div class="small fw-bold text-dark text-truncate" id="confEscolaLogoStatus" style="font-size: 0.75rem;">Emblema Nacional (Oficial)</div>
-                          <span class="badge bg-light text-secondary border text-truncate d-block mt-1" id="confEscolaModoLogoBadge" style="font-size: 0.65rem; max-width: 150px;">Apenas Documentos</span>
+                          <div class="fw-bold text-dark text-break mb-1" id="confEscolaLogoStatus" style="font-size: 0.85rem; line-height: 1.25;">Emblema Nacional (Oficial)</div>
+                          <div>
+                            <span class="badge bg-light text-secondary border fw-medium px-2 py-1" id="confEscolaModoLogoBadge" style="font-size: 0.72rem;">Apenas Cabeçalho dos Documentos</span>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <!-- Marca d'Água de Fundo -->
-                    <div class="col-12 col-md-6">
-                      <div class="p-2 bg-white rounded border border-info shadow-xs h-100 d-flex align-items-center gap-2">
-                        <div id="previewMarcaDaguaContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-xs" style="width: 58px; height: 58px; min-width: 58px; overflow: hidden;">
+                    <div class="p-2 bg-white rounded-3 border border-info shadow-xs">
+                      <div class="d-flex align-items-center gap-3">
+                        <div id="previewMarcaDaguaContainer" class="border rounded bg-light p-1 text-center d-flex align-items-center justify-content-center shadow-xs flex-shrink-0" style="width: 54px; height: 54px; overflow: hidden;">
                           <img id="confEscolaMarcaDaguaPreview" src="img/emblema-mocambique.png" alt="Marca d'Água" style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0.6;">
                         </div>
                         <div class="flex-grow-1 min-w-0">
-                          <div class="d-flex align-items-center gap-1 mb-1">
-                            <span class="badge bg-info text-dark" style="font-size: 0.65rem;"><i class="bi bi-droplet-half me-1"></i>Marca d'Água</span>
+                          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            <span class="badge bg-info text-dark px-2 py-1" style="font-size: 0.72rem;"><i class="bi bi-droplet-half me-1"></i>Marca d'Água Oficial</span>
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1" style="font-size: 0.68rem;"><i class="bi bi-check-circle-fill me-1"></i>Activa</span>
                           </div>
-                          <div class="small fw-bold text-dark text-truncate" id="confEscolaMarcaDaguaStatus" style="font-size: 0.75rem;">Emblema Nacional (Oficial)</div>
-                          <span class="badge bg-light text-secondary border text-truncate d-block mt-1" id="confEscolaMarcaDaguaModoBadge" style="font-size: 0.65rem; max-width: 150px;">Padrão Oficial</span>
+                          <div class="fw-bold text-dark text-break mb-1" id="confEscolaMarcaDaguaStatus" style="font-size: 0.85rem; line-height: 1.25;">Emblema Nacional (Oficial)</div>
+                          <div>
+                            <span class="badge bg-light text-secondary border fw-medium px-2 py-1" id="confEscolaMarcaDaguaModoBadge" style="font-size: 0.72rem;">Fundo de Segurança em Documentos</span>
+                          </div>
                         </div>
                       </div>
                     </div>

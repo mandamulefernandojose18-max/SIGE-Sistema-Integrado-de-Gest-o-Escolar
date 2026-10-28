@@ -4312,13 +4312,13 @@ function atualizarVisualizacaoIdentidadeVisual() {
   }
   if (badgeModoLogo) {
     if (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA') {
-      badgeModoLogo.className = 'badge bg-primary text-white border text-truncate d-block mt-1';
+      badgeModoLogo.className = 'badge bg-primary text-white border px-2 py-1';
       badgeModoLogo.innerHTML = '<i class="bi bi-layers-fill me-1"></i>Documentos + Marca de Água';
     } else if (modoLogo === 'APENAS_MARCA_DAGUA') {
-      badgeModoLogo.className = 'badge bg-secondary text-white border text-truncate d-block mt-1';
+      badgeModoLogo.className = 'badge bg-secondary text-white border px-2 py-1';
       badgeModoLogo.innerHTML = '<i class="bi bi-droplet-half me-1"></i>Só Marca de Água';
     } else {
-      badgeModoLogo.className = 'badge bg-light text-dark border text-truncate d-block mt-1';
+      badgeModoLogo.className = 'badge bg-light text-secondary border px-2 py-1';
       badgeModoLogo.innerHTML = '<i class="bi bi-file-earmark-text me-1"></i>Apenas Documentos';
     }
   }
@@ -4343,17 +4343,17 @@ function atualizarVisualizacaoIdentidadeVisual() {
   }
   if (badgeModoMd) {
     if (modoMd === 'NENHUM' || !marcaDagua) {
-      badgeModoMd.className = 'badge bg-danger-subtle text-danger border text-truncate d-block mt-1';
+      badgeModoMd.className = 'badge bg-danger-subtle text-danger border px-2 py-1';
       badgeModoMd.textContent = 'Desativada';
     } else if (modoMd === 'ESPECIFICA' || modoLogo === 'APENAS_MARCA_DAGUA') {
-      badgeModoMd.className = 'badge bg-info text-dark border text-truncate d-block mt-1';
+      badgeModoMd.className = 'badge bg-info text-dark border px-2 py-1';
       badgeModoMd.textContent = 'Imagem Específica';
     } else if (modoLogo === 'DOCUMENTOS_E_MARCA_DAGUA' || modoMd === 'MESMO_LOGO') {
-      badgeModoMd.className = 'badge bg-primary text-white border text-truncate d-block mt-1';
+      badgeModoMd.className = 'badge bg-primary text-white border px-2 py-1';
       badgeModoMd.textContent = 'Sincronizada c/ Logótipo';
     } else {
-      badgeModoMd.className = 'badge bg-light text-secondary border text-truncate d-block mt-1';
-      badgeModoMd.textContent = 'Emblema Nacional';
+      badgeModoMd.className = 'badge bg-light text-secondary border px-2 py-1';
+      badgeModoMd.textContent = 'Emblema Nacional (Padrão)';
     }
   }
 
@@ -4394,29 +4394,32 @@ function renderizarGaleriaLogos() {
 
   let html = `
     <!-- 1. Emblema Nacional Oficial Moçambicano (Padrão Oficial Permanente) -->
-    <div class="col-12 col-sm-6 col-md-6 col-lg-6">
-      <div class="card h-100 p-2 text-center logo-card-item ${isEmblemaEmDocs ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
-           style="transition: all 0.2s; min-height: 140px;">
-        <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 mb-1" style="height: 60px;">
-          <img src="img/emblema-mocambique.png" alt="Emblema Nacional" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+    <div class="col-12">
+      <div class="card p-2 logo-card-item rounded-3 ${isEmblemaEmDocs ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}">
+        <div class="d-flex align-items-center gap-2">
+          <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 flex-shrink-0" style="width: 48px; height: 48px;">
+            <img src="img/emblema-mocambique.png" alt="Emblema Nacional" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+          </div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-bold text-dark text-break" style="font-size: 0.82rem; line-height: 1.2;">
+              Emblema Nacional (Padrão Oficial)
+            </div>
+            <div class="d-flex flex-wrap gap-1 mt-1">
+              ${isEmblemaEmDocs ? '<span class="badge bg-primary text-white" style="font-size: 0.68rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Docs Activo</span>' : ''}
+              ${isEmblemaEmMd ? '<span class="badge bg-info text-dark" style="font-size: 0.68rem;"><i class="bi bi-droplet-half me-1"></i>Marca d\'Água Activa</span>' : ''}
+              ${(!isEmblemaEmDocs && !isEmblemaEmMd) ? '<span class="badge bg-light text-secondary border" style="font-size: 0.68rem;">Disponível</span>' : ''}
+            </div>
+          </div>
         </div>
-        <div class="small fw-bold text-truncate text-dark" style="font-size: 0.74rem;" title="Emblema Nacional (Padrão Oficial)">
-          Emblema Nacional
-        </div>
-        <div class="d-flex flex-wrap justify-content-center gap-1 my-1">
-          ${isEmblemaEmDocs ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Docs</span>' : ''}
-          ${isEmblemaEmMd ? '<span class="badge bg-info text-dark" style="font-size: 0.65rem;"><i class="bi bi-droplet-half me-1"></i>Marca d\'Água</span>' : ''}
-          ${(!isEmblemaEmDocs && !isEmblemaEmMd) ? '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Disponível</span>' : ''}
-        </div>
-        <div class="d-flex justify-content-center gap-1 mt-1">
-          <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS')" title="Usar no cabeçalho dos documentos">
-            Docs
+        <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top">
+          <button type="button" class="btn btn-xs ${isEmblemaEmDocs && !isEmblemaEmMd ? 'btn-primary text-white' : 'btn-outline-primary'} py-1 px-2 fw-semibold flex-grow-1" style="font-size: 0.72rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS')" title="Usar no cabeçalho dos documentos">
+            <i class="bi bi-file-earmark-text me-1"></i>Docs
           </button>
-          <button type="button" class="btn btn-xs btn-outline-info text-dark py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'APENAS_MARCA_DAGUA')" title="Usar só e só como marca d\'água">
-            Marca d\'Água
+          <button type="button" class="btn btn-xs ${isEmblemaEmMd && !isEmblemaEmDocs ? 'btn-info text-dark' : 'btn-outline-info text-dark'} py-1 px-2 fw-semibold flex-grow-1" style="font-size: 0.72rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'APENAS_MARCA_DAGUA')" title="Usar só e só como marca d\'água">
+            <i class="bi bi-droplet me-1"></i>Só MD
           </button>
-          <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS_E_MARCA_DAGUA')" title="Usar nos documentos e marca d\'água">
-            Ambos
+          <button type="button" class="btn btn-xs ${isEmblemaEmDocs && isEmblemaEmMd ? 'btn-success text-white' : 'btn-outline-success'} py-1 px-2 fw-semibold flex-grow-1" style="font-size: 0.72rem;" onclick="aplicarDestinoLogotipo('emblema_nacional', 'DOCUMENTOS_E_MARCA_DAGUA')" title="Usar nos documentos e marca d\'água">
+            <i class="bi bi-layers me-1"></i>Ambos
           </button>
         </div>
       </div>
@@ -4432,35 +4435,38 @@ function renderizarGaleriaLogos() {
     const nomeExibicao = item.nome || `Logótipo ${idx + 1}`;
     
     html += `
-      <div class="col-12 col-sm-6 col-md-6 col-lg-6">
-        <div class="card h-100 p-2 text-center logo-card-item position-relative ${(isAtivoEmDocs || isAtivoEmMd) ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}"
-             style="transition: all 0.2s; min-height: 140px;">
+      <div class="col-12">
+        <div class="card p-2 logo-card-item rounded-3 position-relative ${(isAtivoEmDocs || isAtivoEmMd) ? 'border-primary border-2 bg-primary-subtle shadow-sm' : 'border-secondary-subtle bg-white'}">
           <button type="button" class="btn btn-sm btn-danger py-0 px-1 position-absolute top-0 end-0 m-1 rounded-circle shadow-sm"
                   style="font-size: 0.65rem; width: 22px; height: 22px; line-height: 1; padding: 0; z-index: 2;"
                   onclick="event.stopPropagation(); removerLogotipoDaGaleria('${item.id}')"
-                  title="Eliminar este logótipo da galeria desta escola">
+                  title="Eliminar este logótipo da galeria desta instituição">
             <i class="bi bi-trash"></i>
           </button>
-          <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 mb-1" style="height: 60px;">
-            <img src="${item.url}" alt="${nomeExibicao}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+          <div class="d-flex align-items-center gap-2 pe-4">
+            <div class="d-flex align-items-center justify-content-center bg-light rounded p-1 flex-shrink-0" style="width: 48px; height: 48px;">
+              <img src="${item.url}" alt="${nomeExibicao}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-bold text-dark text-break" style="font-size: 0.82rem; line-height: 1.2;">
+                ${nomeExibicao}
+              </div>
+              <div class="d-flex flex-wrap gap-1 mt-1">
+                ${isAtivoEmDocs ? '<span class="badge bg-primary text-white" style="font-size: 0.68rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Docs Activo</span>' : ''}
+                ${isAtivoEmMd ? '<span class="badge bg-info text-dark" style="font-size: 0.68rem;"><i class="bi bi-droplet-half me-1"></i>Marca d\'Água Activa</span>' : ''}
+                ${(!isAtivoEmDocs && !isAtivoEmMd) ? '<span class="badge bg-light text-secondary border" style="font-size: 0.68rem;">Galeria</span>' : ''}
+              </div>
+            </div>
           </div>
-          <div class="small fw-bold text-truncate text-dark" style="font-size: 0.74rem;" title="${nomeExibicao}">
-            ${nomeExibicao}
-          </div>
-          <div class="d-flex flex-wrap justify-content-center gap-1 my-1">
-            ${isAtivoEmDocs ? '<span class="badge bg-primary text-white" style="font-size: 0.65rem;"><i class="bi bi-file-earmark-text-fill me-1"></i>Docs</span>' : ''}
-            ${isAtivoEmMd ? '<span class="badge bg-info text-dark" style="font-size: 0.65rem;"><i class="bi bi-droplet-half me-1"></i>Marca d\'Água</span>' : ''}
-            ${(!isAtivoEmDocs && !isAtivoEmMd) ? '<span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Galeria</span>' : ''}
-          </div>
-          <div class="d-flex justify-content-center gap-1 mt-1">
-            <button type="button" class="btn btn-xs ${isAtivoEmDocs && !isAtivoEmMd ? 'btn-primary text-white' : 'btn-outline-primary'} py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'DOCUMENTOS')" title="1. Usar apenas nos cabeçalhos dos documentos">
-              Docs
+          <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top">
+            <button type="button" class="btn btn-xs ${isAtivoEmDocs && !isAtivoEmMd ? 'btn-primary text-white' : 'btn-outline-primary'} py-1 px-2 fw-semibold flex-grow-1" style="font-size: 0.72rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'DOCUMENTOS')" title="1. Usar apenas nos cabeçalhos dos documentos">
+              <i class="bi bi-file-earmark-text me-1"></i>Docs
             </button>
-            <button type="button" class="btn btn-xs ${isAtivoEmDocs && isAtivoEmMd ? 'btn-success text-white' : 'btn-outline-success'} py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'DOCUMENTOS_E_MARCA_DAGUA')" title="2. Usar nos documentos E marca d\'água">
-              Docs + MD
+            <button type="button" class="btn btn-xs ${isAtivoEmDocs && isAtivoEmMd ? 'btn-success text-white' : 'btn-outline-success'} py-1 px-2 fw-semibold flex-grow-1" style="font-size: 0.72rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'DOCUMENTOS_E_MARCA_DAGUA')" title="2. Usar nos documentos E marca d\'água">
+              <i class="bi bi-layers me-1"></i>Docs + MD
             </button>
-            <button type="button" class="btn btn-xs ${!isAtivoEmDocs && isAtivoEmMd ? 'btn-info text-dark' : 'btn-outline-info text-dark'} py-0 px-2 fw-semibold" style="font-size: 0.68rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'APENAS_MARCA_DAGUA')" title="3. Usar só e só como marca d\'água">
-              Só MD
+            <button type="button" class="btn btn-xs ${!isAtivoEmDocs && isAtivoEmMd ? 'btn-info text-dark' : 'btn-outline-info text-dark'} py-1 px-2 fw-semibold flex-grow-1" style="font-size: 0.72rem;" onclick="aplicarDestinoLogotipo('${item.id}', 'APENAS_MARCA_DAGUA')" title="3. Usar só e só como marca d\'água">
+              <i class="bi bi-droplet me-1"></i>Só MD
             </button>
           </div>
         </div>
