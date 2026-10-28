@@ -1043,7 +1043,7 @@ def construir_elementos_boletim(aluno, escola, ano_letivo, notas_disciplinas, or
     style_info = ParagraphStyle('PInfo', fontName='Times-Roman', fontSize=9.5, leading=12)
     info_data = [
         [
-            Paragraph(f"<b>Nome do Aluno:</b> {aluno.nome.upper()} {getattr(aluno, 'apelido', '') or ''}", style_info),
+            Paragraph(f"<b>Nome do Aluno:</b> {(aluno.nome + ' ' + (getattr(aluno, 'apelido', '') or '')).strip().upper()}", style_info),
             Paragraph(f"<b>Classe / Turma:</b> {classe_turma}", style_info)
         ],
         [
