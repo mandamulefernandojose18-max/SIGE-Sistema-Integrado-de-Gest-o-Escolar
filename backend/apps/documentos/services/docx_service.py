@@ -584,6 +584,9 @@ def inserir_conteudo_certificado_docx(doc, aluno, escola, ano_letivo, notas_disc
     escola_nome = escola.nome.upper()
     dir_nome = getattr(escola, 'director_nome', None) or 'Pero Chitofo Murrombe'
 
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
+
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.paragraph_format.space_after = Pt(2)
@@ -685,6 +688,9 @@ def gerar_acta_docx(turma, escola, periodo, ano_letivo, dados_alunos,
                     orientacao='landscape', params_sessao=None, **kwargs) -> bytes:
     doc = docx.Document()
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.4)
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.85)
 
     # Cabeçalho Oficial
     p1 = doc.add_paragraph()
@@ -1157,6 +1163,9 @@ def gerar_acta_docx(turma, escola, periodo, ano_letivo, dados_alunos,
 def inserir_conteudo_ficha_docx(doc, aluno, escola):
     from common.utils.avaliacoes_mocambique import obter_disciplinas_plano_curricular
 
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
+
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.paragraph_format.space_after = Pt(2)
@@ -1308,6 +1317,9 @@ def inserir_conteudo_recibo_docx(doc, pagamento, escola):
     distrito = getattr(escola, 'distrito', '') or 'Massinga'
     nuit = getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', None) or '---'
     telefone = getattr(escola, 'telefone', '---')
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
 
     p_rep = doc.add_paragraph()
     p_rep.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1476,6 +1488,9 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
     prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
     prof_tel = prof_info.get('telefone') or '-'
     dt_nome = dt_info.get('nome') or '-'
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola_info, largura_pol=0.8)
 
     # Cabeçalho Institucional Oficial
     p1 = doc.add_paragraph()
@@ -1685,6 +1700,9 @@ def inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_d
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
     escola_nome = escola.nome.upper()
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
 
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1913,6 +1931,9 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
     turma_nome = turma_info.get('nome', 'Turma')
     grau_ano = turma_info.get('grau_ano', '10ª Classe')
     area_nome = turma_info.get('area', '')
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, esc_obj, largura_pol=0.85)
 
     # Cabeçalho da República
     p1 = doc.add_paragraph()

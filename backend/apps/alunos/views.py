@@ -460,7 +460,14 @@ class AlunoMePagamentosView(APIView):
     def get(self, request):
         if not request.user.aluno_id:
             return Response({'success': False, 'message': 'Não autorizado.'}, status=status.HTTP_403_FORBIDDEN)
-        pagamentos = Pagamento.objects.filter(aluno_id=request.user.aluno_id).order_by('-data_vencimento')
+        pagamentos = Pagamento.objects.filter(aluno_id=request.user.aluno_id)
+        ano = request.query_params.get('ano')
+        if ano:
+            filtro_ano = Q(mes_referencia__startswith=str(ano))
+            if str(ano).isdigit():
+                filtro_ano |= Q(data_vencimento__year=int(ano))
+            pagamentos = pagamentos.filter(filtro_ano)
+        pagamentos = pagamentos.order_by('-data_vencimento')
         data = [{
             'id': str(p.id),
             'descricao': p.descricao,

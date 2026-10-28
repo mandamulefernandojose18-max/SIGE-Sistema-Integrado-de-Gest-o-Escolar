@@ -16169,9 +16169,11 @@ async function carregarAlunoNotas(periodoParam) {
   }
 }
 
-async function carregarAlunoPagamentos() {
+async function carregarAlunoPagamentos(anoFiltro) {
   try {
-    const res = await apiFetch('/api/v1/alunos/me/pagamentos');
+    const ano = anoFiltro || (typeof state !== 'undefined' ? (state.anosPorView?.['aluno-pagamentos'] || state.anoLectivoVisualizacao) : '') || '';
+    const url = ano ? `/api/v1/alunos/me/pagamentos?ano=${encodeURIComponent(ano)}` : '/api/v1/alunos/me/pagamentos';
+    const res = await apiFetch(url);
     if (res.success && Array.isArray(res.data)) {
       const pagamentos = res.data;
       
@@ -16230,14 +16232,9 @@ async function carregarAlunoPagamentos() {
               </td>
               <td class="text-end">
                 ${p.status === 'PAGO' ? `
-                  <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" onclick="imprimirReciboPagamento('${p.id}')" title="Visualizar e Imprimir Recibo">
-                      <i class="bi bi-printer me-1"></i> Imprimir
-                    </button>
-                    <button class="btn btn-primary" onclick="descarregarReciboPdf('${p.id}')" title="Descarregar Recibo Oficial em PDF (PDFKit)">
-                      <i class="bi bi-file-earmark-pdf me-1"></i> PDF
-                    </button>
-                  </div>
+                  <button class="btn btn-sm btn-outline-primary" onclick="descarregarReciboPdf('${escapeHtml(p.id)}')" title="Descarregar Recibo" aria-label="Descarregar Recibo">
+                    <i class="bi bi-download"></i>
+                  </button>
                 ` : '<span class="badge bg-light text-muted border">Pendente</span>'}
               </td>
             </tr>
@@ -21067,7 +21064,7 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
   } else if (viewId === 'aluno-notas') {
     if (typeof carregarAlunoNotas === 'function') await carregarAlunoNotas();
   } else if (viewId === 'aluno-pagamentos') {
-    if (typeof carregarAlunoPagamentos === 'function') await carregarAlunoPagamentos();
+    if (typeof carregarAlunoPagamentos === 'function') await carregarAlunoPagamentos(ano);
   } else if (viewId === 'professor-perfil') {
     if (typeof carregarPerfilDocenteIndividual === 'function') await carregarPerfilDocenteIndividual();
   }

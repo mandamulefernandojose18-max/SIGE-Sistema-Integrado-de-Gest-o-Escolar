@@ -134,6 +134,27 @@ def configurar_pagina_excel(ws, orientacao='portrait', fit_to_height=0):
     ws.page_margins.top = 0.5
     ws.page_margins.bottom = 0.5
 
+def inserir_logo_cabecalho_xlsx(ws, escola, cell='A1'):
+    """
+    Insere o logótipo oficial que a instituição escolheu para documentos na planilha Excel.
+    Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para documentos.
+    """
+    from .pdf_service import resolver_logo_documento_escola, DocumentoSemLogoError
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        from openpyxl.drawing.image import Image as OpenpyxlImage
+        img = OpenpyxlImage(io.BytesIO(logo_bytes))
+        img.width = 46
+        img.height = 46
+        ws.add_image(img, cell)
+    except Exception:
+        pass
+
 # ==================== 1. PAUTA GERAL DA TURMA (HORIZONTAL) ====================
 
 def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplinas, orientacao='landscape') -> bytes:
@@ -141,6 +162,9 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     ws = wb.active
     ws.title = f"Pauta {turma.nome[:25]}"
     configurar_pagina_excel(ws, orientacao=orientacao)
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
 
     total_cols = len(disciplinas) + 4
     end_col_letter = get_column_letter(total_cols)
@@ -316,6 +340,9 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         esc_nome_clean = f"ESCOLA {esc_nome_clean}"
 
     grau_area = f"{turma_info.get('grau_ano', '')} / {turma_info.get('area', '')}".strip(' /')
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, esc_obj, cell='A1')
 
     # Linha 1: REPÚBLICA DE MOÇAMBIQUE
     ws.merge_cells(f'C1:{end_col_letter}1')
@@ -568,6 +595,9 @@ def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
     ws.title = f"Boletim {aluno.matricula[:10]}"
     configurar_pagina_excel(ws, orientacao=orientacao)
 
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
+
     # Cabeçalho Nacional
     ws.merge_cells('A1:F1')
     ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
@@ -725,6 +755,9 @@ def gerar_declaracao_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     ws.title = f"Declaração {aluno.matricula[:10]}"
     configurar_pagina_excel(ws, orientacao=orientacao)
 
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
+
     ws.merge_cells('A1:B1')
     ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
     ws['A1'].font = FONT_TITLE
@@ -812,6 +845,9 @@ def gerar_certificado_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     ws = wb.active
     ws.title = f"Certificado {aluno.matricula[:10]}"
     configurar_pagina_excel(ws, orientacao=orientacao)
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
 
     ws.merge_cells('A1:B1')
     ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
@@ -951,7 +987,9 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     num_d = len(discs)
     max_cols_total = max(24, 1 + num_d * 3 if num_d > 0 else 24)
 
-    # 1. Cabeçalho Oficial MEC (idêntico ao PDF)
+    # 1. Logótipo Oficial Escolhido pela Instituição & Cabeçalho MEC
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
+
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
     esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundária').upper()
@@ -1558,6 +1596,9 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
     ws = wb.active
     ws.title = "Mapa de Emissão"
     configurar_pagina_excel(ws, orientacao=orientacao)
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
 
     ws.merge_cells('A1:F1')
     ws['A1'] = f"{escola.nome.upper()} — MAPA OFICIAL DE EMISSÃO EM LOTE ({tipo_documento.upper()}S)"

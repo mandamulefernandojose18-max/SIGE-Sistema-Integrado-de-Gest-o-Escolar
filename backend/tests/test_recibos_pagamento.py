@@ -141,3 +141,40 @@ class TestRecibosPagamentoStatus:
         assert resp_pago.status_code == 200
         assert resp_pago['Content-Type'] == 'application/pdf'
         assert resp_pago.content.startswith(b'%PDF')
+
+    def test_aluno_me_pagamentos_e_recibo_pdf(self):
+        """Valida que o aluno acede aos seus pagamentos por período e descarrega o recibo em PDF"""
+        user_aluno = Usuario.objects.create_user(
+            email='aluno.recibo@massinga.edu.mz',
+            password='SenhaSegura123!',
+            nome='Fernando Mandamule',
+            role='ALUNO',
+            aluno_id=self.aluno.id,
+            escola=self.escola,
+            codigo_acesso='ALU-2026-9988'
+        )
+        self.client.force_authenticate(user=user_aluno)
+
+        # 1. Consulta de pagamentos do aluno (sem filtro de ano)
+        res_pagamentos = self.client.get('/api/v1/alunos/me/pagamentos')
+        assert res_pagamentos.status_code == 200
+        dados = res_pagamentos.json()
+        assert dados['success'] is True
+        assert len(dados['data']) == 2
+
+        # 2. Consulta filtrando pelo período/ano letivo
+        res_ano = self.client.get('/api/v1/alunos/me/pagamentos?ano=2026')
+        assert res_ano.status_code == 200
+        assert res_ano.json()['success'] is True
+        assert len(res_ano.json()['data']) == 2
+
+        # 3. Identifica o pagamento efetuado e descarrega o recibo exclusivamente em PDF
+        pag_pago = next(p for p in dados['data'] if p['status'] == 'PAGO')
+        assert pag_pago['id'] == str(self.pagamento_pago.id)
+
+        res_pdf = self.client.get(f"/api/v1/impressao/recibo/{pag_pago['id']}/pdf")
+        assert res_pdf.status_code == 200
+        assert res_pdf['Content-Type'] == 'application/pdf'
+        assert res_pdf.content.startswith(b'%PDF')
+        assert 'filename="Recibo' in res_pdf.headers.get('Content-Disposition', '')
+
