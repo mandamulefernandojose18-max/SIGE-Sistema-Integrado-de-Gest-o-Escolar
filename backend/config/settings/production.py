@@ -48,7 +48,7 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
             'HOST': hostname,
             'PORT': port,
             'OPTIONS': options,
-            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', 60)),
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', 600)),
             'CONN_HEALTH_CHECKS': True,
             'DISABLE_SERVER_SIDE_CURSORS': True,
         }

@@ -56,6 +56,14 @@ async function carregarPainelSaaS() {
     if (tbodyEscolas) {
       if (settledEscolas.status === 'fulfilled' && settledEscolas.value && settledEscolas.value.success && Array.isArray(settledEscolas.value.data)) {
         const listaEscolas = settledEscolas.value.data;
+        state.escolasSaaS = listaEscolas;
+        const superAdminSelect = document.getElementById('superAdminTenantSelect');
+        if (superAdminSelect && listaEscolas.length > 0) {
+          superAdminSelect.innerHTML = '<option value="">(Visão Master SaaS)</option>' +
+            listaEscolas.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.nome)} [${escapeHtml(e.status)}]</option>`).join('');
+          const saved = localStorage.getItem('sige_selected_tenant');
+          if (saved) superAdminSelect.value = saved;
+        }
         if (listaEscolas.length === 0) {
           tbodyEscolas.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma escola cadastrada no momento.</td></tr>';
         } else {

@@ -31,4 +31,4 @@ RUN rm -rf /app/venv /app/.pytest_cache /app/__pycache__
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 4 --worker-class gthread --worker-tmp-dir /dev/shm --timeout 120 --keep-alive 65"]

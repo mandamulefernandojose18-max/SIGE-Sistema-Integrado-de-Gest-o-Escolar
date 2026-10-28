@@ -1306,7 +1306,24 @@ async function renovarTokenAcesso() {
 }
 window.renovarTokenAcesso = renovarTokenAcesso;
 
+const _inFlightApiRequests = new Map();
+
 async function apiFetch(endpoint, options = {}) {
+  const isGet = (!options.method || options.method.toUpperCase() === 'GET');
+  const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+    || state.tenant?.id
+    || state.user?.escola_id;
+  const currentToken = state.token || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token');
+
+  const cacheKey = (isGet && !options.noCache && !options._isRetry)
+    ? `${endpoint}::${currentToken || ''}::${activeTenantId || ''}`
+    : null;
+
+  if (cacheKey && _inFlightApiRequests.has(cacheKey)) {
+    return _inFlightApiRequests.get(cacheKey);
+  }
+
+  const runFetch = async () => {
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {})
@@ -1339,7 +1356,7 @@ async function apiFetch(endpoint, options = {}) {
   if (!fetchOptions.signal && typeof AbortController !== 'undefined') {
     const controller = new AbortController();
     fetchOptions.signal = controller.signal;
-    timeoutId = setTimeout(() => controller.abort(), 25000);
+    timeoutId = setTimeout(() => controller.abort(), options.timeout || 60000);
   }
   try {
     const res = await fetch(targetUrl, fetchOptions);
@@ -1443,11 +1460,28 @@ async function apiFetch(endpoint, options = {}) {
         } catch (_) {}
       }
     }
+    if (isGet && !options._isRetry && (err.name === 'AbortError' || (err.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('aborted'))))) {
+      console.warn(`[API FETCH] Tentando reconexao resiliente para: ${endpoint}`);
+      await new Promise(r => setTimeout(r, 600));
+      return apiFetch(endpoint, { ...options, _isRetry: true });
+    }
+
     console.error('API Error:', err);
     throw err;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
+  };
+
+  const reqPromise = runFetch();
+  if (cacheKey) {
+    _inFlightApiRequests.set(cacheKey, reqPromise);
+    reqPromise.finally(() => {
+      _inFlightApiRequests.delete(cacheKey);
+    });
+  }
+
+  return reqPromise;
 }
 
 // Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh Unificado e Tratamento Seguro de Erros (sem expor token no URL)
@@ -2531,9 +2565,17 @@ async function atualizarDadosModuloPorAno(ano) {
 async function carregarEscolasSuperAdminSelect() {
   const select = document.getElementById('superAdminTenantSelect');
   if (!select) return;
+  if (state.escolasSaaS && Array.isArray(state.escolasSaaS) && state.escolasSaaS.length > 0) {
+    select.innerHTML = '<option value="">(Visão Master SaaS)</option>' +
+      state.escolasSaaS.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.nome)} [${escapeHtml(e.status)}]</option>`).join('');
+    const saved = localStorage.getItem('sige_selected_tenant');
+    if (saved) select.value = saved;
+    return;
+  }
   try {
     const res = await apiFetch('/api/v1/saas-admin/escolas');
     if (res && res.success && Array.isArray(res.data)) {
+      state.escolasSaaS = res.data;
       select.innerHTML = '<option value="">(Visão Master SaaS)</option>' +
         res.data.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.nome)} [${escapeHtml(e.status)}]</option>`).join('');
 
@@ -3061,6 +3103,14 @@ async function carregarPainelSaaS() {
     if (tbodyEscolas) {
       if (settledEscolas.status === 'fulfilled' && settledEscolas.value && settledEscolas.value.success && Array.isArray(settledEscolas.value.data)) {
         const listaEscolas = settledEscolas.value.data;
+        state.escolasSaaS = listaEscolas;
+        const superAdminSelect = document.getElementById('superAdminTenantSelect');
+        if (superAdminSelect && listaEscolas.length > 0) {
+          superAdminSelect.innerHTML = '<option value="">(Visão Master SaaS)</option>' +
+            listaEscolas.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.nome)} [${escapeHtml(e.status)}]</option>`).join('');
+          const saved = localStorage.getItem('sige_selected_tenant');
+          if (saved) superAdminSelect.value = saved;
+        }
         if (listaEscolas.length === 0) {
           tbodyEscolas.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma escola cadastrada no momento.</td></tr>';
         } else {

@@ -17,6 +17,77 @@ class AssinaturaEscolaSerializer(serializers.ModelSerializer):
         model = AssinaturaEscola
         fields = '__all__'
 
+class EscolaListSerializer(serializers.ModelSerializer):
+    plano_nome = serializers.CharField(source='plano.nome', read_only=True)
+    assinatura_ativa = serializers.SerializerMethodField()
+    assinaturas = serializers.SerializerMethodField()
+    _count = serializers.SerializerMethodField()
+    codigo_gabinete_director = serializers.ReadOnlyField()
+    codigo_direccao_pedagogica = serializers.ReadOnlyField()
+    codigo_secretaria = serializers.ReadOnlyField()
+    codigos_orgaos = serializers.SerializerMethodField()
+    plano = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Escola
+        fields = [
+            'id', 'nome', 'nif_cnpj', 'email', 'telefone', 'provincia', 'distrito',
+            'tipo_escola', 'director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome',
+            'usar_emblema_nacional', 'codigo_escola', 'status', 'ano_letivo_ativo', 'trimestre_ativo',
+            'data_adesao', 'created_at', 'updated_at',
+            'plano_id', 'plano_nome', 'plano', 'assinatura_ativa', 'assinaturas', '_count',
+            'codigo_gabinete_director', 'codigo_direccao_pedagogica', 'codigo_secretaria',
+            'codigos_orgaos', 'bloqueada_manualmente', 'permitir_visualizacao_notas', 'logo_url'
+        ]
+
+    def get_plano(self, obj):
+        if obj.plano:
+            return {
+                'id': str(obj.plano.id),
+                'nome': obj.plano.nome,
+                'preco': float(obj.plano.preco) if obj.plano.preco is not None else 0.0,
+                'duracao_dias': obj.plano.duracao_dias
+            }
+        return None
+
+    def get_codigos_orgaos(self, obj):
+        from common.utils.geografia_mocambique import obter_codigos_orgaos_escola
+        return obter_codigos_orgaos_escola(obj.codigo_escola or '')
+
+    def get_assinatura_ativa(self, obj):
+        if hasattr(obj, '_prefetched_objects_cache') and 'assinaturas' in obj._prefetched_objects_cache:
+            ass_list = sorted(obj.assinaturas.all(), key=lambda a: a.data_fim or a.created_at, reverse=True)
+            ass = ass_list[0] if ass_list else None
+        else:
+            ass = obj.assinaturas.order_by('-data_fim').first()
+        if ass:
+            val = float(ass.valor) if ass.valor is not None else 0.0
+            return {
+                'id': str(ass.id),
+                'plano': ass.plano.nome if ass.plano else 'MENSAL',
+                'data_inicio': ass.data_inicio,
+                'data_fim': ass.data_fim,
+                'status': ass.status,
+                'valor': val,
+                'valor_pago': val
+            }
+        return None
+
+    def get_assinaturas(self, obj):
+        ativa = self.get_assinatura_ativa(obj)
+        return [ativa] if ativa else []
+
+    def get__count(self, obj):
+        if hasattr(obj, 'total_alunos_count') and hasattr(obj, 'total_professores_count'):
+            return {
+                'alunos': obj.total_alunos_count,
+                'professores': obj.total_professores_count
+            }
+        return {
+            'alunos': getattr(obj, 'total_alunos_count', 0),
+            'professores': getattr(obj, 'total_professores_count', 0)
+        }
+
 class EscolaSerializer(serializers.ModelSerializer):
     plano_nome = serializers.CharField(source='plano.nome', read_only=True)
     assinatura_ativa = serializers.SerializerMethodField()

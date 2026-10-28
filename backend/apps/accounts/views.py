@@ -51,10 +51,10 @@ class LoginView(APIView):
         escola_data = None
         if user.escola_id:
             from apps.tenants.models import Escola
-            from apps.tenants.serializers import EscolaSerializer
+            from apps.tenants.serializers import EscolaListSerializer
             escola = Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').filter(id=user.escola_id).first()
             if escola:
-                escola_data = EscolaSerializer(escola).data
+                escola_data = EscolaListSerializer(escola).data
 
         return Response({
             'success': True,
@@ -82,8 +82,8 @@ class CurrentUserView(APIView):
         escola_data = None
         escola = get_tenant_escola(request)
         if escola:
-            from apps.tenants.serializers import EscolaSerializer
-            escola_data = EscolaSerializer(escola).data
+            from apps.tenants.serializers import EscolaListSerializer
+            escola_data = EscolaListSerializer(escola).data
 
         return Response({
             'success': True,

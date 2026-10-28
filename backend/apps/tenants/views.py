@@ -6,12 +6,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
 from django.db import transaction, connection
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, OuterRef, Subquery, IntegerField, functions
 
 logger = logging.getLogger(__name__)
 
 from .models import Plano, Escola, AssinaturaEscola, AnoLectivo
-from .serializers import PlanoSerializer, EscolaSerializer, AssinaturaEscolaSerializer, AnoLectivoSerializer
+from .serializers import PlanoSerializer, EscolaSerializer, EscolaListSerializer, AssinaturaEscolaSerializer, AnoLectivoSerializer
 from apps.accounts.models import Usuario
 from apps.accounts.serializers import UsuarioSerializer
 from apps.alunos.models import Aluno
@@ -281,16 +281,31 @@ class PlanoViewSet(viewsets.ModelViewSet):
         return Response({'success': False, 'message': 'Preço não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class EscolaViewSet(viewsets.ModelViewSet):
-    queryset = Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').annotate(
-        total_alunos_count=Count('alunos', distinct=True),
-        total_professores_count=Count('professores', distinct=True)
-    ).all()
     serializer_class = EscolaSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
+    def get_queryset(self):
+        aluno_count_sq = Subquery(
+            Aluno.objects.filter(escola=OuterRef('pk')).values('escola').annotate(c=Count('id')).values('c')[:1],
+            output_field=IntegerField()
+        )
+        prof_count_sq = Subquery(
+            Professor.objects.filter(escola=OuterRef('pk')).values('escola').annotate(c=Count('id')).values('c')[:1],
+            output_field=IntegerField()
+        )
+        return Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').annotate(
+            total_alunos_count=functions.Coalesce(aluno_count_sq, 0),
+            total_professores_count=functions.Coalesce(prof_count_sq, 0)
+        ).all()
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return EscolaListSerializer
+        return EscolaSerializer
+
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
-        return Response({'success': True, 'data': EscolaSerializer(qs, many=True).data})
+        return Response({'success': True, 'data': EscolaListSerializer(qs, many=True).data})
 
     def retrieve(self, request, *args, **kwargs):
         escola = self.get_object()
