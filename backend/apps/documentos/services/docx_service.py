@@ -126,11 +126,34 @@ def set_cell_shading(cell, color_hex):
     shd.set(qn('w:fill'), color_hex.lstrip('#'))
     tcPr.append(shd)
 
+def inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.85):
+    """
+    Insere o logótipo oficial que a instituição escolheu para documentos centralizado no Word.
+    Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para documentos.
+    """
+    from .pdf_service import resolver_logo_documento_escola, DocumentoSemLogoError
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(4)
+    run = p.add_run()
+    run.add_picture(io.BytesIO(logo_bytes), width=Inches(largura_pol))
+    return p
+
 # ==================== 1. PAUTA GERAL DA TURMA (HORIZONTAL) ====================
 
 def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplinas, orientacao='landscape') -> bytes:
     doc = docx.Document()
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.45)
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.85)
 
     # Cabeçalho Oficial
     p1 = doc.add_paragraph()
@@ -247,6 +270,9 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
 # ==================== 2. BOLETIM DE APROVEITAMENTO (VERTICAL) ====================
 
 def inserir_conteudo_boletim_docx(doc, aluno, escola, ano_letivo, notas_disciplinas):
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
+
     # Cabeçalho da República
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -432,6 +458,9 @@ def inserir_conteudo_declaracao_docx(doc, aluno, escola, ano_letivo, notas_disci
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
     escola_nome = escola.nome.upper()
     dir_nome = director_nome or getattr(escola, 'director_nome', None) or 'Pero Chitofo Murrombe'
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
 
     # Cabeçalho Oficial
     p1 = doc.add_paragraph()

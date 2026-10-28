@@ -879,15 +879,20 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     )
     elements = []
 
-    # Emblema e Cabeçalho Oficial
-    if os.path.exists(EMBLEMA_PATH):
-        try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.1 * cm, height=1.1 * cm))
-            elements.append(Spacer(1, 0.1 * cm))
-        except Exception:
-            pass
-
     esc_obj = escola or dados_pauta.get('escola', {})
+
+    # Logótipo Oficial Escolhido pela Instituição
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(esc_obj)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=1.1 * cm, height=1.1 * cm))
+        elements.append(Spacer(1, 0.1 * cm))
+    except Exception:
+        pass
     if isinstance(esc_obj, dict):
         esc_nome = esc_obj.get('nome') or 'Escola Secundária de Massinga'
         prov_str = esc_obj.get('provincia') or 'Inhambane'
@@ -1120,13 +1125,18 @@ def construir_elementos_boletim(aluno, escola, ano_letivo, notas_disciplinas, or
     styles = getSampleStyleSheet()
     elements = []
 
-    # Emblema no Topo Centralizado
-    if os.path.exists(EMBLEMA_PATH):
-        try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
-            elements.append(Spacer(1, 0.1 * cm))
-        except Exception:
-            pass
+    # Logótipo Oficial Escolhido pela Instituição no Topo Centralizado
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=1.3 * cm, height=1.3 * cm))
+        elements.append(Spacer(1, 0.1 * cm))
+    except Exception:
+        pass
 
     style_country = ParagraphStyle('Country', parent=styles['Normal'], alignment=1, fontSize=11.5, leading=13.5, fontName='Times-Bold')
     style_gov = ParagraphStyle('Gov', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=11.5, fontName='Times-Bold')
@@ -1325,8 +1335,8 @@ def gerar_boletim_pdf(aluno, escola, ano_letivo, notas_disciplinas, orientacao='
     # Compilação com moldura simples e marca d'água
     doc.build(
         elements,
-        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
-        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola)
     )
     buffer.seek(0)
     return buffer.getvalue()
@@ -1337,13 +1347,18 @@ def construir_elementos_declaracao(aluno, escola, ano_letivo, notas_disciplinas,
     styles = getSampleStyleSheet()
     elements = []
 
-    # Emblema no Topo Centralizado
-    if os.path.exists(EMBLEMA_PATH):
-        try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
-            elements.append(Spacer(1, 0.1 * cm))
-        except Exception:
-            pass
+    # Logótipo Oficial Escolhido pela Instituição no Topo Centralizado
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=1.3 * cm, height=1.3 * cm))
+        elements.append(Spacer(1, 0.1 * cm))
+    except Exception:
+        pass
 
     prov = (getattr(escola, 'provincia', 'Maputo') or 'Maputo').upper()
     escola_nome = escola.nome.upper()
@@ -1540,8 +1555,8 @@ def gerar_declaracao_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_glo
     # Compilação com moldura simples e marca d'água
     doc.build(
         elements,
-        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
-        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola)
     )
     buffer.seek(0)
     return buffer.getvalue()
@@ -1552,13 +1567,18 @@ def construir_elementos_certificado(aluno, escola, ano_letivo, notas_disciplinas
     styles = getSampleStyleSheet()
     elements = []
 
-    # Emblema no Topo Centralizado
-    if os.path.exists(EMBLEMA_PATH):
-        try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.3 * cm, height=1.3 * cm))
-            elements.append(Spacer(1, 0.08 * cm))
-        except Exception:
-            pass
+    # Logótipo Oficial Escolhido pela Instituição no Topo Centralizado
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=1.3 * cm, height=1.3 * cm))
+        elements.append(Spacer(1, 0.08 * cm))
+    except Exception:
+        pass
 
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane')
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga')
@@ -1832,13 +1852,18 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     styles = getSampleStyleSheet()
     elements = []
 
-    # 1. Cabeçalho Oficial MEC (Compacto para permitir fluxo contínuo das tabelas na Página 1)
-    if os.path.exists(EMBLEMA_PATH):
-        try:
-            elements.append(RLImage(EMBLEMA_PATH, width=0.9 * cm, height=0.9 * cm))
-            elements.append(Spacer(1, 0.08 * cm))
-        except Exception:
-            pass
+    # 1. Logótipo Oficial Escolhido pela Instituição no Cabeçalho
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=0.9 * cm, height=0.9 * cm))
+        elements.append(Spacer(1, 0.08 * cm))
+    except Exception:
+        pass
 
     prov_str = (getattr(escola, 'provincia', '') or 'Inhambane').upper()
     dist_str = (getattr(escola, 'distrito', '') or 'Massinga').upper()
@@ -2268,8 +2293,8 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     # Construção do PDF com moldura simples e marca d'água oficial
     doc.build(
         elements,
-        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
-        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola)
     )
     buffer.seek(0)
     return buffer.getvalue()
@@ -2598,7 +2623,7 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
 
     # Marca d'água no canvas: 'NÃO PAGO' ou 'PAGO'
     def desenhar_recibo_background(canvas, d_doc):
-        desenhar_moldura_e_marca_dagua(canvas, d_doc, moldura='simples', marca_dagua=True)
+        desenhar_moldura_e_marca_dagua(canvas, d_doc, moldura='simples', marca_dagua=True, escola=escola)
         canvas.saveState()
         w, h = d_doc.pagesize
         canvas.setFont("Times-Bold", 58)
@@ -2638,6 +2663,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     elements = []
 
     escola_info = caderneta_data.get('escola') or {}
+    escola = escola_info
     turma_info = caderneta_data.get('turma') or {}
     disc_info = caderneta_data.get('disciplina') or {}
     prof_info = caderneta_data.get('professor') or {}
@@ -2664,7 +2690,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     dt_nome = dt_info.get('nome') or '-'
 
     # 1. Cabeçalho Institucional Oficial
-    elements.extend(gerar_cabecalho_mec(styles, esc_nome, prov, dist, compacto=True))
+    elements.extend(gerar_cabecalho_mec(styles, esc_nome, prov, dist, compacto=True, escola=escola_info))
 
     style_title = ParagraphStyle('CadTitle', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=13, fontName='Times-Bold')
     style_meta = ParagraphStyle('CadMeta', parent=styles['Normal'], alignment=1, fontSize=8.0, leading=10, fontName='Times-Roman')
@@ -2941,8 +2967,8 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
 
     doc.build(
         elements,
-        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
-        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola)
     )
     buffer.seek(0)
     return buffer.getvalue()
@@ -3063,8 +3089,8 @@ def gerar_lote_mapa_pdf(turma, escola, tipo_documento, alunos_documentos, orient
     elements = construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_documentos, orientacao=orientacao)
     doc.build(
         elements,
-        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
-        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola)
     )
     buffer.seek(0)
     return buffer.getvalue()
@@ -3213,8 +3239,8 @@ def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao=
 
     doc.build(
         elements,
-        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True),
-        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True)
+        onFirstPage=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola),
+        onLaterPages=lambda c, d: desenhar_moldura_e_marca_dagua(c, d, 'simples', True, escola=escola)
     )
     buffer.seek(0)
     return buffer.getvalue()
