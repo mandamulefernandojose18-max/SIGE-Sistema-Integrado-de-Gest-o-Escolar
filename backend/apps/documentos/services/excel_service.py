@@ -214,8 +214,9 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
             c_num.alignment = ALIGN_CENTER
             c_num.border = THIN_BORDER
 
-            # Nome
-            c_nome = ws.cell(row=current_row, column=2, value=aluno.get('nome', ''))
+            # Nome Completo
+            _nome_completo = aluno.get('nomeCompleto') or f"{aluno.get('nome', '')} {aluno.get('apelido', '')}".strip()
+            c_nome = ws.cell(row=current_row, column=2, value=_nome_completo)
             c_nome.font = FONT_REGULAR
             c_nome.alignment = ALIGN_LEFT
             c_nome.border = THIN_BORDER
@@ -436,8 +437,9 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         ws.cell(row=current_row, column=1, value=aluno.get('numero', '')).alignment = ALIGN_CENTER
         # Nº Candidato
         ws.cell(row=current_row, column=2, value=str(aluno.get('candidato', '') or aluno.get('matricula', ''))).alignment = ALIGN_CENTER
-        # Nome do Aluno
-        ws.cell(row=current_row, column=3, value=str(aluno.get('nome', ''))).alignment = ALIGN_LEFT
+        # Nome Completo do Aluno
+        _nome_completo_ex = aluno.get('nomeCompleto') or f"{aluno.get('nome', '')} {aluno.get('apelido', '')}".strip()
+        ws.cell(row=current_row, column=3, value=str(_nome_completo_ex)).alignment = ALIGN_LEFT
         # Género
         ws.cell(row=current_row, column=4, value=str(aluno.get('genero', ''))).alignment = ALIGN_CENTER
         # Turma
@@ -1271,7 +1273,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     current_row += 1
     for idx, aluno in enumerate(dados_alunos, start=1):
         num_aluno = aluno.get('numero') or idx
-        nome_aluno = aluno.get('nome', '')
+        nome_aluno = aluno.get('nomeCompleto') or f"{aluno.get('nome', '')} {aluno.get('apelido', '')}".strip()
         med_aluno = str(aluno.get('media_geral', '-'))
         comp_aluno = str(aluno.get('comportamento', 'B') or 'B')
         res_val = str(aluno.get('resultado', 'Aprovado')).strip()
