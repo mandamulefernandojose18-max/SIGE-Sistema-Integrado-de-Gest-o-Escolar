@@ -11,6 +11,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import RowBreak, ColBreak
+from common.utils.avaliacoes_mocambique import obter_nome_completo_aluno
 
 # Estilos padrão Times New Roman — Rigorosamente Tamanho 12 e Espaçamento 1,5
 FONT_TITLE = Font(name='Times New Roman', size=12, bold=True, color='000000')
@@ -215,7 +216,7 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
             c_num.border = THIN_BORDER
 
             # Nome Completo do Aluno (campo 'nome' ja contém o nome completo conforme cadastrado)
-            c_nome = ws.cell(row=current_row, column=2, value=aluno.get('nome', ''))
+            c_nome = ws.cell(row=current_row, column=2, value=obter_nome_completo_aluno(aluno))
             c_nome.font = FONT_REGULAR
             c_nome.alignment = ALIGN_LEFT
             c_nome.border = THIN_BORDER
@@ -437,7 +438,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         # Nº Candidato
         ws.cell(row=current_row, column=2, value=str(aluno.get('candidato', '') or aluno.get('matricula', ''))).alignment = ALIGN_CENTER
         # Nome Completo do Aluno (campo 'nome' ja contém o nome completo conforme cadastrado)
-        ws.cell(row=current_row, column=3, value=str(aluno.get('nome', ''))).alignment = ALIGN_LEFT
+        ws.cell(row=current_row, column=3, value=obter_nome_completo_aluno(aluno)).alignment = ALIGN_LEFT
         # Género
         ws.cell(row=current_row, column=4, value=str(aluno.get('genero', ''))).alignment = ALIGN_CENTER
         # Turma
@@ -596,7 +597,7 @@ def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
     grau_nome = getattr(turma_obj, 'grau_ano', None) or getattr(aluno, 'classe', None) or '10ª Classe'
     classe_turma = f"{grau_nome} - {turma_nome}" if grau_nome not in turma_nome else turma_nome
 
-    aluno_nome_str = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper() if aluno else 'ALUNO'
+    aluno_nome_str = obter_nome_completo_aluno(aluno).upper() if aluno else 'ALUNO'
     matricula_str = getattr(aluno, 'matricula', None) or getattr(aluno, 'codigo_matricula', '---')
     turno_str = getattr(turma_obj, 'turno', 'Manhã') if turma_obj else 'Manhã'
 
@@ -740,7 +741,7 @@ def gerar_declaracao_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
     ws['A4'].font = FONT_TITLE
     ws['A4'].alignment = ALIGN_CENTER
 
-    aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
+    aluno_nome = obter_nome_completo_aluno(aluno).upper()
     grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '10ª Classe'
 
     ws['A6'] = "Nome Completo:"
@@ -827,7 +828,7 @@ def gerar_certificado_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     ws['A4'].font = FONT_TITLE
     ws['A4'].alignment = ALIGN_CENTER
 
-    aluno_nome = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".strip().upper()
+    aluno_nome = obter_nome_completo_aluno(aluno).upper()
     grau_classe = (aluno.turma.grau_ano if aluno.turma and aluno.turma.grau_ano else getattr(aluno, 'classe', None)) or '12ª Classe'
 
     ws['A6'] = "Nome do Graduado:"
@@ -1271,7 +1272,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
     current_row += 1
     for idx, aluno in enumerate(dados_alunos, start=1):
         num_aluno = aluno.get('numero') or idx
-        nome_aluno = aluno.get('nome', '')  # campo 'nome' ja contem o nome completo conforme cadastrado
+        nome_aluno = obter_nome_completo_aluno(aluno)
         med_aluno = str(aluno.get('media_geral', '-'))
         comp_aluno = str(aluno.get('comportamento', 'B') or 'B')
         res_val = str(aluno.get('resultado', 'Aprovado')).strip()
@@ -1374,7 +1375,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
 
 def _adicionar_aba_aluno_lote(wb, idx, doc_item, tipo_documento, turma, escola, orientacao='portrait'):
     aluno_info = doc_item.get('aluno', {})
-    nome = aluno_info.get('nomeCompleto') or aluno_info.get('nome') or f"Aluno_{idx}"
+    nome = obter_nome_completo_aluno(aluno_info) or f"Aluno_{idx}"
     mat = aluno_info.get('matricula') or '-'
     
     safe_name = re.sub(r'[\:\/\?\*\[\]]', '', str(nome))[:20]
@@ -1577,7 +1578,7 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
     cur_row = 5
     for idx, doc in enumerate(alunos_documentos, start=1):
         aluno_info = doc.get('aluno', {})
-        nome = aluno_info.get('nomeCompleto') or aluno_info.get('nome') or 'Aluno'
+        nome = obter_nome_completo_aluno(aluno_info) or 'Aluno'
         mat = aluno_info.get('matricula') or '-'
         med = doc.get('mediaGlobal') or doc.get('media_global') or '-'
         res = doc.get('situacaoGlobal') or doc.get('avaliacao') or 'Aprovado'
@@ -1977,7 +1978,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         t3 = al.get('t3') or {}
         vals = [
             al.get('numero') or idx,
-            al.get('nome') or '',
+            obter_nome_completo_aluno(al),
             al.get('apelido') or '',
             al.get('genero') or 'M',
             fmt_nota(t1.get('t1')), fmt_nota(t1.get('t2')), fmt_nota(t1.get('t3')),

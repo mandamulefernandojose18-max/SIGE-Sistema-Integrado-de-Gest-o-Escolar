@@ -178,9 +178,9 @@ def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefet
             'id': str(aluno.id),
             'alunoId': str(aluno.id),
             'matricula': aluno.matricula,
-            'nome': aluno.nome,  # campo 'nome' ja contem o nome completo conforme cadastrado
+            'nome': obter_nome_completo_aluno(aluno),
             'apelido': aluno.apelido or '',
-            'nomeCompleto': aluno.nome,  # usar apenas 'nome' - ja e o nome completo sem duplicacao
+            'nomeCompleto': obter_nome_completo_aluno(aluno),
             'genero': aluno.genero or 'M',
             'notas': aluno_notas,
             'notasDisciplinas': notas_disciplinas_map,

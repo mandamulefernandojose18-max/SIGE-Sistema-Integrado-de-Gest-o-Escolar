@@ -1,3 +1,4 @@
+from common.utils.avaliacoes_mocambique import obter_nome_completo_aluno
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -291,7 +292,8 @@ def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
             'numero': idx,
             'alunoId': str(a.id),
             'matricula': a.matricula or '',
-            'nome': a.nome,
+            'nome': obter_nome_completo_aluno(a),
+            'nomeCompleto': obter_nome_completo_aluno(a),
             'apelido': a.apelido or '',
             'genero': a.genero or 'M',
             't1': t1_data,

@@ -549,3 +549,39 @@ def obter_disciplinas_plano_curricular(aluno: Any, escola: Any = None) -> List[D
 
 # Compatibilidade retroativa:
 PLANO_CURRICULAR_NACIONAL_MINEDH = PLANO_CURRICULAR_NACIONAL_MEC
+
+
+def obter_nome_completo_aluno(aluno) -> str:
+    """
+    Retorna o nome completo oficial do aluno sem qualquer omissao e sem duplicacao de apelido/sobrenome.
+    Garante que nenhum sobrenome/apelido seja omitido em documentos oficiais.
+    Exemplos:
+      - 'Fernanda Jose' (nome) + 'Mandamule' (apelido) -> 'Fernanda Jose Mandamule'
+      - 'Vanessa Mandamule' (nome) + 'Mandamule' (apelido) -> 'Vanessa Mandamule'
+      - 'Julencia Nhanombe' (nome) + None (apelido) -> 'Julencia Nhanombe'
+    """
+    if not aluno:
+        return ""
+    if isinstance(aluno, dict):
+        nc = str(aluno.get('nomeCompleto') or aluno.get('nome_completo') or '').strip()
+        n = str(aluno.get('nome') or '').strip()
+        ap = str(aluno.get('apelido') or '').strip()
+    else:
+        nc = str(getattr(aluno, 'nome_completo', '') or '').strip()
+        n = str(getattr(aluno, 'nome', '') or '').strip()
+        ap = str(getattr(aluno, 'apelido', '') or '').strip()
+
+    # Limpar duplicatas prévias se existirem
+    if ap and nc.lower().endswith(f" {ap.lower()} {ap.lower()}"):
+        nc = nc[:-(len(ap) + 1)].strip()
+    if ap and n.lower().endswith(f" {ap.lower()} {ap.lower()}"):
+        n = n[:-(len(ap) + 1)].strip()
+
+    base = n or nc
+    if not base:
+        return ap
+    if not ap:
+        return base
+    if base.lower().endswith(ap.lower()):
+        return base
+    return f"{base} {ap}".strip()

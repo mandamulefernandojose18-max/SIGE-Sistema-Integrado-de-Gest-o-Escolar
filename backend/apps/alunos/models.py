@@ -150,5 +150,17 @@ class Aluno(models.Model):
         except Exception:
             pass
 
+    @property
+    def nome_completo(self):
+        nome = (self.nome or '').strip()
+        apelido = (self.apelido or '').strip()
+        if not apelido:
+            return nome
+        if not nome:
+            return apelido
+        if nome.lower().endswith(apelido.lower()):
+            return nome
+        return f"{nome} {apelido}"
+
     def __str__(self):
         return f"{self.nome} ({self.matricula})"

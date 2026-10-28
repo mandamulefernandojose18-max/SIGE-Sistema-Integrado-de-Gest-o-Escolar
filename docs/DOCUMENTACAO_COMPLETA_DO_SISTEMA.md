@@ -431,7 +431,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Sub-aba 1 — Pauta Geral Oficial da Turma:**
   - Consolida num único mapa todas as disciplinas oficiais da secção/área da turma, apresentando para cada aluno:
     - **Nº de Ordem:** Número sequencial do aluno na turma.
-    - **Nome Completo do Aluno:** Nome e apelido oficiais sem abreviações forçadas.
+    - **Nome Completo do Aluno:** Nome próprio e apelido completos sem qualquer omissão ou truncamento em todos os formatos (XLSX, PDF e DOCX), garantido universalmente pela função obter_nome_completo_aluno.
     - **Género (Gén):** Distinção visual padronizada (M / F).
     - **Classificações por Disciplina:** 4 sub-colunas dedicadas por disciplina curricular (1º, 2º, 3º e MFD).
     - **Médias Trimestrais:** Colunas discriminadas para 1º, 2º e 3º Trimestre.

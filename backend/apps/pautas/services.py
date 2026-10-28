@@ -1,3 +1,4 @@
+from common.utils.avaliacoes_mocambique import obter_nome_completo_aluno
 import re
 import unicodedata
 from collections import Counter
@@ -996,7 +997,7 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
     total_segunda_epoca = 0
 
     for idx, aluno in enumerate(alunos, start=1):
-        aluno_nome_completo = f"{aluno.nome} {aluno.apelido or ''}".strip()
+        aluno_nome_completo = obter_nome_completo_aluno(aluno)
         genero = (aluno.genero or 'M').upper()
         sufixo_genero = 'a' if genero.startswith('F') else 'o'
 
