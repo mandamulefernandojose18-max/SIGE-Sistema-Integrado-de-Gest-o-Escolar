@@ -1711,13 +1711,27 @@ def inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_d
         set_cell_shading(t.rows[0].cells[c_i], '1E3A8A')
         r.font.color.rgb = RGBColor(0xff, 0xff, 0xff)
 
+    def _sanitizar_texto_situacao_docx(sit_val):
+        if isinstance(sit_val, dict):
+            return str(sit_val.get('resultado') or sit_val.get('situacao') or sit_val.get('siglaResultado') or sit_val.get('motivo') or 'Pendente').strip()
+        if sit_val is None:
+            return 'Pendente'
+        return str(sit_val).strip()
+
+    def _sanitizar_texto_media_docx(med_val):
+        if isinstance(med_val, dict):
+            return str(med_val.get('mediaGeral') or med_val.get('mediaGlobal') or '-').strip()
+        if med_val is None:
+            return '-'
+        return str(med_val).strip()
+
     for idx, doc_item in enumerate(alunos_documentos, start=1):
         row = t.add_row()
         al_info = doc_item.get('aluno') or {}
         nome = al_info.get('nomeCompleto') or al_info.get('nome') or 'Aluno'
         mat = al_info.get('matricula') or '-'
-        med = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
-        sit = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        med = _sanitizar_texto_media_docx(doc_item.get('mediaGlobal') or doc_item.get('mediaGeral'))
+        sit = _sanitizar_texto_situacao_docx(doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal'))
         vals = [str(idx), str(nome), str(mat), str(med), str(sit)]
         for c_i, v in enumerate(vals):
             p = row.cells[c_i].paragraphs[0]
@@ -1726,8 +1740,11 @@ def inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_d
             is_bold = (c_i in (3, 4))
             col_color = None
             if c_i == 4:
-                if str(sit).strip().lower() in ('reprovado', 'r', 'excluído'):
+                sit_lower = str(sit).strip().lower()
+                if any(k in sit_lower for k in ('reprovado', 'rep', 'r', 'excluído', 'excluido', 'não ap', 'nao ap')):
                     col_color = RGBColor(220, 38, 38)
+                elif 'pend' in sit_lower:
+                    col_color = RGBColor(217, 119, 6)
                 else:
                     col_color = RGBColor(22, 101, 52)
             aplicar_fonte_times(r, pt_size=8.5, bold=is_bold, color_rgb=col_color)

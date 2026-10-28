@@ -528,3 +528,52 @@ class TestPautasEDocumentos:
             assert any('00_MAPA_OFICIAL_EMISSAO' in n for n in zip_names)
             assert any('TODOS_DOCUMENTOS_COMPLETO' in n for n in zip_names)
             assert any('documentos_individuais' in n for n in zip_names)
+
+    def test_situacao_pedagogica_lote_nunca_exibe_dicionario(self):
+        from apps.documentos.services.pdf_service import construir_elementos_mapa_lote, gerar_lote_mapa_pdf
+        from apps.documentos.services.docx_service import gerar_lote_mapa_docx
+        from apps.documentos.services.excel_service import gerar_lote_xlsx
+        from apps.documentos.views import _compilar_documentos_lote
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        request = factory.get('/')
+
+        for tipo in ['FICHA', 'RECIBO', 'BOLETIM', 'CERTIFICADO', 'DECLARACAO']:
+            docs = _compilar_documentos_lote(request, self.turma, self.escola, tipo)
+            for d in docs:
+                sit = d.get('situacaoGlobal')
+                res = d.get('resultadoFinal')
+                assert not isinstance(sit, dict), f'situacaoGlobal nao pode ser dict em tipo {tipo}: {sit}'
+                assert not isinstance(res, dict), f'resultadoFinal nao pode ser dict em tipo {tipo}: {res}'
+                assert isinstance(sit, str)
+                assert isinstance(res, str)
+
+        mock_doc_com_dict = [{
+            'aluno': {'nome': 'Aluno Teste', 'nomeCompleto': 'Aluno Teste', 'matricula': 'MAT-999'},
+            'mediaGlobal': {'mediaGeral': '12.5'},
+            'situacaoGlobal': {
+                'aprovado': False,
+                'resultado': 'Pendente',
+                'siglaResultado': '-',
+                'mediaGeral': '-',
+                'totalNegativas': 0,
+                'motivo': 'Aluno com disciplinas pendentes / avaliações parciais'
+            },
+            'resultadoFinal': 'Pendente'
+        }]
+
+        elementos = construir_elementos_mapa_lote(self.turma, self.escola, 'FICHA', mock_doc_com_dict)
+        tabela = [el for el in elementos if el.__class__.__name__ == 'Table'][0]
+        row_aluno = tabela._cellvalues[1]
+        sit_paragraph = row_aluno[4]
+        texto_sit = sit_paragraph.text
+        assert "{'aprovado'" not in texto_sit
+        assert texto_sit == 'Pendente'
+
+        pdf_bytes = gerar_lote_mapa_pdf(self.turma, self.escola, 'FICHA', mock_doc_com_dict)
+        assert b"{'aprovado'" not in pdf_bytes
+        docx_bytes = gerar_lote_mapa_docx(self.turma, self.escola, 'FICHA', mock_doc_com_dict)
+        assert len(docx_bytes) > 0
+        xlsx_bytes = gerar_lote_xlsx(self.turma, self.escola, 'FICHA', mock_doc_com_dict)
+        assert len(xlsx_bytes) > 0

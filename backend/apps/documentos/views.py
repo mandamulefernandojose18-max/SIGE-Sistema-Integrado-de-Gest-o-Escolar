@@ -894,7 +894,9 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
                 },
                 'tipo': 'FICHA',
                 'mediaGlobal': media_global,
-                'situacaoGlobal': avaliacao,
+                'situacaoGlobal': avaliacao.get('resultado', 'Pendente') if isinstance(avaliacao, dict) else (str(avaliacao) if avaliacao else 'Pendente'),
+                'resultadoFinal': avaliacao.get('resultado', 'Pendente') if isinstance(avaliacao, dict) else (str(avaliacao) if avaliacao else 'Pendente'),
+                'avaliacao': avaliacao,
             }
         elif tipo == 'RECIBO':
             pag_obj = pagamentos_por_aluno.get(aluno.id)
@@ -910,7 +912,9 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
                 },
                 'tipo': 'RECIBO',
                 'mediaGlobal': media_global,
-                'situacaoGlobal': avaliacao,
+                'situacaoGlobal': avaliacao.get('resultado', 'Pendente') if isinstance(avaliacao, dict) else (str(avaliacao) if avaliacao else 'Pendente'),
+                'resultadoFinal': avaliacao.get('resultado', 'Pendente') if isinstance(avaliacao, dict) else (str(avaliacao) if avaliacao else 'Pendente'),
+                'avaliacao': avaliacao,
                 '_pagamento_obj': pag_obj
             }
         else:

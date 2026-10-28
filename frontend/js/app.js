@@ -4694,7 +4694,7 @@ async function removerLogotipoDaGaleria(id) {
 }
 window.removerLogotipoDaGaleria = removerLogotipoDaGaleria;
 
-function processarUploadLogoLocal(input) {
+function processarUploadPorOpcao(input, destino = 'DOCUMENTOS') {
   const file = input.files?.[0];
   if (!file) return;
 
@@ -4712,11 +4712,28 @@ function processarUploadLogoLocal(input) {
   reader.onload = async function(e) {
     const dataUrl = e.target.result;
     const nomeFicheiro = file.name ? file.name.replace(/\.[^/.]+$/, "") : `Logótipo`;
-    const destinoEscolhido = document.getElementById('confEscolaDestinoUpload')?.value || 'DOCUMENTOS';
-    await adicionarLogotipoAGaleria(dataUrl, nomeFicheiro, destinoEscolhido);
+    await adicionarLogotipoAGaleria(dataUrl, nomeFicheiro, destino);
     input.value = '';
   };
   reader.readAsDataURL(file);
+}
+window.processarUploadPorOpcao = processarUploadPorOpcao;
+
+async function processarUrlPorOpcao(inputId, destino = 'DOCUMENTOS') {
+  const inputEl = document.getElementById(inputId);
+  const url = inputEl?.value;
+  if (!url || !url.trim()) {
+    alert('Por favor, insira um link / URL válido da imagem.');
+    return;
+  }
+  const urlLimpo = url.trim();
+  await adicionarLogotipoAGaleria(urlLimpo, 'Logótipo Web', destino);
+  if (inputEl) inputEl.value = '';
+}
+window.processarUrlPorOpcao = processarUrlPorOpcao;
+
+function processarUploadLogoLocal(input) {
+  processarUploadPorOpcao(input, 'DOCUMENTOS');
 }
 window.processarUploadLogoLocal = processarUploadLogoLocal;
 
@@ -4726,8 +4743,7 @@ async function processarUrlLogo(url) {
     return;
   }
   const urlLimpo = url.trim();
-  const destinoEscolhido = document.getElementById('confEscolaDestinoUpload')?.value || 'DOCUMENTOS';
-  await adicionarLogotipoAGaleria(urlLimpo, 'Logótipo Web', destinoEscolhido);
+  await adicionarLogotipoAGaleria(urlLimpo, 'Logótipo Web', 'DOCUMENTOS');
   const inputEl = document.getElementById('confEscolaLogoUrl');
   if (inputEl) inputEl.value = '';
 }
@@ -14727,9 +14743,12 @@ function obterHtmlBoletimOficial(d) {
     }
   }
 
+  const sitExtraida = (typeof d.situacaoGlobal === 'object' && d.situacaoGlobal !== null)
+    ? (d.situacaoGlobal.resultado || d.situacaoGlobal.motivo || 'Pendente')
+    : (d.situacaoGlobal || (typeof d.resultadoFinal === 'object' && d.resultadoFinal !== null ? d.resultadoFinal.resultado : d.resultadoFinal) || 'Sem Avaliação');
   const situacaoGlobal = typeof mediaGlobalInt === 'number'
     ? (mediaGlobalInt >= 9.5 ? 'Aprovado' : 'Reprovado')
-    : (d.situacaoGlobal || d.resultadoFinal || 'Sem Avaliação');
+    : sitExtraida;
 
   const corpoTabelaBoletim = listaDisciplinas.length > 0
     ? listaDisciplinas.map(item => `
@@ -15518,16 +15537,21 @@ function renderizarLoteImpressao(lista) {
             const al = docItem.aluno || {};
             const nome = al.nomeCompleto || al.nome || `Aluno ${idx + 1}`;
             const mat = al.matricula || '-';
-            const med = docItem.mediaGlobal || docItem.mediaGeral || '-';
-            const sit = docItem.situacaoGlobal || docItem.resultadoFinal || 'Aprovado';
-            const isRep = String(sit).toLowerCase().includes('rep') || String(sit).toLowerCase().includes('exc');
+            const medRaw = docItem.mediaGlobal || docItem.mediaGeral || '-';
+            const med = (typeof medRaw === 'object' && medRaw !== null) ? (medRaw.mediaGeral || medRaw.mediaGlobal || '-') : medRaw;
+            const sitRaw = docItem.situacaoGlobal || docItem.resultadoFinal || 'Aprovado';
+            const sit = (typeof sitRaw === 'object' && sitRaw !== null) ? (sitRaw.resultado || sitRaw.motivo || 'Pendente') : sitRaw;
+            const sitLower = String(sit).toLowerCase();
+            const isRep = sitLower.includes('rep') || sitLower.includes('exc') || sitLower.includes('não ap') || sitLower.includes('nao ap');
+            const isPend = sitLower.includes('pend');
+            const sitColor = isRep ? '#dc2626' : (isPend ? '#d97706' : '#166534');
             return `
               <tr>
                 <td style="text-align: center; font-weight: bold; padding: 4px;">${idx + 1}</td>
                 <td style="padding: 4px 8px; text-transform: uppercase;">${nome}</td>
                 <td style="text-align: center; padding: 4px;">${mat}</td>
                 <td style="text-align: center; font-weight: bold; padding: 4px;">${med}</td>
-                <td style="text-align: center; font-weight: bold; padding: 4px; color: ${isRep ? '#dc2626' : '#166534'};">${sit}</td>
+                <td style="text-align: center; font-weight: bold; padding: 4px; color: ${sitColor};">${sit}</td>
               </tr>
             `;
           }).join('')}

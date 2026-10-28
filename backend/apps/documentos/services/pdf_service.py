@@ -12,6 +12,7 @@ import os
 import datetime
 import re
 import unicodedata
+import base64
 import qrcode
 from PIL import Image
 
@@ -319,32 +320,159 @@ class PushToBottomSpacer(Flowable):
 import base64
 from reportlab.lib.utils import ImageReader
 
-def obter_imagereader_para_reportlab(img_ref):
+class DocumentoSemLogoError(ValueError):
+    """Exceção levantada quando um documento tenta ser descarregado sem o logótipo oficial escolhido pela instituição."""
+    pass
+
+def extrair_bytes_de_imagem(img_ref):
+    """
+    Converte qualquer referência de imagem (Base64 data URI, raw base64, URL http/https, caminho de ficheiro) em bytes válidos.
+    Valida a integridade da imagem via PIL.
+    """
     if not img_ref:
         return None
     try:
-        if isinstance(img_ref, str) and img_ref.startswith('data:image'):
-            _, b64data = img_ref.split(',', 1)
-            raw = base64.b64decode(b64data)
-            return ImageReader(io.BytesIO(raw))
-        if isinstance(img_ref, str) and (os.path.exists(img_ref) or img_ref.startswith('http://') or img_ref.startswith('https://')):
-            return ImageReader(img_ref)
+        raw = None
+        if isinstance(img_ref, bytes):
+            raw = img_ref
+        elif isinstance(img_ref, str):
+            img_ref_str = img_ref.strip()
+            if img_ref_str.startswith('data:image'):
+                if ',' in img_ref_str:
+                    _, b64data = img_ref_str.split(',', 1)
+                    raw = base64.b64decode(b64data)
+            elif img_ref_str.startswith(('http://', 'https://')):
+                import urllib.request
+                req = urllib.request.Request(img_ref_str, headers={'User-Agent': 'SIGE-Document-Renderer/1.0'})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    raw = resp.read()
+            elif os.path.exists(img_ref_str):
+                with open(img_ref_str, 'rb') as f:
+                    raw = f.read()
+            else:
+                # Verificar caminhos relativos ao frontend/img ou assets
+                possiveis_caminhos = [
+                    os.path.abspath(os.path.join(ASSETS_DIR, os.path.basename(img_ref_str))),
+                    os.path.abspath(os.path.join(_BASE_DIR, '../../../../frontend', img_ref_str.lstrip('/'))),
+                    os.path.abspath(os.path.join(_BASE_DIR, '../../../../frontend/img', os.path.basename(img_ref_str))),
+                ]
+                for p in possiveis_caminhos:
+                    if os.path.exists(p):
+                        with open(p, 'rb') as f:
+                            raw = f.read()
+                        break
+                # Se ainda não encontrou e parece base64 puro sem cabeçalho
+                if not raw and len(img_ref_str) > 50 and re.match(r'^[A-Za-z0-9+/=\r\n]+$', img_ref_str):
+                    try:
+                        raw = base64.b64decode(img_ref_str)
+                    except Exception:
+                        pass
+
+        if raw:
+            from PIL import Image as PILImage
+            im = PILImage.open(io.BytesIO(raw))
+            im.verify()
+            return raw
     except Exception:
         pass
     return None
 
+def obter_imagereader_para_reportlab(img_ref):
+    raw = extrair_bytes_de_imagem(img_ref)
+    if raw:
+        try:
+            return ImageReader(io.BytesIO(raw))
+        except Exception:
+            pass
+    return None
+
+def resolver_logo_documento_escola(escola):
+    """
+    Resolve o logótipo oficial que a instituição escolheu para usar em documentos.
+    Retorna uma tupla: (logo_bytes: bytes, image_reader: ImageReader, mime_type: str, nome: str)
+    
+    Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para usar em documentos.
+    Se não for possível resolver um logótipo válido e carregável, retorna (None, None, None, None).
+    """
+    if not escola:
+        try:
+            from apps.tenants.models import Escola
+            escola = Escola.objects.filter(status='ATIVA').first()
+        except Exception:
+            pass
+
+    if not escola:
+        return None, None, None, None
+
+    def _obter_val(chave, padrao=None):
+        if isinstance(escola, dict):
+            return escola.get(chave, padrao)
+        return getattr(escola, chave, padrao)
+
+    usar_emblema_raw = _obter_val('usar_emblema_nacional', True)
+    if isinstance(usar_emblema_raw, str):
+        usar_emblema = usar_emblema_raw.strip().lower() not in ('false', '0', 'nao', 'não', 'no')
+    elif usar_emblema_raw is None:
+        usar_emblema = True
+    else:
+        usar_emblema = bool(usar_emblema_raw)
+
+    modo_logo = str(_obter_val('modo_uso_logo', 'DOCUMENTOS') or 'DOCUMENTOS').upper()
+    custom_logo_ref = _obter_val('logo_url') or _obter_val('logo_base64') or _obter_val('logo')
+
+    # Caso 1: A instituição escolheu usar Logótipo Próprio nos Documentos
+    # (!usar_emblema e modo_logo permite documentos)
+    if not usar_emblema and modo_logo in ('DOCUMENTOS', 'DOCUMENTOS_E_MARCA_DAGUA'):
+        if custom_logo_ref:
+            img_bytes = extrair_bytes_de_imagem(custom_logo_ref)
+            if img_bytes:
+                try:
+                    return img_bytes, ImageReader(io.BytesIO(img_bytes)), 'image/png', 'Logótipo da Instituição'
+                except Exception:
+                    pass
+        # A instituição desmarcou o emblema para usar logótipo próprio mas não tem imagem válida!
+        # Bloquear emissão: nenhum documento sem o logótipo escolhido pela instituição!
+        return None, None, None, None
+
+    # Caso 2: A instituição escolheu usar o Emblema Nacional Oficial
+    if usar_emblema and modo_logo in ('DOCUMENTOS', 'DOCUMENTOS_E_MARCA_DAGUA'):
+        if os.path.exists(EMBLEMA_PATH):
+            try:
+                with open(EMBLEMA_PATH, 'rb') as f:
+                    b = f.read()
+                return b, ImageReader(io.BytesIO(b)), 'image/png', 'Emblema Nacional'
+            except Exception:
+                pass
+
+    # Caso 3: Fallback padrão se usar_emblema for True
+    if os.path.exists(EMBLEMA_PATH):
+        try:
+            with open(EMBLEMA_PATH, 'rb') as f:
+                b = f.read()
+            return b, ImageReader(io.BytesIO(b)), 'image/png', 'Emblema Nacional'
+        except Exception:
+            pass
+
+    return None, None, None, None
+
 def resolver_marca_dagua_escola(escola):
     if not escola:
         return ImageReader(EMBLEMA_PATH) if os.path.exists(EMBLEMA_PATH) else None
-    modo_md = getattr(escola, 'marca_dagua_modo', 'EMBLEMA_NACIONAL') or 'EMBLEMA_NACIONAL'
-    modo_logo = getattr(escola, 'modo_uso_logo', 'DOCUMENTOS') or 'DOCUMENTOS'
+
+    def _obter_val(chave, padrao=None):
+        if isinstance(escola, dict):
+            return escola.get(chave, padrao)
+        return getattr(escola, chave, padrao)
+
+    modo_md = _obter_val('marca_dagua_modo', 'EMBLEMA_NACIONAL') or 'EMBLEMA_NACIONAL'
+    modo_logo = _obter_val('modo_uso_logo', 'DOCUMENTOS') or 'DOCUMENTOS'
 
     if modo_md == 'NENHUM':
         return None
 
     # Possibilidade 1: Usar só e só como marca de água (específico)
     if modo_md == 'ESPECIFICA' or modo_logo == 'APENAS_MARCA_DAGUA':
-        md_img = getattr(escola, 'marca_dagua_url', None) or getattr(escola, 'marca_dagua_base64', None)
+        md_img = _obter_val('marca_dagua_url') or _obter_val('marca_dagua_base64')
         if md_img:
             r = obter_imagereader_para_reportlab(md_img)
             if r:
@@ -352,7 +480,7 @@ def resolver_marca_dagua_escola(escola):
 
     # Possibilidade 2: Uso nos documentos e marca de água
     if modo_logo == 'DOCUMENTOS_E_MARCA_DAGUA' or modo_md == 'MESMO_LOGO':
-        logo_img = getattr(escola, 'logo_url', None) or getattr(escola, 'logo_base64', None)
+        logo_img = _obter_val('logo_url') or _obter_val('logo_base64') or _obter_val('logo')
         if logo_img:
             r = obter_imagereader_para_reportlab(logo_img)
             if r:
@@ -410,24 +538,18 @@ def gerar_cabecalho_mec(styles, escola_nome, provincia, distrito, compacto=False
     """Gera o cabeçalho padrão com emblema/logótipo no topo."""
     elements = []
     img_sz = 1.0 * cm if compacto else 1.3 * cm
-    logo_reader = None
-    if escola:
-        usar_emblema = getattr(escola, 'usar_emblema_nacional', True)
-        modo_logo = getattr(escola, 'modo_uso_logo', 'DOCUMENTOS')
-        if not usar_emblema and modo_logo in ('DOCUMENTOS', 'DOCUMENTOS_E_MARCA_DAGUA'):
-            custom_logo = getattr(escola, 'logo_url', None) or getattr(escola, 'logo_base64', None)
-            if custom_logo:
-                logo_reader = obter_imagereader_para_reportlab(custom_logo)
-    
-    if not logo_reader and os.path.exists(EMBLEMA_PATH):
-        logo_reader = ImageReader(EMBLEMA_PATH)
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
 
-    if logo_reader:
-        try:
-            elements.append(RLImage(logo_reader, width=img_sz, height=img_sz))
-            elements.append(Spacer(1, 0.08 * cm if compacto else 0.15 * cm))
-        except Exception:
-            pass
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=img_sz, height=img_sz))
+        elements.append(Spacer(1, 0.08 * cm if compacto else 0.15 * cm))
+    except Exception:
+        pass
 
     style_center_bold = ParagraphStyle(
         'CenterBold', parent=styles['Normal'], alignment=1,
@@ -470,13 +592,18 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     styles = getSampleStyleSheet()
     elements = []
 
-    # 1. Emblema e Cabecalho Oficial no Topo
-    if os.path.exists(EMBLEMA_PATH):
-        try:
-            elements.append(RLImage(EMBLEMA_PATH, width=1.1 * cm, height=1.1 * cm))
-            elements.append(Spacer(1, 0.08 * cm))
-        except Exception:
-            pass
+    # 1. Logótipo Oficial Escolhido pela Instituição no Topo
+    logo_bytes, _, _, _ = resolver_logo_documento_escola(escola)
+    if not logo_bytes:
+        raise DocumentoSemLogoError(
+            "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. "
+            "Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos."
+        )
+    try:
+        elements.append(RLImage(io.BytesIO(logo_bytes), width=1.1 * cm, height=1.1 * cm))
+        elements.append(Spacer(1, 0.08 * cm))
+    except Exception:
+        pass
 
     style_hdr_rep = ParagraphStyle('PHdrRep', alignment=1, fontSize=10, leading=12, fontName='Times-Bold')
     style_hdr_gov = ParagraphStyle('PHdrGov', alignment=1, fontSize=7.5, leading=9.5, fontName='Times-Roman')
@@ -2852,19 +2979,45 @@ def construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_document
     s_c = ParagraphStyle('LC', fontName='Times-Roman', fontSize=8.5, alignment=1)
     s_l = ParagraphStyle('LL', fontName='Times-Roman', fontSize=8.5, alignment=0)
     s_b = ParagraphStyle('LB', fontName='Times-Bold', fontSize=8.5, alignment=1)
+    s_sit_apr = ParagraphStyle('LSApr', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.HexColor('#166534'))
+    s_sit_rep = ParagraphStyle('LSRep', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    s_sit_pen = ParagraphStyle('LSPen', fontName='Times-Bold', fontSize=8.5, alignment=1, textColor=colors.HexColor('#b45309'))
+
+    def _sanitizar_texto_situacao(sit_val):
+        if isinstance(sit_val, dict):
+            return str(sit_val.get('resultado') or sit_val.get('situacao') or sit_val.get('siglaResultado') or sit_val.get('motivo') or 'Pendente').strip()
+        if sit_val is None:
+            return 'Pendente'
+        return str(sit_val).strip()
+
+    def _sanitizar_texto_media(med_val):
+        if isinstance(med_val, dict):
+            return str(med_val.get('mediaGeral') or med_val.get('mediaGlobal') or '-').strip()
+        if med_val is None:
+            return '-'
+        return str(med_val).strip()
 
     for idx, doc_item in enumerate(alunos_documentos, start=1):
         al_info = doc_item.get('aluno') or {}
         nome = al_info.get('nomeCompleto') or al_info.get('nome') or 'Aluno'
         mat = al_info.get('matricula') or '-'
-        med = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
-        sit = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        med = _sanitizar_texto_media(doc_item.get('mediaGlobal') or doc_item.get('mediaGeral'))
+        sit = _sanitizar_texto_situacao(doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal'))
+
+        sit_lower = sit.lower()
+        if any(w in sit_lower for w in ('rep', 'não ap', 'nao ap', 'exc')):
+            s_sit = s_sit_rep
+        elif 'pend' in sit_lower:
+            s_sit = s_sit_pen
+        else:
+            s_sit = s_sit_apr
+
         data_rows.append([
             Paragraph(str(idx), s_c),
             Paragraph(str(nome), s_l),
             Paragraph(str(mat), s_c),
             Paragraph(str(med), s_b),
-            Paragraph(str(sit), s_b),
+            Paragraph(str(sit), s_sit),
         ])
 
     t = Table(data_rows, colWidths=[1.2 * cm, 7.6 * cm, 3.4 * cm, 2.8 * cm, 3.6 * cm], repeatRows=1)

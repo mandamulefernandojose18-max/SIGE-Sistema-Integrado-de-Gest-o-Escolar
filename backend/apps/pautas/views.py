@@ -11,7 +11,7 @@ from apps.turmas.models import Turma
 from apps.disciplinas.models import Disciplina
 from apps.alunos.models import Aluno
 from apps.notas.models import Nota, NotaExame
-from common.utils.avaliacoes_mocambique import avaliar_aprovacao_pauta
+from common.utils.avaliacoes_mocambique import avaliar_aprovacao_pauta, obter_nome_completo_aluno
 from apps.documentos.services.pdf_service import gerar_pauta_pdf, gerar_acta_pdf, gerar_pauta_exames_pdf
 from apps.documentos.services.excel_service import (
     gerar_pauta_xlsx, gerar_acta_xlsx, gerar_estatisticas_gerais_xlsx, gerar_pauta_exames_xlsx

@@ -1479,8 +1479,10 @@ def _adicionar_aba_aluno_lote(wb, idx, doc_item, tipo_documento, turma, escola, 
 
         ws.cell(row=cur_r, column=1, value="MÉDIA GLOBAL & RESULTADO").font = FONT_HEADER
         ws.cell(row=cur_r, column=1).fill = FILL_LIGHT_GRAY
-        med_glob = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
-        sit_glob = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        med_raw = doc_item.get('mediaGlobal') or doc_item.get('mediaGeral') or '-'
+        sit_raw = doc_item.get('situacaoGlobal') or doc_item.get('resultadoFinal') or 'Aprovado'
+        med_glob = str(med_raw.get('mediaGeral') or med_raw.get('mediaGlobal') or '-') if isinstance(med_raw, dict) else str(med_raw)
+        sit_glob = str(sit_raw.get('resultado') or sit_raw.get('situacao') or sit_raw.get('motivo') or 'Pendente') if isinstance(sit_raw, dict) else str(sit_raw)
         ws.cell(row=cur_r, column=5, value=str(med_glob)).font = FONT_HEADER
         ws.cell(row=cur_r, column=5).alignment = ALIGN_CENTER
         ws.cell(row=cur_r, column=6, value=str(sit_glob)).font = FONT_HEADER
@@ -1580,8 +1582,10 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
         aluno_info = doc.get('aluno', {})
         nome = obter_nome_completo_aluno(aluno_info) or 'Aluno'
         mat = aluno_info.get('matricula') or '-'
-        med = doc.get('mediaGlobal') or doc.get('media_global') or '-'
-        res = doc.get('situacaoGlobal') or doc.get('avaliacao') or 'Aprovado'
+        med_raw = doc.get('mediaGlobal') or doc.get('media_global') or '-'
+        res_raw = doc.get('situacaoGlobal') or doc.get('resultadoFinal') or doc.get('avaliacao') or 'Aprovado'
+        med = str(med_raw.get('mediaGeral') or med_raw.get('mediaGlobal') or '-') if isinstance(med_raw, dict) else str(med_raw)
+        res = str(res_raw.get('resultado') or res_raw.get('situacao') or res_raw.get('motivo') or 'Pendente') if isinstance(res_raw, dict) else str(res_raw)
 
         ws.cell(row=cur_row, column=1, value=idx).alignment = ALIGN_CENTER
         ws.cell(row=cur_row, column=2, value=nome).alignment = ALIGN_LEFT

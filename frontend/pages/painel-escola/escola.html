@@ -200,40 +200,140 @@
                     </div>
                   </div>
 
-                  <!-- 3. CARREGAR / IMPORTAR NOVA IMAGEM OU LOGÓTIPO -->
-                  <div class="p-3 rounded bg-white border">
-                    <div class="fw-bold text-primary small mb-2 d-flex align-items-center justify-content-between">
-                      <span><i class="bi bi-cloud-arrow-up-fill me-1"></i> Carregar / Importar Nova Imagem para a Instituição</span>
+                  <!-- 3. CARREGAR / IMPORTAR LOGÓTIPO EM FUNÇÃO DE CADA OPÇÃO -->
+                  <div class="p-3 rounded-3 bg-white border shadow-xs">
+                    <div class="fw-bold text-primary small mb-1 d-flex align-items-center justify-content-between">
+                      <span><i class="bi bi-cloud-arrow-up-fill me-1"></i> Carregador de Logótipo por Opção</span>
                       <span class="badge bg-light text-muted border" style="font-size: 0.65rem;">PNG, JPG, WebP</span>
                     </div>
+                    <p class="x-small text-muted mb-2" style="font-size: 0.75rem;">
+                      Carregue o logótipo diretamente na função desejada da instituição:
+                    </p>
 
-                    <!-- Seletor de Destino no Momento do Upload -->
-                    <div class="mb-2 p-2 bg-light rounded border">
-                      <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.76rem;">
-                        <i class="bi bi-gear-fill text-primary me-1"></i> Destino da Imagem a Carregar:
-                      </label>
-                      <select id="confEscolaDestinoUpload" class="form-select form-select-sm fw-semibold" style="font-size: 0.78rem;">
-                        <option value="DOCUMENTOS" selected>1. Usar nos Documentos (Cabeçalho Oficial)</option>
-                        <option value="DOCUMENTOS_E_MARCA_DAGUA">2. Usar nos Documentos E Marca de Água (Ambos)</option>
-                        <option value="APENAS_MARCA_DAGUA">3. Usar só e só como Marca de Água (Específico)</option>
-                        <option value="APENAS_GALERIA">4. Apenas Guardar na Galeria da Instituição</option>
-                      </select>
-                    </div>
-
-                    <!-- 1. Carregar Ficheiro de Imagem do Computador -->
-                    <div class="mb-2">
-                      <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.76rem;">1. Carregar do Computador</label>
-                      <input type="file" id="confEscolaLogoFile" accept="image/*" class="form-control form-control-sm" onchange="processarUploadLogoLocal(this)">
-                    </div>
-
-                    <!-- 2. Ou Link / URL -->
-                    <div class="mb-1">
-                      <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.76rem;">2. Ou Link / URL da Imagem</label>
-                      <div class="input-group input-group-sm">
-                        <input type="url" id="confEscolaLogoUrl" class="form-control" placeholder="https://escola.edu.mz/logo.png">
-                        <button type="button" class="btn btn-outline-primary fw-semibold" onclick="processarUrlLogo(document.getElementById('confEscolaLogoUrl').value)">
-                          <i class="bi bi-plus-lg me-1"></i> Adicionar
+                    <!-- Abas de Opções Dedicadas -->
+                    <ul class="nav nav-pills nav-fill mb-3 gap-1 p-1 bg-light rounded border" id="pillsLogotipoTabs" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link active py-1 px-2 fw-semibold" id="tab-upload-docs" data-bs-toggle="pill" data-bs-target="#pane-upload-docs" type="button" role="tab" style="font-size: 0.73rem;">
+                          <i class="bi bi-file-earmark-text me-1"></i>1. Documentos
                         </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-1 px-2 fw-semibold" id="tab-upload-ambos" data-bs-toggle="pill" data-bs-target="#pane-upload-ambos" type="button" role="tab" style="font-size: 0.73rem;">
+                          <i class="bi bi-layers me-1"></i>2. Docs + Marca d'Água
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-1 px-2 fw-semibold" id="tab-upload-md" data-bs-toggle="pill" data-bs-target="#pane-upload-md" type="button" role="tab" style="font-size: 0.73rem;">
+                          <i class="bi bi-droplet me-1"></i>3. Só Marca d'Água
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-1 px-2 fw-semibold" id="tab-upload-galeria" data-bs-toggle="pill" data-bs-target="#pane-upload-galeria" type="button" role="tab" style="font-size: 0.73rem;">
+                          <i class="bi bi-images me-1"></i>4. Galeria
+                        </button>
+                      </li>
+                    </ul>
+
+                    <!-- Painéis com Upload Específico para Cada Opção -->
+                    <div class="tab-content" id="pillsLogotipoContent">
+                      <!-- 1. DOCUMENTOS (CABEÇALHO OFICIAL) -->
+                      <div class="tab-pane fade show active" id="pane-upload-docs" role="tabpanel">
+                        <div class="p-2 mb-2 rounded bg-primary-subtle border border-primary-subtle">
+                          <div class="fw-bold text-primary mb-1" style="font-size: 0.75rem;">
+                            <i class="bi bi-file-earmark-text-fill me-1"></i> Opção 1: Carregar para Cabeçalho dos Documentos
+                          </div>
+                          <small class="text-dark d-block" style="font-size: 0.72rem;">
+                            O logótipo será aplicado no topo oficial de <strong>Pautas, Cadernetas, Boletins e Certificados</strong> desta escola.
+                          </small>
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Carregar do Computador (PNG, JPG, WebP)</label>
+                          <input type="file" id="fileUploadDocs" accept="image/*" class="form-control form-control-sm" onchange="processarUploadPorOpcao(this, 'DOCUMENTOS')">
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Ou Insira o Link / URL da Imagem</label>
+                          <div class="input-group input-group-sm">
+                            <input type="url" id="urlUploadDocs" class="form-control" placeholder="https://escola.edu.mz/logo.png">
+                            <button type="button" class="btn btn-primary fw-semibold" onclick="processarUrlPorOpcao('urlUploadDocs', 'DOCUMENTOS')">
+                              <i class="bi bi-arrow-up-circle me-1"></i> Carregar p/ Docs
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 2. DOCUMENTOS E MARCA D'ÁGUA (AMBOS) -->
+                      <div class="tab-pane fade" id="pane-upload-ambos" role="tabpanel">
+                        <div class="p-2 mb-2 rounded bg-success-subtle border border-success-subtle">
+                          <div class="fw-bold text-success mb-1" style="font-size: 0.75rem;">
+                            <i class="bi bi-layers-fill me-1"></i> Opção 2: Carregar para Documentos E Marca d'Água (Ambos)
+                          </div>
+                          <small class="text-dark d-block" style="font-size: 0.72rem;">
+                            O logótipo será usado nos <strong>cabeçalhos oficiais</strong> e simultaneamente como <strong>marca d'água semi-transparente</strong> de fundo.
+                          </small>
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Carregar do Computador (PNG, JPG, WebP)</label>
+                          <input type="file" id="fileUploadAmbos" accept="image/*" class="form-control form-control-sm" onchange="processarUploadPorOpcao(this, 'DOCUMENTOS_E_MARCA_DAGUA')">
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Ou Insira o Link / URL da Imagem</label>
+                          <div class="input-group input-group-sm">
+                            <input type="url" id="urlUploadAmbos" class="form-control" placeholder="https://escola.edu.mz/logo.png">
+                            <button type="button" class="btn btn-success fw-semibold" onclick="processarUrlPorOpcao('urlUploadAmbos', 'DOCUMENTOS_E_MARCA_DAGUA')">
+                              <i class="bi bi-arrow-up-circle me-1"></i> Carregar p/ Ambos
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 3. SÓ E SÓ COMO MARCA DE ÁGUA (ESPECÍFICO) -->
+                      <div class="tab-pane fade" id="pane-upload-md" role="tabpanel">
+                        <div class="p-2 mb-2 rounded bg-info-subtle border border-info-subtle">
+                          <div class="fw-bold text-info-emphasis mb-1" style="font-size: 0.75rem;">
+                            <i class="bi bi-droplet-half me-1"></i> Opção 3: Carregar Imagem Só e Só como Marca d'Água (Específico)
+                          </div>
+                          <small class="text-dark d-block" style="font-size: 0.72rem;">
+                            Esta imagem atuará <strong>exclusivamente como marca d'água suave de fundo</strong> nos documentos, mantendo o cabeçalho separado e intacto.
+                          </small>
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Carregar do Computador (PNG, JPG, WebP)</label>
+                          <input type="file" id="fileUploadMd" accept="image/*" class="form-control form-control-sm" onchange="processarUploadPorOpcao(this, 'APENAS_MARCA_DAGUA')">
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Ou Insira o Link / URL da Imagem</label>
+                          <div class="input-group input-group-sm">
+                            <input type="url" id="urlUploadMd" class="form-control" placeholder="https://escola.edu.mz/marca-dagua.png">
+                            <button type="button" class="btn btn-info fw-semibold text-dark" onclick="processarUrlPorOpcao('urlUploadMd', 'APENAS_MARCA_DAGUA')">
+                              <i class="bi bi-arrow-up-circle me-1"></i> Carregar Só p/ Marca d'Água
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 4. GUARDAR NA GALERIA DA INSTITUIÇÃO -->
+                      <div class="tab-pane fade" id="pane-upload-galeria" role="tabpanel">
+                        <div class="p-2 mb-2 rounded bg-light border">
+                          <div class="fw-bold text-secondary mb-1" style="font-size: 0.75rem;">
+                            <i class="bi bi-images me-1"></i> Opção 4: Guardar Imagem na Galeria da Instituição
+                          </div>
+                          <small class="text-muted d-block" style="font-size: 0.72rem;">
+                            Adicione mais logótipos ou imagens ao catálogo desta escola para permutação ou uso futuro.
+                          </small>
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Carregar do Computador (PNG, JPG, WebP)</label>
+                          <input type="file" id="fileUploadGaleria" accept="image/*" class="form-control form-control-sm" onchange="processarUploadPorOpcao(this, 'APENAS_GALERIA')">
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label x-small text-dark mb-1 fw-bold" style="font-size: 0.74rem;">Ou Insira o Link / URL da Imagem</label>
+                          <div class="input-group input-group-sm">
+                            <input type="url" id="urlUploadGaleria" class="form-control" placeholder="https://escola.edu.mz/imagem.png">
+                            <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="processarUrlPorOpcao('urlUploadGaleria', 'APENAS_GALERIA')">
+                              <i class="bi bi-plus-lg me-1"></i> Adicionar à Galeria
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
