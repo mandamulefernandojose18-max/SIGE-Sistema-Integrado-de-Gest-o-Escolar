@@ -392,6 +392,13 @@ def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
             'nome': escola.nome if escola else 'Escola Secundária',
             'provincia': escola.provincia if escola else 'Maputo',
             'distrito': escola.distrito if escola else 'Cidade de Maputo',
+            'usar_emblema_nacional': getattr(escola, 'usar_emblema_nacional', True) if escola else True,
+            'logo_url': getattr(escola, 'logo_url', None) if escola else None,
+            'logo_base64': getattr(escola, 'logo_base64', None) if escola else None,
+            'modo_uso_logo': getattr(escola, 'modo_uso_logo', 'DOCUMENTOS') if escola else 'DOCUMENTOS',
+            'marca_dagua_url': getattr(escola, 'marca_dagua_url', None) if escola else None,
+            'marca_dagua_base64': getattr(escola, 'marca_dagua_base64', None) if escola else None,
+            'marca_dagua_modo': getattr(escola, 'marca_dagua_modo', 'EMBLEMA_NACIONAL') if escola else 'EMBLEMA_NACIONAL',
         },
         'turma': {
             'id': str(turma.id),

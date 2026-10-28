@@ -41,7 +41,10 @@
         <span class="text-muted small text-uppercase fw-semibold">Plano Contratado</span>
         <h4 id="escolaPlanoNome" class="fw-bold mb-1 text-primary">Plano Básico</h4>
         <h5 id="escolaPlanoPreco" class="fw-bold text-dark mb-1">0 <span class="moeda-sufixo">MZN</span></h5>
-        <small class="text-muted" id="escolaPlanoPeriodicidade">Periodicidade Mensal</small>
+        <small class="text-muted d-block mb-2" id="escolaPlanoPeriodicidade">Periodicidade Mensal</small>
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="abrirModalEscolherPeriodicidadeEscola()">
+          <i class="bi bi-calendar-range me-1"></i> Alterar Periodicidade
+        </button>
       </div>
     </div>
     <div class="col-md-4">
@@ -173,12 +176,60 @@
               <input type="file" id="escolaPagComprovativo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
               <small class="text-muted">Limite de 10 MB. O comprovativo é guardado com segurança.</small>
             </div>
+            <div class="col-12" id="boxPrevisaoAdiantamentoEscola" style="display: none;">
+              <div class="alert alert-info border-info mb-0 d-flex align-items-center">
+                <i class="bi bi-clock-history fs-3 me-3 text-primary"></i>
+                <div>
+                  <h6 class="fw-bold mb-1 text-primary"><i class="bi bi-stars me-1"></i> Adiantamento Detectado</h6>
+                  <div class="small" id="txtPrevisaoAdiantamentoEscola">-</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer bg-light">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-warning fw-bold" id="btnSubmeterPagamentoEscola">
             <i class="bi bi-send-check me-1"></i> Enviar Comprovativo para Validação
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: ESCOLHER PERIODICIDADE PELA ESCOLA -->
+<div class="modal fade" id="modalEscolherPeriodicidadeEscola" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-calendar-range me-1"></i> Periodicidade de Pagamento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEscolherPeriodicidadeEscola" onsubmit="salvarPeriodicidadeEscola(event)">
+        <div class="modal-body p-4">
+          <p class="text-muted small">
+            Cada instituição tem autonomia para escolher a sua periodicidade de facturação. Escolha o regime que melhor se adapta à tesouraria da sua escola:
+          </p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Periodicidade Desejada</label>
+            <select id="escolaInpPeriodicidade" class="form-select" required>
+              <option value="mensal">Mensal — Cobrança mensal regular</option>
+              <option value="trimestral">Trimestral — Cobrança trimestral (5% de desconto)</option>
+              <option value="semestral">Semestral — Cobrança semestral (10% de desconto)</option>
+              <option value="anual">Anual — Cobrança anual (15% de desconto)</option>
+            </select>
+          </div>
+          <div class="alert alert-light border small text-muted">
+            <i class="bi bi-info-circle me-1 text-primary"></i>
+            Ao alterar a periodicidade, o próximo ciclo de cobrança da instituição calculará o valor correspondente ao período escolhido e aplicará o desconto oficial.
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary fw-bold" id="btnSalvarPeriodicidadeEscola">
+            <i class="bi bi-check-lg me-1"></i> Guardar Periodicidade
           </button>
         </div>
       </form>

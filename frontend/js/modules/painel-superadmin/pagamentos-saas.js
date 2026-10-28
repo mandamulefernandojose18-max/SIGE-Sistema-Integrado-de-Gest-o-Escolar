@@ -4,6 +4,37 @@
 
 var listaAssinaturasCache = [];
 var assinaturaAtualSelecionada = null;
+var planosSaasCache = [];
+
+async function carregarPlanosSaaSCache() {
+  try {
+    const res = await apiFetch('/saas/planos-disponiveis/');
+    if (res && res.success && res.data) {
+      planosSaasCache = res.data;
+    }
+  } catch (e) {
+    console.warn('[SAAS] Erro ao carregar planos:', e);
+  }
+}
+
+async function alterarPeriodicidadeRapida(assinaturaId, novaPeriodicidade) {
+  try {
+    const res = await apiFetch(`/saas/assinaturas/${assinaturaId}/configurar/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ periodicidade: novaPeriodicidade })
+    });
+    if (res && res.success) {
+      mostrarToast(`Periodicidade da instituição alterada com sucesso para ${novaPeriodicidade.toUpperCase()}!`, 'success');
+      await carregarAssinaturasSuperAdmin();
+    } else {
+      mostrarToast(res?.message || 'Falha ao atualizar periodicidade.', 'danger');
+    }
+  } catch (err) {
+    console.error('[SAAS] Erro ao alterar periodicidade:', err);
+    mostrarToast('Erro de comunicação com o servidor.', 'danger');
+  }
+}
+
 
 async function inicializarModuloPagamentosSaas() {
   await carregarResumoSuperAdmin();
@@ -157,7 +188,14 @@ function renderizarTabelaAssinaturas(lista) {
           <span class="badge bg-light text-dark border">${planoNome}</span>
           <small class="text-muted d-block">${preco}/mês</small>
         </td>
-        <td><span class="badge bg-secondary bg-opacity-10 text-dark text-capitalize">${a.periodicidade}</span></td>
+        <td>
+          <select class="form-select form-select-sm border-secondary-subtle fw-semibold bg-light" onchange="alterarPeriodicidadeRapida('${a.id}', this.value)" title="Alterar periodicidade contratada desta instituição">
+            <option value="mensal" ${a.periodicidade === 'mensal' ? 'selected' : ''}>Mensal</option>
+            <option value="trimestral" ${a.periodicidade === 'trimestral' ? 'selected' : ''}>Trimestral (-5%)</option>
+            <option value="semestral" ${a.periodicidade === 'semestral' ? 'selected' : ''}>Semestral (-10%)</option>
+            <option value="anual" ${a.periodicidade === 'anual' ? 'selected' : ''}>Anual (-15%)</option>
+          </select>
+        </td>
         <td>
           <small class="d-block fw-semibold text-capitalize">${a.modo_data_limite.replace('_', ' ')}</small>
           ${a.dia_limite ? `<small class="text-muted">Dia ${a.dia_limite}</small>` : ''}
@@ -343,8 +381,19 @@ async function abrirFichaInstituicao(assinaturaId) {
   }
 }
 
-function abrirModalConfigurarAssinatura() {
+async function abrirModalConfigurarAssinatura() {
   if (!assinaturaAtualSelecionada) return;
+
+  await carregarPlanosSaaSCache();
+  const selPlano = document.getElementById('cfgPlanoId');
+  if (selPlano && planosSaasCache.length > 0) {
+    selPlano.innerHTML = planosSaasCache.map(p => `
+      <option value="${p.id}" ${p.id === assinaturaAtualSelecionada.plano ? 'selected' : ''}>${p.nome} (${formatarValorMZN(p.preco_mensal)} MZN/mês)</option>
+    `).join('');
+  }
+
+  const inpProx = document.getElementById('cfgProximaFaturaEm');
+  if (inpProx) inpProx.value = assinaturaAtualSelecionada.proxima_fatura_em || '';
 
   document.getElementById('cfgAssinaturaId').value = assinaturaAtualSelecionada.id;
   document.getElementById('cfgPeriodicidade').value = assinaturaAtualSelecionada.periodicidade;
@@ -472,6 +521,8 @@ async function salvarConfiguracaoAssinatura(event) {
   }
 
   const payload = {
+    plano_id: document.getElementById('cfgPlanoId')?.value || undefined,
+    proxima_fatura_em: document.getElementById('cfgProximaFaturaEm')?.value || undefined,
     periodicidade: document.getElementById('cfgPeriodicidade').value,
     modo_data_limite: document.getElementById('cfgModoDataLimite').value,
     dia_limite: document.getElementById('cfgDiaLimite').value ? parseInt(document.getElementById('cfgDiaLimite').value) : null,
@@ -511,7 +562,8 @@ async function confirmarPagamentoSuperAdmin(pagamentoId) {
     });
 
     if (res && res.success) {
-      mostrarToast('Pagamento confirmado e fatura liquidada com sucesso!', 'success');
+      const infoAdv = res.data?.info_adiantado?.descricao;
+      mostrarToast(infoAdv ? `Pagamento confirmado com sucesso! ${infoAdv}` : 'Pagamento confirmado e fatura liquidada com sucesso!', 'success');
       await carregarResumoSuperAdmin();
       await carregarPagamentosPendentes();
       await carregarAssinaturasSuperAdmin();

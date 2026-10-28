@@ -386,6 +386,13 @@ def obter_imagereader_para_reportlab(img_ref):
             pass
     return None
 
+def _obter_campo_escola(escola, campo, padrao=''):
+    if not escola:
+        return padrao
+    if isinstance(escola, dict):
+        return escola.get(campo, padrao) or padrao
+    return getattr(escola, campo, padrao) or padrao
+
 def resolver_logo_documento_escola(escola):
     """
     Resolve o logótipo oficial que a instituição escolheu para usar em documentos.
@@ -402,6 +409,13 @@ def resolver_logo_documento_escola(escola):
             pass
 
     if not escola:
+        if os.path.exists(EMBLEMA_PATH):
+            try:
+                with open(EMBLEMA_PATH, 'rb') as f:
+                    emblema_bytes = f.read()
+                return emblema_bytes, ImageReader(io.BytesIO(emblema_bytes)), 'image/png', 'Emblema Nacional'
+            except Exception:
+                pass
         return None, None, None, None
 
     def _obter_val(chave, padrao=None):
@@ -445,7 +459,7 @@ def resolver_logo_documento_escola(escola):
                 pass
 
     # Caso 3: Fallback padrão se usar_emblema for True
-    if os.path.exists(EMBLEMA_PATH):
+    if usar_emblema and os.path.exists(EMBLEMA_PATH):
         try:
             with open(EMBLEMA_PATH, 'rb') as f:
                 b = f.read()
@@ -1144,9 +1158,9 @@ def construir_elementos_boletim(aluno, escola, ano_letivo, notas_disciplinas, or
     style_school = ParagraphStyle('School', parent=styles['Normal'], alignment=1, fontSize=10.5, leading=13, fontName='Times-Bold')
     style_code = ParagraphStyle('Code', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=10.5, fontName='Times-Roman')
 
-    prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
-    dist = (getattr(escola, 'distrito', 'Morrumbene') or 'Morrumbene').upper()
-    escola_nome = escola.nome.upper()
+    prov = (_obter_campo_escola(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
+    dist = (_obter_campo_escola(escola, 'distrito', 'Morrumbene') or 'Morrumbene').upper()
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     if not escola_nome.startswith('ESCOLA'):
         escola_nome = f"ESCOLA SECUNDÁRIA DE {escola_nome}"
     codigo_inst = getattr(escola, 'codigo_escola', None) or f"ESC-1001"
@@ -1360,8 +1374,8 @@ def construir_elementos_declaracao(aluno, escola, ano_letivo, notas_disciplinas,
     except Exception:
         pass
 
-    prov = (getattr(escola, 'provincia', 'Maputo') or 'Maputo').upper()
-    escola_nome = escola.nome.upper()
+    prov = (_obter_campo_escola(escola, 'provincia', 'Maputo') or 'Maputo').upper()
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     if not escola_nome.startswith('ESCOLA'):
         escola_nome = f"ESCOLA SECUNDÁRIA DE {escola_nome}"
     dir_nome = director_nome or getattr(escola, 'director_nome', '') or ''
@@ -1580,9 +1594,9 @@ def construir_elementos_certificado(aluno, escola, ano_letivo, notas_disciplinas
     except Exception:
         pass
 
-    prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane')
-    dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga')
-    escola_nome = escola.nome.upper()
+    prov = _obter_campo_escola(escola, 'provincia', 'Inhambane')
+    dist = _obter_campo_escola(escola, 'distrito', 'Massinga')
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     if not escola_nome.startswith('ESCOLA'):
         escola_nome = f"ESCOLA SECUNDÁRIA DE {escola_nome}"
     dir_nome = kwargs.get('director_nome') or getattr(escola, 'director_nome', '') or ''
@@ -2308,7 +2322,10 @@ def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
     elements = []
 
     # 1. Cabeçalho Oficial MEC
-    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito, escola=escola))
+    esc_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária')
+    esc_prov = _obter_campo_escola(escola, 'provincia', 'Inhambane')
+    esc_dist = _obter_campo_escola(escola, 'distrito', 'Massinga')
+    elements.extend(gerar_cabecalho_mec(styles, esc_nome, esc_prov, esc_dist, escola=escola))
 
     style_title = ParagraphStyle('FichaTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     elements.append(Paragraph("FICHA BIOGRÁFICA DO ALUNO", style_title))
@@ -2980,7 +2997,10 @@ def construir_elementos_mapa_lote(turma, escola, tipo_documento, alunos_document
     styles = getSampleStyleSheet()
     elements = []
 
-    elements.extend(gerar_cabecalho_mec(styles, escola.nome, escola.provincia, escola.distrito, escola=escola))
+    esc_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária')
+    esc_prov = _obter_campo_escola(escola, 'provincia', 'Inhambane')
+    esc_dist = _obter_campo_escola(escola, 'distrito', 'Massinga')
+    elements.extend(gerar_cabecalho_mec(styles, esc_nome, esc_prov, esc_dist, escola=escola))
 
     style_title = ParagraphStyle('LoteTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     style_sub = ParagraphStyle('LoteSub', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=12, fontName='Times-Roman')

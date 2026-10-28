@@ -1451,7 +1451,41 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 // Download de Ficheiros Binários (Excel XLSX / PDF / DOCX) com ArrayBuffer, Refresh Unificado e Tratamento Seguro de Erros (sem expor token no URL)
+// Validação Mandatória Institucional: Nenhum documento pode ser descarregado sem o logótipo oficial escolhido pela instituição
+function validarLogoInstituicaoParaDownload(escola = null) {
+  const e = escola || state.escolaAtual || state.tenant || {};
+  const usarEmblema = e.usar_emblema_nacional !== false;
+  const logo = e.logo_url || e.logo_base64;
+  const modoLogo = String(e.modo_uso_logo || 'DOCUMENTOS').toUpperCase();
+
+  // Caso 1: A instituição escolheu o Emblema Nacional Oficial
+  if (usarEmblema) {
+    return { valido: true, tipo: 'EMBLEMA_NACIONAL' };
+  }
+
+  // Caso 2: A instituição desmarcou o emblema para usar logótipo próprio nos documentos
+  if (!usarEmblema) {
+    if (logo && modoLogo !== 'APENAS_MARCA_DAGUA') {
+      return { valido: true, tipo: 'CUSTOM', logo: logo };
+    }
+    return {
+      valido: false,
+      mensagem: 'Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos. Por favor, aceda às Configurações da Escola (Identidade Visual) para definir o logótipo oficial nos documentos.'
+    };
+  }
+
+  return { valido: true, tipo: 'PADRAO' };
+}
+window.validarLogoInstituicaoParaDownload = validarLogoInstituicaoParaDownload;
+
 async function downloadFicheiroBinario(url, defaultFilename) {
+  // Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para documentos
+  const checagemLogo = validarLogoInstituicaoParaDownload();
+  if (!checagemLogo.valido) {
+    if (typeof mostrarNotificacao === 'function') mostrarNotificacao(checagemLogo.mensagem, 'danger');
+    if (typeof mostrarToast === 'function') mostrarToast(checagemLogo.mensagem, 'danger');
+    return false;
+  }
   const fullUrl = formatarUrlApi(url);
   const montarHeaders = () => {
     const h = {};
@@ -1476,6 +1510,19 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     }
 
     if (!res.ok) {
+      let erroMsg = null;
+      try {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const errData = await res.json();
+          erroMsg = errData.error || errData.detail || errData.message;
+        } else {
+          const txt = await res.text();
+          if (txt && txt.length < 500 && !txt.startsWith('<')) erroMsg = txt;
+        }
+      } catch (_) {}
+
+      if (erroMsg) throw new Error(erroMsg);
       if (res.status === 401) throw new Error('Sessão expirada. Por favor, autentique-se novamente.');
       if (res.status === 403) throw new Error('Acesso negado: sem permissão para descarregar este ficheiro.');
       if (res.status === 404) throw new Error('O ficheiro solicitado não foi encontrado no servidor.');

@@ -165,6 +165,15 @@ class SaasAssinaturaDetalheView(APIView):
             return Response({'success': False, 'message': 'Assinatura não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
         data = request.data
+        if 'plano_id' in data and data['plano_id']:
+            plano = SaasPlano.objects.filter(id=data['plano_id']).first()
+            if plano:
+                ass.plano = plano
+        if 'proxima_fatura_em' in data and data['proxima_fatura_em']:
+            try:
+                ass.proxima_fatura_em = date.fromisoformat(str(data['proxima_fatura_em']))
+            except Exception:
+                pass
         if 'periodicidade' in data:
             ass.periodicidade = data['periodicidade']
         if 'modo_data_limite' in data:
@@ -225,49 +234,43 @@ class SaasConfirmarPagamentoView(APIView):
 
         utilizador = request.user.nome or request.user.email
 
-        if is_postgresql():
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT public.confirmar_pagamento(%s, %s)", [str(pk), utilizador])
-                resultado = cursor.fetchone()[0]
-        else:
-            # Fallback Python para ambiente local SQLite / Testes
-            with transaction.atomic():
-                fat = pag.fatura
-                ass = fat.assinatura
-                total_devido = fat.valor + fat.multa_aplicada
-                novo_pago = fat.valor_pago + pag.valor
+        from .saas_services import aplicar_pagamento_adiantado_python
 
-                pag.estado = 'confirmado'
-                pag.confirmado_por = utilizador
-                pag.confirmado_em = timezone.now()
-                pag.save()
+        with transaction.atomic():
+            fat = pag.fatura
+            ass = fat.assinatura
 
-                if novo_pago >= total_devido:
-                    fat.valor_pago = novo_pago
-                    fat.estado = 'paga'
-                else:
-                    fat.valor_pago = novo_pago
-                    fat.estado = 'paga_parcial'
-                fat.save()
+            pag.estado = 'confirmado'
+            pag.confirmado_por = utilizador
+            pag.confirmado_em = timezone.now()
+            pag.save()
 
-                restantes = SaasFatura.objects.filter(instituicao=pag.instituicao, estado__in=['em_atraso', 'aberta']).count()
-                if restantes == 0:
-                    ass.estado = 'activa'
-                    ass.save()
-                    Escola.objects.filter(id=pag.instituicao_id).update(status='ATIVA', bloqueada_manualmente=False)
+            res_app = aplicar_pagamento_adiantado_python(
+                ass=ass,
+                fatura_principal=fat,
+                valor_pago_total=pag.valor,
+                utilizador=utilizador
+            )
 
-                SaasLogAssinatura.objects.create(
-                    instituicao=pag.instituicao,
-                    assinatura=ass,
-                    fatura=fat,
-                    accao='PAGAMENTO_CONFIRMADO',
-                    estado_anterior=ass.estado,
-                    estado_novo='activa' if restantes == 0 else ass.estado,
-                    valor_novo=pag.valor,
-                    feito_por=utilizador,
-                    motivo=f'Confirmação manual de pagamento Ref: {pag.referencia}'
-                )
-                resultado = {'sucesso': True, 'mensagem': 'Pagamento confirmado com sucesso.', 'assinatura_reativada': restantes == 0}
+            SaasLogAssinatura.objects.create(
+                instituicao=pag.instituicao,
+                assinatura=ass,
+                fatura=fat,
+                accao='PAGAMENTO_CONFIRMADO',
+                estado_anterior=ass.estado,
+                estado_novo='activa' if res_app['assinatura_reativada'] else ass.estado,
+                valor_novo=pag.valor,
+                feito_por=utilizador,
+                motivo=f"Confirmação de pagamento Ref: {pag.referencia} ({pag.valor} MZN). {res_app['info_adiantado']['descricao']}"
+            )
+
+            resultado = {
+                'sucesso': True,
+                'mensagem': 'Pagamento confirmado e processado com sucesso.',
+                'assinatura_reativada': res_app['assinatura_reativada'],
+                'fatura_liquidada': res_app['fatura_liquidada'],
+                'info_adiantado': res_app['info_adiantado']
+            }
 
         limpar_cache_assinatura(pag.instituicao_id)
         return Response({'success': True, 'data': resultado})
@@ -689,4 +692,152 @@ class SaasCoordenadasPagamentoView(APIView):
             'success': True,
             'message': 'Coordenadas de pagamento atualizadas com sucesso.',
             'data': SaasCoordenadasPagamentoSerializer(coord).data
+        })
+
+
+class SaasCalcularAdiantamentoView(APIView):
+    """Calcula dinamicamente a quanto tempo adicional corresponde um determinado valor de pagamento"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .saas_services import calcular_tempo_correspondente_valor, adicionar_meses_e_dias
+
+        fatura_id = request.GET.get('fatura_id')
+        instituicao_id = request.GET.get('instituicao_id')
+        valor_raw = request.GET.get('valor')
+
+        if not valor_raw:
+            return Response({'success': False, 'message': 'O parâmetro valor é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            valor = Decimal(str(valor_raw))
+            if valor <= 0:
+                raise ValueError()
+        except Exception:
+            return Response({'success': False, 'message': 'Valor inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        fat = None
+        ass = None
+        if fatura_id:
+            fat = SaasFatura.objects.select_related('assinatura', 'assinatura__plano', 'instituicao').filter(id=fatura_id).first()
+            if fat:
+                ass = fat.assinatura
+        elif instituicao_id:
+            ass = SaasAssinatura.objects.select_related('plano', 'instituicao').filter(instituicao_id=instituicao_id).order_by('-created_at').first()
+            if ass:
+                fat = SaasFatura.objects.filter(assinatura=ass, estado__in=['aberta', 'paga_parcial', 'em_atraso']).order_by('periodo_inicio').first()
+
+        if not ass and hasattr(request.user, 'escola') and request.user.escola:
+            ass = SaasAssinatura.objects.select_related('plano', 'instituicao').filter(instituicao=request.user.escola).order_by('-created_at').first()
+            if ass and not fat:
+                fat = SaasFatura.objects.filter(assinatura=ass, estado__in=['aberta', 'paga_parcial', 'em_atraso']).order_by('periodo_inicio').first()
+
+        if not ass:
+            return Response({'success': False, 'message': 'Assinatura não localizada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        total_devido = Decimal('0.00')
+        if fat:
+            total_devido = max(Decimal('0.00'), (fat.valor + fat.multa_aplicada) - fat.valor_pago)
+
+        excedente = max(Decimal('0.00'), valor - total_devido)
+        plano = ass.plano
+        tempo = calcular_tempo_correspondente_valor(
+            valor=excedente,
+            preco_mensal=plano.preco_mensal if plano else Decimal('0.00'),
+            periodicidade=ass.periodicidade
+        )
+
+        base_data = ass.proxima_fatura_em or timezone.localdate()
+        if fat and fat.periodo_fim and fat.periodo_fim > base_data:
+            base_data = fat.periodo_fim
+
+        nova_data = adicionar_meses_e_dias(base_data, tempo['meses'], tempo['dias'])
+
+        desc_partes = []
+        if tempo['meses'] > 0:
+            desc_partes.append(f"{tempo['meses']} mês(es)")
+        if tempo['dias'] > 0:
+            desc_partes.append(f"{tempo['dias']} dia(s)")
+        desc_str = " e ".join(desc_partes) if desc_partes else "nenhum tempo adicional"
+
+        return Response({
+            'success': True,
+            'data': {
+                'total_devido': float(total_devido),
+                'valor_informado': float(valor),
+                'valor_excedente': float(excedente),
+                'meses_adicionais': tempo['meses'],
+                'dias_adicionais': tempo['dias'],
+                'tempo_formatado': desc_str,
+                'proxima_fatura_atual': str(base_data),
+                'nova_proxima_fatura': str(nova_data),
+                'plano_nome': plano.nome if plano else 'Plano Básico',
+                'preco_mensal': float(plano.preco_mensal) if plano else 0.0,
+                'periodicidade': ass.periodicidade
+            }
+        })
+
+
+class MinhaAssinaturaConfigurarView(APIView):
+    """Permite à instituição escolher a sua própria periodicidade de pagamento"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if getattr(user, 'role', '') in ['ALUNO', 'PROFESSOR']:
+            return Response({'success': False, 'message': 'Acesso restrito à Direcção da instituição.'}, status=status.HTTP_403_FORBIDDEN)
+
+        escola = getattr(user, 'escola', None)
+        if not escola and is_superadmin_user(user):
+            tenant_id = request.headers.get('X-Tenant-ID') or request.data.get('instituicao_id')
+            if tenant_id:
+                escola = Escola.objects.filter(id=tenant_id).first()
+
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ass = SaasAssinatura.objects.filter(instituicao=escola).order_by('-created_at').first()
+        if not ass:
+            return Response({'success': False, 'message': 'Assinatura não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        nova_per = request.data.get('periodicidade')
+        novo_plano_id = request.data.get('plano_id')
+
+        if nova_per:
+            if nova_per not in ['mensal', 'trimestral', 'semestral', 'anual']:
+                return Response({'success': False, 'message': 'Periodicidade inválida. Escolha mensal, trimestral, semestral ou anual.'}, status=status.HTTP_400_BAD_REQUEST)
+            ass.periodicidade = nova_per
+
+        if novo_plano_id:
+            plano = SaasPlano.objects.filter(id=novo_plano_id, activo=True).first()
+            if plano:
+                ass.plano = plano
+
+        ass.save()
+        limpar_cache_assinatura(escola.id)
+
+        SaasLogAssinatura.objects.create(
+            instituicao=escola,
+            assinatura=ass,
+            accao='ALTERACAO_PERIODICIDADE_ESCOLA',
+            feito_por=user.nome or user.email,
+            motivo=f'Definição da periodicidade para {ass.periodicidade.upper()} pela administração da instituição.'
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Periodicidade da subscrição alterada com sucesso para {ass.periodicidade.upper()}.',
+            'data': SaasAssinaturaSerializer(ass).data
+        })
+
+
+class SaasPlanosDisponiveisView(APIView):
+    """Lista os planos SaaS activos para selecção"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        planos = SaasPlano.objects.filter(activo=True).order_by('preco_mensal')
+        return Response({
+            'success': True,
+            'data': SaasPlanoSerializer(planos, many=True).data
         })

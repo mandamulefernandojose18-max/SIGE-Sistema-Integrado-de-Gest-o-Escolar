@@ -132,7 +132,12 @@ O sistema aplica uma distinção arquitetural e de negócio estrita e inquebráv
      - Restauração integral das funções de ciclo de vida e bloqueio visual de ano letivo (`aplicarBloqueioVisualAnoNaoSelecionado`, `removerBloqueioVisualAnoNaoSelecionado`, `aoClicarBuscarAnoMestreView` e `executarGatilhosCarregamentoView`), impedindo que exceções ReferenceError interrompam os gatilhos de navegação.
      - Otimização do `apiFetch` com recuperação resiliente de token em `sessionStorage`/`localStorage` e controle de timeout de 25s via `AbortController`.
      - Eliminação de chamadas síncronas bloqueantes `document.write` de CDNs externos no HTML raiz, garantindo inicialização limpa e assíncrona das bibliotecas locais.
-   - **Verificação em Tempo Real (`common/middleware/tenant_expiration.py`):** Interceta todas as requisições privadas. Se a data atual ultrapassar `assinatura.data_fim`, retorna **HTTP 402 (Payment Required)**. Rotas isentas: `/health/`, `/api/v1/auth/*`, `/api/v1/saas-admin/*` e `/api/v1/public/*`.
+   - **Verificação em Tempo Real e Suspensão Automática (`apps/tenants/saas_middleware.py`):**
+      - Avalia de forma contínua e em tempo real o estado de cada instituição.
+      - **Fecho/Suspensão Automática por Esgotamento de Prazo:** Se uma instituição ultrapassar a data-limite efectiva mais os prazos legais de tolerância e corte (`dias_tolerancia` + `dias_ate_suspensao`), ou atingir a data de bloqueio manual ou a expiração da anuidade/vigência sem liquidação, o sistema fecha e suspende imediatamente o acesso normal (`HTTP 403 ASSINATURA_SUSPENSA`), permitindo exclusivamente acesso à regularização e envio de comprovativos.
+      - **Abertura/Reactivação Automática por Pagamento:** Logo que o pagamento é confirmado, o sistema liquida as faturas e restaura imediatamente o estado `activa` e o status `ATIVA` da instituição, desobstruindo o acesso de forma instantânea.
+      - **Periodicidade Customizada e Editável por Instituição:** O período de subscrição não é universal. Cada escola tem autonomia para definir a sua periodicidade (`MENSAL`, `TRIMESTRAL` com 5% de desconto, `SEMESTRAL` com 10% de desconto ou `ANUAL` com 15% de desconto), sendo estes dados editáveis tanto pelo SuperAdmin quanto pela Direcção da Escola.
+      - **Motor Inteligente de Adiantamentos (Pagamento a Mais):** Sempre que uma instituição efectua um pagamento adiantado com valor excedente à fatura em liquidação, o motor do SIGE calcula matematicamente a quanto tempo adicional (meses e dias) o montante corresponde com base no plano contratado e descontos oficiais, abatendo débitos subsequentes em fila e prorrogando de forma totalmente automática a data de vencimento (`proxima_fatura_em`) e vigência da subscrição da instituição.
 
 2. **Planos de Pagamento e Propinas Próprios da Escola B2C (`pagamentos.PlanoPagamentoEscola`):**
    - **Autonomia da Instituição:** Cada escola cria, configura e gere a sua própria tabela de propinas, taxas de matrícula e emolumentos a aplicar aos seus respetivos alunos.
@@ -161,6 +166,18 @@ A identidade visual, paleta cromática, marcas d'água e configurações operaci
 3. **Separação Visual Entre Escolas e o Super Admin (SaaS Master):**
    - O painel Master SaaS do Super Administrador opera sempre sob a identidade institucional oficial do SIGE (`img/logo-sige.png`, cor azul `#1e3a8a`, sem marcas d'água de escolas).
    - Ao inspecionar uma escola, o Super Admin carrega isoladamente a identidade daquela instituição para efeitos de auditoria e suporte. Ao sair do modo de inspeção ou retornar à visão SaaS (`#view-saas`), o sistema executa a reposição imediata de estilos e marcas d'água (`restaurarPadraoTemaEFundo()`), garantindo isolamento total.
+
+---
+
+### 3.4 Regra Mandatória Inquebrável: Proibição de Descarregamento de Documentos sem Logótipo da Instituição
+O sistema impõe como diretriz institucional estrita e inquebrável que **nenhum documento oficial pode ser descarregado sem o logótipo que a instituição tiver escolhido para uso em documentos**:
+- **Escopo Universal:** Aplica-se a todos os formatos gerados e descarregados pelo sistema (**PDF**, **DOCX** e **XLSX**), abrangendo Pautas Oficiais de Frequência, Pautas de Exames, Boletins de Aproveitamento, Declarações com Notas, Certificados de Habilitações Literárias, Actas de Conselho de Avaliação, Fichas Biográficas do Aluno, Recibos de Pagamento e Cadernetas do Professor.
+- **Logótipo Escolhido:**
+  - Se a instituição tiver escolhido o **Emblema Nacional Oficial** (`usar_emblema_nacional = True`), todo e qualquer documento descarregado insere o Emblema da República de Moçambique no cabeçalho;
+  - Se a instituição tiver escolhido o **Logótipo Próprio da Escola** (`usar_emblema_nacional = False` e `modo_uso_logo` em `DOCUMENTOS` ou `DOCUMENTOS_E_MARCA_DAGUA`), todo e qualquer documento descarregado substitui obrigatoriamente o emblema pelo logótipo oficial próprio da escola.
+- **Bloqueio Ativo de Emissão sem Logótipo:** Caso a instituição tenha desmarcado o emblema nacional mas não possua imagem válida carregada/configurada para documentos, o descarregamento é expressamente bloqueado em todas as camadas:
+  1. **Na API REST:** O backend levanta `DocumentoSemLogoError` tratado centralmente no handler do DRF com retorno **HTTP 400 Bad Request** (`{"success": false, "error": "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos..."}`);
+  2. **No Frontend SPA:** A rotina unificada `downloadFicheiroBinario` e os módulos de impressão executam pré-validação com `validarLogoInstituicaoParaDownload()`, alertando o usuário via notificação imediata e orientando para a tela de Identidade Visual.
 
 ---
 

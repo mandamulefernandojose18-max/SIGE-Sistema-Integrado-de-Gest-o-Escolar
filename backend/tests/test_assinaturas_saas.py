@@ -475,3 +475,89 @@ class TestAssinaturasSaaS:
         res_ficha = self.client.get(f'/api/v1/saas/assinaturas/{self.assinatura.id}/')
         assert res_ficha.data['data']['assinatura']['modo_controlo'] == 'automatico'
 
+
+    def test_periodicidade_editavel_individualmente(self):
+        """Valida que cada instituição tem a sua própria periodicidade e que esta é editável"""
+        self.client.force_authenticate(user=self.superadmin)
+
+        # Alterar para trimestral
+        res = self.client.patch(f'/api/v1/saas/assinaturas/{self.assinatura.id}/configurar/', {
+            'periodicidade': 'trimestral'
+        }, format='json')
+        assert res.status_code == 200
+        self.assinatura.refresh_from_db()
+        assert self.assinatura.periodicidade == 'trimestral'
+
+        # Instituição pode também alterar a sua periodicidade directamente
+        self.client.force_authenticate(user=self.admin_escola)
+        res_escola = self.client.post('/api/v1/saas/minha-assinatura/configurar/', {
+            'periodicidade': 'anual'
+        }, format='json')
+        assert res_escola.status_code == 200
+        self.assinatura.refresh_from_db()
+        assert self.assinatura.periodicidade == 'anual'
+
+    def test_pagamento_adiantado_calcula_tempo_e_estende_prazo(self):
+        """Valida que o valor pago a mais calcula automaticamente o tempo correspondente e estende o prazo"""
+        self.client.force_authenticate(user=self.superadmin)
+
+        # Plano custa 3000 MZN/mês. Periodicidade mensal.
+        self.assinatura.periodicidade = 'mensal'
+        self.assinatura.proxima_fatura_em = date(2026, 11, 16)
+        self.assinatura.save()
+
+        # Fatura de 3000 MZN
+        fat = SaasFatura.objects.create(
+            assinatura=self.assinatura,
+            instituicao=self.escola,
+            numero_fatura='FAT-TEST-ADV-01',
+            periodo_inicio=date(2026, 10, 16),
+            periodo_fim=date(2026, 11, 15),
+            valor=Decimal('3000.00'),
+            data_abertura=date(2026, 10, 1),
+            data_limite=date(2026, 10, 10),
+            estado='aberta'
+        )
+
+        # Pagamento de 9000 MZN (3000 da fatura + 6000 adiantados = 2 meses adicionais)
+        pag = SaasPagamento.objects.create(
+            fatura=fat,
+            instituicao=self.escola,
+            metodo='M-Pesa',
+            referencia='ADVANCE9000',
+            valor=Decimal('9000.00'),
+            estado='enviado'
+        )
+
+        res = self.client.post(f'/api/v1/saas/pagamentos/{pag.id}/confirmar/')
+        assert res.status_code == 200
+        assert res.data['data']['sucesso'] is True
+
+        fat.refresh_from_db()
+        self.assinatura.refresh_from_db()
+
+        assert fat.estado == 'paga'
+        # 16/11/2026 + 2 meses = 16/01/2027
+        assert self.assinatura.proxima_fatura_em == date(2027, 1, 16)
+        assert res.data['data']['info_adiantado']['meses'] == 2
+        assert res.data['data']['info_adiantado']['dias'] == 0
+
+    def test_calculo_adiantamento_endpoint(self):
+        """Valida a rota de pré-visualização de adiantamento"""
+        self.client.force_authenticate(user=self.admin_escola)
+        fat = SaasFatura.objects.create(
+            assinatura=self.assinatura,
+            instituicao=self.escola,
+            numero_fatura='FAT-TEST-CALC-01',
+            periodo_inicio=date(2026, 10, 1),
+            periodo_fim=date(2026, 10, 31),
+            valor=Decimal('3000.00'),
+            data_abertura=date(2026, 10, 1),
+            data_limite=date(2026, 10, 10),
+            estado='aberta'
+        )
+        res = self.client.get(f'/api/v1/saas/calcular-adiantamento/?fatura_id={fat.id}&valor=6000')
+        assert res.status_code == 200
+        assert res.data['success'] is True
+        assert res.data['data']['valor_excedente'] == 3000.0
+        assert res.data['data']['meses_adicionais'] == 1

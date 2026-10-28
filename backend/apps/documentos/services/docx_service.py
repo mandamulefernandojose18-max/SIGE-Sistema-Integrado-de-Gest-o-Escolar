@@ -126,6 +126,13 @@ def set_cell_shading(cell, color_hex):
     shd.set(qn('w:fill'), color_hex.lstrip('#'))
     tcPr.append(shd)
 
+def _obter_campo_escola(escola, campo, padrao=''):
+    if not escola:
+        return padrao
+    if isinstance(escola, dict):
+        return escola.get(campo, padrao) or padrao
+    return getattr(escola, campo, padrao) or padrao
+
 def inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.85):
     """
     Insere o logótipo oficial que a instituição escolheu para documentos centralizado no Word.
@@ -179,7 +186,8 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     p_esc = doc.add_paragraph()
     p_esc.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_esc.paragraph_format.space_after = Pt(6)
-    r_esc = p_esc.add_run(f"{escola.nome.upper()}")
+    esc_nome_pauta = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
+    r_esc = p_esc.add_run(esc_nome_pauta)
     aplicar_fonte_times(r_esc, pt_size=12, bold=True)
 
     # Título da Pauta
@@ -294,7 +302,7 @@ def inserir_conteudo_boletim_docx(doc, aluno, escola, ano_letivo, notas_discipli
     r3 = p3.add_run(f"SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist}")
     aplicar_fonte_times(r3, pt_size=10, bold=False)
 
-    escola_nome = escola.nome.upper()
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     if not escola_nome.startswith('ESCOLA'):
         escola_nome = f"ESCOLA SECUNDÁRIA DE {escola_nome}"
     p4 = doc.add_paragraph()
@@ -303,7 +311,8 @@ def inserir_conteudo_boletim_docx(doc, aluno, escola, ano_letivo, notas_discipli
     r4 = p4.add_run(escola_nome)
     aplicar_fonte_times(r4, pt_size=12, bold=True)
 
-    codigo_inst = getattr(escola, 'codigo_escola', None) or f"ESC-{str(escola.id)[:4].upper()}"
+    esc_id = _obter_campo_escola(escola, 'id', '1001')
+    codigo_inst = _obter_campo_escola(escola, 'codigo_escola', None) or f"ESC-{str(esc_id)[:4].upper()}"
     p_cod = doc.add_paragraph()
     p_cod.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_cod.paragraph_format.space_after = Pt(8)
@@ -456,7 +465,7 @@ def gerar_boletim_docx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
 def inserir_conteudo_declaracao_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None):
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
-    escola_nome = escola.nome.upper()
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     dir_nome = director_nome or getattr(escola, 'director_nome', None) or 'Pero Chitofo Murrombe'
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -581,7 +590,7 @@ def gerar_declaracao_docx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 def inserir_conteudo_certificado_docx(doc, aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None):
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').title()
-    escola_nome = escola.nome.upper()
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     dir_nome = getattr(escola, 'director_nome', None) or 'Pero Chitofo Murrombe'
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -717,7 +726,7 @@ def gerar_acta_docx(turma, escola, periodo, ano_letivo, dados_alunos,
     p3 = doc.add_paragraph()
     p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p3.paragraph_format.space_after = Pt(3)
-    r3 = p3.add_run(f"{escola.nome.upper()}")
+    r3 = p3.add_run(f"{_obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()}")
     aplicar_fonte_times(r3, pt_size=11, bold=True)
 
     # Título da Acta e Subtítulo
@@ -1175,7 +1184,7 @@ def inserir_conteudo_ficha_docx(doc, aluno, escola):
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p2.paragraph_format.space_after = Pt(2)
-    r2 = p2.add_run(f"{escola.nome.upper()}")
+    r2 = p2.add_run(f"{_obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()}")
     aplicar_fonte_times(r2, pt_size=11, bold=True)
 
     p_tit = doc.add_paragraph()
@@ -1699,7 +1708,7 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
 def inserir_conteudo_mapa_lote_docx(doc, turma, escola, tipo_documento, alunos_documentos):
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     dist = (getattr(escola, 'distrito', 'Massinga') or 'Massinga').upper()
-    escola_nome = escola.nome.upper()
+    escola_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
 
     # Logótipo Oficial Escolhido pela Instituição
     inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)

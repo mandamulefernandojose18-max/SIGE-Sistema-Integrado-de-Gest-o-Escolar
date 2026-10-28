@@ -25,8 +25,11 @@ from .saas_views import (
     SaasSuspenderReactivarManualView,
     SaasRotinaDiariaManualView,
     MinhaAssinaturaView,
+    MinhaAssinaturaConfigurarView,
     RegistarPagamentoInstituicaoView,
-    SaasCoordenadasPagamentoView
+    SaasCoordenadasPagamentoView,
+    SaasCalcularAdiantamentoView,
+    SaasPlanosDisponiveisView
 )
 
 router = OptionalSlashRouter()
@@ -82,6 +85,12 @@ saas_pagamentos_urls = [
     path('rotina-diaria/', SaasRotinaDiariaManualView.as_view(), name='saas_rotina_diaria'),
     path('minha-assinatura', MinhaAssinaturaView.as_view(), name='saas_minha_assinatura_no_slash'),
     path('minha-assinatura/', MinhaAssinaturaView.as_view(), name='saas_minha_assinatura'),
+    path('minha-assinatura/configurar', MinhaAssinaturaConfigurarView.as_view(), name='saas_minha_assinatura_config_no_slash'),
+    path('minha-assinatura/configurar/', MinhaAssinaturaConfigurarView.as_view(), name='saas_minha_assinatura_config'),
+    path('calcular-adiantamento', SaasCalcularAdiantamentoView.as_view(), name='saas_calcular_adiantamento_no_slash'),
+    path('calcular-adiantamento/', SaasCalcularAdiantamentoView.as_view(), name='saas_calcular_adiantamento'),
+    path('planos-disponiveis', SaasPlanosDisponiveisView.as_view(), name='saas_planos_disponiveis_no_slash'),
+    path('planos-disponiveis/', SaasPlanosDisponiveisView.as_view(), name='saas_planos_disponiveis'),
     path('registar-pagamento', RegistarPagamentoInstituicaoView.as_view(), name='saas_registar_pagamento_no_slash'),
     path('registar-pagamento/', RegistarPagamentoInstituicaoView.as_view(), name='saas_registar_pagamento'),
     path('coordenadas', SaasCoordenadasPagamentoView.as_view(), name='saas_coordenadas_no_slash'),

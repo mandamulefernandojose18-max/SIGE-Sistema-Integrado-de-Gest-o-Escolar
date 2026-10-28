@@ -134,6 +134,13 @@ def configurar_pagina_excel(ws, orientacao='portrait', fit_to_height=0):
     ws.page_margins.top = 0.5
     ws.page_margins.bottom = 0.5
 
+def _obter_campo_escola(escola, campo, padrao=''):
+    if not escola:
+        return padrao
+    if isinstance(escola, dict):
+        return escola.get(campo, padrao) or padrao
+    return getattr(escola, campo, padrao) or padrao
+
 def inserir_logo_cabecalho_xlsx(ws, escola, cell='A1'):
     """
     Insere o logótipo oficial que a instituição escolheu para documentos na planilha Excel.
@@ -612,7 +619,7 @@ def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
     ws['A2'].alignment = ALIGN_CENTER
 
     ws.merge_cells('A3:F3')
-    ws['A3'] = escola.nome.upper()
+    ws['A3'] = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     ws['A3'].font = FONT_TITLE
     ws['A3'].alignment = ALIGN_CENTER
 
@@ -765,7 +772,8 @@ def gerar_declaracao_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
     prov = (getattr(escola, 'provincia', 'Inhambane') or 'Inhambane').upper()
     ws.merge_cells('A2:B2')
-    ws['A2'] = f"GOVERNO DA PROVÍNCIA DE {prov} — {escola.nome.upper()}"
+    esc_nome_decl = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
+    ws['A2'] = f"GOVERNO DA PROVÍNCIA DE {prov} — {esc_nome_decl}"
     ws['A2'].font = FONT_SUBTITLE
     ws['A2'].alignment = ALIGN_CENTER
 
@@ -855,7 +863,7 @@ def gerar_certificado_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     ws['A1'].alignment = ALIGN_CENTER
 
     ws.merge_cells('A2:B2')
-    ws['A2'] = escola.nome.upper()
+    ws['A2'] = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     ws['A2'].font = FONT_SUBTITLE
     ws['A2'].alignment = ALIGN_CENTER
 
@@ -1442,7 +1450,7 @@ def _adicionar_aba_aluno_lote(wb, idx, doc_item, tipo_documento, turma, escola, 
     ws['A2'].alignment = ALIGN_CENTER
 
     ws.merge_cells('A3:F3')
-    ws['A3'] = escola.nome.upper()
+    ws['A3'] = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
     ws['A3'].font = FONT_TITLE
     ws['A3'].alignment = ALIGN_CENTER
 
@@ -1601,7 +1609,8 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
     inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
 
     ws.merge_cells('A1:F1')
-    ws['A1'] = f"{escola.nome.upper()} — MAPA OFICIAL DE EMISSÃO EM LOTE ({tipo_documento.upper()}S)"
+    esc_nome_lote = _obter_campo_escola(escola, 'nome', 'Escola Secundária').upper()
+    ws['A1'] = f"{esc_nome_lote} — MAPA OFICIAL DE EMISSÃO EM LOTE ({tipo_documento.upper()}S)"
     ws['A1'].font = FONT_TITLE
     ws['A1'].alignment = ALIGN_CENTER
 
@@ -1667,8 +1676,11 @@ def gerar_estatisticas_gerais_xlsx(escola, ano_letivo, periodo, stats_data, orie
     ws.title = f"Estatísticas {ano_letivo}"
     configurar_pagina_excel(ws, orientacao=orientacao)
 
-    nome_escola = escola.nome if escola else "Escola Secundária"
+    nome_escola = _obter_campo_escola(escola, 'nome', 'Escola Secundária')
     periodo_rotulo = "MÉDIA ANUAL / MFD" if str(periodo).upper() in ('GLOBAL', 'ANUAL', 'MFD') else str(periodo)
+
+    # Logótipo Oficial Escolhido pela Instituição
+    inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
 
     # 1. Cabeçalho Oficial
     ws.merge_cells('A1:J1')
@@ -1948,7 +1960,8 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     prof_tel = prof_info.get('telefone') or '-'
     dt_nome = dt_info.get('nome') or '-'
 
-    # 1. Cabeçalho Institucional Oficial Idêntico ao de PDF (A1:AF6)
+    # 1. Logótipo Oficial Escolhido pela Instituição & Cabeçalho Institucional Oficial
+    inserir_logo_cabecalho_xlsx(ws, escola_info, cell='A1')
     ws.merge_cells('A1:AF1')
     ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
     ws['A1'].font = FONT_SUBTITLE

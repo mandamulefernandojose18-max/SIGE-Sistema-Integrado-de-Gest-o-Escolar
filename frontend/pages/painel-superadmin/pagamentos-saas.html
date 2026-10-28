@@ -312,6 +312,12 @@
           <input type="hidden" id="cfgAssinaturaId">
           <div class="row g-3">
             <div class="col-md-6">
+              <label class="form-label fw-semibold">Plano de Subscrição SaaS</label>
+              <select id="cfgPlanoId" class="form-select" required onchange="aoMudarPlanoConfig()">
+                <option value="">A carregar planos...</option>
+              </select>
+            </div>
+            <div class="col-md-6">
               <label class="form-label fw-semibold">Periodicidade de Cobrança</label>
               <select id="cfgPeriodicidade" class="form-select" required onchange="aoMudarPeriodicidadeConfig()">
                 <option value="mensal">Mensal (Preço regular)</option>
@@ -319,6 +325,11 @@
                 <option value="semestral">Semestral (10% de desconto)</option>
                 <option value="anual">Anual (15% de desconto)</option>
               </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Vencimento da Subscrição / Próxima Fatura</label>
+              <input type="date" id="cfgProximaFaturaEm" class="form-control" required>
+              <small class="text-muted">Data limite de cobertura ou vencimento da próxima fatura.</small>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Modo da Data-Limite</label>

@@ -169,8 +169,59 @@ function abrirModalRegistarPagamentoEscola(faturaId) {
       aoMudarFaturaSelecionadaEscola();
     }
   }
+  const inpVal = document.getElementById('escolaPagValor');
+  if (inpVal && !inpVal._hasListenerAdiantamento) {
+    inpVal.addEventListener('input', aoDigitarValorPagamentoEscola);
+    inpVal._hasListenerAdiantamento = true;
+  }
+  aoDigitarValorPagamentoEscola();
   const modal = new bootstrap.Modal(document.getElementById('modalRegistarPagamentoEscola'));
   modal.show();
+}
+
+function aoDigitarValorPagamentoEscola() {
+  const sel = document.getElementById('escolaPagFaturaId');
+  const opt = sel ? sel.options[sel.selectedIndex] : null;
+  const saldo = opt && opt.dataset.saldo ? parseFloat(opt.dataset.saldo) : 0;
+  const val = parseFloat(document.getElementById('escolaPagValor')?.value || 0);
+
+  const box = document.getElementById('boxPrevisaoAdiantamentoEscola');
+  const txt = document.getElementById('txtPrevisaoAdiantamentoEscola');
+  if (!box || !txt) return;
+
+  if (val > saldo && saldo > 0) {
+    const excedente = val - saldo;
+    const a = dadosMinhaAssinaturaCache?.assinatura;
+    const precoMensal = parseFloat(a?.plano_detalhes?.preco_mensal || 0);
+    const per = a?.periodicidade || 'mensal';
+
+    const fator = {
+      'trimestral': 0.95,
+      'semestral': 0.90,
+      'anual': 0.85
+    }[per] || 1.0;
+
+    const precoEfetivo = precoMensal * fator;
+    const precoDiario = precoEfetivo / 30.0;
+
+    let meses = Math.floor(excedente / (precoEfetivo || 1));
+    let resto = excedente - (meses * precoEfetivo);
+    let dias = precoDiario > 0 ? Math.round(resto / precoDiario) : 0;
+    if (dias >= 30) {
+      meses += Math.floor(dias / 30);
+      dias = dias % 30;
+    }
+
+    let descTempo = [];
+    if (meses > 0) descTempo.push(`${meses} mês(es)`);
+    if (dias > 0) descTempo.push(`${dias} dia(s)`);
+    const tempoStr = descTempo.length > 0 ? descTempo.join(' e ') : 'dias adicionais';
+
+    txt.innerHTML = `O valor de <strong>${formatarValorMZN(val)} MZN</strong> quita a fatura corrente e possui <strong>${formatarValorMZN(excedente)} MZN</strong> de adiantamento.<br>Este excedente corresponde a <strong>${tempoStr}</strong> adicionais de subscrição no regime ${per.toUpperCase()}! A validade da sua instituição será estendida automaticamente após validação.`;
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
+  }
 }
 
 function aoMudarFaturaSelecionadaEscola() {
@@ -290,4 +341,45 @@ function atualizarCoordenadasTela(coord) {
 // Invocação ao abrir módulo
 if (document.getElementById('view-assinatura-escola')) {
   inicializarModuloAssinaturaEscola();
+}
+
+
+function abrirModalEscolherPeriodicidadeEscola() {
+  const a = dadosMinhaAssinaturaCache?.assinatura;
+  const sel = document.getElementById('escolaInpPeriodicidade');
+  if (sel && a) {
+    sel.value = a.periodicidade || 'mensal';
+  }
+  const modalEl = document.getElementById('modalEscolherPeriodicidadeEscola');
+  if (modalEl && typeof bootstrap !== 'undefined') {
+    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+}
+
+async function salvarPeriodicidadeEscola(event) {
+  event.preventDefault();
+  const btn = document.getElementById('btnSalvarPeriodicidadeEscola');
+  if (btn) btn.disabled = true;
+
+  const per = document.getElementById('escolaInpPeriodicidade').value;
+  try {
+    const res = await apiFetch('/saas/minha-assinatura/configurar/', {
+      method: 'POST',
+      body: JSON.stringify({ periodicidade: per })
+    });
+
+    if (res && res.success) {
+      mostrarToast(`Periodicidade da instituição definida para ${per.toUpperCase()} com sucesso!`, 'success');
+      bootstrap.Modal.getInstance(document.getElementById('modalEscolherPeriodicidadeEscola'))?.hide();
+      await carregarMinhaAssinaturaEscola();
+    } else {
+      mostrarToast(res?.message || 'Falha ao atualizar periodicidade.', 'danger');
+    }
+  } catch (err) {
+    console.error('[SAAS-ESCOLA] Erro ao salvar periodicidade:', err);
+    mostrarToast('Erro de ligação ao servidor.', 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }

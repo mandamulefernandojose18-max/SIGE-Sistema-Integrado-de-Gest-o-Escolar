@@ -15,9 +15,10 @@ def obter_estado_assinatura_cached(instituicao_id):
         return cached['estado'], cached['assinatura_id']
 
     from apps.tenants.models import SaasAssinatura
-    ass = SaasAssinatura.objects.filter(instituicao_id=instituicao_id).order_by('-created_at').first()
+    ass = SaasAssinatura.objects.filter(instituicao_id=instituicao_id).select_related('plano').order_by('-created_at').first()
     if ass:
-        estado = ass.estado
+        from apps.tenants.saas_services import avaliar_expiracao_assinatura
+        estado = avaliar_expiracao_assinatura(ass)
         ass_id = ass.id
     else:
         # Se ainda não possui registo SaaS, consideramos activa (retrocompatibilidade)
@@ -62,12 +63,20 @@ class VerificarAssinaturaMiddleware(MiddlewareMixin):
         '/api/v1/certificados/verificar/',
         '/api/v1/saas/minha-assinatura',
         '/api/v1/saas/minha-assinatura/',
+        '/api/v1/saas/minha-assinatura/configurar',
+        '/api/v1/saas/minha-assinatura/configurar/',
         '/api/v1/saas/coordenadas',
         '/api/v1/saas/coordenadas/',
         '/api/v1/saas/faturas',
         '/api/v1/saas/faturas/',
         '/api/v1/saas/pagamentos',
         '/api/v1/saas/pagamentos/',
+        '/api/v1/saas/registar-pagamento',
+        '/api/v1/saas/registar-pagamento/',
+        '/api/v1/saas/calcular-adiantamento',
+        '/api/v1/saas/calcular-adiantamento/',
+        '/api/v1/saas/planos-disponiveis',
+        '/api/v1/saas/planos-disponiveis/',
     )
 
     def process_request(self, request):
@@ -125,6 +134,7 @@ class VerificarAssinaturaMiddleware(MiddlewareMixin):
             if request.method not in ('GET', 'HEAD', 'OPTIONS'):
                 is_rota_pagamento = any(path.startswith(p) for p in (
                     '/api/v1/saas/pagamentos',
+                    '/api/v1/saas/registar-pagamento',
                     '/api/v1/auth/logout',
                 ))
                 if not is_rota_pagamento:
