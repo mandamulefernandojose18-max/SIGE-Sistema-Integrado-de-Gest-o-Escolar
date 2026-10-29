@@ -2259,7 +2259,13 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
     { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
-    { id: 'area-pedagogica', titulo: 'Área Pedagógica', icone: 'bi-mortarboard-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'classes-exames', titulo: 'Classes / Níveis & Exames', icone: 'bi-layers-fill text-success', categoria: 'Área Pedagógica' },
+    { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Área Pedagógica' },
+    { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
+    { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
+    { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Área Pedagógica' },
     { id: 'material-escolar', titulo: 'Material Escolar', icone: 'bi-book-half text-primary', categoria: 'Área Pedagógica' },
     { id: 'certificados', titulo: 'Certificados (QR Code)', icone: 'bi-award-fill', categoria: 'Financeiro & Secretaria' },
@@ -2299,6 +2305,16 @@ function renderizarSidebarPorNivel(role) {
   const navContainer = document.getElementById('sidebarNavItems');
   if (!navContainer) return;
 
+  const ITENS_SUBNAV_PEDAGOGICO = [
+    'classes-exames',
+    'disciplinas',
+    'desbloqueio',
+    'caderneta',
+    'pautas',
+    'exames',
+    'estatisticas-aproveitamento'
+  ];
+
   let html = '';
   if (isSuperAdminInspecionando) {
     const nomeEscola = state.tenant?.nome || 'Escola em Inspeção';
@@ -2321,39 +2337,51 @@ function renderizarSidebarPorNivel(role) {
     if (menu.categoria !== categoriaAtual) {
       categoriaAtual = menu.categoria;
       html += `<div class="nav-category">${categoriaAtual}</div>`;
+      if (categoriaAtual === 'Área Pedagógica') {
+        html += `
+          <a class="nav-link d-flex align-items-center justify-content-between" href="javascript:void(0)" onclick="toggleSubmenuAreaPedagogica(event)" id="nav-area-pedagogica">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-mortarboard-fill text-primary"></i> <span>Área Pedagógica</span>
+            </div>
+            <i class="bi bi-chevron-down small" id="seta-area-pedagogica" style="transition: transform 0.2s;"></i>
+          </a>
+          <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('classes-exames')" id="subnav-classes-exames">
+              <i class="bi bi-layers-fill text-success me-1"></i> <span>Classes / Níveis & Exames</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('disciplinas')" id="subnav-disciplinas">
+              <i class="bi bi-book-fill text-primary me-1"></i> <span>Disciplinas</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('desbloqueio')" id="subnav-desbloqueio">
+              <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio de Trimestre</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('caderneta')" id="subnav-caderneta">
+              <i class="bi bi-journal-bookmark-fill text-info me-1"></i> <span>Caderneta Pedagógica</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('pautas')" id="subnav-pautas">
+              <i class="bi bi-table text-primary me-1"></i> <span>Pautas & Actas Oficiais</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('exames')" id="subnav-exames">
+              <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('estatisticas-aproveitamento')" id="subnav-estatisticas-aproveitamento">
+              <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
+            </a>
+          </div>
+        `;
+      }
     }
+
+    // Se o item estiver dentro do submenu colapsável da Área Pedagógica, não renderizar como link solto
+    if (ITENS_SUBNAV_PEDAGOGICO.includes(menu.id)) {
+      return;
+    }
+
     html += `
       <a class="nav-link" href="#" onclick="navegarPara('${menu.id}')" id="nav-${menu.id}">
         <i class="bi ${menu.icone}"></i> <span>${menu.titulo}</span>
       </a>
     `;
-    if (menu.id === 'area-pedagogica') {
-      html += `
-        <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('classes-exames');" id="subnav-classes-exames">
-            <i class="bi bi-layers-fill text-success me-1"></i> <span>Classes / Níveis & Exames</span>
-          </a>
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('disciplinas');" id="subnav-disciplinas">
-            <i class="bi bi-book-fill text-primary me-1"></i> <span>Disciplinas</span>
-          </a>
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('desbloqueio');" id="subnav-desbloqueio">
-            <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio Trimestre</span>
-          </a>
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('caderneta');" id="subnav-caderneta">
-            <i class="bi bi-journal-bookmark-fill text-info me-1"></i> <span>Caderneta Pedagógica</span>
-          </a>
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('pautas');" id="subnav-pautas">
-            <i class="bi bi-table text-primary me-1"></i> <span>Pautas & Actas Oficiais</span>
-          </a>
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('exames');" id="subnav-exames">
-            <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
-          </a>
-          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('estatisticas-aproveitamento');" id="subnav-estatisticas-aproveitamento">
-            <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
-          </a>
-        </div>
-      `;
-    }
   });
 
   html += `
@@ -2925,19 +2953,6 @@ async function navegarPara(viewId) {
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
-  const SUB_ABAS_PEDAGOGICAS = [
-    'classes-exames',
-    'disciplinas',
-    'desbloqueio',
-    'caderneta',
-    'pautas',
-    'exames',
-    'estatisticas-aproveitamento'
-  ];
-  if ((role !== 'PROFESSOR' && role !== 'ALUNO') && SUB_ABAS_PEDAGOGICAS.includes(viewId)) {
-    state.subAbaPedagogicaAtiva = viewId;
-    viewId = 'area-pedagogica';
-  }
   const isSuperAdminInspecionando = (role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
   const painel = isSuperAdminInspecionando 
     ? (['saas', 'pagamentos-saas', 'prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
@@ -2973,11 +2988,38 @@ async function navegarPara(viewId) {
   if (viewEl) viewEl.style.display = 'block';
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
 
-  // Marcar link como ativo na sidebar
-  const link = document.getElementById(`nav-${viewId}`) || Array.from(document.querySelectorAll('#sidebar .nav-link')).find(a =>
-    a.getAttribute('onclick')?.includes(viewId)
-  );
-  if (link) link.classList.add('active');
+  // Marcar link como ativo na sidebar e sincronizar submenu da Área Pedagógica
+  const ITENS_SUBNAV_PEDAGOGICO = [
+    'classes-exames',
+    'disciplinas',
+    'desbloqueio',
+    'caderneta',
+    'pautas',
+    'exames',
+    'estatisticas-aproveitamento'
+  ];
+
+  if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId)) {
+    const subnav = document.getElementById('subnav-area-pedagogica');
+    const seta = document.getElementById('seta-area-pedagogica');
+    const navBtn = document.getElementById('nav-area-pedagogica');
+    if (subnav) subnav.style.display = 'block';
+    if (seta) {
+      seta.classList.remove('bi-chevron-down');
+      seta.classList.add('bi-chevron-up');
+      seta.style.transform = 'rotate(180deg)';
+    }
+    if (navBtn) navBtn.classList.add('submenu-aberto');
+    document.querySelectorAll('#subnav-area-pedagogica .nav-link').forEach(el => el.classList.remove('active'));
+    const subLink = document.getElementById(`subnav-${viewId}`);
+    if (subLink) subLink.classList.add('active');
+  } else {
+    document.querySelectorAll('#subnav-area-pedagogica .nav-link').forEach(el => el.classList.remove('active'));
+    const link = document.getElementById(`nav-${viewId}`) || Array.from(document.querySelectorAll('#sidebar .nav-link')).find(a =>
+      a.getAttribute('onclick')?.includes(viewId)
+    );
+    if (link) link.classList.add('active');
+  }
 
   // Actualizar Títulos de Topbar
   const menuInfo = (MENUS_POR_PAINEL[painel] || []).find(m => m.id === viewId);
@@ -3016,17 +3058,7 @@ async function navegarPara(viewId) {
     }
   }
 
-  // Controlo da Área Pedagógica Unificada e Subnav Sidebar
-  if (viewId === 'area-pedagogica') {
-    const subnav = document.getElementById('subnav-area-pedagogica');
-    if (subnav) subnav.style.display = 'block';
-    if (typeof mudarSubAbaAreaPedagogica === 'function') {
-      mudarSubAbaAreaPedagogica(state.subAbaPedagogicaAtiva || 'classes-exames', true);
-    }
-  } else {
-    const subnav = document.getElementById('subnav-area-pedagogica');
-    if (subnav) subnav.style.display = 'none';
-  }
+
 
   // Gatilhos de carregamento específico
   if (viewId === 'dashboard') carregarDashboardGeral(null, false);
@@ -15621,7 +15653,7 @@ function renderizarFichaAluno(d) {
       <span class="badge bg-primary px-3 py-2"><i class="bi bi-person-badge me-1"></i> Ficha Biográfica do Aluno (Oficial A4)</span>
       <div class="d-flex gap-2">
         ${alunoId ? `<button class="btn btn-outline-danger btn-sm fw-semibold" onclick="descarregarDocumentoOficialPdf('FICHA', '${alunoId}')"><i class="bi bi-file-earmark-pdf me-1"></i> Descarregar PDF (A4)</button>` : ''}
-        ${alunoId ? `<button class="btn btn-outline-primary btn-sm fw-semibold" onclick="descarregarDocxCentral()"><i class="bi bi-file-earmark-word me-1"></i> Descarregar Word (DOCX)</button>` : ''}
+        ${alunoId ? `` : ''}
         <button class="btn btn-primary btn-sm fw-semibold" onclick="imprimirDocumentoComTitulo('Ficha_${safeName}_${anoLetivo}')">
           <i class="bi bi-printer me-1"></i> Imprimir / Guardar em PDF
         </button>
@@ -21387,4 +21419,34 @@ window.mudarSubAbaAreaPedagogica = function(abaId, dispararGatilho = true) {
       aplicarResponsividadeUniversalTabelas(alvo);
     }
   }, 50);
+};
+
+// ==================== CONTROLO DO SUBMENU DA ÁREA PEDAGÓGICA (MENU LATERAL) ====================
+window.toggleSubmenuAreaPedagogica = function(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const subnav = document.getElementById('subnav-area-pedagogica');
+  const seta = document.getElementById('seta-area-pedagogica');
+  const navBtn = document.getElementById('nav-area-pedagogica');
+  if (!subnav) return;
+
+  const estaAberto = subnav.style.display !== 'none';
+  if (estaAberto) {
+    // 2ª vez: Fecha as páginas do submenu
+    subnav.style.display = 'none';
+    if (seta) {
+      seta.classList.remove('bi-chevron-up');
+      seta.classList.add('bi-chevron-down');
+      seta.style.transform = 'rotate(0deg)';
+    }
+    if (navBtn) navBtn.classList.remove('submenu-aberto');
+  } else {
+    // 1ª vez: Mostra as páginas do submenu
+    subnav.style.display = 'block';
+    if (seta) {
+      seta.classList.remove('bi-chevron-down');
+      seta.classList.add('bi-chevron-up');
+      seta.style.transform = 'rotate(180deg)';
+    }
+    if (navBtn) navBtn.classList.add('submenu-aberto');
+  }
 };

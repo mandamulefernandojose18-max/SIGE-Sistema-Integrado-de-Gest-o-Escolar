@@ -581,7 +581,7 @@ O módulo financeiro do SIGE implementa a gestão completa da tesouraria da inst
 - **KPIs Financeiros (`/pagamentos/stats`):** Total Recebido (MZN), Total Pendente (MZN), Total em Atraso (MZN), Taxa de Adimplência (%), Taxa de Inadimplência (%) e histórico mensal de faturação dos 12 meses do ano.
 
 ### 4.9.1 Resiliência de Botões de Exportação e Download de Documentos
-Todos os botões de descarregamento de documentos (Excel .xlsx, PDF .pdf, Word .docx e Impressão direta) possuem recuperação segura de contexto (Ano Lectivo ativo e Turma ativa), validação prévia de selecção com feedback amigável via notificação e fallback automático para geração client-side em caso de instabilidade de rede.
+Todos os botões de descarregamento de documentos (Excel `.xlsx`, PDF `.pdf` e Impressão direta) possuem recuperação segura de contexto (Ano Lectivo ativo e Turma ativa), validação prévia de selecção com feedback amigável via notificação e fallback automático para geração client-side em caso de instabilidade de rede. A interface do sistema disponibiliza estritamente os formatos oficiais **PDF** e **Excel (XLSX)** em todas as telas operacionais, tendo os botões de descarregamento em DOCX sido removidos para simplificação e conformidade institucional.
 
 ### Módulo 15: Central de Impressão Individual e em Lote (`#view-impressao`)
 Centro unificado para emissão, pré-visualização em folha A4 e descarregamento de todos os documentos escolares:

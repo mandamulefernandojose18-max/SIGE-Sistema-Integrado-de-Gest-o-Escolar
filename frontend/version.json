@@ -1,8 +1,8 @@
 {
-  "version": "2.5.5",
-  "build": "20261029_2052",
+  "version": "2.5.6",
+  "build": "20261029_2145",
   "data": "2026-10-29",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Unificação da Área Pedagógica em página dedicada com abas para Classes/Níveis & Exames, Disciplinas, Desbloqueio de Trimestre, Caderneta Pedagógica, Pautas & Actas Oficiais, Exames e Estatística de Aproveitamento."
+  "novidades": "Menu lateral com Área Pedagógica expansível em acordeão toggle: o 1º clique exibe as 7 páginas pedagógicas na lateral e o 2º clique fecha o submenu."
 }

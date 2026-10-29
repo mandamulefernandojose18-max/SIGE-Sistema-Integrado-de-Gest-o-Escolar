@@ -80,10 +80,13 @@
   - **Renumerar Turmas:** Normaliza automaticamente os nomes das turmas (`Turma 1`, `Turma 2`, `Turma 3`...) evitando inconsistências.
 ---
 
-### 🎓 Área Pedagógica Unificada (`#view-area-pedagogica`)
+### 🎓 Área Pedagógica no Menu Lateral (Acordeão / Submenu Toggle)
 - **Quem usa:** `DAP`, `DIRECTOR_ESCOLA`, `ADMIN_ESCOLA` e `PROFESSOR`.
-- **Como aceder:** Clique em **"Área Pedagógica"** na barra lateral de navegação. Na barra lateral, os 7 sub-módulos só são exibidos quando se clica em "Área Pedagógica", mantendo o menu limpo e despoluído.
-- **Centralização Modular:** Reúne 7 módulos essenciais sob uma única página intuitiva com abas superiores responsivas:
+- **Como aceder e funcionar:** No menu lateral, clique em **"Área Pedagógica"**:
+  - **1º Clique:** Expande o menu lateral e revela as 7 páginas pedagógicas.
+  - **2º Clique:** Recolhe o menu lateral e oculta as páginas, mantendo a barra lateral limpa e compacta.
+  - **Exibição Limpa:** As páginas abrem diretamente como telas completas e limpas, sem poluição de abas internas no topo do conteúdo.
+- **As 7 Páginas da Área Pedagógica:**
   1. **Classes / Níveis & Exames:** Gestão de classes e estatuto de exame.
   2. **Disciplinas:** Plano curricular e matriz de disciplinas por área/secção.
   3. **Desbloqueio de Trimestre:** Abertura e encerramento de prazos de lançamento de notas.
