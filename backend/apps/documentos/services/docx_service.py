@@ -1314,62 +1314,66 @@ def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
 # ==================== 7. RECIBO DE PAGAMENTO (VERTICAL) ====================
 
 def inserir_conteudo_recibo_docx(doc, pagamento, escola):
-    # Determinação estrita do estado de liquidação e conformidade de pagamento
+    from .numero_extenso import formatar_valor_com_extenso
     status_raw = str(getattr(pagamento, 'status', '')).upper().strip()
     valor_pago_val = float(getattr(pagamento, 'valor_pago', 0) or 0)
     tem_data_pag = bool(getattr(pagamento, 'data_pagamento', None))
     is_pago = (status_raw == 'PAGO') and (tem_data_pag or valor_pago_val > 0)
 
-    # Dados sincronizados da Instituição
     nome_escola = getattr(escola, 'nome', 'Instituição de Ensino')
     provincia = getattr(escola, 'provincia', '') or 'Inhambane'
     distrito = getattr(escola, 'distrito', '') or 'Massinga'
-    nuit = getattr(escola, 'nuit', None) or getattr(escola, 'nif_cnpj', None) or '---'
-    telefone = getattr(escola, 'telefone', '---')
 
-    # Logótipo Oficial Escolhido pela Instituição
-    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.9)
-
-    p_rep = doc.add_paragraph()
-    p_rep.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_rep.paragraph_format.space_after = Pt(1)
-    r_rep = p_rep.add_run("REPÚBLICA DE MOÇAMBIQUE\nMINISTÉRIO DA EDUCAÇÃO E CULTURA")
-    aplicar_fonte_times(r_rep, pt_size=10, bold=True)
+    inserir_logo_cabecalho_docx(doc, escola, largura_pol=0.7)
 
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p1.paragraph_format.space_after = Pt(2)
-    r1 = p1.add_run(f"{nome_escola.upper()}")
-    aplicar_fonte_times(r1, pt_size=12, bold=True)
+    p1.paragraph_format.space_after = Pt(1)
+    r1 = p1.add_run("REPÚBLICA DE MOÇAMBIQUE")
+    aplicar_fonte_times(r1, pt_size=11, bold=True)
 
-    p_info = doc.add_paragraph()
-    p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_info.paragraph_format.space_after = Pt(8)
-    r_info = p_info.add_run(f"NUIT: {nuit} | Província: {provincia} | Distrito: {distrito} | Tel: {telefone}")
-    aplicar_fonte_times(r_info, pt_size=9, italic=True)
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_after = Pt(1)
+    r2 = p2.add_run("MINISTÉRIO DA EDUCAÇÃO E CULTURA")
+    aplicar_fonte_times(r2, pt_size=10, bold=True)
+
+    p3 = doc.add_paragraph()
+    p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p3.paragraph_format.space_after = Pt(1)
+    r3 = p3.add_run(f"GOVERNO DA PROVÍNCIA DE {provincia.upper()} — SDEJT DE {distrito.upper()}")
+    aplicar_fonte_times(r3, pt_size=9.5, bold=False)
+
+    p_esc = doc.add_paragraph()
+    p_esc.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_esc.paragraph_format.space_after = Pt(4)
+    r_esc = p_esc.add_run(nome_escola.upper())
+    aplicar_fonte_times(r_esc, pt_size=11, bold=True)
 
     num_rec = getattr(pagamento, 'recibo_numero', None) or f"REC-{pagamento.id}"
     p_tit = doc.add_paragraph()
     p_tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_tit.paragraph_format.space_after = Pt(4)
+    p_tit.paragraph_format.space_before = Pt(2)
+    p_tit.paragraph_format.space_after = Pt(3)
     if is_pago:
         r_tit = p_tit.add_run(f"RECIBO DE PAGAMENTO OFICIAL — {num_rec}")
     else:
         r_tit = p_tit.add_run(f"RECIBO / GUIA DE PAGAMENTO (NÃO PAGO) — {num_rec}")
-    aplicar_fonte_times(r_tit, pt_size=12, bold=True)
+    aplicar_fonte_times(r_tit, pt_size=11, bold=True)
 
     # Banner de Estado
     p_ban = doc.add_paragraph()
     p_ban.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_ban.paragraph_format.space_after = Pt(10)
+    p_ban.paragraph_format.space_after = Pt(6)
     if is_pago:
         r_ban = p_ban.add_run("[ SITUAÇÃO: PAGO / LIQUIDADO COM SUCESSO ]")
-        aplicar_fonte_times(r_ban, pt_size=11, bold=True, color_rgb=(21, 128, 61))
+        aplicar_fonte_times(r_ban, pt_size=10, bold=True, color_rgb=(21, 128, 61))
     else:
         r_ban = p_ban.add_run("[ ATENÇÃO: NÃO PAGO — PENDENTE DE LIQUIDAÇÃO ]")
-        aplicar_fonte_times(r_ban, pt_size=11, bold=True, color_rgb=(185, 28, 28))
+        aplicar_fonte_times(r_ban, pt_size=10, bold=True, color_rgb=(185, 28, 28))
 
-    table = doc.add_table(rows=0, cols=2)
+    # Tabela compacta de 4 colunas para caber rigorosamente em uma única página A4
+    table = doc.add_table(rows=0, cols=4)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = 'Table Grid'
     aplicar_cant_split_tabela(table)
@@ -1383,58 +1387,82 @@ def inserir_conteudo_recibo_docx(doc, pagamento, escola):
     turno_sala = f"{getattr(aluno.turma, 'turno', '---')} / Sala: {getattr(aluno.turma, 'sala', '---')}" if aluno and aluno.turma else '---'
     encarregado = getattr(aluno, 'encarregado_nome', '') or getattr(aluno, 'nome_pai', '') or getattr(aluno, 'nome_mae', '') or '---' if aluno else '---'
 
+    valor_cobrado_str = formatar_valor_com_extenso(pagamento.valor, 'MT')
     if is_pago:
-        valor_liq = f"{getattr(pagamento, 'valor_pago', None) or pagamento.valor} MT"
+        val_liq = getattr(pagamento, 'valor_pago', None) or pagamento.valor
+        valor_liq = formatar_valor_com_extenso(val_liq, 'MT')
         estado_txt = "PAGO"
         metodo_txt = str(getattr(pagamento, 'metodo_pagamento', 'MPESA') or 'MPESA')
         data_conf_txt = str(getattr(pagamento, 'data_pagamento', None) or pagamento.created_at)[:10]
     else:
-        valor_liq = "0,00 MT (Aguardando Liquidação)"
+        valor_liq = "0 MT (Zero meticais) — Aguardando Liquidação"
         estado_txt = "NÃO PAGO"
         metodo_txt = "Pendente de Liquidação"
         data_conf_txt = "Aguardando Confirmação"
 
-    campos = [
-        ('Instituição de Ensino:', nome_escola.upper()),
-        ('Localização / Província:', f"{distrito}, {provincia}"),
-        ('Nome do Aluno:', nome_aluno),
-        ('Matrícula do Aluno:', matricula),
-        ('Turma / Classe:', turma_completa),
-        ('Turno / Instalações:', turno_sala),
-        ('Encarregado de Educação:', encarregado),
-        ('Descrição do Serviço:', getattr(pagamento, 'descricao', 'Mensalidade / Propina') or 'Mensalidade / Propina'),
-        ('Mês de Referência:', str(getattr(pagamento, 'mes_referencia', '---') or '---')),
-        ('Valor Total Cobrado:', f"{pagamento.valor} MT"),
-        ('Valor Liquidado:', valor_liq),
-        ('Situação / Estado:', estado_txt),
-        ('Forma de Pagamento:', metodo_txt),
-        ('Data de Vencimento:', str(getattr(pagamento, 'data_vencimento', '---') or '---')[:10]),
-        ('Data de Liquidação / Confirmação:', data_conf_txt)
+    linhas_dados = [
+        [("Instituição de Ensino:", True), (nome_escola.upper(), True),
+         ("Localização / Província:", True), (f"{distrito}, {provincia}", False)],
+        [("Nome do Aluno:", True), (nome_aluno, True),
+         ("Matrícula do Aluno:", True), (matricula, False)],
+        [("Turma / Classe:", True), (turma_completa, False),
+         ("Turno / Instalações:", True), (turno_sala, False)],
+        [("Encarregado de Educação:", True), (encarregado, False),
+         ("Mês de Referência:", True), (str(getattr(pagamento, 'mes_referencia', '---') or '---'), False)],
+        [("Descrição do Serviço:", True), (getattr(pagamento, 'descricao', 'Mensalidade / Propina') or 'Mensalidade / Propina', False),
+         ("Forma de Pagamento:", True), (metodo_txt, False)],
+        [("Data de Vencimento:", True), (str(getattr(pagamento, 'data_vencimento', '---') or '---')[:10], False),
+         ("Data de Confirmação:", True), (data_conf_txt, False)],
+        [("Situação / Estado:", True), (estado_txt, True),
+         ("Nº do Recibo:", True), (num_rec, True)],
+        [("Valor Total Cobrado:", True), (valor_cobrado_str, True)],
+        [("Valor Liquidado:", True), (valor_liq, True)]
     ]
 
-    for label, val in campos:
+    for item in linhas_dados:
         row = table.add_row()
-        p0 = row.cells[0].paragraphs[0]
-        r0 = p0.add_run(label)
-        aplicar_fonte_times(r0, pt_size=10, bold=True)
+        if len(item) == 4:
+            for col_idx in range(4):
+                lbl, is_bold = item[col_idx]
+                cell = row.cells[col_idx]
+                p = cell.paragraphs[0]
+                p.paragraph_format.space_before = Pt(1)
+                p.paragraph_format.space_after = Pt(1)
+                r = p.add_run(str(lbl))
+                if col_idx in (0, 2):
+                    aplicar_fonte_times(r, pt_size=9.5, bold=True)
+                elif lbl == 'PAGO':
+                    aplicar_fonte_times(r, pt_size=9.5, bold=True, color_rgb=(21, 128, 61))
+                elif lbl == 'NÃO PAGO':
+                    aplicar_fonte_times(r, pt_size=9.5, bold=True, color_rgb=(185, 28, 28))
+                else:
+                    aplicar_fonte_times(r, pt_size=9.5, bold=is_bold)
+        elif len(item) == 2:
+            lbl, _ = item[0]
+            val, is_bold = item[1]
+            p0 = row.cells[0].paragraphs[0]
+            p0.paragraph_format.space_before = Pt(1)
+            p0.paragraph_format.space_after = Pt(1)
+            r0 = p0.add_run(str(lbl))
+            aplicar_fonte_times(r0, pt_size=9.5, bold=True)
 
-        p1 = row.cells[1].paragraphs[0]
-        r1 = p1.add_run(str(val))
-        if label == 'Situação / Estado:':
-            if is_pago:
-                aplicar_fonte_times(r1, pt_size=10, bold=True, color_rgb=(21, 128, 61))
+            merged_cell = row.cells[1].merge(row.cells[3])
+            p1 = merged_cell.paragraphs[0]
+            p1.paragraph_format.space_before = Pt(1)
+            p1.paragraph_format.space_after = Pt(1)
+            r1 = p1.add_run(str(val))
+            if 'Aguardando Liquidação' in str(val):
+                aplicar_fonte_times(r1, pt_size=9.5, bold=True, color_rgb=(185, 28, 28))
             else:
-                aplicar_fonte_times(r1, pt_size=10, bold=True, color_rgb=(185, 28, 28))
-        elif label == 'Valor Liquidado:' and not is_pago:
-            aplicar_fonte_times(r1, pt_size=10, bold=True, color_rgb=(185, 28, 28))
-        else:
-            aplicar_fonte_times(r1, pt_size=10)
+                aplicar_fonte_times(r1, pt_size=9.5, bold=is_bold)
 
-    doc.add_paragraph().paragraph_format.space_after = Pt(6)
+    p_sp = doc.add_paragraph()
+    p_sp.paragraph_format.space_before = Pt(0)
+    p_sp.paragraph_format.space_after = Pt(4)
 
     # Aviso no rodapé
     p_av = doc.add_paragraph()
-    p_av.paragraph_format.space_after = Pt(8)
+    p_av.paragraph_format.space_after = Pt(6)
     if not is_pago:
         r_av = p_av.add_run("AVISO: Este recibo possui a indicação expressa de NÃO PAGO. Não confere quitação de dívida até a respectiva liquidação e confirmação de pagamento no sistema.")
         aplicar_fonte_times(r_av, pt_size=8.5, italic=True, color_rgb=(185, 28, 28))
@@ -1446,7 +1474,7 @@ def inserir_conteudo_recibo_docx(doc, pagamento, escola):
     carimbo_dt = datetime.datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
     p_auth = doc.add_paragraph()
     p_auth.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_auth.paragraph_format.space_after = Pt(14)
+    p_auth.paragraph_format.space_after = Pt(10)
     r_auth = p_auth.add_run(f"Processado por Computador aos {carimbo_dt} | Autenticação Digital SIGE")
     aplicar_fonte_times(r_auth, pt_size=8, italic=True)
 

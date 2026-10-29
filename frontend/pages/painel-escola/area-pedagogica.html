@@ -1,0 +1,1565 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Área Pedagógica Unificada -->
+<!-- Página independente do módulo: area-pedagogica.html -->
+<!-- Centraliza: Classes/Níveis & Exames, Disciplinas, Desbloqueio de Trimestre, Caderneta Pedagógica, Pautas & Actas Oficiais, Exames e Estatística de Aproveitamento -->
+<!-- Isolamento estrito de nível: Acesso restrito ao Painel Escola -->
+<!-- ===================================================================== -->
+<section id="view-area-pedagogica" class="modulo-view" style="display: none;">
+  <!-- Cabeçalho Oficial da Área Pedagógica -->
+  <div class="card p-3 mb-3 no-print border-0 shadow-sm bg-white">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <h4 class="fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+          <i class="bi bi-mortarboard-fill"></i> Área Pedagógica
+        </h4>
+        <p class="text-muted small mb-0">
+          Central pedagógica unificada: gestão curricular, cadernetas, pautas, exames e aproveitamento escolar.
+        </p>
+      </div>
+      <div>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fw-semibold">
+          <i class="bi bi-shield-check me-1"></i> Controlo Curricular & Avaliações
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navegação por Abas dos 7 Módulos Pedagógicos -->
+  <div class="card border-0 shadow-sm mb-4 no-print bg-white">
+    <div class="card-body p-2">
+      <ul class="nav nav-pills nav-fill flex-wrap gap-1" id="pillsAreaPedagogica" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active py-2 px-3 fw-semibold text-nowrap" id="tab-ped-classes-exames" type="button" onclick="mudarSubAbaAreaPedagogica('classes-exames')">
+            <i class="bi bi-layers-fill text-success me-1"></i> Classes/Níveis & Exames
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link  py-2 px-3 fw-semibold text-nowrap" id="tab-ped-disciplinas" type="button" onclick="mudarSubAbaAreaPedagogica('disciplinas')">
+            <i class="bi bi-book-fill text-primary me-1"></i> Disciplinas
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link  py-2 px-3 fw-semibold text-nowrap" id="tab-ped-desbloqueio" type="button" onclick="mudarSubAbaAreaPedagogica('desbloqueio')">
+            <i class="bi bi-unlock-fill text-warning me-1"></i> Desbloqueio Trimestre
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link  py-2 px-3 fw-semibold text-nowrap" id="tab-ped-caderneta" type="button" onclick="mudarSubAbaAreaPedagogica('caderneta')">
+            <i class="bi bi-journal-bookmark-fill text-info me-1"></i> Caderneta Pedagógica
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link  py-2 px-3 fw-semibold text-nowrap" id="tab-ped-pautas" type="button" onclick="mudarSubAbaAreaPedagogica('pautas')">
+            <i class="bi bi-table text-primary me-1"></i> Pautas & Actas Oficiais
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link  py-2 px-3 fw-semibold text-nowrap" id="tab-ped-exames" type="button" onclick="mudarSubAbaAreaPedagogica('exames')">
+            <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> Exames
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link  py-2 px-3 fw-semibold text-nowrap" id="tab-ped-estatisticas-aproveitamento" type="button" onclick="mudarSubAbaAreaPedagogica('estatisticas-aproveitamento')">
+            <i class="bi bi-bar-chart-line-fill text-success me-1"></i> Estatística de Aproveitamento
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Content Container das 7 Subviews da Área Pedagógica -->
+  <div id="areaPedagogicaSubViewContainer">
+
+    <!-- SUBVIEW: Classes/Níveis & Exames -->
+    <div id="view-classes-exames" class="pedagogico-subview" style="display: block;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="classesExamesAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('classes-exames')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="classesExamesConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+  <!-- Cabeçalho Limpo e Moderno -->
+  <div class="card p-4 mb-4 border-0 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+            <i class="bi bi-layers-fill me-1"></i> Gestão Curricular
+          </span>
+          <span id="badgeRegimeAtivo" class="badge bg-light text-secondary border px-2 py-1">
+            <i class="bi bi-mortarboard me-1"></i> Classes SNE
+          </span>
+        </div>
+        <h4 class="fw-bold text-dark mb-1">Classes e Níveis</h4>
+        <p class="text-muted small mb-0">
+          Configure as classes ministradas na instituição e defina quais realizam <strong>exame final</strong>. As classes cadastradas aqui são refletidas automaticamente no cadastro de turmas, alunos e pautas.
+        </p>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="input-group input-group-sm" style="width: auto;">
+          <label class="input-group-text bg-light text-muted small" for="selectRegimeInstituicao">Regime:</label>
+          <select id="selectRegimeInstituicao" class="form-select form-select-sm fw-semibold" onchange="selecionarRegimeCurricularInstituicao(this.value)">
+            <option value="CLASSES">Ensino Geral (Classes)</option>
+            <option value="NIVEIS">Ensino Técnico (Níveis)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="abrirModalNovaClasse()">
+          <i class="bi bi-plus-lg me-1"></i> <span id="btnLabelNovaClasse">+ Nova Classe</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destaque dos Parâmetros de Avaliação de Exame (% Frequência, % Exame e Nota Mínima) -->
+  <div class="card border border-warning border-opacity-50 bg-white p-3 mb-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-3">
+        <div class="bg-warning-subtle text-warning-emphasis p-2 rounded-circle fs-4 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+          <i class="bi bi-sliders2-vertical fs-5"></i>
+        </div>
+        <div>
+          <div class="fw-bold text-dark small text-uppercase">Parâmetros Oficiais de Avaliação de Exame (MEC)</div>
+          <div class="small text-muted">
+            <span class="badge bg-light text-primary border me-1 fw-semibold" id="classeExameBadgeParametros">Freq: 50% | Exame: 50% | Nota Mínima: 10.0</span>
+            <span>Fórmula Ponderada: <code>MF = (Freq × %Freq) + (Exame × %Exame)</code></span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-warning btn-sm fw-bold text-dark shadow-sm" onclick="navegarPara('exames')">
+          <i class="bi bi-sliders me-1"></i> Abrir & Configurar Parâmetros de Exame
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de Classes / Níveis -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <h6 class="fw-bold mb-0 text-dark" id="tituloTabelaItens">
+          <i class="bi bi-list-check me-2 text-primary"></i>Classes da Instituição
+        </h6>
+        <span class="badge bg-secondary-subtle text-secondary" id="kpiTotalItensBadge">0</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <select id="filtroStatusExameSelect" class="form-select form-select-sm" style="width: 140px;" onchange="filtrarTabelaClassesExames()">
+          <option value="">Todos</option>
+          <option value="SIM">Com Exame</option>
+          <option value="NAO">Sem Exame</option>
+        </select>
+        <div class="input-group input-group-sm" style="width: 200px;">
+          <input type="search" id="filtroTextoClassesExames" class="form-control" placeholder="Pesquisar classe..." oninput="filtrarTabelaClassesExames()">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="text-center" style="width: 50px;">#</th>
+            <th>Classe / Nível</th>
+            <th>Regime</th>
+            <th class="text-center" style="width: 180px;">Regime de Exame</th>
+            <th class="text-end" style="width: 180px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyClassesExames">
+          <tr>
+            <td colspan="5" class="text-center py-4 text-muted">
+              <i class="bi bi-hourglass-split me-2"></i>A carregar classes...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State Elegante -->
+    <div id="placeholderSemItens" style="display: none;" class="text-center py-5">
+      <div class="mb-3">
+        <div class="d-inline-flex p-3 rounded-circle bg-light text-muted">
+          <i class="bi bi-mortarboard" style="font-size: 2.2rem;"></i>
+        </div>
+      </div>
+      <h6 class="fw-bold text-dark mb-1">Nenhuma classe cadastrada</h6>
+      <p class="text-muted small mb-3">Cadastre as classes ministradas na escola para habilitar turmas, matrículas e pautas.</p>
+      <button class="btn btn-primary btn-sm fw-semibold" onclick="abrirModalNovaClasse()">
+        <i class="bi bi-plus-lg me-1"></i> Cadastrar Primeira Classe
+      </button>
+    </div>
+  </div>
+
+  </div>
+
+    </div>
+
+
+    <!-- SUBVIEW: Disciplinas -->
+    <div id="view-disciplinas" class="pedagogico-subview" style="display: none;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="disciplinasAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('disciplinas')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="disciplinasConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-12">
+      <div class="card p-4">
+        <!-- 1. Cabeçalho Principal da Página -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h5 class="fw-bold mb-1 text-primary">
+              <i class="bi bi-book-half me-2"></i>Disciplinas
+            </h5>
+            <p class="text-muted small mb-0">
+              Plano curricular da instituição. Navegue pelas <strong>páginas das Classes</strong> abaixo para gerir as disciplinas e definir os critérios de exame por <strong>Área / Secção</strong>.
+            </p>
+          </div>
+          
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <!-- Seletor do Modelo da Instituição: Classes vs Níveis -->
+            <div class="p-1 bg-light rounded border d-flex align-items-center">
+              <span class="small fw-semibold text-secondary me-2 ms-2 d-none d-sm-inline">
+                <i class="bi bi-gear-wide-connected me-1"></i>Regime:
+              </span>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Regime Curricular">
+                <button type="button" class="btn btn-sm" id="btnRegimeClasses" onclick="selecionarRegimeInstituicao('CLASSES')" title="Ensino Geral: 1ª à 12ª Classe">
+                  <i class="bi bi-mortarboard me-1"></i>Classes (1ª à 12ª)
+                </button>
+                <button type="button" class="btn btn-sm" id="btnRegimeNiveis" onclick="selecionarRegimeInstituicao('NIVEIS')" title="Técnico-Profissional: Nível 1, Nível 2...">
+                  <i class="bi bi-layers me-1"></i>Níveis (Nível 1, 2...)
+                </button>
+              </div>
+            </div>
+
+            <!-- Botão Nova Disciplina Geral -->
+            <button class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="modalNovaDisciplina()">
+              <i class="bi bi-plus-lg me-1"></i> Nova Disciplina
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Navegador de Sub-páginas das Classes (Abas de Classes da Escola) -->
+        <div class="p-2 bg-light rounded border mb-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <!-- Abas/Páginas das Classes da Instituição -->
+            <div class="d-flex flex-wrap align-items-center gap-1" id="navAbasClassesInstituicao">
+              <span class="small fw-bold text-uppercase text-secondary me-2">
+                <i class="bi bi-mortarboard text-primary me-1"></i><span id="labelNavClasses">Classes:</span>
+              </span>
+              <!-- Abas geradas dinamicamente: [ 10ª Classe ] [ 11ª Classe ] ... -->
+            </div>
+
+            <!-- Botão Dropdown para Adicionar Nova Classe/Nível Oficial -->
+            <div class="dropdown">
+              <button class="btn btn-sm btn-success fw-bold dropdown-toggle shadow-sm" type="button" id="dropdownBtnAdicionarClasse" data-bs-toggle="dropdown" aria-expanded="false" title="Adicionar uma nova classe ou nível oficial da lista">
+                <i class="bi bi-plus-circle me-1"></i><span id="textoBtnAdicionarClasse">+ Adicionar Classe</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow" id="listaDropdownClassesDisponiveis" aria-labelledby="dropdownBtnAdicionarClasse" style="max-height: 280px; overflow-y: auto;">
+                <!-- Preenchido via JS com a lista oficial estrita -->
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Container Dinâmico da Sub-Página da Classe Ativa -->
+        <div id="containerSubpaginaClasse">
+          <!-- Renderizado dinamicamente por renderizarSubpaginaClasseAtiva() -->
+          <div class="text-center py-5 text-muted">
+            <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
+            A carregar plano curricular e disciplinas...
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+    </div>
+
+
+    <!-- SUBVIEW: Desbloqueio Trimestre -->
+    <div id="view-desbloqueio" class="pedagogico-subview" style="display: none;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="desbloqueioAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('desbloqueio')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="desbloqueioConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+        <div class="row g-4">
+          <!-- CARD 1: CALENDÁRIO OFICIAL DE PRAZOS POR TRIMESTRE -->
+          <div class="col-lg-6">
+            <div class="card p-4 h-100 shadow-sm border-0">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-calendar-week me-2"></i>Calendário Oficial de Prazos de Lançamento</h5>
+                <span id="badgeModoAtivo" class="badge bg-primary">Modo: Manual</span>
+              </div>
+              <p class="text-muted small mb-3">Defina as regras e datas limites de lançamento de notas. Professores que tentarem lançar notas fora destas datas serão bloqueados por atraso ou período futuro, excepto com autorização expressa.</p>
+
+              <form id="formPrazosTrimestrais" class="row g-3">
+                <!-- Seletor do Modo de Calendarização -->
+                <div class="col-12 p-3 bg-white rounded border border-primary border-opacity-25">
+                  <label class="form-label small fw-bold text-dark"><i class="bi bi-gear-fill text-primary me-1"></i>Regra de Calendarização</label>
+                  <select id="prazoModoSelect" class="form-select form-select-sm fw-semibold" onchange="alternarModoCalendarizacaoUI(this.value)">
+                    <option value="MANUAL">1. Manual: Datas explícitas de Início e Fim por Trimestre</option>
+                    <option value="AUTOMATICO">2. Automático: Duração em Dias, Semanas ou Meses (Campo Único)</option>
+                    <option value="SEMPRE">3. Permitir Sempre: Sem bloqueio por calendário (Lançamento Livre)</option>
+                  </select>
+                </div>
+
+                <!-- Painel Exclusivo para o Modo Automático / Campo Único -->
+                <div id="painelCalendarizacaoAutomatica" class="col-12 p-3 bg-light rounded border" style="display: none;">
+                  <span class="badge bg-success mb-2"><i class="bi bi-lightning-charge me-1"></i>Parâmetros de Cálculo Automático</span>
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <label class="form-label small fw-semibold">Data Base Inicial (A partir de)</label>
+                      <input type="date" id="prazoDataBase" class="form-control form-control-sm">
+                      <small class="text-muted" style="font-size: 0.72rem;">Início do ano lectivo ou trimestre</small>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label small fw-semibold">Duração</label>
+                      <input type="number" id="prazoValorDuracao" class="form-control form-control-sm" value="4" min="1" max="365">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label small fw-semibold">Unidade</label>
+                      <select id="prazoTipoDuracao" class="form-select form-select-sm">
+                        <option value="DIAS">Dias</option>
+                        <option value="SEMANAS" selected>Semanas</option>
+                        <option value="MESES">Meses</option>
+                      </select>
+                    </div>
+                    <div class="col-12 text-end mt-2">
+                      <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="calcularPrazosAutomaticosUI()">
+                        <i class="bi bi-calculator me-1"></i> Calcular e Visualizar Prazos
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Painel Informativo para o Modo Permitir Sempre -->
+                <div id="painelCalendarizacaoSempre" class="col-12 p-3 bg-success bg-opacity-10 rounded border border-success" style="display: none;">
+                  <div class="d-flex align-items-center gap-2 text-success">
+                    <i class="bi bi-check-circle-fill fs-5"></i>
+                    <div>
+                      <strong class="d-block small">Modo "Permitir Sempre" Selecionado</strong>
+                      <span class="small text-muted">Todos os docentes e secretarias poderão lançar e editar avaliações na caderneta livremente sem restrições de datas ou bloqueios automáticos.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bloco de Datas dos Trimestres (Visível em Manual e Automático) -->
+                <div id="painelTrimestresDatas" class="col-12 p-0">
+                  <div class="row g-3">
+                    <!-- 1º Trimestre -->
+                    <div class="col-12 p-3 bg-light rounded border">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-primary">1º Trimestre Lectivo</span>
+                        <div class="form-check form-switch small mb-0">
+                          <input class="form-check-input" type="checkbox" id="prazoT1Sempre">
+                          <label class="form-check-label fw-semibold" for="prazoT1Sempre">Permitir sempre</label>
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data de Início</label>
+                          <input type="date" id="prazoT1Inicio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                          <input type="date" id="prazoT1Fim" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12" id="statusT1Msg"></div>
+                      </div>
+                    </div>
+
+                    <!-- 2º Trimestre -->
+                    <div class="col-12 p-3 bg-light rounded border">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-info text-dark">2º Trimestre Lectivo</span>
+                        <div class="form-check form-switch small mb-0">
+                          <input class="form-check-input" type="checkbox" id="prazoT2Sempre">
+                          <label class="form-check-label fw-semibold" for="prazoT2Sempre">Permitir sempre</label>
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data de Início</label>
+                          <input type="date" id="prazoT2Inicio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                          <input type="date" id="prazoT2Fim" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12" id="statusT2Msg"></div>
+                      </div>
+                    </div>
+
+                    <!-- 3º Trimestre -->
+                    <div class="col-12 p-3 bg-light rounded border">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-secondary">3º Trimestre Lectivo</span>
+                        <div class="form-check form-switch small mb-0">
+                          <input class="form-check-input" type="checkbox" id="prazoT3Sempre">
+                          <label class="form-check-label fw-semibold" for="prazoT3Sempre">Permitir sempre</label>
+                        </div>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data de Início</label>
+                          <input type="date" id="prazoT3Inicio" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label small fw-semibold">Data Limite (Fim)</label>
+                          <input type="date" id="prazoT3Fim" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-12" id="statusT3Msg"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 text-end">
+                  <button type="submit" class="btn btn-primary fw-semibold btn-sm">
+                    <i class="bi bi-save me-1"></i> Guardar Calendário de Prazos
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- CARD 2: JANELA DE AUTORIZAÇÃO / REDEFINIÇÃO DE PRAZO POR ATRASO -->
+          <div class="col-lg-6">
+            <div class="card p-4 h-100 shadow-sm border-0">
+              <h5 class="fw-bold mb-2 text-warning"><i class="bi bi-unlock-fill me-2"></i>Autorização / Redefinição de Prazo por Atraso</h5>
+              <p class="text-muted small mb-3">Conceda uma janela de autorização temporária ou prorrogação de prazo para que docentes em atraso possam submeter avaliações.</p>
+              
+              <form id="formAutorizarDesbloqueio" class="row g-3">
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Turma Alvo</label>
+                  <select id="desbloqueioTurma" class="form-select" required></select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Docente Titular (Opcional - Em branco para toda a turma)</label>
+                  <select id="desbloqueioProfessor" class="form-select">
+                    <option value="">(Todos os Docentes da Turma)</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold">Trimestre a Desbloquear</label>
+                  <select id="desbloqueioTrimestre" class="form-select">
+                    <option value="1_TRIMESTRE">1º Trimestre</option>
+                    <option value="2_TRIMESTRE">2º Trimestre</option>
+                    <option value="3_TRIMESTRE">3º Trimestre</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold">Prazo de Validade (Horas)</label>
+                  <input type="number" id="desbloqueioHoras" class="form-control" value="48" min="1" max="720" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Justificação Administrativa Oficial</label>
+                  <textarea id="desbloqueioMotivo" class="form-control" rows="3" placeholder="Ex: Despacho da Direcção Pedagógica autorizando rectificação / lançamento com atraso fundamentado..." required></textarea>
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-warning fw-semibold w-100"><i class="bi bi-check2-circle me-1"></i> Conceder Autorização de Desbloqueio</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- CARD 3: TABELA DE AUTORIZAÇÕES ACTIVAS -->
+          <div class="col-12">
+            <div class="card p-4 shadow-sm border-0">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-shield-check text-success me-2"></i>Autorizações de Desbloqueio em Vigor</h6>
+                <button class="btn btn-outline-secondary btn-sm" onclick="carregarAutorizacoesDesbloqueio()"><i class="bi bi-arrow-clockwise me-1"></i> Actualizar</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle small mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Turma</th>
+                      <th>Docente Autorizado</th>
+                      <th>Trimestre</th>
+                      <th>Concedido Por</th>
+                      <th>Data de Concessão</th>
+                      <th>Motivo / Validade</th>
+                      <th>Estado</th>
+                      <th class="text-end">Acção</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaAutorizacoesDesbloqueio">
+                    <tr><td colspan="8" class="text-center py-3 text-muted">A carregar autorizações activas...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      
+  </div>
+
+    </div>
+
+
+    <!-- SUBVIEW: Caderneta Pedagógica -->
+    <div id="view-caderneta" class="pedagogico-subview" style="display: none;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="cadernetaAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('caderneta')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="cadernetaConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+        <!-- Card de Navegação Sequencial: Classe -> Secção/Área -> Caderneta -->
+        <div class="card p-4 mb-3 no-print border-0 shadow-sm">
+          <!-- Cabeçalho com Título, Seletor de Professor (para Admins) e Botões de Exportação -->
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="bi bi-journal-bookmark-fill me-1"></i> Registo de Avaliações Oficiais</span>
+                <span id="cadernetaBadgePerfil" class="badge bg-light text-dark border">Caderneta Oficial MEC</span>
+              </div>
+              <h5 class="fw-bold text-dark mb-0"><i class="bi bi-book-half me-2 text-primary"></i>Caderneta Escolar & Mapa de Avaliação Contínua</h5>
+              <p class="text-muted small mb-0">Navegue sequencialmente: <strong>Classe</strong> &rarr; <strong>Secção / Área</strong> &rarr; <strong>Turma da Secção</strong></p>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <!-- Filtro de Professor visível APENAS para Admins / Direcção -->
+              <div id="wrapperFiltroProfessorCaderneta" style="display: none;">
+                <div class="input-group input-group-sm" style="width: 250px;">
+                  <span class="input-group-text bg-light text-muted small"><i class="bi bi-person-badge"></i></span>
+                  <select id="cadernetaFiltroProfessor" class="form-select form-select-sm" onchange="aoMudarFiltroProfessorCaderneta(this.value)">
+                    <option value="TODOS">Todos os Professores</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="modalSalvarNotaCaderneta()" title="Lançar notas de alunos">
+                <i class="bi bi-pencil-square me-1"></i> Lançar Avaliações
+              </button>
+              <button class="btn btn-outline-success btn-sm" onclick="exportarCadernetaExcel()" title="Descarregar ficheiro XLSX">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="descarregarCadernetaPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="imprimirCadernetaOficial()" title="Imprimir em A4 horizontal">
+                <i class="bi bi-printer"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra Unificada de Filtros Inteligentes da Caderneta (Sem excesso de botões) -->
+          <div class="p-3 bg-light rounded-3 border mb-3">
+            <div class="row g-2 align-items-end">
+              <!-- Filtro 1: Classe -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i> 1. Classe / Grau:</span>
+                  <span id="contagemClassesCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaClasse" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectClasseCaderneta(this.value)">
+                  <!-- Opções de Classes geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 2: Secção / Área -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-diagram-2-fill me-1" style="color: #7c3aed;"></i> 2. Secção / Área:</span>
+                  <span id="contagemAreasCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaArea" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAreaCaderneta(this.value)">
+                  <!-- Opções de Áreas geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 3: Turma da Secção (Caderneta) -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1 d-flex justify-content-between">
+                  <span><i class="bi bi-collection-fill me-1 text-success"></i> 3. Turma da Secção:</span>
+                  <span id="contagemTurmasCaderneta" class="text-muted fw-normal" style="font-size: 0.72rem;"></span>
+                </label>
+                <select id="selectCadernetaAlocacao" class="form-select form-select-sm fw-semibold bg-white shadow-sm" onchange="aoMudarSelectAlocacaoCaderneta(this.value)">
+                  <!-- Opções de Turmas / Cadernetas geradas via JS -->
+                </select>
+              </div>
+
+              <!-- Filtro 4: Trimestre -->
+              <div class="col-lg-3 col-md-6">
+                <label class="form-label small fw-bold text-muted mb-1">
+                  <i class="bi bi-calendar3 me-1 text-secondary"></i> 4. Trimestre:
+                </label>
+                <select id="cadernetaPeriodoSelect" class="form-select form-select-sm bg-white fw-semibold shadow-sm" onchange="destacarTrimestreTabelaCaderneta(this.value)">
+                  <option value="TODOS">Todos os 3 Trimestres</option>
+                  <option value="1_TRIMESTRE">1º Trimestre</option>
+                  <option value="2_TRIMESTRE">2º Trimestre</option>
+                  <option value="3_TRIMESTRE">3º Trimestre</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Botoes de turmas removidos: navegacao feita pelos 4 dropdowns de filtro -->
+          </div>
+
+          <!-- Barra de Pesquisa Rápida na Caderneta Aberta -->
+          <div class="row g-2 align-items-center pt-1 border-top">
+            <div class="col-md-7">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text py-1 px-2 bg-white"><i class="bi bi-search"></i></span>
+                <input type="search" id="cadernetaPesquisaAluno" class="form-control" placeholder="Pesquisar aluno por nome ou número nesta caderneta..." oninput="filtrarAlunosCaderneta()">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('cadernetaPesquisaAluno').value=''; filtrarAlunosCaderneta();">&times;</button>
+              </div>
+            </div>
+            <div class="col-md-5 text-end">
+              <!-- Selectors e containers ocultos para retrocompatibilidade com scripts legados -->
+              <div id="containerCadernetaClasses" style="display: none;"></div>
+              <div id="seccaoAreasCaderneta" style="display: none;"><div id="containerCadernetaAreas"></div><span id="cadernetaNomeClasseSelecionada"></span></div>
+              <div id="seccaoCadernetasDisponiveis" style="display: none;"><div id="containerCadernetasBotoes"></div><span id="cadernetaNomeAreaSelecionada"></span></div>
+              <select id="cadernetaAlocacaoSelect" style="display: none;"></select>
+              <select id="cadernetaClasseFilter" style="display: none;"></select>
+              <small class="text-muted fw-semibold" id="cadernetaInfoResumo"></small>
+            </div>
+          </div>
+
+          <!-- Aviso de Bloqueio do Trimestre -->
+          <div id="avisoTrimestreBloqueado" class="alert alert-warning mt-3 mb-0 d-none" role="alert">
+            <i class="bi bi-lock-fill me-2"></i>
+            <strong>Trimestre Encerrado:</strong> Este trimestre lectivo encontra-se fechado para edição directa. Contacte a Direcção da Escola ou DAP para solicitar autorização de desbloqueio.
+          </div>
+        </div>
+
+        <div class="card p-4 printable-document" id="cadernetaPrintContainer">
+          <!-- Cabeçalho Institucional Oficial (Imagem 2) -->
+          <div class="border p-3 rounded mb-3 bg-white" id="cadernetaCabecalhoOficial">
+            <div class="text-center mb-3">
+              <h6 class="fw-bold mb-0 text-uppercase" id="cadHeaderEscola">REPÚBLICA DE MOÇAMBIQUE</h6>
+              <small class="text-muted d-block" id="cadHeaderSub">PROVÍNCIA DE MAPUTO | DISTRITO DE CIDADE DE MAPUTO</small>
+              <h5 class="fw-bold text-primary mt-1 mb-0">Mapa de Registo de Avaliações — <span id="cadHeaderAno">2026</span></h5>
+            </div>
+            <div class="row g-2 text-center" style="font-size: 0.8rem;">
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Disciplina Lecionada</span>
+                  <strong id="cadBoxDisciplina" class="text-primary">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Nome do Professor</span>
+                  <strong id="cadBoxProfessor">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Contacto(s) do Prof.</span>
+                  <strong id="cadBoxContacto">-</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Área de Formação</span>
+                  <strong id="cadBoxArea">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Turma & Director de Turma</span>
+                  <strong id="cadBoxTurmaDirector">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Classe & Turno</span>
+                  <strong id="cadBoxClasseTurno">-</strong>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                  <span class="d-block text-muted small fw-semibold">Efectivo de Alunos</span>
+                  <strong id="cadBoxEfectivo" class="text-success">H: 0 | M: 0 | Total: 0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela Completa da Caderneta com 3 Trimestres e Estatísticas por Coluna (Imagem 2) -->
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle text-center small caderneta-tabela" style="min-width: 1300px;">
+              <thead class="table-light">
+                <tr>
+                  <th rowspan="2" class="align-middle" style="width: 35px;">Nº</th>
+                  <th rowspan="2" class="align-middle text-start" style="min-width: 140px;">Nome do Aluno</th>
+                  <th rowspan="2" class="align-middle text-start" style="min-width: 80px;">Apelido</th>
+                  <th rowspan="2" class="align-middle" style="width: 35px;">Gên</th>
+                  <th colspan="9" class="bg-primary bg-opacity-10 text-primary fw-bold">1º TRIMESTRE</th>
+                  <th colspan="9" class="bg-info bg-opacity-10 text-info fw-bold">2º TRIMESTRE</th>
+                  <th colspan="9" class="bg-warning bg-opacity-10 text-dark fw-bold">3º TRIMESTRE</th>
+                  <th rowspan="2" class="align-middle bg-success bg-opacity-10 text-success fw-bold" style="width: 55px;">MFD</th>
+                </tr>
+                <tr>
+                  <!-- 1º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAS</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                  <!-- 2º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAS</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                  <!-- 3º Trimestre -->
+                  <th style="font-size: 0.68rem;">1ª ACS</th>
+                  <th style="font-size: 0.68rem;">2ª ACS</th>
+                  <th style="font-size: 0.68rem;">3ª ACS</th>
+                  <th style="font-size: 0.68rem;">MAP</th>
+                  <th style="font-size: 0.68rem;">MAS</th>
+                  <th style="font-size: 0.68rem;">AT</th>
+                  <th style="font-size: 0.68rem;" class="bg-light fw-bold">MT</th>
+                  <th style="font-size: 0.68rem;">COM</th>
+                  <th style="font-size: 0.68rem;">Obs</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaCadernetaCorpo">`n                <tr><td colspan="32" class="text-center py-5 text-muted"><i class="bi bi-calendar2-check display-4 d-block mb-3 opacity-50"></i><p class="fw-semibold">Selecione o <strong>Ano Lectivo</strong> e clique em <strong>Buscar</strong> para visualizar a Caderneta Oficial.</p></td></tr>`n              </tbody>
+              <tfoot id="tabelaCadernetaRodape" class="table-light fw-semibold" style="font-size: 0.72rem;">
+                <!-- Linhas calculadas dinamicamente com estatística por coluna -->
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      
+  </div>
+
+    </div>
+
+
+    <!-- SUBVIEW: Pautas & Actas Oficiais -->
+    <div id="view-pautas" class="pedagogico-subview" style="display: none;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="pautaAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('pautas')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="pautasConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+        <!-- Barra Superior de Controlo e Navegação entre Pauta e Acta -->
+        <div class="card p-4 mb-4 no-print">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+              <div>
+                <label class="form-label small fw-semibold mb-1">Classe</label>
+                <select id="pautaClasseFilter" class="form-select form-select-sm" style="min-width: 130px;" onchange="filtrarTurmasPautaPorClasse()">
+                  <option value="">Todas as Classes / Níveis</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">Turma</label>
+                <select id="pautaTurmaSelect" class="form-select form-select-sm" style="min-width: 230px;" onchange="alternarVisualizacaoPautaTurma()">
+                  <option value="">A carregar turmas...</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="form-label small fw-semibold mb-1">Orientação da Página</label>
+                <div class="input-group input-group-sm">
+                  <select id="pautaOrientacaoSelect" class="form-select form-select-sm" style="min-width: 145px;" onchange="aoMudarOrientacaoPauta(this.value)">
+                    <option value="landscape" selected>Horizontal (Oficial Pauta)</option>
+                    <option value="portrait">Vertical (Retrato A4)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-primary active" id="btnAbaPauta" onclick="mudarSubAbaPauta('pauta')">
+                  <i class="bi bi-table me-1"></i> Pauta Geral da Turma
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnAbaActa" onclick="mudarSubAbaPauta('acta')">
+                  <i class="bi bi-journal-text me-1"></i> Acta do Conselho de Avaliação
+                </button>
+              </div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="modalGerarPauta()">
+                <i class="bi bi-plus-circle me-1"></i> Consolidar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-ABA 1: PAUTA GERAL DA TURMA (TODAS AS DISCIPLINAS LADO A LADO) (Imagem 3) -->
+        <div id="subViewPautaGeral" class="card p-4 printable-document">
+          <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+            <div>
+              <h5 class="fw-bold mb-0" id="pautaGeralTitulo">Pauta Oficial de Aproveitamento Pedagógico</h5>
+              <small class="text-muted" id="pautaGeralSubtitulo">Ano Lectivo: 2026 | Critério Oficial MEC Aplicado</small>
+            </div>
+            <div class="d-flex gap-2 no-print">
+              <button class="btn btn-success btn-sm" onclick="exportarPautaGeralExcel()" title="Descarregar ficheiro XLSX (Excel)">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="descarregarPautaGeralPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="imprimirPautaGeralOficial()" title="Imprimir em A4 horizontal">
+                <i class="bi bi-printer me-1"></i> Imprimir
+              </button>
+            </div>
+          </div>
+
+          <!-- Grelha da Pauta Geral renderizada dinamicamente -->
+          <div class="table-responsive" id="containerTabelaPautaGeral">
+            <p class="text-center py-4 text-muted">Selecione uma turma acima para gerar a pauta geral.</p>
+          </div>
+        </div>
+
+        <!-- SUB-ABA 2: ACTA DO CONSELHO DE AVALIAÇÃO / ESTATÍSTICA DA TURMA (Imagem 1) -->
+        <div id="subViewActaConselho" class="card p-5 printable-document d-none" style="background: #fff;">
+          <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+            <div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="modalConfigurarSessaoActa()">
+                <i class="bi bi-sliders me-1"></i> Configurar Dados da Sessão do Conselho
+              </button>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-success btn-sm" onclick="exportarActaConselhoExcel()" title="Descarregar ficheiro XLSX (Excel)">
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="descarregarActaConselhoPdf()" title="Descarregar documento em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="imprimirActaConselhoOficial()" title="Imprimir em A4 horizontal">
+                <i class="bi bi-printer me-1"></i> Imprimir
+              </button>
+            </div>
+          </div>
+
+          <!-- Conteúdo da Acta renderizado fielmente à Imagem 1 -->
+          <div id="containerActaConselhoCorpo">
+            <p class="text-center py-4 text-muted">Selecione uma turma acima para gerar a acta do conselho.</p>
+          </div>
+        </div>
+      
+  </div>
+
+    </div>
+
+
+    <!-- SUBVIEW: Exames -->
+    <div id="view-exames" class="pedagogico-subview" style="display: none;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como a imagem) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="exameAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarExamesPorAno()">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo de Exames: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="exameConteudoDinamico" class="d-none">
+    <div class="card p-4 mb-4 no-print border-0 shadow-sm">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div>
+            <label class="form-label small fw-bold text-muted mb-1">
+              <i class="bi bi-layers-fill text-primary me-1"></i>Classe / Nível (com Exame)
+            </label>
+            <select id="exameClasseFilter" class="form-select form-select-sm" style="min-width: 180px;" onchange="filtrarTurmasExamesPorClasse()">
+              <option value="">A carregar classes com exame...</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label small fw-bold text-muted mb-1">
+              <i class="bi bi-diagram-3-fill text-warning me-1"></i>Turma de Exame
+            </label>
+            <select id="exameTurmaSelect" class="form-select form-select-sm" style="min-width: 240px;" onchange="carregarPautaExamesTurma()">
+              <option value="">Selecione uma turma com exame...</option>
+            </select>
+          </div>
+        </div>
+
+      <!-- Botões de Ação -->
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm px-3" onclick="abrirModalFormularioLancamentoExame()" id="btnFormularioLancamentoExame" title="Lançar notas de exame através de formulário individual por aluno">
+          <i class="bi bi-pencil-square me-1"></i> Lançar as notas de Exame
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm px-3" onclick="abrirModalProfessoresExame()" id="btnProfessoresExame" title="Indicar permissões de lançamento de notas de exame (DAP, Alguns Professores ou Todos)">
+          <i class="bi bi-person-check-fill me-1"></i> Autorizar Professores
+        </button>
+        <button type="button" class="btn btn-warning btn-sm fw-bold shadow-sm text-dark px-3" onclick="abrirModalParametrosExame()" id="btnParametrosExame" title="Configurar percentagem de frequência, percentagem de exame e nota mínima">
+          <i class="bi bi-sliders2-vertical me-1"></i> Parâmetros do Exame
+        </button>
+        <button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" onclick="salvarNotasExame()" id="btnSalvarNotasExame" title="Guardar alterações das notas de exame na base de dados">
+          <i class="bi bi-floppy-fill me-1"></i> Guardar Notas de Exame
+        </button>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-success" onclick="exportarPautaExamesExcel()" title="Descarregar ficheiro XLSX (Excel) idêntico ao modelo oficial">
+            <i class="bi bi-file-earmark-excel me-1"></i> Excel (.xlsx)
+          </button>
+          <button type="button" class="btn btn-danger" onclick="descarregarPautaExamesPdf()" title="Descarregar documento em PDF oficial em formato Paisagem">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF (.pdf)
+          </button>
+          <button type="button" class="btn btn-dark" onclick="imprimirPautaExames()" title="Imprimir pauta de exames em folha horizontal (Landscape)">
+            <i class="bi bi-printer me-1"></i> Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerta Informativo e Guardrail Pedagógico -->
+    <div class="mt-3 pt-3 border-top d-flex flex-wrap align-items-center justify-content-between small text-muted gap-2">
+      <div>
+        <i class="bi bi-shield-check text-success me-1"></i>
+        <span><strong>Regime Oficial de Exames:</strong> As disciplinas e médias de frequência (proveniência) são extraídas diretamente das pautas de frequência dos 3 trimestres. As notas finais alimentam automaticamente os Certificados de Habilitações e Declarações Escolares.</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-light text-primary border fw-semibold px-2 py-1" id="badgeParametrosAtivos">Freq: 50% | Exame: 50% | Mín: 10.0</span>
+        <span class="badge bg-warning text-dark fw-bold px-2 py-1" id="badgeTotalCandidatosExame">0 Candidatos</span>
+      </div>
+    </div>
+  </div>
+
+
+ <!-- Modal de Parâmetros de Avaliação de Exame -->
+  <div class="modal fade" id="modalParametrosExame" tabindex="-1" aria-labelledby="modalParametrosExameLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow border-0">
+        <div class="modal-header bg-primary text-white">
+          <h6 class="modal-title fw-bold" id="modalParametrosExameLabel">
+            <i class="bi bi-sliders me-2"></i>Parâmetros de Avaliação de Exame
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            <i class="bi bi-info-circle-fill me-1"></i>
+            A <strong>Média Final</strong> da disciplina com exame será calculada pela soma ponderada:
+            <div class="fw-bold mt-1 text-dark text-center font-monospace">
+              Média Final = (Freq × %Freq) + (Nota Exame × %Exame)
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                % Nota de Frequência
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inputParamPesoFreq" class="form-control" min="0" max="100" step="1" value="50" oninput="aoMudarPesoFrequencia(this.value)">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-bold text-dark mb-1">
+                % Nota de Exame
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inputParamPesoExame" class="form-control" min="0" max="100" step="1" value="50" oninput="aoMudarPesoExame(this.value)">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-dark mb-1">
+              Nota Mínima do Exame (Aprovação Direta)
+            </label>
+            <div class="input-group input-group-sm">
+              <input type="number" id="inputParamNotaMinima" class="form-control" min="0" max="20" step="0.5" value="10.0">
+              <span class="input-group-text">Valores (Máx. 20)</span>
+            </div>
+            <div class="form-text small text-muted mt-1">
+              <i class="bi bi-check2-circle text-success me-1"></i>
+              Se a nota da <strong>1ª Época</strong> for igual ou superior à nota mínima, o aluno é <strong>Aprovado</strong> no exame. Caso contrário, o aluno pode e tem direito a realizar a <strong>2ª Época</strong>.
+            </div>
+          </div>
+
+          <div id="alertaSomaPesos" class="alert alert-warning py-1 px-2 small d-none">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            A soma das percentagens de Frequência e Exame deve totalizar rigorosamente 100%.
+          </div>
+        </div>
+        <div class="modal-footer bg-light p-3 d-flex justify-content-between align-items-center">
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="reporParametrosExamePadraoMEC()" title="Restaurar Padrão Oficial MEC (50% / 50% / 10.0 val)">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Padrão MEC
+          </button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="salvarParametrosExame()">
+              <i class="bi bi-check-lg me-1"></i> Guardar Parâmetros
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Card da Pauta de Exames (Imprimível em Landscape) -->
+  <div id="subViewPautaExames" class="card p-4 printable-document shadow-sm border-0" style="background: #ffffff; min-height: 500px;">
+    <!-- Cabeçalho Oficial Idêntico ao Modelo Moçambicano -->
+    <div id="pautaExameCabecalhoOficial" class="text-center mb-3 p-3 bg-white rounded border shadow-sm">
+      <div class="d-flex justify-content-center mb-1">
+        <img id="pautaExameLogoImg" src="/img/emblema-mocambique.png" alt="Emblema Nacional" style="width: 52px; height: 52px; object-fit: contain;" onerror="this.onerror=null; this.src='/img/logo-sige.png';">
+      </div>
+      <h6 class="fw-bold mb-0 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.95rem;">REPÚBLICA DE MOÇAMBIQUE</h6>
+      <div class="small fw-bold text-dark text-uppercase mt-1" style="font-size: 0.82rem; letter-spacing: 0.8px;">
+        MINISTÉRIO DA EDUCAÇÃO E CULTURA
+      </div>
+      <div class="small text-secondary fw-semibold text-uppercase mt-1" id="pautaExameProvDistLinha" style="font-size: 0.82rem;">
+        PROVÍNCIA DE <span id="pautaExameProvincia" class="fw-bold text-dark">INHAMBANE</span> &nbsp;|&nbsp; 
+        DISTRITO DE <span id="pautaExameDistrito" class="fw-bold text-dark">MASSINGA</span>
+      </div>
+      <div class="x-small text-muted text-uppercase" id="pautaExameSDEJT" style="font-size: 0.75rem;">
+        SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA
+      </div>
+      <h5 class="fw-bold mb-1 text-uppercase text-primary mt-2" id="pautaExameEscolaNome" style="font-size: 1.25rem; letter-spacing: 0.5px;">ESCOLA SECUNDÁRIA DE MASSINGA</h5>
+      
+      <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 px-3 py-2 bg-light rounded border">
+        <span class="fw-bold text-dark small" id="pautaExameClasseArea">Classe / Área ou Secção: 10ª Classe</span>
+        <h6 class="fw-bold text-primary mb-0" id="pautaExameTituloAno" style="letter-spacing: 0.5px;">PAUTA DE EXAMES / Ano 2026</h6>
+        <span class="badge bg-primary px-3 py-2" id="pautaExameTurmaBadge">Turma: 10ª A</span>
+      </div>
+    </div>
+
+    <!-- Aviso de Permissão de Lançamento (quando em modo apenas leitura) -->
+    <div id="avisoBloqueioLancamentoExame" class="alert alert-warning py-2 px-3 small d-none mb-3 shadow-sm border-warning align-items-center">
+      <i class="bi bi-shield-lock-fill text-warning fs-5 me-2"></i>
+      <div>
+        <strong>Modo de Apenas Leitura:</strong> <span id="textoBloqueioLancamentoExame">O lançamento das notas de exame nesta classe está reservado ao Director Pedagógico ou professores autorizados por ele.</span>
+      </div>
+    </div>
+
+    <!-- Tabela Dinâmica da Pauta de Exames -->
+    <div class="table-responsive" id="containerTabelaPautaExames">
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-mortarboard fs-1 text-secondary opacity-50 d-block mb-2"></i>
+        <p class="mb-0">Selecione uma turma com regime de exame para visualizar e lançar notas de exame.</p>
+      </div>
+    </div>
+
+    <!-- Resumo Estatístico e Assinaturas no Rodapé -->
+    <div id="pautaExameRodapeOficial" class="mt-4 pt-3 border-top d-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 p-2 bg-light rounded small" id="pautaExameEstatisticasBox">
+        <!-- Inserido dinamicamente -->
+      </div>
+
+      <div class="row text-center mt-4 pt-3">
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director de Turma</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDT">Director de Turma</p>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director Pedagógico (DAP)</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDAP">Direcção Pedagógica</p>
+        </div>
+        <div class="col-4">
+          <p class="mb-0 text-muted small">O Director da Escola</p>
+          <div class="mt-4 border-top border-dark mx-auto" style="max-width: 200px;"></div>
+          <p class="fw-bold small mb-0 mt-1" id="pautaExameAssinaturaDir">Director da Escola</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Modal de Permissões de Lançamento de Notas de Exame -->
+  <div class="modal fade" id="modalProfessoresExame" tabindex="-1" aria-labelledby="modalProfessoresExameLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content shadow border-0">
+        <div class="modal-header bg-primary text-white">
+          <h6 class="modal-title fw-bold" id="modalProfessoresExameLabel">
+            <i class="bi bi-person-check-fill me-2"></i>Permissões para Lançar Notas de Exame
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <!-- 3 Possibilidades de Regime de Permissão -->
+          <div class="card p-3 mb-3 border shadow-none bg-light">
+            <label class="form-label small fw-bold text-dark mb-2">
+              <i class="bi bi-shield-check text-primary me-1"></i>Definir quem pode lançar as notas de exame na instituição:
+            </label>
+            <div class="row g-2">
+              <!-- Opção 1: Apenas o Director Pedagógico -->
+              <div class="col-md-4">
+                <div class="card h-100 p-2 border modo-perm-card" id="cardModoApenasDap" style="cursor: pointer;" onclick="selecionarModoPermissaoExame('APENAS_DAP')">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="radioModoPermissaoExame" id="radioModoApenasDap" value="APENAS_DAP">
+                    <label class="form-check-label small fw-bold text-dark cursor-pointer" for="radioModoApenasDap">
+                      <i class="bi bi-person-lock text-danger me-1"></i>Apenas o DAP
+                    </label>
+                  </div>
+                  <div class="text-muted mt-1" style="font-size: 0.73rem; line-height: 1.2;">
+                    Exclusivo do Director Pedagógico e Administração. Professores em modo apenas leitura.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Opção 2: Alguns Professores (Indicados por Classe) -->
+              <div class="col-md-4">
+                <div class="card h-100 p-2 border border-primary bg-primary bg-opacity-10 modo-perm-card" id="cardModoAlgunsProfessores" style="cursor: pointer;" onclick="selecionarModoPermissaoExame('ALGUNS_PROFESSORES')">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="radioModoPermissaoExame" id="radioModoAlgunsProfessores" value="ALGUNS_PROFESSORES" checked>
+                    <label class="form-check-label small fw-bold text-primary cursor-pointer" for="radioModoAlgunsProfessores">
+                      <i class="bi bi-people-fill me-1"></i>Alguns Professores
+                    </label>
+                  </div>
+                  <div class="text-muted mt-1" style="font-size: 0.73rem; line-height: 1.2;">
+                    O DAP indica quais professores podem lançar notas e em quais classes com exame.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Opção 3: Todos os Professores -->
+              <div class="col-md-4">
+                <div class="card h-100 p-2 border modo-perm-card" id="cardModoTodosProfessores" style="cursor: pointer;" onclick="selecionarModoPermissaoExame('TODOS_PROFESSORES')">
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="radioModoPermissaoExame" id="radioModoTodosProfessores" value="TODOS_PROFESSORES">
+                    <label class="form-check-label small fw-bold text-dark cursor-pointer" for="radioModoTodosProfessores">
+                      <i class="bi bi-check-all text-success me-1"></i>Todos os Professores
+                    </label>
+                  </div>
+                  <div class="text-muted mt-1" style="font-size: 0.73rem; line-height: 1.2;">
+                    Todos os professores ativos podem lançar notas de exame em qualquer turma com exame.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensagem Explicativa para Modos sem Matriz -->
+          <div id="avisoModoPermissaoSelecionado" class="alert alert-info py-2 px-3 small d-none mb-3">
+            <i class="bi bi-info-circle-fill me-1"></i>
+            <span id="textoModoPermissaoSelecionado"></span>
+          </div>
+
+          <!-- Content da Matriz (Visível apenas quando 'ALGUNS_PROFESSORES' está ativo) -->
+          <div id="containerMatrizProfessoresClasses">
+            <!-- Abas de Gestão de Permissões: Por Grupo de Disciplina vs Matriz por Professor -->
+            <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-primary fw-bold" id="btnAbaGrupoDisciplina" onclick="alternarAbaPermissoesExame('disciplina')">
+                  <i class="bi bi-folder-check me-1"></i>Por Grupo de Disciplina (Parcial)
+                </button>
+                <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnAbaPorProfessor" onclick="alternarAbaPermissoesExame('professor')">
+                  <i class="bi bi-person-lines-fill me-1"></i>Matriz Geral por Professor
+                </button>
+              </div>
+              <div class="small text-muted" id="modalExameBadgesClassesWrapper">
+                <span class="fw-semibold text-dark me-1">Classes com Exame:</span>
+                <span id="modalExameBadgesClasses" class="d-inline-flex flex-wrap gap-1"></span>
+              </div>
+            </div>
+
+            <!-- PAINEL 1: POR GRUPO DE DISCIPLINA (Foco: num grupo de professores de uma certa disciplina, quem ou quais devem lançar) -->
+            <div id="painelPermissaoGrupoDisciplina">
+              <div class="alert alert-light border small text-muted mb-3 py-2 d-flex align-items-center">
+                <i class="bi bi-info-circle-fill text-primary fs-5 me-2 flex-shrink-0"></i>
+                <div>
+                  <strong>Delegação Parcial por Disciplina:</strong> Selecione a disciplina com exame abaixo para definir, no respectivo <strong>grupo de professores dessa disciplina</strong>, quem ou quais professores estão autorizados a lançar notas de exame e em quais classes.
+                </div>
+              </div>
+
+              <!-- Seletor em Pills de Disciplinas com Exame -->
+              <div class="mb-3">
+                <label class="form-label small fw-bold text-dark mb-1">
+                  <i class="bi bi-journal-bookmark-fill text-primary me-1"></i>Disciplinas com Exame na Instituição:
+                </label>
+                <div class="d-flex flex-wrap gap-1 p-2 bg-light border rounded" id="containerBotoesDisciplinasExame">
+                  <div class="spinner-border spinner-border-sm text-primary my-1" role="status"></div>
+                </div>
+              </div>
+
+              <!-- Caixa do Grupo de Disciplina Ativo -->
+              <div class="card border shadow-none bg-white mb-3" id="cardGrupoDisciplinaAtiva">
+                <div class="card-header bg-light py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary fs-6 px-2 py-1" id="badgeNomeDisciplinaAtiva">Matemática</span>
+                    <span class="badge bg-secondary small" id="badgeClassesDisciplinaAtiva">10ª Classe, 12ª Classe</span>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="marcarTodosProfessoresGrupoAtivo(true)">
+                      <i class="bi bi-check-all me-1"></i>Autorizar Todos do Grupo
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="marcarTodosProfessoresGrupoAtivo(false)">
+                      <i class="bi bi-x me-1"></i>Revogar Todos do Grupo
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div class="table-responsive" style="max-height: 290px;">
+                    <table class="table table-hover table-sm align-middle mb-0 text-center" id="tabelaGrupoDisciplinaAtiva">
+                      <thead class="table-light sticky-top">
+                        <tr>
+                          <th class="text-start ps-3" style="min-width: 180px;">Professor do Grupo</th>
+                          <th style="min-width: 110px;">Especialidade</th>
+                          <th style="min-width: 120px;">Autorização</th>
+                          <th style="min-width: 150px;">Classes Autorizadas</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbodyGrupoDisciplinaAtiva">
+                        <!-- Inserido dinamicamente -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <!-- Rodapé para adicionar outro professor que não pertença primariamente a este grupo -->
+                <div class="card-footer bg-light py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 480px;">
+                    <label class="small text-muted text-nowrap mb-0"><i class="bi bi-person-plus-fill text-success me-1"></i>Incluir outro docente neste grupo:</label>
+                    <select class="form-select form-select-sm" id="selectAdicionarDocenteGrupo">
+                      <option value="">Selecionar professor da instituição...</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-success text-nowrap" onclick="adicionarProfessorAoGrupoAtivo()">
+                      Adicionar
+                    </button>
+                  </div>
+                  <div class="small text-muted" id="contadorGrupoDisciplinaInfo">
+                    0 autorizados nesta disciplina
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PAINEL 2: MATRIZ GERAL POR PROFESSOR -->
+            <div id="painelPermissaoPorProfessor" class="d-none">
+              <!-- Barra de Pesquisa de Professores e Ações Rápidas -->
+              <div class="row g-2 align-items-center mb-3">
+                <div class="col">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="filtroProfessoresExameInput" class="form-control" placeholder="Filtrar professor por nome, código ou especialidade..." oninput="filtrarTabelaProfessoresExame()">
+                  </div>
+                </div>
+                <div class="col-auto">
+                  <button type="button" class="btn btn-outline-primary btn-sm" onclick="marcarTodosProfessoresTodasClasses(true)" title="Autorizar todos os professores em todas as classes com exame">
+                    <i class="bi bi-check-all me-1"></i> Autorizar Todos
+                  </button>
+                  <button type="button" class="btn btn-outline-danger btn-sm ms-1" onclick="marcarTodosProfessoresTodasClasses(false)" title="Revogar autorizações de todos os professores">
+                    <i class="bi bi-x me-1"></i> Revogar Todos
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tabela de Atribuição de Professores x Classes e Disciplinas -->
+              <div class="table-responsive border rounded" style="max-height: 340px;">
+                <table class="table table-hover table-sm align-middle mb-0 text-center" id="tabelaProfessoresExameModal">
+                  <thead class="table-light sticky-top">
+                    <tr id="theadProfessoresExameRow">
+                      <th class="text-start ps-3" style="min-width: 170px;">Professor</th>
+                      <th style="min-width: 110px;">Especialidade</th>
+                      <th style="min-width: 180px;">Disciplinas Autorizadas</th>
+                      <!-- Colunas Dinâmicas de Classes -->
+                      <th style="min-width: 90px;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyProfessoresExameModal">
+                    <tr>
+                      <td colspan="5" class="py-4 text-center text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        A carregar lista de professores e classes com exame...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Resumo e Contadores Globais -->
+            <div class="small text-muted mt-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <span id="contadorProfessoresAutorizadosInfo">0 professor(es) autorizado(s)</span>
+              <span id="resumoDisciplinasDelegadasInfo" class="badge bg-light text-primary border">Carregando...</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light p-3">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle me-1"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="salvarProfessoresAutorizadosExame()" id="btnSalvarProfessoresExame">
+            <i class="bi bi-floppy-fill me-1"></i> Guardar Permissões
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Lançamento de Notas de Exame via Formulário Individual -->
+  <div class="modal fade" id="modalFormularioLancamentoExame" tabindex="-1" aria-labelledby="modalFormularioLancamentoExameLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content shadow border-0">
+        <div class="modal-header bg-success text-white">
+          <h6 class="modal-title fw-bold" id="modalFormularioLancamentoExameLabel">
+            <i class="bi bi-pencil-square me-2"></i>Lançar Notas de Exame (Formulário do Candidato)
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4">
+          <!-- Filtro / Pesquisa e Seleção de Aluno -->
+          <div class="row g-2 align-items-center mb-3 pb-3 border-bottom">
+            <div class="col-md-5">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-search text-primary me-1"></i>Pesquisar Aluno / Candidato:
+              </label>
+              <input type="text" id="formExameAlunoSearch" class="form-control form-control-sm" placeholder="Digite nome ou nº de matrícula..." oninput="filtrarAlunosFormularioExame(this.value)">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-bold text-muted mb-1">
+                <i class="bi bi-person-fill text-success me-1"></i>Selecionar Candidato:
+              </label>
+              <select id="formExameAlunoSelect" class="form-select form-select-sm" onchange="selecionarAlunoFormularioExame(this.value)">
+                <option value="">A carregar alunos...</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end justify-content-end gap-1">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navegarAlunoFormularioExame(-1)" title="Aluno Anterior">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navegarAlunoFormularioExame(1)" title="Próximo Aluno">
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Ficha Resumo do Aluno Selecionado -->
+          <div id="formExameAlunoCard" class="card bg-light border-0 p-3 mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style="width: 44px; height: 44px; font-size: 1.05rem;" id="formExameAlunoIniciais">
+                  AL
+                </div>
+                <div>
+                  <h6 class="mb-0 fw-bold text-dark" id="formExameAlunoNome">Nome do Aluno</h6>
+                  <span class="text-muted small">Nº: <strong id="formExameAlunoNumero">1</strong> &nbsp;|&nbsp; Candidato: <strong id="formExameAlunoCandidato" class="font-monospace">--</strong> &nbsp;|&nbsp; Turma: <strong id="formExameAlunoTurma">--</strong></span>
+                </div>
+              </div>
+              <div class="text-end">
+                <span class="small text-muted d-block">Resultado Geral:</span>
+                <span id="formExameAlunoResultadoGeral" class="fw-bold fs-6">Pendente</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulário das Disciplinas com Exame -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="small fw-bold text-dark">
+                <i class="bi bi-journal-bookmark-fill text-primary me-1"></i>Disciplinas com Exame (0 a 20 | Inteiros ou até 2 decimais):
+              </span>
+              <span class="badge bg-light text-dark border small" id="formExameParametrosBadge">Freq: 50% | Exame: 50% | Mín: 10</span>
+            </div>
+            <div id="formExameDisciplinasContainer" class="d-flex flex-column gap-2">
+              <!-- Inserido dinamicamente -->
+            </div>
+          </div>
+
+          <!-- Guardrail Informativo -->
+          <div class="alert alert-light border small text-muted mb-0 py-2">
+            <i class="bi bi-info-circle text-primary me-1"></i>
+            <strong>Cálculo Automático:</strong> Média = (Freq × %Freq) + (Nota Exame × %Exame), arredondada para o número inteiro mais próximo. Se o aluno não tiver nota de exame lançada (1ª ou 2ª época), a média da disciplina é 0. O resultado é <strong>Aprovado</strong> (a preto) se todas as disciplinas forem positivas e a Média Final for &ge; 9.5; caso contrário, é <strong>Reprovado</strong> (a vermelho).
+          </div>
+        </div>
+        <div class="modal-footer bg-light p-3 d-flex justify-content-between align-items-center">
+          <div>
+            <span class="text-muted small" id="formExamePosicaoAlunoInfo">Candidato 1 de 1</span>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle me-1"></i> Fechar
+            </button>
+            <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="salvarNotasFormularioExame(false)" id="btnSalvarFormExame">
+              <i class="bi bi-floppy-fill me-1"></i> Guardar Notas
+            </button>
+            <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" onclick="salvarNotasFormularioExame(true)" id="btnSalvarEProximoFormExame">
+              <i class="bi bi-arrow-right-circle me-1"></i> Guardar e Próximo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+    </div>
+
+
+    <!-- SUBVIEW: Estatística de Aproveitamento -->
+    <div id="view-estatisticas-aproveitamento" class="pedagogico-subview" style="display: none;">
+
+  <!-- Barra Superior: Apenas o Seletor de Ano Lectivo com Buscar (Exatamente como em Exames) -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="statAnoFiltro" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('estatisticas-aproveitamento')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Completo: Ocultado inicialmente até escolher o ano e clicar em Buscar -->
+  <div id="estatisticasAproveitamentoConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+        <div class="card p-4 no-print mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+              <h5 class="fw-bold mb-1"><i class="bi bi-bar-chart-line-fill text-success me-2"></i>Estatística do Aproveitamento Pedagógico Escolar</h5>
+              <p class="text-muted small mb-0">Monitoramento oficial do rendimento escolar por Turma, por Classe (7ª a 12ª), Geral da Escola e por Disciplina.</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              
+              <div>
+                <label class="form-label very-small text-muted mb-0">Período / Trimestre</label>
+                <select id="statPeriodoFiltro" class="form-select form-select-sm" onchange="carregarEstatisticasAproveitamento()">
+                  <option value="GLOBAL" selected>Anual / Global (MFD)</option>
+                  <option value="T1">1º Trimestre</option>
+                  <option value="T2">2º Trimestre</option>
+                  <option value="T3">3º Trimestre</option>
+                </select>
+              </div>
+              <div class="d-flex gap-1 align-self-end">
+                <button class="btn btn-outline-primary btn-sm" onclick="carregarEstatisticasAproveitamento(true)" title="Atualizar dados">
+                  <i class="bi bi-arrow-repeat me-1"></i> Visualizar
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="window.print()" title="Imprimir Relatório">
+                  <i class="bi bi-printer me-1"></i> Imprimir
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="descarregarEstatisticasPdf()" title="Descarregar documento em PDF">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportarEstatisticasExcel()" title="Descarregar ficheiro Excel (XLSX)">
+                  <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="exportarEstatisticasWord()" title="Descarregar documento em Word (DOCX)">
+                  <i class="bi bi-file-earmark-word me-1"></i> Word
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Indicadores Globais Rápidos (KPIs) -->
+          <div class="row g-3 mb-2" id="kpiEstatisticasContainer">
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Taxa de Aprovação Global</span>
+                <h4 id="statKpiAprovacao" class="fw-bold mb-0 text-success">0%</h4>
+                <small class="text-muted" id="statKpiAprovacaoSub">0 Aprovados de 0 Avaliados</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Taxa de Reprovação</span>
+                <h4 id="statKpiReprovacao" class="fw-bold mb-0 text-danger">0%</h4>
+                <small class="text-muted" id="statKpiReprovacaoSub">0 Alunos não transitam</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Efectivo Avaliado</span>
+                <h4 id="statKpiAvaliados" class="fw-bold mb-0 text-primary">0</h4>
+                <small class="text-muted" id="statKpiAvaliadosSub">0 M | 0 F</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card p-3 border rounded bg-light">
+                <span class="text-muted very-small text-uppercase fw-semibold">Total de Turmas Activas</span>
+                <h4 id="statKpiTurmas" class="fw-bold mb-0 text-dark">0</h4>
+                <small class="text-muted" id="statKpiTurmasSub">Classes do Ensino Secundário</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Documento Renderizado de Estatísticas (Para visualização e impressão) -->
+        <div class="card p-4 printable-document bg-white" id="containerEstatisticasDocumento">
+          <div class="text-center py-4">
+            <div class="spinner-border text-primary"></div>
+            <p class="small text-muted mt-2">A carregar estatísticas pedagógicas da escola...</p>
+          </div>
+        </div>
+      
+  </div>
+
+    </div>
+
+  </div>
+</section>

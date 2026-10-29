@@ -892,41 +892,46 @@
       <a class="nav-link escola-admin-only ped-only" href="#" onclick="navegarPara('turmas')" id="nav-turmas">
         <i class="bi bi-diagram-3-fill text-warning"></i> <span>Turmas & Capacidade</span>
       </a>
-      <a class="nav-link escola-admin-only ped-only" href="#" onclick="navegarPara('classes-exames')" id="nav-classes-exames">
-        <i class="bi bi-layers-fill text-success"></i> <span>Classes / Níveis & Exames</span>
-      </a>
       <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('alunos')" id="nav-alunos">
         <i class="bi bi-people-fill"></i> <span>Alunos & Matrículas</span>
       </a>
       <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('professores')" id="nav-professores">
         <i class="bi bi-person-badge-fill"></i> <span>Corpo Docente</span>
       </a>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('disciplinas')" id="nav-disciplinas">
-        <i class="bi bi-book-fill"></i> <span>Disciplinas</span>
-      </a>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('desbloqueio')" id="nav-desbloqueio">
-        <i class="bi bi-unlock-fill text-warning"></i> <span>Desbloqueio de Trimestre</span>
-      </a>
 
       <!-- Secção Pedagógica & Avaliações -->
-      <div class="nav-category ped-only">Pedagógico</div>
+      <div class="nav-category ped-only">Área Pedagógica</div>
       <a class="nav-link professor-only" href="#" onclick="navegarPara('professor-perfil')" id="nav-professor-perfil" style="display: none;">
         <i class="bi bi-person-lines-fill text-primary"></i> <span>Meu Perfil Docente</span>
       </a>
-      <a class="nav-link ped-only" href="#" onclick="navegarPara('caderneta')" id="nav-caderneta">
-        <i class="bi bi-journal-bookmark-fill text-info"></i> <span>Caderneta do Professor</span>
+      <a class="nav-link escola-admin-only ped-only" href="#" onclick="navegarPara('area-pedagogica')" id="nav-area-pedagogica">
+        <i class="bi bi-mortarboard-fill text-primary"></i> <span>Área Pedagógica</span>
       </a>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('pautas')" id="nav-pautas">
-        <i class="bi bi-table"></i> <span>Pautas & Actas Oficiais</span>
-      </a>
-      <a class="nav-link escola-admin-only ped-only" href="#" onclick="navegarPara('exames')" id="nav-exames" title="Pautas Oficiais de Exame (Classes com Exame)">
-        <i class="bi bi-file-earmark-spreadsheet-fill text-warning"></i> <span>Exames</span>
-      </a>
+      <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('classes-exames');" id="subnav-classes-exames">
+          <i class="bi bi-layers-fill text-success me-1"></i> <span>Classes / Níveis & Exames</span>
+        </a>
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('disciplinas');" id="subnav-disciplinas">
+          <i class="bi bi-book-fill text-primary me-1"></i> <span>Disciplinas</span>
+        </a>
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('desbloqueio');" id="subnav-desbloqueio">
+          <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio Trimestre</span>
+        </a>
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('caderneta');" id="subnav-caderneta">
+          <i class="bi bi-journal-bookmark-fill text-info me-1"></i> <span>Caderneta Pedagógica</span>
+        </a>
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('pautas');" id="subnav-pautas">
+          <i class="bi bi-table text-primary me-1"></i> <span>Pautas & Actas Oficiais</span>
+        </a>
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('exames');" id="subnav-exames">
+          <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
+        </a>
+        <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('estatisticas-aproveitamento');" id="subnav-estatisticas-aproveitamento">
+          <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
+        </a>
+      </div>
       <a class="nav-link ped-only professor-only escola-admin-only" href="#" onclick="navegarPara('director-turma')" id="nav-director-turma">
         <i class="bi bi-person-workspace text-warning"></i> <span>Painel Director de Turma</span>
-      </a>
-      <a class="nav-link ped-only escola-admin-only professor-only" href="#" onclick="navegarPara('estatisticas-aproveitamento')" id="nav-estatisticas-aproveitamento">
-        <i class="bi bi-bar-chart-line-fill text-success"></i> <span>Estatística do Aproveitamento</span>
       </a>
       <a class="nav-link ped-only escola-admin-only professor-only" href="#" onclick="navegarPara('material-escolar')" id="nav-material-escolar">
         <i class="bi bi-book-half text-primary"></i> <span>Material Escolar</span>

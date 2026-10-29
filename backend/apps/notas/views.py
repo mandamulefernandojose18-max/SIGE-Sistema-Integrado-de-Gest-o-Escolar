@@ -54,6 +54,13 @@ class NotaViewSet(viewsets.ModelViewSet):
         if not escola:
             return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Regra Oficial MEC: O professor é o único avaliador; apenas docentes podem lançar notas
+        if getattr(request.user, 'role', None) != 'PROFESSOR' and not request.user.is_superuser:
+            return Response({
+                'success': False,
+                'message': 'Apenas professores alocados têm permissão para lançar avaliações.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
         # Lançamento em lote ou individual
         if 'notas' in request.data:
             serializer = SalvarNotasBulkSerializer(data=request.data)

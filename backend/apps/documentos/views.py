@@ -1117,7 +1117,22 @@ class ReciboImpressaoView(APIView):
         metodo_str = (pagamento.metodo_pagamento or 'MPESA') if is_pago else 'Pendente de Liquidação'
         data_pag_str = str(pagamento.data_pagamento or pagamento.created_at)[:10] if is_pago else 'Aguardando Liquidação'
 
+        from .services.numero_extenso import numero_para_extenso_meticais, formatar_valor_com_extenso
+        valor_extenso = numero_para_extenso_meticais(pagamento.valor)
+        valor_com_extenso = formatar_valor_com_extenso(pagamento.valor, 'MT')
+        if is_pago:
+            val_liq_obj = getattr(pagamento, 'valor_pago', None) or pagamento.valor
+            valor_pago_extenso = numero_para_extenso_meticais(val_liq_obj)
+            valor_pago_com_extenso = formatar_valor_com_extenso(val_liq_obj, 'MT')
+        else:
+            valor_pago_extenso = 'Zero meticais'
+            valor_pago_com_extenso = '0 MT (Zero meticais) — Aguardando Liquidação'
+
         dados_rec = {
+            'valor_extenso': valor_extenso,
+            'valor_com_extenso': valor_com_extenso,
+            'valor_pago_extenso': valor_pago_extenso,
+            'valor_pago_com_extenso': valor_pago_com_extenso,
             'numero': pagamento.recibo_numero or f"REC-{pagamento.id}",
             'is_pago': is_pago,
             'status': status_texto,
@@ -1158,6 +1173,10 @@ class ReciboImpressaoView(APIView):
                 'is_pago': is_pago,
                 'status': status_texto,
                 'metodo_pagamento': metodo_str,
+                'valor_extenso': valor_extenso,
+                'valor_com_extenso': valor_com_extenso,
+                'valor_pago_extenso': valor_pago_extenso,
+                'valor_pago_com_extenso': valor_pago_com_extenso,
                 'data_pagamento': data_pag_str,
                 'data_vencimento': str(getattr(pagamento, 'data_vencimento', '') or '')[:10] if getattr(pagamento, 'data_vencimento', None) else '-',
             },

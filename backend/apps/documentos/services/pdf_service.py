@@ -308,10 +308,10 @@ class PushToBottomSpacer(Flowable):
                 except Exception:
                     pass
         needed = availHeight - total_bottom_h
-        if needed > self.min_spacing:
+        if needed >= self.min_spacing:
             self.height = needed
         else:
-            self.height = self.min_spacing
+            self.height = max(0, needed)
         return (0, self.height)
 
     def draw(self):
@@ -2452,6 +2452,7 @@ def gerar_ficha_pdf(aluno, escola, orientacao='portrait') -> bytes:
 # ==================== 7. RECIBO DE PAGAMENTO (VERTICAL) ====================
 
 def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
+    from .numero_extenso import formatar_valor_com_extenso
     styles = getSampleStyleSheet()
     elements = []
 
@@ -2470,49 +2471,52 @@ def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
     email = getattr(escola, 'email', '---')
     endereco = getattr(escola, 'endereco', '---')
 
-    elements.extend(gerar_cabecalho_mec(styles, nome_escola, provincia, distrito, escola=escola))
+    elements.extend(gerar_cabecalho_mec(styles, nome_escola, provincia, distrito, compacto=True, escola=escola))
 
     # Dados de contacto institucional no cabeçalho
-    info_inst = f"NUIT: <b>{nuit}</b> &bull; Tel: <b>{telefone}</b> &bull; Email: <b>{email}</b> &bull; Endereço: <b>{distrito}, {provincia}</b>"
+    info_inst = f"NUIT: <b>{nuit}</b> &bull; Tel: <b>{telefone}</b> &bull; Email: <b>{email}</b> &bull; Localização: <b>{distrito}, {provincia}</b>"
     elements.append(Paragraph(info_inst, ParagraphStyle('RecInst', parent=styles['Normal'], alignment=1, fontSize=8, leading=10, fontName='Times-Roman', textColor=colors.HexColor('#475569'))))
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.15 * cm))
 
     # Número do recibo e título
     num_rec = getattr(pagamento, 'recibo_numero', None) or f"REC-{pagamento.id}"
     if is_pago:
         titulo_doc = f"RECIBO DE PAGAMENTO OFICIAL — {num_rec}"
-        banner_html = '<font color="#15803d" size="11"><b>SITUAÇÃO: PAGO (LIQUIDADO COM SUCESSO)</b></font>'
+        banner_html = '<font color="#15803d"><b>SITUAÇÃO: PAGO (LIQUIDADO COM SUCESSO)</b></font>'
         banner_bg = colors.HexColor('#dcfce7')
         banner_border = colors.HexColor('#16a34a')
         estado_str = '<font color="#15803d"><b>PAGO</b></font>'
-        valor_liquidado = f"<b>{getattr(pagamento, 'valor_pago', None) or pagamento.valor} MT</b>"
+        val_liq = getattr(pagamento, 'valor_pago', None) or pagamento.valor
+        valor_liquidado_str = f"<b>{formatar_valor_com_extenso(val_liq, 'MT')}</b>"
         metodo_str = str(getattr(pagamento, 'metodo_pagamento', 'MPESA') or 'MPESA')
         data_confirmacao_str = str(getattr(pagamento, 'data_pagamento', None) or pagamento.created_at)[:10]
     else:
         titulo_doc = f"RECIBO / GUIA DE PAGAMENTO (NÃO PAGO) — {num_rec}"
-        banner_html = '<font color="#991b1b" size="11"><b>SITUAÇÃO: NÃO PAGO (PENDENTE DE LIQUIDAÇÃO)</b></font>'
+        banner_html = '<font color="#991b1b"><b>SITUAÇÃO: NÃO PAGO (PENDENTE DE LIQUIDAÇÃO)</b></font>'
         banner_bg = colors.HexColor('#fee2e2')
         banner_border = colors.HexColor('#dc2626')
         estado_str = '<font color="#b91c1c"><b>NÃO PAGO</b></font>'
-        valor_liquidado = '<font color="#b91c1c"><b>0,00 MT (Aguardando Liquidação)</b></font>'
+        valor_liquidado_str = '<font color="#b91c1c"><b>0 MT (Zero meticais) &bull; Aguardando Liquidação</b></font>'
         metodo_str = 'Pendente de Liquidação'
         data_confirmacao_str = 'Aguardando Liquidação / Confirmação'
 
-    style_title = ParagraphStyle('RecTitle', parent=styles['Normal'], alignment=1, fontSize=12.5, leading=15, fontName='Times-Bold')
+    valor_cobrado_str = f"<b>{formatar_valor_com_extenso(pagamento.valor, 'MT')}</b>"
+
+    style_title = ParagraphStyle('RecTitle', parent=styles['Normal'], alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
     elements.append(Paragraph(titulo_doc, style_title))
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 0.15 * cm))
 
     # Banner visual de estado (PAGO vs NÃO PAGO)
-    t_banner = Table([[Paragraph(banner_html, ParagraphStyle('BannerP', parent=styles['Normal'], alignment=1))]], colWidths=[18.0 * cm])
+    t_banner = Table([[Paragraph(banner_html, ParagraphStyle('BannerP', parent=styles['Normal'], alignment=1, fontSize=9.5, leading=11))]], colWidths=[18.0 * cm])
     t_banner.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), banner_bg),
-        ('BOX', (0, 0), (-1, -1), 1.2, banner_border),
+        ('BOX', (0, 0), (-1, -1), 1.0, banner_border),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
     ]))
     elements.append(t_banner)
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.15 * cm))
 
     # Dados sincronizados do Aluno / Usuário
     aluno = getattr(pagamento, 'aluno', None)
@@ -2524,40 +2528,42 @@ def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
     turno_sala = f"{getattr(aluno.turma, 'turno', '---')} &bull; Sala: {getattr(aluno.turma, 'sala', '---')}" if aluno and aluno.turma else '---'
     encarregado = getattr(aluno, 'encarregado_nome', '') or getattr(aluno, 'nome_pai', '') or getattr(aluno, 'nome_mae', '') or '---' if aluno else '---'
 
-    campos = [
-        ('Instituição de Ensino:', f"<b>{nome_escola.upper()}</b>"),
-        ('Localização / Distrito:', f"{distrito}, {provincia}"),
-        ('Nome do Aluno:', f"<b>{nome_aluno}</b>"),
-        ('Nº de Matrícula:', matricula),
-        ('Turma / Classe:', turma_completa),
-        ('Turno / Instalações:', turno_sala),
-        ('Encarregado de Educação:', encarregado),
-        ('Descrição do Serviço:', getattr(pagamento, 'descricao', 'Mensalidade / Propina Escolar') or 'Mensalidade / Propina Escolar'),
-        ('Mês de Referência:', str(getattr(pagamento, 'mes_referencia', '---') or '---')),
-        ('Valor Total Cobrado:', f"<b>{pagamento.valor} MT</b>"),
-        ('Valor Efectivamente Liquidado:', valor_liquidado),
-        ('Situação / Estado:', estado_str),
-        ('Forma de Pagamento:', metodo_str),
-        ('Data de Vencimento:', str(getattr(pagamento, 'data_vencimento', '---') or '---')[:10]),
-        ('Data de Confirmação / Liquidação:', data_confirmacao_str)
+    style_l = ParagraphStyle('RL', fontName='Times-Bold', fontSize=8.5, leading=10.5)
+    style_v = ParagraphStyle('RV', fontName='Times-Roman', fontSize=8.5, leading=10.5)
+
+    # Tabela compacta de 4 colunas (largura total 18cm)
+    tabela_data = [
+        [Paragraph('Instituição de Ensino:', style_l), Paragraph(f"<b>{nome_escola.upper()}</b>", style_v),
+         Paragraph('Localização / Província:', style_l), Paragraph(f"{distrito}, {provincia}", style_v)],
+        [Paragraph('Nome do Aluno:', style_l), Paragraph(f"<b>{nome_aluno}</b>", style_v),
+         Paragraph('Nº de Matrícula:', style_l), Paragraph(matricula, style_v)],
+        [Paragraph('Turma / Classe:', style_l), Paragraph(turma_completa, style_v),
+         Paragraph('Turno / Instalações:', style_l), Paragraph(turno_sala, style_v)],
+        [Paragraph('Encarregado de Educação:', style_l), Paragraph(encarregado, style_v),
+         Paragraph('Mês de Referência:', style_l), Paragraph(str(getattr(pagamento, 'mes_referencia', '---') or '---'), style_v)],
+        [Paragraph('Descrição do Serviço:', style_l), Paragraph(getattr(pagamento, 'descricao', 'Mensalidade / Propina Escolar') or 'Mensalidade / Propina Escolar', style_v),
+         Paragraph('Forma de Pagamento:', style_l), Paragraph(metodo_str, style_v)],
+        [Paragraph('Data de Vencimento:', style_l), Paragraph(str(getattr(pagamento, 'data_vencimento', '---') or '---')[:10], style_v),
+         Paragraph('Data de Confirmação:', style_l), Paragraph(data_confirmacao_str, style_v)],
+        [Paragraph('Situação / Estado:', style_l), Paragraph(estado_str, style_v),
+         Paragraph('Nº do Recibo:', style_l), Paragraph(f"<b>{num_rec}</b>", style_v)],
+        [Paragraph('Valor Total Cobrado:', style_l), Paragraph(valor_cobrado_str, style_v), '', ''],
+        [Paragraph('Valor Liquidado:', style_l), Paragraph(valor_liquidado_str, style_v), '', '']
     ]
 
-    tabela_data = []
-    style_l = ParagraphStyle('RL', fontName='Times-Bold', fontSize=9.5, leading=12)
-    style_v = ParagraphStyle('RV', fontName='Times-Roman', fontSize=9.5, leading=12)
-
-    for label, val in campos:
-        tabela_data.append([Paragraph(label, style_l), Paragraph(str(val), style_v)])
-
-    t = Table(tabela_data, colWidths=[6.5 * cm, 11.5 * cm])
+    t = Table(tabela_data, colWidths=[3.8 * cm, 5.2 * cm, 3.8 * cm, 5.2 * cm])
     t.setStyle(TableStyle([
+        ('SPAN', (1, 7), (3, 7)),
+        ('SPAN', (1, 8), (3, 8)),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8fafc')),
-        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#f8fafc')),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.2),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     elements.append(t)
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 0.18 * cm))
 
     # Aviso informativo oficial (NÃO PAGO vs PAGO)
     if not is_pago:
@@ -2578,17 +2584,17 @@ def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
         aviso_border = colors.HexColor('#86efac')
         aviso_color = colors.HexColor('#166534')
 
-    t_aviso = Table([[Paragraph(f"<font color='{aviso_color}' size='7.5'>{aviso_texto}</font>", ParagraphStyle('AvisoP', fontName='Times-Roman', leading=9.5))]], colWidths=[18.0 * cm])
+    t_aviso = Table([[Paragraph(f"<font color='{aviso_color}'>{aviso_texto}</font>", ParagraphStyle('AvisoP', fontName='Times-Roman', fontSize=7.5, leading=9.5))]], colWidths=[18.0 * cm])
     t_aviso.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), aviso_bg),
         ('BOX', (0, 0), (-1, -1), 0.8, aviso_border),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(t_aviso)
-    elements.append(Spacer(1, 0.2 * cm))
+    elements.append(Spacer(1, 0.15 * cm))
 
     # Autenticação digital e carimbo de tempo sincronizado
     carimbo_dt = datetime.datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
@@ -2609,10 +2615,10 @@ def construir_elementos_recibo(pagamento, escola, orientacao='portrait'):
         ('TOPPADDING', (0, 0), (-1, -1), 1),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
-    
+
     bottom_elements = [
         p_autenticacao,
-        Spacer(1, 0.25 * cm),
+        Spacer(1, 0.2 * cm),
         t_sig
     ]
     elements.append(PushToBottomSpacer(bottom_elements, min_spacing=0.2 * cm))

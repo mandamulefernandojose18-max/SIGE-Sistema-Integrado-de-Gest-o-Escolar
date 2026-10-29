@@ -28,6 +28,15 @@ window.inicializarNavegacaoCaderneta = async function(forcarRecarregar = false) 
       wrapperProf.style.display = 'none';
     }
 
+    // Regra Oficial MEC: O botão de lançar notas só e só deve ser exibido para professores
+    const btnLancar = document.getElementById('btnLancarNotasCaderneta');
+    if (btnLancar) {
+      btnLancar.style.display = isDocente ? 'inline-block' : 'none';
+    }
+    document.querySelectorAll('button[onclick*="modalSalvarNotaCaderneta"]').forEach(b => {
+      b.style.display = isDocente ? 'inline-block' : 'none';
+    });
+
     // Carregar alocações se vazio ou forçado
     if (forcarRecarregar || !state.alocacoesDocente || state.alocacoesDocente.length === 0) {
       let url = '/api/v1/professores/minhas-turmas';
@@ -398,6 +407,7 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       return `<small class="fw-semibold">${trimData.comportamento}</small>`;
     };
 
+    const isDocente = state.user?.role === 'PROFESSOR';
     tbody.innerHTML = d.alunos.map((a, idx) => {
       const t1TemMT = temRequisitosCadernetaMT(a.t1);
       const t2TemMT = temRequisitosCadernetaMT(a.t2);
@@ -407,7 +417,11 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       return `
         <tr>
           <td><strong>${idx + 1}</strong></td>
+          ${isDocente ? `
           <td class="text-start" style="cursor: pointer;" onclick="modalSalvarNotaCaderneta('${a.alunoId}')" title="Clique para lançar avaliações deste aluno"><strong class="text-primary">${a.nome}</strong> <i class="bi bi-pencil-square text-muted ms-1 small no-print d-print-none"></i></td>
+          ` : `
+          <td class="text-start"><strong class="text-dark">${a.nome}</strong></td>
+          `}
           <td class="text-start">${a.apelido || '-'}</td>
           <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
           <!-- 1º Trimestre -->
@@ -698,6 +712,14 @@ function imprimirCadernetaOficial() {
 }
 
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
+  if (state.user?.role !== 'PROFESSOR') {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Apenas professores têm permissão para lançar avaliações.', 'warning');
+    } else {
+      alert('Apenas professores têm permissão para lançar avaliações.');
+    }
+    return;
+  }
   if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina');
 
   const periodoFiltro = document.getElementById('cadernetaPeriodoSelect')?.value;

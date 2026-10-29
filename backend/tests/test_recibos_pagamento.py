@@ -72,15 +72,21 @@ class TestRecibosPagamentoStatus:
         )
 
     def test_recibo_nao_pago_pdf(self):
+        import re
         pdf_bytes = gerar_recibo_pdf(self.pagamento_nao_pago, self.escola)
         assert pdf_bytes is not None
         assert pdf_bytes.startswith(b'%PDF')
+        num_paginas = len(re.findall(rb'/Type\s*/Page\b', pdf_bytes))
+        assert num_paginas == 1, f"Recibo não pago deve ter exatamente 1 página (obtido: {num_paginas})"
         assert len(pdf_bytes) > 2000
 
     def test_recibo_pago_pdf(self):
+        import re
         pdf_bytes = gerar_recibo_pdf(self.pagamento_pago, self.escola)
         assert pdf_bytes is not None
         assert pdf_bytes.startswith(b'%PDF')
+        num_paginas = len(re.findall(rb'/Type\s*/Page\b', pdf_bytes))
+        assert num_paginas == 1, f"Recibo pago deve ter exatamente 1 página (obtido: {num_paginas})"
         assert len(pdf_bytes) > 2000
 
     def test_recibo_nao_pago_docx(self):
@@ -96,6 +102,7 @@ class TestRecibosPagamentoStatus:
         assert "Aguardando Liquidação" in full_text
         assert "MASSINGA" in full_text.upper()
         assert "FERNANDO MANDAMULE" in full_text.upper()
+        assert "Mil e quinhentos meticais" in full_text
 
     def test_recibo_pago_docx(self):
         docx_bytes = gerar_recibo_docx(self.pagamento_pago, self.escola)
@@ -108,6 +115,7 @@ class TestRecibosPagamentoStatus:
 
         assert "PAGO" in full_text
         assert "1500 MT" in full_text
+        assert "Mil e quinhentos meticais" in full_text
         assert "MPESA" in full_text
 
     def test_recibo_impressao_view_nao_pago(self):
@@ -117,6 +125,7 @@ class TestRecibosPagamentoStatus:
         assert data['is_pago'] is False
         assert data['status'] == 'NÃO PAGO'
         assert data['status_badge'] == 'danger'
+        assert data['valor_extenso'] == 'Mil e quinhentos meticais'
         assert data['pagamento']['valor_pago'] == '0.00'
         assert data['escola']['nome'] == 'Escola Secundária de Massinga'
         assert data['aluno']['matricula'] == self.aluno.matricula
@@ -129,6 +138,9 @@ class TestRecibosPagamentoStatus:
         assert data['status'] == 'PAGO'
         assert data['status_badge'] == 'success'
         assert float(data['pagamento']['valor_pago']) == 1500.0
+        assert data['valor_extenso'] == 'Mil e quinhentos meticais'
+        assert 'Mil e quinhentos meticais' in data['pagamento']['valor_com_extenso']
+        assert data['pagamento']['metodo_pagamento'] == 'MPESA'
         assert data['pagamento']['metodo_pagamento'] == 'MPESA'
 
     def test_recibo_pdf_endpoint(self):

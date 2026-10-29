@@ -80,9 +80,23 @@
   - **Renumerar Turmas:** Normaliza automaticamente os nomes das turmas (`Turma 1`, `Turma 2`, `Turma 3`...) evitando inconsistências.
 ---
 
+### 🎓 Área Pedagógica Unificada (`#view-area-pedagogica`)
+- **Quem usa:** `DAP`, `DIRECTOR_ESCOLA`, `ADMIN_ESCOLA` e `PROFESSOR`.
+- **Como aceder:** Clique em **"Área Pedagógica"** na barra lateral de navegação. Na barra lateral, os 7 sub-módulos só são exibidos quando se clica em "Área Pedagógica", mantendo o menu limpo e despoluído.
+- **Centralização Modular:** Reúne 7 módulos essenciais sob uma única página intuitiva com abas superiores responsivas:
+  1. **Classes / Níveis & Exames:** Gestão de classes e estatuto de exame.
+  2. **Disciplinas:** Plano curricular e matriz de disciplinas por área/secção.
+  3. **Desbloqueio de Trimestre:** Abertura e encerramento de prazos de lançamento de notas.
+  4. **Caderneta Pedagógica:** Caderneta do professor, avaliações ACS/ACP e faltas.
+  5. **Pautas & Actas Oficiais:** Pauta geral da turma e actas de conselho de notas.
+  6. **Exames:** Pautas oficiais de exame e fórmulas ponderadas.
+  7. **Estatística de Aproveitamento:** Gráficos e taxas oficiais de aproveitamento escolar.
+
+---
+
 ### Módulo: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
 - **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
-- **Como aceder:** Clique em **"Classes / Níveis & Exames"** na barra lateral de navegação (categoria *Gestão Escolar*) ou pelo botão de atalho no painel de Turmas.
+- **Como aceder:** Clique na aba **"Classes / Níveis & Exames"** dentro da **Área Pedagógica** ou pelo submenu lateral que se expande ao clicar em Área Pedagógica.
 - **Página Dedicada, Limpa e Despoluída:**
   - O SIGE disponibiliza uma interface minimalista e profissional (`classes-exames.html` / `classes-exames.js`), sem excesso de botões ou cartões poluídos, permitindo gerir directamente as classes ativas da instituição.
 - **Zero Classes Fictícias:**
@@ -162,7 +176,8 @@
 ---
 
 ### Módulo 9: Caderneta Electrónica do Professor (`#view-caderneta`)
-- **Quem usa:** `PROFESSOR`, `DAP` e `DIRECTOR_ESCOLA`.
+- **Quem usa:** `PROFESSOR` (para visualização e lançamento exclusivo de avaliações); `DAP` e `DIRECTOR_ESCOLA` (para consulta e exportação documental).
+- **Restrição Oficial MEC do Botão "Lançar Avaliações":** O botão de lançamento e a edição de notas na grelha são visíveis e permitidos **estritamente para o perfil Professor (`PROFESSOR`)**, o único avaliador pedagógico dos estudantes. Para os demais perfis (DAP, Direção, Secretaria, SuperAdmin), o botão é completamente ocultado e o endpoint protegido por HTTP 403.
 - **Estrutura Visual:** Exibe lado a lado as colunas dos **3 Trimestres** (`1ª ACS`, `2ª ACS`, `3ª ACS`, `MAP`, `MAS`, `AT`, `MT`, `COM`, `Faltas`) mais a **Média Final da Disciplina (MFD)**.
 - **Estatísticas no Rodapé por Coluna:** Apuração demográfica automática de Avaliados, Positivos ($\ge 10$) e Negativos ($< 10$) discriminados por Rapazes (`H`), Raparigas (`M`) e Total (`HM`), com respetivas percentagens.
 - **Exportação:** Descarregamento em Excel (`.xlsx`), PDF (`.pdf`) ou impressão direta em formato horizontal (Landscape).

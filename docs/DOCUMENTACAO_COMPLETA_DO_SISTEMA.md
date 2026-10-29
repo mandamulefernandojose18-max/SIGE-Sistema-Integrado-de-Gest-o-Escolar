@@ -43,6 +43,7 @@ O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa 
 - **Conformidade Integral com o MEC:** Implementa nativamente o Plano Curricular Nacional (7ª à 12ª Classe, incluindo todas as secções/áreas do 2º Ciclo), fórmulas oficiais de cálculo de médias (`MAC`, `MT`, `MFD`), regras distintas de transição/aprovação para 7ª–11ª Classe e 12ª Classe, escala qualitativa (`E`, `MB`, `B`, `S`, `NS`) e anotações regulamentares (`D`, `T`, `VT`, `F`, `AM`, `PPF`, `PDF`).
 - **Geração Automática de Códigos Oficiais de Acesso:** Cada ator institucional (Director da Escola, DAP, Chefe da Secretaria, Director de Turma, Director de Classe, Professor e Estudante) recebe um código único estruturado segundo a codificação da escola, classe, turma, ano e área.
 - **Portal Público de Auto-Inscrição Online:** Permite que candidatos e encarregados realizem a inscrição/matrícula diretamente pela internet nas escolas com vagas abertas, gerando imediatamente o número de matrícula e as credenciais de acesso do estudante.
+- **Área Pedagógica Unificada e Despoluição Visual:** Centralização de Classes/Níveis & Exames, Disciplinas, Desbloqueio de Trimestre, Caderneta Pedagógica, Pautas & Actas Oficiais, Exames e Estatística de Aproveitamento numa página dedicada com abas dinâmicas, mantendo o menu lateral limpo (apenas expandido após clique em "Área Pedagógica").
 - **Emissão Oficial Multiformato (PDF, Word `.docx`, Excel `.xlsx`) em Retrato/Paisagem:** Geração individual e em lote de Boletins, Declarações, Certificados com QR Code, Recibos, Fichas Biográficas, Cadernetas do Professor, Pautas Gerais da Turma, Actas do Conselho de Avaliação (com números por extenso) e Mapas Estatísticos do Aproveitamento Pedagógico.
 
 ---
@@ -440,8 +441,10 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
     - **Avaliados** (`H`, `M`, `HM`)
     - **Positivos ($\ge 10$)** (`H`, `M`, `HM` e `% Positivos`)
     - **Negativos ($< 10$)** (`H`, `M`, `HM` e `% Negativos`)
-- **Lançamento Individual e em Lote:**
-  - Permite lançar ou editar notas e faltas de toda a turma com cálculo instantâneo de `MAC`, `MT`, `Comportamento` e `Resultado`.
+- **Lançamento Individual e em Lote Exclusivo do Professor (Regra Oficial MEC):**
+  - O botão **"Lançar Avaliações"** e a interação de clique nos estudantes da grelha são exibidos **exclusivamente para o perfil Professor (`PROFESSOR`)**, dado que o docente alocado é a única autoridade pedagógica com prerrogativa para avaliar e classificar os estudantes.
+  - Para os demais perfis (SuperAdmin, Administrador da Escola, Director de Escola, DAP, Chefe de Secretaria), o botão é terminantemente ocultado e a API (`NotaViewSet.create`) bloqueia requisições não docentes (`HTTP 403 Forbidden`), operando a visualização destes papéis em modo estritamente consultivo e documental.
+  - Permite lançar ou editar notas e faltas da turma com cálculo instantâneo de `MAC`, `MT`, `Comportamento` e `Resultado`.
 - **Exportação Direta da Caderneta:** Botões para descarregar o **Mapa Oficial de Registo de Avaliações** em **Excel (`.xlsx`)**, **PDF (`.pdf`)** ou imprimir diretamente em formato **A4 Horizontal (Landscape)**.
 
 ### Módulo 10: Calendário de Notas e Desbloqueio de Trimestre (`#view-desbloqueio`)
@@ -1075,3 +1078,8 @@ esultadoFinal sejam strings normalizadas (ex: 'Aprovado', 'Reprovado', 'Pendente
 - **Formato Estrito em PDF Oficial:** A emissão do recibo é realizada exclusivamente em PDF através do endpoint `/api/v1/impressao/recibo/{pagamento_id}/pdf`, aplicando o logótipo oficial da instituição de ensino, cabeçalho da República de Moçambique / MEC, detalhes da liquidação, valor por extenso e marca d'água de quitação com nome padronizado de ficheiro (`Recibo - {Nome do Aluno} - {Ano}.pdf`).
 - **Filtragem Dinâmica por Período/Ano Lectivo:** A view `/api/v1/alunos/me/pagamentos` suporta filtragem através do parâmetro `ano`, mantendo a coerência com o seletor mestre de ano lectivo no painel do aluno (`alunoPagamentosAnoSelect`).
 
+### 15.6 Padronização Rigorosa de Recibos de Pagamento: Página Única e Valor em Algarismo e por Extenso
+- **Garantia Estrita de Página Única ($\mathcal{O}(1)$ páginas):** Todo e qualquer recibo de pagamento emitido pelo sistema — seja em PDF oficial (ReportLab), Word (.docx) ou pré-visualização/impressão Web — é estruturado e calibrado para caber integralmente em exatamente **1 única página A4**, eliminando qualquer transbordamento de assinaturas ou carimbos para a segunda folha. A tabela consolidada de 4 colunas e o ajuste dinâmico de PushToBottomSpacer mantêm a altura compacta e harmoniosa.
+- **Exibição do Valor em Algarismo e por Extenso:** O valor total cobrado e o valor liquidado são apresentados obrigatoriamente tanto em algarismos numéricos como por extenso oficial em Meticais e Centavos (ex: 1500 MT (Mil e quinhentos meticais) ou 1500,50 MT (Mil e quinhentos meticais e cinquenta centavos)).
+- **Módulo 
+umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para o português moçambicano é provida pelo serviço backend pps.documentos.services.numero_extenso e replicada no frontend SPA em converterNumeroExtensoMeticais. Os endpoints REST /api/v1/impressao/recibo/{pagamento_id}/ e /api/v1/impressao/recibo/{pagamento_id}/pdf fornecem os valores já formatados (alor_extenso, alor_com_extenso, alor_pago_extenso e alor_pago_com_extenso).

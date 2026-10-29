@@ -1,8 +1,8 @@
 {
-  "version": "2.5.4",
-  "build": "20261024_1802",
-  "data": "2026-10-24",
+  "version": "2.5.5",
+  "build": "20261029_2052",
+  "data": "2026-10-29",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Permissões de lançamento de notas de exame com suporte a delegação parcial por grupo de disciplina e classe."
+  "novidades": "Unificação da Área Pedagógica em página dedicada com abas para Classes/Níveis & Exames, Disciplinas, Desbloqueio de Trimestre, Caderneta Pedagógica, Pautas & Actas Oficiais, Exames e Estatística de Aproveitamento."
 }

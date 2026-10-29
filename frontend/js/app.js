@@ -662,6 +662,76 @@ function formatarMoedaTexto(valor) {
   return `${num.toLocaleString('pt-PT')} MZN`;
 }
 
+function converterNumeroExtensoMeticais(valor, capitalizar = true) {
+  if (valor === null || valor === undefined || valor === '' || isNaN(Number(valor))) {
+    return capitalizar ? 'Zero meticais' : 'zero meticais';
+  }
+  const unidades = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove',
+    'dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezasseis', 'dezassete', 'dezoito', 'dezanove'];
+  const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  function ate99(n) {
+    if (n < 20) return unidades[n];
+    const d = Math.floor(n / 10);
+    const u = n % 10;
+    return u === 0 ? dezenas[d] : `${dezenas[d]} e ${unidades[u]}`;
+  }
+
+  function ate999(n) {
+    if (n === 100) return 'cem';
+    if (n < 100) return ate99(n);
+    const c = Math.floor(n / 100);
+    const resto = n % 100;
+    return resto === 0 ? centenas[c] : `${centenas[c]} e ${ate99(resto)}`;
+  }
+
+  function inteiroExtenso(n) {
+    if (n === 0) return 'zero';
+    if (n < 1000) return ate999(n);
+    if (n < 1000000) {
+      const mil = Math.floor(n / 1000);
+      const resto = n % 1000;
+      const strMil = mil === 1 ? 'mil' : `${ate999(mil)} mil`;
+      if (resto === 0) return strMil;
+      return `${strMil} e ${ate999(resto)}`;
+    }
+    const milhoes = Math.floor(n / 1000000);
+    const resto = n % 1000000;
+    const strMilhoes = milhoes === 1 ? 'um milhão' : `${ate999(milhoes)} milhões`;
+    if (resto === 0) return strMilhoes;
+    return `${strMilhoes} e ${inteiroExtenso(resto)}`;
+  }
+
+  const num = Math.round(Number(valor) * 100) / 100;
+  const intPart = Math.floor(num);
+  const centavos = Math.round((num - intPart) * 100);
+
+  let res = '';
+  if (intPart === 0 && centavos === 0) {
+    res = 'zero meticais';
+  } else if (intPart === 0 && centavos > 0) {
+    res = centavos === 1 ? 'um centavo' : `${inteiroExtenso(centavos)} centavos`;
+  } else {
+    const moeda = intPart === 1 ? 'metical' : (intPart >= 1000000 && intPart % 1000000 === 0 ? 'de meticais' : 'meticais');
+    res = `${inteiroExtenso(intPart)} ${moeda}`;
+    if (centavos > 0) {
+      const centsStr = centavos === 1 ? 'um centavo' : `${inteiroExtenso(centavos)} centavos`;
+      res += ` e ${centsStr}`;
+    }
+  }
+  return capitalizar && res ? res.charAt(0).toUpperCase() + res.slice(1) : res;
+}
+
+function formatarMoedaComExtenso(valor) {
+  const num = Number(valor || 0);
+  const extenso = converterNumeroExtensoMeticais(num, true);
+  return `${num.toLocaleString('pt-PT')} MZN (${extenso})`;
+}
+
+window.converterNumeroExtensoMeticais = converterNumeroExtensoMeticais;
+window.formatarMoedaComExtenso = formatarMoedaComExtenso;
+
 function aplicarResponsividadeUniversalTabelas(root = document) {
   try {
     const elRoot = root || document;
@@ -2187,17 +2257,11 @@ const MENUS_POR_PAINEL = {
     { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão Escolar' },
     { id: 'assinatura-escola', titulo: 'Assinatura do Sistema', icone: 'bi-shield-lock-fill text-warning', categoria: 'Gestão Escolar' },
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
-    { id: 'classes-exames', titulo: 'Classes / Níveis & Exames', icone: 'bi-layers-fill text-success', categoria: 'Gestão Escolar' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
     { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
-    { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Gestão Escolar' },
-    { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Gestão Escolar' },
-    { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Pedagógico' },
-    { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Pedagógico' },
-    { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Pedagógico' },
-    { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Pedagógico' },
-    { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Pedagógico' },
-    { id: 'material-escolar', titulo: 'Material Escolar', icone: 'bi-book-half text-primary', categoria: 'Pedagógico' },
+    { id: 'area-pedagogica', titulo: 'Área Pedagógica', icone: 'bi-mortarboard-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Área Pedagógica' },
+    { id: 'material-escolar', titulo: 'Material Escolar', icone: 'bi-book-half text-primary', categoria: 'Área Pedagógica' },
     { id: 'certificados', titulo: 'Certificados (QR Code)', icone: 'bi-award-fill', categoria: 'Financeiro & Secretaria' },
     { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Secretaria' },
     { id: 'impressao', titulo: 'Central de Impressão', icone: 'bi-printer-fill', categoria: 'Financeiro & Secretaria' },
@@ -2263,6 +2327,33 @@ function renderizarSidebarPorNivel(role) {
         <i class="bi ${menu.icone}"></i> <span>${menu.titulo}</span>
       </a>
     `;
+    if (menu.id === 'area-pedagogica') {
+      html += `
+        <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('classes-exames');" id="subnav-classes-exames">
+            <i class="bi bi-layers-fill text-success me-1"></i> <span>Classes / Níveis & Exames</span>
+          </a>
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('disciplinas');" id="subnav-disciplinas">
+            <i class="bi bi-book-fill text-primary me-1"></i> <span>Disciplinas</span>
+          </a>
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('desbloqueio');" id="subnav-desbloqueio">
+            <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio Trimestre</span>
+          </a>
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('caderneta');" id="subnav-caderneta">
+            <i class="bi bi-journal-bookmark-fill text-info me-1"></i> <span>Caderneta Pedagógica</span>
+          </a>
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('pautas');" id="subnav-pautas">
+            <i class="bi bi-table text-primary me-1"></i> <span>Pautas & Actas Oficiais</span>
+          </a>
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('exames');" id="subnav-exames">
+            <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
+          </a>
+          <a class="nav-link py-1 small" href="#" onclick="navegarPara('area-pedagogica'); mudarSubAbaAreaPedagogica('estatisticas-aproveitamento');" id="subnav-estatisticas-aproveitamento">
+            <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
+          </a>
+        </div>
+      `;
+    }
   });
 
   html += `
@@ -2415,7 +2506,7 @@ function renderizarSelectoresAnoLectivo() {
   ];
 
   document.querySelectorAll('.sige-select-ano-lectivo').forEach(sel => {
-    const sec = sel.closest('section.modulo-view');
+    const sec = sel.closest('section.modulo-view') || sel.closest('.pedagogico-subview') || sel.closest('[id^="view-"]');
     const vid = sec ? sec.id.replace('view-', '') : null;
     const anoDestaView = vid && state.anosPorView ? state.anosPorView[vid] : null;
 
@@ -2512,7 +2603,12 @@ window.executarBuscaAnoLectivoGlobal = async function() {
 };
 
 function obterViewAtiva() {
-  if (state.currentView) return state.currentView;
+  if (state.currentView) {
+    if (state.currentView === 'area-pedagogica' && state.subAbaPedagogicaAtiva) {
+      return state.subAbaPedagogicaAtiva;
+    }
+    return state.currentView;
+  }
   // Detecção pelo DOM da view que está visível
   const views = document.querySelectorAll('.modulo-view');
   for (const v of views) {
@@ -2829,6 +2925,19 @@ async function navegarPara(viewId) {
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
+  const SUB_ABAS_PEDAGOGICAS = [
+    'classes-exames',
+    'disciplinas',
+    'desbloqueio',
+    'caderneta',
+    'pautas',
+    'exames',
+    'estatisticas-aproveitamento'
+  ];
+  if ((role !== 'PROFESSOR' && role !== 'ALUNO') && SUB_ABAS_PEDAGOGICAS.includes(viewId)) {
+    state.subAbaPedagogicaAtiva = viewId;
+    viewId = 'area-pedagogica';
+  }
   const isSuperAdminInspecionando = (role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
   const painel = isSuperAdminInspecionando 
     ? (['saas', 'pagamentos-saas', 'prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
@@ -2905,6 +3014,18 @@ async function navegarPara(viewId) {
       const selLocal = viewEl?.querySelector('.sige-select-ano-lectivo');
       if (selLocal) selLocal.value = anoDestaView;
     }
+  }
+
+  // Controlo da Área Pedagógica Unificada e Subnav Sidebar
+  if (viewId === 'area-pedagogica') {
+    const subnav = document.getElementById('subnav-area-pedagogica');
+    if (subnav) subnav.style.display = 'block';
+    if (typeof mudarSubAbaAreaPedagogica === 'function') {
+      mudarSubAbaAreaPedagogica(state.subAbaPedagogicaAtiva || 'classes-exames', true);
+    }
+  } else {
+    const subnav = document.getElementById('subnav-area-pedagogica');
+    if (subnav) subnav.style.display = 'none';
   }
 
   // Gatilhos de carregamento específico
@@ -11795,6 +11916,15 @@ window.inicializarNavegacaoCaderneta = async function(forcarRecarregar = false) 
       wrapperProf.style.display = 'none';
     }
 
+    // Regra Oficial MEC: O botão de lançar notas só e só deve ser exibido para professores
+    const btnLancar = document.getElementById('btnLancarNotasCaderneta');
+    if (btnLancar) {
+      btnLancar.style.display = isDocente ? 'inline-block' : 'none';
+    }
+    document.querySelectorAll('button[onclick*="modalSalvarNotaCaderneta"]').forEach(b => {
+      b.style.display = isDocente ? 'inline-block' : 'none';
+    });
+
     // Carregar alocações se vazio ou forçado
     if (forcarRecarregar || !state.alocacoesDocente || state.alocacoesDocente.length === 0) {
       let url = '/api/v1/professores/minhas-turmas';
@@ -12206,6 +12336,7 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       return `<small class="fw-semibold">${trimData.comportamento}</small>`;
     };
 
+    const isDocente = state.user?.role === 'PROFESSOR';
     tbody.innerHTML = d.alunos.map((a, idx) => {
       const t1TemMT = temRequisitosCadernetaMT(a.t1);
       const t2TemMT = temRequisitosCadernetaMT(a.t2);
@@ -12215,7 +12346,11 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       return `
         <tr>
           <td><strong>${idx + 1}</strong></td>
+          ${isDocente ? `
           <td class="text-start" style="cursor: pointer;" onclick="modalSalvarNotaCaderneta('${a.alunoId}')" title="Clique para lançar avaliações deste aluno"><strong class="text-primary">${a.nome}</strong> <i class="bi bi-pencil-square text-muted ms-1 small no-print d-print-none"></i></td>
+          ` : `
+          <td class="text-start"><strong class="text-dark">${a.nome}</strong></td>
+          `}
           <td class="text-start">${a.apelido || '-'}</td>
           <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
           <!-- 1º Trimestre -->
@@ -12429,6 +12564,14 @@ function imprimirCadernetaOficial() {
 // descarregarCadernetaPdf já está definido globalmente chamando /api/v1/professores/caderneta/:id/pdf
 
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
+  if (state.user?.role !== 'PROFESSOR') {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Apenas professores têm permissão para lançar avaliações.', 'warning');
+    } else {
+      alert('Apenas professores têm permissão para lançar avaliações.');
+    }
+    return;
+  }
   if (!state.alocacaoAtualId) return alert('Selecione uma turma e disciplina');
 
   const periodoFiltro = document.getElementById('cadernetaPeriodoSelect')?.value;
@@ -13946,8 +14089,8 @@ async function abrirModalReciboPagamento(pagamentoId) {
             <tr><th class="bg-light">Turma / Classe:</th><td>${d.aluno?.turma?.nome || '-'} (${d.aluno?.turma?.grau_ano || '-'}) ${d.aluno?.turma?.turno ? '&bull; Turno: ' + d.aluno?.turma?.turno : ''}</td></tr>
             <tr><th class="bg-light">Descrição da Cobrança:</th><td>${d.pagamento.descricao || 'Mensalidade / Propina'}</td></tr>
             <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia || '-'}</code></td></tr>
-            <tr><th class="bg-light">Valor Cobrado:</th><td><strong>${formatarMoeda(d.pagamento.valor || 0)}</strong></td></tr>
-            <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold ${textClass} fs-6">${isPago ? formatarMoeda(d.pagamento.valor_pago || d.pagamento.valor || 0) : '0,00 MZN (Pendente de Liquidação)'}</td></tr>
+            <tr><th class="bg-light">Valor Cobrado:</th><td><strong>${formatarMoeda(d.pagamento.valor || 0)}</strong> <span class="text-muted ms-1 fst-italic">(${d.pagamento.valor_extenso || converterNumeroExtensoMeticais(d.pagamento.valor || 0)})</span></td></tr>
+            <tr><th class="bg-light">Valor Liquidado:</th><td class="fw-bold ${textClass} fs-6">${isPago ? `${formatarMoeda(d.pagamento.valor_pago || d.pagamento.valor || 0)} <span class="text-success ms-1 fst-italic">(${d.pagamento.valor_pago_extenso || converterNumeroExtensoMeticais(d.pagamento.valor_pago || d.pagamento.valor || 0)})</span>` : '0,00 MZN (Zero meticais — Aguardando Liquidação)'}</td></tr>
             <tr><th class="bg-light">Estado / Situação:</th><td><span class="badge ${statusClass} fs-6">${statusLabel}</span></td></tr>
             <tr><th class="bg-light">Forma de Liquidação:</th><td>${isPago ? (d.pagamento.metodo_pagamento || 'MPESA') : 'Pendente de Liquidação'}</td></tr>
             <tr><th class="bg-light">Data de Confirmação:</th><td>${isPago ? (d.pagamento.data_pagamento || '-') : 'Aguardando Confirmação'}</td></tr>
@@ -14033,8 +14176,11 @@ function imprimirElementoRecibo(elementId, titulo) {
             border: 5px solid #16a34a !important;
           }
           @media print {
+            @page { size: A4 portrait; margin: 8mm; }
             .no-print { display: none !important; }
-            body { padding: 10px; }
+            body { padding: 0 !important; margin: 0 !important; }
+            #modalAreaRecibo { page-break-inside: avoid !important; }
+            .table { font-size: 0.85rem !important; }
           }
         </style>
       </head>
@@ -15414,7 +15560,7 @@ function renderizarRecibo(d) {
         <tr><th class="bg-light">Turma:</th><td>${d.aluno.turma?.nome || '-'}</td></tr>
         <tr><th class="bg-light">Descrição da Taxa:</th><td>${d.pagamento.descricao || '-'}</td></tr>
         <tr><th class="bg-light">Mês de Referência:</th><td><code>${d.pagamento.mes_referencia || '-'}</code></td></tr>
-        <tr><th class="bg-light">Valor Pago:</th><td class="fw-bold text-success fs-6">${formatarMoeda(d.pagamento.valor || 0)}</td></tr>
+        <tr><th class="bg-light">Valor Pago:</th><td class="fw-bold text-success fs-6">${formatarMoeda(d.pagamento.valor || 0)} <span class="text-muted ms-1 fst-italic">(${d.pagamento.valor_extenso || converterNumeroExtensoMeticais(d.pagamento.valor || 0)})</span></td></tr>
         <tr><th class="bg-light">Forma de Liquidação:</th><td>${d.pagamento.metodo_pagamento || 'Depósito / Transferência'}</td></tr>
         <tr><th class="bg-light">Data do Pagamento:</th><td>${new Date(d.pagamento.pago_em || Date.now()).toLocaleDateString('pt-PT')}</td></tr>
       </table>
@@ -21184,3 +21330,61 @@ window.descarregarCadernetaPdf = descarregarCadernetaPdf;
 window.descarregarCadernetaExcel = descarregarCadernetaExcel;
 window.descarregarCadernetaDocx = descarregarCadernetaDocx;
 window.exportarCadernetaWord = exportarCadernetaWord;
+
+// ==================== ÁREA PEDAGÓGICA UNIFICADA ====================
+window.mudarSubAbaAreaPedagogica = function(abaId, dispararGatilho = true) {
+  state.subAbaPedagogicaAtiva = abaId;
+
+  // 1. Atualizar abas na página Área Pedagógica
+  document.querySelectorAll('#pillsAreaPedagogica .nav-link').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  const tabBtn = document.getElementById(`tab-ped-${abaId}`);
+  if (tabBtn) tabBtn.classList.add('active');
+
+  // 2. Alternar exibição das subviews pedagógicas
+  document.querySelectorAll('.pedagogico-subview').forEach(el => {
+    el.style.display = 'none';
+  });
+  const alvo = document.getElementById(`view-${abaId}`);
+  if (alvo) {
+    alvo.style.display = 'block';
+  }
+
+  // 3. Atualizar destaque no sub-menu da sidebar
+  const subnav = document.getElementById('subnav-area-pedagogica');
+  if (subnav) {
+    subnav.style.display = 'block';
+    subnav.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active', 'text-primary', 'fw-bold'));
+    const subLink = document.getElementById(`subnav-${abaId}`);
+    if (subLink) {
+      subLink.classList.add('active', 'text-primary', 'fw-bold');
+    }
+  }
+
+  // 4. Disparar gatilho de dados do módulo selecionado
+  if (dispararGatilho) {
+    if (abaId === 'classes-exames') {
+      if (typeof carregarPaginaClassesExames === 'function') carregarPaginaClassesExames();
+      else if (typeof carregarClassesENiveis === 'function') carregarClassesENiveis();
+    } else if (abaId === 'disciplinas') {
+      if (typeof carregarDisciplinas === 'function') carregarDisciplinas();
+    } else if (abaId === 'desbloqueio') {
+      if (typeof prepararDesbloqueioTrimestre === 'function') prepararDesbloqueioTrimestre();
+    } else if (abaId === 'caderneta') {
+      if (typeof inicializarNavegacaoCaderneta === 'function') inicializarNavegacaoCaderneta(true);
+    } else if (abaId === 'pautas') {
+      if (typeof carregarPautas === 'function') carregarPautas(null, false);
+    } else if (abaId === 'exames') {
+      if (typeof carregarExames === 'function') carregarExames();
+    } else if (abaId === 'estatisticas-aproveitamento') {
+      if (typeof carregarEstatisticasAproveitamento === 'function') carregarEstatisticasAproveitamento(false);
+    }
+  }
+
+  setTimeout(() => {
+    if (alvo && typeof aplicarResponsividadeUniversalTabelas === 'function') {
+      aplicarResponsividadeUniversalTabelas(alvo);
+    }
+  }, 50);
+};
