@@ -73,6 +73,15 @@ class NotaViewSet(viewsets.ModelViewSet):
             disciplina = get_object_or_404(Disciplina, id=data['disciplina_id'], escola=escola)
             periodo = data['periodo']
 
+            # Regra Oficial: Apenas o professor atribuido a turma e disciplina pode lancar notas
+            if getattr(request.user, 'role', None) == 'PROFESSOR':
+                prof_id = getattr(request.user, 'professor_id', None)
+                if not prof_id or not AlocacaoDocente.objects.filter(professor_id=prof_id, turma=turma, disciplina=disciplina).exists():
+                    return Response({
+                        'success': False,
+                        'message': 'Apenas o professor atribuido a esta turma e disciplina pode lancar as notas.'
+                    }, status=status.HTTP_403_FORBIDDEN)
+
             # Validação oficial de Prazos de Calendarização
             permitido, motivo, msg_prazo, _ = verificar_prazo_lancamento_trimestre(
                 escola=escola,
@@ -207,6 +216,15 @@ class NotaViewSet(viewsets.ModelViewSet):
                 return Response({'success': False, 'message': 'Turma do aluno não encontrada.'}, status=status.HTTP_400_BAD_REQUEST)
             if not disciplina:
                 return Response({'success': False, 'message': 'Disciplina não encontrada para este lançamento.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Regra Oficial: Apenas o professor atribuido a turma e disciplina pode lancar notas
+            if getattr(request.user, 'role', None) == 'PROFESSOR':
+                prof_id = getattr(request.user, 'professor_id', None)
+                if not prof_id or not AlocacaoDocente.objects.filter(professor_id=prof_id, turma=turma, disciplina=disciplina).exists():
+                    return Response({
+                        'success': False,
+                        'message': 'Apenas o professor atribuido a esta turma e disciplina pode lancar as notas.'
+                    }, status=status.HTTP_403_FORBIDDEN)
 
             # Validação oficial de Prazos de Calendarização
             permitido, motivo, msg_prazo, _ = verificar_prazo_lancamento_trimestre(

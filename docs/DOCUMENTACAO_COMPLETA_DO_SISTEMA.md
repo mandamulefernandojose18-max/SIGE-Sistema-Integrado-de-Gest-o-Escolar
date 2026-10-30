@@ -1150,3 +1150,8 @@ esultadoFinal sejam strings normalizadas (ex: 'Aprovado', 'Reprovado', 'Pendente
 - **Exibição do Valor em Algarismo e por Extenso:** O valor total cobrado e o valor liquidado são apresentados obrigatoriamente tanto em algarismos numéricos como por extenso oficial em Meticais e Centavos (ex: 1500 MT (Mil e quinhentos meticais) ou 1500,50 MT (Mil e quinhentos meticais e cinquenta centavos)).
 - **Módulo 
 umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para o português moçambicano é provida pelo serviço backend pps.documentos.services.numero_extenso e replicada no frontend SPA em converterNumeroExtensoMeticais. Os endpoints REST /api/v1/impressao/recibo/{pagamento_id}/ e /api/v1/impressao/recibo/{pagamento_id}/pdf fornecem os valores já formatados (alor_extenso, alor_com_extenso, alor_pago_extenso e alor_pago_com_extenso).
+
+### 12.8 Caderneta Escolar Oficial do Professor e Lançamento de Notas
+- **Abertura Automática do Botão "Lançar as notas":** Enquanto for um professor a abrir as suas turmas naquele ano lectivo que lhes foi atribuída, a caderneta mostra automaticamente o botão **"Lançar as notas"**.
+- **Exclusividade Absoluta do Botão:** O botão **"Lançar as notas"** é visível e utilizável **só e só para o professor (`PROFESSOR`)**. Para qualquer perfil administrativo (DAP, Direcção, Admin, SuperAdmin), o botão é completamente ocultado da interface e protegido no backend por HTTP 403 Forbidden.
+- **Isolamento Estrito das Cadernetas do Professor:** O professor **só e só vê as suas cadernetas das suas turmas atribuídas** naquele ano lectivo. O seletor de outros professores é ocultado e a API restringe alocações, consulta e exportações estritamente ao docente autenticado.

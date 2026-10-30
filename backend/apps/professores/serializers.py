@@ -12,6 +12,7 @@ class AlocacaoDocenteSerializer(serializers.ModelSerializer):
     turma_area = serializers.CharField(source='turma.area', read_only=True, allow_null=True)
     turma_turno = serializers.CharField(source='turma.turno', read_only=True, allow_null=True)
     turma_sala = serializers.CharField(source='turma.sala', read_only=True, allow_null=True)
+    turma_ano_letivo = serializers.CharField(source='turma.ano_letivo', read_only=True, allow_null=True)
     professor_telefone = serializers.CharField(source='professor.telefone', read_only=True, allow_null=True)
     professor_especialidade = serializers.CharField(source='professor.especialidade', read_only=True, allow_null=True)
     director_turma_nome = serializers.CharField(source='turma.director_turma.nome', read_only=True, allow_null=True)
@@ -21,7 +22,7 @@ class AlocacaoDocenteSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'professor', 'professor_nome', 'disciplina', 'disciplina_nome',
             'disciplina_codigo', 'turma', 'turma_nome', 'turma_grau', 'turma_area',
-            'turma_turno', 'turma_sala', 'professor_telefone', 'professor_especialidade',
+            'turma_turno', 'turma_sala', 'turma_ano_letivo', 'professor_telefone', 'professor_especialidade',
             'director_turma_nome', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

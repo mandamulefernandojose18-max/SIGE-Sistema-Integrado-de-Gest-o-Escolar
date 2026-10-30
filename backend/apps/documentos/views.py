@@ -1312,19 +1312,82 @@ class FichaDOCXView(APIView):
 
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
-from .models import CalendarioEscolar, ComunicadoEscolar
-from .serializers import CalendarioEscolarSerializer, ComunicadoEscolarSerializer
+from .models import CalendarioEscolar, ComunicadoEscolar, DocumentoCalendarioOficial
+from .serializers import CalendarioEscolarSerializer, ComunicadoEscolarSerializer, DocumentoCalendarioOficialSerializer
 from apps.accounts.audit import registrar_auditoria
+from apps.tenants.models import Escola
+import base64
+import csv
+
+def _converter_data_calendario(valor):
+    if not valor:
+        return None
+    if isinstance(valor, datetime.date):
+        return valor
+    if isinstance(valor, datetime.datetime):
+        return valor.date()
+    val_str = str(valor).strip()
+    if not val_str:
+        return None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y/%m/%d'):
+        try:
+            return datetime.datetime.strptime(val_str, fmt).date()
+        except Exception:
+            pass
+    try:
+        val_float = float(val_str)
+        if 30000 < val_float < 60000:
+            base = datetime.date(1899, 12, 30)
+            return base + datetime.timedelta(days=int(val_float))
+    except Exception:
+        pass
+    return None
+
+def _mapear_tipo_evento_calendario(texto):
+    s = (texto or '').strip().upper()
+    if 'EXAME' in s:
+        return 'EXAME'
+    if 'CONSELHO' in s:
+        return 'CONSELHO_TURMA'
+    if 'FERIADO' in s or 'PAUSA' in s or 'INTERRUP' in s:
+        return 'FERIADO_PAUSA'
+    if 'REUNIAO' in s or 'ENCARREGADO' in s or 'PAIS' in s:
+        return 'REUNIAO_ENCARREGADOS'
+    if 'CULTURAL' in s or 'FESTA' in s or 'EVENTO' in s:
+        return 'EVENTO_ESCOLAR'
+    return 'AVALIACAO_TESTE'
+
+def _mapear_trimestre_calendario(texto):
+    s = (texto or '').strip().upper()
+    if '1' in s or 'I ' in s or 'PRIMEIRO' in s:
+        return '1_TRIMESTRE'
+    if '2' in s or 'II ' in s or 'SEGUNDO' in s:
+        return '2_TRIMESTRE'
+    if '3' in s or 'III ' in s or 'TERCEIRO' in s:
+        return '3_TRIMESTRE'
+    return 'GERAL'
 
 class CalendarioEscolarViewSet(viewsets.ModelViewSet):
     queryset = CalendarioEscolar.objects.all()
     serializer_class = CalendarioEscolarSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def _obter_escola_requisicao(self, request):
+        user = request.user
+        role = getattr(user, 'role', '')
+        escola = getattr(request, 'tenant', None) or getattr(user, 'escola', None)
+        if not escola and role == 'SUPERADMIN':
+            escola_id = request.query_params.get('escola_id') or request.data.get('escola_id') or request.headers.get('X-Escola-ID')
+            if escola_id:
+                escola = Escola.objects.filter(id=escola_id).first()
+            if not escola and user.escola:
+                escola = user.escola
+        return escola
+
     def get_queryset(self):
         user = self.request.user
         role = getattr(user, 'role', '')
-        escola = getattr(self.request, 'tenant', None) or getattr(user, 'escola', None)
+        escola = self._obter_escola_requisicao(self.request)
         qs = CalendarioEscolar.objects.all()
         if escola:
             qs = qs.filter(escola=escola)
@@ -1342,7 +1405,7 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
         return qs.order_by('data_inicio')
 
     def perform_create(self, serializer):
-        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        escola = self._obter_escola_requisicao(self.request)
         obj = serializer.save(escola=escola, criado_por=self.request.user)
         registrar_auditoria(self.request.user, escola, 'CALENDARIO', 'CRIACAO', obj.id, f'Evento no calendário: {obj.titulo} ({obj.data_inicio})')
 
@@ -1357,6 +1420,307 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
         obj.save()
         registrar_auditoria(request.user, obj.escola, 'CALENDARIO', 'APROVACAO', obj.id, f'Aprovação do calendário oficial pelo Director')
         return Response({'success': True, 'message': 'Calendário escolar aprovado com sucesso!', 'data': self.get_serializer(obj).data})
+
+    @action(detail=False, methods=['get'], url_path='documento_oficial')
+    def documento_oficial(self, request):
+        escola = self._obter_escola_requisicao(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
+        doc = DocumentoCalendarioOficial.objects.filter(escola=escola).order_by('-created_at').first()
+        if not doc:
+            return Response({'success': True, 'data': None, 'message': 'Nenhum documento oficial carregado ainda.'})
+        return Response({'success': True, 'data': DocumentoCalendarioOficialSerializer(doc).data})
+
+    @action(detail=False, methods=['post'], url_path='carregar_documento_oficial')
+    def carregar_documento_oficial(self, request):
+        escola = self._obter_escola_requisicao(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
+        
+        titulo = request.data.get('titulo') or 'Calendário Escolar Oficial'
+        ano_lectivo = request.data.get('ano_lectivo') or '2026'
+        descricao = request.data.get('descricao') or ''
+        
+        arquivo = request.FILES.get('documento') or request.FILES.get('arquivo')
+        conteudo_base64 = request.data.get('conteudo_base64')
+        nome_arquivo = request.data.get('nome_arquivo') or (arquivo.name if arquivo else 'calendario_escolar.pdf')
+        extensao = request.data.get('extensao') or 'pdf'
+        tipo_mime = request.data.get('tipo_mime') or 'application/pdf'
+        tamanho_bytes = int(request.data.get('tamanho_bytes') or 0)
+
+        if arquivo:
+            nome_arquivo = arquivo.name
+            extensao = nome_arquivo.split('.')[-1].lower() if '.' in nome_arquivo else 'pdf'
+            tamanho_bytes = arquivo.size
+            tipo_mime = getattr(arquivo, 'content_type', 'application/pdf') or 'application/pdf'
+            raw_data = arquivo.read()
+            conteudo_base64 = base64.b64encode(raw_data).decode('utf-8')
+        elif conteudo_base64:
+            if ',' in conteudo_base64:
+                prefix, b64_clean = conteudo_base64.split(',', 1)
+                conteudo_base64 = b64_clean
+                if 'application/pdf' in prefix:
+                    tipo_mime = 'application/pdf'
+                elif 'vnd.openxmlformats' in prefix or 'spreadsheet' in prefix:
+                    tipo_mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            if not tamanho_bytes:
+                tamanho_bytes = len(conteudo_base64) * 3 // 4
+        else:
+            return Response({'success': False, 'message': 'Nenhum ficheiro fornecido. Seleccione um ficheiro para carregar.'}, status=400)
+
+        doc = DocumentoCalendarioOficial.objects.create(
+            escola=escola,
+            titulo=titulo,
+            ano_lectivo=ano_lectivo,
+            descricao=descricao,
+            nome_arquivo=nome_arquivo,
+            extensao=extensao,
+            tamanho_bytes=tamanho_bytes,
+            conteudo_base64=conteudo_base64,
+            tipo_mime=tipo_mime,
+            publicado_por=request.user
+        )
+        registrar_auditoria(request.user, escola, 'CALENDARIO', 'UPLOAD_DOC', doc.id, f'Carregamento de documento oficial do calendário: {doc.titulo} ({doc.nome_arquivo})')
+        return Response({
+            'success': True,
+            'message': 'Documento oficial do calendário carregado com sucesso!',
+            'data': DocumentoCalendarioOficialSerializer(doc).data
+        })
+
+    @action(detail=False, methods=['get'], url_path='download_documento_oficial')
+    def download_documento_oficial(self, request):
+        escola = self._obter_escola_requisicao(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
+        doc = DocumentoCalendarioOficial.objects.filter(escola=escola).order_by('-created_at').first()
+        if not doc or not doc.conteudo_base64:
+            return Response({'success': False, 'message': 'Nenhum documento oficial registado para descarregar.'}, status=404)
+        
+        try:
+            b64_clean = doc.conteudo_base64
+            if ',' in b64_clean:
+                b64_clean = b64_clean.split(',', 1)[1]
+            raw_bytes = base64.b64decode(b64_clean)
+        except Exception as e:
+            return Response({'success': False, 'message': f'Erro ao descodificar ficheiro: {str(e)}'}, status=500)
+
+        resp = HttpResponse(raw_bytes, content_type=doc.tipo_mime or 'application/octet-stream')
+        nome_limpo = _sanitizar_para_nome_arquivo(doc.nome_arquivo) or 'calendario_escolar.pdf'
+        resp['Content-Disposition'] = f'attachment; filename="{nome_limpo}"'
+        return resp
+
+    @action(detail=False, methods=['delete', 'post'], url_path='remover_documento_oficial')
+    def remover_documento_oficial(self, request):
+        escola = self._obter_escola_requisicao(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
+        docs = DocumentoCalendarioOficial.objects.filter(escola=escola)
+        qtd = docs.count()
+        docs.delete()
+        registrar_auditoria(request.user, escola, 'CALENDARIO', 'REMOCAO_DOC', None, 'Remoção do documento oficial do calendário')
+        return Response({'success': True, 'message': f'Documento oficial removido com sucesso ({qtd} registos eliminados).'})
+
+    @action(detail=False, methods=['get'], url_path='modelo_csv')
+    def modelo_csv(self, request):
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Data Início', 'Data Fim', 'Título do Evento', 'Tipo de Evento', 'Trimestre', 'Descrição'])
+        writer.writerow(['2026-02-02', '', 'Abertura Solene do Ano Lectivo 2026', 'EVENTO_ESCOLAR', '1_TRIMESTRE', 'Cerimónia oficial de boas-vindas com professores, encarregados e alunos'])
+        writer.writerow(['2026-03-09', '2026-03-13', '1ª Ronda de Avaliações Contínuas (ACS)', 'AVALIACAO_TESTE', '1_TRIMESTRE', 'Semana de realização de ACS em todas as disciplinas'])
+        writer.writerow(['2026-04-13', '2026-04-17', 'Realização da ACP do 1º Trimestre', 'AVALIACAO_TESTE', '1_TRIMESTRE', 'Avaliações Periódicas Trimestrais'])
+        writer.writerow(['2026-04-20', '2026-04-24', 'Conselhos de Turma do 1º Trimestre', 'CONSELHO_TURMA', '1_TRIMESTRE', 'Reunião de avaliação e validação das notas do 1º Trimestre'])
+        writer.writerow(['2026-05-01', '', 'Dia Internacional do Trabalhador', 'FERIADO_PAUSA', 'GERAL', 'Feriado nacional oficial'])
+        writer.writerow(['2026-05-18', '', 'Início das Aulas do 2º Trimestre', 'EVENTO_ESCOLAR', '2_TRIMESTRE', 'Retomada lectiva do segundo período'])
+        writer.writerow(['2026-06-25', '', 'Dia da Independência Nacional de Moçambique', 'FERIADO_PAUSA', 'GERAL', 'Feriado nacional oficial'])
+        writer.writerow(['2026-07-20', '2026-07-24', 'Realização da ACP do 2º Trimestre', 'AVALIACAO_TESTE', '2_TRIMESTRE', 'Provas trimestrais do 2º Trimestre'])
+        writer.writerow(['2026-07-27', '2026-07-31', 'Conselhos de Turma do 2º Trimestre', 'CONSELHO_TURMA', '2_TRIMESTRE', 'Lançamento de pautas e deliberação pedagógica'])
+        writer.writerow(['2026-08-31', '', 'Início do 3º Trimestre Lectivo', 'EVENTO_ESCOLAR', '3_TRIMESTRE', 'Início das aulas do último trimestre'])
+        writer.writerow(['2026-10-19', '2026-10-23', 'Realização da ACP do 3º Trimestre', 'AVALIACAO_TESTE', '3_TRIMESTRE', 'Provas finais dos alunos'])
+        writer.writerow(['2026-11-16', '2026-11-27', 'Época Especial e Geral de Exames Nacionais', 'EXAME', '3_TRIMESTRE', 'Exames finais do Ensino Secundário Geral'])
+        
+        csv_data = output.getvalue()
+        resp = HttpResponse(csv_data.encode('utf-8-sig'), content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = 'attachment; filename="modelo_calendario_escolar_sige.csv"'
+        return resp
+
+    @action(detail=False, methods=['post'], url_path='importar_ficheiro')
+    def importar_ficheiro(self, request):
+        escola = self._obter_escola_requisicao(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
+        
+        lista_linhas = []
+        
+        eventos_json = request.data.get('eventos')
+        if isinstance(eventos_json, list) and len(eventos_json) > 0:
+            for item in eventos_json:
+                if isinstance(item, dict):
+                    lista_linhas.append(item)
+        
+        arquivo = request.FILES.get('ficheiro') or request.FILES.get('documento')
+        conteudo_base64 = request.data.get('conteudo_base64')
+        nome_arquivo = request.data.get('nome_arquivo') or (arquivo.name if arquivo else '')
+        
+        if not lista_linhas and (arquivo or conteudo_base64):
+            raw_bytes = None
+            if arquivo:
+                raw_bytes = arquivo.read()
+            elif conteudo_base64:
+                b64_clean = conteudo_base64
+                if ',' in b64_clean:
+                    b64_clean = b64_clean.split(',', 1)[1]
+                try:
+                    raw_bytes = base64.b64decode(b64_clean)
+                except Exception:
+                    raw_bytes = None
+            
+            if raw_bytes:
+                ext = nome_arquivo.split('.')[-1].lower() if '.' in nome_arquivo else ''
+                if ext in ['xlsx', 'xlsm', 'xltx']:
+                    try:
+                        import openpyxl
+                        wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+                        ws = wb.active
+                        rows = list(ws.iter_rows(values_only=True))
+                        if rows and len(rows) > 1:
+                            headers = [str(h or '').strip().lower() for h in rows[0]]
+                            for r in rows[1:]:
+                                if not any(r): continue
+                                r_dict = {}
+                                for i, h in enumerate(headers):
+                                    if i < len(r):
+                                        r_dict[h] = r[i]
+                                lista_linhas.append(r_dict)
+                    except Exception as err:
+                        return Response({'success': False, 'message': f'Erro ao ler folha Excel: {str(err)}'}, status=400)
+                else:
+                    try:
+                        texto = None
+                        for enc in ('utf-8-sig', 'utf-8', 'latin-1', 'cp1252'):
+                            try:
+                                texto = raw_bytes.decode(enc)
+                                break
+                            except Exception:
+                                pass
+                        if texto:
+                            primeira_linha = texto.splitlines()[0] if texto.splitlines() else ''
+                            delim = ';' if ';' in primeira_linha else (',' if ',' in primeira_linha else '	')
+                            reader = csv.reader(io.StringIO(texto), delimiter=delim)
+                            csv_rows = list(reader)
+                            if csv_rows and len(csv_rows) > 1:
+                                headers = [h.strip().lower() for h in csv_rows[0]]
+                                for r in csv_rows[1:]:
+                                    if not any(c.strip() for c in r if isinstance(c, str)): continue
+                                    r_dict = {}
+                                    for i, h in enumerate(headers):
+                                        if i < len(r):
+                                            r_dict[h] = r[i]
+                                    lista_linhas.append(r_dict)
+                    except Exception as err:
+                        return Response({'success': False, 'message': f'Erro ao ler ficheiro CSV: {str(err)}'}, status=400)
+
+        if not lista_linhas:
+            return Response({'success': False, 'message': 'Nenhum evento detectado no ficheiro ou dados enviados.'}, status=400)
+
+        criados = []
+        erros = []
+        for idx, row in enumerate(lista_linhas, start=1):
+            titulo = None
+            dt_inicio = None
+            dt_fim = None
+            tipo = None
+            trimestre = None
+            descricao = ''
+
+            for k, v in row.items():
+                if v is None: continue
+                val_str = str(v).strip()
+                if not val_str: continue
+                
+                # Normalizar chave sem acentos para mapeamento infalivel
+                k_norm = unicodedata.normalize('NFKD', str(k)).encode('ascii', 'ignore').decode('ascii').lower()
+
+                if any(x in k_norm for x in ['titulo', 'evento', 'nome', 'title', 'actividade', 'atividade']):
+                    if not titulo: titulo = val_str
+                elif any(x in k_norm for x in ['inicio', 'start', 'abertura', 'de']) or 'data' in k_norm and 'fim' not in k_norm:
+                    if not dt_inicio: dt_inicio = _converter_data_calendario(v)
+                elif any(x in k_norm for x in ['fim', 'end', 'encerramento', 'ate', 'termino']):
+                    if not dt_fim: dt_fim = _converter_data_calendario(v)
+                elif any(x in k_norm for x in ['tipo', 'categoria', 'classificacao', 'type']):
+                    if not tipo: tipo = _mapear_tipo_evento_calendario(val_str)
+                elif any(x in k_norm for x in ['trimestre', 'periodo', 'etapa', 'term']):
+                    if not trimestre: trimestre = _mapear_trimestre_calendario(val_str)
+                elif any(x in k_norm for x in ['desc', 'detalhe', 'obs', 'nota']):
+                    descricao = val_str
+
+            if not titulo and len(row) >= 2:
+                valores = list(row.values())
+                dt_inicio = _converter_data_calendario(valores[0])
+                titulo = str(valores[1] or '').strip()
+                if len(valores) > 2 and not dt_fim:
+                    dt_fim = _converter_data_calendario(valores[2])
+
+            if not titulo:
+                erros.append(f'Linha {idx}: título do evento em falta.')
+                continue
+            if not dt_inicio:
+                erros.append(f'Linha {idx} ({titulo}): data de início inválida ou em falta.')
+                continue
+
+            tipo_final = tipo or 'AVALIACAO_TESTE'
+            trimestre_final = trimestre or 'GERAL'
+
+            ev = CalendarioEscolar.objects.create(
+                escola=escola,
+                titulo=titulo,
+                tipo=tipo_final,
+                trimestre=trimestre_final,
+                data_inicio=dt_inicio,
+                data_fim=dt_fim,
+                descricao=descricao,
+                status_aprovacao='APROVADO_DIRECTOR',
+                criado_por=request.user
+            )
+            criados.append(ev)
+
+        if not criados:
+            return Response({
+                'success': False,
+                'message': 'Não foi possível importar nenhum evento do ficheiro. Verifique os formatos de data e colunas.',
+                'erros': erros[:10]
+            }, status=400)
+
+        registrar_auditoria(
+            request.user, escola, 'CALENDARIO', 'IMPORTACAO_LOTE', None,
+            f'Importação em lote de {len(criados)} eventos para o calendário a partir de documento/ficheiro.'
+        )
+
+        return Response({
+            'success': True,
+            'count': len(criados),
+            'erros_contagem': len(erros),
+            'message': f'Foram carregados e importados {len(criados)} eventos com sucesso no calendário escolar!',
+            'data': CalendarioEscolarSerializer(criados, many=True).data
+        })
+
+    @action(detail=True, methods=['get'], url_path='download_anexo')
+    def download_anexo(self, request, pk=None):
+        obj = self.get_object()
+        if not obj.documento_base64:
+            return Response({'success': False, 'message': 'Este evento não tem documento anexo.'}, status=404)
+        
+        try:
+            b64_clean = obj.documento_base64
+            if ',' in b64_clean:
+                b64_clean = b64_clean.split(',', 1)[1]
+            raw_bytes = base64.b64decode(b64_clean)
+        except Exception as e:
+            return Response({'success': False, 'message': f'Erro ao ler anexo: {str(e)}'}, status=500)
+
+        nome = obj.nome_documento or f"anexo_{obj.id}.pdf"
+        resp = HttpResponse(raw_bytes, content_type=obj.documento_tipo or 'application/octet-stream')
+        resp['Content-Disposition'] = f'attachment; filename="{_sanitizar_para_nome_arquivo(nome)}"'
+        return resp
 
 class ComunicadoEscolarViewSet(viewsets.ModelViewSet):
     queryset = ComunicadoEscolar.objects.all()

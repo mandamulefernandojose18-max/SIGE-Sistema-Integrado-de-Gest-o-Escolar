@@ -144,21 +144,29 @@ class MinhasTurmasView(APIView):
     def get(self, request):
         escola = getattr(request, 'tenant', None) or getattr(request.user, 'escola', None)
         prof_id = getattr(request.user, 'professor_id', None)
+        user_role = getattr(request.user, 'role', '')
 
         qs = AlocacaoDocente.objects.all()
         if escola:
             qs = qs.filter(escola=escola)
 
-        # Se for admin, lista todas as alocações da escola ou filtra por professor_id se fornecido
-        if getattr(request.user, 'role', '') in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+        # Filtro opcional por ano lectivo
+        ano_letivo = request.query_params.get('ano_letivo') or request.query_params.get('ano')
+        if ano_letivo and str(ano_letivo).upper() != 'TODOS':
+            qs = qs.filter(turma__ano_letivo=ano_letivo)
+
+        # Regra de Segurança: O professor só e só vê as suas cadernetas das suas turmas atribuídas
+        if user_role == 'PROFESSOR' or prof_id:
+            if not prof_id:
+                alocs = AlocacaoDocente.objects.none()
+            else:
+                alocs = qs.filter(professor_id=prof_id).select_related('professor', 'disciplina', 'turma')
+        elif user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
             req_prof_id = request.query_params.get('professor_id')
             if req_prof_id and req_prof_id != 'TODOS':
                 alocs = qs.filter(professor_id=req_prof_id).select_related('professor', 'disciplina', 'turma')
             else:
                 alocs = qs.select_related('professor', 'disciplina', 'turma')
-        elif prof_id:
-            # Professor estritamente isolado às suas alocações
-            alocs = qs.filter(professor_id=prof_id).select_related('professor', 'disciplina', 'turma')
         else:
             alocs = AlocacaoDocente.objects.none()
 
@@ -191,6 +199,14 @@ def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
     if not aloc:
         aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id)
     escola = aloc.escola or escola
+
+    # Regra de Seguranca Estrita: O professor so e so ve as suas cadernetas das suas turmas
+    user = getattr(request, 'user', None)
+    if user and user.is_authenticated and getattr(user, 'role', '') == 'PROFESSOR' and not ignorar_restricao:
+        prof_id = getattr(user, 'professor_id', None)
+        if not prof_id or str(aloc.professor_id) != str(prof_id):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Acesso nao autorizado. Esta caderneta pertence a outro docente.")
 
     turma = aloc.turma
     prof = aloc.professor

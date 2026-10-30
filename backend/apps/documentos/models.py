@@ -63,6 +63,10 @@ class CalendarioEscolar(models.Model):
         default='GERAL'
     )
     descricao = models.TextField(blank=True, default='')
+    nome_documento = models.CharField(max_length=255, blank=True, default='')
+    documento_base64 = models.TextField(blank=True, null=True)
+    documento_tipo = models.CharField(max_length=100, blank=True, default='')
+    documento_tamanho = models.BigIntegerField(default=0)
     STATUS_CHOICES = [
         ('PROPOSTO_DAP', 'Proposto pelo Director Pedagógico'),
         ('APROVADO_DIRECTOR', 'Aprovado pelo Director da Escola'),
@@ -85,6 +89,35 @@ class CalendarioEscolar(models.Model):
 
     def __str__(self):
         return f'{self.titulo} ({self.data_inicio}) - {self.tipo}'
+
+
+
+class DocumentoCalendarioOficial(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='documentos_calendario')
+    titulo = models.CharField(max_length=255, default='Calendário Escolar Oficial')
+    ano_lectivo = models.CharField(max_length=20, blank=True, default='2026')
+    descricao = models.TextField(blank=True, default='')
+    nome_arquivo = models.CharField(max_length=255, default='calendario_escolar.pdf')
+    extensao = models.CharField(max_length=20, default='pdf')
+    tamanho_bytes = models.BigIntegerField(default=0)
+    conteudo_base64 = models.TextField(blank=True, null=True)
+    tipo_mime = models.CharField(max_length=100, default='application/pdf')
+    publicado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos_calendario_publicados')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_documentos_calendario_oficial'
+        verbose_name = 'Documento Oficial do Calendário'
+        verbose_name_plural = 'Documentos Oficiais do Calendário'
+        indexes = [
+            models.Index(fields=['escola', 'ano_lectivo']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.titulo} - {self.ano_lectivo} ({self.escola.nome})'
 
 class ComunicadoEscolar(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

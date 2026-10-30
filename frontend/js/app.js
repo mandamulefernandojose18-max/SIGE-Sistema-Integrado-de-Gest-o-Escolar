@@ -2763,8 +2763,8 @@ async function atualizarDadosModuloPorAno(ano) {
     if (sel) sel.value = ano;
     if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento(true);
   } else if (view === 'caderneta') {
+    if (typeof inicializarNavegacaoCaderneta === 'function') await inicializarNavegacaoCaderneta(true);
     if (typeof carregarCadernetaDocente === 'function' && state.cadernetaAlocacaoSelecionadaId) await carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
-    else if (typeof inicializarNavegacaoCaderneta === 'function') await inicializarNavegacaoCaderneta(true);
   } else if (view === 'pagamentos' && typeof carregarPagamentos === 'function') {
     await carregarPagamentos();
   } else if (view === 'dashboard' && typeof carregarDashboardGeral === 'function') {
@@ -12093,39 +12093,67 @@ window.inicializarNavegacaoCaderneta = async function(forcarRecarregar = false) 
     if (badgePerfil) {
       if (isDocente) {
         badgePerfil.className = 'badge bg-success-subtle text-success border border-success-subtle px-2 py-1';
-        badgePerfil.innerHTML = `<i class="bi bi-person-check-fill me-1"></i>Minhas Turmas Atribuídas: ${state.user.nome}`;
+        badgePerfil.innerHTML = `<i class="bi bi-person-check-fill me-1"></i>Minhas Turmas Atribuídas: ${state.user?.nome || 'Docente'}`;
       } else {
         badgePerfil.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1';
         badgePerfil.innerHTML = `<i class="bi bi-shield-lock-fill me-1"></i>Visão Administrativa da Escola`;
       }
     }
 
-    // Se o utilizador for Admin / DAP, carregar seletor de professores
+    // Se o utilizador for Admin / DAP, carregar seletor de professores; para Professor, SEMPRE estritamente oculto
     if (!isDocente && wrapperProf) {
       wrapperProf.style.display = 'block';
       await carregarSelectProfessoresCaderneta();
     } else if (wrapperProf) {
-      wrapperProf.style.display = 'none';
+      wrapperProf.style.setProperty('display', 'none', 'important');
     }
 
-    // Regra Oficial MEC: O botão de lançar notas só e só deve ser exibido para professores
+    // Obter o ano lectivo ativo/selecionado da view caderneta
+    const selAnoCad = document.getElementById('cadernetaAnoSelect');
+    const anoSelecionado = (state.anosPorView && state.anosPorView['caderneta']) || (selAnoCad ? selAnoCad.value : '') || state.anoLectivoVisualizacao || '';
+
+    // Regra Oficial MEC: O botão 'Lançar as notas' só e só deve ser exibido para professores
     const btnLancar = document.getElementById('btnLancarNotasCaderneta');
     if (btnLancar) {
+      btnLancar.innerHTML = '<i class="bi bi-pencil-square me-1"></i> Lançar as notas';
+      btnLancar.title = 'Lançar as notas dos alunos';
       btnLancar.style.display = isDocente ? 'inline-block' : 'none';
     }
     document.querySelectorAll('button[onclick*="modalSalvarNotaCaderneta"]').forEach(b => {
       b.style.display = isDocente ? 'inline-block' : 'none';
     });
 
-    // Carregar alocações se vazio ou forçado
-    if (forcarRecarregar || !state.alocacoesDocente || state.alocacoesDocente.length === 0) {
+    // Carregar alocações se vazio ou forçado ou ano alterado
+    if (forcarRecarregar || !state.alocacoesDocente || state.alocacoesDocente.length === 0 || state.cadernetaAnoCarregado !== anoSelecionado) {
       let url = '/api/v1/professores/minhas-turmas';
+      const params = [];
+      if (anoSelecionado && anoSelecionado !== 'TODOS') {
+        params.push(`ano_letivo=${encodeURIComponent(anoSelecionado)}`);
+      }
       if (!isDocente && state.cadernetaProfessorFiltroId && state.cadernetaProfessorFiltroId !== 'TODOS') {
-        url += `?professor_id=${state.cadernetaProfessorFiltroId}`;
+        params.push(`professor_id=${encodeURIComponent(state.cadernetaProfessorFiltroId)}`);
+      }
+      if (params.length > 0) {
+        url += `?${params.join('&')}`;
       }
       const resTurmas = await apiFetch(url);
       if (resTurmas.success) {
-        state.alocacoesDocente = resTurmas.data || [];
+        let alocs = resTurmas.data || [];
+        // Isolamento estrito de segurança: Professor só e só vê as suas cadernetas das suas turmas
+        if (isDocente && state.user?.professor_id) {
+          alocs = alocs.filter(a => {
+            const pId = a.professor?.id || a.professor;
+            return String(pId) === String(state.user.professor_id);
+          });
+        }
+        if (anoSelecionado && anoSelecionado !== 'TODOS') {
+          alocs = alocs.filter(a => {
+            const anoAloc = a.turma_ano_letivo || a.turma?.ano_letivo;
+            return !anoAloc || String(anoAloc) === String(anoSelecionado);
+          });
+        }
+        state.alocacoesDocente = alocs;
+        state.cadernetaAnoCarregado = anoSelecionado;
       } else {
         state.alocacoesDocente = [];
       }
@@ -12171,16 +12199,19 @@ function renderizarBotoesClassesCaderneta() {
   if (!container) return;
 
   const alocs = state.alocacoesDocente || [];
+  const isDocente = state.user?.role === 'PROFESSOR';
   if (alocs.length === 0) {
     container.innerHTML = `
       <div class="alert alert-warning py-3 px-3 small mb-0 w-100 border text-center">
         <i class="bi bi-info-circle-fill me-2 fs-5 text-warning align-middle"></i>
-        <span>Nenhuma turma ou caderneta atribuída encontrada para este utilizador / perfil.</span>
+        <span>${isDocente ? 'Nenhuma turma ou caderneta atribuída encontrada para o seu perfil no ano lectivo seleccionado.' : 'Nenhuma turma ou caderneta atribuída encontrada para este utilizador / perfil no ano lectivo seleccionado.'}</span>
       </div>
     `;
     if (countEl) countEl.textContent = '0 classes';
     if (seccaoArea) seccaoArea.style.display = 'none';
     if (seccaoTurmas) seccaoTurmas.style.display = 'none';
+    const btnLancar = document.getElementById('btnLancarNotasCaderneta');
+    if (btnLancar) btnLancar.style.display = 'none';
     limparCabecalhoCaderneta();
     return;
   }
@@ -12385,8 +12416,12 @@ function renderizarBotoesCadernetasDisponiveis(classe, area) {
     hiddenSelectAloc.value = state.cadernetaAlocacaoSelecionadaId;
   }
 
-  // Dados omitidos na abertura inicial: aguardando clique em Buscar pelo seletor de ano ou busca
-  // carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
+  // Se o conteúdo dinâmico da caderneta estiver visível (ou ano selecionado), carregar a caderneta automaticamente
+  const dynamicWrapper = document.getElementById('cadernetaConteudoDinamico');
+  const isContentVisible = dynamicWrapper && !dynamicWrapper.classList.contains('d-none');
+  if (isContentVisible && state.cadernetaAlocacaoSelecionadaId) {
+    carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
+  }
 }
 
 window.aoMudarSelectAlocacaoCaderneta = function(alocId) {
@@ -12418,6 +12453,8 @@ window.selecionarAlocacaoCaderneta = function(alocacaoId) {
 };
 
 function limparCabecalhoCaderneta() {
+  const btnLancar = document.getElementById('btnLancarNotasCaderneta');
+  if (btnLancar) btnLancar.style.display = 'none';
   const wrapperBotoes = document.getElementById('containerBotoesTurmasCadernetaWrapper');
   if (wrapperBotoes) wrapperBotoes.style.setProperty('display', 'none', 'important');
   const containerBotoes = document.getElementById('containerBotoesTurmasCaderneta');
@@ -12488,6 +12525,24 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
     if (infoResumo) {
       infoResumo.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> Caderneta Sincronizada: <strong>${(d.alunos || []).length} alunos</strong></span>`;
     }
+
+    const isDocente = state.user?.role === 'PROFESSOR';
+    // Regra Oficial: Enquanto for um professor quem está a abrir suas turmas naquele ano lectivo que lhes foi atribuída,
+    // deve a caderneta automaticamente mostrar o botão "Lançar as notas". Só e só para o professor esse botão.
+    const btnLancar = document.getElementById('btnLancarNotasCaderneta');
+    if (btnLancar) {
+      if (isDocente) {
+        btnLancar.innerHTML = '<i class="bi bi-pencil-square me-1"></i> Lançar as notas';
+        btnLancar.title = 'Lançar as notas dos alunos';
+        btnLancar.style.display = 'inline-block';
+        btnLancar.removeAttribute('disabled');
+      } else {
+        btnLancar.style.display = 'none';
+      }
+    }
+    document.querySelectorAll('button[onclick*="modalSalvarNotaCaderneta"]').forEach(b => {
+      b.style.display = isDocente ? 'inline-block' : 'none';
+    });
 
     // Preencher Tabela de Alunos com todos os 3 Trimestres (Imagem 2)
     const tbody = document.getElementById('tabelaCadernetaCorpo');
@@ -12756,11 +12811,11 @@ function imprimirCadernetaOficial() {
 // descarregarCadernetaPdf já está definido globalmente chamando /api/v1/professores/caderneta/:id/pdf
 
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
-  if (state.user?.role !== 'PROFESSOR' && state.user?.role !== 'SUPERADMIN' && !state.user?.is_superuser) {
+  if (state.user?.role !== 'PROFESSOR') {
     if (typeof mostrarToast === 'function') {
-      mostrarToast('Apenas professores têm permissão para lançar avaliações.', 'warning');
+      mostrarToast('Apenas professores têm permissão para lançar as notas.', 'warning');
     } else {
-      alert('Apenas professores têm permissão para lançar avaliações.');
+      alert('Apenas professores têm permissão para lançar as notas.');
     }
     return;
   }
@@ -12823,7 +12878,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
                            extrairIdUuidSeguro(resCaderneta.data?.alocacao) ||
                            extrairIdUuidSeguro(aloc);
 
-  abrirModal('Lançar Avaliações do Aluno (Oficial MEC)', `
+  abrirModal('Lançar as notas da turma (Oficial MEC)', `
     <form id="formModalLancamentoNota">
       <input type="hidden" id="mlnTurmaId" value="${idTurmaPadrao}">
       <input type="hidden" id="mlnDisciplinaId" value="${idDisciplinaPadrao}">
@@ -21457,10 +21512,11 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
   } else if (viewId === 'disciplinas') {
     if (typeof carregarDisciplinas === 'function') await carregarDisciplinas();
   } else if (viewId === 'caderneta') {
+    if (typeof inicializarNavegacaoCaderneta === 'function') {
+      await inicializarNavegacaoCaderneta(true);
+    }
     if (typeof carregarCadernetaDocente === 'function' && state.cadernetaAlocacaoSelecionadaId) {
       await carregarCadernetaDocente(state.cadernetaAlocacaoSelecionadaId);
-    } else if (typeof inicializarNavegacaoCaderneta === 'function') {
-      await inicializarNavegacaoCaderneta(true);
     }
   } else if (viewId === 'pautas') {
     if (typeof carregarPautas === 'function') await carregarPautas(ano, true);

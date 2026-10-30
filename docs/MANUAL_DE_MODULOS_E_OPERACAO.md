@@ -180,7 +180,9 @@
 
 ### Módulo 9: Caderneta Electrónica do Professor (`#view-caderneta`)
 - **Quem usa:** `PROFESSOR` (para visualização e lançamento exclusivo de avaliações); `DAP` e `DIRECTOR_ESCOLA` (para consulta e exportação documental).
-- **Restrição Oficial MEC do Botão "Lançar Avaliações":** O botão de lançamento e a edição de notas na grelha são visíveis e permitidos **estritamente para o perfil Professor (`PROFESSOR`)**, o único avaliador pedagógico dos estudantes. Para os demais perfis (DAP, Direção, Secretaria, SuperAdmin), o botão é completamente ocultado e o endpoint protegido por HTTP 403.
+- **Abertura Automática com Botão "Lançar as notas":** Enquanto for um professor a abrir as suas turmas naquele ano lectivo que lhes foi atribuída, a caderneta mostra automaticamente o botão **"Lançar as notas"**.
+- **Regra Inquebrável de Exclusividade do Botão:** O botão **"Lançar as notas"** é **só e só para o professor (`PROFESSOR`)**, o único avaliador pedagógico oficial dos alunos. Para os demais perfis (DAP, Direção, Secretaria, SuperAdmin, etc.), o botão é estritamente ocultado da tela e bloqueado na API sob código HTTP 403 Forbidden.
+- **Isolamento Estrito de Turmas:** O professor **só e só vê as suas cadernetas das suas turmas atribuídas** naquele ano lectivo. O filtro administrativo de seleção de outros docentes é rigorosamente suprimido, e os endpoints do backend (`/api/v1/professores/minhas-turmas`, `/api/v1/professores/caderneta/<alocacao_id>/completa`, `/api/v1/notas/` e exportações PDF/XLSX/DOCX) validam a titularidade docente, rejeitando qualquer tentativa de consulta ou lançamento em cadernetas alheias.
 - **Estrutura Visual:** Exibe lado a lado as colunas dos **3 Trimestres** (`1ª ACS`, `2ª ACS`, `3ª ACS`, `MAP`, `MAS`, `AT`, `MT`, `COM`, `Faltas`) mais a **Média Final da Disciplina (MFD)**.
 - **Estatísticas no Rodapé por Coluna:** Apuração demográfica automática de Avaliados, Positivos ($\ge 10$) e Negativos ($< 10$) discriminados por Rapazes (`H`), Raparigas (`M`) e Total (`HM`), com respetivas percentagens.
 - **Exportação:** Descarregamento em Excel (`.xlsx`), PDF (`.pdf`) ou impressão direta em formato horizontal (Landscape).
