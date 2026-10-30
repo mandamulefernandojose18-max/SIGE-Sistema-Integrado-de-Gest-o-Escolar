@@ -52,7 +52,7 @@ Write-Host "  OK: Push concluido com sucesso!" -ForegroundColor Green
 Write-Host "[3/5] Disparando deploy desacoplado na VM de producao..." -ForegroundColor Blue
 $remoteCmd = "cd /var/www/sige && git fetch origin $Branch && git checkout $Branch && git reset --hard origin/$Branch && chmod +x scripts/*.sh && bash scripts/deploy-separated.sh $Branch"
 
-ssh -i $KeyPath -o StrictHostKeyChecking=no "${VmUser}@${VmIp}" "$remoteCmd"
+ssh -i "$KeyPath" -o StrictHostKeyChecking=no "${VmUser}@${VmIp}" "$remoteCmd"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERRO: Falha durante o deploy na VM!" -ForegroundColor Red
     exit $LASTEXITCODE

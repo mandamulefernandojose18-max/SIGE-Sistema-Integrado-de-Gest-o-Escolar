@@ -15,7 +15,13 @@ from .views import (
     api_simulador_ussd,
     prompt_gateway_pagina,
     prompt_gateway_descarregar,
-    prompt_gateway_api
+    prompt_gateway_api,
+    api_provas_anti_ia_codificar,
+    api_provas_anti_ia_listar,
+    api_provas_anti_ia_detalhe,
+    api_provas_anti_ia_descarregar_pdf,
+    api_provas_anti_ia_simular_ia,
+    api_provas_anti_ia_verificar,
 )
 
 urlpatterns = [
@@ -68,4 +74,20 @@ urlpatterns = [
     path('prompt-gateway/descarregar/', prompt_gateway_descarregar, name='prompt_gateway_descarregar'),
     path('prompt-gateway/conteudo', prompt_gateway_api, name='prompt_gateway_api_conteudo'),
     path('prompt-gateway/conteudo/', prompt_gateway_api, name='prompt_gateway_api_conteudo_slash'),
+
+    # =================================================================
+    # BLINDAGEM ANTI-IA DE PROVAS E AVALIAÇÕES (QR Code + Barcode)
+    # =================================================================
+    path('provas-anti-ia/codificar', api_provas_anti_ia_codificar, name='api_provas_anti_ia_codificar_sem_barra'),
+    path('provas-anti-ia/codificar/', api_provas_anti_ia_codificar, name='api_provas_anti_ia_codificar'),
+    path('provas-anti-ia/lista', api_provas_anti_ia_listar, name='api_provas_anti_ia_listar_sem_barra'),
+    path('provas-anti-ia/lista/', api_provas_anti_ia_listar, name='api_provas_anti_ia_listar'),
+    path('provas-anti-ia/<str:prova_id>/detalhe', api_provas_anti_ia_detalhe, name='api_provas_anti_ia_detalhe_sem_barra'),
+    path('provas-anti-ia/<str:prova_id>/detalhe/', api_provas_anti_ia_detalhe, name='api_provas_anti_ia_detalhe'),
+    path('provas-anti-ia/<str:prova_id>/descarregar-pdf', api_provas_anti_ia_descarregar_pdf, name='api_provas_anti_ia_descarregar_pdf_sem_barra'),
+    path('provas-anti-ia/<str:prova_id>/descarregar-pdf/', api_provas_anti_ia_descarregar_pdf, name='api_provas_anti_ia_descarregar_pdf'),
+    path('provas-anti-ia/<str:prova_id>/simular-ia', api_provas_anti_ia_simular_ia, name='api_provas_anti_ia_simular_ia_sem_barra'),
+    path('provas-anti-ia/<str:prova_id>/simular-ia/', api_provas_anti_ia_simular_ia, name='api_provas_anti_ia_simular_ia'),
+    path('provas-anti-ia/verificar/<str:codigo_autenticidade>', api_provas_anti_ia_verificar, name='api_provas_anti_ia_verificar_sem_barra'),
+    path('provas-anti-ia/verificar/<str:codigo_autenticidade>/', api_provas_anti_ia_verificar, name='api_provas_anti_ia_verificar'),
 ]

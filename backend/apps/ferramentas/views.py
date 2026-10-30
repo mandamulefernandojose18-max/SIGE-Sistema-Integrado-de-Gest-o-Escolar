@@ -1502,3 +1502,443 @@ def prompt_gateway_api(request):
         'tamanho': len(conteudo)
     })
     return _aplicar_cabecalhos_seguranca(res)
+
+# =====================================================================
+# BLINDAGEM ANTI-IA DE PROVAS E AVALIAÇÕES - CONTROLLERS / VIEWS
+# =====================================================================
+from .models import ProvaBlindada, LogTentativaResolucaoIA
+from .services.anti_ai_service import (
+    processar_e_codificar_prova,
+    gerar_pdf_prova_codificada_bytes,
+    URL_BASE_SISTEMA
+)
+import re
+
+
+def _extrair_questoes_de_texto(texto: str, cotacao_padrao_total: float = 20.0) -> list:
+    """Divide um texto corrido de prova em questões individuais com base em numeração."""
+    linhas = texto.replace('\r\n', '\n').split('\n')
+    questoes = []
+    questao_atual = None
+
+    padrao_inicio = re.compile(r'^\s*(?:(?:Questão|Pergunta|Perg\.|Q\.)\s*(\d+)|(\d+)[\.\-\)])\s*(.*)', re.IGNORECASE)
+    padrao_cotacao = re.compile(r'[\(\[]\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:val(?:ores)?|pontos?|pts?)\s*[\)\]]', re.IGNORECASE)
+
+    for linha in linhas:
+        m = padrao_inicio.match(linha)
+        if m:
+            if questao_atual:
+                questoes.append(questao_atual)
+            num = int(m.group(1) or m.group(2))
+            resto = m.group(3).strip()
+            # Procurar cotação na linha de início
+            m_cot = padrao_cotacao.search(resto)
+            cotacao = 2.0
+            if m_cot:
+                cotacao = float(m_cot.group(1).replace(',', '.'))
+                resto = padrao_cotacao.sub('', resto).strip()
+            questao_atual = {
+                'numero': num,
+                'enunciado': resto,
+                'cotacao': cotacao,
+                'linhas_resposta': 3
+            }
+        else:
+            if questao_atual:
+                if linha.strip():
+                    questao_atual['enunciado'] += ' ' + linha.strip()
+            elif linha.strip() and not questoes:
+                # Se não começou com número mas tem texto inicial
+                questao_atual = {
+                    'numero': 1,
+                    'enunciado': linha.strip(),
+                    'cotacao': 2.0,
+                    'linhas_resposta': 3
+                }
+
+    if questao_atual:
+        questoes.append(questao_atual)
+
+    # Se não identificou questões ou identificou poucas, divide por quebras duplas
+    if not questoes and texto.strip():
+        blocos = [b.strip() for b in texto.split('\n\n') if b.strip()]
+        for idx, b in enumerate(blocos, start=1):
+            questoes.append({
+                'numero': idx,
+                'enunciado': b,
+                'cotacao': round(cotacao_padrao_total / max(1, len(blocos)), 1),
+                'linhas_resposta': 3
+            })
+
+    # Ajustar cotações se foram padrão
+    if questoes and all(q.get('cotacao') == 2.0 for q in questoes):
+        val_cada = round(cotacao_padrao_total / len(questoes), 1)
+        for q in questoes:
+            q['cotacao'] = val_cada
+
+    return questoes
+
+
+@csrf_exempt
+def api_provas_anti_ia_codificar(request):
+    """
+    POST: Codifica uma prova/avaliação, gerando QR Codes e Códigos de Barras Anti-IA
+    para cada questão, e registrando o bloqueio temporal no banco de dados.
+    """
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+
+    user = _autenticar_pedido(request)
+    # Permite professores, pedagogos, admins escolares e superadmin
+    escola = getattr(request, 'tenant', None)
+    if not escola and user and hasattr(user, 'escola') and user.escola:
+        escola = user.escola
+
+    try:
+        dados = {}
+        # Suporta tanto multipart com upload de arquivo quanto application/json
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            dados = request.POST.dict()
+            ficheiro = request.FILES.get('ficheiro')
+            texto_extraido = ""
+            if ficheiro:
+                nome_arq = ficheiro.name.lower()
+                if nome_arq.endswith('.docx'):
+                    try:
+                        import docx
+                        doc = docx.Document(ficheiro)
+                        texto_extraido = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+                    except Exception as e:
+                        texto_extraido = ""
+                elif nome_arq.endswith('.txt'):
+                    texto_extraido = ficheiro.read().decode('utf-8', errors='ignore')
+                elif nome_arq.endswith('.pdf'):
+                    try:
+                        from reportlab.pdfgen import canvas
+                        # Extração simples se biblioteca estiver disponível
+                        texto_extraido = ficheiro.read().decode('latin-1', errors='ignore')
+                    except Exception:
+                        pass
+            if texto_extraido:
+                dados['texto_prova'] = texto_extraido
+        else:
+            dados = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception as e:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': f'Erro ao ler dados: {str(e)}'}, status=400))
+
+    titulo = dados.get('titulo') or 'Avaliação de Desempenho Escolar'
+    disciplina = dados.get('disciplina') or 'Matemática'
+    classe = dados.get('classe') or '10ª Classe'
+    trimestre = dados.get('trimestre') or '1º Trimestre'
+    tipo_avaliacao = dados.get('tipo_avaliacao') or 'ACS 1'
+    duracao_minutos = int(dados.get('duracao_minutos') or 90)
+    orientacoes = dados.get('orientacoes') or ''
+
+    # Data de bloqueio da IA
+    data_bloq_str = dados.get('data_bloqueio_ia')
+    if data_bloq_str:
+        try:
+            from dateutil.parser import parse as parse_date
+            data_bloqueio = parse_date(data_bloq_str)
+            if timezone.is_naive(data_bloqueio):
+                data_bloqueio = timezone.make_aware(data_bloqueio)
+        except Exception:
+            data_bloqueio = timezone.now() + timezone.timedelta(days=3)
+    else:
+        data_bloqueio = timezone.now() + timezone.timedelta(days=3)
+
+    # Processar questões
+    questoes_lista = dados.get('questoes') or []
+    if not questoes_lista:
+        texto_prova = dados.get('texto_prova') or ''
+        if texto_prova:
+            questoes_lista = _extrair_questoes_de_texto(texto_prova)
+
+    if not questoes_lista:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': False,
+            'message': 'Nenhuma questão foi fornecida para codificação. Digite o texto da prova ou adicione as questões.'
+        }, status=400))
+
+    # Executar serviço de codificação criptográfica e geração de QR/Barcodes
+    resultado_codificacao = processar_e_codificar_prova(
+        titulo=titulo,
+        disciplina=disciplina,
+        classe=classe,
+        trimestre=trimestre,
+        tipo_avaliacao=tipo_avaliacao,
+        duracao_minutos=duracao_minutos,
+        data_bloqueio=data_bloqueio,
+        questoes_lista=questoes_lista,
+        orientacoes=orientacoes
+    )
+
+    # Salvar na base de dados
+    try:
+        prova = ProvaBlindada.objects.create(
+            escola=escola,
+            criado_por=user if user and user.is_authenticated else None,
+            codigo_autenticidade=resultado_codificacao['codigo_autenticidade'],
+            titulo=titulo,
+            disciplina=disciplina,
+            classe=classe,
+            trimestre=trimestre,
+            tipo_avaliacao=tipo_avaliacao,
+            duracao_minutos=duracao_minutos,
+            ano_lectivo=timezone.now().year,
+            data_bloqueio_ia=data_bloqueio,
+            chave_temporal=resultado_codificacao['chave_temporal'],
+            total_questoes=resultado_codificacao['total_questoes'],
+            cotacao_total=resultado_codificacao['cotacao_total'],
+            questoes=resultado_codificacao['questoes'],
+            orientacoes=resultado_codificacao['orientacoes'],
+            status='BLOQUEADA' if timezone.now() < data_bloqueio else 'LIBERADA'
+        )
+        resultado_codificacao['id'] = str(prova.id)
+    except Exception as e:
+        # Se houver erro de persistência, ainda retorna o payload codificado para não travar a experiência do usuário
+        resultado_codificacao['id'] = resultado_codificacao['codigo_autenticidade']
+
+    resultado_codificacao['pdf_download_url'] = f"/api/v1/ferramentas/provas-anti-ia/{resultado_codificacao['id']}/descarregar-pdf/"
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'message': 'Prova codificada e blindada contra IA com sucesso!',
+        'data': resultado_codificacao
+    }))
+
+
+@csrf_exempt
+def api_provas_anti_ia_listar(request):
+    """GET: Lista as provas blindadas registradas."""
+    user = _autenticar_pedido(request)
+    escola = getattr(request, 'tenant', None)
+    if not escola and user and hasattr(user, 'escola') and user.escola:
+        escola = user.escola
+
+    qs = ProvaBlindada.objects.all()
+    if escola:
+        qs = qs.filter(escola=escola)
+
+    total_provas = qs.count()
+    agora = timezone.now()
+    ativas = qs.filter(data_bloqueio_ia__gt=agora).count()
+    liberadas = qs.filter(data_bloqueio_ia__lte=agora).count()
+
+    lista = []
+    for p in qs[:50]:
+        is_bloq = p.is_bloqueada()
+        lista.append({
+            'id': str(p.id),
+            'codigo_autenticidade': p.codigo_autenticidade,
+            'titulo': p.titulo,
+            'disciplina': p.disciplina,
+            'classe': p.classe,
+            'trimestre': p.trimestre,
+            'tipo_avaliacao': p.tipo_avaliacao,
+            'total_questoes': p.total_questoes,
+            'cotacao_total': float(p.cotacao_total),
+            'data_bloqueio_ia': p.data_bloqueio_ia.isoformat(),
+            'bloqueada': is_bloq,
+            'status': 'BLOQUEADA' if is_bloq else 'LIBERADA',
+            'tentativas_bloqueadas': p.tentativas_bloqueadas,
+            'created_at': p.created_at.strftime('%d/%m/%Y %H:%M')
+        })
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'stats': {
+            'total_provas': total_provas,
+            'provas_bloqueadas': ativas,
+            'provas_liberadas': liberadas
+        },
+        'data': lista
+    }))
+
+
+@csrf_exempt
+def api_provas_anti_ia_detalhe(request, prova_id):
+    """GET: Detalhes de uma prova codificada por ID ou Código de Autenticidade."""
+    try:
+        if len(prova_id) == 36 and '-' in prova_id:
+            prova = ProvaBlindada.objects.get(id=prova_id)
+        else:
+            prova = ProvaBlindada.objects.get(codigo_autenticidade=prova_id)
+    except ProvaBlindada.DoesNotExist:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'data': {
+            'id': str(prova.id),
+            'codigo_autenticidade': prova.codigo_autenticidade,
+            'titulo': prova.titulo,
+            'disciplina': prova.disciplina,
+            'classe': prova.classe,
+            'trimestre': prova.trimestre,
+            'tipo_avaliacao': prova.tipo_avaliacao,
+            'duracao_minutos': prova.duracao_minutos,
+            'data_bloqueio_ia': prova.data_bloqueio_ia.isoformat(),
+            'bloqueada': prova.is_bloqueada(),
+            'total_questoes': prova.total_questoes,
+            'cotacao_total': float(prova.cotacao_total),
+            'questoes': prova.questoes,
+            'orientacoes': prova.orientacoes,
+            'pdf_download_url': f"/api/v1/ferramentas/provas-anti-ia/{prova.id}/descarregar-pdf/",
+            'url_validacao': f"{URL_BASE_SISTEMA}/verificar-prova.html?id={prova.codigo_autenticidade}"
+        }
+    }))
+
+
+@csrf_exempt
+def api_provas_anti_ia_descarregar_pdf(request, prova_id):
+    """GET: Descarrega o PDF oficial da prova já 100% codificada."""
+    try:
+        if len(prova_id) == 36 and '-' in prova_id:
+            prova = ProvaBlindada.objects.get(id=prova_id)
+        else:
+            prova = ProvaBlindada.objects.get(codigo_autenticidade=prova_id)
+    except ProvaBlindada.DoesNotExist:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+
+    nome_escola = "Escola Secundária"
+    if prova.escola and prova.escola.nome:
+        nome_escola = prova.escola.nome
+
+    prova_dados = {
+        'codigo_autenticidade': prova.codigo_autenticidade,
+        'titulo': prova.titulo,
+        'disciplina': prova.disciplina,
+        'classe': prova.classe,
+        'trimestre': prova.trimestre,
+        'tipo_avaliacao': prova.tipo_avaliacao,
+        'duracao_minutos': prova.duracao_minutos,
+        'data_bloqueio_ia': prova.data_bloqueio_ia.isoformat(),
+        'cotacao_total': float(prova.cotacao_total),
+        'orientacoes': prova.orientacoes,
+        'questoes': prova.questoes
+    }
+
+    pdf_buffer = gerar_pdf_prova_codificada_bytes(prova_dados, nome_escola=nome_escola)
+    pdf_bytes = pdf_buffer.getvalue()
+
+    filename = f"Prova_Blindada_{prova.disciplina}_{prova.classe}_{prova.codigo_autenticidade}.pdf".replace(' ', '_')
+    res = HttpResponse(pdf_bytes, content_type='application/pdf')
+    res['Content-Disposition'] = f'attachment; filename="{filename}"'
+    res['Content-Length'] = len(pdf_bytes)
+    return _aplicar_cabecalhos_seguranca(res)
+
+
+@csrf_exempt
+def api_provas_anti_ia_simular_ia(request, prova_id):
+    """
+    POST: Simula o que uma Inteligência Artificial (ChatGPT, Gemini, Claude)
+    faz ao tentar resolver a questão a partir da foto/escaneamento do QR Code.
+    """
+    try:
+        if len(prova_id) == 36 and '-' in prova_id:
+            prova = ProvaBlindada.objects.get(id=prova_id)
+        else:
+            prova = ProvaBlindada.objects.get(codigo_autenticidade=prova_id)
+    except ProvaBlindada.DoesNotExist:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+
+    body = {}
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        pass
+
+    numero_q = int(body.get('numero_questao', 1))
+    simular_pos_data = bool(body.get('simular_pos_data', False))
+
+    is_bloqueada = prova.is_bloqueada() and not simular_pos_data
+    dt_local = timezone.localtime(prova.data_bloqueio_ia).strftime('%d/%m/%Y às %H:%M')
+
+    if is_bloqueada:
+        resposta_ia = (
+            f"⚠️ [AVISO DE SEGURANÇA ACADÊMICA: RESOLUÇÃO BLOQUEADA PELO SIGE ANTI-AI SHIELD]\n\n"
+            f"O conteúdo identificado nesta imagem/QR Code refere-se a uma avaliação oficial protegida.\n"
+            f"Em estrito cumprimento das diretivas de integridade institucional do SIGE, "
+            f"a resolução desta questão está TERMINANTEMENTE BLOQUEADA até {dt_local}.\n\n"
+            f"Nenhum cálculo, dica, resposta ou passo a passo pode ser fornecido pela IA.\n"
+            f"Esta tentativa de consulta automatizada foi registada no sistema de integridade."
+        )
+        status_simulacao = "BLOQUEADA_COM_SUCESSO"
+        # Incrementar contador de bloqueios da prova
+        ProvaBlindada.objects.filter(id=prova.id).update(tentativas_bloqueadas=models.F('tentativas_bloqueadas') + 1)
+        LogTentativaResolucaoIA.objects.create(
+            prova=prova,
+            numero_questao=numero_q,
+            sistema_identificado=body.get('modelo_ia', 'OpenAI ChatGPT-4o / Vision'),
+            bloqueado=True,
+            mensagem_resposta=resposta_ia
+        )
+    else:
+        resposta_ia = (
+            f"🔓 [TIME-LOCK EXPIRADO — RESOLUÇÃO AUTORIZADA PELO SIGE]\n\n"
+            f"A data oficial de realização do exame ({dt_local}) já foi concluída.\n"
+            f"O sistema liberou as chaves de acesso para resolução e consulta didática desta questão."
+        )
+        status_simulacao = "LIBERADA"
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'status_simulacao': status_simulacao,
+        'bloqueada': is_bloqueada,
+        'data_bloqueio_formatada': dt_local,
+        'resposta_ia': resposta_ia,
+        'tentativas_bloqueadas_total': prova.tentativas_bloqueadas + (1 if is_bloqueada else 0)
+    }))
+
+
+@csrf_exempt
+def api_provas_anti_ia_verificar(request, codigo_autenticidade):
+    """
+    GET: Endpoint público de verificação de autenticidade (chamado via QR Code ou leitor web).
+    """
+    try:
+        prova = ProvaBlindada.objects.get(codigo_autenticidade=codigo_autenticidade)
+    except ProvaBlindada.DoesNotExist:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': False,
+            'valida': False,
+            'message': 'Código de autenticidade não encontrado no sistema oficial SIGE.'
+        }, status=404))
+
+    is_bloqueada = prova.is_bloqueada()
+    dt_local = timezone.localtime(prova.data_bloqueio_ia).strftime('%d/%m/%Y às %H:%M')
+
+    q_param = request.GET.get('q')
+    questao_info = None
+    if q_param:
+        try:
+            q_num = int(q_param)
+            for q in prova.questoes:
+                if q.get('numero') == q_num:
+                    questao_info = {
+                        'numero': q_num,
+                        'cotacao': q.get('cotacao'),
+                        'codigo_questao': q.get('codigo_questao')
+                    }
+                    break
+        except Exception:
+            pass
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'valida': True,
+        'codigo_autenticidade': prova.codigo_autenticidade,
+        'titulo': prova.titulo,
+        'disciplina': prova.disciplina,
+        'classe': prova.classe,
+        'escola': prova.escola.nome if prova.escola else "Ministério da Educação",
+        'data_bloqueio_ia': prova.data_bloqueio_ia.isoformat(),
+        'data_bloqueio_formatada': dt_local,
+        'is_bloqueada': is_bloqueada,
+        'status_mensagem': (
+            f"🔒 Resolução por IA Bloqueada até {dt_local}" if is_bloqueada
+            else f"🔓 Resolução e Gabarito Liberados"
+        ),
+        'questao_consultada': questao_info
+    }))

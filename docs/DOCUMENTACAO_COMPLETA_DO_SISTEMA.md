@@ -1184,3 +1184,33 @@ umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para 
 - **Abertura Automática do Botão "Lançar as notas":** Enquanto for um professor a abrir as suas turmas naquele ano lectivo que lhes foi atribuída, a caderneta mostra automaticamente o botão **"Lançar as notas"**.
 - **Exclusividade Absoluta do Botão:** O botão **"Lançar as notas"** é visível e utilizável **só e só para o professor (`PROFESSOR`)**. Para qualquer perfil administrativo (DAP, Direcção, Admin, SuperAdmin), o botão é completamente ocultado da interface e protegido no backend por HTTP 403 Forbidden.
 - **Isolamento Estrito das Cadernetas do Professor:** O professor **só e só vê as suas cadernetas das suas turmas atribuídas** naquele ano lectivo. O seletor de outros professores é ocultado e a API restringe alocações, consulta e exportações estritamente ao docente autenticado.
+
+### 15.7 Formatação Oficial Idêntica da Caderneta Escolar (PDF e XLSX) e Auto-Ajuste Inteligente de Pautas
+- **Estrutura Oficial de 28 Colunas Exatas da Caderneta (`A` até `AB`):**
+  - **Identificação do Aluno (3 colunas):** `Nº`, `Nome Completo do Aluno`, `Gén` (eliminada qualquer divisão forçada de nome/apelido ou coluna de observação intermediária).
+  - **Trimestres Oficiais Iº, IIº e IIIº (8 colunas por trimestre = 24 colunas):**
+    - `1ªA` (1ª Avaliação Contínua)
+    - `2ªA` (2ª Avaliação Contínua)
+    - `3ªA` (3ª Avaliação Contínua)
+    - `MAP` (Média das Avaliações Parciais)
+    - `MAS` (Média das Avaliações Sistemáticas)
+    - `AT` (Avaliação Trimestral)
+    - `MT` (Média Trimestral — com realce em fundo cinza suave e negrito)
+    - `Cp` (Comportamento)
+  - **Coluna de Fecho Anual (1 coluna):** `MFD` (Média Final da Disciplina — com realce cinza suave e negrito).
+  - **Cabeçalho Duplo Mesclado no Excel:** Linhas 9 e 10 com os títulos dos trimestres (`Iº TRIMESTRE`, `IIº TRIMESTRE`, `IIIº TRIMESTRE`) mesclados centralizadamente sobre as suas 8 subcolunas.
+  - **Bloco Demográfico e Estatístico Completo no Rodapé:**
+    - `Avaliados` (`H`, `M`, `Total`)
+    - `Positivos (>= 10)` com realce verde `#059669` (`H`, `M`, `Total` e `% Positivos`)
+    - `Negativos (< 10)` com realce vermelho `#dc2626` (`H`, `M`, `Total` e `% Negativos`)
+    - Distribuição por Escalas Qualitativas Oficiais do MEC: `0 a 9,4`, `9,5 a 13,4`, `13,5 a 15,4`, `15,5 a 18,4` e `18,5 a 20`
+    - `Média da Coluna` com destaque visual azul suave `#eff6ff`
+  - **3 Blocos de Assinaturas Oficiais:** Rodapé oficial estruturado com campos para `O Docente da Disciplina`, `O Director de Turma` e `O Director Adjunto Pedagógico`, com linhas de subscrição e preenchimento dos nomes reais dos titulares.
+  - **Paridade Absoluta 1:1 entre PDF e XLSX:** Rigorosamente idênticos em estrutura, colunas, rótulos e disposições, sem qualquer omissão de dados.
+
+- **Auto-Ajuste Inteligente de Tabelas de Pautas Gerais (PDF, XLSX e Web):**
+  - **Pauta Oficial Completa em XLSX (`excel_service.gerar_pauta_xlsx`):** Emissão tabular estruturada com 4 subcolunas por disciplina curricular (`1º`, `2º`, `3º`, `MFD`), médias trimestrais por período, apuramento de disciplinas negativas, média geral da turma, resultado homologado, quadro de resumo estatístico e os 3 blocos de assinaturas oficiais (DT, DAP e Diretor da Escola).
+  - **Auto-Ajuste de Larguras de Coluna no Excel:** As colunas ajustam dinamicamente a sua largura em função do conteúdo real de cada célula (`openpyxl` com cálculo defensivo de `max_len`), garantindo que nenhum nome de aluno ou cabeçalho seja truncado.
+  - **Dimensionamento Milimétrico em PDF Paisagem (`pdf_service.gerar_pauta_pdf`):** Encaixe exato na folha A4 Horizontal (28,7 cm úteis) com auto-ajuste adaptativo de fontes (de 6.0pt a 5.0pt) e larguras de subcoluna escalonadas para turmas com $n \le 8$, $8 < n \le 11$ ou $n > 11$ disciplinas, impedindo cortes de margens ou sobreposição de textos.
+  - **Interface Web SPA Flexível:** Grelhas de caderneta e pauta com redimensionamento responsivo e `min-width` dinâmico proporcional ao número de disciplinas, com rolagem horizontal suave e cabeçalho fixo.
+

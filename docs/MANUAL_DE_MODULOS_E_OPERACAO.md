@@ -183,9 +183,10 @@
 - **Abertura Automática com Botão "Lançar as notas":** Enquanto for um professor a abrir as suas turmas naquele ano lectivo que lhes foi atribuída, a caderneta mostra automaticamente o botão **"Lançar as notas"**.
 - **Regra Inquebrável de Exclusividade do Botão:** O botão **"Lançar as notas"** é **só e só para o professor (`PROFESSOR`)**, o único avaliador pedagógico oficial dos alunos. Para os demais perfis (DAP, Direção, Secretaria, SuperAdmin, etc.), o botão é estritamente ocultado da tela e bloqueado na API sob código HTTP 403 Forbidden.
 - **Isolamento Estrito de Turmas:** O professor **só e só vê as suas cadernetas das suas turmas atribuídas** naquele ano lectivo. O filtro administrativo de seleção de outros docentes é rigorosamente suprimido, e os endpoints do backend (`/api/v1/professores/minhas-turmas`, `/api/v1/professores/caderneta/<alocacao_id>/completa`, `/api/v1/notas/` e exportações PDF/XLSX/DOCX) validam a titularidade docente, rejeitando qualquer tentativa de consulta ou lançamento em cadernetas alheias.
-- **Estrutura Visual:** Exibe lado a lado as colunas dos **3 Trimestres** (`1ª ACS`, `2ª ACS`, `3ª ACS`, `MAP`, `MAS`, `AT`, `MT`, `COM`, `Faltas`) mais a **Média Final da Disciplina (MFD)**.
-- **Estatísticas no Rodapé por Coluna:** Apuração demográfica automática de Avaliados, Positivos ($\ge 10$) e Negativos ($< 10$) discriminados por Rapazes (`H`), Raparigas (`M`) e Total (`HM`), com respetivas percentagens.
-- **Exportação:** Descarregamento em Excel (`.xlsx`), PDF (`.pdf`) ou impressão direta em formato horizontal (Landscape).
+- **Estrutura Visual Oficial (28 Colunas Exatas):** Exibe com fidelidade absoluta ao modelo oficial nacional: 3 colunas de identificação (`Nº`, `Nome Completo do Aluno`, `Gén`), 8 colunas por trimestre (`1ªA`, `2ªA`, `3ªA`, `MAP`, `MAS`, `AT`, `MT`, `Cp` para Iº, IIº e IIIº Trimestres) e `MFD` anual, com destaque sombreado cinza suave e negrito para `MT` e `MFD`.
+- **Estatísticas no Rodapé por Coluna:** Apuração demográfica e estatística completa: Avaliados, Positivos ($\ge 10$) em verde, Negativos ($< 10$) em vermelho com percentagens, distribuição nas 5 faixas oficiais (`0 a 9,4`, `9,5 a 13,4`, `13,5 a 15,4`, `15,5 a 18,4`, `18,5 a 20`) e Média da Coluna.
+- **Assinaturas Oficiais:** Três blocos padronizados no rodapé para `O Docente da Disciplina`, `O Director de Turma` e `O Director Adjunto Pedagógico`.
+- **Exportação Rigorosa Idêntica (PDF e XLSX):** Descarregamento em Excel (`.xlsx`) e PDF (`.pdf`) com a exata mesma grelha de 28 colunas, cabeçalhos trimestrais duplos mesclados, rodapés estatísticos e blocos de assinatura.
 
 ---
 
@@ -198,7 +199,7 @@
 
 ### Módulo 11: Pautas Gerais e Actas do Conselho (`#view-pautas`)
 - **Quem usa:** `DT` (Director de Turma), `DAP` e `DIRECTOR_ESCOLA`.
-- **Aba 1 — Pauta Geral da Turma:** Mapa integral com todas as disciplinas da área da turma, médias trimestrais, MFD, faltas, média global e quadro estatístico do MEC.
+- **Aba 1 — Pauta Geral da Turma:** Mapa integral com todas as disciplinas da área da turma, 4 subcolunas por disciplina (`1º`, `2º`, `3º`, `MFD`), médias trimestrais, negativas, média geral, resultado e quadro estatístico do MEC. Auto-ajuste inteligente de larguras e escalas tanto na visualização web como nas exportações em Excel (`.xlsx`) e PDF (`.pdf`) em folha A4 Paisagem, sem cortes de texto.
 - **Aba 2 — Acta Oficial do Conselho de Avaliação:** Documento formal da sessão de avaliação com conversão automática de valores e percentagens **por extenso em língua portuguesa**, tabela demográfica consolidada e linhas para assinaturas institucionais.
 - **Painel do Director de Turma (`#view-director-turma`):** Configuração de data, hora de início/término e nome do Presidente da Sessão para cada trimestre.
 
