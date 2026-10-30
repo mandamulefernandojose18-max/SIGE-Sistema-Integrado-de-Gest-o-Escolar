@@ -822,17 +822,35 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
         table_data.append(row)
 
-    # 3. Calculo Dinamico Milimetrico: soma EXATA = 28.7cm (A4 Paisagem sem cortes)
+    # 3. Calculo Dinamico Milimetrico e Auto-Ajuste em Funcao do Conteudo: soma EXATA = 28.7cm (A4 Paisagem sem cortes)
     util_cm = 28.7
     util_total = util_cm * cm
 
-    w_num = 0.70 * cm
-    w_gen = 0.55 * cm
-    w_med_col = 0.55 * cm
-    w_neg_col = 0.50 * cm
-    w_mg = 0.90 * cm
-    w_res = 1.50 * cm
-    w_nome = max(3.5 * cm, min(4.5 * cm, 5.0 * cm - (n_discs * 0.1 * cm)))
+    max_nome_len = max((len(a.get('nomeCompleto') or a.get('nome') or '') for a in dados_alunos), default=20)
+    if n_discs <= 8:
+        w_nome = min(5.4 * cm, max(4.0 * cm, max_nome_len * 0.15 * cm))
+        w_num = 0.75 * cm
+        w_gen = 0.60 * cm
+        w_med_col = 0.60 * cm
+        w_neg_col = 0.55 * cm
+        w_mg = 1.00 * cm
+        w_res = 1.60 * cm
+    elif n_discs <= 11:
+        w_nome = min(4.6 * cm, max(3.6 * cm, max_nome_len * 0.13 * cm))
+        w_num = 0.70 * cm
+        w_gen = 0.55 * cm
+        w_med_col = 0.55 * cm
+        w_neg_col = 0.50 * cm
+        w_mg = 0.90 * cm
+        w_res = 1.50 * cm
+    else:
+        w_nome = min(3.8 * cm, max(3.1 * cm, max_nome_len * 0.10 * cm))
+        w_num = 0.65 * cm
+        w_gen = 0.50 * cm
+        w_med_col = 0.50 * cm
+        w_neg_col = 0.45 * cm
+        w_mg = 0.85 * cm
+        w_res = 1.40 * cm
 
     espaco_fixo = w_num + w_nome + w_gen + (w_med_col * 3) + (w_neg_col * 4) + w_mg + w_res
     resto_discs = util_total - espaco_fixo
@@ -844,6 +862,29 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     col_widths.extend([w_med_col, w_med_col, w_med_col])
     col_widths.extend([w_neg_col, w_neg_col, w_neg_col, w_neg_col])
     col_widths.extend([w_mg, w_res])
+
+    # Linha Oficial de Resumo Estatistico da Pauta no Rodape da Tabela
+    tot_al = len(dados_alunos)
+    aprov_n = sum(1 for a in dados_alunos if str(a.get('resultado') or a.get('resultadoFinal', '')).startswith('Aprov'))
+    reprov_n = sum(1 for a in dados_alunos if str(a.get('resultado') or a.get('resultadoFinal', '')).startswith('Reprov'))
+    h_n = sum(1 for a in dados_alunos if (a.get('genero') or '').upper() == 'M')
+    m_n = sum(1 for a in dados_alunos if (a.get('genero') or '').upper().startswith('F'))
+    pct_aprov = round(aprov_n / tot_al * 100, 1) if tot_al > 0 else 0.0
+    pct_reprov = round(reprov_n / tot_al * 100, 1) if tot_al > 0 else 0.0
+
+    st_resumo = ParagraphStyle('TPautaResumo', fontName='Times-Bold', fontSize=6.2, leading=7.5, alignment=0)
+    txt_resumo = (
+        f"Total Inscritos: <b>{tot_al}</b> (H: {h_n} | M: {m_n}) | "
+        f"Avaliados: <b>{tot_al}</b> | "
+        f"Aprovados: <b>{aprov_n}</b> ({pct_aprov}%) | "
+        f"Reprovados: <b>{reprov_n}</b> ({pct_reprov}%)"
+    )
+    r_resumo = [Paragraph(txt_resumo, st_resumo)] + [''] * (len(col_widths) - 1)
+    table_data.append(r_resumo)
+    r_resumo_idx = len(table_data) - 1
+    table_styles.append(('SPAN', (0, r_resumo_idx), (-1, r_resumo_idx)))
+    table_styles.append(('BACKGROUND', (0, r_resumo_idx), (-1, r_resumo_idx), colors.HexColor('#f1f5f9')))
+    table_styles.append(('LEFTPADDING', (0, r_resumo_idx), (-1, r_resumo_idx), 4))
 
     t = Table(table_data, colWidths=col_widths, repeatRows=2)
     t.setStyle(TableStyle(table_styles))
@@ -2756,10 +2797,10 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         t1 = al.get('t1') or {}
         t2 = al.get('t2') or {}
         t3 = al.get('t3') or {}
-        nome_c = f"{al.get('nome') or ''} {al.get('apelido') or ''}".strip()
+        nome_c = al.get('nomeCompleto') or obter_nome_completo_aluno(al)
         r = [
             str(al.get('numero') or idx),
-            Paragraph(nome_c[:38], style_nome),
+            Paragraph(nome_c, style_nome),
             str(al.get('genero') or 'M'),
             fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')), str(t1.get('comportamento') or '-'),
             fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')), str(t2.get('comportamento') or '-'),

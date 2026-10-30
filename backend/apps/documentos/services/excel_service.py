@@ -167,20 +167,22 @@ def inserir_logo_cabecalho_xlsx(ws, escola, cell='A1'):
 def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplinas, orientacao='landscape') -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Pauta {turma.nome[:25]}"
-    configurar_pagina_excel(ws, orientacao=orientacao)
+    turma_nome = turma.nome if getattr(turma, 'nome', None) else 'Turma'
+    ws.title = f"Pauta {turma_nome[:25]}"
+    configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=0)
 
     # Logótipo Oficial Escolhido pela Instituição
     inserir_logo_cabecalho_xlsx(ws, escola, cell='A1')
 
-    total_cols = len(disciplinas) + 4
+    n_discs = max(len(disciplinas), 1)
+    # Total de colunas: 3 (Nº, Nome, Gén) + (n_discs * 4) + 3 (Médias Trim) + 4 (Negativas) + 1 (MG) + 1 (Resultado)
+    total_cols = 3 + (n_discs * 4) + 3 + 4 + 1 + 1
     end_col_letter = get_column_letter(total_cols)
 
     prov_str = (getattr(escola, 'provincia', '') or 'Inhambane').upper()
     dist_str = (getattr(escola, 'distrito', '') or 'Morrumbene').upper()
     esc_nome = (getattr(escola, 'nome', '') or 'Escola Secundária').upper()
     dt_nome = turma.director_turma.nome if getattr(turma, 'director_turma', None) else "Manuel"
-    turma_nome = turma.nome if getattr(turma, 'nome', None) else '10ª Classe A'
     grau_ano = turma.grau_ano if getattr(turma, 'grau_ano', None) else '10ª Classe'
     turno = turma.turno if getattr(turma, 'turno', None) else 'MANHA'
 
@@ -215,91 +217,263 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     ws['A5'].alignment = ALIGN_CENTER
     ws.row_dimensions[5].height = 20
 
-    # 2. Cabeçalho da Tabela
-    headers = ['Nº', 'Nome Completo do Aluno'] + [(getattr(d, 'codigo', None) or getattr(d, 'nome', str(d))) for d in disciplinas] + ['Média Geral', 'Resultado']
-    header_row_idx = 7
-    ws.row_dimensions[header_row_idx].height = 26
+    # 2. Cabeçalho da Tabela em 2 Linhas (Linhas 7 e 8)
+    ws.merge_cells('A7:A8')
+    ws['A7'] = 'Nº'
+    ws.merge_cells('B7:B8')
+    ws['B7'] = 'Nome Completo do Aluno'
+    ws.merge_cells('C7:C8')
+    ws['C7'] = 'Gén'
 
-    for col_idx, text in enumerate(headers, start=1):
-        cell = ws.cell(row=header_row_idx, column=col_idx, value=str(text))
-        cell.font = FONT_HEADER
-        cell.fill = FILL_NAVY
-        cell.alignment = ALIGN_CENTER
-        cell.border = THIN_BORDER
+    c_cur = 4
+    for d in disciplinas:
+        raw_disc = getattr(d, 'nome', None) or getattr(d, 'codigo', None) or str(d)
+        nome_disc = str(raw_disc)
+        c_end = c_cur + 3
+        ws.merge_cells(start_row=7, start_column=c_cur, end_row=7, end_column=c_end)
+        ws.cell(row=7, column=c_cur, value=nome_disc)
+        ws.cell(row=8, column=c_cur, value='1º')
+        ws.cell(row=8, column=c_cur + 1, value='2º')
+        ws.cell(row=8, column=c_cur + 2, value='3º')
+        ws.cell(row=8, column=c_cur + 3, value='MFD')
+        c_cur += 4
+
+    # Médias Trimestrais
+    med_start = c_cur
+    ws.merge_cells(start_row=7, start_column=med_start, end_row=7, end_column=med_start + 2)
+    ws.cell(row=7, column=med_start, value='Médias Trimestrais')
+    ws.cell(row=8, column=med_start, value='1º')
+    ws.cell(row=8, column=med_start + 1, value='2º')
+    ws.cell(row=8, column=med_start + 2, value='3º')
+    c_cur += 3
+
+    # Disciplinas Negativas
+    neg_start = c_cur
+    ws.merge_cells(start_row=7, start_column=neg_start, end_row=7, end_column=neg_start + 3)
+    ws.cell(row=7, column=neg_start, value='Disciplinas Negativas')
+    ws.cell(row=8, column=neg_start, value='1º')
+    ws.cell(row=8, column=neg_start + 1, value='2º')
+    ws.cell(row=8, column=neg_start + 2, value='3º')
+    ws.cell(row=8, column=neg_start + 3, value='Total')
+    c_cur += 4
+
+    # Média Geral & Resultado
+    mg_col = c_cur
+    res_col = c_cur + 1
+    ws.merge_cells(start_row=7, start_column=mg_col, end_row=8, end_column=mg_col)
+    ws.cell(row=7, column=mg_col, value='Média Geral')
+    ws.merge_cells(start_row=7, start_column=res_col, end_row=8, end_column=res_col)
+    ws.cell(row=7, column=res_col, value='Resultado')
+
+    ws.row_dimensions[7].height = 24
+    ws.row_dimensions[8].height = 22
+    aplicar_estilo_intervalo(ws, 1, 7, total_cols, 8, font=FONT_HEADER_SM, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
     # 3. Linhas dos Alunos
-    current_row = header_row_idx + 1
-    if not dados_alunos:
-        ws.cell(row=current_row, column=1, value='-').border = THIN_BORDER
-        c2 = ws.cell(row=current_row, column=2, value='Nenhum aluno registado nesta turma')
-        c2.font = FONT_REGULAR
-        c2.border = THIN_BORDER
-        for col_idx in range(3, total_cols + 1):
-            ws.cell(row=current_row, column=col_idx, value='-').border = THIN_BORDER
+    def _fmt_n(val):
+        if val is None or val == '' or val == '-':
+            return '-'
+        try:
+            f = float(val)
+            return round(f, 1) if f % 1 != 0 else int(f)
+        except (ValueError, TypeError):
+            return str(val)
+
+    current_row = 8
+    for idx, aluno in enumerate(dados_alunos, start=1):
         current_row += 1
-    else:
-        for idx, aluno in enumerate(dados_alunos, start=1):
-            ws.row_dimensions[current_row].height = 22
-            # Nº
-            c_num = ws.cell(row=current_row, column=1, value=aluno.get('numero') or idx)
-            c_num.font = FONT_SMALL
-            c_num.alignment = ALIGN_CENTER
-            c_num.border = THIN_BORDER
+        ws.row_dimensions[current_row].height = 20
 
-            # Nome Completo do Aluno (campo 'nome' ja contém o nome completo conforme cadastrado)
-            c_nome = ws.cell(row=current_row, column=2, value=obter_nome_completo_aluno(aluno))
-            c_nome.font = FONT_REGULAR
-            c_nome.alignment = ALIGN_LEFT
-            c_nome.border = THIN_BORDER
+        # Nº
+        c_num = ws.cell(row=current_row, column=1, value=aluno.get('numero') or idx)
+        c_num.font = FONT_TINY
+        c_num.alignment = ALIGN_CENTER
+        c_num.border = THIN_BORDER
 
-            # Disciplinas
-            for d_idx, d in enumerate(disciplinas, start=3):
-                d_id = str(getattr(d, 'id', d))
-                d_nome = str(getattr(d, 'nome', d))
-                d_cod = str(getattr(d, 'codigo', d))
-                notas_dict = aluno.get('notas', {}) if isinstance(aluno.get('notas'), dict) else {}
-                disc_dict = aluno.get('disciplinas', {}) if isinstance(aluno.get('disciplinas'), dict) else {}
-                n_info = notas_dict.get(d_id) or notas_dict.get(d_nome) or disc_dict.get(d_nome) or disc_dict.get(d_id) or disc_dict.get(d_cod) or {}
-                if isinstance(n_info, dict):
-                    val = n_info.get('media_final', n_info.get('nota', '-'))
+        # Nome Completo
+        nome_c = aluno.get('nomeCompleto') or aluno.get('nome') or obter_nome_completo_aluno(aluno)
+        c_nome = ws.cell(row=current_row, column=2, value=nome_c)
+        c_nome.font = FONT_TINY_BOLD
+        c_nome.alignment = ALIGN_LEFT
+        c_nome.border = THIN_BORDER
+
+        # Gén
+        c_gen = ws.cell(row=current_row, column=3, value=aluno.get('genero') or 'M')
+        c_gen.font = FONT_TINY
+        c_gen.alignment = ALIGN_CENTER
+        c_gen.border = THIN_BORDER
+
+        # Disciplinas
+        c_idx = 4
+        nd_dict = aluno.get('notasDisciplinas') or {}
+        notas_leg = aluno.get('notas') if isinstance(aluno.get('notas'), dict) else {}
+        disc_leg = aluno.get('disciplinas') if isinstance(aluno.get('disciplinas'), dict) else {}
+
+        for d in disciplinas:
+            d_id = str(getattr(d, 'id', d))
+            d_cod = str(getattr(d, 'codigo', d))
+            d_nome = str(getattr(d, 'nome', d))
+
+            nd = nd_dict.get(d_cod) or nd_dict.get(d_id) or nd_dict.get(d_nome) or {}
+            if not nd:
+                leg_item = notas_leg.get(d_id) or notas_leg.get(d_nome) or disc_leg.get(d_nome) or disc_leg.get(d_id) or {}
+                if isinstance(leg_item, dict):
+                    nd = {
+                        't1': leg_item.get('t1', leg_item.get('nota', '-')),
+                        't2': leg_item.get('t2', '-'),
+                        't3': leg_item.get('t3', '-'),
+                        'mfd': leg_item.get('media_final', leg_item.get('mfd', '-'))
+                    }
                 else:
-                    val = n_info
-                c_d = ws.cell(row=current_row, column=d_idx, value=val if val is not None else '-')
-                c_d.font = FONT_SMALL
-                c_d.alignment = ALIGN_CENTER
-                c_d.border = THIN_BORDER
-                if isinstance(val, (int, float)):
-                    if val < 9.5:
-                        c_d.font = FONT_RED
+                    nd = {'t1': leg_item, 't2': '-', 't3': '-', 'mfd': leg_item}
 
-            # Média Geral
-            med_geral = aluno.get('media_geral', '-')
-            c_med = ws.cell(row=current_row, column=total_cols - 1, value=med_geral)
-            c_med.font = FONT_SMALL_BOLD
-            c_med.alignment = ALIGN_CENTER
-            c_med.border = THIN_BORDER
+            for sub_k in ['t1', 't2', 't3', 'mfd']:
+                val = _fmt_n(nd.get(sub_k))
+                c_cell = ws.cell(row=current_row, column=c_idx, value=val)
+                c_cell.border = THIN_BORDER
+                c_cell.alignment = ALIGN_CENTER
+                if sub_k == 'mfd':
+                    c_cell.fill = FILL_LIGHT
+                    if isinstance(val, (int, float)):
+                        c_cell.font = FONT_RED_SM if val < 9.5 else FONT_TINY_BOLD
+                    else:
+                        c_cell.font = FONT_TINY_BOLD
+                else:
+                    if isinstance(val, (int, float)):
+                        c_cell.font = FONT_RED_SM if val < 9.5 else FONT_TINY
+                    else:
+                        c_cell.font = FONT_TINY
+                c_idx += 1
 
-            # Resultado
-            res_val = str(aluno.get('resultado', 'Aprovado')).strip()
-            c_res = ws.cell(row=current_row, column=total_cols, value=res_val)
-            c_res.border = THIN_BORDER
-            c_res.alignment = ALIGN_CENTER
-            if res_val in ('Reprovado', 'R', 'Excluído'):
-                c_res.font = FONT_RED
+        # Médias Trimestrais
+        meds = aluno.get('mediasTrimestrais') or {}
+        for m_k in ['t1', 't2', 't3']:
+            m_val = _fmt_n(meds.get(m_k))
+            c_m = ws.cell(row=current_row, column=c_idx, value=m_val)
+            c_m.border = THIN_BORDER
+            c_m.alignment = ALIGN_CENTER
+            if isinstance(m_val, (int, float)) and m_val < 9.5:
+                c_m.font = FONT_RED_SM
             else:
-                c_res.font = FONT_GREEN
+                c_m.font = FONT_TINY
+            c_idx += 1
 
-            current_row += 1
+        # Disciplinas Negativas
+        negs = aluno.get('negativas') or {}
+        for n_k in ['t1', 't2', 't3', 'fimDoAno']:
+            n_val = negs.get(n_k, aluno.get('total_negativas', 0) if n_k == 'fimDoAno' else '-')
+            c_n = ws.cell(row=current_row, column=c_idx, value=n_val if n_val is not None else '-')
+            c_n.border = THIN_BORDER
+            c_n.alignment = ALIGN_CENTER
+            c_n.font = FONT_TINY
+            c_idx += 1
 
-    # 4. Rodapé
-    ws.merge_cells(f'A{current_row + 1}:{end_col_letter}{current_row + 1}')
-    c_foot = ws[f'A{current_row + 1}']
-    c_foot.value = f"Documento processado informaticamente pelo SIGE em {datetime.date.today().strftime('%d/%m/%Y')}"
-    c_foot.font = FONT_SMALL
-    c_foot.alignment = ALIGN_RIGHT
+        # Média Geral
+        mg = _fmt_n(aluno.get('mediaFinalGeral') or aluno.get('media_geral'))
+        c_mg = ws.cell(row=current_row, column=mg_col, value=mg)
+        c_mg.border = THIN_BORDER
+        c_mg.alignment = ALIGN_CENTER
+        if isinstance(mg, (int, float)):
+            c_mg.font = FONT_RED_SM if mg < 9.5 else FONT_TINY_BOLD
+        else:
+            c_mg.font = FONT_TINY_BOLD
 
-    auto_ajustar_colunas(ws, padding=3)
-    ws.column_dimensions['B'].width = 32  # Nome completo com espaço amplo
+        # Resultado
+        res_val = str(aluno.get('resultadoFinal') or aluno.get('resultado') or 'Aprovado').strip()
+        c_res = ws.cell(row=current_row, column=res_col, value=res_val)
+        c_res.border = THIN_BORDER
+        c_res.alignment = ALIGN_CENTER
+        if res_val in ('Reprovado', 'R', 'Excluído'):
+            c_res.font = FONT_RED_SM
+        elif res_val in ('Aprovado', 'A'):
+            c_res.font = FONT_GREEN_SM
+        else:
+            c_res.font = FONT_TINY_BOLD
+
+    # 4. Linha de Estatísticas Oficial da Turma no Rodapé
+    current_row += 1
+    total_al = len(dados_alunos)
+    aprovados = sum(1 for a in dados_alunos if str(a.get('resultadoFinal') or a.get('resultado') or '').startswith('Aprov'))
+    reprovados = sum(1 for a in dados_alunos if str(a.get('resultadoFinal') or a.get('resultado') or '').startswith('Reprov'))
+    h_tot = sum(1 for a in dados_alunos if (a.get('genero') or '').upper() == 'M')
+    m_tot = sum(1 for a in dados_alunos if (a.get('genero') or '').upper().startswith('F'))
+    pct_ap = round((aprovados / total_al) * 100, 1) if total_al > 0 else 0.0
+    pct_rep = round((reprovados / total_al) * 100, 1) if total_al > 0 else 0.0
+
+    resumo_pauta = f"Total Inscritos: {total_al} (H: {h_tot} | M: {m_tot}) | Avaliados: {total_al} | Aprovados: {aprovados} ({pct_ap}%) | Reprovados: {reprovados} ({pct_rep}%)"
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=total_cols)
+    ws.cell(row=current_row, column=1, value=resumo_pauta)
+    aplicar_estilo_intervalo(ws, 1, current_row, total_cols, current_row, font=FONT_REGULAR_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_LEFT)
+    ws.row_dimensions[current_row].height = 22
+
+    # 5. Assinaturas Oficiais da Pauta
+    current_row += 2
+    dap_nome = getattr(escola, 'dap_nome', 'O Director Pedagógico (DAP)') or 'O Director Pedagógico (DAP)'
+    dir_nome = getattr(escola, 'director_nome', 'O Director da Escola') or 'O Director da Escola'
+
+    col_b1_end = max(3, total_cols // 3)
+    col_b2_start = col_b1_end + 1
+    col_b2_end = max(col_b2_start + 2, (total_cols * 2) // 3)
+    col_b3_start = col_b2_end + 1
+    col_b3_end = total_cols
+
+    # Linha Cargos
+    ws.row_dimensions[current_row].height = 20
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=col_b1_end)
+    ws.cell(row=current_row, column=1, value="O Director de Turma").font = FONT_REGULAR_BOLD
+    ws.cell(row=current_row, column=1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=current_row, start_column=col_b2_start, end_row=current_row, end_column=col_b2_end)
+    ws.cell(row=current_row, column=col_b2_start, value="O Director Pedagógico (DAP)").font = FONT_REGULAR_BOLD
+    ws.cell(row=current_row, column=col_b2_start).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=current_row, start_column=col_b3_start, end_row=current_row, end_column=col_b3_end)
+    ws.cell(row=current_row, column=col_b3_start, value="O Director da Escola").font = FONT_REGULAR_BOLD
+    ws.cell(row=current_row, column=col_b3_start).alignment = ALIGN_CENTER
+
+    # Linha Traços
+    current_row += 1
+    ws.row_dimensions[current_row].height = 20
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=col_b1_end)
+    ws.cell(row=current_row, column=1, value="______________________________").font = FONT_REGULAR
+    ws.cell(row=current_row, column=1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=current_row, start_column=col_b2_start, end_row=current_row, end_column=col_b2_end)
+    ws.cell(row=current_row, column=col_b2_start, value="______________________________").font = FONT_REGULAR
+    ws.cell(row=current_row, column=col_b2_start).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=current_row, start_column=col_b3_start, end_row=current_row, end_column=col_b3_end)
+    ws.cell(row=current_row, column=col_b3_start, value="______________________________").font = FONT_REGULAR
+    ws.cell(row=current_row, column=col_b3_start).alignment = ALIGN_CENTER
+
+    # Linha Nomes
+    current_row += 1
+    ws.row_dimensions[current_row].height = 20
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=col_b1_end)
+    ws.cell(row=current_row, column=1, value=str(dt_nome)).font = FONT_REGULAR
+    ws.cell(row=current_row, column=1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=current_row, start_column=col_b2_start, end_row=current_row, end_column=col_b2_end)
+    ws.cell(row=current_row, column=col_b2_start, value=str(dap_nome)).font = FONT_REGULAR
+    ws.cell(row=current_row, column=col_b2_start).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=current_row, start_column=col_b3_start, end_row=current_row, end_column=col_b3_end)
+    ws.cell(row=current_row, column=col_b3_start, value=str(dir_nome)).font = FONT_REGULAR
+    ws.cell(row=current_row, column=col_b3_start).alignment = ALIGN_CENTER
+
+    # Ajuste Automático Milimétrico de Colunas em Função do Conteúdo
+    max_nome_len = max((len(a.get('nomeCompleto') or a.get('nome') or obter_nome_completo_aluno(a) or '') for a in dados_alunos), default=25)
+    ws.column_dimensions['A'].width = 5.0
+    ws.column_dimensions['B'].width = max(28.0, min(45.0, max_nome_len + 3.0))
+    ws.column_dimensions['C'].width = 5.5
+
+    w_sub = 5.5 if n_discs >= 10 else 6.5
+    for c_idx in range(4, total_cols - 1):
+        col_letter = get_column_letter(c_idx)
+        ws.column_dimensions[col_letter].width = w_sub
+
+    ws.column_dimensions[get_column_letter(mg_col)].width = 9.0
+    ws.column_dimensions[get_column_letter(res_col)].width = 14.0
 
     buffer = io.BytesIO()
     salvar_xlsx_padronizado(wb, buffer)
@@ -1944,82 +2118,98 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     ws.title = f"Caderneta {turma_nome}"[:31]
     configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=0)
 
-    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()
+    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA DE CAMBINE').upper()
     prov = escola_info.get('provincia') or 'Inhambane'
-    dist = escola_info.get('distrito') or 'Massinga'
-    disc_nome = (disc_info.get('nome') or 'Disciplina').upper()
-    disc_cod = disc_info.get('codigo') or disc_nome[:3]
+    dist = escola_info.get('distrito') or 'Morrumbene'
+    disc_nome = (disc_info.get('nome') or 'MATEMÁTICA').upper()
+    disc_cod = disc_info.get('codigo') or 'MAT-11CG'
     ano_letivo = turma_info.get('ano_letivo') or '2026'
-    grau_ano = turma_info.get('grau_ano') or ''
-    turno = turma_info.get('turno') or 'MANHÃ'
-    sala = turma_info.get('sala') or '-'
-    ef_h = ef_info.get('h', 0)
-    ef_m = ef_info.get('m', 0)
+    grau_ano = turma_info.get('grau_ano') or '11ª Classe'
+    turno = turma_info.get('turno') or 'TARDE'
+    sala = turma_info.get('sala') or '1'
+    ef_h = ef_info.get('h', sum(1 for a in alunos if (a.get('genero') or '').upper() == 'M'))
+    ef_m = ef_info.get('m', sum(1 for a in alunos if (a.get('genero') or '').upper().startswith('F')))
     ef_tot = ef_info.get('total', len(alunos))
-    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
-    prof_tel = prof_info.get('telefone') or '-'
-    dt_nome = dt_info.get('nome') or '-'
+    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Fernando José Mandamule'
+    prof_tel = prof_info.get('telefone') or '+258 842988844'
+    dt_nome = dt_info.get('nome') or 'Bionisio'
 
-    # 1. Logótipo Oficial Escolhido pela Instituição & Cabeçalho Institucional Oficial
+    # 1. Logótipo Oficial Escolhido pela Instituição & Cabeçalho Institucional Oficial (28 colunas A a AB)
     inserir_logo_cabecalho_xlsx(ws, escola_info, cell='A1')
-    ws.merge_cells('A1:AF1')
+    ws.merge_cells('A1:AB1')
     ws['A1'] = "REPÚBLICA DE MOÇAMBIQUE"
     ws['A1'].font = FONT_SUBTITLE
     ws['A1'].alignment = ALIGN_CENTER
     ws.row_dimensions[1].height = 20
 
-    ws.merge_cells('A2:AF2')
+    ws.merge_cells('A2:AB2')
     ws['A2'] = "MINISTÉRIO DA EDUCAÇÃO E CULTURA"
     ws['A2'].font = FONT_SUBTITLE
     ws['A2'].alignment = ALIGN_CENTER
     ws.row_dimensions[2].height = 20
 
-    ws.merge_cells('A3:AF3')
-    ws['A3'] = f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov.upper()} | SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist.upper()}"
+    ws.merge_cells('A3:AB3')
+    ws['A3'] = f"DIRECÇÃO PROVINCIAL DA EDUCAÇÃO — {prov.upper()}"
     ws['A3'].font = FONT_REGULAR
     ws['A3'].alignment = ALIGN_CENTER
     ws.row_dimensions[3].height = 18
 
-    ws.merge_cells('A4:AF4')
-    ws['A4'] = esc_nome
-    ws['A4'].font = FONT_TITLE
+    ws.merge_cells('A4:AB4')
+    ws['A4'] = f"SERVIÇO DISTRITAL DE EDUCAÇÃO, JUVENTUDE E TECNOLOGIA DE {dist.upper()}"
+    ws['A4'].font = FONT_REGULAR
     ws['A4'].alignment = ALIGN_CENTER
-    ws.row_dimensions[4].height = 22
+    ws.row_dimensions[4].height = 18
 
-    ws.merge_cells('A5:AF5')
-    ws['A5'] = f"CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod})"
+    ws.merge_cells('A5:AB5')
+    ws['A5'] = esc_nome
     ws['A5'].font = FONT_TITLE
     ws['A5'].alignment = ALIGN_CENTER
-    ws.row_dimensions[5].height = 24
+    ws.row_dimensions[5].height = 22
 
-    ws.merge_cells('A6:AF6')
-    ws['A6'] = (
+    ws.merge_cells('A6:AB6')
+    ws['A6'] = f"CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR — DISCIPLINA: {disc_nome} ({disc_cod})"
+    ws['A6'].font = FONT_TITLE
+    ws['A6'].alignment = ALIGN_CENTER
+    ws.row_dimensions[6].height = 24
+
+    ws.merge_cells('A7:AB7')
+    ws['A7'] = (
         f"Ano Lectivo: {ano_letivo} | Classe: {grau_ano} | Turma: {turma_nome} | Turno: {turno} | Sala: {sala} | "
         f"Efectivo: H={ef_h}, M={ef_m}, HM={ef_tot} | Docente: {prof_nome} ({prof_tel}) | Director de Turma: {dt_nome}"
     )
-    ws['A6'].font = FONT_REGULAR
-    ws['A6'].alignment = ALIGN_CENTER
-    ws.row_dimensions[6].height = 20
+    ws['A7'].font = FONT_REGULAR
+    ws['A7'].alignment = ALIGN_CENTER
+    ws.row_dimensions[7].height = 20
 
-    # 2. Cabeçalhos das 32 colunas da Caderneta
-    headers = [
-        'Nº', 'Nome Completo', 'Apelido', 'Gén',
-        '1º 1ªACS', '1º 2ªACS', '1º 3ªACS', '1º MAP', '1º MAS', '1º AT', '1º MT', '1º Comp', '1º Obs',
-        '2º 1ªACS', '2º 2ªACS', '2º 3ªACS', '2º MAP', '2º MAS', '2º AT', '2º MT', '2º Comp', '2º Obs',
-        '3º 1ªACS', '3º 2ªACS', '3º 3ªACS', '3º MAP', '3º MAS', '3º AT', '3º MT', '3º Comp', '3º Obs',
-        'MFD'
-    ]
-    row = 8
-    ws.row_dimensions[row].height = 24
-    for col_idx, h in enumerate(headers, start=1):
-        c = ws.cell(row=row, column=col_idx, value=h)
-        c.font = FONT_HEADER_SM
-        c.fill = FILL_NAVY
-        c.alignment = ALIGN_CENTER
-        c.border = THIN_BORDER
+    # 2. Cabeçalho Oficial da Tabela em 2 Linhas (Linhas 9 e 10 - Exatamente 28 colunas A a AB)
+    ws.merge_cells('A9:A10')
+    ws['A9'] = 'Nº'
+    ws.merge_cells('B9:B10')
+    ws['B9'] = 'Nome Completo do Aluno'
+    ws.merge_cells('C9:C10')
+    ws['C9'] = 'Gén'
+    ws.merge_cells('D9:K9')
+    ws['D9'] = 'Iº TRIMESTRE'
+    ws.merge_cells('L9:S9')
+    ws['L9'] = 'IIº TRIMESTRE'
+    ws.merge_cells('T9:AA9')
+    ws['T9'] = 'IIIº TRIMESTRE'
+    ws.merge_cells('AB9:AB10')
+    ws['AB9'] = 'MFD'
+
+    # Linha 10 (subcabeçalhos de cada trimestre):
+    subcols = ['1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp']
+    for idx_s, s_name in enumerate(subcols):
+        ws.cell(row=10, column=4 + idx_s, value=s_name)
+        ws.cell(row=10, column=12 + idx_s, value=s_name)
+        ws.cell(row=10, column=20 + idx_s, value=s_name)
+
+    ws.row_dimensions[9].height = 24
+    ws.row_dimensions[10].height = 22
+    aplicar_estilo_intervalo(ws, 1, 9, 28, 10, font=FONT_HEADER_SM, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
     # 3. Linhas dos Alunos
-    def fmt_nota(val):
+    def fmt_n(val):
         if val is None or val == '' or val == '-':
             return '-'
         try:
@@ -2028,55 +2218,46 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         except (ValueError, TypeError):
             return str(val)
 
+    row = 10
     for idx, al in enumerate(alunos, start=1):
         row += 1
-        ws.row_dimensions[row].height = 18
+        ws.row_dimensions[row].height = 20
         t1 = al.get('t1') or {}
         t2 = al.get('t2') or {}
         t3 = al.get('t3') or {}
+        nome_completo = al.get('nomeCompleto') or obter_nome_completo_aluno(al)
         vals = [
             al.get('numero') or idx,
-            obter_nome_completo_aluno(al),
-            al.get('apelido') or '',
+            nome_completo,
             al.get('genero') or 'M',
-            fmt_nota(t1.get('t1')), fmt_nota(t1.get('t2')), fmt_nota(t1.get('t3')),
-            fmt_nota(t1.get('map')), fmt_nota(t1.get('mas')), fmt_nota(t1.get('at')), fmt_nota(t1.get('mt')),
-            t1.get('comportamento') or '', t1.get('anotacao') or '',
-            fmt_nota(t2.get('t1')), fmt_nota(t2.get('t2')), fmt_nota(t2.get('t3')),
-            fmt_nota(t2.get('map')), fmt_nota(t2.get('mas')), fmt_nota(t2.get('at')), fmt_nota(t2.get('mt')),
-            t2.get('comportamento') or '', t2.get('anotacao') or '',
-            fmt_nota(t3.get('t1')), fmt_nota(t3.get('t2')), fmt_nota(t3.get('t3')),
-            fmt_nota(t3.get('map')), fmt_nota(t3.get('mas')), fmt_nota(t3.get('at')), fmt_nota(t3.get('mt')),
-            t3.get('comportamento') or '', t3.get('anotacao') or '',
-            fmt_nota(al.get('mfd'))
+            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')),
+            fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')),
+            str(t1.get('comportamento') or '-'),
+            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')),
+            fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')),
+            str(t2.get('comportamento') or '-'),
+            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')),
+            fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')),
+            str(t3.get('comportamento') or '-'),
+            fmt_n(al.get('mfd'))
         ]
         for col_idx, val in enumerate(vals, start=1):
             c = ws.cell(row=row, column=col_idx, value=val)
             c.border = THIN_BORDER
-            c.alignment = ALIGN_LEFT if col_idx in (2, 3, 13, 22, 31) else ALIGN_CENTER
-            if col_idx in (11, 20, 29, 32):
-                if isinstance(val, (int, float)):
-                    c.font = FONT_SUCCESS_SM if val >= 9.5 else FONT_DANGER_SM
-                else:
-                    c.font = FONT_TINY_BOLD
+            c.alignment = ALIGN_LEFT if col_idx == 2 else ALIGN_CENTER
+            if col_idx in (10, 18, 26, 28):  # MT e MFD
                 c.fill = FILL_LIGHT
+                c.font = FONT_TINY_BOLD
             else:
                 c.font = FONT_TINY
 
-    # 4. Linhas de Parâmetros Estatísticos Oficiais Conforme Modelo Padronizado (Foto Oficial)
+    # 4. Parâmetros Estatísticos Oficiais (Colunas 4 a 28)
     col_stat_map = {
-        5: 't1_t1', 6: 't1_t2', 7: 't1_t3', 8: 't1_map', 9: 't1_mas', 10: 't1_at', 11: 't1_mt',
-        14: 't2_t1', 15: 't2_t2', 16: 't2_t3', 17: 't2_map', 18: 't2_mas', 19: 't2_at', 20: 't2_mt',
-        23: 't3_t1', 24: 't3_t2', 25: 't3_t3', 26: 't3_map', 27: 't3_mas', 28: 't3_at', 29: 't3_mt',
-        32: 'mfd'
+        4: 't1_t1', 5: 't1_t2', 6: 't1_t3', 7: 't1_map', 8: 't1_mas', 9: 't1_at', 10: 't1_mt',
+        12: 't2_t1', 13: 't2_t2', 14: 't2_t3', 15: 't2_map', 16: 't2_mas', 17: 't2_at', 18: 't2_mt',
+        20: 't3_t1', 21: 't3_t2', 22: 't3_t3', 23: 't3_map', 24: 't3_mas', 25: 't3_at', 26: 't3_mt',
+        28: 'mfd'
     }
-
-    # 1. Linha: Parametro estatistico
-    row += 1
-    ws.row_dimensions[row].height = 20
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=32)
-    ws.cell(row=row, column=1, value='Parametro estatistico')
-    aplicar_estilo_intervalo(ws, 1, row, 32, row, font=FONT_REGULAR_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_LEFT)
 
     def _val_cel(s_k, getter, default='-'):
         if not s_k or s_k not in estatisticas:
@@ -2086,6 +2267,13 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
             return default
         return getter(st_c)
 
+    # 1. Linha: Parametro estatistico
+    row += 1
+    ws.row_dimensions[row].height = 20
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=28)
+    ws.cell(row=row, column=1, value='Parametro estatistico')
+    aplicar_estilo_intervalo(ws, 1, row, 28, row, font=FONT_REGULAR_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_LEFT)
+
     # 2. Avaliados (M, F, M+F)
     r_av_start = row + 1
     for gen_idx, (g_lbl, g_k) in enumerate([('M', 'h'), ('F', 'm'), ('M+F', 'total')]):
@@ -2093,13 +2281,13 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         ws.row_dimensions[row].height = 17
         if gen_idx == 0:
             ws.cell(row=row, column=1, value='Avaliados')
-        ws.cell(row=row, column=4, value=g_lbl)
+        ws.cell(row=row, column=3, value=g_lbl)
         is_mf = (g_lbl == 'M+F')
         fill_row = FILL_ROW_GRAY if is_mf else None
         font_row = FONT_TINY_BOLD if is_mf else FONT_TINY
-        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
-        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
-        for col_idx in range(5, 33):
+        aplicar_estilo_intervalo(ws, 1, row, 2, row, font=FONT_TINY_BOLD, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 3, row, 3, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(4, 29):
             s_key = col_stat_map.get(col_idx)
             val = _val_cel(s_key, lambda st: (st.get('avaliados') or {}).get(g_k, 0))
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2108,7 +2296,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
                 c.fill = fill_row
             c.border = THIN_BORDER
             c.alignment = ALIGN_CENTER
-    ws.merge_cells(start_row=r_av_start, start_column=1, end_row=row, end_column=3)
+    ws.merge_cells(start_row=r_av_start, start_column=1, end_row=row, end_column=2)
 
     # 3. Positivos (M, F, M+F)
     r_pos_start = row + 1
@@ -2117,13 +2305,13 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         ws.row_dimensions[row].height = 17
         if gen_idx == 0:
             ws.cell(row=row, column=1, value='Positivos')
-        ws.cell(row=row, column=4, value=g_lbl)
+        ws.cell(row=row, column=3, value=g_lbl)
         is_mf = (g_lbl == 'M+F')
         fill_row = FILL_ROW_SUCCESS if is_mf else None
         font_row = FONT_GREEN_SM
-        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_GREEN_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
-        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
-        for col_idx in range(5, 33):
+        aplicar_estilo_intervalo(ws, 1, row, 2, row, font=FONT_GREEN_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 3, row, 3, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(4, 29):
             s_key = col_stat_map.get(col_idx)
             val = _val_cel(s_key, lambda st: (st.get('positivas') or {}).get(g_k, 0))
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2132,7 +2320,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
                 c.fill = fill_row
             c.border = THIN_BORDER
             c.alignment = ALIGN_CENTER
-    ws.merge_cells(start_row=r_pos_start, start_column=1, end_row=row, end_column=3)
+    ws.merge_cells(start_row=r_pos_start, start_column=1, end_row=row, end_column=2)
 
     # 4. % Positivos (M, F, M+F)
     r_pct_pos_start = row + 1
@@ -2141,13 +2329,13 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         ws.row_dimensions[row].height = 17
         if gen_idx == 0:
             ws.cell(row=row, column=1, value='% Positivos')
-        ws.cell(row=row, column=4, value=g_lbl)
+        ws.cell(row=row, column=3, value=g_lbl)
         is_mf = (g_lbl == 'M+F')
         fill_row = FILL_ROW_SUCCESS if is_mf else None
         font_row = FONT_GREEN_SM
-        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_GREEN_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
-        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
-        for col_idx in range(5, 33):
+        aplicar_estilo_intervalo(ws, 1, row, 2, row, font=FONT_GREEN_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 3, row, 3, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(4, 29):
             s_key = col_stat_map.get(col_idx)
             val = _val_cel(s_key, lambda st: f"{(st.get('positivas') or {}).get(g_k, 0)}%")
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2156,7 +2344,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
                 c.fill = fill_row
             c.border = THIN_BORDER
             c.alignment = ALIGN_CENTER
-    ws.merge_cells(start_row=r_pct_pos_start, start_column=1, end_row=row, end_column=3)
+    ws.merge_cells(start_row=r_pct_pos_start, start_column=1, end_row=row, end_column=2)
 
     # 5. Negativos (M, F, M+F)
     r_neg_start = row + 1
@@ -2165,13 +2353,13 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         ws.row_dimensions[row].height = 17
         if gen_idx == 0:
             ws.cell(row=row, column=1, value='Negativos')
-        ws.cell(row=row, column=4, value=g_lbl)
+        ws.cell(row=row, column=3, value=g_lbl)
         is_mf = (g_lbl == 'M+F')
         fill_row = FILL_ROW_DANGER if is_mf else None
         font_row = FONT_RED_SM
-        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_RED_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
-        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
-        for col_idx in range(5, 33):
+        aplicar_estilo_intervalo(ws, 1, row, 2, row, font=FONT_RED_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 3, row, 3, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(4, 29):
             s_key = col_stat_map.get(col_idx)
             val = _val_cel(s_key, lambda st: (st.get('negativas') or {}).get(g_k, 0))
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2180,7 +2368,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
                 c.fill = fill_row
             c.border = THIN_BORDER
             c.alignment = ALIGN_CENTER
-    ws.merge_cells(start_row=r_neg_start, start_column=1, end_row=row, end_column=3)
+    ws.merge_cells(start_row=r_neg_start, start_column=1, end_row=row, end_column=2)
 
     # 6. % Negativos (M, F, M+F)
     r_pct_neg_start = row + 1
@@ -2189,13 +2377,13 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         ws.row_dimensions[row].height = 17
         if gen_idx == 0:
             ws.cell(row=row, column=1, value='% Negativos')
-        ws.cell(row=row, column=4, value=g_lbl)
+        ws.cell(row=row, column=3, value=g_lbl)
         is_mf = (g_lbl == 'M+F')
         fill_row = FILL_ROW_DANGER if is_mf else None
         font_row = FONT_RED_SM
-        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_RED_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
-        aplicar_estilo_intervalo(ws, 4, row, 4, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
-        for col_idx in range(5, 33):
+        aplicar_estilo_intervalo(ws, 1, row, 2, row, font=FONT_RED_SM, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        aplicar_estilo_intervalo(ws, 3, row, 3, row, font=font_row, fill=fill_row, border=THIN_BORDER, alignment=ALIGN_CENTER)
+        for col_idx in range(4, 29):
             s_key = col_stat_map.get(col_idx)
             val = _val_cel(s_key, lambda st: f"{(st.get('negativas') or {}).get(g_k, 0)}%")
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2204,9 +2392,9 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
                 c.fill = fill_row
             c.border = THIN_BORDER
             c.alignment = ALIGN_CENTER
-    ws.merge_cells(start_row=r_pct_neg_start, start_column=1, end_row=row, end_column=3)
+    ws.merge_cells(start_row=r_pct_neg_start, start_column=1, end_row=row, end_column=2)
 
-    # 7. Faixas Oficiais (Linhas Únicas Mesclando A:D)
+    # 7. Faixas Oficiais (0 a 9,4 | 9,5 a 13,4 | 13,5 a 16,4 | 16,5 a 18,4 | 18,5 a 20)
     faixas_defs = [
         ('0 a 9,4', 'f0_94'),
         ('9,5 a 13,4', 'f95_134'),
@@ -2217,10 +2405,10 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     for f_lbl, f_prop in faixas_defs:
         row += 1
         ws.row_dimensions[row].height = 17
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
         ws.cell(row=row, column=1, value=f_lbl)
-        aplicar_estilo_intervalo(ws, 1, row, 4, row, font=FONT_TINY_BOLD, border=THIN_BORDER, alignment=ALIGN_LEFT)
-        for col_idx in range(5, 33):
+        aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, border=THIN_BORDER, alignment=ALIGN_LEFT)
+        for col_idx in range(4, 29):
             s_key = col_stat_map.get(col_idx)
             val = _val_cel(s_key, lambda st: ((st.get('faixas') or {}).get(f_prop) or {}).get('total', 0))
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2231,10 +2419,10 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     # 8. Linha final: Média da Coluna
     row += 1
     ws.row_dimensions[row].height = 18
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
     ws.cell(row=row, column=1, value='Média da Coluna')
-    aplicar_estilo_intervalo(ws, 1, row, 4, row, font=FONT_TINY_BOLD, fill=FILL_ROW_BLUE, border=THIN_BORDER, alignment=ALIGN_LEFT)
-    for col_idx in range(5, 33):
+    aplicar_estilo_intervalo(ws, 1, row, 3, row, font=FONT_TINY_BOLD, fill=FILL_ROW_BLUE, border=THIN_BORDER, alignment=ALIGN_LEFT)
+    for col_idx in range(4, 29):
         s_key = col_stat_map.get(col_idx)
         val = _val_cel(s_key, lambda st: st.get('media', 0))
         c = ws.cell(row=row, column=col_idx, value=val)
@@ -2243,17 +2431,57 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
         c.border = THIN_BORDER
         c.alignment = ALIGN_CENTER
 
-    # Ajustar larguras de coluna
-    ws.column_dimensions['A'].width = 5
-    ws.column_dimensions['B'].width = 24
-    ws.column_dimensions['C'].width = 16
-    ws.column_dimensions['D'].width = 5.5
-    for c_idx in range(5, 33):
+    # 9. Assinaturas Oficiais (Idênticas ao PDF e Foto)
+    row += 2
+    ws.row_dimensions[row].height = 20
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+    ws.cell(row=row, column=1, value="O Docente da Disciplina").font = FONT_REGULAR_BOLD
+    ws.cell(row=row, column=1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=row, start_column=10, end_row=row, end_column=17)
+    ws.cell(row=row, column=10, value="O Director de Turma").font = FONT_REGULAR_BOLD
+    ws.cell(row=row, column=10).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=row, start_column=19, end_row=row, end_column=28)
+    ws.cell(row=row, column=19, value="O Director Adjunto Pedagógico").font = FONT_REGULAR_BOLD
+    ws.cell(row=row, column=19).alignment = ALIGN_CENTER
+
+    row += 1
+    ws.row_dimensions[row].height = 20
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+    ws.cell(row=row, column=1, value="__________________________________").font = FONT_REGULAR
+    ws.cell(row=row, column=1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=row, start_column=10, end_row=row, end_column=17)
+    ws.cell(row=row, column=10, value="__________________________________").font = FONT_REGULAR
+    ws.cell(row=row, column=10).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=row, start_column=19, end_row=row, end_column=28)
+    ws.cell(row=row, column=19, value="__________________________________").font = FONT_REGULAR
+    ws.cell(row=row, column=19).alignment = ALIGN_CENTER
+
+    row += 1
+    ws.row_dimensions[row].height = 20
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+    ws.cell(row=row, column=1, value=prof_nome).font = FONT_REGULAR
+    ws.cell(row=row, column=1).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=row, start_column=10, end_row=row, end_column=17)
+    ws.cell(row=row, column=10, value=dt_nome).font = FONT_REGULAR
+    ws.cell(row=row, column=10).alignment = ALIGN_CENTER
+
+    ws.merge_cells(start_row=row, start_column=19, end_row=row, end_column=28)
+    ws.cell(row=row, column=19, value="Assinatura e Carimbo").font = FONT_REGULAR
+    ws.cell(row=row, column=19).alignment = ALIGN_CENTER
+
+    # Ajuste Automático Milimétrico de Colunas em Função do Conteúdo
+    max_nome_len = max((len(al.get('nomeCompleto') or obter_nome_completo_aluno(al) or '') for al in alunos), default=25)
+    ws.column_dimensions['A'].width = 5.0
+    ws.column_dimensions['B'].width = max(28.0, min(45.0, max_nome_len + 3.0))
+    ws.column_dimensions['C'].width = 5.5
+    for c_idx in range(4, 29):
         col_letter = get_column_letter(c_idx)
-        if c_idx in (13, 22, 31):
-            ws.column_dimensions[col_letter].width = 12
-        else:
-            ws.column_dimensions[col_letter].width = 7.5
+        ws.column_dimensions[col_letter].width = 7.0
 
     buffer = io.BytesIO()
     salvar_xlsx_padronizado(wb, buffer)
