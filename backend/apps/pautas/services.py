@@ -759,7 +759,7 @@ def resolver_permissoes_exames_usuario(user, escola, turma=None, disciplinas_inf
     - ALGUNS_PROFESSORES: Permissao delegada por classe e por grupo de disciplina (parcial).
     """
     user_role = getattr(user, 'role', '') if user else ''
-    is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+    is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '') or getattr(user, 'is_superuser', False)
 
     if not user or not getattr(user, 'is_authenticated', False):
         return {

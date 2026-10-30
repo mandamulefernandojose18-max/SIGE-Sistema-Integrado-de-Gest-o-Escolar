@@ -400,7 +400,7 @@ class TransacaoFinanceiraViewSet(viewsets.ModelViewSet):
                 'success': False,
                 'message': 'Regra mandatória de separação de funções: quem regista no Finanças NÃO pode aprovar a despesa. A aprovação é exclusiva da Direcção da Escola.'
             }, status=403)
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
         obj = self.get_object()
         obj.status_aprovacao = 'APROVADO_DIRECTOR'
@@ -446,7 +446,7 @@ class FolhaSalarioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='aprovar')
     def aprovar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
         obj = self.get_object()
         obj.status = 'APROVADO_DIRECTOR'
@@ -488,7 +488,7 @@ class ItemPatrimonioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='homologar')
     def homologar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
         obj = self.get_object()
         obj.status_validacao = 'HOMOLOGADO_DIRECTOR'

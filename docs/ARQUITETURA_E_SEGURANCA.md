@@ -165,7 +165,7 @@ flowchart TD
 
 | Perfil / Papel | Designação Oficial | Permissões no Sistema |
 | :--- | :--- | :--- |
-| `SUPERADMIN` | Administrador Master SaaS | Governança global de todas as escolas, planos de assinatura, métricas financeiras MRR/ARR, inspeção multi-tenant. |
+| `SUPERADMIN` | Super Administrador / Engenheiro do Sistema | **Acesso Integral e Universal a Tudo:** Governança global do SaaS, todas as escolas, planos de assinatura, métricas financeiras MRR/ARR, inspeção multi-tenant irrestrita, gestão pedagógica, homologações, pautas, cadernetas e módulos executivos/financeiros sem bloqueios inter-painéis. |
 | `ADMIN_ESCOLA` | Administrador da Instituição | Parametrização geral da escola, gestão de utilizadores e turmas, supervisão de todos os módulos escolares locais. |
 | `DIRECTOR_ESCOLA` | Director da Escola | Homologação de cargos de DT e DC, encerramento oficial de pautas anuais, assinatura executiva de certificados e pautas. |
 | `DAP` | Director Adjunto Pedagógico | Gestão pedagógica integral: turmas, alocações docentes, matriz curricular, cadernetas, pautas, prazos de notas e desbloqueios. |

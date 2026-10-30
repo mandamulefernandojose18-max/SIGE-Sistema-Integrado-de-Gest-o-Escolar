@@ -1349,7 +1349,7 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='aprovar')
     def aprovar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Aprovação de calendário exclusiva do Director da Escola.'}, status=403)
         obj = self.get_object()
         obj.status_aprovacao = 'APROVADO_DIRECTOR'
@@ -1387,14 +1387,14 @@ class ComunicadoEscolarViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
         role = getattr(self.request.user, 'role', '')
-        aprovado = role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
+        aprovado = (role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']) or getattr(self.request.user, 'is_superuser', False)
         obj = serializer.save(escola=escola, autor=self.request.user, aprovado_pelo_director=aprovado)
         registrar_auditoria(self.request.user, escola, 'COMUNICADO', 'CRIACAO', obj.id, f'Emissão de comunicado: {obj.titulo}')
 
     @action(detail=True, methods=['post'], url_path='aprovar')
     def aprovar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
         obj = self.get_object()
         obj.aprovado_pelo_director = True

@@ -223,7 +223,7 @@ MATRIZ_PERMISSOES = {
         'SECRETARIA': ['V'],
         'CHEFE_SECRETARIA': ['V'],
         'FINANCEIRO': ['V_FINANCEIRO'],
-        'SUPERADMIN': ['V'],
+        'SUPERADMIN': ['V', 'C', 'E', 'A'],
     },
     'comunicados': {
         'DIRECTOR_ESCOLA': ['C', 'A', 'V'],

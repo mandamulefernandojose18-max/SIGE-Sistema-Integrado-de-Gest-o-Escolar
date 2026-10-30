@@ -196,7 +196,7 @@ O SIGE implementa Controlo de Acesso Baseado em Papéis (`RBAC`) com 10 perfis n
 
 | Perfil / Código Role | Designação Institucional | Formato do Código Oficial de Acesso | Escopo de Atuação Principal |
 | :--- | :--- | :--- | :--- |
-| `SUPERADMIN` | Administrador Master SaaS | E-mail / Username Master | Governação global de todas as escolas, planos, contratos, métricas MRR/ARR/Churn e inspeção multi-tenant. |
+| `SUPERADMIN` | Super Administrador / Engenheiro do Sistema | E-mail / Username Master | **Acesso Universal a Tudo:** Governação global de todas as escolas, planos, contratos, métricas MRR/ARR/Churn, auditoria multi-tenant e acesso total e irrestrito a qualquer módulo, turma, pauta, caderneta ou área do sistema. |
 | `ADMIN_ESCOLA` | Administrador da Instituição | E-mail Institucional | Gestão completa da escola, configurações gerais, utilizadores e todos os módulos locais. |
 | `DIRECTOR_ESCOLA` | Director da Escola | `GD{CodigoEscola}` *(ex: `GD0808S0001`)* | Órgão executivo máximo da escola; homologa cargos (`DT`/`DC`), aprova despesas financeiras, homologa pautas e relatórios, visualiza auditoria geral e supervisiona toda a instituição. |
 | `DAP` | Director Adjunto Pedagógico | `DP{CodigoEscola}` *(ex: `DP0808S0001`)* | Gestão pedagógica integral: turmas, horários semanais, matriz curricular, cadernetas, validação de notas e planos/sumários, pautas, estatísticas, desbloqueio de notas e visibilidade aos alunos. |

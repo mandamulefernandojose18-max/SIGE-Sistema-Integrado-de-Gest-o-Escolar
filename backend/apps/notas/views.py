@@ -57,7 +57,7 @@ class NotaViewSet(viewsets.ModelViewSet):
             return Response({'success': False, 'message': 'Instituição não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Regra Oficial MEC: O professor é o único avaliador; apenas docentes podem lançar notas
-        if getattr(request.user, 'role', None) != 'PROFESSOR' and not request.user.is_superuser:
+        if getattr(request.user, 'role', None) not in ['PROFESSOR', 'SUPERADMIN'] and not request.user.is_superuser:
             return Response({
                 'success': False,
                 'message': 'Apenas professores alocados têm permissão para lançar avaliações.'
@@ -529,7 +529,7 @@ class PlanoAulaSumarioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='validar')
     def validar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência exclusiva do Director Pedagógico (DAP) ou Direcção.'}, status=403)
         obj = self.get_object()
         acao_val = request.data.get('status', 'VALIDADO_DAP')
@@ -577,7 +577,7 @@ class OcorrenciaDisciplinarViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='homologar')
     def homologar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência do DAP ou Direcção da Escola.'}, status=403)
         obj = self.get_object()
         obj.status_validacao = 'HOMOLOGADA_DAP'

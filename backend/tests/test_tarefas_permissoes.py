@@ -90,6 +90,33 @@ def user_aluno(db, escola_db):
 
 @pytest.mark.django_db
 class TestMatrizPermissoes:
+    def test_superadmin_engenheiro_acesso_a_tudo(self, escola_db):
+        user_sa = Usuario.objects.create_user(
+            email='superadmin@sige.mz',
+            nome='Engenheiro do Sistema',
+            role='SUPERADMIN',
+            is_superuser=True,
+            password='pass'
+        )
+        from common.permissions.rbac import (
+            IsSuperAdmin, IsEscolaAdmin, IsDirectorEscola, IsDAP,
+            IsSecretaria, IsProfessor, IsFinanceiro, IsAluno, TemPermissaoMatriz
+        )
+        class MockRequest:
+            def __init__(self, u):
+                self.user = u
+                self.method = 'POST'
+                self.path = '/api/v1/notas/1/aprovar/'
+
+        req = MockRequest(user_sa)
+        for perm_cls in [IsSuperAdmin, IsEscolaAdmin, IsDirectorEscola, IsDAP, IsSecretaria, IsProfessor, IsFinanceiro, IsAluno]:
+            assert perm_cls().has_permission(req, None) is True
+
+        for mod in MATRIZ_PERMISSOES.keys():
+            for ac in ['V', 'C', 'E', 'A']:
+                assert checar_permissao_matriz('SUPERADMIN', mod, ac) is True
+                assert TemPermissaoMatriz(mod).has_permission(req, None) is True
+
     def test_matriz_regras_documento(self):
         # Director
         assert checar_permissao_matriz('DIRECTOR_ESCOLA', 'utilizadores_permissoes', 'V') is True

@@ -711,7 +711,7 @@ function imprimirCadernetaOficial() {
 }
 
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
-  if (state.user?.role !== 'PROFESSOR') {
+  if (state.user?.role !== 'PROFESSOR' && state.user?.role !== 'SUPERADMIN' && !state.user?.is_superuser) {
     if (typeof mostrarToast === 'function') {
       mostrarToast('Apenas professores têm permissão para lançar avaliações.', 'warning');
     } else {

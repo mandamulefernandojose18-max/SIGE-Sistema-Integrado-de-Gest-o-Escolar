@@ -39,7 +39,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
 
         extra_kwargs = {'escola': escola}
         user_role = getattr(self.request.user, 'role', '')
-        pode_homologar = user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
+        pode_homologar = (user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']) or getattr(self.request.user, 'is_superuser', False)
         homologar_imediato = bool(self.request.data.get('homologar_directores')) and pode_homologar
 
         nome_dap = getattr(escola, 'dap_nome', None) or (self.request.user.nome if user_role == 'DAP' else 'Direcção Pedagógica')
@@ -89,7 +89,7 @@ class TurmaViewSet(viewsets.ModelViewSet):
 
         escola = turma.escola
         user_role = getattr(request.user, 'role', '')
-        pode_homologar = user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
+        pode_homologar = (user_role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']) or getattr(self.request.user, 'is_superuser', False)
         homologar_imediato = bool(request.data.get('homologar_directores')) and pode_homologar
 
         nome_dap = getattr(escola, 'dap_nome', None) or (request.user.nome if user_role == 'DAP' else 'Direcção Pedagógica')
@@ -1047,7 +1047,7 @@ class HorarioEscolarViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         role = getattr(self.request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'] and not getattr(self.request.user, 'is_superuser', False):
             raise PermissionDenied('Apenas o Director Pedagógico (DAP) ou Direcção podem elaborar horários.')
         escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
         obj = serializer.save(escola=escola, elaborado_por=self.request.user)
@@ -1056,7 +1056,7 @@ class HorarioEscolarViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='aprovar')
     def aprovar(self, request, pk=None):
         role = getattr(request.user, 'role', '')
-        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA'] and not getattr(request.user, 'is_superuser', False):
             return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
         obj = self.get_object()
         obj.status_aprovacao = 'APROVADO'

@@ -1,14 +1,19 @@
 from rest_framework.permissions import BasePermission
 from .matriz import checar_permissao_matriz
 
+def _is_super_admin(user):
+    return bool(user and user.is_authenticated and (getattr(user, 'role', '') == 'SUPERADMIN' or getattr(user, 'is_superuser', False)))
+
 class IsSuperAdmin(BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and getattr(request.user, 'role', '') == 'SUPERADMIN')
+        return _is_super_admin(request.user)
 
 class IsEscolaAdmin(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA']
 
@@ -17,6 +22,8 @@ class IsDirectorEscola(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
 
@@ -25,6 +32,8 @@ class IsDAP(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']
 
@@ -33,6 +42,8 @@ class IsSecretaria(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'CHEFE_SECRETARIA', 'SECRETARIA']
 
@@ -40,6 +51,8 @@ class IsProfessor(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'PROFESSOR', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']
 
@@ -48,6 +61,8 @@ class IsFinanceiro(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'FINANCEIRO']
 
@@ -55,6 +70,8 @@ class IsAluno(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
+        if _is_super_admin(request.user):
+            return True
         role = getattr(request.user, 'role', '')
         return role in ['SUPERADMIN', 'ALUNO', 'ENCARREGADO']
 
@@ -75,9 +92,9 @@ class TemPermissaoMatriz(BasePermission):
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
-        role = getattr(request.user, 'role', '')
-        if role == 'SUPERADMIN':
+        if _is_super_admin(request.user):
             return True
+        role = getattr(request.user, 'role', '')
 
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             acao = 'V'

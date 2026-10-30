@@ -2352,12 +2352,15 @@ const MENUS_POR_PAINEL = {
     { id: 'comunicados', titulo: 'Comunicados Financeiros', icone: 'bi-megaphone-fill text-primary', categoria: 'Comunicação' }
   ],
   'painel-escola': [
-    { id: 'dashboard', titulo: 'Painel Principal', icone: 'bi-grid-1x2-fill', categoria: 'Geral' },
-    { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão Escolar' },
-    { id: 'assinatura-escola', titulo: 'Assinatura do Sistema', icone: 'bi-shield-lock-fill text-warning', categoria: 'Gestão Escolar' },
-    { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Gestão Escolar' },
-    { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Gestão Escolar' },
-    { id: 'professores', titulo: 'Corpo Docente', icone: 'bi-person-badge-fill', categoria: 'Gestão Escolar' },
+    { id: 'dashboard', titulo: 'Painel Principal Executivo', icone: 'bi-grid-1x2-fill', categoria: 'Visão Geral' },
+    { id: 'escola', titulo: 'Definições & Logótipo', icone: 'bi-building-gear', categoria: 'Gestão & Governação' },
+    { id: 'assinatura-escola', titulo: 'Assinatura do Sistema', icone: 'bi-shield-lock-fill text-warning', categoria: 'Gestão & Governação' },
+    { id: 'usuarios-senhas', titulo: 'Utilizadores & Permissões', icone: 'bi-key-fill text-warning', categoria: 'Gestão & Governação' },
+    { id: 'auditoria', titulo: 'Auditoria de Operações', icone: 'bi-shield-lock-fill text-info', categoria: 'Gestão & Governação' },
+    { id: 'calendario', titulo: 'Calendário Escolar', icone: 'bi-calendar3 text-primary', categoria: 'Área Pedagógica' },
+    { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
+    { id: 'professores', titulo: 'Atribuição & Docentes', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
     { id: 'classes-exames', titulo: 'Classes / Níveis & Exames', icone: 'bi-layers-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
@@ -2365,18 +2368,24 @@ const MENUS_POR_PAINEL = {
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
-    { id: 'material-escolar', titulo: 'Material Escolar', icone: 'bi-book-half text-primary', categoria: 'Área Pedagógica' },
-    { id: 'certificados', titulo: 'Certificados (QR Code)', icone: 'bi-award-fill', categoria: 'Financeiro & Secretaria' },
-    { id: 'pagamentos', titulo: 'Mensalidades & Propinas', icone: 'bi-cash-coin', categoria: 'Financeiro & Secretaria' },
-    { id: 'impressao', titulo: 'Central de Impressão', icone: 'bi-printer-fill', categoria: 'Financeiro & Secretaria' },
-    { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais', icone: 'bi-key-fill text-warning', categoria: 'Segurança & Cofre' },
-    { id: 'acessos', titulo: 'Auditoria & Acessos', icone: 'bi-shield-check', categoria: 'Segurança & Cofre' }
+    { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
+    { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Secretaria & Expediente' },
+    { id: 'presencas', titulo: 'Presenças dos Alunos', icone: 'bi-person-check-fill text-success', categoria: 'Secretaria & Expediente' },
+    { id: 'transferencias', titulo: 'Transferências & Anulações', icone: 'bi-arrow-left-right text-primary', categoria: 'Secretaria & Expediente' },
+    { id: 'certificados', titulo: 'Certificados & Declarações', icone: 'bi-award-fill', categoria: 'Secretaria & Expediente' },
+    { id: 'ocorrencias', titulo: 'Ocorrências Disciplinares', icone: 'bi-exclamation-octagon-fill text-warning', categoria: 'Secretaria & Expediente' },
+    { id: 'impressao', titulo: 'Central de Impressão', icone: 'bi-printer-fill', categoria: 'Secretaria & Expediente' },
+    { id: 'material-escolar', titulo: 'Material Escolar & Didático', icone: 'bi-book-half text-primary', categoria: 'Secretaria & Expediente' },
+    { id: 'pagamentos', titulo: 'Propinas & Mensalidades', icone: 'bi-cash-coin', categoria: 'Gestão Financeira & Bens' },
+    { id: 'despesas', titulo: 'Receitas & Despesas (Aprovação)', icone: 'bi-wallet-fill text-danger', categoria: 'Gestão Financeira & Bens' },
+    { id: 'comunicados', titulo: 'Comunicados Oficiais', icone: 'bi-megaphone-fill text-primary', categoria: 'Comunicação' }
   ]
 };
 
 function renderizarSidebarPorNivel(role) {
-  const isSuperAdminInspecionando = (role === 'ADMIN_ESCOLA' && state.user?.role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
-  const painel = MAPA_PAINEIS[role] || 'painel-escola';
+  const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
+  const isSuperAdminInspecionando = isSuperAdmin && !!localStorage.getItem('sige_selected_tenant');
+  const painel = isSuperAdminInspecionando ? 'painel-direcao' : (MAPA_PAINEIS[role] || 'painel-escola');
   const menus = MENUS_POR_PAINEL[painel] || [];
   const navContainer = document.getElementById('sidebarNavItems');
   if (!navContainer) return;
@@ -2475,19 +2484,21 @@ function renderizarSidebarPorNivel(role) {
 }
 
 function aplicarPermissoesVisualizacao(role) {
-  renderizarSidebarPorNivel(role);
+  const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
+  const isSuperAdminInspecionando = isSuperAdmin && !!localStorage.getItem('sige_selected_tenant');
 
-  if (role === 'SUPERADMIN') {
+  renderizarSidebarPorNivel(isSuperAdminInspecionando ? 'ADMIN_ESCOLA' : role);
+
+  if (isSuperAdmin) {
     document.body.classList.add('role-superadmin');
-    const isSuperAdminInspecionando = !!localStorage.getItem('sige_selected_tenant');
     if (isSuperAdminInspecionando) {
       document.body.classList.add('inspecionando-escola');
     } else {
       document.body.classList.remove('inspecionando-escola');
     }
     document.getElementById('superAdminTenantSelectWrapper')?.style.setProperty('display', 'block');
-    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'none');
-    document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
+    document.getElementById('btnToggleNotasDap')?.style.setProperty('display', 'flex');
+    document.getElementById('btnComprovativoEscola')?.classList.remove('d-none');
     document.getElementById('sidebarTenantCard')?.style.setProperty('display', 'block');
   } else {
     // RESTRIÇÃO TOTAL: O banner e o botão [Sair da Escola (Voltar ao SaaS)] NUNCA podem aparecer para outros papéis
@@ -2947,18 +2958,33 @@ async function carregarPaginaModulo(painel, viewId) {
     let html = cachePaginasModular[urlPagina];
     if (!html) {
       let resp = await fetch(urlPagina);
-      if (!resp.ok && (painel === 'painel-direcao' || painel === 'painel-pedagogico' || painel === 'painel-secretaria')) {
-        const fallbackUrl = `/pages/painel-escola/${viewId}.html?v=${encodeURIComponent(buildParam)}`;
-        resp = await fetch(fallbackUrl);
+      if (!resp.ok) {
+        const fallbacks = ['painel-escola', 'painel-superadmin', 'painel-professor', 'painel-aluno', 'painel-financeiro']
+          .filter(p => p !== painel);
+        for (const fbPainel of fallbacks) {
+          const fallbackUrl = `/pages/${fbPainel}/${viewId}.html?v=${encodeURIComponent(buildParam)}`;
+          try {
+            const fbResp = await fetch(fallbackUrl);
+            if (fbResp.ok) {
+              resp = fbResp;
+              break;
+            }
+          } catch (_) {}
+        }
       }
-      if (resp.ok) {
+      if (resp && resp.ok) {
         html = await resp.text();
         cachePaginasModular[urlPagina] = html;
       }
     }
 
-    if (!html && window.SIGE_TEMPLATES && window.SIGE_TEMPLATES[`${painel}/${viewId}`]) {
-      html = window.SIGE_TEMPLATES[`${painel}/${viewId}`];
+    if (!html && window.SIGE_TEMPLATES) {
+      html = window.SIGE_TEMPLATES[`${painel}/${viewId}`]
+        || window.SIGE_TEMPLATES[`painel-escola/${viewId}`]
+        || window.SIGE_TEMPLATES[`painel-superadmin/${viewId}`]
+        || window.SIGE_TEMPLATES[`painel-professor/${viewId}`]
+        || window.SIGE_TEMPLATES[`painel-aluno/${viewId}`]
+        || window.SIGE_TEMPLATES[`painel-financeiro/${viewId}`];
     }
 
     if (html) {
@@ -3004,16 +3030,20 @@ async function carregarScriptModulo(painel, viewId) {
     s.src = scriptUrl;
     s.onload = () => resolve();
     s.onerror = () => {
-      if (painel === 'painel-direcao' || painel === 'painel-pedagogico' || painel === 'painel-secretaria') {
+      const fallbacks = ['painel-escola', 'painel-superadmin', 'painel-professor', 'painel-aluno', 'painel-financeiro']
+        .filter(p => p !== painel);
+      let i = 0;
+      function tentarProximo() {
+        if (i >= fallbacks.length) return resolve();
+        const fbPainel = fallbacks[i++];
         const fb = document.createElement('script');
-        fb.id = `${idScript}-fallback`;
-        fb.src = `/js/modules/painel-escola/${viewId}.js?v=${encodeURIComponent(buildParam)}`;
+        fb.id = `${idScript}-fallback-${fbPainel}`;
+        fb.src = `/js/modules/${fbPainel}/${viewId}.js?v=${encodeURIComponent(buildParam)}`;
         fb.onload = () => resolve();
-        fb.onerror = () => resolve();
+        fb.onerror = () => tentarProximo();
         document.body.appendChild(fb);
-      } else {
-        resolve();
       }
+      tentarProximo();
     };
     document.body.appendChild(s);
   });
@@ -3044,20 +3074,59 @@ async function navegarPara(viewId) {
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
-  const isSuperAdminInspecionando = (role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
-  const painel = isSuperAdminInspecionando 
-    ? (['saas', 'pagamentos-saas', 'prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
-    : (MAPA_PAINEIS[role] || 'painel-escola');
+  const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
+  const isSuperAdminInspecionando = (isSuperAdmin && !!localStorage.getItem('sige_selected_tenant'));
 
-  const menusPermitidos = isSuperAdminInspecionando
-    ? [...(MENUS_POR_PAINEL['painel-superadmin'] || []).map(m => m.id), ...(MENUS_POR_PAINEL['painel-escola'] || []).map(m => m.id)]
-    : (MENUS_POR_PAINEL[painel] || []).map(m => m.id);
+  let painel;
+  if (isSuperAdmin) {
+    if (['saas', 'pagamentos-saas'].includes(viewId)) {
+      painel = 'painel-superadmin';
+    } else if (['prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId)) {
+      painel = isSuperAdminInspecionando ? 'painel-escola' : 'painel-superadmin';
+    } else if (['aluno-perfil', 'aluno-notas', 'aluno-pagamentos'].includes(viewId)) {
+      painel = 'painel-aluno';
+    } else if (['professor-perfil'].includes(viewId)) {
+      painel = 'painel-professor';
+    } else {
+      painel = 'painel-escola';
+    }
+  } else {
+    painel = isSuperAdminInspecionando 
+      ? (['saas', 'pagamentos-saas', 'prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId) ? 'painel-superadmin' : 'painel-escola')
+      : (MAPA_PAINEIS[role] || 'painel-escola');
+  }
 
-  // Isolamento estrito entre painéis: Não pode ter uma ligação entre os painéis!
-  if (!menusPermitidos.includes(viewId)) {
-    console.warn(`[SEGURANÇA] Bloqueio de ligação inter-painel: Utilizador com role '${role}' (Painel '${painel}') tentou aceder a view '${viewId}'.`);
+  // Lista de menus autorizados
+  const todosMenus = Array.from(new Set(Object.values(MENUS_POR_PAINEL).flatMap(lista => lista.map(m => m.id))));
+  const menusPermitidos = isSuperAdmin
+    ? todosMenus
+    : (isSuperAdminInspecionando
+        ? [...(MENUS_POR_PAINEL['painel-superadmin'] || []).map(m => m.id), ...(MENUS_POR_PAINEL['painel-escola'] || []).map(m => m.id)]
+        : (MENUS_POR_PAINEL[painel] || []).map(m => m.id));
+
+  // Isolamento estrito entre painéis para utilizadores comuns:
+  // O Super Admin / Engenheiro do Sistema tem acesso total e irrestrito a todos os módulos
+  if (!isSuperAdmin && !menusPermitidos.includes(viewId)) {
+    console.warn(`[SEGURANÇA] Bloqueio de ligação inter-painel: Utilizador com role '${role}' tentou aceder a view '${viewId}'.`);
     mostrarToast('Acesso negado: Este painel não pertence ao seu nível de acesso.', 'danger');
-    viewId = menusPermitidos[0] || (role === 'SUPERADMIN' ? 'saas' : 'dashboard');
+    viewId = menusPermitidos[0] || 'dashboard';
+  }
+
+  // Se o SuperAdmin está acedendo a um módulo escolar sem escola selecionada, selecionar a primeira escola disponível
+  if (isSuperAdmin && painel === 'painel-escola' && !localStorage.getItem('sige_selected_tenant')) {
+    let escolaPadrao = state.escolasSaaS?.[0];
+    if (!escolaPadrao) {
+      try {
+        const res = await apiFetch('/api/v1/saas-admin/escolas');
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          state.escolasSaaS = res.data;
+          escolaPadrao = res.data[0];
+        }
+      } catch (_) {}
+    }
+    if (escolaPadrao) {
+      await alternarEscolaSuperAdmin(escolaPadrao.id, escolaPadrao.nome, escolaPadrao.status);
+    }
   }
 
   state.currentView = viewId;
@@ -12687,7 +12756,7 @@ function imprimirCadernetaOficial() {
 // descarregarCadernetaPdf já está definido globalmente chamando /api/v1/professores/caderneta/:id/pdf
 
 async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
-  if (state.user?.role !== 'PROFESSOR') {
+  if (state.user?.role !== 'PROFESSOR' && state.user?.role !== 'SUPERADMIN' && !state.user?.is_superuser) {
     if (typeof mostrarToast === 'function') {
       mostrarToast('Apenas professores têm permissão para lançar avaliações.', 'warning');
     } else {

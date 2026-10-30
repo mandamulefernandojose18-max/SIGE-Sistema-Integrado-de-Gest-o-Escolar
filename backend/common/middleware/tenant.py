@@ -30,7 +30,7 @@ class TenantMiddleware(MiddlewareMixin):
 
         # 2. Injeta o tenant a partir do usuário autenticado
         if hasattr(request, 'user') and request.user.is_authenticated:
-            if getattr(request.user, 'role', '') == 'SUPERADMIN':
+            if getattr(request.user, 'role', '') == 'SUPERADMIN' or getattr(request.user, 'is_superuser', False):
                 tenant_id = request.headers.get('X-Tenant-ID') or request.GET.get('tenant_id') or request.GET.get('escola_id')
                 if tenant_id:
                     from apps.tenants.models import Escola
