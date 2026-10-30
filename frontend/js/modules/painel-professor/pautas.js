@@ -223,7 +223,7 @@ async function carregarPautaGeral(turmaId) {
     const reprovadosPct = typeof est.reprovados === 'object' ? (est.reprovados?.pct ?? 0) : (est.taxaReprovacao ?? 0);
 
     container.innerHTML = `
-      <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: 1400px;">
+      <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: ${Math.max(1100, 320 + (disciplinas.length * 140) + 380)}px; table-layout: auto;">
         <thead class="table-light">
           <tr>
             <th rowspan="2" class="align-middle" style="width: 40px;">Nº</th>

@@ -12484,6 +12484,13 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       const discNome = d.disciplina?.nome || '-';
       const discCod = d.disciplina?.codigo ? ` (${d.disciplina.codigo})` : '';
       document.getElementById('cadBoxDisciplina').textContent = `${discNome}${discCod}`;
+      if (document.getElementById('cadDocenteAssinatura')) {
+        document.getElementById('cadDocenteAssinatura').textContent = profNome || 'Fernando José Mandamule';
+      }
+      if (document.getElementById('cadDTAssinatura')) {
+        document.getElementById('cadDTAssinatura').textContent = dtNome || 'Bionisio';
+      }
+    
 
       const profNome = `${d.professor?.nome || d.alocacao?.professor_nome || '-'} ${d.professor?.apelido || ''}`.trim();
       document.getElementById('cadBoxProfessor').textContent = profNome;
@@ -12568,11 +12575,10 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
         <tr>
           <td><strong>${idx + 1}</strong></td>
           ${isDocente ? `
-          <td class="text-start" style="cursor: pointer;" onclick="modalSalvarNotaCaderneta('${a.alunoId}')" title="Clique para lançar avaliações deste aluno"><strong class="text-primary">${a.nome}</strong> <i class="bi bi-pencil-square text-muted ms-1 small no-print d-print-none"></i></td>
+          <td class="text-start ps-3" style="cursor: pointer;" onclick="modalSalvarNotaCaderneta('${a.alunoId}')" title="Clique para lançar avaliações deste aluno"><strong class="text-primary">${a.nomeCompleto || `${a.nome || ''} ${a.apelido || ''}`.trim() || 'Aluno'}</strong> <i class="bi bi-pencil-square text-muted ms-1 small no-print d-print-none"></i></td>
           ` : `
-          <td class="text-start"><strong class="text-dark">${a.nome}</strong></td>
+          <td class="text-start ps-3"><strong class="text-dark">${a.nomeCompleto || `${a.nome || ''} ${a.apelido || ''}`.trim() || 'Aluno'}</strong></td>
           `}
-          <td class="text-start">${a.apelido || '-'}</td>
           <td><span class="badge ${a.genero === 'F' ? 'bg-info text-dark' : 'bg-secondary'}">${a.genero}</span></td>
           <!-- 1º Trimestre -->
           <td>${formatVal(a.t1.t1)}</td>
@@ -12583,7 +12589,6 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
           <td>${formatVal(a.t1.at)}</td>
           <td class="bg-light fw-bold fs-6">${formatMT(a.t1)}</td>
           <td>${formatComportamento(a.t1)}</td>
-          <td><span class="badge bg-light text-dark border">${a.t1.anotacao || '-'}</span></td>
           <!-- 2º Trimestre -->
           <td>${formatVal(a.t2.t1)}</td>
           <td>${formatVal(a.t2.t2)}</td>
@@ -12593,7 +12598,6 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
           <td>${formatVal(a.t2.at)}</td>
           <td class="bg-light fw-bold fs-6">${formatMT(a.t2)}</td>
           <td>${formatComportamento(a.t2)}</td>
-          <td><span class="badge bg-light text-dark border">${a.t2.anotacao || '-'}</span></td>
           <!-- 3º Trimestre -->
           <td>${formatVal(a.t3.t1)}</td>
           <td>${formatVal(a.t3.t2)}</td>
@@ -12603,7 +12607,6 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
           <td>${formatVal(a.t3.at)}</td>
           <td class="bg-light fw-bold fs-6">${formatMT(a.t3)}</td>
           <td>${formatComportamento(a.t3)}</td>
-          <td><span class="badge bg-light text-dark border">${a.t3.anotacao || '-'}</span></td>
           <!-- MFD: só exibe quando as médias dos 3 trimestres estiverem disponíveis -->
           <td class="bg-light fw-bold fs-6">${podeExibirMFD ? formatVal(a.mfd, true) : '<span class="text-muted">-</span>'}</td>
         </tr>
@@ -12615,9 +12618,9 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
     if (tfoot && d.estatisticasColunas) {
       const stats = d.estatisticasColunas;
       const chavesColunas = [
-        't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', null, null,
-        't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', null, null,
-        't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', null, null,
+        't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', null,
+        't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', null,
+        't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', null,
         'mfd'
       ];
 
@@ -12659,103 +12662,103 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       tfoot.innerHTML = `
         <!-- Linha Parametro estatistico conforme a foto -->
         <tr class="table-secondary fw-bold text-center text-uppercase" style="letter-spacing: 0.5px;">
-          <td colspan="${4 + chavesColunas.length}">Parametro estatistico</td>
+          <td colspan="${3 + chavesColunas.length}">Parametro estatistico</td>
         </tr>
 
         <!-- 1. Avaliados: M, F, M+F (3 Linhas Separadas Oficial Imagem 2) -->
         <tr>
-          <td rowspan="3" class="text-start ps-2 fw-bold align-middle bg-light border-end">Avaliados</td>
-          <td colspan="3" class="fw-bold bg-light">M</td>
+          <td rowspan="3" colspan="2" class="text-start ps-2 fw-bold align-middle bg-light border-end">Avaliados</td>
+          <td class="fw-bold bg-light">M</td>
           ${renderCelulasEstatistica(s => s.avaliados ? (s.avaliados.h ?? s.avaliados.m ?? 0) : '-')}
         </tr>
         <tr>
-          <td colspan="3" class="fw-bold bg-light">F</td>
+          <td class="fw-bold bg-light">F</td>
           ${renderCelulasEstatistica(s => s.avaliados ? (s.avaliados.f ?? s.avaliados.m ?? 0) : '-')}
         </tr>
         <tr class="table-secondary">
-          <td colspan="3" class="fw-bold">M+F</td>
+          <td class="fw-bold">M+F</td>
           ${renderCelulasEstatistica(s => s.avaliados ? `<strong>${s.avaliados.total}</strong>` : '-')}
         </tr>
 
         <!-- 2. Positivos: M, F, M+F (3 Linhas Separadas Oficial Imagem 2) -->
         <tr>
-          <td rowspan="3" class="text-start ps-2 fw-bold align-middle text-success bg-light border-end">Positivos</td>
-          <td colspan="3" class="fw-semibold text-success bg-light">M</td>
+          <td rowspan="3" colspan="2" class="text-start ps-2 fw-bold align-middle text-success bg-light border-end">Positivos</td>
+          <td class="fw-semibold text-success bg-light">M</td>
           ${renderCelulasEstatistica(s => s.positivas ? (s.positivas.h ?? 0) : '-')}
         </tr>
         <tr>
-          <td colspan="3" class="fw-semibold text-success bg-light">F</td>
+          <td class="fw-semibold text-success bg-light">F</td>
           ${renderCelulasEstatistica(s => s.positivas ? (s.positivas.m ?? 0) : '-')}
         </tr>
         <tr class="table-success bg-opacity-25">
-          <td colspan="3" class="fw-bold text-success">M+F</td>
+          <td class="fw-bold text-success">M+F</td>
           ${renderCelulasEstatistica(s => s.positivas ? `<strong>${s.positivas.total}</strong>` : '-')}
         </tr>
 
         <!-- 3. % Positivos: M, F, M+F (3 Linhas Separadas Oficial Imagem 2) -->
         <tr>
-          <td rowspan="3" class="text-start ps-2 fw-bold align-middle text-success bg-light border-end">% Positivos</td>
-          <td colspan="3" class="fw-semibold text-success bg-light">M</td>
+          <td rowspan="3" colspan="2" class="text-start ps-2 fw-bold align-middle text-success bg-light border-end">% Positivos</td>
+          <td class="fw-semibold text-success bg-light">M</td>
           ${renderCelulasEstatistica(s => s.positivas ? (s.positivas.pctH !== undefined ? `${s.positivas.pctH}%` : '-') : '-')}
         </tr>
         <tr>
-          <td colspan="3" class="fw-semibold text-success bg-light">F</td>
+          <td class="fw-semibold text-success bg-light">F</td>
           ${renderCelulasEstatistica(s => s.positivas ? (s.positivas.pctM !== undefined ? `${s.positivas.pctM}%` : '-') : '-')}
         </tr>
         <tr class="table-success bg-opacity-25">
-          <td colspan="3" class="fw-bold text-success">M+F</td>
+          <td class="fw-bold text-success">M+F</td>
           ${renderCelulasEstatistica(s => s.positivas ? `<strong>${s.positivas.pct}%</strong>` : '-')}
         </tr>
 
         <!-- 4. Negativos: M, F, M+F (3 Linhas Separadas Oficial Imagem 2) -->
         <tr>
-          <td rowspan="3" class="text-start ps-2 fw-bold align-middle text-danger bg-light border-end">Negativos</td>
-          <td colspan="3" class="fw-semibold text-danger bg-light">M</td>
+          <td rowspan="3" colspan="2" class="text-start ps-2 fw-bold align-middle text-danger bg-light border-end">Negativos</td>
+          <td class="fw-semibold text-danger bg-light">M</td>
           ${renderCelulasEstatistica(s => s.negativas ? (s.negativas.h ?? 0) : '-')}
         </tr>
         <tr>
-          <td colspan="3" class="fw-semibold text-danger bg-light">F</td>
+          <td class="fw-semibold text-danger bg-light">F</td>
           ${renderCelulasEstatistica(s => s.negativas ? (s.negativas.m ?? 0) : '-')}
         </tr>
         <tr class="table-danger bg-opacity-25">
-          <td colspan="3" class="fw-bold text-danger">M+F</td>
+          <td class="fw-bold text-danger">M+F</td>
           ${renderCelulasEstatistica(s => s.negativas ? `<strong>${s.negativas.total}</strong>` : '-')}
         </tr>
 
         <!-- 5. % Negativos: M, F, M+F (3 Linhas Separadas Oficial Imagem 2) -->
         <tr>
-          <td rowspan="3" class="text-start ps-2 fw-bold align-middle text-danger bg-light border-end">% Negativos</td>
-          <td colspan="3" class="fw-semibold text-danger bg-light">M</td>
+          <td rowspan="3" colspan="2" class="text-start ps-2 fw-bold align-middle text-danger bg-light border-end">% Negativos</td>
+          <td class="fw-semibold text-danger bg-light">M</td>
           ${renderCelulasEstatistica(s => s.negativas ? (s.negativas.pctH !== undefined ? `${s.negativas.pctH}%` : '-') : '-')}
         </tr>
         <tr>
-          <td colspan="3" class="fw-semibold text-danger bg-light">F</td>
+          <td class="fw-semibold text-danger bg-light">F</td>
           ${renderCelulasEstatistica(s => s.negativas ? (s.negativas.pctM !== undefined ? `${s.negativas.pctM}%` : '-') : '-')}
         </tr>
         <tr class="table-danger bg-opacity-25">
-          <td colspan="3" class="fw-bold text-danger">M+F</td>
+          <td class="fw-bold text-danger">M+F</td>
           ${renderCelulasEstatistica(s => s.negativas ? `<strong>${s.negativas.pct}%</strong>` : '-')}
         </tr>
 
         <!-- 6. Faixas oficiais (0 a 9,4 | 9,5 a 13,4 | 13,5 a 16,4 | 16,5 a 18,4 | 18,5 a 20) -->
         <tr>
-          <td colspan="4" class="text-start ps-2 fw-semibold bg-light">0 a 9,4</td>
+          <td colspan="3" class="text-start ps-2 fw-semibold bg-light">0 a 9,4</td>
           ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f0_94?.total !== undefined) ? s.faixas.f0_94.total : '-')}
         </tr>
         <tr>
-          <td colspan="4" class="text-start ps-2 fw-semibold bg-light">9,5 a 13,4</td>
+          <td colspan="3" class="text-start ps-2 fw-semibold bg-light">9,5 a 13,4</td>
           ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f95_134?.total !== undefined) ? s.faixas.f95_134.total : '-')}
         </tr>
         <tr>
-          <td colspan="4" class="text-start ps-2 fw-semibold bg-light">13,5 a 16,4</td>
+          <td colspan="3" class="text-start ps-2 fw-semibold bg-light">13,5 a 16,4</td>
           ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f135_164?.total !== undefined) ? s.faixas.f135_164.total : '-')}
         </tr>
         <tr>
-          <td colspan="4" class="text-start ps-2 fw-semibold bg-light">16,5 a 18,4</td>
+          <td colspan="3" class="text-start ps-2 fw-semibold bg-light">16,5 a 18,4</td>
           ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f165_184?.total !== undefined) ? s.faixas.f165_184.total : '-')}
         </tr>
         <tr>
-          <td colspan="4" class="text-start ps-2 fw-semibold bg-light">18,5 a 20</td>
+          <td colspan="3" class="text-start ps-2 fw-semibold bg-light">18,5 a 20</td>
           ${renderCelulasEstatistica(s => (s.avaliados?.total > 0 && s.faixas?.f185_20?.total !== undefined) ? s.faixas.f185_20.total : '-')}
         </tr>
 
@@ -13333,7 +13336,7 @@ async function carregarPautaGeral(turmaId) {
     const reprovadosPct = typeof est.reprovados === 'object' ? (est.reprovados?.pct ?? 0) : (est.taxaReprovacao ?? 0);
 
     container.innerHTML = `
-      <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: 1400px;">
+      <table class="table table-bordered table-hover align-middle text-center small pauta-tabela" style="min-width: ${Math.max(1100, 320 + (disciplinas.length * 140) + 380)}px; table-layout: auto;">
         <thead class="table-light">
           <tr>
             <th rowspan="2" class="align-middle text-start ps-3" style="min-width: 170px;">Nome Completo do Aluno</th>

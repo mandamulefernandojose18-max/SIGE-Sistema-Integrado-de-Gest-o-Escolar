@@ -275,3 +275,78 @@ class ReconciliacaoSmsMovel(models.Model):
     def __str__(self):
         return f"Reconciliação [{self.remetente}] {self.codigo_transacao} - {self.valor} MZN ({self.status})"
 
+class ProvaBlindada(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey(
+        'tenants.Escola',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='provas_blindadas',
+        db_index=True
+    )
+    criado_por = models.ForeignKey(
+        'accounts.Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='provas_blindadas'
+    )
+    codigo_autenticidade = models.CharField(max_length=64, unique=True, db_index=True)
+    titulo = models.CharField(max_length=255)
+    disciplina = models.CharField(max_length=120)
+    classe = models.CharField(max_length=60)
+    trimestre = models.CharField(max_length=40, default='1º Trimestre')
+    tipo_avaliacao = models.CharField(max_length=60, default='ACS')
+    duracao_minutos = models.IntegerField(default=90)
+    ano_lectivo = models.IntegerField(default=2026)
+    data_bloqueio_ia = models.DateTimeField(db_index=True, help_text="Data e hora até quando a resolução por IA é bloqueada")
+    chave_temporal = models.CharField(max_length=128, blank=True, default='')
+    total_questoes = models.IntegerField(default=0)
+    cotacao_total = models.DecimalField(max_digits=5, decimal_places=2, default=20.00)
+    questoes = models.JSONField(default=list, help_text="Lista de questões com enunciados, cotações, hashes e QR/barcode payloads")
+    orientacoes = models.TextField(blank=True, default='Leia com atenção todas as questões antes de responder. Não é permitida a consulta de materiais não autorizados nem uso de dispositivos inteligentes.')
+    status = models.CharField(
+        max_length=30,
+        default='BLOQUEADA',
+        choices=[
+            ('BLOQUEADA', 'Bloqueada contra IA (Time-Lock Ativo)'),
+            ('LIBERADA', 'Resolução Oficial Liberada'),
+            ('ARQUIVADA', 'Arquivada')
+        ],
+        db_index=True
+    )
+    tentativas_bloqueadas = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_provas_blindadas'
+        verbose_name = 'Prova Blindada Anti-IA'
+        verbose_name_plural = 'Provas Blindadas Anti-IA'
+        ordering = ['-created_at']
+
+    def is_bloqueada(self):
+        from django.utils import timezone
+        return timezone.now() < self.data_bloqueio_ia
+
+    def __str__(self):
+        return f"Prova [{self.codigo_autenticidade}] {self.titulo} - {self.disciplina} ({self.classe})"
+
+
+class LogTentativaResolucaoIA(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    prova = models.ForeignKey(ProvaBlindada, on_delete=models.CASCADE, related_name='logs_tentativas', db_index=True)
+    numero_questao = models.IntegerField(default=1)
+    ip_hash = models.CharField(max_length=64, blank=True, default='')
+    user_agent = models.CharField(max_length=255, blank=True, default='')
+    sistema_identificado = models.CharField(max_length=100, default='AI Crawler / OCR Scanner')
+    bloqueado = models.BooleanField(default=True)
+    mensagem_resposta = models.TextField(blank=True, default='')
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'sige_provas_tentativas_ia'
+        verbose_name = 'Tentativa de Resolução IA'
+        verbose_name_plural = 'Tentativas de Resolução IA'
+        ordering = ['-timestamp']
