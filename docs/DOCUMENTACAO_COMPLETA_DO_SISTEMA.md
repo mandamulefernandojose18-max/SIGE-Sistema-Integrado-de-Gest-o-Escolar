@@ -671,7 +671,12 @@ Acessível apenas a Administradores, Director da Escola, DAP e Chefe de Secretar
 
 ### Módulo 21: Calendário Escolar e Eventos Lectivos (`#view-calendario`)
 - **Organização do Ano Lectivo:** Planeamento cronológico de trimestres, períodos de exames, conselhos de avaliação, feriados e actividades extra-curriculares.
-- **Permissões Diferenciadas:** Direcção e DAP configuram os eventos lectivos; professores, secretaria, alunos e encarregados acedem para consulta dos prazos oficiais.
+- **Carregamento e Importação por Documento / Ficheiro:**
+  - **Importação em Lote via Ficheiro (Excel / CSV):** Carregamento em massa de eventos a partir de planilhas Excel (`.xlsx`, `.xls`) ou ficheiros de texto delimitado (`.csv`), com disponibilização imediata do modelo oficial descarregável (`modelo_calendario_escolar_sige.csv`), tolerância a cabeçalhos multilingues e com/sem acentos via normalização `unicodedata`, e pré-visualização tabular antes da gravação.
+  - **Documento Oficial do Calendário (PDF / Word / Circular):** Suporte ao carregamento e arquivo permanente do documento oficial emitido pelo MINEDH ou Direcção da Escola (PDF, DOCX ou Imagem), com card institucional em destaque contendo metadados, tamanho, data de publicação, substituição supervisionada e download seguro via stream autenticado `/api/v1/documentos/calendario/download_documento_oficial/`.
+  - **Anexos Documentais por Evento:** Possibilidade de associar editais, regulamentos ou circulares a eventos específicos com download direto pelos utilizadores.
+- **Permissões Diferenciadas e Auditoria:** Direcção e DAP configuram e aprovam eventos lectivos; professores, secretaria, alunos e encarregados acedem para consulta dos prazos oficiais; todas as importações e carregamentos geram registos imutáveis na Trilha de Auditoria.
+
 
 ### Módulo 22: Presenças e Assiduidade de Alunos (`#view-presencas`)
 - **Registo Aula a Aula:** Professores registam presenças, faltas justificadas e faltas não justificadas por disciplina e turma.
