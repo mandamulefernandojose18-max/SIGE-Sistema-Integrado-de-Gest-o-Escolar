@@ -161,3 +161,37 @@ class TransferirAlunoSerializer(serializers.Serializer):
             raise serializers.ValidationError({'turma_destino_id': 'A turma de destino é obrigatória.'})
         attrs['turma_destino_id'] = dest
         return attrs
+
+
+from .models import PresencaAluno, TransferenciaAnulacao
+
+class PresencaAlunoSerializer(serializers.ModelSerializer):
+    aluno_nome = serializers.CharField(source='aluno.nome_completo', read_only=True)
+    aluno_matricula = serializers.CharField(source='aluno.matricula', read_only=True)
+    turma_nome = serializers.CharField(source='turma.nome', read_only=True)
+    disciplina_nome = serializers.CharField(source='disciplina.nome', read_only=True, default='')
+
+    class Meta:
+        model = PresencaAluno
+        fields = [
+            'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula',
+            'turma', 'turma_nome', 'disciplina', 'disciplina_nome',
+            'professor', 'data', 'status', 'observacao', 'registado_por',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+class TransferenciaAnulacaoSerializer(serializers.ModelSerializer):
+    aluno_nome = serializers.CharField(source='aluno.nome_completo', read_only=True)
+    aluno_matricula = serializers.CharField(source='aluno.matricula', read_only=True)
+    turma_nome = serializers.CharField(source='aluno.turma.nome', read_only=True, default='')
+
+    class Meta:
+        model = TransferenciaAnulacao
+        fields = [
+            'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula', 'turma_nome',
+            'tipo', 'escola_origem_destino', 'motivo', 'guia_numero',
+            'status', 'solicitado_por', 'aprovado_por', 'data_solicitacao',
+            'data_aprovacao', 'observacoes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

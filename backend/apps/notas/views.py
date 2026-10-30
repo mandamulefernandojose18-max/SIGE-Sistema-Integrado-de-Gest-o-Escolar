@@ -1,3 +1,5 @@
+from rest_framework.decorators import action
+from rest_framework import permissions
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -479,3 +481,108 @@ class AutorizacaoEdicaoView(APIView):
         perm.ativa = False
         perm.save()
         return Response({'success': True, 'message': 'Autorização de desbloqueio revogada com sucesso.'})
+
+
+from .models import PlanoAulaSumario, OcorrenciaDisciplinar
+from .serializers import PlanoAulaSumarioSerializer, OcorrenciaDisciplinarSerializer
+from apps.accounts.audit import registrar_auditoria
+
+class PlanoAulaSumarioViewSet(viewsets.ModelViewSet):
+    queryset = PlanoAulaSumario.objects.all()
+    serializer_class = PlanoAulaSumarioSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = get_tenant_escola(self.request)
+        qs = PlanoAulaSumario.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return PlanoAulaSumario.objects.none()
+
+        turma_id = self.request.query_params.get('turma_id')
+        if turma_id:
+            qs = qs.filter(turma_id=turma_id)
+        disciplina_id = self.request.query_params.get('disciplina_id')
+        if disciplina_id:
+            qs = qs.filter(disciplina_id=disciplina_id)
+        professor_id = self.request.query_params.get('professor_id')
+        if professor_id:
+            qs = qs.filter(professor_id=professor_id)
+        elif role == 'PROFESSOR' and getattr(user, 'professor_id', None):
+            qs = qs.filter(professor_id=user.professor_id)
+
+        return qs.order_by('-data', 'numero_aula')
+
+    def perform_create(self, serializer):
+        escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
+        prof = serializer.validated_data.get('professor')
+        if not prof and hasattr(self.request.user, 'professor') and self.request.user.professor:
+            prof = self.request.user.professor
+        obj = serializer.save(escola=escola, professor=prof)
+        registrar_auditoria(self.request.user, escola, 'SUMARIO', 'CRIACAO', obj.id, f'Sumário de aula #{obj.numero_aula} ({obj.tema})')
+
+    @action(detail=True, methods=['post'], url_path='validar')
+    def validar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director Pedagógico (DAP) ou Direcção.'}, status=403)
+        obj = self.get_object()
+        acao_val = request.data.get('status', 'VALIDADO_DAP')
+        obj.status_validacao = acao_val
+        obj.observacoes_dap = request.data.get('observacoes_dap', '')
+        obj.validado_por = request.user
+        obj.data_validacao = timezone.now()
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'SUMARIO', 'VALIDACAO', obj.id, f'Validação de sumário #{obj.numero_aula} pelo DAP')
+        return Response({'success': True, 'message': 'Sumário validado pedagogicamente com sucesso!', 'data': self.get_serializer(obj).data})
+
+class OcorrenciaDisciplinarViewSet(viewsets.ModelViewSet):
+    queryset = OcorrenciaDisciplinar.objects.all()
+    serializer_class = OcorrenciaDisciplinarSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = get_tenant_escola(self.request)
+        qs = OcorrenciaDisciplinar.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return OcorrenciaDisciplinar.objects.none()
+
+        aluno_id = self.request.query_params.get('aluno_id')
+        if aluno_id:
+            qs = qs.filter(aluno_id=aluno_id)
+        turma_id = self.request.query_params.get('turma_id')
+        if turma_id:
+            qs = qs.filter(turma_id=turma_id)
+        gravidade = self.request.query_params.get('gravidade')
+        if gravidade:
+            qs = qs.filter(gravidade=gravidade)
+        return qs.order_by('-data', '-created_at')
+
+    def perform_create(self, serializer):
+        escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
+        obj = serializer.save(escola=escola, autor=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'DISCIPLINA', 'CRIACAO', obj.id, f'Registo de ocorrência {obj.gravidade} para aluno {obj.aluno.nome_completo}')
+
+    @action(detail=True, methods=['post'], url_path='homologar')
+    def homologar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+            return Response({'success': False, 'message': 'Competência do DAP ou Direcção da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status_validacao = 'HOMOLOGADA_DAP'
+        obj.parecer_dap = request.data.get('parecer_dap', obj.parecer_dap)
+        obj.validado_por = request.user
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'DISCIPLINA', 'HOMOLOGACAO', obj.id, f'Homologação de ocorrência disciplinar pelo DAP')
+        return Response({'success': True, 'message': 'Ocorrência homologada com sucesso!', 'data': self.get_serializer(obj).data})

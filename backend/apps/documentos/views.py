@@ -1,3 +1,4 @@
+from rest_framework import permissions
 import os
 import json
 import uuid
@@ -1307,3 +1308,98 @@ class FichaDOCXView(APIView):
         return response
 
 
+
+
+from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from .models import CalendarioEscolar, ComunicadoEscolar
+from .serializers import CalendarioEscolarSerializer, ComunicadoEscolarSerializer
+from apps.accounts.audit import registrar_auditoria
+
+class CalendarioEscolarViewSet(viewsets.ModelViewSet):
+    queryset = CalendarioEscolar.objects.all()
+    serializer_class = CalendarioEscolarSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = getattr(self.request, 'tenant', None) or getattr(user, 'escola', None)
+        qs = CalendarioEscolar.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return CalendarioEscolar.objects.none()
+
+        trimestre = self.request.query_params.get('trimestre')
+        if trimestre:
+            qs = qs.filter(trimestre=trimestre)
+        tipo = self.request.query_params.get('tipo')
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        return qs.order_by('data_inicio')
+
+    def perform_create(self, serializer):
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        obj = serializer.save(escola=escola, criado_por=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'CALENDARIO', 'CRIACAO', obj.id, f'Evento no calendário: {obj.titulo} ({obj.data_inicio})')
+
+    @action(detail=True, methods=['post'], url_path='aprovar')
+    def aprovar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Aprovação de calendário exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status_aprovacao = 'APROVADO_DIRECTOR'
+        obj.aprovado_por = request.user
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'CALENDARIO', 'APROVACAO', obj.id, f'Aprovação do calendário oficial pelo Director')
+        return Response({'success': True, 'message': 'Calendário escolar aprovado com sucesso!', 'data': self.get_serializer(obj).data})
+
+class ComunicadoEscolarViewSet(viewsets.ModelViewSet):
+    queryset = ComunicadoEscolar.objects.all()
+    serializer_class = ComunicadoEscolarSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = getattr(self.request, 'tenant', None) or getattr(user, 'escola', None)
+        qs = ComunicadoEscolar.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return ComunicadoEscolar.objects.none()
+
+        if role == 'ALUNO':
+            qs = qs.filter(publico_alvo__in=['TODOS', 'ALUNOS'], status='PUBLICADO')
+        elif role == 'ENCARREGADO':
+            qs = qs.filter(publico_alvo__in=['TODOS', 'ENCARREGADOS'], status='PUBLICADO')
+        elif role == 'PROFESSOR':
+            qs = qs.filter(publico_alvo__in=['TODOS', 'PROFESSORES'])
+
+        return qs.order_by('-data_publicacao')
+
+    def perform_create(self, serializer):
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        role = getattr(self.request.user, 'role', '')
+        aprovado = role in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']
+        obj = serializer.save(escola=escola, autor=self.request.user, aprovado_pelo_director=aprovado)
+        registrar_auditoria(self.request.user, escola, 'COMUNICADO', 'CRIACAO', obj.id, f'Emissão de comunicado: {obj.titulo}')
+
+    @action(detail=True, methods=['post'], url_path='aprovar')
+    def aprovar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.aprovado_pelo_director = True
+        obj.status = 'PUBLICADO'
+        obj.aprovado_por = request.user
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'COMUNICADO', 'APROVACAO', obj.id, f'Aprovação de comunicado pelo Director')
+        return Response({'success': True, 'message': 'Comunicado aprovado e publicado com sucesso!', 'data': self.get_serializer(obj).data})

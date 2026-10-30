@@ -256,3 +256,84 @@ class NotaExame(models.Model):
     def __str__(self):
         return f"Exame {self.aluno.nome} - {self.disciplina.nome}: Freq={self.nota_frequencia}, 1ª={self.exame_1epoca}, 2ª={self.exame_2epoca}, Final={self.nota_final}"
 
+
+
+class PlanoAulaSumario(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='sumarios_aulas')
+    turma = models.ForeignKey('turmas.Turma', on_delete=models.CASCADE, related_name='sumarios_aulas')
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, related_name='sumarios_aulas')
+    professor = models.ForeignKey('professores.Professor', on_delete=models.CASCADE, related_name='sumarios_aulas')
+    numero_aula = models.IntegerField(default=1)
+    data = models.DateField(db_index=True)
+    tempo_aula = models.CharField(max_length=50, default='1º e 2º Tempos')
+    unidade_tematica = models.CharField(max_length=255, default='Geral')
+    tema = models.CharField(max_length=255)
+    sumario = models.TextField()
+    objetivos = models.TextField(blank=True, default='')
+    tarefa_casa = models.TextField(blank=True, default='')
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente de Validação DAP'),
+        ('VALIDADO_DAP', 'Validado pelo Director Pedagógico'),
+        ('REVISAO_SOLICITADA', 'Revisão Solicitada pelo DAP'),
+    ]
+    status_validacao = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PENDENTE')
+    observacoes_dap = models.TextField(blank=True, default='')
+    validado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='sumarios_validados')
+    data_validacao = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_planos_sumarios'
+        verbose_name = 'Plano de Aula e Sumário'
+        verbose_name_plural = 'Planos de Aula e Sumários'
+        indexes = [
+            models.Index(fields=['escola', 'turma', 'data']),
+            models.Index(fields=['professor', 'disciplina']),
+            models.Index(fields=['status_validacao']),
+        ]
+
+    def __str__(self):
+        return f'Aula {self.numero_aula} ({self.data}) - {self.tema}'
+
+class OcorrenciaDisciplinar(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='ocorrencias_disciplinares')
+    aluno = models.ForeignKey('alunos.Aluno', on_delete=models.CASCADE, related_name='ocorrencias_disciplinares')
+    turma = models.ForeignKey('turmas.Turma', on_delete=models.SET_NULL, null=True, blank=True, related_name='ocorrencias_disciplinares')
+    autor = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='ocorrencias_autor')
+    data = models.DateField(db_index=True)
+    GRAVIDADE_CHOICES = [
+        ('LEVE', 'Falta Leve'),
+        ('GRAVE', 'Falta Grave'),
+        ('MUITO_GRAVE', 'Falta Muito Grave'),
+    ]
+    gravidade = models.CharField(max_length=20, choices=GRAVIDADE_CHOICES, default='LEVE')
+    descricao = models.TextField()
+    medida_tomada = models.TextField(blank=True, default='')
+    notificar_encarregado = models.BooleanField(default=True)
+    STATUS_CHOICES = [
+        ('REGISTADA', 'Registada (Aguardando Parecer)'),
+        ('HOMOLOGADA_DAP', 'Homologada pelo DAP'),
+        ('CONCLUIDA', 'Resolvida / Concluída'),
+    ]
+    status_validacao = models.CharField(max_length=25, choices=STATUS_CHOICES, default='REGISTADA')
+    parecer_dap = models.TextField(blank=True, default='')
+    validado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='ocorrencias_homologadas')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_ocorrencias_disciplinares'
+        verbose_name = 'Ocorrência Disciplinar'
+        verbose_name_plural = 'Ocorrências Disciplinares'
+        indexes = [
+            models.Index(fields=['escola', 'aluno']),
+            models.Index(fields=['data']),
+            models.Index(fields=['gravidade']),
+            models.Index(fields=['status_validacao']),
+        ]
+
+    def __str__(self):
+        return f'{self.gravidade}: {self.aluno.nome} ({self.data})'

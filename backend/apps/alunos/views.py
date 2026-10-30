@@ -1,3 +1,4 @@
+from rest_framework import permissions
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -531,3 +532,96 @@ class AlunoMePagamentosView(APIView):
             'referencia': referencia,
             'telefone': telefone
         })
+
+
+from .models import PresencaAluno, TransferenciaAnulacao
+from .serializers import PresencaAlunoSerializer, TransferenciaAnulacaoSerializer
+from apps.accounts.audit import registrar_auditoria
+
+class PresencaAlunoViewSet(viewsets.ModelViewSet):
+    queryset = PresencaAluno.objects.all()
+    serializer_class = PresencaAlunoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = get_tenant_escola(self.request)
+        qs = PresencaAluno.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return PresencaAluno.objects.none()
+
+        if role == 'ALUNO':
+            qs = qs.filter(aluno__id=user.aluno_id)
+        elif role == 'PROFESSOR' and getattr(user, 'professor_id', None):
+            turma_ids = user.professor.alocacoes.values_list('turma_id', flat=True) if hasattr(user, 'professor') else []
+            if turma_ids:
+                qs = qs.filter(turma_id__in=turma_ids)
+
+        turma_id = self.request.query_params.get('turma_id')
+        if turma_id:
+            qs = qs.filter(turma_id=turma_id)
+        aluno_id = self.request.query_params.get('aluno_id')
+        if aluno_id:
+            qs = qs.filter(aluno_id=aluno_id)
+        data = self.request.query_params.get('data')
+        if data:
+            qs = qs.filter(data=data)
+        return qs.order_by('-data', 'aluno__nome')
+
+    def perform_create(self, serializer):
+        escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
+        prof = getattr(self.request.user, 'professor', None) if hasattr(self.request.user, 'professor') else None
+        serializer.save(escola=escola, professor=prof, registado_por=self.request.user)
+
+class TransferenciaAnulacaoViewSet(viewsets.ModelViewSet):
+    queryset = TransferenciaAnulacao.objects.all()
+    serializer_class = TransferenciaAnulacaoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = get_tenant_escola(self.request)
+        qs = TransferenciaAnulacao.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return TransferenciaAnulacao.objects.none()
+
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
+        return qs.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
+        item = serializer.save(escola=escola, solicitado_por=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'TRANSFERENCIA', 'CRIACAO', item.id, f'Solicitação de {item.tipo} para aluno {item.aluno.nome_completo}')
+
+    @action(detail=True, methods=['post'], url_path='aprovar')
+    def aprovar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status = 'APROVADO'
+        obj.aprovado_por = request.user
+        obj.data_aprovacao = timezone.now()
+        obj.save()
+
+        if obj.tipo == 'TRANSFERENCIA_SAIDA':
+            obj.aluno.status = 'TRANSFERIDO'
+            obj.aluno.save(update_fields=['status'])
+        elif obj.tipo == 'ANULACAO_MATRICULA':
+            obj.aluno.status = 'INATIVO'
+            obj.aluno.save(update_fields=['status'])
+
+        registrar_auditoria(request.user, obj.escola, 'TRANSFERENCIA', 'APROVACAO', obj.id, f'Aprovação de {obj.tipo} pelo Director da Escola')
+        return Response({'success': True, 'message': f'{obj.tipo} aprovada com sucesso!', 'data': self.get_serializer(obj).data})

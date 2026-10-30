@@ -246,3 +246,15 @@ class RedefinirSenhaSerializer(serializers.Serializer):
     novaSenha = serializers.CharField(min_length=4, write_only=True, required=False)
     repor_codigo = serializers.BooleanField(required=False, default=False)
 
+
+
+from .models import LogAuditoria
+
+class LogAuditoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LogAuditoria
+        fields = [
+            'id', 'escola', 'usuario', 'usuario_nome', 'usuario_role',
+            'entidade', 'acao', 'objeto_id', 'descricao',
+            'detalhes_antes', 'detalhes_depois', 'ip', 'created_at'
+        ]

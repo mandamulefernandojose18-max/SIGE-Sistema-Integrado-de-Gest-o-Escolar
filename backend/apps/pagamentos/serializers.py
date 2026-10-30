@@ -109,3 +109,48 @@ class GerarPagamentosTurmaSerializer(serializers.Serializer):
     valor = serializers.DecimalField(max_digits=12, decimal_places=2)
     data_vencimento = serializers.DateField()
 
+
+
+from .models import TransacaoFinanceira, FolhaSalario, ItemPatrimonio
+
+class TransacaoFinanceiraSerializer(serializers.ModelSerializer):
+    registado_por_nome = serializers.CharField(source='registado_por.nome', read_only=True, default='')
+    aprovado_por_nome = serializers.CharField(source='aprovado_por.nome', read_only=True, default='')
+
+    class Meta:
+        model = TransacaoFinanceira
+        fields = [
+            'id', 'escola', 'tipo', 'categoria', 'descricao', 'valor',
+            'data', 'forma_pagamento', 'numero_documento', 'status_aprovacao',
+            'registado_por', 'registado_por_nome', 'aprovado_por', 'aprovado_por_nome',
+            'data_aprovacao', 'observacoes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+class FolhaSalarioSerializer(serializers.ModelSerializer):
+    processado_por_nome = serializers.CharField(source='processado_por.nome', read_only=True, default='')
+    aprovado_por_nome = serializers.CharField(source='aprovado_por.nome', read_only=True, default='')
+
+    class Meta:
+        model = FolhaSalario
+        fields = [
+            'id', 'escola', 'funcionario_nome', 'funcionario_cargo', 'professor',
+            'mes', 'ano', 'salario_base', 'subsidios', 'descontos', 'salario_liquido',
+            'status', 'processado_por', 'processado_por_nome', 'aprovado_por', 'aprovado_por_nome',
+            'data_pagamento', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+class ItemPatrimonioSerializer(serializers.ModelSerializer):
+    registado_por_nome = serializers.CharField(source='registado_por.nome', read_only=True, default='')
+    homologado_por_nome = serializers.CharField(source='homologado_por.nome', read_only=True, default='')
+
+    class Meta:
+        model = ItemPatrimonio
+        fields = [
+            'id', 'escola', 'codigo', 'nome', 'categoria', 'sala_localizacao',
+            'quantidade', 'estado_conservacao', 'valor_estimado', 'status_validacao',
+            'registado_por', 'registado_por_nome', 'homologado_por', 'homologado_por_nome',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

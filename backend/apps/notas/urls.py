@@ -1,8 +1,10 @@
 from django.urls import path, include
 from common.routers import OptionalSlashRouter
-from .views import NotaViewSet, PrazosTrimestresView, AutorizacaoEdicaoView
+from .views import NotaViewSet, PrazosTrimestresView, AutorizacaoEdicaoView, PlanoAulaSumarioViewSet, OcorrenciaDisciplinarViewSet
 
 router = OptionalSlashRouter()
+router.register(r'planos-sumarios', PlanoAulaSumarioViewSet, basename='notas-planos-sumarios')
+router.register(r'ocorrencias', OcorrenciaDisciplinarViewSet, basename='notas-ocorrencias')
 router.register(r'', NotaViewSet, basename='notas')
 
 urlpatterns = [

@@ -6,6 +6,7 @@ from .views import (
     UserStatsView,
     RedefinirSenhaView,
     AlterarMinhaSenhaView,
+    AuditoriaListView,
 )
 
 urlpatterns = [
@@ -21,6 +22,8 @@ urlpatterns = [
     path('minha-senha/', AlterarMinhaSenhaView.as_view(), name='auth_minha_senha'),
     path('usuarios/<uuid:user_id>/redefinir-senha', RedefinirSenhaView.as_view(), name='auth_redefinir_senha_no_slash'),
     path('usuarios/<uuid:user_id>/redefinir-senha/', RedefinirSenhaView.as_view(), name='auth_redefinir_senha'),
+    path('auditoria', AuditoriaListView.as_view(), name='auth_auditoria_no_slash'),
+    path('auditoria/', AuditoriaListView.as_view(), name='auth_auditoria'),
 ]
 
 

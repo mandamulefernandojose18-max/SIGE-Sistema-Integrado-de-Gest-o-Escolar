@@ -1,3 +1,5 @@
+from rest_framework.exceptions import PermissionDenied
+from rest_framework import permissions
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -1006,3 +1008,59 @@ def executar_distribuicao_alunos(escola, turmas, grau_ano=None, area=None, crite
         for t in turmas
     ]
     return alocados_count, resumo
+
+
+from .models import HorarioEscolar
+from .serializers import HorarioEscolarSerializer
+from apps.accounts.audit import registrar_auditoria
+
+class HorarioEscolarViewSet(viewsets.ModelViewSet):
+    queryset = HorarioEscolar.objects.all()
+    serializer_class = HorarioEscolarSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = get_tenant_escola(self.request)
+        qs = HorarioEscolar.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return HorarioEscolar.objects.none()
+
+        turma_id = self.request.query_params.get('turma_id')
+        if turma_id:
+            qs = qs.filter(turma_id=turma_id)
+        dia_semana = self.request.query_params.get('dia_semana')
+        if dia_semana:
+            qs = qs.filter(dia_semana=dia_semana)
+        professor_id = self.request.query_params.get('professor_id')
+        if professor_id:
+            qs = qs.filter(professor_id=professor_id)
+        elif role == 'PROFESSOR' and getattr(user, 'professor_id', None):
+            qs = qs.filter(professor_id=user.professor_id)
+
+        return qs.order_by('dia_semana', 'tempo')
+
+    def perform_create(self, serializer):
+        role = getattr(self.request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP']:
+            raise PermissionDenied('Apenas o Director Pedagógico (DAP) ou Direcção podem elaborar horários.')
+        escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
+        obj = serializer.save(escola=escola, elaborado_por=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'HORARIO', 'CRIACAO', obj.id, f'Horário de {obj.turma.nome} - {obj.disciplina.nome} (Dia {obj.dia_semana})')
+
+    @action(detail=True, methods=['post'], url_path='aprovar')
+    def aprovar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status_aprovacao = 'APROVADO'
+        obj.aprovado_por = request.user
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'HORARIO', 'APROVACAO', obj.id, f'Aprovação de horário de {obj.turma.nome} pelo Director')
+        return Response({'success': True, 'message': 'Horário aprovado oficialmente com sucesso!', 'data': self.get_serializer(obj).data})

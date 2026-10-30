@@ -165,3 +165,132 @@ class Pagamento(models.Model):
 
     def __str__(self):
         return f"{self.aluno.nome} - {self.descricao} ({self.valor} MZN) [{self.status}]"
+
+
+class TransacaoFinanceira(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='transacoes_financeiras')
+    TIPO_CHOICES = [
+        ('RECEITA', 'Receita Operacional / Entrada'),
+        ('DESPESA', 'Despesa Operacional / Saída'),
+    ]
+    tipo = models.CharField(max_length=15, choices=TIPO_CHOICES)
+    categoria = models.CharField(max_length=100)
+    descricao = models.CharField(max_length=255)
+    valor = models.DecimalField(max_digits=12, decimal_places=2)
+    data = models.DateField(db_index=True)
+    METODO_CHOICES = [
+        ('CAIXA', 'Numerário em Caixa'),
+        ('BANCO', 'Transferência Bancária / POS'),
+        ('M_PESA', 'M-Pesa Móvel'),
+        ('E_MOLA', 'e-Mola'),
+        ('OUTRO', 'Outro'),
+    ]
+    forma_pagamento = models.CharField(max_length=20, choices=METODO_CHOICES, default='CAIXA')
+    numero_documento = models.CharField(max_length=100, blank=True, default='')
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente de Aprovação do Director'),
+        ('APROVADO_DIRECTOR', 'Aprovado pelo Director da Escola'),
+        ('REJEITADO', 'Rejeitado'),
+    ]
+    status_aprovacao = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PENDENTE')
+    registado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='transacoes_registadas')
+    aprovado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='transacoes_aprovadas')
+    data_aprovacao = models.DateTimeField(null=True, blank=True)
+    observacoes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_transacoes_financeiras'
+        verbose_name = 'Receita / Despesa'
+        verbose_name_plural = 'Receitas e Despesas'
+        indexes = [
+            models.Index(fields=['escola', 'tipo', 'data']),
+            models.Index(fields=['status_aprovacao']),
+        ]
+
+    def __str__(self):
+        return f'{self.tipo} ({self.categoria}): {self.valor} MT ({self.status_aprovacao})'
+
+class FolhaSalario(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='folhas_salarios')
+    funcionario_nome = models.CharField(max_length=255)
+    funcionario_cargo = models.CharField(max_length=100)
+    professor = models.ForeignKey('professores.Professor', on_delete=models.SET_NULL, null=True, blank=True, related_name='folhas_salario')
+    mes = models.IntegerField()
+    ano = models.IntegerField(default=2026)
+    salario_base = models.DecimalField(max_digits=12, decimal_places=2)
+    subsidios = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    descontos = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    salario_liquido = models.DecimalField(max_digits=12, decimal_places=2)
+    STATUS_CHOICES = [
+        ('PROCESSADO_FINANCAS', 'Processado pelo Financeiro'),
+        ('APROVADO_DIRECTOR', 'Aprovado pelo Director'),
+        ('PAGO', 'Pago e Liquidado'),
+    ]
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PROCESSADO_FINANCAS')
+    processado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='folhas_processadas')
+    aprovado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='folhas_aprovadas')
+    data_pagamento = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_folha_salarios'
+        verbose_name = 'Folha de Salário'
+        verbose_name_plural = 'Salários e Pessoal'
+        indexes = [
+            models.Index(fields=['escola', 'ano', 'mes']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f'{self.funcionario_nome} ({self.mes}/{self.ano}): {self.salario_liquido} MT'
+
+class ItemPatrimonio(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='itens_patrimonio')
+    codigo = models.CharField(max_length=50)
+    nome = models.CharField(max_length=255)
+    CATEGORIA_CHOICES = [
+        ('MOBILIARIO', 'Mobiliário (Carteiras, Mesas, Cadeiras)'),
+        ('INFORMATICA', 'Informática & Equipamentos TIC'),
+        ('LABORATORIO', 'Material de Laboratório de Ciências'),
+        ('LIVROS', 'Manuais e Livros Didácticos'),
+        ('INFRAESTRUTURA', 'Instalações & Edifícios'),
+        ('OUTRO', 'Outros Bens'),
+    ]
+    categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES, default='MOBILIARIO')
+    sala_localizacao = models.CharField(max_length=100)
+    quantidade = models.IntegerField(default=1)
+    ESTADO_CHOICES = [
+        ('NOVO', 'Novo'),
+        ('BOM', 'Bom Estado'),
+        ('RAZOAVEL', 'Razoável / Desgaste'),
+        ('DANIFICADO', 'Danificado / Necessita Reparação'),
+    ]
+    estado_conservacao = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='BOM')
+    valor_estimado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    STATUS_CHOICES = [
+        ('REGISTADO', 'Registado pelo Financeiro'),
+        ('HOMOLOGADO_DIRECTOR', 'Homologado pelo Director'),
+    ]
+    status_validacao = models.CharField(max_length=25, choices=STATUS_CHOICES, default='REGISTADO')
+    registado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='patrimonios_registados')
+    homologado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='patrimonios_homologados')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_inventario_patrimonio'
+        verbose_name = 'Item de Património'
+        verbose_name_plural = 'Inventário e Património'
+        indexes = [
+            models.Index(fields=['escola', 'categoria']),
+            models.Index(fields=['codigo']),
+        ]
+
+    def __str__(self):
+        return f'{self.codigo} - {self.nome} ({self.quantidade} un)'

@@ -213,3 +213,41 @@ class AlterarMinhaSenhaView(APIView):
         return self._executar(request)
 
 
+
+
+from .models import LogAuditoria
+from .serializers import LogAuditoriaSerializer
+
+class AuditoriaListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Acesso restrito à Direcção e Administração.'}, status=403)
+
+        qs = LogAuditoria.objects.all()
+        if role != 'SUPERADMIN' or not request.GET.get('todas_escolas'):
+            if request.user.escola:
+                qs = qs.filter(escola=request.user.escola)
+            elif role != 'SUPERADMIN':
+                qs = qs.none()
+
+        entidade = request.GET.get('entidade')
+        if entidade:
+            qs = qs.filter(entidade__iexact=entidade)
+        acao = request.GET.get('acao')
+        if acao:
+            qs = qs.filter(acao__iexact=acao)
+        objeto_id = request.GET.get('objeto_id')
+        if objeto_id:
+            qs = qs.filter(objeto_id=objeto_id)
+
+        try:
+            limite = min(int(request.GET.get('limit', 100)), 500)
+        except Exception:
+            limite = 100
+
+        logs = qs[:limite]
+        serializer = LogAuditoriaSerializer(logs, many=True)
+        return Response({'success': True, 'data': serializer.data})

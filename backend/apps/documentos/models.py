@@ -40,3 +40,93 @@ class DocumentoSalvo(models.Model):
             models.Index(fields=['aluno']),
             models.Index(fields=['turma']),
         ]
+
+
+class CalendarioEscolar(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='eventos_calendario')
+    titulo = models.CharField(max_length=255)
+    TIPO_CHOICES = [
+        ('AVALIACAO_TESTE', 'Avaliação / Teste (ACS / ACP)'),
+        ('EXAME', 'Época de Exames'),
+        ('CONSELHO_TURMA', 'Conselho de Turma / Avaliação'),
+        ('FERIADO_PAUSA', 'Feriado Oficial / Pausa Lectiva'),
+        ('REUNIAO_ENCARREGADOS', 'Reunião de Encarregados de Educação'),
+        ('EVENTO_ESCOLAR', 'Evento Escolar / Cultural'),
+    ]
+    tipo = models.CharField(max_length=25, choices=TIPO_CHOICES, default='AVALIACAO_TESTE')
+    data_inicio = models.DateField(db_index=True)
+    data_fim = models.DateField(null=True, blank=True)
+    trimestre = models.CharField(
+        max_length=20,
+        choices=[('1_TRIMESTRE', '1º Trimestre'), ('2_TRIMESTRE', '2º Trimestre'), ('3_TRIMESTRE', '3º Trimestre'), ('GERAL', 'Geral')],
+        default='GERAL'
+    )
+    descricao = models.TextField(blank=True, default='')
+    STATUS_CHOICES = [
+        ('PROPOSTO_DAP', 'Proposto pelo Director Pedagógico'),
+        ('APROVADO_DIRECTOR', 'Aprovado pelo Director da Escola'),
+    ]
+    status_aprovacao = models.CharField(max_length=25, choices=STATUS_CHOICES, default='APROVADO_DIRECTOR')
+    criado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='calendarios_criados')
+    aprovado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='calendarios_aprovados')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_calendario_escolar'
+        verbose_name = 'Evento do Calendário Escolar'
+        verbose_name_plural = 'Calendário Escolar'
+        indexes = [
+            models.Index(fields=['escola', 'data_inicio']),
+            models.Index(fields=['tipo']),
+            models.Index(fields=['trimestre']),
+        ]
+
+    def __str__(self):
+        return f'{self.titulo} ({self.data_inicio}) - {self.tipo}'
+
+class ComunicadoEscolar(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='comunicados')
+    titulo = models.CharField(max_length=255)
+    conteudo = models.TextField()
+    ALVO_CHOICES = [
+        ('TODOS', 'Toda a Comunidade Escolar'),
+        ('PROFESSORES', 'Corpo Docente (Professores)'),
+        ('ALUNOS', 'Alunos'),
+        ('ENCARREGADOS', 'Encarregados de Educação'),
+        ('SECRETARIA', 'Secretaria e Funcionários'),
+    ]
+    publico_alvo = models.CharField(max_length=20, choices=ALVO_CHOICES, default='TODOS')
+    PRIORIDADE_CHOICES = [
+        ('NORMAL', 'Normal'),
+        ('IMPORTANTE', 'Importante'),
+        ('URGENTE', 'Urgente'),
+    ]
+    prioridade = models.CharField(max_length=15, choices=PRIORIDADE_CHOICES, default='NORMAL')
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('PUBLICADO', 'Publicado e Activo'),
+        ('ARQUIVADO', 'Arquivado'),
+    ]
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='PUBLICADO')
+    aprovado_pelo_director = models.BooleanField(default=True)
+    autor = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='comunicados_emitidos')
+    aprovado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='comunicados_aprovados')
+    data_publicacao = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_comunicados_escolares'
+        verbose_name = 'Comunicado Escolar'
+        verbose_name_plural = 'Comunicados Escolares'
+        indexes = [
+            models.Index(fields=['escola', 'publico_alvo']),
+            models.Index(fields=['status']),
+            models.Index(fields=['data_publicacao']),
+        ]
+
+    def __str__(self):
+        return f'{self.titulo} - Para: {self.publico_alvo}'

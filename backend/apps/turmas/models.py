@@ -158,3 +158,51 @@ class Turma(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.ano_letivo})"
+
+
+class HorarioEscolar(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='horarios_escolares')
+    turma = models.ForeignKey(Turma, on_delete=models.CASCADE, related_name='horarios')
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, related_name='horarios')
+    professor = models.ForeignKey('professores.Professor', on_delete=models.SET_NULL, null=True, blank=True, related_name='horarios')
+    DIA_CHOICES = [
+        (1, 'Segunda-feira'),
+        (2, 'Terça-feira'),
+        (3, 'Quarta-feira'),
+        (4, 'Quinta-feira'),
+        (5, 'Sexta-feira'),
+        (6, 'Sábado'),
+    ]
+    dia_semana = models.IntegerField(choices=DIA_CHOICES)
+    tempo = models.IntegerField(default=1)
+    hora_inicio = models.TimeField()
+    hora_fim = models.TimeField()
+    sala = models.CharField(max_length=50, blank=True, default='')
+    status_aprovacao = models.CharField(
+        max_length=20,
+        choices=[('RASCUNHO', 'Rascunho DAP'), ('APROVADO', 'Aprovado pelo Director')],
+        default='APROVADO'
+    )
+    elaborado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='horarios_elaborados')
+    aprovado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='horarios_aprovados')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_horarios_escolares'
+        verbose_name = 'Horário Escolar'
+        verbose_name_plural = 'Horários Escolares'
+        indexes = [
+            models.Index(fields=['escola', 'turma', 'dia_semana']),
+            models.Index(fields=['professor', 'dia_semana']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['turma', 'dia_semana', 'tempo'],
+                name='unique_turma_dia_tempo'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.turma.nome} - Dia {self.dia_semana} Tempo {self.tempo}: {self.disciplina.nome}'

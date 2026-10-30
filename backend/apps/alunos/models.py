@@ -164,3 +164,83 @@ class Aluno(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.matricula})"
+
+
+class PresencaAluno(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='presencas_alunos')
+    aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name='presencas')
+    turma = models.ForeignKey('turmas.Turma', on_delete=models.CASCADE, related_name='presencas_alunos')
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, null=True, blank=True, related_name='presencas_alunos')
+    professor = models.ForeignKey('professores.Professor', on_delete=models.SET_NULL, null=True, blank=True, related_name='presencas_registadas')
+    data = models.DateField(db_index=True)
+    STATUS_CHOICES = [
+        ('PRESENTE', 'Presente'),
+        ('FALTA_JUSTIFICADA', 'Falta Justificada'),
+        ('FALTA_INJUSTIFICADA', 'Falta Injustificada'),
+        ('ATRASO', 'Atraso'),
+    ]
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PRESENTE')
+    observacao = models.CharField(max_length=255, blank=True, default='')
+    registado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_presencas_alunos'
+        verbose_name = 'Presença de Aluno'
+        verbose_name_plural = 'Presenças de Alunos'
+        indexes = [
+            models.Index(fields=['escola', 'turma', 'data']),
+            models.Index(fields=['aluno', 'data']),
+            models.Index(fields=['status']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['aluno', 'turma', 'disciplina', 'data'],
+                name='unique_presenca_aluno_turma_disciplina_data'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.aluno.nome} - {self.data} - {self.status}'
+
+class TransferenciaAnulacao(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='transferencias_anulacoes')
+    aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name='transferencias_anulacoes')
+    TIPO_CHOICES = [
+        ('TRANSFERENCIA_SAIDA', 'Transferência de Saída'),
+        ('TRANSFERENCIA_ENTRADA', 'Transferência de Entrada'),
+        ('ANULACAO_MATRICULA', 'Anulação de Matrícula'),
+    ]
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES)
+    escola_origem_destino = models.CharField(max_length=255, blank=True, default='')
+    motivo = models.TextField()
+    guia_numero = models.CharField(max_length=100, blank=True, default='')
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente de Aprovação'),
+        ('APROVADO', 'Aprovado pelo Director'),
+        ('REJEITADO', 'Rejeitado'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
+    solicitado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='solicitacoes_transferencia')
+    aprovado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='aprovacoes_transferencia')
+    data_solicitacao = models.DateField(auto_now_add=True)
+    data_aprovacao = models.DateTimeField(null=True, blank=True)
+    observacoes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_transferencias_anulacoes'
+        verbose_name = 'Transferência / Anulação'
+        verbose_name_plural = 'Transferências e Anulações'
+        indexes = [
+            models.Index(fields=['escola', 'tipo']),
+            models.Index(fields=['aluno']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f'{self.tipo}: {self.aluno.nome} ({self.status})'

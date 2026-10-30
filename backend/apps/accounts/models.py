@@ -37,8 +37,10 @@ class Usuario(AbstractUser):
         ('DIRECTOR_ESCOLA', 'Director de Escola'),
         ('DAP', 'Director Adjunto Pedagógico (DAP)'),
         ('CHEFE_SECRETARIA', 'Chefe de Secretaria'),
+        ('SECRETARIA', 'Secretaria'),
         ('PROFESSOR', 'Professor'),
         ('ALUNO', 'Aluno'),
+        ('ENCARREGADO', 'Encarregado de Educação'),
         ('FINANCEIRO', 'Financeiro'),
     ]
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='ADMIN_ESCOLA')
@@ -125,3 +127,31 @@ class LogAcesso(models.Model):
             models.Index(fields=['tipo']),
             models.Index(fields=['created_at']),
         ]
+
+
+class LogAuditoria(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, null=True, blank=True, related_name='logs_auditoria')
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='logs_auditoria')
+    usuario_nome = models.CharField(max_length=255, default='Sistema')
+    usuario_role = models.CharField(max_length=50, default='')
+    entidade = models.CharField(max_length=50, db_index=True)
+    acao = models.CharField(max_length=50, db_index=True)
+    objeto_id = models.CharField(max_length=100, db_index=True)
+    descricao = models.TextField()
+    detalhes_antes = models.JSONField(null=True, blank=True)
+    detalhes_depois = models.JSONField(null=True, blank=True)
+    ip = models.CharField(max_length=50, default='127.0.0.1')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'sige_logs_auditoria'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['escola', 'entidade']),
+            models.Index(fields=['escola', 'created_at']),
+            models.Index(fields=['entidade', 'objeto_id']),
+        ]
+
+    def __str__(self):
+        return f'[{self.created_at}] {self.usuario_nome} ({self.usuario_role}): {self.acao} {self.entidade} ({self.objeto_id})'

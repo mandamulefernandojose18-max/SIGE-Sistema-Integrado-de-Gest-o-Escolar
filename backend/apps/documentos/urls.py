@@ -1,4 +1,11 @@
-from django.urls import path
+from django.urls import path, include
+from common.routers import OptionalSlashRouter
+from .views import CalendarioEscolarViewSet, ComunicadoEscolarViewSet
+
+router = OptionalSlashRouter()
+router.register(r'calendario', CalendarioEscolarViewSet, basename='documentos-calendario')
+router.register(r'comunicados', ComunicadoEscolarViewSet, basename='documentos-comunicados')
+
 from .views import (
     BoletimView,
     BoletimPDFView,
@@ -88,4 +95,5 @@ urlpatterns = [
     path('ficha/<uuid:aluno_id>/pdf/', FichaPDFView.as_view(), name='impressao_ficha_pdf'),
     path('ficha/<uuid:aluno_id>/docx', FichaDOCXView.as_view(), name='impressao_ficha_docx_no_slash'),
     path('ficha/<uuid:aluno_id>/docx/', FichaDOCXView.as_view(), name='impressao_ficha_docx'),
+    path('', include(router.urls)),
 ]

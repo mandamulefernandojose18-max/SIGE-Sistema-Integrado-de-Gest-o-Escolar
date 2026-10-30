@@ -117,3 +117,22 @@ class TurmaSerializer(serializers.ModelSerializer):
             }
         return data
 
+
+
+from .models import HorarioEscolar
+
+class HorarioEscolarSerializer(serializers.ModelSerializer):
+    turma_nome = serializers.CharField(source='turma.nome', read_only=True)
+    disciplina_nome = serializers.CharField(source='disciplina.nome', read_only=True)
+    professor_nome = serializers.CharField(source='professor.nome', read_only=True, allow_null=True)
+    dia_semana_display = serializers.CharField(source='get_dia_semana_display', read_only=True)
+
+    class Meta:
+        model = HorarioEscolar
+        fields = [
+            'id', 'escola', 'turma', 'turma_nome', 'disciplina', 'disciplina_nome',
+            'professor', 'professor_nome', 'dia_semana', 'dia_semana_display',
+            'tempo', 'hora_inicio', 'hora_fim', 'sala', 'status_aprovacao',
+            'elaborado_por', 'aprovado_por', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

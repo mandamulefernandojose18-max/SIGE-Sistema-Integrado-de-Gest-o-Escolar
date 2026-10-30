@@ -1,3 +1,4 @@
+from rest_framework import permissions
 import uuid
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -352,3 +353,146 @@ class PagamentoStatsView(APIView):
         })
 
 
+
+
+from .models import TransacaoFinanceira, FolhaSalario, ItemPatrimonio
+from .serializers import TransacaoFinanceiraSerializer, FolhaSalarioSerializer, ItemPatrimonioSerializer
+from apps.accounts.audit import registrar_auditoria
+
+class TransacaoFinanceiraViewSet(viewsets.ModelViewSet):
+    queryset = TransacaoFinanceira.objects.all()
+    serializer_class = TransacaoFinanceiraSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = getattr(self.request, 'tenant', None) or getattr(user, 'escola', None)
+        qs = TransacaoFinanceira.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return TransacaoFinanceira.objects.none()
+
+        tipo = self.request.query_params.get('tipo')
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        categoria = self.request.query_params.get('categoria')
+        if categoria:
+            qs = qs.filter(categoria__icontains=categoria)
+        status_aprov = self.request.query_params.get('status_aprovacao')
+        if status_aprov:
+            qs = qs.filter(status_aprovacao=status_aprov)
+        return qs.order_by('-data', '-created_at')
+
+    def perform_create(self, serializer):
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        obj = serializer.save(escola=escola, registado_por=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'DESPESA', 'CRIACAO', obj.id, f'Registo de {obj.tipo} no valor de {obj.valor} MT ({obj.descricao})')
+
+    @action(detail=True, methods=['post'], url_path='aprovar')
+    def aprovar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role == 'FINANCEIRO':
+            return Response({
+                'success': False,
+                'message': 'Regra mandatória de separação de funções: quem regista no Finanças NÃO pode aprovar a despesa. A aprovação é exclusiva da Direcção da Escola.'
+            }, status=403)
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status_aprovacao = 'APROVADO_DIRECTOR'
+        obj.aprovado_por = request.user
+        obj.data_aprovacao = timezone.now()
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'DESPESA', 'APROVACAO', obj.id, f'Aprovação de {obj.tipo} de {obj.valor} MT pelo Director')
+        return Response({'success': True, 'message': 'Transacção aprovada oficialmente com sucesso!', 'data': self.get_serializer(obj).data})
+
+class FolhaSalarioViewSet(viewsets.ModelViewSet):
+    queryset = FolhaSalario.objects.all()
+    serializer_class = FolhaSalarioSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = getattr(self.request, 'tenant', None) or getattr(user, 'escola', None)
+        qs = FolhaSalario.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return FolhaSalario.objects.none()
+
+        mes = self.request.query_params.get('mes')
+        if mes:
+            qs = qs.filter(mes=mes)
+        ano = self.request.query_params.get('ano')
+        if ano:
+            qs = qs.filter(ano=ano)
+        status_folha = self.request.query_params.get('status')
+        if status_folha:
+            qs = qs.filter(status=status_folha)
+        return qs.order_by('-ano', '-mes', 'funcionario_nome')
+
+    def perform_create(self, serializer):
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        obj = serializer.save(escola=escola, processado_por=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'PAGAMENTO', 'CRIACAO', obj.id, f'Processamento de vencimento para {obj.funcionario_nome} ({obj.salario_liquido} MT)')
+
+    @action(detail=True, methods=['post'], url_path='aprovar')
+    def aprovar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status = 'APROVADO_DIRECTOR'
+        obj.aprovado_por = request.user
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'PAGAMENTO', 'APROVACAO', obj.id, f'Aprovação de vencimento de {obj.funcionario_nome} pelo Director')
+        return Response({'success': True, 'message': 'Folha salarial aprovada com sucesso!', 'data': self.get_serializer(obj).data})
+
+class ItemPatrimonioViewSet(viewsets.ModelViewSet):
+    queryset = ItemPatrimonio.objects.all()
+    serializer_class = ItemPatrimonioSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', '')
+        escola = getattr(self.request, 'tenant', None) or getattr(user, 'escola', None)
+        qs = ItemPatrimonio.objects.all()
+        if escola:
+            qs = qs.filter(escola=escola)
+        elif role != 'SUPERADMIN' and user.escola:
+            qs = qs.filter(escola=user.escola)
+        elif role != 'SUPERADMIN':
+            return ItemPatrimonio.objects.none()
+
+        categoria = self.request.query_params.get('categoria')
+        if categoria:
+            qs = qs.filter(categoria=categoria)
+        estado = self.request.query_params.get('estado')
+        if estado:
+            qs = qs.filter(estado_conservacao=estado)
+        return qs.order_by('codigo')
+
+    def perform_create(self, serializer):
+        escola = getattr(self.request, 'tenant', None) or getattr(self.request.user, 'escola', None)
+        obj = serializer.save(escola=escola, registado_por=self.request.user)
+        registrar_auditoria(self.request.user, escola, 'PATRIMONIO', 'CRIACAO', obj.id, f'Registo de bem patrimonial {obj.codigo} - {obj.nome}')
+
+    @action(detail=True, methods=['post'], url_path='homologar')
+    def homologar(self, request, pk=None):
+        role = getattr(request.user, 'role', '')
+        if role not in ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA']:
+            return Response({'success': False, 'message': 'Competência exclusiva do Director da Escola.'}, status=403)
+        obj = self.get_object()
+        obj.status_validacao = 'HOMOLOGADO_DIRECTOR'
+        obj.homologado_por = request.user
+        obj.save()
+        registrar_auditoria(request.user, obj.escola, 'PATRIMONIO', 'HOMOLOGACAO', obj.id, f'Homologação de bem {obj.codigo} pelo Director')
+        return Response({'success': True, 'message': 'Bem patrimonial homologado com sucesso!', 'data': self.get_serializer(obj).data})
