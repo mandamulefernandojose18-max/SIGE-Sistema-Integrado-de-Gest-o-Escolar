@@ -139,7 +139,7 @@ def _autenticar_pedido(request):
     Autentica o utilizador por JWT (Bearer header, cookie sige_token, query param token)
     ou por sessão activa do Django.
     """
-    if request.user and request.user.is_authenticated:
+    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
         return request.user
 
     token = None
@@ -1506,6 +1506,7 @@ def prompt_gateway_api(request):
 # =====================================================================
 # BLINDAGEM ANTI-IA DE PROVAS E AVALIAÇÕES - CONTROLLERS / VIEWS
 # =====================================================================
+from django.db import models
 from .models import ProvaBlindada, LogTentativaResolucaoIA
 from .services.anti_ai_service import (
     processar_e_codificar_prova,

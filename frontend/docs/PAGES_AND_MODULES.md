@@ -3,7 +3,7 @@
 > Documento gerado automaticamente via introspecção do `index.html` e `js/app.js`.
 
 **Total de Telas / Visões Detectadas:** 0
-**Total de Chamadas a Endpoints:** 74
+**Total de Chamadas a Endpoints:** 81
 
 ---
 
@@ -22,22 +22,23 @@
 | `/api/v1/alunos/${id}` | **Alunos** |
 | `/api/v1/alunos/${id}/transferir` | **Alunos** |
 | `/api/v1/alunos/me/notas?periodo=${encodeURIComponent(periodo)}` | **Alunos** |
-| `/api/v1/alunos/me/pagamentos` | **Alunos** |
 | `/api/v1/alunos/perfil/me` | **Alunos** |
 | `/api/v1/alunos/stats` | **Alunos** |
 | `/api/v1/alunos?turmaId=${turmaId}` | **Turmas** |
-| `/api/v1/anos-letivos` | **Geral** |
 | `/api/v1/auth/minha-senha` | **Autenticação** |
 | `/api/v1/auth/stats` | **Autenticação** |
 | `/api/v1/auth/usuarios/${userId}/redefinir-senha` | **Autenticação** |
 | `/api/v1/certificados` | **Certificados** |
+| `/api/v1/configuracoes/anos-lectivos` | **Geral** |
 | `/api/v1/dashboard/overview` | **Geral** |
 | `/api/v1/disciplinas` | **Geral** |
 | `/api/v1/disciplinas/${disciplinaId}` | **Geral** |
-| `/api/v1/disciplinas/stats` | **Geral** |
+| `/api/v1/disciplinas/${disciplinaId}/toggle-exame/` | **Geral** |
+| `/api/v1/escola-admin/classes-exames` | **Administração SaaS** |
 | `/api/v1/escola-admin/info` | **Administração SaaS** |
 | `/api/v1/escola-admin/toggle-notas` | **Notas e Avaliações** |
 | `/api/v1/escola-admin/turmas` | **Turmas** |
+| `/api/v1/escola-admin/turmas${queryAno}` | **Turmas** |
 | `/api/v1/escola-admin/turmas/${tId}/homologar-directores` | **Turmas** |
 | `/api/v1/escola-admin/turmas/${tId}/nomear-directores` | **Turmas** |
 | `/api/v1/escola-admin/turmas/${turmaId}` | **Turmas** |
@@ -68,6 +69,12 @@
 | `/api/v1/pagamentos/stats` | **Financeiro / Pagamentos** |
 | `/api/v1/pagamentos?alunoId=${alunoId}` | **Alunos** |
 | `/api/v1/pautas/estatisticas-gerais?anoLetivo=${ano}&periodo=${periodo}` | **Pautas e Atas** |
+| `/api/v1/pautas/exames/parametros` | **Pautas e Atas** |
+| `/api/v1/pautas/exames/parametros/` | **Pautas e Atas** |
+| `/api/v1/pautas/exames/professores-autorizados/` | **Professores** |
+| `/api/v1/pautas/exames/turma/${turmaId}/salvar/` | **Turmas** |
+| `/api/v1/pautas/exames/turma/${turmaId}?anoLetivo=${anoLetivo}` | **Turmas** |
+| `/api/v1/pautas/exames/turma/${turmaId}?anoLetivo=${ano}` | **Turmas** |
 | `/api/v1/pautas/gerar` | **Pautas e Atas** |
 | `/api/v1/pautas/turma/${dtTurmaAtivaId}/completa` | **Turmas** |
 | `/api/v1/pautas/turma/${turmaId}/acta?${qParams}` | **Turmas** |
@@ -97,7 +104,7 @@
 
 ## 3. Funções Controladoras de Interface Identificadas
 
-Foram detectadas **71** funções essenciais de carregamento e manipulação de estado:
+Foram detectadas **85** funções essenciais de carregamento e manipulação de estado:
 
 - `abrirSeletorDataSeguro()`
 - `carregarDadosGeografia()`
@@ -128,7 +135,6 @@ Foram detectadas **71** funções essenciais de carregamento e manipulação de 
 - `renderizarBotoesClassesProfessores()`
 - `renderizarTabelaProfessores()`
 - `carregarDisciplinas()`
-- `renderizarGraficoReprovacao()`
 - `carregarSelectProfessoresCaderneta()`
 - `renderizarBotoesClassesCaderneta()`
 - `renderizarBotoesAreasCaderneta()`
@@ -139,4 +145,5 @@ Foram detectadas **71** funções essenciais de carregamento e manipulação de 
 - `carregarPautaGeral()`
 - `carregarActaConselho()`
 - `salvarConfigSessaoActa()`
-- *... e mais 31 funções auxiliares.*
+- `carregarCertificados()`
+- *... e mais 45 funções auxiliares.*

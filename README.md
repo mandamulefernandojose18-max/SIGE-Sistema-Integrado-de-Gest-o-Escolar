@@ -72,6 +72,7 @@ O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa 
 | **14** | 💰 **Financeiro, Propinas & Planos da Escola (MZN)** | Planos de pagamento próprios da escola (`PlanoPagamentoEscola`), emissão individual ou em lote por turma, liquidação via **M-Pesa**, **e-Mola**, **POS**, **Transferência** ou **Numerário**, recibos numerados (`REC-...`) e isolamento total multi-tenant. |
 | **15** | 🖨️ **Central de Impressão & Cofre** | Emissão **Individual** ou **Em Lote para toda a Turma** em **PDF (`ReportLab`)**, **Word (`.docx`)** e **Excel (`.xlsx`)** (Retrato ou Paisagem), com arquivo automático no Cofre de Documentos (`DocumentoSalvo`). |
 | **16** | 🔑 **Cofre de Senhas & Auditoria** | Consulta sincronizada de todos os códigos de acesso oficiais e senhas padrão da escola, redefinição de senhas e auditoria completa de acessos (`LogAcesso`). |
+| **17** | 🔒 **Blindagem Anti-IA de Provas & Avaliações** | Codificação per-item com QR Code e Código de Barras com bloqueio temporal (Time-Lock); impede resolução por IA (ChatGPT, Gemini, Claude, Copilot) até à data definida; download imediato da prova já codificada em PDF oficial e página de verificação pública (`/verificar-prova.html`). |
 
 ---
 

@@ -6,9 +6,9 @@ info:
 paths:
   /api/v1/auth/login:
     post:
-      operationId: v1_auth_login_create
+      operationId: api_v1_auth_login_create
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -17,9 +17,9 @@ paths:
           description: No response body
   /api/v1/auth/login/:
     post:
-      operationId: v1_auth_login_create_2
+      operationId: api_v1_auth_login_create_2
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -28,13 +28,13 @@ paths:
           description: No response body
   /api/v1/auth/refresh:
     post:
-      operationId: v1_auth_refresh_create
+      operationId: api_v1_auth_refresh_create
       description: 'Takes a refresh type JSON web token and returns an access type
         JSON web
 
         token if the refresh token is valid.'
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -56,13 +56,13 @@ paths:
           description: ''
   /api/v1/auth/refresh/:
     post:
-      operationId: v1_auth_refresh_create_2
+      operationId: api_v1_auth_refresh_create_2
       description: 'Takes a refresh type JSON web token and returns an access type
         JSON web
 
         token if the refresh token is valid.'
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -84,7 +84,7 @@ paths:
           description: ''
   /api/v1/certificados/verificar/{codigo}:
     get:
-      operationId: v1_certificados_verificar_retrieve
+      operationId: api_v1_certificados_verificar_retrieve
       parameters:
       - in: path
         name: codigo
@@ -92,7 +92,7 @@ paths:
           type: string
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -101,7 +101,7 @@ paths:
           description: No response body
   /api/v1/certificados/verificar/{codigo}/:
     get:
-      operationId: v1_certificados_verificar_retrieve_2
+      operationId: api_v1_certificados_verificar_retrieve_2
       parameters:
       - in: path
         name: codigo
@@ -109,7 +109,7 @@ paths:
           type: string
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -118,7 +118,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}:
     get:
-      operationId: v1_documentos_boletim_retrieve
+      operationId: api_v1_documentos_boletim_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -127,7 +127,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -136,7 +136,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/:
     get:
-      operationId: v1_documentos_boletim_retrieve_2
+      operationId: api_v1_documentos_boletim_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -145,7 +145,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -154,7 +154,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/docx:
     get:
-      operationId: v1_documentos_boletim_docx_retrieve
+      operationId: api_v1_documentos_boletim_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -163,7 +163,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -172,7 +172,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/docx/:
     get:
-      operationId: v1_documentos_boletim_docx_retrieve_2
+      operationId: api_v1_documentos_boletim_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -181,7 +181,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -190,7 +190,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/json:
     get:
-      operationId: v1_documentos_boletim_json_retrieve
+      operationId: api_v1_documentos_boletim_json_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -199,7 +199,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -208,7 +208,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/json/:
     get:
-      operationId: v1_documentos_boletim_json_retrieve_2
+      operationId: api_v1_documentos_boletim_json_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -217,7 +217,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -226,7 +226,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/pdf:
     get:
-      operationId: v1_documentos_boletim_pdf_retrieve
+      operationId: api_v1_documentos_boletim_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -235,7 +235,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -244,7 +244,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/pdf/:
     get:
-      operationId: v1_documentos_boletim_pdf_retrieve_2
+      operationId: api_v1_documentos_boletim_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -253,7 +253,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -262,7 +262,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/xlsx:
     get:
-      operationId: v1_documentos_boletim_xlsx_retrieve
+      operationId: api_v1_documentos_boletim_xlsx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -271,7 +271,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -280,7 +280,7 @@ paths:
           description: No response body
   /api/v1/documentos/boletim/{aluno_id}/xlsx/:
     get:
-      operationId: v1_documentos_boletim_xlsx_retrieve_2
+      operationId: api_v1_documentos_boletim_xlsx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -289,7 +289,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -298,7 +298,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}:
     get:
-      operationId: v1_documentos_certificado_retrieve
+      operationId: api_v1_documentos_certificado_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -307,7 +307,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -316,7 +316,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/:
     get:
-      operationId: v1_documentos_certificado_retrieve_2
+      operationId: api_v1_documentos_certificado_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -325,7 +325,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -334,7 +334,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/docx:
     get:
-      operationId: v1_documentos_certificado_docx_retrieve
+      operationId: api_v1_documentos_certificado_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -343,7 +343,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -352,7 +352,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/docx/:
     get:
-      operationId: v1_documentos_certificado_docx_retrieve_2
+      operationId: api_v1_documentos_certificado_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -361,7 +361,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -370,7 +370,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/pdf:
     get:
-      operationId: v1_documentos_certificado_pdf_retrieve
+      operationId: api_v1_documentos_certificado_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -379,7 +379,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -388,7 +388,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/pdf/:
     get:
-      operationId: v1_documentos_certificado_pdf_retrieve_2
+      operationId: api_v1_documentos_certificado_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -397,7 +397,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -406,7 +406,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/xlsx:
     get:
-      operationId: v1_documentos_certificado_xlsx_retrieve
+      operationId: api_v1_documentos_certificado_xlsx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -415,7 +415,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -424,7 +424,7 @@ paths:
           description: No response body
   /api/v1/documentos/certificado/{aluno_id}/xlsx/:
     get:
-      operationId: v1_documentos_certificado_xlsx_retrieve_2
+      operationId: api_v1_documentos_certificado_xlsx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -433,7 +433,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -442,7 +442,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}:
     get:
-      operationId: v1_documentos_declaracao_retrieve
+      operationId: api_v1_documentos_declaracao_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -451,7 +451,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -460,7 +460,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/:
     get:
-      operationId: v1_documentos_declaracao_retrieve_2
+      operationId: api_v1_documentos_declaracao_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -469,7 +469,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -478,7 +478,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/docx:
     get:
-      operationId: v1_documentos_declaracao_docx_retrieve
+      operationId: api_v1_documentos_declaracao_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -487,7 +487,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -496,7 +496,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/docx/:
     get:
-      operationId: v1_documentos_declaracao_docx_retrieve_2
+      operationId: api_v1_documentos_declaracao_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -505,7 +505,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -514,7 +514,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/json:
     get:
-      operationId: v1_documentos_declaracao_json_retrieve
+      operationId: api_v1_documentos_declaracao_json_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -523,7 +523,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -532,7 +532,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/json/:
     get:
-      operationId: v1_documentos_declaracao_json_retrieve_2
+      operationId: api_v1_documentos_declaracao_json_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -541,7 +541,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -550,7 +550,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/pdf:
     get:
-      operationId: v1_documentos_declaracao_pdf_retrieve
+      operationId: api_v1_documentos_declaracao_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -559,7 +559,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -568,7 +568,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/pdf/:
     get:
-      operationId: v1_documentos_declaracao_pdf_retrieve_2
+      operationId: api_v1_documentos_declaracao_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -577,7 +577,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -586,7 +586,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/xlsx:
     get:
-      operationId: v1_documentos_declaracao_xlsx_retrieve
+      operationId: api_v1_documentos_declaracao_xlsx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -595,7 +595,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -604,7 +604,7 @@ paths:
           description: No response body
   /api/v1/documentos/declaracao/{aluno_id}/xlsx/:
     get:
-      operationId: v1_documentos_declaracao_xlsx_retrieve_2
+      operationId: api_v1_documentos_declaracao_xlsx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -613,7 +613,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -622,7 +622,7 @@ paths:
           description: No response body
   /api/v1/documentos/ficha/{aluno_id}:
     get:
-      operationId: v1_documentos_ficha_retrieve
+      operationId: api_v1_documentos_ficha_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -631,7 +631,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -640,7 +640,7 @@ paths:
           description: No response body
   /api/v1/documentos/ficha/{aluno_id}/:
     get:
-      operationId: v1_documentos_ficha_retrieve_2
+      operationId: api_v1_documentos_ficha_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -649,7 +649,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -658,7 +658,7 @@ paths:
           description: No response body
   /api/v1/documentos/ficha/{aluno_id}/docx:
     get:
-      operationId: v1_documentos_ficha_docx_retrieve
+      operationId: api_v1_documentos_ficha_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -667,7 +667,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -676,7 +676,7 @@ paths:
           description: No response body
   /api/v1/documentos/ficha/{aluno_id}/docx/:
     get:
-      operationId: v1_documentos_ficha_docx_retrieve_2
+      operationId: api_v1_documentos_ficha_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -685,7 +685,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -694,7 +694,7 @@ paths:
           description: No response body
   /api/v1/documentos/ficha/{aluno_id}/pdf:
     get:
-      operationId: v1_documentos_ficha_pdf_retrieve
+      operationId: api_v1_documentos_ficha_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -703,7 +703,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -712,7 +712,7 @@ paths:
           description: No response body
   /api/v1/documentos/ficha/{aluno_id}/pdf/:
     get:
-      operationId: v1_documentos_ficha_pdf_retrieve_2
+      operationId: api_v1_documentos_ficha_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -721,7 +721,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -730,7 +730,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}:
     get:
-      operationId: v1_documentos_lote_turma_retrieve
+      operationId: api_v1_documentos_lote_turma_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -739,7 +739,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -748,7 +748,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/:
     get:
-      operationId: v1_documentos_lote_turma_retrieve_2
+      operationId: api_v1_documentos_lote_turma_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -757,7 +757,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -766,7 +766,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/docx:
     get:
-      operationId: v1_documentos_lote_turma_docx_retrieve
+      operationId: api_v1_documentos_lote_turma_docx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -775,7 +775,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -784,7 +784,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/docx/:
     get:
-      operationId: v1_documentos_lote_turma_docx_retrieve_2
+      operationId: api_v1_documentos_lote_turma_docx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -793,7 +793,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -802,7 +802,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/pdf:
     get:
-      operationId: v1_documentos_lote_turma_pdf_retrieve
+      operationId: api_v1_documentos_lote_turma_pdf_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -811,7 +811,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -820,7 +820,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/pdf/:
     get:
-      operationId: v1_documentos_lote_turma_pdf_retrieve_2
+      operationId: api_v1_documentos_lote_turma_pdf_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -829,7 +829,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -838,7 +838,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/xlsx:
     get:
-      operationId: v1_documentos_lote_turma_xlsx_retrieve
+      operationId: api_v1_documentos_lote_turma_xlsx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -847,7 +847,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -856,7 +856,7 @@ paths:
           description: No response body
   /api/v1/documentos/lote/turma/{turma_id}/xlsx/:
     get:
-      operationId: v1_documentos_lote_turma_xlsx_retrieve_2
+      operationId: api_v1_documentos_lote_turma_xlsx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -865,7 +865,43 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/documentos/lote/turma/{turma_id}/zip:
+    get:
+      operationId: api_v1_documentos_lote_turma_zip_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/documentos/lote/turma/{turma_id}/zip/:
+    get:
+      operationId: api_v1_documentos_lote_turma_zip_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -874,7 +910,7 @@ paths:
           description: No response body
   /api/v1/documentos/recibo/{pagamento_id}:
     get:
-      operationId: v1_documentos_recibo_retrieve
+      operationId: api_v1_documentos_recibo_retrieve
       parameters:
       - in: path
         name: pagamento_id
@@ -883,7 +919,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -892,7 +928,7 @@ paths:
           description: No response body
   /api/v1/documentos/recibo/{pagamento_id}/:
     get:
-      operationId: v1_documentos_recibo_retrieve_2
+      operationId: api_v1_documentos_recibo_retrieve_2
       parameters:
       - in: path
         name: pagamento_id
@@ -901,7 +937,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -910,7 +946,7 @@ paths:
           description: No response body
   /api/v1/documentos/recibo/{pagamento_id}/docx:
     get:
-      operationId: v1_documentos_recibo_docx_retrieve
+      operationId: api_v1_documentos_recibo_docx_retrieve
       parameters:
       - in: path
         name: pagamento_id
@@ -919,7 +955,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -928,7 +964,7 @@ paths:
           description: No response body
   /api/v1/documentos/recibo/{pagamento_id}/docx/:
     get:
-      operationId: v1_documentos_recibo_docx_retrieve_2
+      operationId: api_v1_documentos_recibo_docx_retrieve_2
       parameters:
       - in: path
         name: pagamento_id
@@ -937,7 +973,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -946,7 +982,7 @@ paths:
           description: No response body
   /api/v1/documentos/recibo/{pagamento_id}/pdf:
     get:
-      operationId: v1_documentos_recibo_pdf_retrieve
+      operationId: api_v1_documentos_recibo_pdf_retrieve
       parameters:
       - in: path
         name: pagamento_id
@@ -955,7 +991,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -964,7 +1000,7 @@ paths:
           description: No response body
   /api/v1/documentos/recibo/{pagamento_id}/pdf/:
     get:
-      operationId: v1_documentos_recibo_pdf_retrieve_2
+      operationId: api_v1_documentos_recibo_pdf_retrieve_2
       parameters:
       - in: path
         name: pagamento_id
@@ -973,7 +1009,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -982,9 +1018,9 @@ paths:
           description: No response body
   /api/v1/geografia:
     get:
-      operationId: v1_geografia_retrieve
+      operationId: api_v1_geografia_retrieve
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -993,9 +1029,9 @@ paths:
           description: No response body
   /api/v1/geografia/:
     get:
-      operationId: v1_geografia_retrieve_2
+      operationId: api_v1_geografia_retrieve_2
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1004,7 +1040,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}:
     get:
-      operationId: v1_impressao_boletim_retrieve
+      operationId: api_v1_impressao_boletim_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1013,7 +1049,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1022,7 +1058,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/:
     get:
-      operationId: v1_impressao_boletim_retrieve_2
+      operationId: api_v1_impressao_boletim_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1031,7 +1067,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1040,7 +1076,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/docx:
     get:
-      operationId: v1_impressao_boletim_docx_retrieve
+      operationId: api_v1_impressao_boletim_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1049,7 +1085,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1058,7 +1094,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/docx/:
     get:
-      operationId: v1_impressao_boletim_docx_retrieve_2
+      operationId: api_v1_impressao_boletim_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1067,7 +1103,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1076,7 +1112,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/json:
     get:
-      operationId: v1_impressao_boletim_json_retrieve
+      operationId: api_v1_impressao_boletim_json_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1085,7 +1121,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1094,7 +1130,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/json/:
     get:
-      operationId: v1_impressao_boletim_json_retrieve_2
+      operationId: api_v1_impressao_boletim_json_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1103,7 +1139,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1112,7 +1148,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/pdf:
     get:
-      operationId: v1_impressao_boletim_pdf_retrieve
+      operationId: api_v1_impressao_boletim_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1121,7 +1157,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1130,7 +1166,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/pdf/:
     get:
-      operationId: v1_impressao_boletim_pdf_retrieve_2
+      operationId: api_v1_impressao_boletim_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1139,7 +1175,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1148,7 +1184,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/xlsx:
     get:
-      operationId: v1_impressao_boletim_xlsx_retrieve
+      operationId: api_v1_impressao_boletim_xlsx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1157,7 +1193,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1166,7 +1202,7 @@ paths:
           description: No response body
   /api/v1/impressao/boletim/{aluno_id}/xlsx/:
     get:
-      operationId: v1_impressao_boletim_xlsx_retrieve_2
+      operationId: api_v1_impressao_boletim_xlsx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1175,7 +1211,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1184,7 +1220,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}:
     get:
-      operationId: v1_impressao_certificado_retrieve
+      operationId: api_v1_impressao_certificado_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1193,7 +1229,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1202,7 +1238,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/:
     get:
-      operationId: v1_impressao_certificado_retrieve_2
+      operationId: api_v1_impressao_certificado_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1211,7 +1247,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1220,7 +1256,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/docx:
     get:
-      operationId: v1_impressao_certificado_docx_retrieve
+      operationId: api_v1_impressao_certificado_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1229,7 +1265,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1238,7 +1274,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/docx/:
     get:
-      operationId: v1_impressao_certificado_docx_retrieve_2
+      operationId: api_v1_impressao_certificado_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1247,7 +1283,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1256,7 +1292,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/pdf:
     get:
-      operationId: v1_impressao_certificado_pdf_retrieve
+      operationId: api_v1_impressao_certificado_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1265,7 +1301,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1274,7 +1310,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/pdf/:
     get:
-      operationId: v1_impressao_certificado_pdf_retrieve_2
+      operationId: api_v1_impressao_certificado_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1283,7 +1319,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1292,7 +1328,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/xlsx:
     get:
-      operationId: v1_impressao_certificado_xlsx_retrieve
+      operationId: api_v1_impressao_certificado_xlsx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1301,7 +1337,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1310,7 +1346,7 @@ paths:
           description: No response body
   /api/v1/impressao/certificado/{aluno_id}/xlsx/:
     get:
-      operationId: v1_impressao_certificado_xlsx_retrieve_2
+      operationId: api_v1_impressao_certificado_xlsx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1319,7 +1355,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1328,7 +1364,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}:
     get:
-      operationId: v1_impressao_declaracao_retrieve
+      operationId: api_v1_impressao_declaracao_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1337,7 +1373,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1346,7 +1382,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/:
     get:
-      operationId: v1_impressao_declaracao_retrieve_2
+      operationId: api_v1_impressao_declaracao_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1355,7 +1391,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1364,7 +1400,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/docx:
     get:
-      operationId: v1_impressao_declaracao_docx_retrieve
+      operationId: api_v1_impressao_declaracao_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1373,7 +1409,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1382,7 +1418,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/docx/:
     get:
-      operationId: v1_impressao_declaracao_docx_retrieve_2
+      operationId: api_v1_impressao_declaracao_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1391,7 +1427,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1400,7 +1436,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/json:
     get:
-      operationId: v1_impressao_declaracao_json_retrieve
+      operationId: api_v1_impressao_declaracao_json_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1409,7 +1445,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1418,7 +1454,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/json/:
     get:
-      operationId: v1_impressao_declaracao_json_retrieve_2
+      operationId: api_v1_impressao_declaracao_json_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1427,7 +1463,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1436,7 +1472,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/pdf:
     get:
-      operationId: v1_impressao_declaracao_pdf_retrieve
+      operationId: api_v1_impressao_declaracao_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1445,7 +1481,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1454,7 +1490,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/pdf/:
     get:
-      operationId: v1_impressao_declaracao_pdf_retrieve_2
+      operationId: api_v1_impressao_declaracao_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1463,7 +1499,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1472,7 +1508,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/xlsx:
     get:
-      operationId: v1_impressao_declaracao_xlsx_retrieve
+      operationId: api_v1_impressao_declaracao_xlsx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1481,7 +1517,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1490,7 +1526,7 @@ paths:
           description: No response body
   /api/v1/impressao/declaracao/{aluno_id}/xlsx/:
     get:
-      operationId: v1_impressao_declaracao_xlsx_retrieve_2
+      operationId: api_v1_impressao_declaracao_xlsx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1499,7 +1535,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1508,7 +1544,7 @@ paths:
           description: No response body
   /api/v1/impressao/ficha/{aluno_id}:
     get:
-      operationId: v1_impressao_ficha_retrieve
+      operationId: api_v1_impressao_ficha_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1517,7 +1553,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1526,7 +1562,7 @@ paths:
           description: No response body
   /api/v1/impressao/ficha/{aluno_id}/:
     get:
-      operationId: v1_impressao_ficha_retrieve_2
+      operationId: api_v1_impressao_ficha_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1535,7 +1571,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1544,7 +1580,7 @@ paths:
           description: No response body
   /api/v1/impressao/ficha/{aluno_id}/docx:
     get:
-      operationId: v1_impressao_ficha_docx_retrieve
+      operationId: api_v1_impressao_ficha_docx_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1553,7 +1589,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1562,7 +1598,7 @@ paths:
           description: No response body
   /api/v1/impressao/ficha/{aluno_id}/docx/:
     get:
-      operationId: v1_impressao_ficha_docx_retrieve_2
+      operationId: api_v1_impressao_ficha_docx_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1571,7 +1607,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1580,7 +1616,7 @@ paths:
           description: No response body
   /api/v1/impressao/ficha/{aluno_id}/pdf:
     get:
-      operationId: v1_impressao_ficha_pdf_retrieve
+      operationId: api_v1_impressao_ficha_pdf_retrieve
       parameters:
       - in: path
         name: aluno_id
@@ -1589,7 +1625,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1598,7 +1634,7 @@ paths:
           description: No response body
   /api/v1/impressao/ficha/{aluno_id}/pdf/:
     get:
-      operationId: v1_impressao_ficha_pdf_retrieve_2
+      operationId: api_v1_impressao_ficha_pdf_retrieve_2
       parameters:
       - in: path
         name: aluno_id
@@ -1607,7 +1643,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1616,7 +1652,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}:
     get:
-      operationId: v1_impressao_lote_turma_retrieve
+      operationId: api_v1_impressao_lote_turma_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -1625,7 +1661,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1634,7 +1670,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/:
     get:
-      operationId: v1_impressao_lote_turma_retrieve_2
+      operationId: api_v1_impressao_lote_turma_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -1643,7 +1679,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1652,7 +1688,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/docx:
     get:
-      operationId: v1_impressao_lote_turma_docx_retrieve
+      operationId: api_v1_impressao_lote_turma_docx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -1661,7 +1697,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1670,7 +1706,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/docx/:
     get:
-      operationId: v1_impressao_lote_turma_docx_retrieve_2
+      operationId: api_v1_impressao_lote_turma_docx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -1679,7 +1715,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1688,7 +1724,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/pdf:
     get:
-      operationId: v1_impressao_lote_turma_pdf_retrieve
+      operationId: api_v1_impressao_lote_turma_pdf_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -1697,7 +1733,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1706,7 +1742,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/pdf/:
     get:
-      operationId: v1_impressao_lote_turma_pdf_retrieve_2
+      operationId: api_v1_impressao_lote_turma_pdf_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -1715,7 +1751,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1724,7 +1760,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/xlsx:
     get:
-      operationId: v1_impressao_lote_turma_xlsx_retrieve
+      operationId: api_v1_impressao_lote_turma_xlsx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -1733,7 +1769,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1742,7 +1778,7 @@ paths:
           description: No response body
   /api/v1/impressao/lote/turma/{turma_id}/xlsx/:
     get:
-      operationId: v1_impressao_lote_turma_xlsx_retrieve_2
+      operationId: api_v1_impressao_lote_turma_xlsx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -1751,7 +1787,43 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/lote/turma/{turma_id}/zip:
+    get:
+      operationId: api_v1_impressao_lote_turma_zip_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/impressao/lote/turma/{turma_id}/zip/:
+    get:
+      operationId: api_v1_impressao_lote_turma_zip_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1760,7 +1832,7 @@ paths:
           description: No response body
   /api/v1/impressao/recibo/{pagamento_id}:
     get:
-      operationId: v1_impressao_recibo_retrieve
+      operationId: api_v1_impressao_recibo_retrieve
       parameters:
       - in: path
         name: pagamento_id
@@ -1769,7 +1841,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1778,7 +1850,7 @@ paths:
           description: No response body
   /api/v1/impressao/recibo/{pagamento_id}/:
     get:
-      operationId: v1_impressao_recibo_retrieve_2
+      operationId: api_v1_impressao_recibo_retrieve_2
       parameters:
       - in: path
         name: pagamento_id
@@ -1787,7 +1859,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1796,7 +1868,7 @@ paths:
           description: No response body
   /api/v1/impressao/recibo/{pagamento_id}/docx:
     get:
-      operationId: v1_impressao_recibo_docx_retrieve
+      operationId: api_v1_impressao_recibo_docx_retrieve
       parameters:
       - in: path
         name: pagamento_id
@@ -1805,7 +1877,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1814,7 +1886,7 @@ paths:
           description: No response body
   /api/v1/impressao/recibo/{pagamento_id}/docx/:
     get:
-      operationId: v1_impressao_recibo_docx_retrieve_2
+      operationId: api_v1_impressao_recibo_docx_retrieve_2
       parameters:
       - in: path
         name: pagamento_id
@@ -1823,7 +1895,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1832,7 +1904,7 @@ paths:
           description: No response body
   /api/v1/impressao/recibo/{pagamento_id}/pdf:
     get:
-      operationId: v1_impressao_recibo_pdf_retrieve
+      operationId: api_v1_impressao_recibo_pdf_retrieve
       parameters:
       - in: path
         name: pagamento_id
@@ -1841,7 +1913,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1850,7 +1922,7 @@ paths:
           description: No response body
   /api/v1/impressao/recibo/{pagamento_id}/pdf/:
     get:
-      operationId: v1_impressao_recibo_pdf_retrieve_2
+      operationId: api_v1_impressao_recibo_pdf_retrieve_2
       parameters:
       - in: path
         name: pagamento_id
@@ -1859,7 +1931,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1868,7 +1940,7 @@ paths:
           description: No response body
   /api/v1/material-escolar/:
     get:
-      operationId: v1_material_escolar_list
+      operationId: api_v1_material_escolar_list
       parameters:
       - name: limit
         required: false
@@ -1895,7 +1967,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1908,7 +1980,7 @@ paths:
           description: ''
   /api/v1/material-escolar/{id}:
     get:
-      operationId: v1_material_escolar_retrieve
+      operationId: api_v1_material_escolar_retrieve
       parameters:
       - in: path
         name: id
@@ -1918,7 +1990,7 @@ paths:
         description: A UUID string identifying this Material Escolar.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1931,7 +2003,7 @@ paths:
           description: ''
   /api/v1/material-escolar/{id}/download:
     get:
-      operationId: v1_material_escolar_download_retrieve
+      operationId: api_v1_material_escolar_download_retrieve
       parameters:
       - in: path
         name: id
@@ -1941,7 +2013,7 @@ paths:
         description: A UUID string identifying this Material Escolar.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1954,9 +2026,9 @@ paths:
           description: ''
   /api/v1/pautas/estatisticas-gerais:
     get:
-      operationId: v1_pautas_estatisticas_gerais_retrieve
+      operationId: api_v1_pautas_estatisticas_gerais_retrieve
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1965,9 +2037,9 @@ paths:
           description: No response body
   /api/v1/pautas/estatisticas-gerais/:
     get:
-      operationId: v1_pautas_estatisticas_gerais_retrieve_2
+      operationId: api_v1_pautas_estatisticas_gerais_retrieve_2
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1976,9 +2048,9 @@ paths:
           description: No response body
   /api/v1/pautas/estatisticas-gerais/xlsx:
     get:
-      operationId: v1_pautas_estatisticas_gerais_xlsx_retrieve
+      operationId: api_v1_pautas_estatisticas_gerais_xlsx_retrieve
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1987,9 +2059,381 @@ paths:
           description: No response body
   /api/v1/pautas/estatisticas-gerais/xlsx/:
     get:
-      operationId: v1_pautas_estatisticas_gerais_xlsx_retrieve_2
+      operationId: api_v1_pautas_estatisticas_gerais_xlsx_retrieve_2
       tags:
-      - v1
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/parametros:
+    get:
+      operationId: api_v1_pautas_exames_parametros_retrieve
+      description: 'Endpoint para consultar e definir percentagens da nota de frequência,
+        nota de exame
+
+        e nota mínima de exame da instituição escolar (ou padrão MEC).'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_parametros_create
+      description: 'Endpoint para consultar e definir percentagens da nota de frequência,
+        nota de exame
+
+        e nota mínima de exame da instituição escolar (ou padrão MEC).'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/parametros/:
+    get:
+      operationId: api_v1_pautas_exames_parametros_retrieve_2
+      description: 'Endpoint para consultar e definir percentagens da nota de frequência,
+        nota de exame
+
+        e nota mínima de exame da instituição escolar (ou padrão MEC).'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_parametros_create_2
+      description: 'Endpoint para consultar e definir percentagens da nota de frequência,
+        nota de exame
+
+        e nota mínima de exame da instituição escolar (ou padrão MEC).'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/professores-autorizados:
+    get:
+      operationId: api_v1_pautas_exames_professores_autorizados_retrieve
+      description: 'Endpoint para gerenciar permissões de lançamento de notas de exame
+        por professor e por classe.
+
+        Competência primária: Director Pedagógico (DAP) ou Direcção da Escola.
+
+        Todas as classes com exame da instituição ficam automaticamente disponíveis.'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_professores_autorizados_create
+      description: 'Endpoint para gerenciar permissões de lançamento de notas de exame
+        por professor e por classe.
+
+        Competência primária: Director Pedagógico (DAP) ou Direcção da Escola.
+
+        Todas as classes com exame da instituição ficam automaticamente disponíveis.'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/professores-autorizados/:
+    get:
+      operationId: api_v1_pautas_exames_professores_autorizados_retrieve_2
+      description: 'Endpoint para gerenciar permissões de lançamento de notas de exame
+        por professor e por classe.
+
+        Competência primária: Director Pedagógico (DAP) ou Direcção da Escola.
+
+        Todas as classes com exame da instituição ficam automaticamente disponíveis.'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_professores_autorizados_create_2
+      description: 'Endpoint para gerenciar permissões de lançamento de notas de exame
+        por professor e por classe.
+
+        Competência primária: Director Pedagógico (DAP) ou Direcção da Escola.
+
+        Todas as classes com exame da instituição ficam automaticamente disponíveis.'
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}:
+    get:
+      operationId: api_v1_pautas_exames_turma_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_turma_create
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/:
+    get:
+      operationId: api_v1_pautas_exames_turma_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_turma_create_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/docx:
+    get:
+      operationId: api_v1_pautas_exames_turma_docx_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/docx/:
+    get:
+      operationId: api_v1_pautas_exames_turma_docx_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/pdf:
+    get:
+      operationId: api_v1_pautas_exames_turma_pdf_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/pdf/:
+    get:
+      operationId: api_v1_pautas_exames_turma_pdf_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/salvar:
+    get:
+      operationId: api_v1_pautas_exames_turma_salvar_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_turma_salvar_create
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/salvar/:
+    get:
+      operationId: api_v1_pautas_exames_turma_salvar_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_pautas_exames_turma_salvar_create_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/xlsx:
+    get:
+      operationId: api_v1_pautas_exames_turma_xlsx_retrieve
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/pautas/exames/turma/{turma_id}/xlsx/:
+    get:
+      operationId: api_v1_pautas_exames_turma_xlsx_retrieve_2
+      parameters:
+      - in: path
+        name: turma_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1998,7 +2442,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta:
     get:
-      operationId: v1_pautas_turma_acta_retrieve
+      operationId: api_v1_pautas_turma_acta_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2007,7 +2451,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2016,7 +2460,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/:
     get:
-      operationId: v1_pautas_turma_acta_retrieve_2
+      operationId: api_v1_pautas_turma_acta_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2025,7 +2469,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2034,7 +2478,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-docx:
     get:
-      operationId: v1_pautas_turma_acta_docx_retrieve
+      operationId: api_v1_pautas_turma_acta_docx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2043,7 +2487,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2052,7 +2496,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-docx/:
     get:
-      operationId: v1_pautas_turma_acta_docx_retrieve_2
+      operationId: api_v1_pautas_turma_acta_docx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2061,7 +2505,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2070,7 +2514,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-json:
     get:
-      operationId: v1_pautas_turma_acta_json_retrieve
+      operationId: api_v1_pautas_turma_acta_json_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2079,7 +2523,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2088,7 +2532,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-json/:
     get:
-      operationId: v1_pautas_turma_acta_json_retrieve_2
+      operationId: api_v1_pautas_turma_acta_json_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2097,7 +2541,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2106,7 +2550,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-pdf:
     get:
-      operationId: v1_pautas_turma_acta_pdf_retrieve
+      operationId: api_v1_pautas_turma_acta_pdf_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2115,7 +2559,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2124,7 +2568,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-pdf/:
     get:
-      operationId: v1_pautas_turma_acta_pdf_retrieve_2
+      operationId: api_v1_pautas_turma_acta_pdf_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2133,7 +2577,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2142,7 +2586,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-xlsx:
     get:
-      operationId: v1_pautas_turma_acta_xlsx_retrieve
+      operationId: api_v1_pautas_turma_acta_xlsx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2151,7 +2595,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2160,7 +2604,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta-xlsx/:
     get:
-      operationId: v1_pautas_turma_acta_xlsx_retrieve_2
+      operationId: api_v1_pautas_turma_acta_xlsx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2169,7 +2613,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2178,7 +2622,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/docx:
     get:
-      operationId: v1_pautas_turma_acta_docx_retrieve_3
+      operationId: api_v1_pautas_turma_acta_docx_retrieve_3
       parameters:
       - in: path
         name: turma_id
@@ -2187,7 +2631,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2196,7 +2640,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/docx/:
     get:
-      operationId: v1_pautas_turma_acta_docx_retrieve_4
+      operationId: api_v1_pautas_turma_acta_docx_retrieve_4
       parameters:
       - in: path
         name: turma_id
@@ -2205,7 +2649,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2214,7 +2658,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/pdf:
     get:
-      operationId: v1_pautas_turma_acta_pdf_retrieve_3
+      operationId: api_v1_pautas_turma_acta_pdf_retrieve_3
       parameters:
       - in: path
         name: turma_id
@@ -2223,7 +2667,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2232,7 +2676,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/pdf/:
     get:
-      operationId: v1_pautas_turma_acta_pdf_retrieve_4
+      operationId: api_v1_pautas_turma_acta_pdf_retrieve_4
       parameters:
       - in: path
         name: turma_id
@@ -2241,7 +2685,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2250,7 +2694,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/xlsx:
     get:
-      operationId: v1_pautas_turma_acta_xlsx_retrieve_3
+      operationId: api_v1_pautas_turma_acta_xlsx_retrieve_3
       parameters:
       - in: path
         name: turma_id
@@ -2259,7 +2703,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2268,7 +2712,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/acta/xlsx/:
     get:
-      operationId: v1_pautas_turma_acta_xlsx_retrieve_4
+      operationId: api_v1_pautas_turma_acta_xlsx_retrieve_4
       parameters:
       - in: path
         name: turma_id
@@ -2277,7 +2721,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2286,7 +2730,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/completa:
     get:
-      operationId: v1_pautas_turma_completa_retrieve
+      operationId: api_v1_pautas_turma_completa_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2295,7 +2739,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2304,7 +2748,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/completa/:
     get:
-      operationId: v1_pautas_turma_completa_retrieve_2
+      operationId: api_v1_pautas_turma_completa_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2313,7 +2757,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2322,7 +2766,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/docx:
     get:
-      operationId: v1_pautas_turma_docx_retrieve
+      operationId: api_v1_pautas_turma_docx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2331,7 +2775,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2340,7 +2784,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/docx/:
     get:
-      operationId: v1_pautas_turma_docx_retrieve_2
+      operationId: api_v1_pautas_turma_docx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2349,7 +2793,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2358,7 +2802,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/export-json:
     get:
-      operationId: v1_pautas_turma_export_json_retrieve
+      operationId: api_v1_pautas_turma_export_json_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2367,7 +2811,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2376,7 +2820,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/export-json/:
     get:
-      operationId: v1_pautas_turma_export_json_retrieve_2
+      operationId: api_v1_pautas_turma_export_json_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2385,7 +2829,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2394,7 +2838,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/export-xlsx:
     get:
-      operationId: v1_pautas_turma_export_xlsx_retrieve
+      operationId: api_v1_pautas_turma_export_xlsx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2403,7 +2847,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2412,7 +2856,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/export-xlsx/:
     get:
-      operationId: v1_pautas_turma_export_xlsx_retrieve_2
+      operationId: api_v1_pautas_turma_export_xlsx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2421,7 +2865,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2430,7 +2874,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pauta/docx:
     get:
-      operationId: v1_pautas_turma_pauta_docx_retrieve
+      operationId: api_v1_pautas_turma_pauta_docx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2439,7 +2883,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2448,7 +2892,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pauta/docx/:
     get:
-      operationId: v1_pautas_turma_pauta_docx_retrieve_2
+      operationId: api_v1_pautas_turma_pauta_docx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2457,7 +2901,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2466,7 +2910,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pauta/pdf:
     get:
-      operationId: v1_pautas_turma_pauta_pdf_retrieve
+      operationId: api_v1_pautas_turma_pauta_pdf_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2475,7 +2919,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2484,7 +2928,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pauta/pdf/:
     get:
-      operationId: v1_pautas_turma_pauta_pdf_retrieve_2
+      operationId: api_v1_pautas_turma_pauta_pdf_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2493,7 +2937,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2502,7 +2946,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pauta/xlsx:
     get:
-      operationId: v1_pautas_turma_pauta_xlsx_retrieve
+      operationId: api_v1_pautas_turma_pauta_xlsx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2511,7 +2955,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2520,7 +2964,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pauta/xlsx/:
     get:
-      operationId: v1_pautas_turma_pauta_xlsx_retrieve_2
+      operationId: api_v1_pautas_turma_pauta_xlsx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2529,7 +2973,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2538,7 +2982,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pdf:
     get:
-      operationId: v1_pautas_turma_pdf_retrieve
+      operationId: api_v1_pautas_turma_pdf_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2547,7 +2991,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2556,7 +3000,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/pdf/:
     get:
-      operationId: v1_pautas_turma_pdf_retrieve_2
+      operationId: api_v1_pautas_turma_pdf_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2565,7 +3009,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2574,7 +3018,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/xlsx:
     get:
-      operationId: v1_pautas_turma_xlsx_retrieve
+      operationId: api_v1_pautas_turma_xlsx_retrieve
       parameters:
       - in: path
         name: turma_id
@@ -2583,7 +3027,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2592,7 +3036,7 @@ paths:
           description: No response body
   /api/v1/pautas/turma/{turma_id}/xlsx/:
     get:
-      operationId: v1_pautas_turma_xlsx_retrieve_2
+      operationId: api_v1_pautas_turma_xlsx_retrieve_2
       parameters:
       - in: path
         name: turma_id
@@ -2601,7 +3045,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2610,7 +3054,7 @@ paths:
           description: No response body
   /api/v1/professores/caderneta/{alocacao_id}/docx:
     get:
-      operationId: v1_professores_caderneta_docx_retrieve
+      operationId: api_v1_professores_caderneta_docx_retrieve
       parameters:
       - in: path
         name: alocacao_id
@@ -2619,7 +3063,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2628,7 +3072,7 @@ paths:
           description: No response body
   /api/v1/professores/caderneta/{alocacao_id}/docx/:
     get:
-      operationId: v1_professores_caderneta_docx_retrieve_2
+      operationId: api_v1_professores_caderneta_docx_retrieve_2
       parameters:
       - in: path
         name: alocacao_id
@@ -2637,7 +3081,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2646,7 +3090,7 @@ paths:
           description: No response body
   /api/v1/professores/caderneta/{alocacao_id}/pdf:
     get:
-      operationId: v1_professores_caderneta_pdf_retrieve
+      operationId: api_v1_professores_caderneta_pdf_retrieve
       parameters:
       - in: path
         name: alocacao_id
@@ -2655,7 +3099,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2664,7 +3108,7 @@ paths:
           description: No response body
   /api/v1/professores/caderneta/{alocacao_id}/pdf/:
     get:
-      operationId: v1_professores_caderneta_pdf_retrieve_2
+      operationId: api_v1_professores_caderneta_pdf_retrieve_2
       parameters:
       - in: path
         name: alocacao_id
@@ -2673,7 +3117,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2682,7 +3126,7 @@ paths:
           description: No response body
   /api/v1/professores/caderneta/{alocacao_id}/xlsx:
     get:
-      operationId: v1_professores_caderneta_xlsx_retrieve
+      operationId: api_v1_professores_caderneta_xlsx_retrieve
       parameters:
       - in: path
         name: alocacao_id
@@ -2691,7 +3135,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -2700,7 +3144,7 @@ paths:
           description: No response body
   /api/v1/professores/caderneta/{alocacao_id}/xlsx/:
     get:
-      operationId: v1_professores_caderneta_xlsx_retrieve_2
+      operationId: api_v1_professores_caderneta_xlsx_retrieve_2
       parameters:
       - in: path
         name: alocacao_id
@@ -2709,7 +3153,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}

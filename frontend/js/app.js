@@ -2341,6 +2341,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Secretaria & Expediente' },
@@ -2365,6 +2366,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas, Actas & Conselhos', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Controlo de Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
     { id: 'alunos', titulo: 'Processo do Aluno & Turmas', icone: 'bi-people-fill', categoria: 'Acompanhamento Discente' },
     { id: 'presencas', titulo: 'Presenças dos Alunos', icone: 'bi-person-check-fill text-success', categoria: 'Acompanhamento Discente' },
@@ -2397,6 +2399,7 @@ const MENUS_POR_PAINEL = {
     { id: 'horarios', titulo: 'Horário & Minhas Turmas', icone: 'bi-clock-history text-info', categoria: 'Espaço do Docente' },
     { id: 'pautas', titulo: 'Pautas & Actas da Turma', icone: 'bi-table', categoria: 'Espaço do Docente' },
     { id: 'exames', titulo: 'Consulta de Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Espaço do Docente' },
+    { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Espaço do Docente' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística das Minhas Turmas', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Espaço do Docente' },
     { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Espaço do Docente' },
     { id: 'comunicados', titulo: 'Comunicados Oficiais', icone: 'bi-megaphone-fill text-primary', categoria: 'Espaço do Docente' },
@@ -2438,6 +2441,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Secretaria & Expediente' },
@@ -2468,6 +2472,7 @@ function renderizarSidebarPorNivel(role) {
     'caderneta',
     'pautas',
     'exames',
+    'provas-anti-ia',
     'estatisticas-aproveitamento'
   ];
 
@@ -2533,6 +2538,9 @@ function renderizarSidebarPorNivel(role) {
             </a>
             <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('exames')" id="subnav-exames">
               <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
+            </a>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('provas-anti-ia')" id="subnav-provas-anti-ia">
+              <i class="bi bi-qr-code-scan text-danger me-1"></i> <span>Blindagem Anti-IA de Provas</span>
             </a>
             <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('estatisticas-aproveitamento')" id="subnav-estatisticas-aproveitamento">
               <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
@@ -2831,7 +2839,7 @@ function navegarPara(viewId) {
 
   // Se o painel usar acordeão pedagógico, incluir os subitens
   if (['painel-direcao', 'painel-pedagogico', 'painel-escola'].includes(painel)) {
-    ['classes-exames', 'disciplinas', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'estatisticas-aproveitamento'].forEach(id => {
+    ['classes-exames', 'disciplinas', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'estatisticas-aproveitamento'].forEach(id => {
       if (!menusPermitidos.includes(id)) menusPermitidos.push(id);
     });
   }
@@ -2890,7 +2898,7 @@ function navegarPara(viewId) {
       // Se for subitem da Área Pedagógica, manter o acordeão aberto
       const subnav = document.getElementById('subnav-area-pedagogica');
       const seta = document.getElementById('seta-area-pedagogica');
-      const ITENS_SUBNAV_PEDAGOGICO = ['classes-exames', 'disciplinas', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'estatisticas-aproveitamento'];
+      const ITENS_SUBNAV_PEDAGOGICO = ['classes-exames', 'disciplinas', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'estatisticas-aproveitamento'];
       if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId) && subnav) {
         subnav.style.display = 'block';
         if (seta) seta.style.transform = 'rotate(180deg)';
@@ -2928,7 +2936,7 @@ async function carregarPaginaModulo(painel, viewId) {
   // Resolução inteligente da pasta para evitar erros 404 no console
   const ARQUIVOS_PROPRIOS = {
     'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'material-escolar'],
-    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'exames', 'material-escolar', 'pautas', 'professor-perfil'],
+    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'exames', 'material-escolar', 'pautas', 'professor-perfil', 'provas-anti-ia'],
     'painel-financeiro': ['dashboard', 'impressao', 'pagamentos', 'prompt-gateway'],
     'painel-superadmin': ['acessos', 'pagamentos-saas', 'prompt-gateway', 'saas', 'usuarios-senhas']
   };
@@ -2987,7 +2995,7 @@ async function carregarScriptModulo(painel, viewId) {
 
   const SCRIPTS_PROPRIOS = {
     'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'material-escolar'],
-    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'material-escolar', 'pautas'],
+    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'material-escolar', 'pautas', 'provas-anti-ia'],
     'painel-financeiro': ['dashboard', 'impressao', 'pagamentos', 'prompt-gateway'],
     'painel-superadmin': ['acessos', 'pagamentos-saas', 'prompt-gateway', 'saas', 'usuarios-senhas']
   };
@@ -3131,6 +3139,7 @@ async function navegarPara(viewId) {
     'caderneta',
     'pautas',
     'exames',
+    'provas-anti-ia',
     'estatisticas-aproveitamento'
   ];
 
