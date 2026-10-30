@@ -12583,7 +12583,6 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       return `<small class="fw-semibold">${trimData.comportamento}</small>`;
     };
 
-    const isDocente = state.user?.role === 'PROFESSOR';
     tbody.innerHTML = d.alunos.map((a, idx) => {
       const t1TemMT = temRequisitosCadernetaMT(a.t1);
       const t2TemMT = temRequisitosCadernetaMT(a.t2);
