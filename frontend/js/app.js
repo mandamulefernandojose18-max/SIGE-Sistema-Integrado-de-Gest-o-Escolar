@@ -2372,7 +2372,7 @@ const MENUS_POR_PAINEL = {
     { id: 'usuarios-senhas', titulo: 'Cofre de Credenciais', icone: 'bi-key-fill text-warning', categoria: 'Segurança & Cofre' },
     { id: 'acessos', titulo: 'Auditoria & Acessos', icone: 'bi-shield-check', categoria: 'Segurança & Cofre' }
   ]
-}};
+};
 
 function renderizarSidebarPorNivel(role) {
   const isSuperAdminInspecionando = (role === 'ADMIN_ESCOLA' && state.user?.role === 'SUPERADMIN' && !!localStorage.getItem('sige_selected_tenant'));
