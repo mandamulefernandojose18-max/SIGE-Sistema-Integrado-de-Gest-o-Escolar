@@ -1500,7 +1500,8 @@ from .services.anti_ai_service import (
     gerar_pdf_prova_codificada_bytes,
     extrair_texto_pdf,
     codificar_ficheiro_no_lugar,
-    gerar_qrcode_base64,
+    gerar_qrcode_legendado_base64,
+    nome_ficheiro_protegido,
     url_instrucoes_ia,
     FORMATOS_CODIFICAVEIS_NO_LUGAR,
     gerar_docx_prova_codificada_bytes,
@@ -1729,7 +1730,7 @@ def api_provas_anti_ia_codificar(request):
             'extensao': codificado_ext,
             'nome_original': original_nome,
             'url_ia': url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']),
-            'qr_ia': gerar_qrcode_base64(url_instrucoes_ia(resultado_codificacao['codigo_autenticidade'])),
+            'qr_ia': gerar_qrcode_legendado_base64(url_instrucoes_ia(resultado_codificacao['codigo_autenticidade'])),
             'pdf_download_url': resultado_codificacao['pdf_download_url'] + '?formato=original',
         }
 
@@ -1868,8 +1869,7 @@ def api_provas_anti_ia_descarregar_pdf(request, prova_id):
         ext = prova.ficheiro_extensao or '.bin'
         conteudo = bytes(prova.ficheiro_codificado)
         res = HttpResponse(conteudo, content_type='application/octet-stream')
-        base = re.sub(r'[^A-Za-z0-9_-]+', '_', os.path.splitext(prova.titulo or '')[0]) or 'Prova'
-        res['Content-Disposition'] = f'attachment; filename="{base}_codificada{ext}"'
+        res['Content-Disposition'] = f'attachment; filename="{nome_ficheiro_protegido(prova.codigo_autenticidade, ext)}"'
         res['Content-Length'] = len(conteudo)
         return _aplicar_cabecalhos_seguranca(res)
     if formato not in FORMATOS_EXPORTACAO:
@@ -1879,7 +1879,7 @@ def api_provas_anti_ia_descarregar_pdf(request, prova_id):
     gerador, content_type = FORMATOS_EXPORTACAO[formato]
     pdf_bytes = gerador(prova_dados, nome_escola=nome_escola).getvalue()
 
-    filename = f"Prova_Blindada_{prova.disciplina}_{prova.classe}_{prova.codigo_autenticidade}.{formato}".replace(' ', '_')
+    filename = nome_ficheiro_protegido(prova.codigo_autenticidade, f".{formato}")
     res = HttpResponse(pdf_bytes, content_type=content_type)
     res['Content-Disposition'] = f'attachment; filename="{filename}"'
     res['Content-Length'] = len(pdf_bytes)

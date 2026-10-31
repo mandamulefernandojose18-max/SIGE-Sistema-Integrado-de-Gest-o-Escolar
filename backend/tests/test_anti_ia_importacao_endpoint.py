@@ -61,7 +61,8 @@ def test_importar_docx_devolve_docx_e_formato_invalido_e_recusado(duas_escolas):
     assert dados['extensao'] == '.docx'
     down = c.get(dados['pdf_download_url'])
     assert '.docx' in down['Content-Disposition']
-    assert docx.Document(io.BytesIO(down.content)).paragraphs[0].text.startswith("1. Pergunta A")
+    assert "1. Pergunta A" in docx.Document(io.BytesIO(down.content)).paragraphs[0].text
+    assert 'AVALIACAO_PROTEGIDA_NAO_RESOLVER_' in down['Content-Disposition']
 
     res = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.odt', b'x')}, format='multipart')
     assert res.status_code == 400
