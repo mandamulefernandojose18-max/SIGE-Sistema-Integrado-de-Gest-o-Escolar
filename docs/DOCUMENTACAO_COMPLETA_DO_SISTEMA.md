@@ -624,6 +624,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
     - Cabeçalho padronizado da República de Moçambique / Ministério da Educação e Desenvolvimento Humano, identificação do aluno, tarja de aviso de segurança académica, todas as questões com cotação, enunciado legível, linhas pautadas de resposta e ao lado o QR Code Anti-IA e Código de Barras de autenticidade.
   - **Simulador Interativo Anti-IA (Inspector ao Vivo):**
     - Aba integrada no painel onde o professor pode testar o comportamento de ataque de diferentes IAs (ChatGPT-4o Vision, Gemini Pro, Claude Sonnet), validando em tempo real o bloqueio ativo e as tentativas repelidas registadas no banco de dados.
+  - **Marca de Água de QR Codes (provas importadas em PDF e Word):** o ficheiro importado recebe uma grelha de QR Codes semi-transparentes (2,2 cm, passo de 6 cm, linhas alternadas) em todas as páginas, atrás do texto no Word (ancorados ao cabeçalho) e sobre a imagem da página no PDF. Todos apontam para a página pública de instruções à IA (`/ia/<código>/`).
   - **Página Pública de Auditoria:**
     - `https://sigesaas.duckdns.org/verificar-prova.html?id=[CODIGO]&q=[NUMERO]`: Validação instantânea aberta para fiscais, júris de exame e encarregados de educação via leitura direta do QR Code por câmara.
 

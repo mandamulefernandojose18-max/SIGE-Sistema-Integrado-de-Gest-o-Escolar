@@ -52,6 +52,21 @@ def test_importar_pdf_devolve_o_mesmo_pdf_codificado(duas_escolas):
     assert "fio condutor" not in texto and "SYSTEM NOTICE" in texto
 
 
+def test_pdf_e_docx_levam_varios_qr_como_marca_de_agua(duas_escolas):
+    from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
+    url = 'https://sigesaas.duckdns.org/ia/ABC/'
+    pdf, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026 às 23:59', url=url)
+    pagina = PdfReader(io.BytesIO(pdf)).pages[0]
+    assert pagina.get_contents().get_data().count(b' Do') > 4  # fundo + vários QR (mesmo objecto, repetido)
+
+    d = docx.Document(); d.add_paragraph("1. Pergunta A")
+    b = io.BytesIO(); d.save(b)
+    out, _ = codificar_ficheiro_no_lugar(b.getvalue(), 't.docx', '30/11/2026 às 23:59', url=url)
+    cab = docx.Document(io.BytesIO(out)).sections[0].header._element
+    ancoras = cab.xpath('.//wp:anchor')
+    assert len(ancoras) > 3 and all(a.get('behindDoc') == '1' for a in ancoras)
+
+
 def test_importar_docx_devolve_docx_e_formato_invalido_e_recusado(duas_escolas):
     c = _cliente(duas_escolas)
     d = docx.Document(); d.add_paragraph("1. Pergunta A")

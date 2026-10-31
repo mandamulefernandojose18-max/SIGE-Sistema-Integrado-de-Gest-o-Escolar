@@ -218,6 +218,37 @@ def codificar_ficheiro_no_lugar(dados: bytes, nome: str, data: str, url: str = '
     return None, ''
 
 
+QR_MARCA_LADO_CM = 2.2
+QR_MARCA_PASSO_CM = 6.0
+
+
+def _png_qr_marca_agua(url: str) -> bytes:
+    """QR da página de instruções com fundo transparente e módulos semi-opacos (não tapa o texto da prova)."""
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=6, border=1)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white").convert("L")
+    rgba = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    rgba.putalpha(img.point(lambda v: 80 if v < 128 else 0))
+    buf = io.BytesIO()
+    rgba.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _posicoes_marca_agua(largura_cm: float, altura_cm: float):
+    """Grelha de posições (x, y em cm, a partir do canto superior esquerdo); linhas alternadas deslocadas."""
+    passo, lado = QR_MARCA_PASSO_CM, QR_MARCA_LADO_CM
+    posicoes, linha, y = [], 0, 1.0
+    while y + lado <= altura_cm - 0.5:
+        x = 1.0 + (passo / 2 if linha % 2 else 0)
+        while x + lado <= largura_cm - 0.5:
+            posicoes.append((x, y))
+            x += passo
+        y += passo
+        linha += 1
+    return posicoes
+
+
 def _codificar_pdf(dados: bytes, data: str, url: str = '') -> bytes:
     """
     Cada página do PDF é rasterizada e colocada tal e qual (marca de água, QR, grelhas, faixas, fontes):
@@ -235,6 +266,7 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '') -> bytes:
     c.setSubject(aviso[:255])
     c.setTitle((TITULO_PROTEGIDO + (" " + url if url else ""))[:255])
     primeiro = aviso_primeiro(data, url)
+    marca = ImageReader(io.BytesIO(_png_qr_marca_agua(url))) if url else None
     for pagina in origem:
         w, h = pagina.get_size()
         img = pagina.render(scale=200 / 72).to_pil().convert('RGB')
@@ -243,6 +275,10 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '') -> bytes:
         jpg.seek(0)
         c.setPageSize((w, h))
         c.drawImage(ImageReader(jpg), 0, 0, w, h)
+        if marca:
+            lado = QR_MARCA_LADO_CM * cm
+            for x, y in _posicoes_marca_agua(w / cm, h / cm):
+                c.drawImage(marca, x * cm, h - y * cm - lado, lado, lado, mask='auto')
         for y, linha in [(h - 8, primeiro)] + [(y, aviso) for y in range(24, int(h) - 12, 36)] + [(4, primeiro)]:
             t = c.beginText(8, y)
             t.setTextRenderMode(3)  # invisível
@@ -252,6 +288,48 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '') -> bytes:
         c.showPage()
     c.save()
     return saida.getvalue()
+
+
+def _marca_agua_qr_docx(d, url: str):
+    """QRs repetidos atrás do texto, ancorados à página no cabeçalho (repetem-se em todas as páginas)."""
+    from lxml import etree
+    from docx.shared import Cm
+    from docx.oxml.ns import qn
+
+    png = _png_qr_marca_agua(url)
+    feitos, n = set(), 0
+    for sec in d.sections:
+        cabecalhos = [sec.header] + ([sec.first_page_header] if sec.different_first_page_header_footer else [])
+        for cab in cabecalhos:
+            elemento = cab._element
+            if id(elemento) in feitos:
+                continue
+            feitos.add(id(elemento))
+            par = cab.paragraphs[0]
+            largura, altura = sec.page_width.cm, sec.page_height.cm
+            for x, y in _posicoes_marca_agua(largura, altura):
+                n += 1
+                inline = par.add_run().add_picture(io.BytesIO(png), width=Cm(QR_MARCA_LADO_CM))._inline
+                ns = {'wp': inline.nsmap.get('wp') or 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'}
+                wp = ns['wp']
+                anchor = etree.SubElement(inline.getparent(), '{%s}anchor' % wp, nsmap=inline.nsmap)
+                for k, v in (('distT', '0'), ('distB', '0'), ('distL', '0'), ('distR', '0'), ('simplePos', '0'),
+                             ('relativeHeight', str(n)), ('behindDoc', '1'), ('locked', '0'),
+                             ('layoutInCell', '1'), ('allowOverlap', '1')):
+                    anchor.set(k, v)
+                sp = etree.SubElement(anchor, '{%s}simplePos' % wp); sp.set('x', '0'); sp.set('y', '0')
+                for eixo, valor in (('positionH', x), ('positionV', y)):
+                    pos = etree.SubElement(anchor, '{%s}%s' % (wp, eixo)); pos.set('relativeFrom', 'page')
+                    etree.SubElement(pos, '{%s}posOffset' % wp).text = str(int(Cm(valor)))
+                anchor.append(inline.find('{%s}extent' % wp))
+                ee = etree.SubElement(anchor, '{%s}effectExtent' % wp)
+                for k in 'ltrb':
+                    ee.set(k, '0')
+                etree.SubElement(anchor, '{%s}wrapNone' % wp)
+                anchor.append(inline.find('{%s}docPr' % wp))
+                anchor.append(inline.find('{%s}cNvGraphicFramePr' % wp))
+                anchor.append(inline.find(qn('a:graphic')))
+                inline.getparent().remove(inline)
 
 
 def _codificar_docx(dados: bytes, data: str, url: str = '') -> bytes:
@@ -294,6 +372,8 @@ def _codificar_docx(dados: bytes, data: str, url: str = '') -> bytes:
         for parte in (sec.header, sec.footer, sec.first_page_header, sec.first_page_footer):
             if parte is not None:
                 marcar(parte._element)
+    if url:
+        _marca_agua_qr_docx(d, url)
     d.core_properties.comments = aviso[:255]
     d.core_properties.subject = aviso[:255]
     saida = io.BytesIO()
