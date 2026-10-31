@@ -76,6 +76,27 @@ def test_so_admin_altera_e_cada_escola_tem_as_suas(duas_escolas):
     assert _cliente('admin.fb@sige.mz', 'PassFb123!').get(URL).json()['data']['qr_quantidade'] == DEFINICOES_PADRAO['qr_quantidade']
 
 
+def test_escola_e_opcional_superadmin_sem_escola_usa_as_definicoes_gerais(duas_escolas):
+    Usuario.objects.create_user(email='super@sige.mz', password='PassSuper123!', role='SUPERADMIN', escola=None)
+    sup = _cliente('super@sige.mz', 'PassSuper123!')
+    res = sup.get(URL)
+    assert res.status_code == 200 and res.json()['ambito'] == 'geral' and res.json()['data'] == DEFINICOES_PADRAO
+
+    assert sup.put(URL, {'qr_quantidade': 20, 'posicao': 'MARGENS'}, format='json').status_code == 200
+    sup.put(URL, {'qr_quantidade': 21}, format='json')  # grava de novo: continua a haver um só registo geral
+    assert ConfiguracaoAntiIA.objects.filter(escola__isnull=True).count() == 1
+
+    # escola sem definições próprias herda as gerais; ao personalizar, passa a ter as suas
+    admin = _cliente()
+    assert admin.get(URL).json()['data']['qr_quantidade'] == 21
+    admin.put(URL, {'qr_quantidade': 5}, format='json')
+    assert admin.get(URL).json()['data']['qr_quantidade'] == 5
+    assert sup.get(URL).json()['data']['qr_quantidade'] == 21
+
+    previa = sup.post(URL_PREVIA, {'qr_quantidade': 4}, format='json')  # a pré-visualização também não precisa de escola
+    assert previa.status_code == 200 and previa.json()['imagem'].startswith('data:image/png')
+
+
 def test_previa_nao_grava_e_devolve_imagem_e_texto(duas_escolas):
     c = _cliente()
     res = c.post(URL_PREVIA, {'qr_quantidade': 6, 'posicao': 'CABECALHO', 'texto_aviso': 'Leia {url}'}, format='json')

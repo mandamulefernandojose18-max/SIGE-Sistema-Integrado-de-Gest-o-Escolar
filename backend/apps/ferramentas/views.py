@@ -2043,9 +2043,13 @@ def _registar_acesso_ia(request, prova, numero_questao):
 
 
 def _definicoes_da_escola(escola) -> dict:
-    """Definições Anti-IA em vigor na escola (as predefinidas se ainda não personalizou)."""
+    """
+    Definições Anti-IA em vigor: as da escola; se não as personalizou, as gerais da plataforma
+    (registo sem escola); se também não existem, as predefinidas. A escola é opcional.
+    """
     from .services.anti_ai_service import DEFINICOES_PADRAO
     registo = ConfiguracaoAntiIA.objects.filter(escola=escola).first() if escola else None
+    registo = registo or ConfiguracaoAntiIA.objects.filter(escola__isnull=True).first()
     return registo.como_dict() if registo else dict(DEFINICOES_PADRAO)
 
 
@@ -2066,9 +2070,8 @@ def api_provas_anti_ia_definicoes(request):
     user = _autenticar_pedido(request)
     if not user or not user.is_authenticated:
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    # A escola é opcional: sem ela (superadmin sem escola em contexto) trabalha-se nas definições gerais da plataforma.
     escola = _obter_escola_do_pedido(request, user)
-    if not escola:
-        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Escola não identificada.'}, status=400))
     pode_editar = user.role in ('ADMIN_ESCOLA', 'SUPERADMIN')
 
     if request.method == 'PUT':
@@ -2089,6 +2092,7 @@ def api_provas_anti_ia_definicoes(request):
         'data': _definicoes_da_escola(escola),
         'opcoes': {'posicoes': POSICOES_QR, 'limites': LIMITES_DEFINICOES},
         'pode_editar': pode_editar,
+        'ambito': 'escola' if escola else 'geral',
     }))
 
 

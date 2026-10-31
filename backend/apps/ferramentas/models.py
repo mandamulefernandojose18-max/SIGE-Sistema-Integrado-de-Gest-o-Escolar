@@ -338,8 +338,13 @@ class ProvaBlindada(models.Model):
 
 
 class ConfiguracaoAntiIA(models.Model):
-    """Definições da marca de água Anti-IA das provas importadas (uma por escola; sem registo = valores predefinidos)."""
-    escola = models.OneToOneField('tenants.Escola', on_delete=models.CASCADE, related_name='configuracao_anti_ia')
+    """
+    Definições da marca de água Anti-IA das provas importadas.
+    Uma por escola; a que não tem escola (nula) é a geral da plataforma, usada pelas escolas sem definições próprias.
+    Sem nenhum registo valem os valores predefinidos.
+    """
+    escola = models.OneToOneField('tenants.Escola', on_delete=models.CASCADE, related_name='configuracao_anti_ia',
+                                  null=True, blank=True)
     qr_quantidade = models.PositiveIntegerField(default=48)
     qr_lado_cm = models.FloatField(default=1.4)
     qr_opacidade = models.PositiveIntegerField(default=59, help_text="Percentagem de 10 a 100")

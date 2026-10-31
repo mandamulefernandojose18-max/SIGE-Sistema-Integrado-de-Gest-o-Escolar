@@ -96,12 +96,27 @@
       });
       mostrar(r.data);
       podeEditar = !!r.pode_editar;
+      if (r.ambito === 'geral') {
+        // Sem escola em contexto: as definições são as gerais da plataforma (a escola é opcional)
+        const aviso = $('defAntiIaMensagem');
+        aviso.className = 'alert alert-info py-2 small mt-3 mb-0';
+        aviso.textContent = 'Sem escola seleccionada: estas são as definições gerais, usadas pelas escolas que não tenham as suas.';
+      }
       $('defBtnGuardar').disabled = !podeEditar;
       $('defSemPermissao').classList.toggle('d-none', podeEditar);
       previsualizar();
     } catch (e) {
-      $('defPreviaEstado').textContent = 'Erro';
       mensagem(e.message, 'danger');
+      // A pré-visualização não depende das definições guardadas: mostra-se com os valores predefinidos.
+      if (!$('defPosicao').options.length) {
+        Object.entries({ GRELHA: 'Distribuídos por toda a página', MARGENS: 'Ao longo das margens da página', CABECALHO: 'No topo da página', RODAPE: 'No fundo da página', DIAGONAL: 'Em diagonal, de canto a canto' })
+          .forEach(([valor, rotulo]) => $('defPosicao').add(new Option(rotulo, valor)));
+      }
+      mostrar(PADRAO);
+      podeEditar = false;
+      $('defBtnGuardar').disabled = true;
+      await previsualizar();
+      mensagem(e.message, 'danger');  // previsualizar() limpa a mensagem quando corre bem: repõe o motivo
     }
   }
 
