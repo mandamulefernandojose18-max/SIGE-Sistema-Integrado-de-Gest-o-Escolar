@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, re_path, include
 from django.http import JsonResponse
+from apps.ferramentas.views import pagina_ia_prova
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 def health_check(request):
@@ -38,6 +39,10 @@ urlpatterns = [
 
     # Rotas diretas de Ferramentas /ferramentas/prompt-gateway
     re_path(r'^ferramentas/?', include('apps.ferramentas.urls')),
+
+    # Página pública com as instruções para IA, aberta pelo QR Code das provas codificadas
+    path('ia/', pagina_ia_prova, name='pagina_ia_geral'),
+    path('ia/<str:codigo>/', pagina_ia_prova, name='pagina_ia_prova'),
 
     # API Versionada /api/v1/
     re_path(r'^api/v1/?', include(api_v1_patterns)),

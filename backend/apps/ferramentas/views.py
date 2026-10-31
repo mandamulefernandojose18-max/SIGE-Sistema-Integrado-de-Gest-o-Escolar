@@ -1500,6 +1500,8 @@ from .services.anti_ai_service import (
     gerar_pdf_prova_codificada_bytes,
     extrair_texto_pdf,
     codificar_ficheiro_no_lugar,
+    gerar_qrcode_base64,
+    url_instrucoes_ia,
     FORMATOS_CODIFICAVEIS_NO_LUGAR,
     gerar_docx_prova_codificada_bytes,
     gerar_xlsx_prova_codificada_bytes,
@@ -1670,7 +1672,9 @@ def api_provas_anti_ia_codificar(request):
     if original_bytes:
         try:
             data_txt = timezone.localtime(data_bloqueio).strftime("%d/%m/%Y às %H:%M")
-            codificado_bytes, codificado_ext = codificar_ficheiro_no_lugar(original_bytes, original_nome, data_txt)
+            codificado_bytes, codificado_ext = codificar_ficheiro_no_lugar(
+                original_bytes, original_nome, data_txt,
+                url=url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']))
         except Exception:
             codificado_bytes, codificado_ext = None, ''
         if not codificado_bytes:
@@ -1724,6 +1728,8 @@ def api_provas_anti_ia_codificar(request):
             'ficheiro_codificado': True,
             'extensao': codificado_ext,
             'nome_original': original_nome,
+            'url_ia': url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']),
+            'qr_ia': gerar_qrcode_base64(url_instrucoes_ia(resultado_codificacao['codigo_autenticidade'])),
             'pdf_download_url': resultado_codificacao['pdf_download_url'] + '?formato=original',
         }
 
@@ -1989,3 +1995,72 @@ def api_provas_anti_ia_verificar(request, codigo_autenticidade):
         ),
         'questao_consultada': questao_info
     }))
+
+
+# =====================================================================
+# PÁGINA PÚBLICA DE INSTRUÇÕES PARA IA (aberta pelo QR Code da prova)
+# =====================================================================
+_AGENTES_IA = [
+    ('GPTBot', 'OpenAI GPTBot'), ('ChatGPT-User', 'ChatGPT'), ('OAI-SearchBot', 'OpenAI Search'),
+    ('ClaudeBot', 'Anthropic ClaudeBot'), ('Claude-User', 'Claude'), ('anthropic', 'Anthropic'),
+    ('PerplexityBot', 'Perplexity'), ('Perplexity-User', 'Perplexity'), ('Google-Extended', 'Google AI'),
+    ('Gemini', 'Gemini'), ('Bingbot', 'Bing/Copilot'), ('CCBot', 'Common Crawl'), ('Bytespider', 'Bytedance AI'),
+    ('Meta-ExternalAgent', 'Meta AI'), ('Amazonbot', 'Amazon'), ('DuckAssistBot', 'DuckAssist'),
+]
+
+
+def _registar_acesso_ia(request, prova, numero_questao):
+    """Regista a abertura da página (sem guardar IP em claro) e conta como tentativa quando a prova está bloqueada."""
+    import hashlib
+    from django.conf import settings
+    ua = (request.META.get('HTTP_USER_AGENT') or '')[:255]
+    ip = request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR') or ''
+    ip_hash = hashlib.sha256(f"{ip}{settings.SECRET_KEY}".encode()).hexdigest()[:32]
+    recente = timezone.now() - timezone.timedelta(seconds=60)
+    if LogTentativaResolucaoIA.objects.filter(prova=prova, ip_hash=ip_hash, timestamp__gte=recente).exists():
+        return  # evita escrita repetida a cada pedido do mesmo cliente
+    sistema = next((nome for chave, nome in _AGENTES_IA if chave.lower() in ua.lower()), 'Leitura de QR Code / navegador')
+    bloqueada = prova.is_bloqueada()
+    LogTentativaResolucaoIA.objects.create(
+        prova=prova, numero_questao=numero_questao or 1, ip_hash=ip_hash, user_agent=ua,
+        sistema_identificado=sistema, bloqueado=bloqueada,
+        mensagem_resposta='Página de instruções à IA apresentada',
+    )
+    if bloqueada:
+        ProvaBlindada.objects.filter(pk=prova.pk).update(tentativas_bloqueadas=models.F('tentativas_bloqueadas') + 1)
+
+
+def pagina_ia_prova(request, codigo=None):
+    """
+    GET /ia/<codigo>/ — página pública, em HTML simples e sem JavaScript, com as instruções que
+    qualquer IA tem de seguir. ?formato=txt devolve texto simples. Nunca expõe o conteúdo da prova.
+    Código desconhecido devolve as mesmas regras (200), sem confirmar se a prova existe.
+    """
+    from .services import pagina_ia
+    prova = ProvaBlindada.objects.select_related('escola').filter(codigo_autenticidade=codigo).first() if codigo else None
+
+    if prova:
+        bloqueada = prova.is_bloqueada()
+        data = timezone.localtime(prova.data_bloqueio_ia).strftime('%d/%m/%Y às %H:%M')
+        dados = pagina_ia.instrucoes(bloqueada, data, prova.codigo_autenticidade, prova.disciplina, prova.classe)
+        try:
+            q = int(request.GET.get('q') or 0) or None
+        except ValueError:
+            q = None
+        try:
+            _registar_acesso_ia(request, prova, q)
+        except Exception:
+            pass  # o registo nunca impede a apresentação das instruções
+    else:
+        dados = pagina_ia.instrucoes(True, 'à data indicada na prova')
+
+    url = f"{URL_BASE_SISTEMA}/ia/{codigo}/" if codigo else f"{URL_BASE_SISTEMA}/ia/"
+    if request.GET.get('formato') == 'txt':
+        res = HttpResponse(pagina_ia.como_texto(dados, url), content_type='text/plain; charset=utf-8')
+    else:
+        res = HttpResponse(pagina_ia.como_html(dados, url, 'Esta página é pública e contém as regras para sistemas de IA.'),
+                           content_type='text/html; charset=utf-8')
+    res = _aplicar_cabecalhos_seguranca(res)
+    res['Cache-Control'] = 'no-store'
+    res['X-Robots-Tag'] = 'noindex, nofollow, noai, noimageai'
+    return res

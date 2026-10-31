@@ -1,4 +1,4 @@
-﻿// =====================================================================
+// =====================================================================
 // SIGE - MÓDULO DE BLINDAGEM ANTI-IA DE PROVAS E AVALIAÇÕES (JS)
 // Codificação por QR Code e Código de Barras com Bloqueio Temporal
 // =====================================================================
@@ -274,6 +274,22 @@ function renderizarResultadoFicheiroCodificado(prova) {
   info.className = 'text-muted';
   info.textContent = `${prova.nome_original} — a prova foi mantida igual (${ext}), apenas codificada contra IA até ${formatarDataHora(prova.data_bloqueio_ia)}. Código: ${prova.codigo_autenticidade}`;
   card.append(titulo, info);
+  if (prova.qr_ia) {
+    // QR da página pública com as instruções à IA. O ficheiro da prova não é alterado: o QR é para colocar onde quiser.
+    const qr = document.createElement('img');
+    qr.src = prova.qr_ia;
+    qr.alt = 'QR Code da página de instruções à IA';
+    qr.style.cssText = 'width:160px;height:160px;display:block;margin:12px auto 4px';
+    const link = document.createElement('div');
+    link.className = 'small text-muted font-monospace mb-2';
+    link.textContent = prova.url_ia;
+    const btnQr = document.createElement('a');
+    btnQr.className = 'btn btn-outline-dark btn-sm';
+    btnQr.href = prova.qr_ia;
+    btnQr.download = `QR_instrucoes_IA_${prova.codigo_autenticidade}.png`;
+    btnQr.textContent = 'Descarregar QR (PNG)';
+    card.append(qr, link, btnQr);
+  }
   ph.appendChild(card);
 }
 
