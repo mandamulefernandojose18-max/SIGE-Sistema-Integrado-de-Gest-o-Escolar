@@ -1500,6 +1500,7 @@ from .services.anti_ai_service import (
     gerar_pdf_prova_codificada_bytes,
     extrair_texto_pdf,
     extrair_texto_ficheiro,
+    codificar_ficheiro_no_lugar,
     gerar_docx_prova_codificada_bytes,
     gerar_xlsx_prova_codificada_bytes,
     gerar_html_prova_codificada_bytes,
@@ -1591,6 +1592,7 @@ def api_provas_anti_ia_codificar(request):
     if not escola and user and hasattr(user, 'escola') and user.escola:
         escola = user.escola
 
+    original_bytes, original_nome = None, ''
     try:
         dados = {}
         # Suporta tanto multipart com upload de arquivo quanto application/json
@@ -1599,6 +1601,8 @@ def api_provas_anti_ia_codificar(request):
             ficheiro = request.FILES.get('ficheiro')
             texto_extraido = ""
             if ficheiro:
+                original_bytes, original_nome = ficheiro.read(), ficheiro.name
+                ficheiro.seek(0)
                 try:
                     texto_extraido = extrair_texto_ficheiro(ficheiro, ficheiro.name)
                 except Exception:
@@ -1663,9 +1667,21 @@ def api_provas_anti_ia_codificar(request):
         orientacoes=orientacoes
     )
 
+    # Codificar o ficheiro importado no próprio formato, sem alterar o aspecto nem a estrutura
+    codificado_bytes, codificado_ext = None, ''
+    if original_bytes:
+        try:
+            data_txt = timezone.localtime(data_bloqueio).strftime("%d/%m/%Y às %H:%M")
+            codificado_bytes, codificado_ext = codificar_ficheiro_no_lugar(original_bytes, original_nome, data_txt)
+        except Exception:
+            codificado_bytes, codificado_ext = None, ''
+    del original_bytes  # o original em claro nunca é guardado
+
     # Salvar na base de dados
     try:
         prova = ProvaBlindada.objects.create(
+            ficheiro_codificado=codificado_bytes,
+            ficheiro_extensao=codificado_ext,
             escola=escola,
             criado_por=user if user and user.is_authenticated else None,
             codigo_autenticidade=resultado_codificacao['codigo_autenticidade'],
@@ -1818,7 +1834,17 @@ def api_provas_anti_ia_descarregar_pdf(request, prova_id):
         'questoes': prova.questoes
     }
 
-    formato = (request.GET.get('formato') or 'pdf').lower()
+    formato = (request.GET.get('formato') or ('original' if prova.ficheiro_codificado else 'pdf')).lower()
+    if formato == 'original':
+        if not prova.ficheiro_codificado:
+            return _aplicar_cabecalhos_seguranca(JsonResponse({
+                'success': False, 'message': 'Esta prova não foi importada de um ficheiro.'}, status=404))
+        ext = prova.ficheiro_extensao or '.bin'
+        conteudo = bytes(prova.ficheiro_codificado)
+        res = HttpResponse(conteudo, content_type='application/octet-stream')
+        res['Content-Disposition'] = f'attachment; filename="Prova_Codificada_{prova.codigo_autenticidade}{ext}"'
+        res['Content-Length'] = len(conteudo)
+        return _aplicar_cabecalhos_seguranca(res)
     if formato not in FORMATOS_EXPORTACAO:
         return _aplicar_cabecalhos_seguranca(JsonResponse({
             'success': False, 'message': f"Formato inválido. Use: {', '.join(FORMATOS_EXPORTACAO)}."

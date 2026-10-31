@@ -317,6 +317,9 @@ class ProvaBlindada(models.Model):
         db_index=True
     )
     tentativas_bloqueadas = models.IntegerField(default=0)
+    # Ficheiro importado já codificado, no formato e com o aspecto originais (o original em claro nunca é guardado)
+    ficheiro_codificado = models.BinaryField(null=True, blank=True, editable=False)
+    ficheiro_extensao = models.CharField(max_length=10, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

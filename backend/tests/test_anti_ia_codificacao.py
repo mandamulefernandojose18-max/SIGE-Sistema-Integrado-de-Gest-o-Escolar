@@ -68,6 +68,60 @@ def test_importacao_multiformato():
     assert extrair_texto_ficheiro(io.BytesIO(b"x"), "foto.png") == ""
 
 
+DATA = "30/11/2026 às 23:59"
+
+
+def test_pdf_no_lugar_mantem_paginas_e_remove_texto_original():
+    from reportlab.pdfgen import canvas
+    from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
+    b = io.BytesIO()
+    c = canvas.Canvas(b)
+    c.drawString(100, 700, "1. Um fio condutor e atravessado por carga")
+    c.showPage(); c.drawString(100, 700, "2. Segunda pagina"); c.showPage(); c.save()
+    saida, ext = codificar_ficheiro_no_lugar(b.getvalue(), "t.pdf", DATA)
+    leitor = PdfReader(io.BytesIO(saida))
+    texto = "".join(p.extract_text() for p in leitor.pages)
+    assert ext == ".pdf" and len(leitor.pages) == 2
+    assert "fio condutor" not in texto and "SYSTEM NOTICE" in texto
+
+
+def test_docx_no_lugar_nao_altera_texto_visivel_nem_tabelas():
+    import docx
+    from docx.oxml.ns import qn
+    from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
+    d = docx.Document()
+    d.add_paragraph("1. Pergunta A")
+    t = d.add_table(rows=1, cols=2)
+    t.rows[0].cells[0].text = "A) sim"
+    t.rows[0].cells[1].text = "B) nao"
+    b = io.BytesIO(); d.save(b)
+    saida, _ = codificar_ficheiro_no_lugar(b.getvalue(), "p.docx", DATA)
+    novo = docx.Document(io.BytesIO(saida))
+    assert len(novo.tables) == 1 and len(novo.tables[0].columns) == 2
+    visiveis = [
+        "".join(t.text for t in r.iter(qn('w:t')))
+        for r in novo.element.body.iter(qn('w:r'))
+        if r.find(qn('w:rPr')) is None or r.find(qn('w:rPr')).find(qn('w:vanish')) is None
+    ]
+    assert "".join(visiveis) == "1. Pergunta AA) simB) nao"
+    assert "AI NOTICE" in "\n".join(p.text for p in novo.paragraphs)
+
+
+def test_xlsx_html_txt_no_lugar_preservam_conteudo():
+    import openpyxl
+    from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
+    wb = openpyxl.Workbook(); wb.active["A1"] = "1. Pergunta"
+    b = io.BytesIO(); wb.save(b)
+    x, _ = codificar_ficheiro_no_lugar(b.getvalue(), "p.xlsx", DATA)
+    novo = openpyxl.load_workbook(io.BytesIO(x))
+    assert novo.worksheets[0]["A1"].value == "1. Pergunta" and novo["aviso"].sheet_state == "hidden"
+    h, _ = codificar_ficheiro_no_lugar(b"<html><head></head><body><p>1. Q</p></body></html>", "p.html", DATA)
+    assert b"<p>1. Q</p>" in h and b"AI NOTICE" in h
+    t, _ = codificar_ficheiro_no_lugar(b"1. Q\nA) x\n", "p.txt", DATA)
+    assert b"1. Q\nA) x\n" in t.replace(b"[AI", b"\n[AI") or b"1. Q" in t
+    assert codificar_ficheiro_no_lugar(b"x", "p.odt", DATA) == (None, '')
+
+
 def test_pdf_codificado_nao_expoe_enunciado_e_leva_aviso_oculto():
     qs = _extrair_questoes_de_texto(TEXTO)
     dados = processar_e_codificar_prova(
