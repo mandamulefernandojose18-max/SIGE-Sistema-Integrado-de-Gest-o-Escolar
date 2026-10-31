@@ -1,17 +1,61 @@
 {
   "permissions": {
     "allow": [
-      "powershell -Command *",
-      "git status",
-      "git log*",
-      "git diff*",
-      "python manage.py test*",
-      "pytest*"
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git branch*)",
+      "PowerShell(git status*)",
+      "PowerShell(git log*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git branch*)",
+      "PowerShell(python manage.py test*)",
+      "PowerShell(python manage.py check*)",
+      "PowerShell(python manage.py makemigrations --check*)",
+      "PowerShell(pytest*)"
+    ],
+    "ask": [
+      "PowerShell(git push*)",
+      "PowerShell(*sige-git-deploy*)",
+      "PowerShell(*deploy-vm*)",
+      "PowerShell(*deploy-separated*)",
+      "PowerShell(ssh *)"
     ],
     "deny": [
-      "*curl http://[0-9]*",
+      "Read(.env)",
+      "Read(backend/.env)",
+      "Edit(.env)",
+      "Edit(backend/.env)",
       "*http://[0-9]*",
       "*https://[0-9]*"
+    ]
+  },
+  "env": {
+    "DJANGO_SETTINGS_MODULE": "config.settings.development"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "python -c \"import os,runpy;runpy.run_path(os.environ['CLAUDE_PROJECT_DIR']+'/.claude/hooks/guard_ip.py',run_name='__main__')\"" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "python -c \"import os,runpy;runpy.run_path(os.environ['CLAUDE_PROJECT_DIR']+'/.claude/hooks/django_check.py',run_name='__main__')\"", "timeout": 100 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python -c \"import os,runpy;runpy.run_path(os.environ['CLAUDE_PROJECT_DIR']+'/.claude/hooks/docs_reminder.py',run_name='__main__')\"" }
+        ]
+      }
     ]
   },
   "preferredShell": "powershell"

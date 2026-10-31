@@ -50,3 +50,7 @@ certs/
 *.pem
 *.key
 *.id_rsa
+
+# Claude Code (preferencias locais)
+.claude/settings.local.json
+*.local.md
