@@ -27,9 +27,10 @@ if [ -z "$CURRENT_BRANCH" ]; then
     exit 0
 fi
 
-# Evita loop se o push for acionado por automações
-if [ "$SIGE_NO_AUTO_PUSH" = "1" ]; then
-    echo "[INFO] Auto-push desabilitado via SIGE_NO_AUTO_PUSH=1."
+# Opt-in: o push (e o deploy que ele dispara) so ocorre com SIGE_AUTO_PUSH=1.
+# Use scripts/sige-git-deploy.ps1 para publicar de forma deliberada.
+if [ "$SIGE_AUTO_PUSH" != "1" ] || [ "$SIGE_NO_AUTO_PUSH" = "1" ]; then
+    echo "[INFO] Commit local concluido. Auto-push desativado (defina SIGE_AUTO_PUSH=1 para ativar)."
     exit 0
 fi
 
@@ -170,15 +171,15 @@ def main():
         return
 
     # Se nenhum argumento especificado, instala o recomendado (pre-push + post-commit opcional via prompt ou all)
-    if args.all or (not args.post-commit and not args.pre-push):
+    if args.all or (not args.post_commit and not args.pre_push):
         install_hook('pre-push', PRE_PUSH_HOOK_CONTENT)
         install_hook('post-commit', POST_COMMIT_HOOK_CONTENT)
         print("\n[INFO] Hooks pre-push e post-commit configurados com sucesso!")
-        print("[INFO] Agora, cada 'git commit' enviará as mudanças automaticamente para o GitHub e disparará o deploy na VM.")
+        print("[INFO] O commit so envia ao GitHub (e dispara o deploy) com SIGE_AUTO_PUSH=1; caso contrario fica local.")
     else:
-        if args.pre-push:
+        if args.pre_push:
             install_hook('pre-push', PRE_PUSH_HOOK_CONTENT)
-        if args.post-commit:
+        if args.post_commit:
             install_hook('post-commit', POST_COMMIT_HOOK_CONTENT)
 
 if __name__ == '__main__':

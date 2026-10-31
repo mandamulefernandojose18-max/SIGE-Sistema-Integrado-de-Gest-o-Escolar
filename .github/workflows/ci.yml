@@ -62,8 +62,14 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings.development
           SECRET_KEY: test_secret_ci_key_sige_2026
 
-      - name: Executar Suite de Testes com Pytest
-        run: pytest -v
+      - name: Verificar migrações pendentes
+        run: python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.development
+          SECRET_KEY: test_secret_ci_key_sige_2026
+
+      - name: Executar Suite de Testes com Pytest (cobertura mínima 55%)
+        run: pytest -v --cov=apps --cov=common --cov-report=term --cov-fail-under=55
         env:
           DJANGO_SETTINGS_MODULE: config.settings.development
           SECRET_KEY: test_secret_ci_key_sige_2026

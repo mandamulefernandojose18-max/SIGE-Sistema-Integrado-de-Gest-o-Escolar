@@ -58,6 +58,7 @@ class CertificadoViewSet(viewsets.ModelViewSet):
 
 class VerificarCertificadoView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'verificacao'
 
     def _montar_resposta_autentica(self, aluno, escola, codigo_str, tipo_str='CONCLUSAO', emitido_em=None, emitido_por='Secretaria Escolar'):
         from django.utils import timezone

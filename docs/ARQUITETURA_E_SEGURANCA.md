@@ -239,3 +239,11 @@ Em estrita conformidade com os princípios de confiabilidade jurídica e auditor
 - `ALLOWED_HOSTS` já não aceita `*`: contém `sigesaas.duckdns.org`, `localhost`, `127.0.0.1` e o que for definido em `ALLOWED_HOSTS`/`SYSTEM_HOSTNAME`.
 - CORS usa apenas a lista `CORS_ALLOWED_ORIGINS` (por omissão o domínio oficial e origens locais); `CORS_ALLOW_ALL_ORIGINS` foi removido.
 - Nenhum endereço IP ou domínio derivado de IP consta em código, nginx ou docker-compose; o script `setup-duckdns.ps1` lê o IP da VM da variável `SIGE_VM_IP`.
+
+## Limites de pedidos, cookies e CI
+
+- `LoginView` (`throttle_scope = 'login'`, por omissão 10/min) e `VerificarCertificadoView` (`'verificacao'`, 30/min) usam `ScopedRateThrottle`; ajuste com `THROTTLE_LOGIN` e `THROTTLE_VERIFICACAO`.
+- Em produção, `SESSION_COOKIE_SECURE` e `CSRF_COOKIE_SECURE` assumem `True`, e `SECURE_HSTS_SECONDS` assume um ano.
+- O CI corre `makemigrations --check` e exige cobertura mínima de 55% (`--cov-fail-under`).
+- O hook `post-commit` já não faz push nem deploy automaticamente: só com `SIGE_AUTO_PUSH=1`. A publicação deliberada faz-se com `scripts/sige-git-deploy.ps1`.
+- Testes novos: `test_config_seguranca.py` (hosts, CORS, throttling) e `test_isolamento_cadastros.py` (turmas, professores e alunos entre escolas).

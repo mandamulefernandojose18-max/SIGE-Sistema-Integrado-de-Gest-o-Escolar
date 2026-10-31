@@ -156,6 +156,14 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 50,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'common.exceptions.handler.custom_exception_handler',
+    # Limites por escopo; só se aplicam às views que declaram `throttle_scope`.
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'login': os.environ.get('THROTTLE_LOGIN', '10/min'),
+        'verificacao': os.environ.get('THROTTLE_VERIFICACAO', '30/min'),
+    },
 }
 
 # SimpleJWT Settings
