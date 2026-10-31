@@ -28,8 +28,9 @@
   function mensagem(texto, tipo) {
     const el = $('defAntiIaMensagem');
     if (!el) return;
-    el.className = `alert alert-${tipo || 'info'} py-2 small` + (texto ? '' : ' d-none');
+    el.className = `alert alert-${tipo || 'info'} py-2 small mt-3 mb-0` + (texto ? '' : ' d-none');
     el.textContent = texto || '';
+    if (texto) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });  // junto aos botões, sempre à vista
   }
 
   function valores() {
@@ -107,15 +108,20 @@
   async function guardar() {
     if (!podeEditar) return;
     const botao = $('defBtnGuardar');
+    const original = botao.innerHTML;
     botao.disabled = true;
+    botao.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> A guardar...';
     try {
       const r = await pedir(BASE, 'PUT', valores());
       mostrar(r.data);
       mensagem('Definições guardadas. Aplicam-se às próximas provas codificadas.', 'success');
+      botao.innerHTML = '<i class="bi bi-check-lg me-1"></i> Guardado';
     } catch (e) {
       mensagem(e.message, 'danger');
+      botao.innerHTML = original;
     } finally {
       botao.disabled = false;
+      setTimeout(() => { botao.innerHTML = original; }, 2500);
     }
   }
 

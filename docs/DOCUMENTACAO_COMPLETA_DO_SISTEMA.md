@@ -1265,3 +1265,4 @@ O SIGE dispõe de infraestrutura nativa e padronizada para operação por agente
 - **AGENTS.md e .agents/**: Suporte ao Google Antigravity e agentes baseados em Gemini com skills de governança, deploy desacoplado e teto orçamentário.
 - **Regras Inquebráveis Unificadas**: Todos os agentes operam sob as mesmas diretrizes inquebráveis de ocultação total de IPs, orçamento estrito de US$ 6/mês, proibição absoluta de dados fictícios, interface em cascata $\\mathcal{O}(1)$ para $ cadernetas e sincronização contínua de documentação.
 - **Consulte o guia detalhado:** [docs/MIGRACAO_CLAUDE.md](MIGRACAO_CLAUDE.md).
+
