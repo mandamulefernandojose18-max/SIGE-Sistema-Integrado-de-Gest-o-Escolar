@@ -33,7 +33,7 @@ class CertificadoViewSet(viewsets.ModelViewSet):
         codigo = f"CERT-{uuid.uuid4().hex[:10].upper()}"
         domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
         origin = self.request.META.get('HTTP_ORIGIN')
-        if not origin or '139.84.226.46' in origin or 'localhost' in origin or '127.0.0.1' in origin:
+        if not origin or 'localhost' in origin or '127.0.0.1' in origin:
             origin = domain_base
         else:
             origin = origin.rstrip('/')

@@ -54,3 +54,6 @@ certs/
 # Claude Code (preferencias locais)
 .claude/settings.local.json
 *.local.md
+
+# Ficheiros soltos
+IMG-*.jpg

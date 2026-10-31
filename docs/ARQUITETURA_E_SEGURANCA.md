@@ -231,3 +231,11 @@ Em estrita conformidade com os princípios de confiabilidade jurídica e auditor
 2. **Campos Directivos Nativos Limpos:** Modelos como `Escola` iniciam com valores padrão vazios para `director_nome`, `director_carreira`, `dap_nome` e `chefe_secretaria_nome`, exigindo que a instituição ou a autoridade escolar cadastre exclusivamente informações reais e fidedignas.
 3. **Imunidade de Dados Oficiais em Documentos:** Em casos de documentos emitidos com dados de filiação ou certidão incompletos na base escolar, o sistema utiliza marcadores neutros (`---`) em vez de nomes simulados, preservando o valor probatório e a integridade legal da documentação emitida perante o MEC.
 
+
+## Endurecimento da configuração Django
+
+- `SECRET_KEY` é obrigatória fora de desenvolvimento/testes; sem ela o arranque falha com `ImproperlyConfigured`. `JWT_SECRET_KEY` deve ser definida separadamente.
+- `DEBUG` assume `False` por omissão.
+- `ALLOWED_HOSTS` já não aceita `*`: contém `sigesaas.duckdns.org`, `localhost`, `127.0.0.1` e o que for definido em `ALLOWED_HOSTS`/`SYSTEM_HOSTNAME`.
+- CORS usa apenas a lista `CORS_ALLOWED_ORIGINS` (por omissão o domínio oficial e origens locais); `CORS_ALLOW_ALL_ORIGINS` foi removido.
+- Nenhum endereço IP ou domínio derivado de IP consta em código, nginx ou docker-compose; o script `setup-duckdns.ps1` lê o IP da VM da variável `SIGE_VM_IP`.

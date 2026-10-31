@@ -13,22 +13,29 @@ from dotenv import load_dotenv
 load_dotenv(BASE_DIR.parent / '.env')
 load_dotenv(BASE_DIR / '.env')
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'sige-django-secret-key-enterprise-2026-mz!')
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 't')
+
+# A chave só tem valor de recurso em desenvolvimento/testes; em produção é obrigatória.
+_DEV_CONTEXT = (
+    DEBUG
+    or os.environ.get('DJANGO_SETTINGS_MODULE', '').endswith(('development', 'test'))
+    or 'pytest' in sys.modules
+)
+SECRET_KEY = os.environ.get('SECRET_KEY') or ('dev-only-insecure-key' if _DEV_CONTEXT else '')
+if not SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured('A variável de ambiente SECRET_KEY é obrigatória fora de desenvolvimento.')
 
 sys_host = os.environ.get('SYSTEM_HOSTNAME', '').strip()
 extra_hosts = [sys_host] if sys_host else []
 
-ALLOWED_HOSTS = list(set([host.strip() for host in os.environ.get('ALLOWED_HOSTS', '*').split(',') if host.strip()] + extra_hosts + ['*', '.duckdns.org', 'sigesaas.duckdns.org', 'sigesass.duckdns.org', '.sslip.io', 'sige.8b54e22e.sslip.io', 'sige.139-84-226-46.sslip.io', '139.84.226.46', 'localhost', '127.0.0.1']))
+ALLOWED_HOSTS = sorted(set(
+    [host.strip() for host in os.environ.get('ALLOWED_HOSTS', '').split(',') if host.strip() and host.strip() != '*']
+    + extra_hosts
+    + ['sigesaas.duckdns.org', 'localhost', '127.0.0.1']
+))
 CSRF_TRUSTED_ORIGINS = [
     'https://sigesaas.duckdns.org',
-    'https://sigesass.duckdns.org',
-    'https://*.duckdns.org',
-    'https://*.sslip.io',
-    'https://sige.8b54e22e.sslip.io',
-    'https://sige.139-84-226-46.sslip.io',
-    'http://139.84.226.46:5173',
-    'http://139.84.226.46',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
 ]
@@ -164,15 +171,11 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https?://.*$",
-]
 CORS_ALLOWED_ORIGINS = [
     origin.strip() for origin in os.environ.get(
         'CORS_ALLOWED_ORIGINS',
-        'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost:80'
+        'https://sigesaas.duckdns.org,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost:80'
     ).split(',') if origin.strip()
 ]
 CORS_ALLOW_HEADERS = [

@@ -2,7 +2,7 @@
 .SYNOPSIS
     SIGE - Configurador Automatico de Dominio DuckDNS + HTTPS Let's Encrypt na VM
 .DESCRIPTION
-    Atualiza o IP da VM (139.84.226.46) no DuckDNS, emite certificado SSL Let's Encrypt oficial
+    Atualiza o IP da VM (variavel SIGE_VM_IP) no DuckDNS, emite certificado SSL Let's Encrypt oficial
     para https://<subdominio>.duckdns.org e atualiza os atalhos 'sige'.
 #>
 param(
@@ -13,7 +13,7 @@ param(
     [string]$Subdomain = "sigesaas",
 
     [Parameter(Mandatory=$false)]
-    [string]$VmIp = "139.84.226.46",
+    [string]$VmIp = $env:SIGE_VM_IP,
 
     [Parameter(Mandatory=$false)]
     [string]$VmUser = "root",
@@ -50,7 +50,7 @@ echo "curl -sk 'https://www.duckdns.org/update?domains=${Subdomain}&token=${Toke
 chmod 700 /var/www/sige/duckdns/duck.sh
 
 # Emitir certificado Let's Encrypt incluindo o dominio DuckDNS
-~/.acme.sh/acme.sh --issue --server letsencrypt -d ${FullDomain} -d sigesass.duckdns.org -d sige.8b54e22e.sslip.io -d sige.139-84-226-46.sslip.io -w /var/www/sige/frontend --force
+~/.acme.sh/acme.sh --issue --server letsencrypt -d ${FullDomain} -w /var/www/sige/frontend --force
 ~/.acme.sh/acme.sh --install-cert -d ${FullDomain} --key-file /var/www/sige/certs/privkey.pem --fullchain-file /var/www/sige/certs/fullchain.pem
 
 # Atualizar Nginx e recarregar
