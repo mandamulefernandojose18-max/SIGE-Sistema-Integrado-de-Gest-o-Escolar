@@ -2699,12 +2699,8 @@ async function carregarAnosLectivos() {
 
 function gerarAnosLectivosFallback() {
   const anoAtual = new Date().getFullYear();
-  return [
-    { ano: anoAtual + 1, status: 'PLANEADO' },
-    { ano: anoAtual, status: 'ACTIVO' },
-    { ano: anoAtual - 1, status: 'ENCERRADO' },
-    { ano: anoAtual - 2, status: 'ENCERRADO' }
-  ];
+  // Sem resposta da API: apenas o ano lectivo real em curso (os seguintes são criados pelo servidor quando chegam)
+  return [{ ano: anoAtual }];
 }
 
 function renderizarSelectoresAnoLectivo() {
@@ -2717,7 +2713,7 @@ function renderizarSelectoresAnoLectivo() {
     (state.anosLectivos || []).forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.ano;
-      opt.textContent = `${item.ano} (${item.status || 'ENCERRADO'})`;
+      opt.textContent = `${item.ano}`;
       sel.appendChild(opt);
     });
     if (valAtual) sel.value = valAtual;

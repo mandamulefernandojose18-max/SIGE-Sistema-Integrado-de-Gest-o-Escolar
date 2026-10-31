@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.5.9",
-  "build": "20261031_1530",
+  "version": "2.5.10",
+  "build": "20261031_1700",
   "data": "2026-10-31",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Definições Anti-IA: número de QR Codes, posição na prova, texto de aviso e pré-visualização da marca de água das provas importadas."
+  "novidades": "Seletores de ano lectivo mostram apenas anos reais (sem anos fictícios nem estados entre parênteses); os novos anos são criados automaticamente."
 }
