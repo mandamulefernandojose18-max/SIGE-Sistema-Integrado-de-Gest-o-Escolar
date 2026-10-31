@@ -3,6 +3,7 @@ SIGE — Módulo de Ferramentas: Gateway SMS, USSD e Pagamentos Móveis
 Central Operacional de Maximização: Envio de SMS, Pagamentos Móveis (M-Pesa / e-Mola),
 Simulador USSD e Especificação Técnica de Engenharia.
 """
+import io
 import os
 import re
 import math
@@ -1500,6 +1501,7 @@ from .services.anti_ai_service import (
     gerar_pdf_prova_codificada_bytes,
     extrair_texto_pdf,
     codificar_ficheiro_no_lugar,
+    extrair_texto_ficheiro,
     gerar_qrcode_legendado_base64,
     nome_ficheiro_protegido,
     url_instrucoes_ia,
@@ -1670,6 +1672,7 @@ def api_provas_anti_ia_codificar(request):
 
     # Codificar o ficheiro importado no próprio formato, sem alterar o aspecto nem a estrutura
     codificado_bytes, codificado_ext = None, ''
+    analise = None
     if original_bytes:
         try:
             data_txt = timezone.localtime(data_bloqueio).strftime("%d/%m/%Y às %H:%M")
@@ -1685,6 +1688,13 @@ def api_provas_anti_ia_codificar(request):
                 'message': 'Não foi possível codificar este ficheiro sem alterar a prova. '
                            'Use PDF ou Word (.docx) — a prova é devolvida igual, apenas codificada.'
             }, status=422))
+        if dados.get('analisar') in ('1', 'true', 'on'):
+            # Análise opcional: o texto fica só em memória e nunca é guardado
+            from .services.analise_prova import analisar
+            try:
+                analise = analisar(extrair_texto_ficheiro(io.BytesIO(original_bytes), original_nome))
+            except Exception:
+                analise = {'erro': 'Não foi possível analisar o texto deste ficheiro (pode ser digitalizado).'}
     del original_bytes  # o original em claro nunca é guardado
 
     # Salvar na base de dados
@@ -1729,6 +1739,7 @@ def api_provas_anti_ia_codificar(request):
             'ficheiro_codificado': True,
             'extensao': codificado_ext,
             'nome_original': original_nome,
+            'analise': analise,
             'url_ia': url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']),
             'qr_ia': gerar_qrcode_legendado_base64(url_instrucoes_ia(resultado_codificacao['codigo_autenticidade'])),
             'pdf_download_url': resultado_codificacao['pdf_download_url'] + '?formato=original',
@@ -2028,6 +2039,39 @@ def _registar_acesso_ia(request, prova, numero_questao):
     )
     if bloqueada:
         ProvaBlindada.objects.filter(pk=prova.pk).update(tentativas_bloqueadas=models.F('tentativas_bloqueadas') + 1)
+
+
+@csrf_exempt
+def api_provas_anti_ia_alertas(request):
+    """
+    GET: alertas por avisar ao professor (acessos à página de instruções de provas ainda bloqueadas).
+    Cada acesso é entregue uma só vez. Professores veem as suas provas; admins da escola veem as da escola.
+    """
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    qs = LogTentativaResolucaoIA.objects.filter(bloqueado=True, notificado=False).select_related('prova')
+    if user.role != 'SUPERADMIN':
+        qs = qs.filter(prova__escola=user.escola)
+        if user.role != 'ADMIN_ESCOLA':
+            qs = qs.filter(prova__criado_por=user)
+    itens = list(qs.order_by('-timestamp')[:20])
+    total = qs.count()
+    ids = list(qs.values_list('id', flat=True))
+    LogTentativaResolucaoIA.objects.filter(id__in=ids).update(notificado=True)
+    padrao = 'Leitura de QR Code / navegador'
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'total': total,
+        'alertas': [{
+            'prova': l.prova.codigo_autenticidade,
+            'titulo': l.prova.titulo,
+            'sistema': l.sistema_identificado,
+            'agente_ia': l.sistema_identificado != padrao,
+            'questao': l.numero_questao,
+            'quando': timezone.localtime(l.timestamp).strftime('%d/%m/%Y %H:%M'),
+        } for l in itens],
+    }))
 
 
 def pagina_ia_prova(request, codigo=None):

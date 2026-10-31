@@ -152,6 +152,7 @@ async function aoSubmeterCodificacaoProva(event) {
       // Envio via FormData
       const formData = new FormData();
       formData.append('ficheiro', inputFile.files[0]);
+      if (document.getElementById('aiAnalisarProva')?.checked) formData.append('analisar', '1');
       formData.append('titulo', titulo);
       formData.append('disciplina', disciplina);
       formData.append('classe', classe);
@@ -290,7 +291,73 @@ function renderizarResultadoFicheiroCodificado(prova) {
     btnQr.textContent = 'Descarregar QR (PNG)';
     card.append(qr, link, btnQr);
   }
+  if (prova.analise) card.appendChild(montarRelatorioAnalise(prova.analise));
   ph.appendChild(card);
+}
+
+/**
+ * Relatório da análise: perguntas genéricas (uma IA resolve de memória) e perguntas já existentes na internet.
+ */
+function montarRelatorioAnalise(analise) {
+  const box = document.createElement('div');
+  box.className = 'text-start border rounded p-3 mt-3 bg-light small';
+  const linha = (rotulo, texto) => {
+    const p = document.createElement('p');
+    p.className = 'mb-2';
+    const b = document.createElement('strong');
+    b.textContent = rotulo + ' ';
+    p.append(b, document.createTextNode(texto));
+    box.appendChild(p);
+  };
+  const h = document.createElement('div');
+  h.className = 'fw-bold mb-2';
+  h.textContent = 'Análise da prova (antes de aplicar)';
+  box.appendChild(h);
+  if (analise.erro) {
+    linha('', analise.erro);
+    return box;
+  }
+  const d = analise.dependencia_da_turma;
+  if (d) {
+    linha('Dependência da turma:', `${d.percentagem_genericas}% das ${d.total_questoes} perguntas são genéricas` +
+      (d.genericas.length ? ` (nº ${d.genericas.join(', ')}).` : '.'));
+    linha('Sugestão:', d.sugestao);
+  }
+  const o = analise.originalidade;
+  if (o && o.disponivel) {
+    linha('Já existem na internet:', o.ja_existem_na_internet.length
+      ? `perguntas nº ${o.ja_existem_na_internet.join(', ')} (verificadas ${o.verificadas}).` : `nenhuma das ${o.verificadas} verificadas.`);
+    linha('Sugestão:', o.sugestao);
+  } else if (o) {
+    linha('Pesquisa na internet:', o.motivo);
+  }
+  return box;
+}
+
+/**
+ * Alertas: avisa o professor quando alguém abre a página de instruções de uma prova ainda bloqueada.
+ */
+async function consultarAlertasProvasAntiIa() {
+  const token = obterTokenSige();
+  if (!token) return;
+  try {
+    const resp = await fetch('/api/v1/ferramentas/provas-anti-ia/alertas/', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!resp.ok) return;
+    const json = await resp.json();
+    (json.alertas || []).slice(0, 3).forEach(a => {
+      const quem = a.agente_ia ? `uma IA (${a.sistema})` : 'um leitor de QR Code ou navegador';
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao(`Prova ${a.prova}: ${quem} abriu a página de instruções às ${a.quando}.`, a.agente_ia ? 'danger' : 'warning');
+      }
+    });
+    if (json.total > 3 && typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao(`Mais ${json.total - 3} acessos a provas bloqueadas. Veja o histórico.`, 'warning');
+    }
+  } catch (e) { /* sem rede: tenta no próximo ciclo */ }
+}
+if (!window.__sigeAlertasProvasIA) {
+  window.__sigeAlertasProvasIA = setInterval(consultarAlertasProvasAntiIa, 60000);
+  setTimeout(consultarAlertasProvasAntiIa, 3000);
 }
 
 /**

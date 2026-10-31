@@ -345,6 +345,7 @@ class LogTentativaResolucaoIA(models.Model):
     user_agent = models.CharField(max_length=255, blank=True, default='')
     sistema_identificado = models.CharField(max_length=100, default='AI Crawler / OCR Scanner')
     bloqueado = models.BooleanField(default=True)
+    notificado = models.BooleanField(default=False, db_index=True, help_text="O professor já foi avisado deste acesso")
     mensagem_resposta = models.TextField(blank=True, default='')
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
