@@ -331,6 +331,41 @@ function renderizarProvaCodificadaNaPreview(prova) {
 /**
  * Descarrega o PDF oficial da prova codificada
  */
+/**
+ * Descarrega um ficheiro da API com o token de sessão (um link directo não envia o Authorization).
+ */
+async function descarregarFicheiroAutenticado(url, nomeFallback) {
+  try {
+    const resp = await fetch(url, {
+      headers: { 'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : '' }
+    });
+    if (!resp.ok) {
+      let msg = 'Erro ao descarregar.';
+      try { msg = (await resp.json()).message || msg; } catch (e) { /* resposta não JSON */ }
+      throw new Error(msg);
+    }
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^";]+)"?/i);
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = m ? m[1] : nomeFallback;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao('Descarregamento da prova codificada concluído!', 'success');
+    }
+  } catch (err) {
+    if (typeof mostrarNotificacao === 'function') {
+      mostrarNotificacao(err.message, 'danger');
+    } else {
+      alert(err.message);
+    }
+  }
+}
+
 function descarregarProvaCodificadaPdfAtual() {
   const prova = window.state.provaAntiIaAtual;
   if (!prova || !prova.id) {
@@ -341,19 +376,7 @@ function descarregarProvaCodificadaPdfAtual() {
   }
 
   const url = prova.pdf_download_url || `/api/v1/ferramentas/provas-anti-ia/${prova.id}/descarregar-pdf/`;
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  if (!prova.ficheiro_codificado) {
-    a.download = `Prova_Blindada_${prova.disciplina}_${prova.classe}_${prova.codigo_autenticidade}.pdf`;
-  }
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  if (typeof mostrarNotificacao === 'function') {
-    mostrarNotificacao('Descarregamento do PDF oficial iniciado com sucesso!', 'success');
-  }
+  descarregarFicheiroAutenticado(url, `Prova_Blindada_${prova.codigo_autenticidade}.pdf`);
 }
 
 /**
@@ -496,9 +519,9 @@ function renderizarTabelaHistoricoProvas(lista) {
         <td class="text-center fw-bold text-danger">${p.tentativas_bloqueadas || 0}</td>
         <td class="text-end">
           <div class="btn-group btn-group-sm">
-            <a href="/api/v1/ferramentas/provas-anti-ia/${p.id}/descarregar-pdf/" target="_blank" class="btn btn-outline-danger" title="Descarregar PDF">
-              <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
-            </a>
+            <button type="button" class="btn btn-outline-danger" onclick="descarregarFicheiroAutenticado('/api/v1/ferramentas/provas-anti-ia/${p.id}/descarregar-pdf/', 'Prova_${p.codigo_autenticidade}')" title="Descarregar prova codificada">
+              <i class="bi bi-download me-1"></i> Prova
+            </button>
             <button type="button" class="btn btn-outline-primary" onclick="abrirDetalheProvaHistorico('${p.id}')" title="Ver Detalhes">
               <i class="bi bi-eye"></i>
             </button>
