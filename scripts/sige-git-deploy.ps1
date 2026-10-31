@@ -22,7 +22,9 @@ param(
     [switch]$OpenBrowser
 )
 
-$ErrorActionPreference = "Stop"
+# "Continue": no PowerShell 5.1 o texto que git/ssh escrevem no stderr (avisos, progresso) seria tratado como erro fatal.
+# O sucesso dos comandos nativos e verificado por $LASTEXITCODE.
+$ErrorActionPreference = "Continue"
 
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
@@ -38,6 +40,7 @@ git add .
 $statusOutput = git status -s
 if ($statusOutput) {
     git commit -m "$Message"
+    if ($LASTEXITCODE -ne 0) { Write-Host "  ERRO: git commit falhou!" -ForegroundColor Red; exit $LASTEXITCODE }
     Write-Host "  OK: Alteracoes comitadas com sucesso!" -ForegroundColor Green
 } else {
     Write-Host "  AVISO: Nenhuma alteracao pendente para commit." -ForegroundColor Yellow
@@ -46,6 +49,7 @@ if ($statusOutput) {
 # 2. GIT PUSH
 Write-Host "[2/5] Enviando alteracoes para o GitHub (git push)..." -ForegroundColor Blue
 git push origin "$Branch"
+if ($LASTEXITCODE -ne 0) { Write-Host "  ERRO: git push falhou!" -ForegroundColor Red; exit $LASTEXITCODE }
 Write-Host "  OK: Push concluido com sucesso!" -ForegroundColor Green
 
 # 3. DEPLOY SEPARADO NA VM
