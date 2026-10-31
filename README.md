@@ -23,6 +23,7 @@ O **SIGE (Sistema Integrado de Gestão Escolar)** é uma plataforma corporativa 
 > - 🗄️ **[Dicionário de Dados e Modelos](docs/DICIONARIO_DE_DADOS.md)**: Catálogo das 17 tabelas, chaves e constraints.
 > - 🔌 **[Catálogo Completo da API REST](docs/REFERENCIA_COMPLETA_API.md)**: Mais de 75 endpoints com métodos e envelopes.
 > - 🚀 **[Guia de Implantação e DevOps](docs/GUIA_DE_IMPLANTACAO_E_DEVOPS.md)**: Docker, CI/CD, deploy Cloud e guardrail de US$ 6/mês.
+> - 🤖 **[Guia de Migração para Claude](docs/MIGRACAO_CLAUDE.md)**: Configuração do Claude Code CLI, Claude Desktop com MCP e diretrizes do [CLAUDE.md](CLAUDE.md).
 
 ---
 

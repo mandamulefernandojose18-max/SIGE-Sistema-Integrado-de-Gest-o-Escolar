@@ -1235,3 +1235,12 @@ umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para 
   - **Dimensionamento Milimétrico em PDF Paisagem (`pdf_service.gerar_pauta_pdf`):** Encaixe exato na folha A4 Horizontal (28,7 cm úteis) com auto-ajuste adaptativo de fontes (de 6.0pt a 5.0pt) e larguras de subcoluna escalonadas para turmas com $n \le 8$, $8 < n \le 11$ ou $n > 11$ disciplinas, impedindo cortes de margens ou sobreposição de textos.
   - **Interface Web SPA Flexível:** Grelhas de caderneta e pauta com redimensionamento responsivo e `min-width` dinâmico proporcional ao número de disciplinas, com rolagem horizontal suave e cabeçalho fixo.
 
+---
+
+## 20. Governança e Operação com Agentes de IA (Claude e Gemini)
+
+O SIGE dispõe de infraestrutura nativa e padronizada para operação por agentes de Inteligência Artificial:
+- **CLAUDE.md e .claude/**: Suporte completo ao **Claude Code CLI**, **Claude Desktop (MCP)** e **Claude Projects**, com slash commands embutidos (/deploy, /sync-docs, /budget-check, /test), validação de permissões e conexões MCP com PostgreSQL e Filesystem.
+- **AGENTS.md e .agents/**: Suporte ao Google Antigravity e agentes baseados em Gemini com skills de governança, deploy desacoplado e teto orçamentário.
+- **Regras Inquebráveis Unificadas**: Todos os agentes operam sob as mesmas diretrizes inquebráveis de ocultação total de IPs, orçamento estrito de US$ 6/mês, proibição absoluta de dados fictícios, interface em cascata $\\mathcal{O}(1)$ para $ cadernetas e sincronização contínua de documentação.
+- **Consulte o guia detalhado:** [docs/MIGRACAO_CLAUDE.md](MIGRACAO_CLAUDE.md).

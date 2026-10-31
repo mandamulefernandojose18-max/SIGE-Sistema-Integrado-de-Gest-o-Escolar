@@ -20,6 +20,7 @@ flowchart TD
     Dados["🗄️ Dicionário de Dados & ORM<br>DICIONARIO_DE_DADOS.md"]
     Api["🔌 Catálogo Completo da API REST<br>REFERENCIA_COMPLETA_API.md"]
     DevOps["🚀 Guia de Implantação & DevOps<br>GUIA_DE_IMPLANTACAO_E_DEVOPS.md"]
+    Claude["🤖 Migração para Claude<br>MIGRACAO_CLAUDE.md"]
 
     Hub --> Master
     Hub --> Arq
@@ -28,6 +29,7 @@ flowchart TD
     Hub --> Dados
     Hub --> Api
     Hub --> DevOps
+    Hub --> Claude
 ```
 
 ---
@@ -43,6 +45,7 @@ flowchart TD
 | **[🗄️ Dicionário de Dados e Modelos](DICIONARIO_DE_DADOS.md)** | Especificação exaustiva das 18 tabelas relacionais (`sige_*`), campos, tipos de dados, chaves primárias UUID, restrições compostas (`UniqueConstraint`), verificações matemáticas (`CheckConstraint`) e políticas RLS. | DBAs, Desenvolvedores Backend |
 | **[🔌 Catálogo Completo de Endpoints da API](REFERENCIA_COMPLETA_API.md)** | Referência RESTful exaustiva com mais de 75 endpoints, métodos HTTP, envelopes JSON de resposta padronizados, códigos de status e permissões necessárias. | Desenvolvedores Frontend, Integradores de API |
 | **[🚀 Guia de Implantação e DevOps](GUIA_DE_IMPLANTACAO_E_DEVOPS.md)** | Execução local, orquestração Docker Compose, pipeline CI/CD no GitHub Actions, deploy automatizado na Cloud VM com Nginx/HTTPS Let's Encrypt e conformidade com o Guardrail de Orçamento de US\$ 6/mês. | Engenheiros DevOps, SysAdmins |
+| **[🤖 Guia de Migração para Claude](MIGRACAO_CLAUDE.md)** | Configuração de agentes Claude (Claude Code CLI, Claude Desktop com MCP, Claude Projects), guardrails do projeto, comandos slash e settings operacionais. | Engenheiros de IA, Desenvolvedores |
 
 ---
 

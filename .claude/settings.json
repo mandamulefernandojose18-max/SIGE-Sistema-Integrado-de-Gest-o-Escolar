@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "powershell -Command *",
+      "git status",
+      "git log*",
+      "git diff*",
+      "python manage.py test*",
+      "pytest*"
+    ],
+    "deny": [
+      "*curl http://[0-9]*",
+      "*http://[0-9]*",
+      "*https://[0-9]*"
+    ]
+  },
+  "preferredShell": "powershell"
+}
