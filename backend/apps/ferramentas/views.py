@@ -1587,6 +1587,8 @@ def api_provas_anti_ia_codificar(request):
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
 
     user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
     # Permite professores, pedagogos, admins escolares e superadmin
     escola = getattr(request, 'tenant', None)
     if not escola and user and hasattr(user, 'escola') and user.escola:

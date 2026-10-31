@@ -28,6 +28,13 @@ def _pdf():
     return b.getvalue()
 
 
+def test_codificar_e_descarregar_exigem_sessao(duas_escolas):
+    anonimo = APIClient()
+    res = anonimo.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf())}, format='multipart')
+    assert res.status_code == 401
+    assert ProvaBlindada.objects.count() == 0
+
+
 def test_importar_pdf_devolve_o_mesmo_pdf_codificado(duas_escolas):
     c = _cliente(duas_escolas)
     res = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf())}, format='multipart')

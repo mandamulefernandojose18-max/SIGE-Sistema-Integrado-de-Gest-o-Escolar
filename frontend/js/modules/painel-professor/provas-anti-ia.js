@@ -1,4 +1,4 @@
-// =====================================================================
+﻿// =====================================================================
 // SIGE - MÓDULO DE BLINDAGEM ANTI-IA DE PROVAS E AVALIAÇÕES (JS)
 // Codificação por QR Code e Código de Barras com Bloqueio Temporal
 // =====================================================================
@@ -163,7 +163,7 @@ async function aoSubmeterCodificacaoProva(event) {
       response = await fetch('/api/v1/ferramentas/provas-anti-ia/codificar/', {
         method: 'POST',
         headers: {
-          'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : ''
+          'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : ''
         },
         body: formData
       });
@@ -201,7 +201,7 @@ async function aoSubmeterCodificacaoProva(event) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : ''
+          'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : ''
         },
         body: JSON.stringify(payload)
       });
@@ -247,12 +247,25 @@ async function aoSubmeterCodificacaoProva(event) {
 /**
  * Prova importada: não se refaz nem se pré-visualiza; devolve-se o mesmo ficheiro, apenas codificado.
  */
+function ajustarBarraResultado(importado, ext) {
+  const btn = document.getElementById('btnDescarregarPdfOficial');
+  if (!btn) return;
+  const imprimir = btn.nextElementSibling;
+  if (imprimir) imprimir.style.display = importado ? 'none' : '';
+  const icone = importado ? 'bi-download' : 'bi-file-earmark-pdf-fill';
+  const rotulo = importado ? `Descarregar prova codificada (${ext})` : 'Descarregar Prova Codificada (.pdf)';
+  btn.innerHTML = `<i class="bi ${icone} me-2"></i>${rotulo}`;
+}
+
 function renderizarResultadoFicheiroCodificado(prova) {
+  const ext = (prova.extensao || '').replace('.', '').toUpperCase();
+  ajustarBarraResultado(true, ext);
+  document.getElementById('previewTituloExame').textContent = 'Prova codificada';
+  document.getElementById('previewSubtituloExame').textContent = 'A prova foi mantida igual, apenas codificada contra IA.';
   document.getElementById('folhaProvaConteudoDinamico').style.display = 'none';
   const ph = document.getElementById('previewEmptyPlaceholder');
   ph.style.display = 'block';
   ph.innerHTML = '';
-  const ext = (prova.extensao || '').replace('.', '').toUpperCase();
   const card = document.createElement('div');
   card.className = 'text-center p-4';
   const titulo = document.createElement('h5');
@@ -260,11 +273,7 @@ function renderizarResultadoFicheiroCodificado(prova) {
   const info = document.createElement('p');
   info.className = 'text-muted';
   info.textContent = `${prova.nome_original} — a prova foi mantida igual (${ext}), apenas codificada contra IA até ${formatarDataHora(prova.data_bloqueio_ia)}. Código: ${prova.codigo_autenticidade}`;
-  const btn = document.createElement('button');
-  btn.className = 'btn btn-danger';
-  btn.textContent = `Descarregar prova codificada (${ext})`;
-  btn.onclick = descarregarProvaCodificadaPdfAtual;
-  card.append(titulo, info, btn);
+  card.append(titulo, info);
   ph.appendChild(card);
 }
 
@@ -272,6 +281,7 @@ function renderizarResultadoFicheiroCodificado(prova) {
  * Renderiza a prova codificada na Aba de Pré-visualização
  */
 function renderizarProvaCodificadaNaPreview(prova) {
+  ajustarBarraResultado(false, '');
   document.getElementById('previewEmptyPlaceholder').style.display = 'none';
   document.getElementById('folhaProvaConteudoDinamico').style.display = 'block';
 
@@ -334,11 +344,21 @@ function renderizarProvaCodificadaNaPreview(prova) {
 /**
  * Descarrega um ficheiro da API com o token de sessão (um link directo não envia o Authorization).
  */
+function obterTokenSige() {
+  return (window.state && window.state.token)
+    || sessionStorage.getItem('sige_token')
+    || localStorage.getItem('sige_token')
+    || '';
+}
+
 async function descarregarFicheiroAutenticado(url, nomeFallback) {
   try {
-    const resp = await fetch(url, {
-      headers: { 'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : '' }
-    });
+    const pedir = (token) => fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+    let resp = await pedir(obterTokenSige());
+    if (resp.status === 401 && typeof renovarTokenAcesso === 'function') {
+      const novo = await renovarTokenAcesso();  // token expirado: renova e tenta de novo
+      if (novo) resp = await pedir(novo);
+    }
     if (!resp.ok) {
       let msg = 'Erro ao descarregar.';
       try { msg = (await resp.json()).message || msg; } catch (e) { /* resposta não JSON */ }
@@ -414,7 +434,7 @@ async function executarSimulacaoAntiIa() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : ''
+        'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : ''
       },
       body: JSON.stringify({
         numero_questao: questaoNum,
@@ -466,7 +486,7 @@ async function carregarHistoricoProvasAntiIa() {
   try {
     const res = await fetch('/api/v1/ferramentas/provas-anti-ia/lista/', {
       headers: {
-        'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : ''
+        'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : ''
       }
     });
 
@@ -547,7 +567,7 @@ async function abrirDetalheProvaHistorico(provaId) {
   try {
     const res = await fetch(`/api/v1/ferramentas/provas-anti-ia/${provaId}/detalhe/`, {
       headers: {
-        'Authorization': (window.state && window.state.token) ? `Bearer ${window.state.token}` : ''
+        'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : ''
       }
     });
     const json = await res.json();
