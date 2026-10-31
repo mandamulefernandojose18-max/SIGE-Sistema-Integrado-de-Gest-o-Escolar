@@ -153,55 +153,36 @@ def _autenticar_pedido(request):
     if not token and 'token' in request.GET:
         token = request.GET.get('token')
 
-    if token:
-        segredo = getattr(settings, 'JWT_SECRET_KEY', getattr(settings, 'SECRET_KEY', 'sige_super_secret_jwt_key_enterprise_2026_xpto!'))
-        try:
-            payload = jwt.decode(token, segredo, algorithms=['HS256'])
-            user_id = payload.get('user_id') or payload.get('id')
-            if user_id:
-                u = Usuario.objects.filter(id=user_id).first()
-                if u:
-                    return u
-            role = payload.get('role')
-            if role:
-                mock_user = type('MockUser', (), {
-                    'is_authenticated': True,
-                    'role': role,
-                    'nome': payload.get('nome', 'Utilizador'),
-                    'email': payload.get('email', ''),
-                    'escola': None
-                })()
-                return mock_user
-        except Exception:
-            pass
+    if not token:
+        return None
 
-    test_role = request.headers.get('X-User-Role') or request.META.get('HTTP_X_USER_ROLE')
-    if test_role:
-        mock_user = type('MockUser', (), {
-            'is_authenticated': True,
-            'role': test_role,
-            'nome': 'Utilizador Teste',
-            'email': 'teste@sige.com',
-            'escola': None
-        })()
-        return mock_user
-
-    return None
+    # Só tokens SimpleJWT válidos (assinatura e expiração); nunca utilizadores sintéticos.
+    try:
+        from rest_framework_simplejwt.tokens import AccessToken
+        user_id = AccessToken(token).get('user_id')
+    except Exception:
+        return None
+    u = Usuario.objects.filter(id=user_id).first() if user_id else None
+    if not u or not getattr(u, 'is_active', True):
+        return None
+    # Quem não é SUPERADMIN tem de pertencer a uma escola, caso contrário as listagens ficariam sem filtro.
+    if u.role != 'SUPERADMIN' and not u.escola_id:
+        return None
+    return u
 
 def _obter_escola_do_pedido(request, user):
     """
-    Retorna a instituição escolar em contexto.
+    Retorna a instituição escolar em contexto: a do utilizador; só o SUPERADMIN pode escolher outra.
     """
-    from common.utils.tenant import get_tenant_escola
-    try:
-        esc = get_tenant_escola(request)
-        if esc:
-            return esc
-    except Exception:
-        pass
-    if hasattr(user, 'escola') and user.escola:
+    if getattr(user, 'escola', None):
         return user.escola
-    return Escola.objects.first()
+    if getattr(user, 'role', None) == 'SUPERADMIN':
+        from common.utils.tenant import get_tenant_escola
+        try:
+            return get_tenant_escola(request)
+        except Exception:
+            return None
+    return None
 
 def _aplicar_cabecalhos_seguranca(response):
     response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -818,6 +799,13 @@ def api_reconciliacao_sms_webhook(request):
     if request.method != 'POST':
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método POST esperado.'}, status=405))
 
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    escola = _obter_escola_do_pedido(request, user)
+    if not escola:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Escola não identificada.'}, status=403))
+
     try:
         dados = json.loads(request.body.decode('utf-8'))
     except Exception:
@@ -825,7 +813,6 @@ def api_reconciliacao_sms_webhook(request):
 
     texto_sms = (dados.get('message') or dados.get('text') or dados.get('content') or dados.get('sms') or '').strip()
     remetente = (dados.get('from') or dados.get('sender') or 'MPESA').strip()
-    escola = Escola.objects.first()
 
     if not texto_sms:
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Texto da mensagem SMS não fornecido.'}, status=400))
@@ -854,7 +841,7 @@ def api_reconciliacao_sms_webhook(request):
     nome_origem = match_nome.group(1).strip() if match_nome else ''
 
     # Verificar se já foi processado
-    if ReconciliacaoSmsMovel.objects.filter(codigo_transacao=codigo_ref).exists():
+    if ReconciliacaoSmsMovel.objects.filter(escola=escola, codigo_transacao=codigo_ref).exists():
         return _aplicar_cabecalhos_seguranca(JsonResponse({
             'success': True,
             'status': 'DUPLICADO',
@@ -864,16 +851,16 @@ def api_reconciliacao_sms_webhook(request):
     # Tenta encontrar o aluno
     aluno_candidato = None
     if tel_origem:
-        aluno_candidato = Aluno.objects.filter(contato_responsavel__icontains=tel_origem).first()
+        aluno_candidato = Aluno.objects.filter(escola=escola, contato_responsavel__icontains=tel_origem).first()
 
     if not aluno_candidato and nome_origem:
         partes = nome_origem.split()
         if len(partes) >= 2:
-            aluno_candidato = Aluno.objects.filter(nome__icontains=partes[0], apelido__icontains=partes[-1]).first()
+            aluno_candidato = Aluno.objects.filter(escola=escola, nome__icontains=partes[0], apelido__icontains=partes[-1]).first()
 
     # Procurar matrícula se constar no texto
     if not aluno_candidato:
-        for al in Aluno.objects.all()[:100]:
+        for al in Aluno.objects.filter(escola=escola)[:100]:
             if al.matricula and al.matricula.lower() in texto_sms.lower():
                 aluno_candidato = al
                 break
@@ -883,7 +870,7 @@ def api_reconciliacao_sms_webhook(request):
 
     if aluno_candidato:
         # Busca propina pendente
-        qs_pag = Pagamento.objects.filter(aluno=aluno_candidato, status='PENDENTE')
+        qs_pag = Pagamento.objects.filter(escola=escola, aluno=aluno_candidato, status='PENDENTE')
         pagamento_candidato = qs_pag.filter(valor=valor).first() or qs_pag.first()
         if pagamento_candidato:
             pagamento_liquidado = pagamento_candidato
@@ -1709,17 +1696,34 @@ def api_provas_anti_ia_codificar(request):
     }))
 
 
+def _prova_do_pedido(request, prova_id):
+    """
+    Devolve (prova, None) se o utilizador autenticado pode aceder à prova (da sua escola, ou SUPERADMIN);
+    caso contrário (None, resposta de erro). Quem não é da escola recebe 404, sem confirmar a existência.
+    """
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return None, _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    qs = ProvaBlindada.objects.all()
+    if user.role != 'SUPERADMIN':
+        qs = qs.filter(escola=user.escola)
+    try:
+        if len(prova_id) == 36 and '-' in prova_id:
+            return qs.get(id=prova_id), None
+        return qs.get(codigo_autenticidade=prova_id), None
+    except (ProvaBlindada.DoesNotExist, ValueError):
+        return None, _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+
+
 @csrf_exempt
 def api_provas_anti_ia_listar(request):
     """GET: Lista as provas blindadas registradas."""
     user = _autenticar_pedido(request)
-    escola = getattr(request, 'tenant', None)
-    if not escola and user and hasattr(user, 'escola') and user.escola:
-        escola = user.escola
-
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
     qs = ProvaBlindada.objects.all()
-    if escola:
-        qs = qs.filter(escola=escola)
+    if user.role != 'SUPERADMIN':
+        qs = qs.filter(escola=user.escola)
 
     total_provas = qs.count()
     agora = timezone.now()
@@ -1760,13 +1764,9 @@ def api_provas_anti_ia_listar(request):
 @csrf_exempt
 def api_provas_anti_ia_detalhe(request, prova_id):
     """GET: Detalhes de uma prova codificada por ID ou Código de Autenticidade."""
-    try:
-        if len(prova_id) == 36 and '-' in prova_id:
-            prova = ProvaBlindada.objects.get(id=prova_id)
-        else:
-            prova = ProvaBlindada.objects.get(codigo_autenticidade=prova_id)
-    except ProvaBlindada.DoesNotExist:
-        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+    prova, erro = _prova_do_pedido(request, prova_id)
+    if erro:
+        return erro
 
     return _aplicar_cabecalhos_seguranca(JsonResponse({
         'success': True,
@@ -1794,13 +1794,9 @@ def api_provas_anti_ia_detalhe(request, prova_id):
 @csrf_exempt
 def api_provas_anti_ia_descarregar_pdf(request, prova_id):
     """GET: Descarrega o PDF oficial da prova já 100% codificada."""
-    try:
-        if len(prova_id) == 36 and '-' in prova_id:
-            prova = ProvaBlindada.objects.get(id=prova_id)
-        else:
-            prova = ProvaBlindada.objects.get(codigo_autenticidade=prova_id)
-    except ProvaBlindada.DoesNotExist:
-        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+    prova, erro = _prova_do_pedido(request, prova_id)
+    if erro:
+        return erro
 
     nome_escola = "Escola Secundária"
     if prova.escola and prova.escola.nome:
@@ -1836,13 +1832,9 @@ def api_provas_anti_ia_simular_ia(request, prova_id):
     POST: Simula o que uma Inteligência Artificial (ChatGPT, Gemini, Claude)
     faz ao tentar resolver a questão a partir da foto/escaneamento do QR Code.
     """
-    try:
-        if len(prova_id) == 36 and '-' in prova_id:
-            prova = ProvaBlindada.objects.get(id=prova_id)
-        else:
-            prova = ProvaBlindada.objects.get(codigo_autenticidade=prova_id)
-    except ProvaBlindada.DoesNotExist:
-        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Prova não encontrada.'}, status=404))
+    prova, erro = _prova_do_pedido(request, prova_id)
+    if erro:
+        return erro
 
     body = {}
     try:

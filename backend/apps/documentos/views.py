@@ -529,7 +529,7 @@ def calcular_desempenho_documento(dados_disc, grau_ano=None, tipo='BOLETIM'):
     return media_global, avaliacao
 
 class BoletimView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -549,7 +549,7 @@ class BoletimView(APIView):
         })
 
 class BoletimPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -573,7 +573,7 @@ class BoletimPDFView(APIView):
         return response
 
 class BoletimDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -595,7 +595,7 @@ class BoletimDOCXView(APIView):
         return response
 
 class BoletimXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -617,7 +617,7 @@ class BoletimXLSXView(APIView):
         return response
 
 class DeclaracaoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -636,7 +636,7 @@ class DeclaracaoView(APIView):
         })
 
 class DeclaracaoPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -666,7 +666,7 @@ class DeclaracaoPDFView(APIView):
         return response
 
 class DeclaracaoDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -694,7 +694,7 @@ class DeclaracaoDOCXView(APIView):
         return response
 
 class DeclaracaoXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -722,7 +722,7 @@ class DeclaracaoXLSXView(APIView):
         return response
 
 class CertificadoImpressaoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -743,7 +743,7 @@ class CertificadoImpressaoView(APIView):
         })
 
 class CertificadoPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -776,7 +776,7 @@ class CertificadoPDFView(APIView):
         return response
 
 class CertificadoDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -807,7 +807,7 @@ class CertificadoDOCXView(APIView):
         return response
 
 class CertificadoXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -927,7 +927,7 @@ def _compilar_documentos_lote(request, turma, escola, tipo):
     return documentos
 
 class LoteImpressaoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -953,7 +953,7 @@ class LoteImpressaoView(APIView):
         return Response(retorno)
 
 class LoteXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -981,7 +981,7 @@ class LoteXLSXView(APIView):
         return response
 
 class LotePDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -1009,7 +1009,7 @@ class LotePDFView(APIView):
         return response
 
 class LoteDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -1037,7 +1037,7 @@ class LoteDOCXView(APIView):
         return response
 
 class LoteZIPView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -1101,7 +1101,7 @@ class LoteZIPView(APIView):
         return response
 
 class ReciboImpressaoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
@@ -1196,7 +1196,7 @@ class ReciboImpressaoView(APIView):
         })
 
 class ReciboPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
@@ -1211,7 +1211,7 @@ class ReciboPDFView(APIView):
         return response
 
 class ReciboDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
@@ -1226,7 +1226,7 @@ class ReciboDOCXView(APIView):
         return response
 
 class FichaAlunoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -1280,7 +1280,7 @@ class FichaAlunoView(APIView):
         })
 
 class FichaPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
@@ -1294,7 +1294,7 @@ class FichaPDFView(APIView):
         return response
 
 class FichaDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)

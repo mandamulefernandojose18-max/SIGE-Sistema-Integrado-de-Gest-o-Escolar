@@ -34,14 +34,5 @@ def get_tenant_escola(request):
     if not escola and user and getattr(user, 'is_authenticated', False):
         escola = getattr(user, 'escola', None)
 
-    if not escola:
-        tenant_id = (
-            request.headers.get('X-Tenant-ID')
-            or (hasattr(request, 'query_params') and (request.query_params.get('escola_id') or request.query_params.get('tenant_id')))
-            or (hasattr(request, 'GET') and (request.GET.get('escola_id') or request.GET.get('tenant_id')))
-            or (isinstance(getattr(request, 'data', None), dict) and (request.data.get('escola_id') or request.data.get('escola')))
-        )
-        if tenant_id:
-            escola = Escola.objects.filter(id=tenant_id).first()
-
+    # Quem não é SUPERADMIN nunca escolhe a escola pelo pedido: sem escola própria, não há tenant.
     return escola

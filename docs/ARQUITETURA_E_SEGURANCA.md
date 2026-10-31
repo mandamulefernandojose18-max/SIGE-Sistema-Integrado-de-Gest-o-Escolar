@@ -247,3 +247,13 @@ Em estrita conformidade com os princípios de confiabilidade jurídica e auditor
 - O CI corre `makemigrations --check` e exige cobertura mínima de 55% (`--cov-fail-under`).
 - O hook `post-commit` já não faz push nem deploy automaticamente: só com `SIGE_AUTO_PUSH=1`. A publicação deliberada faz-se com `scripts/sige-git-deploy.ps1`.
 - Testes novos: `test_config_seguranca.py` (hosts, CORS, throttling) e `test_isolamento_cadastros.py` (turmas, professores e alunos entre escolas).
+
+## Correcções de autenticação e isolamento (auditoria multi-tenant)
+
+- `apps/ferramentas`: `_autenticar_pedido` aceita apenas tokens SimpleJWT válidos. Foram removidos o header `X-User-Role`, o utilizador sintético e o segredo fixo no código. Quem não é SUPERADMIN tem de ter escola, e o fallback `Escola.objects.first()` deixou de existir.
+- O webhook de SMS (`reconciliacao/sms-webhook/`) exige autenticação e filtra alunos, pagamentos e reconciliações pela escola do utilizador.
+- Provas blindadas: listar, detalhe, PDF e simulação exigem login e só devolvem provas da escola do utilizador (outra escola dá 404). A verificação por código continua pública.
+- Documentos (`/impressao/`), pautas, actas, cadernetas e material escolar passaram de `AllowAny` para `IsAuthenticated`. O frontend já envia o Bearer nos descarregamentos.
+- `get_tenant_escola` e o equivalente do material escolar deixaram de aceitar `X-Tenant-ID`/`escola_id` de quem não é SUPERADMIN.
+- Parâmetros e permissões de exames: apenas a direcção (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`) pode alterar, e o utilizador sem role já não conta como gestão.
+- Frontend: o cartão de material escolar em `app.js` escapa os dados da API e usa `data-*` nos botões.

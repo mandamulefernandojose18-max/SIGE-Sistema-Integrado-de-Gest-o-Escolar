@@ -468,7 +468,7 @@ class CadernetaCompletaView(APIView):
 from rest_framework.permissions import AllowAny
 
 class CadernetaPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, alocacao_id):
         from apps.documentos.services.pdf_service import gerar_caderneta_pdf
@@ -482,7 +482,7 @@ class CadernetaPDFView(APIView):
 
 
 class CadernetaXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, alocacao_id):
         from apps.documentos.services.excel_service import gerar_caderneta_xlsx
@@ -496,7 +496,7 @@ class CadernetaXLSXView(APIView):
 
 
 class CadernetaDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, alocacao_id):
         from apps.documentos.services.docx_service import gerar_caderneta_docx

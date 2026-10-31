@@ -18857,7 +18857,7 @@ function filtrarMateriaisEscolares() {
       ? `${(m.tamanho_bytes / 1024).toFixed(1)} KB` 
       : `${(m.tamanho_bytes / (1024 * 1024)).toFixed(1)} MB`) : '';
 
-    const discNome = m.disciplina?.nome || 'Geral';
+    const discNome = escapeHtml(m.disciplina?.nome || 'Geral');
 
     return `
       <div class="col-md-6 col-lg-4">
@@ -18865,34 +18865,34 @@ function filtrarMateriaisEscolares() {
           <div class="card-body p-3 d-flex flex-column justify-content-between">
             <div>
               <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                <span class="badge bg-primary text-white fw-bold px-2 py-1 rounded">${m.classe}</span>
-                <span class="badge bg-light text-dark border px-2 py-1 rounded">${m.tipo || 'MANUAL'}</span>
+                <span class="badge bg-primary text-white fw-bold px-2 py-1 rounded">${escapeHtml(m.classe)}</span>
+                <span class="badge bg-light text-dark border px-2 py-1 rounded">${escapeHtml(m.tipo || 'MANUAL')}</span>
               </div>
 
               <div class="d-flex align-items-center gap-2 mb-2">
                 ${icone}
                 <div class="overflow-hidden">
-                  <h6 class="fw-bold mb-0 text-truncate" title="${m.titulo}">${m.titulo}</h6>
+                  <h6 class="fw-bold mb-0 text-truncate" title="${escapeHtml(m.titulo)}">${escapeHtml(m.titulo)}</h6>
                   <span class="badge bg-info-subtle text-info-emphasis small">${discNome}</span>
                 </div>
               </div>
 
-              ${m.descricao ? `<p class="small text-muted mb-2 text-truncate-2" style="font-size: 0.82rem;">${m.descricao}</p>` : ''}
+              ${m.descricao ? `<p class="small text-muted mb-2 text-truncate-2" style="font-size: 0.82rem;">${escapeHtml(m.descricao)}</p>` : ''}
               
               <div class="small text-muted d-flex align-items-center justify-content-between border-top pt-2 mt-2" style="font-size: 0.75rem;">
-                <span class="text-truncate" title="${m.nome_arquivo || ''}">
-                  <i class="bi bi-paperclip me-1"></i>${m.nome_arquivo || 'Ficheiro'} ${tamStr ? `(${tamStr})` : ''}
+                <span class="text-truncate" title="${escapeHtml(m.nome_arquivo || '')}">
+                  <i class="bi bi-paperclip me-1"></i>${escapeHtml(m.nome_arquivo || 'Ficheiro')} ${tamStr ? `(${tamStr})` : ''}
                 </span>
                 <span><i class="bi bi-calendar3 me-1"></i>${new Date(m.createdAt).toLocaleDateString('pt-MZ')}</span>
               </div>
             </div>
 
             <div class="d-flex gap-2 mt-3 pt-2 border-top">
-              <button type="button" class="btn btn-outline-primary btn-sm w-100 fw-bold" onclick="descarregarMaterialEscolarArquivo('${m.id}', '${(m.nome_arquivo || m.titulo || 'material').replace(/'/g, "\\'")}')">
+              <button type="button" class="btn btn-outline-primary btn-sm w-100 fw-bold" data-id="${escapeHtml(m.id)}" data-nome="${escapeHtml(m.nome_arquivo || m.titulo || 'material')}" onclick="descarregarMaterialEscolarArquivo(this.dataset.id, this.dataset.nome)">
                 <i class="bi bi-cloud-arrow-down-fill me-1"></i> Descarregar
               </button>
               ${!isAluno ? `
-                <button class="btn btn-outline-danger btn-sm px-2" onclick="eliminarMaterialEscolar('${m.id}', '${m.titulo.replace(/'/g, "\\'")}')" title="Eliminar material">
+                <button class="btn btn-outline-danger btn-sm px-2" data-id="${escapeHtml(m.id)}" data-titulo="${escapeHtml(m.titulo)}" onclick="eliminarMaterialEscolar(this.dataset.id, this.dataset.titulo)" title="Eliminar material">
                   <i class="bi bi-trash"></i>
                 </button>
               ` : ''}

@@ -476,7 +476,7 @@ class PautaGerarView(APIView):
         })
 
 class PautaCompletaView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -538,7 +538,7 @@ class PautaCompletaView(APIView):
         return Response(retorno)
 
 class PautaPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -555,7 +555,7 @@ class PautaPDFView(APIView):
         return response
 
 class PautaXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -572,7 +572,7 @@ class PautaXLSXView(APIView):
         return response
 
 class PautaDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -589,7 +589,7 @@ class PautaDOCXView(APIView):
         return response
 
 class ActaPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -619,7 +619,7 @@ class ActaPDFView(APIView):
         return response
 
 class ActaDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -649,7 +649,7 @@ class ActaDOCXView(APIView):
         return response
 
 class ActaXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -679,7 +679,7 @@ class ActaXLSXView(APIView):
         return response
 
 class PautaExportJSONView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         turma, escola = _obter_turma_e_escola(request, turma_id)
@@ -954,7 +954,7 @@ def compilar_estatisticas_gerais_escola(escola, ano_letivo='2026', periodo='GLOB
     }
 
 class PautasEstatisticasGeraisView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from common.utils.tenant import get_tenant_escola
@@ -972,7 +972,7 @@ class PautasEstatisticasGeraisView(APIView):
         })
 
 class PautasEstatisticasGeraisXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from common.utils.tenant import get_tenant_escola
@@ -997,7 +997,7 @@ class PautasEstatisticasGeraisXLSXView(APIView):
 # =====================================================================
 
 class PautaExamesView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         from common.utils.tenant import get_tenant_escola
@@ -1177,7 +1177,7 @@ class PautaExamesView(APIView):
 
 
 class PautaExamesXLSXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         from common.utils.tenant import get_tenant_escola
@@ -1203,7 +1203,7 @@ class PautaExamesXLSXView(APIView):
 
 
 class PautaExamesPDFView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         from common.utils.tenant import get_tenant_escola
@@ -1229,7 +1229,7 @@ class PautaExamesPDFView(APIView):
 
 
 class PautaExamesDOCXView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, turma_id):
         from common.utils.tenant import get_tenant_escola
@@ -1259,15 +1259,11 @@ class ParametrosExamesView(APIView):
     Endpoint para consultar e definir percentagens da nota de frequência, nota de exame
     e nota mínima de exame da instituição escolar (ou padrão MEC).
     """
-    permission_classes = [AllowAny]  # Validação manual por token/tenant ou AllowAny para flexibilidade
+    permission_classes = [IsAuthenticated]  # Validação manual por token/tenant ou AllowAny para flexibilidade
 
     def get(self, request):
         from common.utils.tenant import get_tenant_escola
         escola = get_tenant_escola(request)
-        if not escola:
-            # Fallback para primeira escola ativa
-            from apps.tenants.models import Escola
-            escola = Escola.objects.first()
 
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
@@ -1281,12 +1277,15 @@ class ParametrosExamesView(APIView):
     def post(self, request):
         from common.utils.tenant import get_tenant_escola
         escola = get_tenant_escola(request)
-        if not escola:
-            from apps.tenants.models import Escola
-            escola = Escola.objects.first()
 
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
+
+        if getattr(request.user, 'role', '') not in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'):
+            return Response({
+                'success': False,
+                'message': 'Apenas a direcção da escola pode alterar os parâmetros de exame.'
+            }, status=403)
 
         peso_freq = request.data.get('peso_frequencia')
         peso_exame = request.data.get('peso_exame')
@@ -1339,24 +1338,21 @@ class ProfessoresAutorizadosExamesView(APIView):
     Competência primária: Director Pedagógico (DAP) ou Direcção da Escola.
     Todas as classes com exame da instituição ficam automaticamente disponíveis.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from common.utils.tenant import get_tenant_escola
         from apps.professores.models import Professor
         from apps.pautas.services import obter_classes_com_exame_escola
-        from apps.tenants.models import Escola
 
         escola = get_tenant_escola(request)
-        if not escola:
-            escola = Escola.objects.first()
 
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
 
         user = getattr(request, 'user', None)
         user_role = getattr(user, 'role', '') if user else ''
-        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP')
 
         # 1. Classes e Disciplinas com exame da escola disponíveis automaticamente
         classes_exame = obter_classes_com_exame_escola(escola)
@@ -1403,21 +1399,18 @@ class ProfessoresAutorizadosExamesView(APIView):
 
     def post(self, request):
         from common.utils.tenant import get_tenant_escola
-        from apps.tenants.models import Escola
         from django.utils import timezone
 
         escola = get_tenant_escola(request)
-        if not escola:
-            escola = Escola.objects.first()
 
         if not escola:
             return Response({'success': False, 'message': 'Nenhuma instituição encontrada.'}, status=404)
 
         user = getattr(request, 'user', None)
         user_role = getattr(user, 'role', '') if user else ''
-        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', '')
+        is_gestao = user_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP')
 
-        if user and getattr(user, 'is_authenticated', False) and not is_gestao:
+        if not is_gestao:
             return Response({
                 'success': False,
                 'message': 'Apenas o Director Pedagógico ou administradores da escola podem configurar permissões de professores para lançamento de exames.'

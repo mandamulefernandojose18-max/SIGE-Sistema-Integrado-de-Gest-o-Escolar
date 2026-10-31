@@ -451,8 +451,12 @@ def test_api_liquidar_pagamento_manual(client, superadmin_user, aluno_teste, pag
 
 
 @pytest.mark.django_db
-def test_api_reconciliacao_sms_webhook_mpesa(client, aluno_teste, pagamento_pendente_teste):
+def test_api_reconciliacao_sms_webhook_mpesa(client, escola_teste, aluno_teste, pagamento_pendente_teste):
     """Testa processamento de SMS oficial de confirmação do M-Pesa recebido no telemóvel da escola."""
+    admin = Usuario.objects.create_user(
+        email='admin.sms@sige.mz', password='PassSms123!', role='ADMIN_ESCOLA', escola=escola_teste,
+    )
+    client.force_login(admin)
     sms_texto_real = (
         "Confirmado. Recebeu 1,200.00MT de 841234567 - ARMANDO GUEBUZA aos 18/10/2026 as 10:20. "
         "Ref: PP261018.1023.A12345. Saldo actual: 25,400.00MT."

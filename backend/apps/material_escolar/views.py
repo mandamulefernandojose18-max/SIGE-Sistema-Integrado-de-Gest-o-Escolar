@@ -46,16 +46,7 @@ def get_tenant_escola_from_request(request):
     if not escola and user and getattr(user, 'is_authenticated', False):
         escola = getattr(user, 'escola', None)
 
-    if not escola:
-        tenant_id = (
-            request.headers.get('X-Tenant-ID')
-            or (hasattr(request, 'query_params') and (request.query_params.get('escola_id') or request.query_params.get('tenant_id')))
-            or (hasattr(request, 'GET') and (request.GET.get('escola_id') or request.GET.get('tenant_id')))
-            or (isinstance(getattr(request, 'data', None), dict) and (request.data.get('escola_id') or request.data.get('escola')))
-        )
-        if tenant_id:
-            escola = Escola.objects.filter(id=tenant_id).first()
-
+    # Quem não é SUPERADMIN nunca escolhe a escola pelo pedido.
     return escola
 
 CLASSES_MOCAMBIQUE = [
@@ -67,11 +58,6 @@ CLASSES_MOCAMBIQUE = [
 class MaterialEscolarViewSet(viewsets.ModelViewSet):
     serializer_class = MaterialEscolarSerializer
     permission_classes = [IsAuthenticated]
-
-    def get_permissions(self):
-        if getattr(self, 'action', None) in ['download', 'list', 'retrieve']:
-            return [AllowAny()]
-        return super().get_permissions()
 
     def get_queryset(self):
         escola = get_tenant_escola_from_request(self.request)
@@ -144,11 +130,10 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         super().destroy(request, *args, **kwargs)
         return Response({'success': True, 'message': 'Material excluído com sucesso.'})
 
-    @action(detail=True, methods=['get'], url_path='download', permission_classes=[AllowAny])
+    @action(detail=True, methods=['get'], url_path='download', permission_classes=[IsAuthenticated])
     def download(self, request, pk=None):
-        material = MaterialEscolar.objects.defer('conteudo_base64').select_related('escola', 'disciplina').filter(id=pk).first()
-        if not material:
-            material = self.get_object()
+        # get_object() aplica o filtro por escola de get_queryset(): material de outra escola dá 404.
+        material = self.get_object()
         from django.db.models.functions import Length, Substr
         b64_chunks = []
         total_len = (

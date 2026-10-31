@@ -27,6 +27,10 @@ class TestRecibosPagamentoStatus:
             status='ATIVA',
             plano=self.saas_plano
         )
+        self.admin = Usuario.objects.create_user(
+            email='admin.recibos@sige.mz', password='PassRec123!', role='ADMIN_ESCOLA', escola=self.escola
+        )
+        self.client.force_authenticate(user=self.admin)
         self.turma = Turma.objects.create(
             escola=self.escola,
             nome='10ª A',
