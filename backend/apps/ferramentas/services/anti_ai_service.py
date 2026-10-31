@@ -54,7 +54,11 @@ def _carregar_fonte(tamanho: int, negrito: bool = False):
                 return ImageFont.truetype(caminho, tamanho)
             except Exception:
                 continue
-    return None
+    try:
+        # Sem fontes no sistema (ex.: imagem Docker mínima): fonte incorporada no Pillow, para o texto nunca faltar
+        return ImageFont.load_default(size=tamanho)
+    except Exception:
+        return None
 
 
 def extrair_texto_pdf(ficheiro) -> str:

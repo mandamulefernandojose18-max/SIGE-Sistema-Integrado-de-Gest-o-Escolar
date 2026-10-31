@@ -55,6 +55,15 @@ def test_legenda_predefinida_manda_a_ia_parar_e_ler_o_qr_e_pode_ser_esvaziada():
     assert vazia['legenda_qr'] == ''
 
 
+def test_instrucao_aparece_por_baixo_do_qr_mesmo_sem_fontes_no_sistema(monkeypatch):
+    """No servidor (Docker slim) não há fontes TrueType: a legenda não pode desaparecer em silêncio."""
+    from apps.ferramentas.services import anti_ai_service as svc
+    monkeypatch.setattr(svc, '_FONTES_CANDIDATAS', {False: [], True: []})
+    com, razao_com = svc._png_qr_marca_agua('https://sigesaas.duckdns.org/ia/X/', {**DEFINICOES_PADRAO})
+    _, razao_sem = svc._png_qr_marca_agua('https://sigesaas.duckdns.org/ia/X/', {**DEFINICOES_PADRAO, 'legenda_qr': ''})
+    assert razao_com > razao_sem + 0.2  # há texto por baixo do QR
+
+
 def test_valores_invalidos_sao_recusados(duas_escolas):
     c = _cliente()
     res = c.put(URL, {'qr_quantidade': 500, 'qr_lado_cm': 'x', 'posicao': 'NO_CEU', 'legenda_qr': 'a' * 61}, format='json')

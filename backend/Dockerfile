@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     zlib1g-dev \
     libfreetype6-dev \
+    fonts-liberation \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
