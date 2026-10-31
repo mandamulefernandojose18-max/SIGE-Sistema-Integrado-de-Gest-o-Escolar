@@ -218,8 +218,9 @@ def codificar_ficheiro_no_lugar(dados: bytes, nome: str, data: str, url: str = '
     return None, ''
 
 
-QR_MARCA_LADO_CM = 2.2
-QR_MARCA_PASSO_CM = 6.0
+QR_MARCA_LADO_CM = 1.4
+QR_MARCA_PASSO_CM = 3.4
+QR_MARCA_OPACIDADE = 150  # 0-255
 
 
 def _png_qr_marca_agua(url: str) -> bytes:
@@ -229,7 +230,7 @@ def _png_qr_marca_agua(url: str) -> bytes:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white").convert("L")
     rgba = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    rgba.putalpha(img.point(lambda v: 80 if v < 128 else 0))
+    rgba.putalpha(img.point(lambda v: QR_MARCA_OPACIDADE if v < 128 else 0))
     buf = io.BytesIO()
     rgba.save(buf, format="PNG")
     return buf.getvalue()
