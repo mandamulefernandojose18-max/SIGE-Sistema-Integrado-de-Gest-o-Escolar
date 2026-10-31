@@ -208,7 +208,15 @@ async function aoSubmeterCodificacaoProva(event) {
       });
     }
 
-    const resJson = await response.json();
+    let resJson;
+    try {
+      resJson = await response.json();
+    } catch (_) {
+      // O servidor devolveu HTML (ex.: 502 enquanto o sistema está a ser actualizado), não JSON
+      throw new Error(response.status >= 500
+        ? 'O servidor está temporariamente indisponível (pode estar a actualizar). Aguarde um minuto e tente novamente.'
+        : 'Resposta inesperada do servidor. Tente novamente.');
+    }
 
     if (!response.ok || !resJson.success) {
       throw new Error(resJson.message || 'Falha ao codificar prova.');
