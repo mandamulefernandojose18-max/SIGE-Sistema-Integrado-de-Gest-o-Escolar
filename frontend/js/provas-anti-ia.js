@@ -628,6 +628,9 @@ function renderizarTabelaHistoricoProvas(lista) {
             <button type="button" class="btn btn-outline-primary" onclick="abrirDetalheProvaHistorico('${p.id}')" title="Ver Detalhes">
               <i class="bi bi-eye"></i>
             </button>
+            <button type="button" class="btn btn-outline-secondary text-danger" onclick="eliminarProvaHistorico('${p.id}')" title="Eliminar prova">
+              <i class="bi bi-trash"></i>
+            </button>
           </div>
         </td>
       </tr>
@@ -644,6 +647,27 @@ function filtrarTabelaProvasAntiIa(termo) {
            p.classe.toLowerCase().includes(busca);
   });
   renderizarTabelaHistoricoProvas(filtrados);
+}
+
+async function eliminarProvaHistorico(provaId) {
+  const prova = (window.state.provasAntiIaHistorico || []).find(p => p.id === provaId);
+  const nome = prova ? `"${prova.titulo}" (${prova.codigo_autenticidade})` : 'esta prova';
+  const aviso = prova && prova.bloqueada
+    ? '\n\nA prova ainda está bloqueada: os QR já impressos continuam a avisar as IAs, mas o ficheiro codificado deixa de existir no sistema.'
+    : '';
+  if (!confirm(`Eliminar ${nome} do cofre?${aviso}\n\nEsta acção não pode ser desfeita.`)) return;
+  try {
+    const res = await fetch(`/api/v1/ferramentas/provas-anti-ia/${provaId}/eliminar/`, {
+      method: 'DELETE',
+      headers: { 'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : '' }
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) throw new Error(json.message || 'Não foi possível eliminar a prova.');
+    if (window.state.provaAntiIaAtual && window.state.provaAntiIaAtual.id === provaId) window.state.provaAntiIaAtual = null;
+    await carregarHistoricoProvasAntiIa();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function abrirDetalheProvaHistorico(provaId) {

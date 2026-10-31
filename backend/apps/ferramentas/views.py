@@ -1849,6 +1849,28 @@ def api_provas_anti_ia_detalhe(request, prova_id):
 
 
 @csrf_exempt
+def api_provas_anti_ia_eliminar(request, prova_id):
+    """
+    DELETE: elimina uma prova codificada do cofre (ficheiro codificado e registo de tentativas incluídos).
+    Só a escola dona a vê (outras recebem 404); professores eliminam apenas as suas, admins da escola e
+    SUPERADMIN qualquer uma da escola. O QR já impresso continua a abrir a página pública de bloqueio genérica.
+    """
+    if request.method != 'DELETE':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+    prova, erro = _prova_do_pedido(request, prova_id)
+    if erro:
+        return erro
+    user = _autenticar_pedido(request)
+    if user.role not in ('SUPERADMIN', 'ADMIN_ESCOLA') and prova.criado_por_id != user.id:
+        return _aplicar_cabecalhos_seguranca(JsonResponse(
+            {'success': False, 'message': 'Só pode eliminar as provas que codificou.'}, status=403))
+    codigo, id_prova = prova.codigo_autenticidade, str(prova.id)
+    prova.delete()
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True, 'message': 'Prova eliminada.', 'data': {'id': id_prova, 'codigo_autenticidade': codigo}}))
+
+
+@csrf_exempt
 def api_provas_anti_ia_descarregar_pdf(request, prova_id):
     """GET: Descarrega o PDF oficial da prova já 100% codificada."""
     prova, erro = _prova_do_pedido(request, prova_id)

@@ -20,6 +20,12 @@ def _cliente(duas_escolas):
     return c
 
 
+def _cliente_de(email, senha):
+    c = APIClient()
+    c.credentials(HTTP_AUTHORIZATION=f"Bearer {_token(c, email, senha)}")
+    return c
+
+
 def _pdf():
     b = io.BytesIO()
     c = canvas.Canvas(b)
@@ -65,6 +71,34 @@ def test_pdf_e_docx_levam_varios_qr_como_marca_de_agua(duas_escolas):
     cab = docx.Document(io.BytesIO(out)).sections[0].header._element
     ancoras = cab.xpath('.//wp:anchor')
     assert len(ancoras) > 3 and all(a.get('behindDoc') == '1' for a in ancoras)
+
+
+def test_eliminar_prova_respeita_escola_e_autoria(duas_escolas):
+    from apps.accounts.models import Usuario
+    a, b = duas_escolas
+    Usuario.objects.create_user(email='prof1.fa@sige.mz', password='PassP1123!', role='PROFESSOR', escola=a)
+    Usuario.objects.create_user(email='prof2.fa@sige.mz', password='PassP2123!', role='PROFESSOR', escola=a)
+    Usuario.objects.create_user(email='admin.fb@sige.mz', password='PassFb123!', role='ADMIN_ESCOLA', escola=b)
+
+    def codificar(cli):
+        r = cli.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf())}, format='multipart')
+        return r.json()['data']['id']
+
+    p1 = _cliente_de('prof1.fa@sige.mz', 'PassP1123!')
+    p2 = _cliente_de('prof2.fa@sige.mz', 'PassP2123!')
+    admin = _cliente(duas_escolas)
+    eliminar = lambda cli, pid: cli.delete(f'/api/v1/ferramentas/provas-anti-ia/{pid}/eliminar/')
+
+    prova = codificar(p1)
+    assert APIClient().delete(f'/api/v1/ferramentas/provas-anti-ia/{prova}/eliminar/').status_code == 401
+    assert eliminar(_cliente_de('admin.fb@sige.mz', 'PassFb123!'), prova).status_code == 404  # outra escola
+    assert eliminar(p2, prova).status_code == 403                                             # colega que não é autor
+    assert ProvaBlindada.objects.filter(id=prova).exists()
+    assert eliminar(p1, prova).status_code == 200 and not ProvaBlindada.objects.filter(id=prova).exists()
+
+    outra = codificar(p1)
+    assert eliminar(admin, outra).status_code == 200  # admin da escola elimina qualquer prova da escola
+    assert p1.get('/api/v1/ferramentas/provas-anti-ia/lista/').json()['data'] == []
 
 
 def test_importar_docx_devolve_docx_e_formato_invalido_e_recusado(duas_escolas):

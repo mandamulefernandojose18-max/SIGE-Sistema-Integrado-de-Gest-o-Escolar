@@ -25,6 +25,7 @@ from .views import (
     api_provas_anti_ia_alertas,
     api_provas_anti_ia_definicoes,
     api_provas_anti_ia_definicoes_previa,
+    api_provas_anti_ia_eliminar,
 )
 
 urlpatterns = [
@@ -88,6 +89,7 @@ urlpatterns = [
     path('provas-anti-ia/definicoes/previa/', api_provas_anti_ia_definicoes_previa, name='api_provas_anti_ia_definicoes_previa'),
     path('provas-anti-ia/lista', api_provas_anti_ia_listar, name='api_provas_anti_ia_listar_sem_barra'),
     path('provas-anti-ia/lista/', api_provas_anti_ia_listar, name='api_provas_anti_ia_listar'),
+    path('provas-anti-ia/<str:prova_id>/eliminar/', api_provas_anti_ia_eliminar, name='api_provas_anti_ia_eliminar'),
     path('provas-anti-ia/<str:prova_id>/detalhe', api_provas_anti_ia_detalhe, name='api_provas_anti_ia_detalhe_sem_barra'),
     path('provas-anti-ia/<str:prova_id>/detalhe/', api_provas_anti_ia_detalhe, name='api_provas_anti_ia_detalhe'),
     path('provas-anti-ia/<str:prova_id>/descarregar-pdf', api_provas_anti_ia_descarregar_pdf, name='api_provas_anti_ia_descarregar_pdf_sem_barra'),
