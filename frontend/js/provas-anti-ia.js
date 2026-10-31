@@ -216,7 +216,11 @@ async function aoSubmeterCodificacaoProva(event) {
     window.state.provaAntiIaAtual = resJson.data;
 
     // Renderizar prova codificada
-    renderizarProvaCodificadaNaPreview(resJson.data);
+    if (resJson.data.ficheiro_codificado) {
+      renderizarResultadoFicheiroCodificado(resJson.data);
+    } else {
+      renderizarProvaCodificadaNaPreview(resJson.data);
+    }
 
     // Alternar para a aba de pré-visualização e download
     alternarAbaProvasAntiIa('tab-preview-prova');
@@ -238,6 +242,30 @@ async function aoSubmeterCodificacaoProva(event) {
     btnSubmit.disabled = false;
     btnSubmit.innerHTML = originalHtml;
   }
+}
+
+/**
+ * Prova importada: não se refaz nem se pré-visualiza; devolve-se o mesmo ficheiro, apenas codificado.
+ */
+function renderizarResultadoFicheiroCodificado(prova) {
+  document.getElementById('folhaProvaConteudoDinamico').style.display = 'none';
+  const ph = document.getElementById('previewEmptyPlaceholder');
+  ph.style.display = 'block';
+  ph.innerHTML = '';
+  const ext = (prova.extensao || '').replace('.', '').toUpperCase();
+  const card = document.createElement('div');
+  card.className = 'text-center p-4';
+  const titulo = document.createElement('h5');
+  titulo.textContent = 'Prova codificada';
+  const info = document.createElement('p');
+  info.className = 'text-muted';
+  info.textContent = `${prova.nome_original} — a prova foi mantida igual (${ext}), apenas codificada contra IA até ${formatarDataHora(prova.data_bloqueio_ia)}. Código: ${prova.codigo_autenticidade}`;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-danger';
+  btn.textContent = `Descarregar prova codificada (${ext})`;
+  btn.onclick = descarregarProvaCodificadaPdfAtual;
+  card.append(titulo, info, btn);
+  ph.appendChild(card);
 }
 
 /**
@@ -312,11 +340,13 @@ function descarregarProvaCodificadaPdfAtual() {
     return;
   }
 
-  const url = `/api/v1/ferramentas/provas-anti-ia/${prova.id}/descarregar-pdf/`;
+  const url = prova.pdf_download_url || `/api/v1/ferramentas/provas-anti-ia/${prova.id}/descarregar-pdf/`;
   const a = document.createElement('a');
   a.href = url;
   a.target = '_blank';
-  a.download = `Prova_Blindada_${prova.disciplina}_${prova.classe}_${prova.codigo_autenticidade}.pdf`;
+  if (!prova.ficheiro_codificado) {
+    a.download = `Prova_Blindada_${prova.disciplina}_${prova.classe}_${prova.codigo_autenticidade}.pdf`;
+  }
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

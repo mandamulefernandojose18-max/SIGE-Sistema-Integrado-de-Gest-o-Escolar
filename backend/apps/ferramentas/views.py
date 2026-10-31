@@ -1499,8 +1499,8 @@ from .services.anti_ai_service import (
     processar_e_codificar_prova,
     gerar_pdf_prova_codificada_bytes,
     extrair_texto_pdf,
-    extrair_texto_ficheiro,
     codificar_ficheiro_no_lugar,
+    FORMATOS_CODIFICAVEIS_NO_LUGAR,
     gerar_docx_prova_codificada_bytes,
     gerar_xlsx_prova_codificada_bytes,
     gerar_html_prova_codificada_bytes,
@@ -1601,20 +1601,14 @@ def api_provas_anti_ia_codificar(request):
             ficheiro = request.FILES.get('ficheiro')
             texto_extraido = ""
             if ficheiro:
-                original_bytes, original_nome = ficheiro.read(), ficheiro.name
-                ficheiro.seek(0)
-                try:
-                    texto_extraido = extrair_texto_ficheiro(ficheiro, ficheiro.name)
-                except Exception:
-                    texto_extraido = ""
-                if not texto_extraido.strip():
+                # Prova importada: só se codifica o próprio ficheiro; o texto nunca é extraído nem guardado
+                if os.path.splitext(ficheiro.name.lower())[1] not in FORMATOS_CODIFICAVEIS_NO_LUGAR:
                     return _aplicar_cabecalhos_seguranca(JsonResponse({
                         'success': False,
-                        'message': 'Não foi possível ler texto do ficheiro (formato não suportado ou documento digitalizado). '
-                                   f"Formatos aceites: {', '.join(EXTENSOES_IMPORTAVEIS)}."
+                        'message': 'Formato não suportado. Importe a prova em PDF ou Word (.docx); '
+                                   'também são aceites .xlsx, .html, .rtf, .txt, .md e .csv.'
                     }, status=400))
-            if texto_extraido:
-                dados['texto_prova'] = texto_extraido
+                original_bytes, original_nome = ficheiro.read(), ficheiro.name
         else:
             dados = json.loads(request.body.decode('utf-8') or '{}')
     except Exception as e:
@@ -1643,6 +1637,8 @@ def api_provas_anti_ia_codificar(request):
 
     # Processar questões
     questoes_lista = dados.get('questoes') or []
+    if original_bytes:
+        questoes_lista = [{'numero': 1, 'enunciado': '', 'cotacao': 20.0}]  # só para o código de autenticidade
     if not questoes_lista:
         texto_prova = dados.get('texto_prova') or ''
         if texto_prova:
@@ -1675,6 +1671,13 @@ def api_provas_anti_ia_codificar(request):
             codificado_bytes, codificado_ext = codificar_ficheiro_no_lugar(original_bytes, original_nome, data_txt)
         except Exception:
             codificado_bytes, codificado_ext = None, ''
+        if not codificado_bytes:
+            # Nunca refazer a prova: se não for possível codificar o ficheiro tal como está, recusa-se.
+            return _aplicar_cabecalhos_seguranca(JsonResponse({
+                'success': False,
+                'message': 'Não foi possível codificar este ficheiro sem alterar a prova. '
+                           'Use PDF ou Word (.docx) — a prova é devolvida igual, apenas codificada.'
+            }, status=422))
     del original_bytes  # o original em claro nunca é guardado
 
     # Salvar na base de dados
@@ -1696,16 +1699,31 @@ def api_provas_anti_ia_codificar(request):
             chave_temporal=resultado_codificacao['chave_temporal'],
             total_questoes=resultado_codificacao['total_questoes'],
             cotacao_total=resultado_codificacao['cotacao_total'],
-            questoes=resultado_codificacao['questoes'],
+            questoes=[] if codificado_bytes else resultado_codificacao['questoes'],
             orientacoes=resultado_codificacao['orientacoes'],
             status='BLOQUEADA' if timezone.now() < data_bloqueio else 'LIBERADA'
         )
         resultado_codificacao['id'] = str(prova.id)
     except Exception as e:
+        if codificado_bytes:
+            return _aplicar_cabecalhos_seguranca(JsonResponse({
+                'success': False, 'message': 'Não foi possível guardar a prova codificada. Tente novamente.'}, status=500))
         # Se houver erro de persistência, ainda retorna o payload codificado para não travar a experiência do usuário
         resultado_codificacao['id'] = resultado_codificacao['codigo_autenticidade']
 
     resultado_codificacao['pdf_download_url'] = f"/api/v1/ferramentas/provas-anti-ia/{resultado_codificacao['id']}/descarregar-pdf/"
+    if codificado_bytes:
+        # Prova importada: o resultado é o próprio ficheiro codificado, no mesmo formato
+        resultado_codificacao = {
+            'id': resultado_codificacao['id'],
+            'codigo_autenticidade': resultado_codificacao['codigo_autenticidade'],
+            'titulo': titulo, 'disciplina': disciplina, 'classe': classe,
+            'data_bloqueio_ia': data_bloqueio.isoformat(),
+            'ficheiro_codificado': True,
+            'extensao': codificado_ext,
+            'nome_original': original_nome,
+            'pdf_download_url': resultado_codificacao['pdf_download_url'] + '?formato=original',
+        }
 
     return _aplicar_cabecalhos_seguranca(JsonResponse({
         'success': True,
@@ -1842,7 +1860,8 @@ def api_provas_anti_ia_descarregar_pdf(request, prova_id):
         ext = prova.ficheiro_extensao or '.bin'
         conteudo = bytes(prova.ficheiro_codificado)
         res = HttpResponse(conteudo, content_type='application/octet-stream')
-        res['Content-Disposition'] = f'attachment; filename="Prova_Codificada_{prova.codigo_autenticidade}{ext}"'
+        base = re.sub(r'[^A-Za-z0-9_-]+', '_', os.path.splitext(prova.titulo or '')[0]) or 'Prova'
+        res['Content-Disposition'] = f'attachment; filename="{base}_codificada{ext}"'
         res['Content-Length'] = len(conteudo)
         return _aplicar_cabecalhos_seguranca(res)
     if formato not in FORMATOS_EXPORTACAO:
