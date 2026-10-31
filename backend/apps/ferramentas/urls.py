@@ -23,6 +23,8 @@ from .views import (
     api_provas_anti_ia_simular_ia,
     api_provas_anti_ia_verificar,
     api_provas_anti_ia_alertas,
+    api_provas_anti_ia_definicoes,
+    api_provas_anti_ia_definicoes_previa,
 )
 
 urlpatterns = [
@@ -82,6 +84,8 @@ urlpatterns = [
     path('provas-anti-ia/codificar', api_provas_anti_ia_codificar, name='api_provas_anti_ia_codificar_sem_barra'),
     path('provas-anti-ia/codificar/', api_provas_anti_ia_codificar, name='api_provas_anti_ia_codificar'),
     path('provas-anti-ia/alertas/', api_provas_anti_ia_alertas, name='api_provas_anti_ia_alertas'),
+    path('provas-anti-ia/definicoes/', api_provas_anti_ia_definicoes, name='api_provas_anti_ia_definicoes'),
+    path('provas-anti-ia/definicoes/previa/', api_provas_anti_ia_definicoes_previa, name='api_provas_anti_ia_definicoes_previa'),
     path('provas-anti-ia/lista', api_provas_anti_ia_listar, name='api_provas_anti_ia_listar_sem_barra'),
     path('provas-anti-ia/lista/', api_provas_anti_ia_listar, name='api_provas_anti_ia_listar'),
     path('provas-anti-ia/<str:prova_id>/detalhe', api_provas_anti_ia_detalhe, name='api_provas_anti_ia_detalhe_sem_barra'),

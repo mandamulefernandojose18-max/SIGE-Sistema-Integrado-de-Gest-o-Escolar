@@ -1495,7 +1495,7 @@ def prompt_gateway_api(request):
 # BLINDAGEM ANTI-IA DE PROVAS E AVALIAÇÕES - CONTROLLERS / VIEWS
 # =====================================================================
 from django.db import models
-from .models import ProvaBlindada, LogTentativaResolucaoIA
+from .models import ProvaBlindada, LogTentativaResolucaoIA, ConfiguracaoAntiIA
 from .services.anti_ai_service import (
     processar_e_codificar_prova,
     gerar_pdf_prova_codificada_bytes,
@@ -1678,7 +1678,8 @@ def api_provas_anti_ia_codificar(request):
             data_txt = timezone.localtime(data_bloqueio).strftime("%d/%m/%Y às %H:%M")
             codificado_bytes, codificado_ext = codificar_ficheiro_no_lugar(
                 original_bytes, original_nome, data_txt,
-                url=url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']))
+                url=url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']),
+                cfg=_definicoes_da_escola(escola))
         except Exception:
             codificado_bytes, codificado_ext = None, ''
         if not codificado_bytes:
@@ -2039,6 +2040,80 @@ def _registar_acesso_ia(request, prova, numero_questao):
     )
     if bloqueada:
         ProvaBlindada.objects.filter(pk=prova.pk).update(tentativas_bloqueadas=models.F('tentativas_bloqueadas') + 1)
+
+
+def _definicoes_da_escola(escola) -> dict:
+    """Definições Anti-IA em vigor na escola (as predefinidas se ainda não personalizou)."""
+    from .services.anti_ai_service import DEFINICOES_PADRAO
+    registo = ConfiguracaoAntiIA.objects.filter(escola=escola).first() if escola else None
+    return registo.como_dict() if registo else dict(DEFINICOES_PADRAO)
+
+
+def _json_definicoes(request):
+    try:
+        return json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return None
+
+
+@csrf_exempt
+def api_provas_anti_ia_definicoes(request):
+    """
+    GET: definições Anti-IA da escola (nº de QR, posição, tamanho, opacidade, legenda e texto do aviso).
+    PUT: grava-as; só ADMIN_ESCOLA e SUPERADMIN.
+    """
+    from .services.anti_ai_service import POSICOES_QR, LIMITES_DEFINICOES, normalizar_definicoes
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    escola = _obter_escola_do_pedido(request, user)
+    if not escola:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Escola não identificada.'}, status=400))
+    pode_editar = user.role in ('ADMIN_ESCOLA', 'SUPERADMIN')
+
+    if request.method == 'PUT':
+        if not pode_editar:
+            return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Sem permissão para alterar as definições.'}, status=403))
+        dados = _json_definicoes(request)
+        if dados is None:
+            return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Pedido inválido.'}, status=400))
+        cfg, erros = normalizar_definicoes(dados)
+        if erros:
+            return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Definições inválidas.', 'erros': erros}, status=400))
+        ConfiguracaoAntiIA.objects.update_or_create(escola=escola, defaults={**cfg, 'atualizado_por': user})
+    elif request.method != 'GET':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'data': _definicoes_da_escola(escola),
+        'opcoes': {'posicoes': POSICOES_QR, 'limites': LIMITES_DEFINICOES},
+        'pode_editar': pode_editar,
+    }))
+
+
+@csrf_exempt
+def api_provas_anti_ia_definicoes_previa(request):
+    """POST: pré-visualização (sem gravar) da marca de água e do texto com as definições enviadas."""
+    from .services.anti_ai_service import normalizar_definicoes, gerar_previa_marca_agua, texto_aviso_primeiro, url_instrucoes_ia
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    dados = _json_definicoes(request)
+    if dados is None:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Pedido inválido.'}, status=400))
+    cfg, erros = normalizar_definicoes(dados)
+    if erros:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Definições inválidas.', 'erros': erros}, status=400))
+    url = url_instrucoes_ia('PREVIA')
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True,
+        'imagem': gerar_previa_marca_agua(cfg, url),
+        'texto_aviso': texto_aviso_primeiro(cfg, 'DD/MM/AAAA às HH:MM', url),
+        'legenda_qr': cfg['legenda_qr'],
+    }))
 
 
 @csrf_exempt

@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.5.7",
-  "build": "20261031_1230",
-  "data": "2026-10-29",
+  "version": "2.5.8",
+  "build": "20261031_1500",
+  "data": "2026-10-31",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Menu lateral com Área Pedagógica expansível em acordeão toggle: o 1º clique exibe as 7 páginas pedagógicas na lateral e o 2º clique fecha o submenu."
+  "novidades": "Definições Anti-IA: número de QR Codes, posição na prova, texto de aviso e pré-visualização da marca de água das provas importadas."
 }
