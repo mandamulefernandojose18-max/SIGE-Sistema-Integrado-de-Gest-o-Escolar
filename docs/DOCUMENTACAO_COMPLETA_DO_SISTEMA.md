@@ -590,6 +590,10 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - **Alimentação Direta de Documentos:** As notas consolidadas nesta pauta alimentam diretamente o **Certificado de Habilitações** e a **Declaração Escolar com Notas**.
 
 ### Módulo 11.2: Blindagem Anti-IA de Provas & Avaliações com QR Code, Código de Barras e Time-Lock (`#view-provas-anti-ia`)
+
+> **Importação de PDF e PDF codificado (camada avançada):** o PDF importado é lido com `pypdf` (PDFs só de imagem são recusados com mensagem clara); o cabeçalho e avisos de IA já existentes são ignorados na extracção das questões. No PDF codificado, o **enunciado é rasterizado** (sem texto seleccionável), cada questão leva um **aviso invisível à IA** na camada de texto, e todas as páginas levam aviso visível, aviso invisível e microtexto de rastreio com o código da prova. O aviso ordena que nenhum modelo resolva, dê exemplos semelhantes, explicações, fórmulas, pistas ou conceitos relacionados até à data de libertação. É dissuasão: não garante bloqueio contra modelos de visão.
+>
+> **Vários formatos:** importa `.pdf, .docx, .xlsx, .odt, .html, .htm, .rtf, .txt, .md, .csv` (imagens e digitalizações sem texto são recusadas, não há OCR). Exporta com a mesma codificação em `GET /api/v1/ferramentas/provas-anti-ia/<id>/descarregar-pdf/?formato=pdf|docx|xlsx|html`. No Word: cabeçalho e rodapé com aviso, texto branco de 1 pt antes de cada questão, texto alternativo das imagens e propriedades do documento. No Excel: aviso em células, comentário e propriedades. No HTML: `meta`, comentário e texto fora do ecrã.
 - **Quem usa:** `DIRECTOR_ESCOLA`, `DAP`, `PROFESSOR`, `DT` e `SUPERADMIN`.
 - **Como aceder:** Clique em **"Blindagem Anti-IA de Provas"** na barra lateral de navegação (categoria *Área Pedagógica* ou *Espaço do Docente*).
 - **Conceito & Solução de Segurança Académica:**

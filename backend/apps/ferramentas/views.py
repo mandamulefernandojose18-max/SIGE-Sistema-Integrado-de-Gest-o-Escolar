@@ -1498,9 +1498,22 @@ from .models import ProvaBlindada, LogTentativaResolucaoIA
 from .services.anti_ai_service import (
     processar_e_codificar_prova,
     gerar_pdf_prova_codificada_bytes,
+    extrair_texto_pdf,
+    extrair_texto_ficheiro,
+    gerar_docx_prova_codificada_bytes,
+    gerar_xlsx_prova_codificada_bytes,
+    gerar_html_prova_codificada_bytes,
+    EXTENSOES_IMPORTAVEIS,
     URL_BASE_SISTEMA
 )
 import re
+
+FORMATOS_EXPORTACAO = {
+    'pdf': (gerar_pdf_prova_codificada_bytes, 'application/pdf'),
+    'docx': (gerar_docx_prova_codificada_bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+    'xlsx': (gerar_xlsx_prova_codificada_bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+    'html': (gerar_html_prova_codificada_bytes, 'text/html; charset=utf-8'),
+}
 
 
 def _extrair_questoes_de_texto(texto: str, cotacao_padrao_total: float = 20.0) -> list:
@@ -1513,6 +1526,9 @@ def _extrair_questoes_de_texto(texto: str, cotacao_padrao_total: float = 20.0) -
     padrao_cotacao = re.compile(r'[\(\[]\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:val(?:ores)?|pontos?|pts?)\s*[\)\]]', re.IGNORECASE)
 
     for linha in linhas:
+        # Ignora avisos de IA já presentes no documento importado (repetidos em cada página)
+        if linha.strip().upper().startswith('AVISO À INTELIGÊNCIA') or linha.strip().startswith('[SIGE ACADEMIC'):
+            continue
         m = padrao_inicio.match(linha)
         if m:
             if questao_atual:
@@ -1532,17 +1548,10 @@ def _extrair_questoes_de_texto(texto: str, cotacao_padrao_total: float = 20.0) -
                 'linhas_resposta': 3
             }
         else:
-            if questao_atual:
-                if linha.strip():
-                    questao_atual['enunciado'] += ' ' + linha.strip()
-            elif linha.strip() and not questoes:
-                # Se não começou com número mas tem texto inicial
-                questao_atual = {
-                    'numero': 1,
-                    'enunciado': linha.strip(),
-                    'cotacao': 2.0,
-                    'linhas_resposta': 3
-                }
+            if questao_atual and linha.strip():
+                # Mantém a quebra de linha para preservar as alíneas A) B) C) D)
+                questao_atual['enunciado'] += '\n' + linha.strip()
+            # Texto antes da 1.ª questão numerada (cabeçalho da prova) é descartado
 
     if questao_atual:
         questoes.append(questao_atual)
@@ -1590,23 +1599,16 @@ def api_provas_anti_ia_codificar(request):
             ficheiro = request.FILES.get('ficheiro')
             texto_extraido = ""
             if ficheiro:
-                nome_arq = ficheiro.name.lower()
-                if nome_arq.endswith('.docx'):
-                    try:
-                        import docx
-                        doc = docx.Document(ficheiro)
-                        texto_extraido = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-                    except Exception as e:
-                        texto_extraido = ""
-                elif nome_arq.endswith('.txt'):
-                    texto_extraido = ficheiro.read().decode('utf-8', errors='ignore')
-                elif nome_arq.endswith('.pdf'):
-                    try:
-                        from reportlab.pdfgen import canvas
-                        # Extração simples se biblioteca estiver disponível
-                        texto_extraido = ficheiro.read().decode('latin-1', errors='ignore')
-                    except Exception:
-                        pass
+                try:
+                    texto_extraido = extrair_texto_ficheiro(ficheiro, ficheiro.name)
+                except Exception:
+                    texto_extraido = ""
+                if not texto_extraido.strip():
+                    return _aplicar_cabecalhos_seguranca(JsonResponse({
+                        'success': False,
+                        'message': 'Não foi possível ler texto do ficheiro (formato não suportado ou documento digitalizado). '
+                                   f"Formatos aceites: {', '.join(EXTENSOES_IMPORTAVEIS)}."
+                    }, status=400))
             if texto_extraido:
                 dados['texto_prova'] = texto_extraido
         else:
@@ -1816,11 +1818,16 @@ def api_provas_anti_ia_descarregar_pdf(request, prova_id):
         'questoes': prova.questoes
     }
 
-    pdf_buffer = gerar_pdf_prova_codificada_bytes(prova_dados, nome_escola=nome_escola)
-    pdf_bytes = pdf_buffer.getvalue()
+    formato = (request.GET.get('formato') or 'pdf').lower()
+    if formato not in FORMATOS_EXPORTACAO:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': False, 'message': f"Formato inválido. Use: {', '.join(FORMATOS_EXPORTACAO)}."
+        }, status=400))
+    gerador, content_type = FORMATOS_EXPORTACAO[formato]
+    pdf_bytes = gerador(prova_dados, nome_escola=nome_escola).getvalue()
 
-    filename = f"Prova_Blindada_{prova.disciplina}_{prova.classe}_{prova.codigo_autenticidade}.pdf".replace(' ', '_')
-    res = HttpResponse(pdf_bytes, content_type='application/pdf')
+    filename = f"Prova_Blindada_{prova.disciplina}_{prova.classe}_{prova.codigo_autenticidade}.{formato}".replace(' ', '_')
+    res = HttpResponse(pdf_bytes, content_type=content_type)
     res['Content-Disposition'] = f'attachment; filename="{filename}"'
     res['Content-Length'] = len(pdf_bytes)
     return _aplicar_cabecalhos_seguranca(res)
