@@ -92,7 +92,23 @@ def _disciplinas_do_aluno(user, ano):
     if area.lower() in _AREAS_COMUNS:
         qs = qs.filter(comuns)
     else:
-        qs = qs.filter(Q(area__iexact=area) | comuns)
+        # Áreas são texto livre ("Ciências", "Ciências e Letras", "CB"...): compara por ramo/sub-área
+        from apps.pautas.services import categorizar_area, normalizar_texto
+        ramo_a, sub_a = categorizar_area(area)
+        alvo = normalizar_texto(area)
+        ids = []
+        for d in qs.only('id', 'area'):
+            da = (d.area or '').strip()
+            if da.lower() in _AREAS_COMUNS:
+                ids.append(d.id)
+                continue
+            ramo_d, sub_d = categorizar_area(da)
+            nd = normalizar_texto(da)
+            if nd == alvo or (nd and (nd in alvo or alvo in nd)):
+                ids.append(d.id)
+            elif ramo_d != 'GERAL' and ramo_d == ramo_a and (sub_d == sub_a or sub_d.endswith('_GERAL') or sub_a.endswith('_GERAL')):
+                ids.append(d.id)
+        qs = qs.filter(id__in=ids)
     do_ano = qs.filter(ano_letivo=str(ano))
     return (do_ano if do_ano.exists() else qs).order_by('nome')
 
