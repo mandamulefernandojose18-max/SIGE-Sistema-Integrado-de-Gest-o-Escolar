@@ -4,5 +4,6 @@
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Novo botão Sincronizar na barra superior: recarrega os dados da página activa a partir do servidor e verifica novas versões."
+  "novidades": "Material escolar do aluno mostra apenas a classe real do ano lectivo."
 }
+

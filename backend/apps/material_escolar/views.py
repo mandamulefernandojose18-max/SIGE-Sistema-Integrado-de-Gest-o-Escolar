@@ -55,6 +55,20 @@ CLASSES_MOCAMBIQUE = [
     '11ª Classe', '12ª Classe'
 ]
 
+def _classes_reais_do_aluno(user):
+    from apps.alunos.models import Aluno
+    from apps.alunos.views_me import _turmas_do_aluno
+    aluno = Aluno.objects.select_related('escola', 'turma').filter(id=getattr(user, 'aluno_id', None)).first()
+    return {t.grau_ano for t in _turmas_do_aluno(aluno)} if aluno else set()
+
+
+def _restringir_ao_aluno(request, qs):
+    """Aluno: apenas material das classes reais em que esteve matriculado (nunca de classes alheias)."""
+    if getattr(request.user, 'role', '') != 'ALUNO':
+        return qs
+    return qs.filter(classe__in=_classes_reais_do_aluno(request.user))
+
+
 class MaterialEscolarViewSet(viewsets.ModelViewSet):
     serializer_class = MaterialEscolarSerializer
     permission_classes = [IsAuthenticated]
@@ -69,6 +83,8 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
             qs = MaterialEscolar.objects.filter(escola=escola)
         else:
             qs = MaterialEscolar.objects.none()
+
+        qs = _restringir_ao_aluno(self.request, qs)
 
         classe = self.request.query_params.get('classe')
         if classe:
@@ -217,10 +233,14 @@ class ClassesMaterialView(APIView):
         else:
             qs = MaterialEscolar.objects.none()
 
+        qs = _restringir_ao_aluno(request, qs)
         contagens = dict(qs.values_list('classe').annotate(total=Count('id')))
         dados = [
             {'classe': c, 'totalMateriais': contagens.get(c, 0)}
             for c in CLASSES_MOCAMBIQUE
         ]
+        if getattr(request.user, 'role', '') == 'ALUNO':
+            # O aluno só vê as classes reais em que esteve matriculado
+            dados = [d for d in dados if d['classe'] in _classes_reais_do_aluno(request.user)]
         return Response({'success': True, 'data': dados})
 
