@@ -1229,6 +1229,7 @@ umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para 
 
 ### 12.8 Caderneta Escolar Oficial do Professor e Lançamento de Notas
 - **Abertura Automática do Botão "Lançar as notas":** Enquanto for um professor a abrir as suas turmas naquele ano lectivo que lhes foi atribuída, a caderneta mostra automaticamente o botão **"Lançar as notas"**.
+- **Correcção (2026-11-01):** o carregamento da caderneta lançava um erro de JavaScript (variáveis `profNome`/`dtNome` usadas antes de declaradas), que interrompia o ecrã antes de mostrar o botão. Corrigido; o botão aparece agora de forma fiável ao abrir qualquer caderneta atribuída ao professor, e o backend continua a devolver apenas as turmas do próprio professor (HTTP 403 nas restantes).
 - **Exclusividade Absoluta do Botão:** O botão **"Lançar as notas"** é visível e utilizável **só e só para o professor (`PROFESSOR`)**. Para qualquer perfil administrativo (DAP, Direcção, Admin, SuperAdmin), o botão é completamente ocultado da interface e protegido no backend por HTTP 403 Forbidden.
 - **Isolamento Estrito das Cadernetas do Professor:** O professor **só e só vê as suas cadernetas das suas turmas atribuídas** naquele ano lectivo. O seletor de outros professores é ocultado e a API restringe alocações, consulta e exportações estritamente ao docente autenticado.
 
