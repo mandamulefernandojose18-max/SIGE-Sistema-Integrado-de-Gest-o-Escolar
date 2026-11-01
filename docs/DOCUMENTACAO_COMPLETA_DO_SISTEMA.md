@@ -483,7 +483,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Gestão de Secções Curriculares:** Botão "+ Nova Secção / Área" permite criar áreas complementares para a classe selecionada.
 - **Gráfico de Ranking de Reprovação (`/disciplinas/ranking-reprovacao`):** Calcula e exibe em gráfico Chart.js as disciplinas com maior índice percentual de notas negativas na escola.
 
-> **Nota (aluno):** a lista de disciplinas do Material Escolar do aluno (`/material-escolar/disciplinas-aluno`) é filtrada pela classe e pela área/secção reais da turma do ano escolhido; a área é comparada por ramo/sub-área (ex.: "Ciências", "Ciências e Letras", "CB"), e as disciplinas gerais/tronco comum entram sempre. Nunca há disciplinas repetidas: registos com o mesmo nome são fundidos numa só entrada (prevalece a da área própria) e o material de todos eles aparece sob essa entrada.
+> **Nota (aluno):** a lista de disciplinas do Material Escolar do aluno (`/material-escolar/disciplinas-aluno`) é filtrada pela classe e pela área/secção reais da turma do ano escolhido; a área é comparada por ramo/sub-área (ex.: "Ciências", "Ciências e Letras", "CB"), e as disciplinas gerais/tronco comum entram sempre. Nunca há disciplinas repetidas: registos com o mesmo nome são fundidos numa só entrada (prevalece a da área própria) e o material de todos eles aparece sob essa entrada. Ao escolher a disciplina, o painel lista automaticamente todos os materiais dela (filtros de tipo/pesquisa são repostos), cada um com o botão **Descarregar**.
 
 ### Módulo 8: Biblioteca Digital de Material Escolar (`#view-material-escolar`)
 - Acervo pedagógico organizado da **1ª à 12ª Classe**, acessível a professores, alunos e direção.

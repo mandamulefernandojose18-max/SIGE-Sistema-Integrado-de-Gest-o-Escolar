@@ -84,8 +84,16 @@ async function selecionarDisciplinaMaterialAluno(disciplinaId) {
     return;
   }
   const ano = String(state.anosPorView?.['material-escolar'] || '');
+  // Ao mudar de disciplina mostra logo todos os materiais dela (sem filtros antigos a esconder resultados)
+  const selTipo = document.getElementById('filtroMaterialTipo');
+  const inpBusca = document.getElementById('filtroMaterialBusca');
+  if (selTipo) selTipo.value = '';
+  if (inpBusca) inpBusca.value = '';
+  if (contador) contador.textContent = 'A carregar...';
+  if (grelha) grelha.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
   try {
     const res = await apiFetch(`/api/v1/material-escolar?disciplina_id=${encodeURIComponent(disciplinaId)}&ano=${encodeURIComponent(ano)}`);
+    if (state.materialEscolar.disciplinaId !== disciplinaId) return; // o aluno já escolheu outra disciplina
     state.materialEscolar.materiais = (res && res.success) ? (res.data || []) : [];
     filtrarMateriaisEscolares();
   } catch (err) {
