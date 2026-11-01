@@ -65,7 +65,7 @@ def _classes_reais_do_aluno(user):
 _AREAS_COMUNS = {'', 'geral', 'ensino geral', 'tronco comum'}
 
 
-def _disciplinas_do_aluno(user, ano):
+def _disciplinas_do_aluno(user, ano, todos_anos=False):
     """Disciplinas da classe e da área/secção em que o aluno estudou no ano indicado."""
     from apps.alunos.models import Aluno
     from apps.alunos.views_me import _turmas_do_aluno
@@ -109,6 +109,8 @@ def _disciplinas_do_aluno(user, ano):
             elif ramo_d != 'GERAL' and ramo_d == ramo_a and (sub_d == sub_a or sub_d.endswith('_GERAL') or sub_a.endswith('_GERAL')):
                 ids.append(d.id)
         qs = qs.filter(id__in=ids)
+    if todos_anos:
+        return qs.order_by('nome')
     do_ano = qs.filter(ano_letivo=str(ano))
     return (do_ano if do_ano.exists() else qs).order_by('nome')
 
@@ -122,6 +124,11 @@ def _disciplinas_unicas_do_aluno(user, ano):
     grupos = {}
     for d in _disciplinas_do_aluno(user, ano):
         grupos.setdefault(_chave_nome_disciplina(d.nome), []).append(d)
+    # O material pode estar ligado à mesma disciplina registada noutro ano lectivo (mesma classe e área)
+    for d in _disciplinas_do_aluno(user, ano, todos_anos=True):
+        lista = grupos.get(_chave_nome_disciplina(d.nome))
+        if lista is not None and all(x.id != d.id for x in lista):
+            lista.append(d)
     resultado = []
     for lista in grupos.values():
         lista.sort(key=lambda d: (d.area or '').strip().lower() in _AREAS_COMUNS)
