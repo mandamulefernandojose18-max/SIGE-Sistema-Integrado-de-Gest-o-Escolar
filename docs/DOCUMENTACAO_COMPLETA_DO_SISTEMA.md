@@ -487,6 +487,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 
 ### Módulo 8: Biblioteca Digital de Material Escolar (`#view-material-escolar`)
 - Acervo pedagógico organizado da **1ª à 12ª Classe**, acessível a professores, alunos e direção.
+- **Menu:** presente no Painel Executivo (Direcção/Escola, secção Área Pedagógica), no Painel Pedagógico, no Painel do Professor (para carregar material) e no Painel do Aluno (consulta/download).
 - **Auto-Seed Inicial:** Inclui 34 manuais e livros escolares oficiais do Sistema Nacional de Educação pré-catalogados.
 - **Upload Local até 15 MB ou Link Externo:** Permite a professores e administradores publicar ficheiros em PDF, Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`), EPUB, ZIP ou imagens, classificados como `MANUAL`, `FICHA`, `LIVRO`, `EXERCICIOS`, `GUIA` ou `APOSTILA`, com download binário direto (`/material-escolar/<id>/download`).
 
