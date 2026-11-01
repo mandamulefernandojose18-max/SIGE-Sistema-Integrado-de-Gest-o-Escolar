@@ -483,6 +483,8 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Gestão de Secções Curriculares:** Botão "+ Nova Secção / Área" permite criar áreas complementares para a classe selecionada.
 - **Gráfico de Ranking de Reprovação (`/disciplinas/ranking-reprovacao`):** Calcula e exibe em gráfico Chart.js as disciplinas com maior índice percentual de notas negativas na escola.
 
+> **Nota (aluno):** a lista de disciplinas do Material Escolar do aluno (`/material-escolar/disciplinas-aluno`) é filtrada pela classe e pela área/secção reais da turma do ano escolhido; a área é comparada por ramo/sub-área (ex.: "Ciências", "Ciências e Letras", "CB"), e as disciplinas gerais/tronco comum entram sempre.
+
 ### Módulo 8: Biblioteca Digital de Material Escolar (`#view-material-escolar`)
 - Acervo pedagógico organizado da **1ª à 12ª Classe**, acessível a professores, alunos e direção.
 - **Auto-Seed Inicial:** Inclui 34 manuais e livros escolares oficiais do Sistema Nacional de Educação pré-catalogados.
@@ -519,6 +521,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Sub-aba 1 — Pauta Geral Oficial da Turma:**
   - Consolida num único mapa todas as disciplinas oficiais da secção/área da turma, apresentando para cada aluno:
     - **Nº de Ordem:** Número sequencial do aluno na turma.
+    - **Código do aluno (`EscolaS0001.Classe.Turma.Ano.area.NN`):** o sufixo `NN` é único em toda a escola/classe/ano/área (qualquer turma) e o código nunca coincide com o de outro aluno, professor, utilizador ou turma. Códigos antigos com sufixo repetido são reatribuídos na sincronização de códigos (o aluno mais antigo mantém o seu).
     - **Nome Completo do Aluno:** Nome próprio e apelido completos sem qualquer omissão ou truncamento em todos os formatos (XLSX, PDF e DOCX), garantido universalmente pela função obter_nome_completo_aluno.
     - **Género (Gén):** Distinção visual padronizada (M / F).
     - **Classificações por Disciplina:** 4 sub-colunas dedicadas por disciplina curricular (1º, 2º, 3º e MFD).

@@ -382,41 +382,56 @@ def gerar_codigo_aluno_oficial(escola=None, classe: str = None, turma=None, ano:
 
     base_prefix = f"{cod_escola}.{cod_classe}.{cod_turma}.{ano_str}.{sigla_area}"
 
-    # Se a matrícula existente já possui o base_prefix e sufixo numérico de ordem, preserva (desde que não colida globalmente)
+    # O número sequencial é único em toda a escola/classe/ano/área (qualquer turma),
+    # para que nenhum sufixo coincida entre alunos do mesmo grupo.
+    def _numeros_usados_no_grupo(apenas_anteriores=False):
+        usados = set()
+        try:
+            from apps.alunos.models import Aluno
+            qs = Aluno.objects.filter(
+                matricula__startswith=f"{cod_escola}.{cod_classe}.",
+            )
+            if escola is not None:
+                qs = qs.filter(escola=escola)
+            if aluno_id:
+                qs = qs.exclude(id=aluno_id)
+                if apenas_anteriores:
+                    # Em reparação de dados, o aluno mais antigo mantém o seu código
+                    ref = Aluno.objects.filter(id=aluno_id).values_list('created_at', flat=True).first()
+                    if ref:
+                        qs = qs.filter(created_at__lt=ref)
+            for mat in qs.values_list('matricula', flat=True):
+                p = (mat or '').split('.')
+                if (len(p) >= 6 and p[-1].isdigit() and p[-3] == ano_str
+                        and p[-2].lower() == sigla_area.lower()):
+                    usados.add(int(p[-1]))
+        except Exception:
+            pass
+        return usados
+
+    numeros_usados = _numeros_usados_no_grupo()
+
+    # Preserva a matrícula existente só se o sufixo não colide com outro aluno (mais antigo) do grupo
     if matricula_existente and matricula_existente.startswith(base_prefix + '.'):
         partes = matricula_existente.split('.')
-        if len(partes) >= 6 and partes[-1].isdigit():
+        if (len(partes) >= 6 and partes[-1].isdigit()
+                and int(partes[-1]) not in _numeros_usados_no_grupo(apenas_anteriores=True)):
             if not codigo_ja_existe_globalmente(matricula_existente, exclude_aluno_id=aluno_id):
                 return matricula_existente
 
-    if numero is not None and int(numero) > 0:
+    if numero is not None and int(numero) > 0 and int(numero) not in numeros_usados:
         cand_num = f"{base_prefix}.{int(numero):02d}"
         if not codigo_ja_existe_globalmente(cand_num, exclude_aluno_id=aluno_id):
             return cand_num
 
-    # Buscar próximo número sequencial na turma/escola para garantir unicidade absoluta
-    try:
-        from apps.alunos.models import Aluno
-        qs = Aluno.objects.filter(escola=escola, matricula__startswith=base_prefix)
-        if aluno_id:
-            qs = qs.exclude(id=aluno_id)
-
-        numeros_usados = set()
-        for mat in qs.values_list('matricula', flat=True):
-            partes = (mat or '').split('.')
-            if len(partes) >= 6 and partes[-1].isdigit():
-                numeros_usados.add(int(partes[-1]))
-
-        prox = 1
-        # Garantir que o código não colide com NENHUM funcionário (professor, director, admin, etc.) nem outro aluno
-        while prox in numeros_usados or codigo_ja_existe_globalmente(
-            f"{base_prefix}.{prox:02d}",
-            exclude_aluno_id=aluno_id,
-        ):
-            prox += 1
-        return f"{base_prefix}.{prox:02d}"
-    except Exception:
-        return f"{base_prefix}.01"
+    prox = 1
+    # Garantir que o código não colide com NENHUM funcionário (professor, director, admin, etc.) nem outro aluno
+    while prox in numeros_usados or codigo_ja_existe_globalmente(
+        f"{base_prefix}.{prox:02d}",
+        exclude_aluno_id=aluno_id,
+    ):
+        prox += 1
+    return f"{base_prefix}.{prox:02d}"
 
 
 def codigo_ja_existe_globalmente(codigo: str, exclude_aluno_id=None, exclude_prof_id=None, exclude_usuario_id=None, exclude_turma_id=None) -> bool:
