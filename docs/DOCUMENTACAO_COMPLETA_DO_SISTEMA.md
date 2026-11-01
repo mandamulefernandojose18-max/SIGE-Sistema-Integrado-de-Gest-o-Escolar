@@ -16,6 +16,8 @@ Para consulta aprofundada por domínio técnico ou operacional:
 - 🔌 **[Catálogo Completo da API REST](REFERENCIA_COMPLETA_API.md)** — Documentação de todos os endpoints RESTful.
 - 🚀 **[Guia de Implantação e DevOps](GUIA_DE_IMPLANTACAO_E_DEVOPS.md)** — Docker, CI/CD, deploy na Cloud e guardrail de US$ 6/mês.
 
+> **Nota (frontend 2.5.11):** o botão do menu lateral em ecrãs < 992px alterna a classe `sidebar-mobile-open` no `body` (única classe usada pelo CSS), abrindo o menu e o fundo de sobreposição.
+
 ---
 
 ## 📑 Índice Geral

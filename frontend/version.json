@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.5.10",
-  "build": "20261031_1700",
-  "data": "2026-10-31",
+  "version": "2.5.11",
+  "build": "20261101_0700",
+  "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Seletores de ano lectivo mostram apenas anos reais (sem anos fictícios nem estados entre parênteses); os novos anos são criados automaticamente."
+  "novidades": "Corrigido o botão do menu lateral no telemóvel, que não abria o menu."
 }

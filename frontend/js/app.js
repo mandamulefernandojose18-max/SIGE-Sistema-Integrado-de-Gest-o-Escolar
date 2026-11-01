@@ -2801,15 +2801,11 @@ function sairModoInspecaoSuperAdmin() {
 }
 
 function alternarSidebarMobile() {
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) sidebar.classList.toggle('show');
+  document.body.classList.toggle('sidebar-mobile-open');
 }
 
 function fecharSidebarMobile() {
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar && sidebar.classList.contains('show')) {
-    sidebar.classList.remove('show');
-  }
+  document.body.classList.remove('sidebar-mobile-open');
 }
 
 function navegarPara(viewId) {
