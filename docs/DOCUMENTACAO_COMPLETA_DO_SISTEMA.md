@@ -373,8 +373,8 @@ Em cada trimestre (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`), cada disciplina
 - **Isenção do Super Admin:** O painel do Super Admin SaaS Master (`#view-saas`, planos, contratos globais) permanece isento desta regra, operando ao nível de governação contínua da infraestrutura SaaS.
 
 ### 5.2. Botão Sincronizar (Barra Superior)
-- Visível para todos os perfis na barra superior (`#btnSincronizar`). Ao clicar, verifica `version.json` (aviso de nova versão, se existir) e volta a carregar do servidor a página activa. Sem ligação à internet, avisa o utilizador e não executa.
-- Como a página é recarregada, os filtros em cascata e o ano lectivo escolhidos voltam ao estado inicial.
+- O botão azul **Sincronizar** (`#btnActualizacaoPendente`) aparece na barra superior **apenas quando o sistema tem uma actualização pendente** (nova versão detectada em `version.json`). Fica oculto nos restantes momentos.
+- Ao clicar, aplica a actualização (limpa a cache, activa o novo service worker e recarrega a aplicação). O aviso flutuante associado também usa o azul.
 
 ## 6. O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)
 
