@@ -10,11 +10,7 @@ state.materialEscolar = {
   classes: []
 };
 
-const CLASSES_SISTEMA_ORDEM = [
-  '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
-  '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe',
-  'Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'
-];
+// CLASSES_SISTEMA_ORDEM já é declarada em app.js (redeclarar com const impede este módulo de executar).
 
 // ---------- Aluno: ano -> classe real -> disciplina (da sua área/secção) -> material ----------
 function _escolaAtivaMaterialAluno() {
