@@ -81,7 +81,13 @@ def _disciplinas_do_aluno(user, ano):
     if area.lower() in _AREAS_COMUNS:
         # Turma sem área própria: vale a área/secção registada no aluno (turma actual)
         area = (aluno.area or '').strip() if turma.id == aluno.turma_id else ''
-    qs = Disciplina.objects.filter(escola=aluno.escola, classe=turma.grau_ano)
+    qs = Disciplina.objects.filter(escola=aluno.escola)
+    num = re.search(r'\d+', turma.grau_ano or '')
+    if num:
+        # compara pelo número da classe, tolerando variações de escrita ("10ª Classe", "10 Classe")
+        qs = qs.filter(classe__regex=rf'^\s*[^0-9]*{num.group()}\D*$')
+    else:
+        qs = qs.filter(classe=turma.grau_ano)
     comuns = Q(area__iregex=r'^\s*(|geral|ensino geral|tronco comum)\s*$')
     if area.lower() in _AREAS_COMUNS:
         qs = qs.filter(comuns)

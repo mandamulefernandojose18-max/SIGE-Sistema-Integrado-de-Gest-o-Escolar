@@ -21500,7 +21500,22 @@ window.aoClicarBuscarAnoMestreView = async function(viewId) {
   }
 };
 
+// Garante que os anos/classes reais do aluno estão carregados (mesmo que o login tenha ocorrido antes do perfil estar pronto)
+async function garantirAnosAluno() {
+  if (state.user?.role !== 'ALUNO') return;
+  if (Array.isArray(state.anosAluno) && state.anosAluno.length > 0) return;
+  try {
+    const res = await apiFetch('/api/v1/alunos/me/anos');
+    state.anosAluno = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+  } catch (_) {
+    state.anosAluno = [];
+  }
+  state.anosLectivos = state.anosAluno.map(a => ({ ano: a.ano }));
+}
+window.garantirAnosAluno = garantirAnosAluno;
+
 async function executarGatilhosCarregamentoView(viewId, ano) {
+  await garantirAnosAluno();
   if (viewId === 'dashboard') {
     if (typeof carregarDashboardGeral === 'function') await carregarDashboardGeral(ano, true);
   } else if (viewId === 'turmas') {

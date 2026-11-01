@@ -35,6 +35,7 @@ async function carregarMaterialEscolarAluno() {
   const selDisc = document.getElementById('filtroMaterialDisciplinaSelect');
   const btnCarregar = document.getElementById('btnCarregarMaterial');
   if (btnCarregar) btnCarregar.style.display = 'none';
+  if (typeof garantirAnosAluno === 'function') await garantirAnosAluno();
 
   const ano = String(state.anosPorView?.['material-escolar'] || '');
   const reg = (state.anosAluno || []).find(a => String(a.ano) === ano);
@@ -63,7 +64,8 @@ async function carregarMaterialEscolarAluno() {
     if (selDisc) {
       selDisc.innerHTML = '<option value="">-- Escolha a disciplina --</option>' +
         discs.map(d => `<option value="${d.id}">${String(d.nome).replace(/</g, '&lt;')}</option>`).join('');
-      selDisc.disabled = discs.length === 0;
+      selDisc.disabled = false;
+      selDisc.onchange = () => selecionarDisciplinaMaterialAluno(selDisc.value);
     }
     if (grelha) {
       grelha.innerHTML = discs.length

@@ -1,10 +1,11 @@
 ﻿{
-  "version": "2.5.14",
-  "build": "20261101_1100",
+  "version": "2.5.15",
+  "build": "20261101_1200",
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Material escolar do aluno por disciplina da sua classe e secção."
+  "novidades": "Corrigido: seletor de disciplina do material escolar do aluno."
 }
+
 
 
