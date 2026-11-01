@@ -493,6 +493,7 @@ async function modalCarregarMaterialEscolar() {
 
       const res = await apiFetch('/api/v1/material-escolar', {
         method: 'POST',
+        timeout: 600000,
         body: JSON.stringify(payload)
       });
 

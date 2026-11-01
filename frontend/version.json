@@ -1,8 +1,8 @@
 {
-  "version": "2.5.18",
-  "build": "20261101_1630",
+  "version": "2.5.19",
+  "build": "20261101_1730",
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Material Escolar agora tambem no menu do Painel Executivo (Direccao/Escola); professores continuam a poder carregar material."
+  "novidades": "Carregamento de material escolar: ficheiros grandes ja nao falham com 'signal is aborted' (tempo limite aumentado)."
 }
