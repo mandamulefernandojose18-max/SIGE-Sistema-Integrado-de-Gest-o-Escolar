@@ -1,50 +1,83 @@
-<section id="view-presencas" class="modulo-view p-3 p-md-4">
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
-    <div>
-      <h3 class="fw-bold mb-1"><i class="bi bi-person-check-fill text-success me-2"></i>Presenças & Assiduidade dos Alunos</h3>
-      <p class="text-muted mb-0 small">Registo oficial de presenças e faltas justificadas/injustificadas por aula e turma.</p>
-    </div>
-  </div>
-
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-3">
-      <div class="row g-2 align-items-center">
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold text-muted mb-1">Selecionar Turma</label>
-          <select id="presencaSelectTurma" class="form-select form-select-sm" onchange="carregarAlunosParaPresenca()">
-            <option value="">-- Selecione a Turma --</option>
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold text-muted mb-1">Data da Aula</label>
-          <input type="date" id="presencaData" class="form-control form-control-sm" onchange="carregarAlunosParaPresenca()">
-        </div>
-        <div class="col-md-4 text-md-end pt-3">
-          <button class="btn btn-primary btn-sm" onclick="salvarPresencasLote()">
-            <i class="bi bi-save me-1"></i> Salvar Assiduidade
-          </button>
-        </div>
+<section id="view-presencas" class="modulo-view p-3 p-md-4" style="display: none;">
+  <!-- Seletor de Ano Lectivo (padrão SIGE): o conteúdo só aparece depois de escolher o ano e clicar em Buscar -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="presencasAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('presencas')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
       </div>
     </div>
   </div>
 
-  <div class="card border-0 shadow-sm">
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light small text-uppercase text-muted">
-            <tr>
-              <th class="ps-3" style="width: 50px;">#</th>
-              <th>Matrícula</th>
-              <th>Nome Completo do Aluno</th>
-              <th class="text-center" style="width: 320px;">Estado de Assiduidade</th>
-              <th class="pe-3">Observação</th>
-            </tr>
-          </thead>
-          <tbody id="tabelaListaPresencas">
-            <tr><td colspan="5" class="text-center py-4 text-muted">Selecione uma turma para registar presenças.</td></tr>
-          </tbody>
-        </table>
+  <div id="presencasConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
+      <div>
+        <h3 class="fw-bold mb-1"><i class="bi bi-person-check-fill text-success me-2"></i>Presenças & Assiduidade dos Alunos</h3>
+        <p class="text-muted mb-0 small" id="presencasSubtitulo">Registo oficial de presenças e faltas justificadas/injustificadas por aula e turma.</p>
+      </div>
+    </div>
+
+    <!-- Filtros em cascata: Classe → Secção/Área → Turma → Disciplina → Data -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-3">
+        <div class="row g-2 align-items-end">
+          <div class="col-6 col-md-2">
+            <label class="form-label small fw-semibold text-muted mb-1">Classe</label>
+            <select id="presClasse" class="form-select form-select-sm" onchange="presAoMudarClasse()"></select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small fw-semibold text-muted mb-1">Secção / Área</label>
+            <select id="presArea" class="form-select form-select-sm" onchange="presAoMudarArea()"></select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small fw-semibold text-muted mb-1">Turma</label>
+            <select id="presTurma" class="form-select form-select-sm" onchange="presAoMudarTurma()"></select>
+          </div>
+          <div class="col-6 col-md-3" id="presDiscWrap">
+            <label class="form-label small fw-semibold text-muted mb-1">Disciplina</label>
+            <select id="presDisciplina" class="form-select form-select-sm" onchange="presCarregarAlunos()"></select>
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label small fw-semibold text-muted mb-1">Data da Aula</label>
+            <input type="date" id="presData" class="form-control form-control-sm" onchange="presCarregarAlunos()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
+        <span class="small text-muted" id="presResumo">&nbsp;</span>
+        <div class="d-flex gap-2" id="presAcoes" style="display: none !important;">
+          <button class="btn btn-outline-success btn-sm" type="button" onclick="presMarcarTodosPresentes()">
+            <i class="bi bi-check2-all me-1"></i> Todos presentes
+          </button>
+          <button class="btn btn-primary btn-sm" type="button" id="presBtnSalvar" onclick="presSalvarLote()">
+            <i class="bi bi-save me-1"></i> Lançar Faltas / Presenças
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted">
+              <tr>
+                <th class="ps-3" style="width: 50px;">#</th>
+                <th>Matrícula</th>
+                <th>Nome Completo do Aluno</th>
+                <th class="text-center">Estado de Assiduidade</th>
+                <th class="pe-3">Observação</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaListaPresencas">
+              <tr><td colspan="5" class="text-center py-4 text-muted">Escolha a classe, a secção e a turma para ver a lista de alunos.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

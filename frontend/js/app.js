@@ -3229,6 +3229,7 @@ async function navegarPara(viewId) {
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
   if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento(false);
   if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
+  if (viewId === 'presencas' && typeof carregarPresencasAno === 'function') carregarPresencasAno(state.anosPorView[viewId]);
   if (viewId === 'certificados') carregarCertificados();
   if (viewId === 'pagamentos') carregarPagamentos();
   if (viewId === 'impressao') prepararCentralImpressao();
@@ -21613,6 +21614,8 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarPainelDirectorTurma === 'function') await carregarPainelDirectorTurma();
   } else if (viewId === 'estatisticas-aproveitamento') {
     if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento(true);
+  } else if (viewId === 'presencas') {
+    if (typeof carregarPresencasAno === 'function') await carregarPresencasAno(ano);
   } else if (viewId === 'material-escolar') {
     if (typeof carregarPainelMaterialEscolar === 'function') await carregarPainelMaterialEscolar();
   } else if (viewId === 'certificados') {

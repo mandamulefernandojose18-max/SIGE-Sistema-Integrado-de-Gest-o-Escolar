@@ -1,8 +1,8 @@
 {
-  "version": "2.5.20",
-  "build": "20261101_2100",
+  "version": "2.5.21",
+  "build": "20261101_2200",
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Carregamento de material escolar muito mais rapido: o ficheiro e enviado directamente (multipart), sem conversao base64 no browser."
+  "novidades": "Presencas e faltas: o professor lanca a assiduidade por ano lectivo, classe, seccao, turma, disciplina e data; restantes perfis consultam."
 }

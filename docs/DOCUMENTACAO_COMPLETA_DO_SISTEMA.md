@@ -757,7 +757,9 @@ Acessível apenas a Administradores, Director da Escola, DAP e Chefe de Secretar
 
 
 ### Módulo 22: Presenças e Assiduidade de Alunos (`#view-presencas`)
-- **Registo Aula a Aula:** Professores registam presenças, faltas justificadas e faltas não justificadas por disciplina e turma.
+- **Registo Aula a Aula:** Professores registam presenças, faltas justificadas, faltas não justificadas e atrasos por disciplina e turma.
+- **Ano Lectivo + Filtros em Cascata:** a página só carrega após escolher o Ano Lectivo e clicar em *Buscar*; depois `Classe → Secção/Área → Turma → Disciplina → Data`. O professor só vê as turmas/disciplinas que lhe estão atribuídas nesse ano; os restantes perfis consultam (só leitura).
+- **API:** `GET /api/v1/alunos/presencas/?ano_letivo=&turma_id=&disciplina_id=&data=`; `POST /api/v1/alunos/presencas/lote/` (`turma`, `disciplina`, `data`, `registos[{aluno,status,observacao}]`) grava/actualiza a assiduidade da turma de uma só vez. Só o perfil `PROFESSOR` (na sua alocação) escreve; datas futuras são rejeitadas.
 - **Monitoria e Alertas:** Estatísticas consolidadas de assiduidade acompanhadas pelo DAP e Direcção de Turma; consulta em tempo real pelo Aluno e Encarregado.
 
 ### Módulo 23: Horários Escolares Semanais (`#view-horarios`)

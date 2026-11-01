@@ -537,11 +537,33 @@ class AlunoMePagamentosView(APIView):
 from .models import PresencaAluno, TransferenciaAnulacao
 from .serializers import PresencaAlunoSerializer, TransferenciaAnulacaoSerializer
 from apps.accounts.audit import registrar_auditoria
+from common.utils.tenant import get_tenant_escola
 
 class PresencaAlunoViewSet(viewsets.ModelViewSet):
+    """Presenças/faltas dos alunos. Só o PROFESSOR (nas suas alocações) lança; os restantes perfis consultam."""
     queryset = PresencaAluno.objects.all()
     serializer_class = PresencaAlunoSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    PERFIS_ESCRITA = ('PROFESSOR', 'SUPERADMIN')
+
+    def _exigir_escrita(self):
+        from rest_framework.exceptions import PermissionDenied
+        if getattr(self.request.user, 'role', '') not in self.PERFIS_ESCRITA:
+            raise PermissionDenied('Apenas o professor pode lançar presenças e faltas.')
+
+    def _exigir_alocacao(self, turma_id, disciplina_id):
+        """Professor só lança na turma+disciplina que lhe foram atribuídas."""
+        from rest_framework.exceptions import PermissionDenied
+        user = self.request.user
+        if getattr(user, 'role', '') != 'PROFESSOR':
+            return
+        from apps.professores.models import AlocacaoDocente
+        prof_id = getattr(user, 'professor_id', None)
+        if not prof_id or not AlocacaoDocente.objects.filter(
+            professor_id=prof_id, turma_id=turma_id, disciplina_id=disciplina_id
+        ).exists():
+            raise PermissionDenied('Esta turma/disciplina não está atribuída ao seu perfil.')
 
     def get_queryset(self):
         user = self.request.user
@@ -557,26 +579,91 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
 
         if role == 'ALUNO':
             qs = qs.filter(aluno__id=user.aluno_id)
-        elif role == 'PROFESSOR' and getattr(user, 'professor_id', None):
-            turma_ids = user.professor.alocacoes.values_list('turma_id', flat=True) if hasattr(user, 'professor') else []
-            if turma_ids:
-                qs = qs.filter(turma_id__in=turma_ids)
+        elif role == 'PROFESSOR':
+            prof_id = getattr(user, 'professor_id', None)
+            if not prof_id:
+                return PresencaAluno.objects.none()
+            from apps.professores.models import AlocacaoDocente
+            turma_ids = AlocacaoDocente.objects.filter(professor_id=prof_id).values_list('turma_id', flat=True)
+            qs = qs.filter(turma_id__in=list(turma_ids))
 
-        turma_id = self.request.query_params.get('turma_id')
-        if turma_id:
-            qs = qs.filter(turma_id=turma_id)
-        aluno_id = self.request.query_params.get('aluno_id')
-        if aluno_id:
-            qs = qs.filter(aluno_id=aluno_id)
-        data = self.request.query_params.get('data')
-        if data:
-            qs = qs.filter(data=data)
-        return qs.order_by('-data', 'aluno__nome')
+        params = self.request.query_params
+        if params.get('turma_id'):
+            qs = qs.filter(turma_id=params['turma_id'])
+        if params.get('aluno_id'):
+            qs = qs.filter(aluno_id=params['aluno_id'])
+        if params.get('disciplina_id'):
+            qs = qs.filter(disciplina_id=params['disciplina_id'])
+        if params.get('data'):
+            qs = qs.filter(data=params['data'])
+        ano = params.get('ano_letivo') or params.get('ano')
+        if ano and str(ano).upper() != 'TODOS':
+            qs = qs.filter(turma__ano_letivo=ano)
+        return qs.select_related('aluno', 'turma', 'disciplina').order_by('-data', 'aluno__nome')
 
     def perform_create(self, serializer):
+        self._exigir_escrita()
+        d = serializer.validated_data
+        self._exigir_alocacao(d['turma'].id, d['disciplina'].id if d.get('disciplina') else None)
         escola = get_tenant_escola(self.request) or getattr(self.request.user, 'escola', None)
-        prof = getattr(self.request.user, 'professor', None) if hasattr(self.request.user, 'professor') else None
-        serializer.save(escola=escola, professor=prof, registado_por=self.request.user)
+        prof_id = getattr(self.request.user, 'professor_id', None)
+        serializer.save(escola=escola, professor_id=prof_id, registado_por=self.request.user)
+
+    def perform_update(self, serializer):
+        self._exigir_escrita()
+        inst = serializer.instance
+        self._exigir_alocacao(inst.turma_id, inst.disciplina_id)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._exigir_escrita()
+        self._exigir_alocacao(instance.turma_id, instance.disciplina_id)
+        instance.delete()
+
+    @action(detail=False, methods=['post'], url_path='lote')
+    def lote(self, request):
+        """Lança (upsert) a assiduidade de uma turma/disciplina/data numa só operação."""
+        from datetime import date
+        from django.db import transaction
+        self._exigir_escrita()
+        body = request.data
+        turma_id, disciplina_id, data_txt = body.get('turma'), body.get('disciplina'), body.get('data')
+        registos = body.get('registos') or []
+        if not (turma_id and disciplina_id and data_txt):
+            return Response({'success': False, 'message': 'Turma, disciplina e data são obrigatórias.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            data = date.fromisoformat(str(data_txt)[:10])
+        except ValueError:
+            return Response({'success': False, 'message': 'Data inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+        if data > timezone.localdate():
+            return Response({'success': False, 'message': 'Não é possível lançar presenças em datas futuras.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(registos, list) or not registos:
+            return Response({'success': False, 'message': 'Nenhum registo para guardar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        turma = Turma.objects.filter(id=turma_id, escola=escola).first() if escola else None
+        if not turma:
+            return Response({'success': False, 'message': 'Turma não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        self._exigir_alocacao(turma.id, disciplina_id)
+
+        estados = {c[0] for c in PresencaAluno.STATUS_CHOICES}
+        alunos_ok = {str(i) for i in Aluno.objects.filter(escola=escola, turma=turma).values_list('id', flat=True)}
+        prof_id = getattr(request.user, 'professor_id', None)
+        guardados = 0
+        with transaction.atomic():
+            for r in registos:
+                aluno_id, st = str(r.get('aluno', '')), r.get('status')
+                if aluno_id not in alunos_ok or st not in estados:
+                    return Response({'success': False, 'message': 'Registo inválido: aluno fora da turma ou estado desconhecido.'}, status=status.HTTP_400_BAD_REQUEST)
+                PresencaAluno.objects.update_or_create(
+                    aluno_id=aluno_id, turma=turma, disciplina_id=disciplina_id, data=data,
+                    defaults={
+                        'escola': escola, 'professor_id': prof_id, 'status': st,
+                        'observacao': str(r.get('observacao') or '')[:255], 'registado_por': request.user,
+                    },
+                )
+                guardados += 1
+        return Response({'success': True, 'guardados': guardados})
 
 class TransferenciaAnulacaoViewSet(viewsets.ModelViewSet):
     queryset = TransferenciaAnulacao.objects.all()

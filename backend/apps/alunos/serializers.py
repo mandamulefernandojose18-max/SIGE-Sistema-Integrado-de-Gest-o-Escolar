@@ -179,7 +179,7 @@ class PresencaAlunoSerializer(serializers.ModelSerializer):
             'professor', 'data', 'status', 'observacao', 'registado_por',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'escola', 'professor', 'registado_por', 'created_at', 'updated_at']
 
 class TransferenciaAnulacaoSerializer(serializers.ModelSerializer):
     aluno_nome = serializers.CharField(source='aluno.nome_completo', read_only=True)
