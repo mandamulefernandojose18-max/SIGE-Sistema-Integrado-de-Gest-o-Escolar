@@ -113,16 +113,34 @@ def _disciplinas_do_aluno(user, ano):
     return (do_ano if do_ano.exists() else qs).order_by('nome')
 
 
+def _chave_nome_disciplina(nome):
+    return re.sub(r'\s+', ' ', unicodedata.normalize('NFKD', str(nome or '')).encode('ascii', 'ignore').decode('ascii')).strip().lower()
+
+
+def _disciplinas_unicas_do_aluno(user, ano):
+    """Uma entrada por nome de disciplina (a da área própria prevalece sobre a geral); devolve [(disc, [ids])]."""
+    grupos = {}
+    for d in _disciplinas_do_aluno(user, ano):
+        grupos.setdefault(_chave_nome_disciplina(d.nome), []).append(d)
+    resultado = []
+    for lista in grupos.values():
+        lista.sort(key=lambda d: (d.area or '').strip().lower() in _AREAS_COMUNS)
+        resultado.append((lista[0], [d.id for d in lista]))
+    return sorted(resultado, key=lambda x: _chave_nome_disciplina(x[0].nome))
+
+
 def _restringir_ao_aluno(request, qs):
     """Aluno: só material da disciplina escolhida, dentro das disciplinas da sua classe e área."""
     if getattr(request.user, 'role', '') != 'ALUNO':
         return qs
     ano = request.query_params.get('ano')
     disc_id = request.query_params.get('disciplina_id')
-    permitidas = _disciplinas_do_aluno(request.user, ano)
-    if not disc_id or not permitidas.filter(id=disc_id).exists():
+    if not disc_id:
         return qs.none()
-    return qs.filter(disciplina_id=disc_id)
+    for _, ids in _disciplinas_unicas_do_aluno(request.user, ano):
+        if any(str(i) == str(disc_id) for i in ids):
+            return qs.filter(disciplina_id__in=ids)
+    return qs.none()
 
 
 class MaterialEscolarViewSet(viewsets.ModelViewSet):
@@ -147,7 +165,7 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
             qs = qs.filter(classe=classe)
 
         disciplina_id = self.request.query_params.get('disciplina_id')
-        if disciplina_id:
+        if disciplina_id and getattr(self.request.user, 'role', '') != 'ALUNO':
             qs = qs.filter(disciplina_id=disciplina_id)
 
         tipo = self.request.query_params.get('tipo')
@@ -286,7 +304,7 @@ class DisciplinasAlunoView(APIView):
         if getattr(request.user, 'role', '') != 'ALUNO':
             return Response({'success': True, 'data': []})
         ano = request.query_params.get('ano')
-        dados = [{'id': str(d.id), 'nome': d.nome} for d in _disciplinas_do_aluno(request.user, ano)]
+        dados = [{'id': str(d.id), 'nome': d.nome} for d, _ in _disciplinas_unicas_do_aluno(request.user, ano)]
         return Response({'success': True, 'data': dados})
 
 
