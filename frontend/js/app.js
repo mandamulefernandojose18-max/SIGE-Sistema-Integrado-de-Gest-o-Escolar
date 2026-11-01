@@ -19089,11 +19089,12 @@ async function modalCarregarMaterialEscolar() {
         return;
       }
 
-      const res = await apiFetch('/api/v1/material-escolar', {
-        method: 'POST',
-        timeout: 600000,
-        body: montarCorpoMaterialEscolar(payload)
-      });
+      const res = await enviarMaterialEscolarXhr(
+        montarCorpoMaterialEscolar(payload),
+        (pct) => {
+          btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> A enviar ${pct}%...`;
+        }
+      );
 
       if (res.success) {
         alert('Material escolar carregado e publicado com sucesso!');
@@ -19122,6 +19123,41 @@ function montarCorpoMaterialEscolar(payload) {
   });
   fd.append('ficheiro', ficheiro, ficheiro.name);
   return fd;
+}
+
+// Envio de material com progresso real e sem abortar por tempo (ligacoes lentas e ficheiros grandes).
+function enviarMaterialEscolarXhr(body, onProgress) {
+  return new Promise((resolve, reject) => {
+    const token = state.token || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token');
+    const tenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+      || state.tenant?.id || state.user?.escola_id;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', formatarUrlApi('/api/v1/material-escolar'));
+    xhr.timeout = 0;
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    if (tenantId) xhr.setRequestHeader('X-Tenant-ID', tenantId);
+    if (!(body instanceof FormData)) xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) onProgress(Math.min(100, Math.round(ev.loaded * 100 / ev.total)));
+    };
+    xhr.upload.onload = () => {
+      const btn = document.getElementById('btnSalvarMaterial');
+      if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> A guardar no servidor...';
+    };
+    xhr.onerror = () => reject(new Error('Falha de ligação durante o envio. Verifique a internet e tente novamente.'));
+    xhr.ontimeout = () => reject(new Error('Tempo esgotado no envio do ficheiro.'));
+    xhr.onload = () => {
+      let json = {};
+      try { json = JSON.parse(xhr.responseText || '{}'); } catch (_) {}
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(json);
+      let msg = json.message || json.detail;
+      if (!msg && json && typeof json === 'object') {
+        msg = Object.entries(json).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+      }
+      reject(new Error(msg || `Erro no servidor (HTTP ${xhr.status})`));
+    };
+    xhr.send(body);
+  });
 }
 
 function alternarAbaUploadMaterial(tipo) {
