@@ -62,11 +62,45 @@ def _classes_reais_do_aluno(user):
     return {t.grau_ano for t in _turmas_do_aluno(aluno)} if aluno else set()
 
 
+_AREAS_COMUNS = {'', 'geral', 'ensino geral', 'tronco comum'}
+
+
+def _disciplinas_do_aluno(user, ano):
+    """Disciplinas da classe e da área/secção em que o aluno estudou no ano indicado."""
+    from apps.alunos.models import Aluno
+    from apps.alunos.views_me import _turmas_do_aluno
+    from apps.disciplinas.models import Disciplina
+    aluno = Aluno.objects.select_related('escola', 'turma').filter(id=getattr(user, 'aluno_id', None)).first()
+    if not aluno:
+        return Disciplina.objects.none()
+    turma = next((t for t in _turmas_do_aluno(aluno) if str(t.ano_letivo) == str(ano)), None)
+    if not turma:
+        return Disciplina.objects.none()
+    from django.db.models import Q
+    area = (turma.area or '').strip()
+    if area.lower() in _AREAS_COMUNS:
+        # Turma sem área própria: vale a área/secção registada no aluno (turma actual)
+        area = (aluno.area or '').strip() if turma.id == aluno.turma_id else ''
+    qs = Disciplina.objects.filter(escola=aluno.escola, classe=turma.grau_ano)
+    comuns = Q(area__iregex=r'^\s*(|geral|ensino geral|tronco comum)\s*$')
+    if area.lower() in _AREAS_COMUNS:
+        qs = qs.filter(comuns)
+    else:
+        qs = qs.filter(Q(area__iexact=area) | comuns)
+    do_ano = qs.filter(ano_letivo=str(ano))
+    return (do_ano if do_ano.exists() else qs).order_by('nome')
+
+
 def _restringir_ao_aluno(request, qs):
-    """Aluno: apenas material das classes reais em que esteve matriculado (nunca de classes alheias)."""
+    """Aluno: só material da disciplina escolhida, dentro das disciplinas da sua classe e área."""
     if getattr(request.user, 'role', '') != 'ALUNO':
         return qs
-    return qs.filter(classe__in=_classes_reais_do_aluno(request.user))
+    ano = request.query_params.get('ano')
+    disc_id = request.query_params.get('disciplina_id')
+    permitidas = _disciplinas_do_aluno(request.user, ano)
+    if not disc_id or not permitidas.filter(id=disc_id).exists():
+        return qs.none()
+    return qs.filter(disciplina_id=disc_id)
 
 
 class MaterialEscolarViewSet(viewsets.ModelViewSet):
@@ -222,6 +256,17 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{nome_pdf}"'
         return response
+
+class DisciplinasAlunoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if getattr(request.user, 'role', '') != 'ALUNO':
+            return Response({'success': True, 'data': []})
+        ano = request.query_params.get('ano')
+        dados = [{'id': str(d.id), 'nome': d.nome} for d in _disciplinas_do_aluno(request.user, ano)]
+        return Response({'success': True, 'data': dados})
+
 
 class ClassesMaterialView(APIView):
     permission_classes = [IsAuthenticated]

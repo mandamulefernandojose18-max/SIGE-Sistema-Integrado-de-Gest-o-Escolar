@@ -29,6 +29,25 @@ class TestAlunoMeAnosFaltas:
         assert res['Content-Type'] == 'application/pdf'
         assert res.content.startswith(b'%PDF')
 
+    def test_material_so_por_disciplina_da_classe_e_area(self):
+        from apps.disciplinas.models import Disciplina
+        from apps.material_escolar.models import MaterialEscolar
+        d_ok = Disciplina.objects.create(escola=self.escola, nome='Matemática', codigo='MAT', classe='7ª Classe', area='Geral')
+        d_outra_classe = Disciplina.objects.create(escola=self.escola, nome='Física', codigo='FIS', classe='10ª Classe', area='Geral')
+        d_outra_area = Disciplina.objects.create(escola=self.escola, nome='Desenho', codigo='DES', classe='7ª Classe', area='Artes')
+        for d in (d_ok, d_outra_classe):
+            MaterialEscolar.objects.create(escola=self.escola, titulo=f'Livro {d.nome}', classe=d.classe, disciplina=d, nome_arquivo='x.pdf')
+
+        res = self.client.get('/api/v1/material-escolar/disciplinas-aluno?ano=2026')
+        assert [d['nome'] for d in res.data['data']] == ['Matemática']
+        assert str(d_outra_area.id) not in [d['id'] for d in res.data['data']]
+
+        # Sem disciplina escolhida: nada; disciplina de outra classe: nada; a correcta: o material
+        assert self.client.get('/api/v1/material-escolar?ano=2026').data['data'] == []
+        assert self.client.get(f'/api/v1/material-escolar?ano=2026&disciplina_id={d_outra_classe.id}').data['data'] == []
+        res = self.client.get(f'/api/v1/material-escolar?ano=2026&disciplina_id={d_ok.id}')
+        assert [m['titulo'] for m in res.data['data']] == ['Livro Matemática']
+
     def test_faltas_pdf_ano_sem_matricula(self):
         res = self.client.get('/api/v1/alunos/me/faltas/pdf?ano=2019')
         assert res.status_code == 400

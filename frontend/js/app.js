@@ -18708,6 +18708,7 @@ const CLASSES_SISTEMA_ORDEM = [
 ];
 
 async function carregarPainelMaterialEscolar(classeFiltro) {
+  if (state.user?.role === 'ALUNO' && typeof carregarMaterialEscolarAluno === 'function') return carregarMaterialEscolarAluno();
   if (classeFiltro !== undefined) {
     state.materialEscolar.classeAtiva = classeFiltro;
   }

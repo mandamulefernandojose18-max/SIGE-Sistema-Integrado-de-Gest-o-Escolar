@@ -16,7 +16,87 @@ const CLASSES_SISTEMA_ORDEM = [
   'Nível 1', 'Nível 2', 'Nível 3', 'Nível 4', 'Nível 5', 'Nível 6'
 ];
 
+// ---------- Aluno: ano -> classe real -> disciplina (da sua área/secção) -> material ----------
+function _escolaAtivaMaterialAluno() {
+  return state.tenant?.id || state.user?.escola_id || '';
+}
+
+function _htmlEstadoMaterialAluno(icone, titulo, texto) {
+  return `<div class="col-12 text-center py-5"><div class="p-4 bg-light rounded-4 border d-inline-block">
+    <i class="bi ${icone} text-muted display-4 d-block mb-2"></i>
+    <h6 class="fw-bold text-secondary mb-1">${titulo}</h6>
+    <p class="text-muted small mb-0">${texto}</p></div></div>`;
+}
+
+async function carregarMaterialEscolarAluno() {
+  const grelha = document.getElementById('grelhaMateriaisEscolares');
+  const badge = document.getElementById('badgeClasseAtiva');
+  const contador = document.getElementById('contadorMateriaisEncontrados');
+  const selDisc = document.getElementById('filtroMaterialDisciplinaSelect');
+  const btnCarregar = document.getElementById('btnCarregarMaterial');
+  if (btnCarregar) btnCarregar.style.display = 'none';
+
+  const ano = String(state.anosPorView?.['material-escolar'] || '');
+  const reg = (state.anosAluno || []).find(a => String(a.ano) === ano);
+  const classe = reg?.classe || '';
+  state.materialEscolar.classeAtiva = classe;
+  state.materialEscolar.materiais = [];
+  state.materialEscolar.disciplinaId = '';
+
+  const selClasse = document.getElementById('filtroMaterialClasseSelect');
+  if (selClasse) {
+    selClasse.innerHTML = classe ? `<option value="${classe}">${classe}</option>` : '<option value="">Sem matrícula neste ano</option>';
+    selClasse.disabled = true;
+  }
+  if (badge) badge.textContent = classe || 'Sem classe';
+  if (contador) contador.textContent = '';
+
+  if (!classe) {
+    if (selDisc) { selDisc.innerHTML = '<option value="">--</option>'; selDisc.disabled = true; }
+    if (grelha) grelha.innerHTML = _htmlEstadoMaterialAluno('bi-folder-x', 'Sem matrícula neste ano', 'Não existe matrícula sua no ano lectivo seleccionado.');
+    return;
+  }
+
+  try {
+    const res = await apiFetch(`/api/v1/material-escolar/disciplinas-aluno?ano=${encodeURIComponent(ano)}`);
+    const discs = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+    if (selDisc) {
+      selDisc.innerHTML = '<option value="">-- Escolha a disciplina --</option>' +
+        discs.map(d => `<option value="${d.id}">${String(d.nome).replace(/</g, '&lt;')}</option>`).join('');
+      selDisc.disabled = discs.length === 0;
+    }
+    if (grelha) {
+      grelha.innerHTML = discs.length
+        ? _htmlEstadoMaterialAluno('bi-journal-bookmark', 'Escolha a disciplina', 'Seleccione a disciplina para ver e descarregar o material escolar.')
+        : _htmlEstadoMaterialAluno('bi-folder-x', 'Sem disciplinas', 'Ainda não existem disciplinas registadas para a sua classe e secção.');
+    }
+  } catch (err) {
+    if (grelha) grelha.innerHTML = `<div class="col-12"><div class="alert alert-danger text-center">Erro ao contactar o servidor: ${err.message || ''}</div></div>`;
+  }
+}
+
+async function selecionarDisciplinaMaterialAluno(disciplinaId) {
+  const grelha = document.getElementById('grelhaMateriaisEscolares');
+  const contador = document.getElementById('contadorMateriaisEncontrados');
+  state.materialEscolar.disciplinaId = disciplinaId || '';
+  if (!disciplinaId) {
+    state.materialEscolar.materiais = [];
+    if (contador) contador.textContent = '';
+    if (grelha) grelha.innerHTML = _htmlEstadoMaterialAluno('bi-journal-bookmark', 'Escolha a disciplina', 'Seleccione a disciplina para ver e descarregar o material escolar.');
+    return;
+  }
+  const ano = String(state.anosPorView?.['material-escolar'] || '');
+  try {
+    const res = await apiFetch(`/api/v1/material-escolar?disciplina_id=${encodeURIComponent(disciplinaId)}&ano=${encodeURIComponent(ano)}`);
+    state.materialEscolar.materiais = (res && res.success) ? (res.data || []) : [];
+    filtrarMateriaisEscolares();
+  } catch (err) {
+    if (grelha) grelha.innerHTML = `<div class="col-12"><div class="alert alert-danger text-center">Erro ao contactar o servidor: ${err.message || ''}</div></div>`;
+  }
+}
+
 async function carregarPainelMaterialEscolar(classeFiltro) {
+  if (state.user?.role === 'ALUNO') return carregarMaterialEscolarAluno();
   if (classeFiltro !== undefined) {
     state.materialEscolar.classeAtiva = classeFiltro;
   }
