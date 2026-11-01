@@ -144,9 +144,21 @@ def _restringir_ao_aluno(request, qs):
     disc_id = request.query_params.get('disciplina_id')
     if not disc_id:
         return qs.none()
-    for _, ids in _disciplinas_unicas_do_aluno(request.user, ano):
+    for disc, ids in _disciplinas_unicas_do_aluno(request.user, ano):
         if any(str(i) == str(disc_id) for i in ids):
-            return qs.filter(disciplina_id__in=ids)
+            from django.db.models import Q
+            from apps.alunos.models import Aluno
+            from apps.alunos.views_me import _turmas_do_aluno
+            filtro = Q(disciplina_id__in=ids)
+            # Material publicado com a mesma disciplina (pelo nome) mas registada noutra classe/área
+            # do cadastro: vale para o aluno se o material for da classe dele.
+            aluno = Aluno.objects.select_related('escola', 'turma').filter(id=getattr(request.user, 'aluno_id', None)).first()
+            turma = next((t for t in _turmas_do_aluno(aluno) if str(t.ano_letivo) == str(ano)), None) if aluno else None
+            num = re.search(r'\d+', (turma.grau_ano if turma else '') or '')
+            if num:
+                filtro |= Q(disciplina__nome__iexact=disc.nome.strip(),
+                            classe__regex=rf'^\s*[^0-9]*{num.group()}\D*$')
+            return qs.filter(filtro)
     return qs.none()
 
 
