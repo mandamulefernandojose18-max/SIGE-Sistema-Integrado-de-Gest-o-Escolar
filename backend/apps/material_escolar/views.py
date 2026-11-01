@@ -226,7 +226,18 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         return Response({'success': True, 'data': MaterialEscolarSerializer(qs, many=True).data})
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        data = request.data
+        ficheiro = request.FILES.get('ficheiro')
+        if ficheiro:
+            # Upload multipart: o browser envia o binário e o servidor trata do armazenamento.
+            data = {k: v for k, v in request.data.items() if k != 'ficheiro'}
+            nome = ficheiro.name or 'material'
+            data['nome_arquivo'] = nome
+            data['extensao'] = nome.rsplit('.', 1)[-1][:20] if '.' in nome else 'bin'
+            data['tamanho_bytes'] = ficheiro.size
+            data['tipo_mime'] = ficheiro.content_type or 'application/octet-stream'
+            data['conteudo_base64'] = base64.b64encode(ficheiro.read()).decode('ascii')
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)

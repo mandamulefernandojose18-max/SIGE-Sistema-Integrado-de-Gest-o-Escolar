@@ -1,8 +1,8 @@
 {
-  "version": "2.5.19",
-  "build": "20261101_1730",
+  "version": "2.5.20",
+  "build": "20261101_1830",
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Carregamento de material escolar: ficheiros grandes ja nao falham com 'signal is aborted' (tempo limite aumentado)."
+  "novidades": "Carregamento de material escolar muito mais rapido: o ficheiro e enviado directamente (multipart), sem conversao base64 no browser."
 }

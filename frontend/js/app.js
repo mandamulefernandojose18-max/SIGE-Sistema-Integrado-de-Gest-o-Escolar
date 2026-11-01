@@ -1394,8 +1394,9 @@ async function apiFetch(endpoint, options = {}) {
   }
 
   const runFetch = async () => {
+  const corpoFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(corpoFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers || {})
   };
 
@@ -19075,14 +19076,8 @@ async function modalCarregarMaterialEscolar() {
         payload.tamanho_bytes = file.size;
         payload.tipo_mime = file.type || 'application/octet-stream';
 
-        // Leitura em Base64
-        const reader = new FileReader();
-        const base64Promise = new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-        });
-        reader.readAsDataURL(file);
-        payload.conteudo_base64 = await base64Promise;
+        // Envio multipart: o servidor le o ficheiro directamente (sem base64 no browser)
+        payload.__file = file;
       } else if (linkUrl) {
         payload.arquivo_url = linkUrl;
         payload.nome_arquivo = `${titulo}.link`;
@@ -19097,7 +19092,7 @@ async function modalCarregarMaterialEscolar() {
       const res = await apiFetch('/api/v1/material-escolar', {
         method: 'POST',
         timeout: 600000,
-        body: JSON.stringify(payload)
+        body: montarCorpoMaterialEscolar(payload)
       });
 
       if (res.success) {
@@ -19114,6 +19109,19 @@ async function modalCarregarMaterialEscolar() {
       btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Publicar Material';
     }
   });
+}
+
+// Corpo do POST de material escolar: multipart quando ha ficheiro local, JSON quando e so um link.
+function montarCorpoMaterialEscolar(payload) {
+  const ficheiro = payload.__file;
+  if (!ficheiro) return JSON.stringify(payload);
+  const fd = new FormData();
+  Object.entries(payload).forEach(([k, v]) => {
+    if (k === '__file' || v === null || v === undefined || v === '') return;
+    fd.append(k, v);
+  });
+  fd.append('ficheiro', ficheiro, ficheiro.name);
+  return fd;
 }
 
 function alternarAbaUploadMaterial(tipo) {

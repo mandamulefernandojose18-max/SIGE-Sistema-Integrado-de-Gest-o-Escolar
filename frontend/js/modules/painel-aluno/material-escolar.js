@@ -472,14 +472,8 @@ async function modalCarregarMaterialEscolar() {
         payload.tamanho_bytes = file.size;
         payload.tipo_mime = file.type || 'application/octet-stream';
 
-        // Leitura em Base64
-        const reader = new FileReader();
-        const base64Promise = new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-        });
-        reader.readAsDataURL(file);
-        payload.conteudo_base64 = await base64Promise;
+        // Envio multipart: o servidor le o ficheiro directamente (sem base64 no browser)
+        payload.__file = file;
       } else if (linkUrl) {
         payload.arquivo_url = linkUrl;
         payload.nome_arquivo = `${titulo}.link`;
@@ -494,7 +488,7 @@ async function modalCarregarMaterialEscolar() {
       const res = await apiFetch('/api/v1/material-escolar', {
         method: 'POST',
         timeout: 600000,
-        body: JSON.stringify(payload)
+        body: montarCorpoMaterialEscolar(payload)
       });
 
       if (res.success) {

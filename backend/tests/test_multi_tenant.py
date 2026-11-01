@@ -146,6 +146,27 @@ class TestMultiTenancy:
         res_super_none = self.client.get('/api/v1/material-escolar/')
         assert len(res_super_none.data['data']) == 0
 
+    def test_upload_multipart_material_escolar_grava_ficheiro_na_escola_activa(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.material_escolar.models import MaterialEscolar
+        login =self.client.post('/api/v1/auth/login/', {'email': 'admin.a@sige.mz', 'password': 'PassA123!'}, format='json')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['token']}")
+        conteudo = b'%PDF-1.4 conteudo de teste'
+        res = self.client.post('/api/v1/material-escolar/', {
+            'classe': '11ª Classe',
+            'titulo': 'Upload multipart',
+            'tipo': 'MANUAL',
+            'ficheiro': SimpleUploadedFile('manual.pdf', conteudo, content_type='application/pdf'),
+        }, format='multipart')
+        assert res.status_code == 201, res.data
+        assert res.data['data']['nome_arquivo'] == 'manual.pdf'
+        assert res.data['data']['extensao'] == 'pdf'
+        mat = MaterialEscolar.objects.get(titulo='Upload multipart')
+        assert mat.escola_id == self.escola_a.id
+        dl = self.client.get(f'/api/v1/material-escolar/{mat.id}/download/')
+        assert dl.status_code == 200
+        assert dl.content == conteudo
+
     def test_isolamento_absoluto_cadastros_notas_documentos_entre_escolas(self):
         from apps.professores.models import Professor
         from apps.disciplinas.models import Disciplina
