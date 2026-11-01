@@ -18932,12 +18932,14 @@ async function modalCarregarMaterialEscolar() {
     || state.user?.escola_id;
   
   // Buscar disciplinas da escola ativa
-  let optDisciplinas = '<option value="">(Geral / Todas as Disciplinas)</option>';
+  // Disciplinas em cascata: só as da Classe de Destino escolhida (O(1) na UI, sem lista gigante)
+  const optDisciplinas = '<option value="">(Geral / Todas as Disciplinas)</option>';
+  let todasDisciplinas = [];
   try {
     const urlDisc = '/api/v1/disciplinas' + (escolaAtivaId ? `?escola_id=${encodeURIComponent(escolaAtivaId)}` : '');
     const resD = await apiFetch(urlDisc);
     if (resD && resD.success && Array.isArray(resD.data)) {
-      optDisciplinas += resD.data.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.nome)} (${escapeHtml(d.classe || '')})</option>`).join('');
+      todasDisciplinas = resD.data;
     }
   } catch (errDisc) {
     console.warn('[MATERIAL] Falha ao carregar disciplinas no modal:', errDisc);
@@ -19021,6 +19023,25 @@ async function modalCarregarMaterialEscolar() {
       </div>
     </form>
   `);
+
+  const numClasse = (v) => (String(v || '').match(/\d+/) || [''])[0];
+  const selClasseUp = document.getElementById('matUploadClasse');
+  const selDiscUp = document.getElementById('matUploadDisciplina');
+  const repopularDisciplinas = () => {
+    const n = numClasse(selClasseUp.value);
+    const vistos = new Map();
+    todasDisciplinas
+      .filter(d => numClasse(d.classe) === n)
+      .forEach(d => {
+        const chave = String(d.nome || '').trim().toLowerCase();
+        if (!vistos.has(chave)) vistos.set(chave, d);
+      });
+    const lista = [...vistos.values()].sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt'));
+    selDiscUp.innerHTML = optDisciplinas + lista
+      .map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.nome)}</option>`).join('');
+  };
+  selClasseUp?.addEventListener('change', repopularDisciplinas);
+  repopularDisciplinas();
 
   document.getElementById('formCarregarMaterial')?.addEventListener('submit', async (e) => {
     e.preventDefault();
