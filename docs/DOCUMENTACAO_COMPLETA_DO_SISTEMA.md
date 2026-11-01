@@ -372,6 +372,10 @@ Em cada trimestre (`1_TRIMESTRE`, `2_TRIMESTRE`, `3_TRIMESTRE`), cada disciplina
   - Ao transitar para outra página via barra lateral ou links de navegação, a nova página abre preservando o seu próprio estado independente: caso o ano ainda não tenha sido escolhido e buscado especificamente naquela página, ela permanece estritamente no seu estado inicial ocultado (`-- Escolha ano Lectivo --`), exigindo a escolha local e clique em "Buscar" naquela página específica para carregar os respetivos dados.
 - **Isenção do Super Admin:** O painel do Super Admin SaaS Master (`#view-saas`, planos, contratos globais) permanece isento desta regra, operando ao nível de governação contínua da infraestrutura SaaS.
 
+### 5.2. Botão Sincronizar (Barra Superior)
+- Visível para todos os perfis na barra superior (`#btnSincronizar`). Ao clicar, verifica `version.json` (aviso de nova versão, se existir) e volta a carregar do servidor a página activa. Sem ligação à internet, avisa o utilizador e não executa.
+- Como a página é recarregada, os filtros em cascata e o ano lectivo escolhidos voltam ao estado inicial.
+
 ## 6. O Que Faz Cada Módulo do Sistema (19 Módulos e Fluxos Operacionais)
 
 ### Módulo 1: Portal Público de Auto-Inscrição de Alunos (`#modalInscricaoPublica`)

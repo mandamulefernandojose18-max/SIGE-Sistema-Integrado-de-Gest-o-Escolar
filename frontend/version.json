@@ -1,9 +1,8 @@
 ﻿{
-  "version": "2.5.12",
-  "build": "20261101_0900",
+  "version": "2.5.13",
+  "build": "20261101_1000",
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Portal do aluno: classe real por ano lectivo, Faltas em PDF e Calend\u00e1rio Acad\u00e9mico."
+  "novidades": "Novo botão Sincronizar na barra superior: recarrega os dados da página activa a partir do servidor e verifica novas versões."
 }
-

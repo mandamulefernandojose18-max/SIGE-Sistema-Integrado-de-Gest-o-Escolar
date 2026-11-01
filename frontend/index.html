@@ -745,6 +745,8 @@
       70% { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
       100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
     }
+    @keyframes sige-spin { to { transform: rotate(360deg); } }
+    .spin-sync { display: inline-block; animation: sige-spin 0.8s linear infinite; }
     .sige-badge-pulse {
       animation: sigePulseBadge 2s infinite !important;
     }
@@ -1021,6 +1023,11 @@
         <!-- Botão Indicador de Actualização Pendente -->
         <button type="button" id="btnActualizacaoPendente" class="btn btn-warning btn-sm fw-bold text-dark d-none shadow-sm sige-badge-pulse" onclick="sigeAplicarActualizacao()" title="Clique para aplicar a actualização pendente do SIGE">
           <i class="bi bi-arrow-repeat me-1"></i> <span class="d-none d-md-inline">Actualização Pendente</span><span class="d-md-none">Actualizar</span>
+        </button>
+
+        <!-- Botão Sincronizar dados com o servidor -->
+        <button type="button" id="btnSincronizar" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center shadow-sm" onclick="sigeSincronizar()" title="Sincronizar: recarregar os dados desta página a partir do servidor">
+          <i class="bi bi-arrow-clockwise me-1" id="iconSincronizar"></i> <span class="d-none d-md-inline">Sincronizar</span>
         </button>
 
         <!-- Botão DAP Controlo de Visibilidade das Notas -->

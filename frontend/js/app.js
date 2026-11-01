@@ -528,6 +528,33 @@ window.sigeAplicarActualizacao = async function() {
   }
 };
 
+// Sincronização manual: verifica nova versão e recarrega do servidor os dados da vista activa
+window.sigeSincronizar = async function() {
+  const btn = document.getElementById('btnSincronizar');
+  const icon = document.getElementById('iconSincronizar');
+  if (btn?.disabled) return;
+  if (!navigator.onLine) {
+    mostrarNotificacao('Sem ligação à internet. A sincronização será possível quando a ligação voltar.', 'warning');
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (icon) icon.classList.add('spin-sync');
+  try {
+    await sigeChecarVersaoServidor();
+    if (sigeUpdateState.pendente) {
+      mostrarNotificacao('Há uma nova versão do SIGE. Clique em "Actualização Pendente" para aplicar.', 'warning');
+    }
+    if (state.currentView) await navegarPara(state.currentView);
+    mostrarNotificacao('Dados sincronizados com o servidor.', 'success');
+  } catch (err) {
+    console.warn('[SIGE SYNC] Falha na sincronização:', err);
+    mostrarNotificacao('Não foi possível sincronizar. Tente novamente.', 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (icon) icon.classList.remove('spin-sync');
+  }
+};
+
 // Verificação estrita contra version.json
 async function sigeChecarVersaoServidor() {
   try {
