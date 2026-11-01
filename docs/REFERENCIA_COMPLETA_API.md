@@ -164,7 +164,8 @@
 | `GET` | `/api/v1/alunos/me/notas/` | `ALUNO` | Boletim de notas do aluno logado (respeita bloqueio temporário do DAP). |
 | `GET` | `/api/v1/alunos/me/pagamentos/`| `ALUNO` | Consulta de mensalidades pagas e pendentes do aluno logado. |
 | `GET` | `/api/v1/alunos/me/anos/` | `ALUNO` | Anos lectivos reais do aluno, cada um com a classe/turma frequentada (alimenta os seletores de ano do portal). |
-| `GET` | `/api/v1/alunos/me/faltas/pdf/?ano=` | `ALUNO` | PDF das faltas de todas as disciplinas do ano lectivo (gerado automaticamente). |
+| `GET` | `/api/v1/material-escolar/disciplinas-aluno/?ano=` | `ALUNO` | Disciplinas da classe e área/secção em que o aluno estudou naquele ano. O material (`/material-escolar/?disciplina_id=&ano=`) só é devolvido ao aluno para uma destas disciplinas. |
+| `GET` | `/api/v1/alunos/me/faltas/pdf/?ano= | `ALUNO` | PDF das faltas de todas as disciplinas do ano lectivo (gerado automaticamente). |
 | `GET` | `/api/v1/documentos/calendario/documento_oficial/?ano=` e `download_documento_oficial/?ano=` | Autenticado | Calendário académico oficial do ano (o aluno apenas vê/descarrega). |
 
 ---
