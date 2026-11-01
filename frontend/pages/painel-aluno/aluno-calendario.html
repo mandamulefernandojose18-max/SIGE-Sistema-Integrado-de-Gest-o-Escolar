@@ -1,0 +1,22 @@
+<!-- SIGE - PAINEL-ALUNO | Calendário Académico (apenas consulta / PDF) -->
+<section id="view-aluno-calendario" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="alunoCalendarioAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('aluno-calendario')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="alunoCalendarioConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="card p-4 shadow-sm">
+      <h5 class="fw-bold mb-3"><i class="bi bi-calendar3 text-primary me-2"></i>Calendário Académico</h5>
+      <div id="alunoCalendarioCorpo" class="text-muted small">A carregar...</div>
+    </div>
+  </div>
+</section>

@@ -1,8 +1,9 @@
 ﻿{
-  "version": "2.5.11",
-  "build": "20261101_0700",
+  "version": "2.5.12",
+  "build": "20261101_0900",
   "data": "2026-11-01",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Corrigido o botão do menu lateral no telemóvel, que não abria o menu."
+  "novidades": "Portal do aluno: classe real por ano lectivo, Faltas em PDF e Calend\u00e1rio Acad\u00e9mico."
 }
+

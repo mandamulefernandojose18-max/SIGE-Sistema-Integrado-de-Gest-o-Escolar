@@ -2408,7 +2408,8 @@ const MENUS_POR_PAINEL = {
   'painel-aluno': [
     { id: 'aluno-perfil', titulo: 'O Meu Perfil & Matrícula', icone: 'bi-person-vcard-fill text-primary', categoria: 'Espaço do Aluno' },
     { id: 'aluno-notas', titulo: 'As Minhas Notas & Boletim', icone: 'bi-card-checklist text-success', categoria: 'Espaço do Aluno' },
-    { id: 'presencas', titulo: 'As Minhas Faltas & Presenças', icone: 'bi-person-check-fill text-success', categoria: 'Espaço do Aluno' },
+    { id: 'aluno-faltas', titulo: 'As Minhas Faltas (PDF)', icone: 'bi-person-check-fill text-success', categoria: 'Espaço do Aluno' },
+    { id: 'aluno-calendario', titulo: 'Calendário Académico', icone: 'bi-calendar3 text-primary', categoria: 'Espaço do Aluno' },
     { id: 'horarios', titulo: 'O Meu Horário Escolar', icone: 'bi-clock-history text-info', categoria: 'Espaço do Aluno' },
     { id: 'aluno-pagamentos', titulo: 'As Minhas Propinas & Recibos', icone: 'bi-wallet2 text-warning', categoria: 'Espaço do Aluno' },
     { id: 'material-escolar', titulo: 'Material Escolar da Classe', icone: 'bi-book-half text-info', categoria: 'Espaço do Aluno' },
@@ -2684,6 +2685,18 @@ function atualizarBadgeTenant(tenant) {
 }
 
 async function carregarAnosLectivos() {
+  // Aluno: só os anos lectivos em que realmente frequentou, cada um com a sua classe real
+  if (state.user?.role === 'ALUNO') {
+    try {
+      const resAluno = await apiFetch('/api/v1/alunos/me/anos', { ignoreAuthRedirect: true });
+      state.anosAluno = (resAluno && resAluno.success && Array.isArray(resAluno.data)) ? resAluno.data : [];
+    } catch (_) {
+      state.anosAluno = [];
+    }
+    state.anosLectivos = state.anosAluno.map(a => ({ ano: a.ano }));
+    renderizarSelectoresAnoLectivo();
+    return;
+  }
   try {
     const res = await apiFetch('/api/v1/configuracoes/anos-lectivos', { ignoreAuthRedirect: true });
     if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -2927,7 +2940,7 @@ async function carregarPaginaModulo(painel, viewId) {
 
   // Resolução inteligente da pasta para evitar erros 404 no console
   const ARQUIVOS_PROPRIOS = {
-    'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'material-escolar'],
+    'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'aluno-faltas', 'aluno-calendario', 'material-escolar'],
     'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'exames', 'material-escolar', 'pautas', 'professor-perfil', 'provas-anti-ia'],
     'painel-financeiro': ['dashboard', 'impressao', 'pagamentos', 'prompt-gateway'],
     'painel-superadmin': ['acessos', 'pagamentos-saas', 'prompt-gateway', 'saas', 'usuarios-senhas']
@@ -2986,7 +2999,7 @@ async function carregarScriptModulo(painel, viewId) {
   const buildParam = (typeof sigeCurrentBuild === 'function' && sigeCurrentBuild()) || Date.now();
 
   const SCRIPTS_PROPRIOS = {
-    'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'material-escolar'],
+    'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'aluno-faltas', 'aluno-calendario', 'material-escolar'],
     'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'material-escolar', 'pautas', 'provas-anti-ia'],
     'painel-financeiro': ['dashboard', 'impressao', 'pagamentos', 'prompt-gateway'],
     'painel-superadmin': ['acessos', 'pagamentos-saas', 'prompt-gateway', 'saas', 'usuarios-senhas']
@@ -3058,7 +3071,7 @@ async function navegarPara(viewId) {
       painel = 'painel-superadmin';
     } else if (['prompt-gateway', 'usuarios-senhas', 'acessos'].includes(viewId)) {
       painel = isSuperAdminInspecionando ? 'painel-escola' : 'painel-superadmin';
-    } else if (['aluno-perfil', 'aluno-notas', 'aluno-pagamentos'].includes(viewId)) {
+    } else if (['aluno-perfil', 'aluno-notas', 'aluno-pagamentos', 'aluno-faltas', 'aluno-calendario'].includes(viewId)) {
       painel = 'painel-aluno';
     } else if (['professor-perfil'].includes(viewId)) {
       painel = 'painel-professor';
@@ -21534,6 +21547,10 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarAlunoNotas === 'function') await carregarAlunoNotas();
   } else if (viewId === 'aluno-pagamentos') {
     if (typeof carregarAlunoPagamentos === 'function') await carregarAlunoPagamentos(ano);
+  } else if (viewId === 'aluno-faltas') {
+    if (typeof carregarAlunoFaltas === 'function') await carregarAlunoFaltas(ano);
+  } else if (viewId === 'aluno-calendario') {
+    if (typeof carregarAlunoCalendario === 'function') await carregarAlunoCalendario(ano);
   } else if (viewId === 'professor-perfil') {
     if (typeof carregarPerfilDocenteIndividual === 'function') await carregarPerfilDocenteIndividual();
   }

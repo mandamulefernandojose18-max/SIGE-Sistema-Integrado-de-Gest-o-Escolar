@@ -1426,7 +1426,11 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
         escola = self._obter_escola_requisicao(request)
         if not escola:
             return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
-        doc = DocumentoCalendarioOficial.objects.filter(escola=escola).order_by('-created_at').first()
+        docs_escola = DocumentoCalendarioOficial.objects.filter(escola=escola)
+        ano = request.query_params.get('ano')
+        if ano:
+            docs_escola = docs_escola.filter(ano_lectivo=ano)
+        doc = docs_escola.order_by('-created_at').first()
         if not doc:
             return Response({'success': True, 'data': None, 'message': 'Nenhum documento oficial carregado ainda.'})
         return Response({'success': True, 'data': DocumentoCalendarioOficialSerializer(doc).data})
@@ -1492,7 +1496,11 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
         escola = self._obter_escola_requisicao(request)
         if not escola:
             return Response({'success': False, 'message': 'Escola não identificada.'}, status=400)
-        doc = DocumentoCalendarioOficial.objects.filter(escola=escola).order_by('-created_at').first()
+        docs_escola = DocumentoCalendarioOficial.objects.filter(escola=escola)
+        ano = request.query_params.get('ano')
+        if ano:
+            docs_escola = docs_escola.filter(ano_lectivo=ano)
+        doc = docs_escola.order_by('-created_at').first()
         if not doc or not doc.conteudo_base64:
             return Response({'success': False, 'message': 'Nenhum documento oficial registado para descarregar.'}, status=404)
         

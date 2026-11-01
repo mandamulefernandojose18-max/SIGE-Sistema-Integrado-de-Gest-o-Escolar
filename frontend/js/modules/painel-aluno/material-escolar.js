@@ -43,14 +43,23 @@ async function carregarPainelMaterialEscolar(classeFiltro) {
     const resClasses = await apiFetch(`/api/v1/material-escolar/classes${paramEscola}`);
     if (resClasses.success) {
       state.materialEscolar.classes = resClasses.data || [];
-      if (isAluno && state.materialEscolar.classes.length > 0) {
-        state.materialEscolar.classeAtiva = state.materialEscolar.classes[0].classe;
+      if (isAluno) {
+        // Classe real do aluno no ano lectivo escolhido (nunca a 1ª da lista de classes do sistema)
+        const anoSel = String(state.anosPorView?.['material-escolar'] || '');
+        const reg = (state.anosAluno || []).find(a => String(a.ano) === anoSel);
+        state.materialEscolar.classeAtiva = reg?.classe || '';
       }
       renderizarBotoesClasses();
     }
 
     if (badgeAtiva) {
       badgeAtiva.textContent = state.materialEscolar.classeAtiva === 'TODAS' ? 'Todas as Classes' : state.materialEscolar.classeAtiva;
+    }
+
+    if (isAluno && !state.materialEscolar.classeAtiva) {
+      state.materialEscolar.materiais = [];
+      filtrarMateriaisEscolares();
+      return;
     }
 
     // 2. Obter materiais da classe seleccionada estritamente da escola ativa
@@ -81,10 +90,12 @@ function renderizarBotoesClasses() {
   const isAluno = state.user?.role === 'ALUNO';
   const selectMaterialClasse = document.getElementById('filtroMaterialClasseSelect');
   if (isAluno) {
-    const clsAluno = state.materialEscolar.classeAtiva !== 'TODAS' ? state.materialEscolar.classeAtiva : (state.materialEscolar.classes[0]?.classe || 'Minha Classe');
-    const qtd = state.materialEscolar.classes[0]?.totalMateriais || state.materialEscolar.materiais?.length || 0;
+    const clsAluno = state.materialEscolar.classeAtiva;
+    const qtd = state.materialEscolar.classes.find(c => c.classe === clsAluno)?.totalMateriais || 0;
     if (selectMaterialClasse) {
-      selectMaterialClasse.innerHTML = `<option value="${clsAluno}">${clsAluno} (${qtd})</option>`;
+      selectMaterialClasse.innerHTML = clsAluno
+        ? `<option value="${clsAluno}">${clsAluno} (${qtd})</option>`
+        : '<option value="">Sem matrícula neste ano</option>';
       selectMaterialClasse.disabled = true;
     }
     return;
