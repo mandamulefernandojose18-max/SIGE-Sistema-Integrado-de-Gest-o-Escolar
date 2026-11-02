@@ -422,6 +422,32 @@ class TestPautasEDocumentos:
             assert res_acta['Content-Type'] == 'application/pdf'
             assert res_acta.content[:4] == b'%PDF'
 
+    def test_pautas_com_muitas_disciplinas_nao_partem_cabecalhos(self):
+        import io
+        import openpyxl
+        nomes = ['Português', 'Inglês', 'Introdução à Filosofia', 'Geografia', 'Matemática', 'Física', 'Química',
+                 'Agropecuária', 'Tecnologias de Informação e Comunicação']
+        for i, nome in enumerate(nomes):
+            disc = Disciplina.objects.create(escola=self.escola, nome=nome, codigo=f'MUL-{i}', ano_letivo='2026')
+            Nota.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma, disciplina=disc,
+                                periodo='1_TRIMESTRE', media_final=8 + i, resultado='Aprovado')
+
+        urls = [
+            f'/api/v1/pautas/turma/{self.turma.id}/pdf?anoLetivo=2026&orientacao=landscape',
+            f'/api/v1/pautas/exames/turma/{self.turma.id}/pdf?anoLetivo=2026',
+            '/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=2026',
+        ]
+        for url in urls:
+            res = self.client.get(url)
+            assert res.status_code == 200, url
+            assert res.content[:4] == b'%PDF'
+
+        for url in (f'/api/v1/pautas/exames/turma/{self.turma.id}/xlsx?anoLetivo=2026',
+                    '/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=2026'):
+            res = self.client.get(url)
+            assert res.status_code == 200, url
+            openpyxl.load_workbook(io.BytesIO(res.content))
+
     def test_ficha_biografica_cabe_numa_unica_pagina(self):
         import re
         res = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/pdf')

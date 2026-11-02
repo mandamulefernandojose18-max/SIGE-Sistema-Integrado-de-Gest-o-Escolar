@@ -134,6 +134,20 @@ def test_pdf_no_lugar_aviso_visivel_realmente_desenhado_na_folha():
     assert min(topo.getdata()) < 128 and min(fundo.getdata()) < 128
 
 
+def test_docx_no_lugar_tem_aviso_visivel_no_cabecalho_e_rodape():
+    import docx
+    from docx.oxml.ns import qn
+    from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
+    d = docx.Document(); d.add_paragraph("1. Pergunta"); b = io.BytesIO(); d.save(b)
+    saida, _ = codificar_ficheiro_no_lugar(b.getvalue(), "t.docx", DATA, url=URL)
+    sec = docx.Document(io.BytesIO(saida)).sections[0]
+    for parte in (sec.header, sec.footer):
+        visiveis = [r.text for p in parte.paragraphs for r in p.runs
+                    if r.text and r._r.rPr is not None and r._r.rPr.find(qn('w:vanish')) is None]
+        assert any("AVALIAÇÃO EM CURSO" in t for t in visiveis) and any("SCHOOL EXAM" in t for t in visiveis)
+        assert DATA in " ".join(visiveis)
+
+
 def test_docx_no_lugar_primeiro_e_ultimo_texto_sao_o_aviso_curto():
     import docx
     from docx.oxml.ns import qn

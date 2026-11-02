@@ -14732,8 +14732,37 @@ function imprimirDocumentoCentral() {
   window.print();
 }
 
+// Pauta de Exames, Caderneta e Estatísticas: documentos do servidor (nunca capturar a pré-visualização)
+async function descarregarDocumentoServidorCentral(tipo, formato) {
+  const ano = document.getElementById('impressaoAnoSelect')?.value || (window.state && state.anoLetivo) || '2026';
+  const orientacao = obterOrientacaoAtiva(tipo);
+  const alunoId = document.getElementById('printSelectAluno')?.value;
+  let turmaId = null;
+  if (tipo !== 'ESTATISTICAS') {
+    turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
+    if (!turmaId) {
+      mostrarNotificacao('Por favor, selecione primeiro uma turma.', 'warning');
+      return;
+    }
+  }
+  if (tipo === 'CADERNETA') {
+    if (!alunoId || alunoId === 'TODOS') {
+      mostrarNotificacao('Seleccione a disciplina (caderneta) da turma em "Destinatário".', 'warning');
+      return;
+    }
+    await downloadFicheiroBinario(`/api/v1/professores/caderneta/${alunoId}/${formato}?orientacao=${orientacao}`, `Caderneta_${alunoId}.${formato}`);
+  } else if (tipo === 'PAUTA_EXAME') {
+    await downloadFicheiroBinario(`/api/v1/pautas/exames/turma/${turmaId}/${formato}?anoLetivo=${ano}&orientacao=${orientacao}`, `Pauta_Exames_${turmaId}_${ano}.${formato}`);
+  } else {
+    await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/${formato}?anoLetivo=${ano}&periodo=GLOBAL&orientacao=${orientacao}`, `Estatisticas_Aproveitamento_${ano}.${formato}`);
+  }
+}
+
+const TIPOS_DOCUMENTO_SERVIDOR_CENTRAL = ['PAUTA_EXAME', 'CADERNETA', 'ESTATISTICAS'];
+
 async function descarregarPdfCentral() {
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  if (TIPOS_DOCUMENTO_SERVIDOR_CENTRAL.includes(tipo)) return descarregarDocumentoServidorCentral(tipo, 'pdf');
   const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);
@@ -14839,6 +14868,7 @@ async function descarregarDocxCentral() {
 
 async function descarregarXlsxCentral() {
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  if (TIPOS_DOCUMENTO_SERVIDOR_CENTRAL.includes(tipo)) return descarregarDocumentoServidorCentral(tipo, 'xlsx');
   const turmaId = await obterTurmaAtivaOuPrimeira(document.getElementById('printSelectTurma')?.value);
   const alunoId = document.getElementById('printSelectAluno')?.value;
   const orientacao = obterOrientacaoAtiva(tipo);

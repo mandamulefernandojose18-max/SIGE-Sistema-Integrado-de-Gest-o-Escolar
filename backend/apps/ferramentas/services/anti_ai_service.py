@@ -497,6 +497,31 @@ def _marca_agua_qr_docx(d, url: str, cfg: dict):
                 inline.getparent().remove(inline)
 
 
+def _aviso_visivel_docx(d, data: str):
+    """Aviso em texto claro e VISÍVEL (PT/EN) no cabeçalho e no rodapé de todas as páginas; não depende das definições da escola."""
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    pt, en = AVISO_VISIVEL_PT.format(data=data), AVISO_VISIVEL_EN.format(data=data)
+    feitos = set()
+    for sec in d.sections:
+        for parte, no_topo in ((sec.header, True), (sec.first_page_header, True), (sec.even_page_header, True),
+                               (sec.footer, False), (sec.first_page_footer, False), (sec.even_page_footer, False)):
+            if parte is None or id(parte._element) in feitos:
+                continue
+            feitos.add(id(parte._element))
+            parte.is_linked_to_previous = False
+            ancora = parte.paragraphs[0]
+            for texto in ((pt, en) if no_topo else (en, pt)):
+                p = ancora.insert_paragraph_before(texto) if no_topo else parte.add_paragraph(texto)
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.space_after = p.paragraph_format.space_before = Pt(0)
+                for r in p.runs:
+                    r.bold = True
+                    r.font.size = Pt(8)
+                    r.font.color.rgb = RGBColor(0x20, 0x20, 0x20)
+
+
 def _codificar_docx(dados: bytes, data: str, url: str = '', cfg: dict = None) -> bytes:
     """Word: acrescenta a cada parágrafo (corpo, tabelas, caixas de texto, cabeçalhos, rodapés) um trecho oculto."""
     cfg = cfg or dict(DEFINICOES_PADRAO)
@@ -538,6 +563,7 @@ def _codificar_docx(dados: bytes, data: str, url: str = '', cfg: dict = None) ->
         for parte in (sec.header, sec.footer, sec.first_page_header, sec.first_page_footer):
             if parte is not None:
                 marcar(parte._element)
+    _aviso_visivel_docx(d, data)
     if url:
         _marca_agua_qr_docx(d, url, cfg)
     d.core_properties.comments = aviso[:255]

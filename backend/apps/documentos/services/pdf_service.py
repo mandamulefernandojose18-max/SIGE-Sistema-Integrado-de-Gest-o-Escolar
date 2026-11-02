@@ -591,10 +591,64 @@ gerar_cabecalho_minedh = gerar_cabecalho_mec
 
 # ==================== 1. PAUTA OFICIAL DA TURMA (HORIZONTAL / LANDSCAPE) ====================
 
+def _estilo_denso(name, parent=None, **kw):
+    """ParagraphStyle que respeita fontSize/leading pedidos (o construtor global força 12/18 pt)."""
+    st = ParagraphStyle.__new__(ParagraphStyle)
+    kw.setdefault('fontName', 'Times-Roman')
+    _orig_ps_init(st, name, parent, **kw)
+    return st
+
+
+class ParagrafoVertical(Flowable):
+    """Título de coluna estreita escrito na vertical (de baixo para cima), numa só linha, sem partir palavras."""
+    def __init__(self, texto, font='Times-Bold', size=6.0, color=colors.black, max_altura=2.8 * cm, min_size=4.6):
+        super().__init__()
+        self.texto = re.sub(r'<[^>]+>', '', str(texto or '')).strip()
+        self.font = font
+        self.size = size
+        self.color = color
+        self.max_altura = max_altura
+        self.min_size = min_size
+
+    def _ajustar(self):
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        tam, txt = self.size, self.texto
+        while stringWidth(txt, self.font, tam) > self.max_altura and tam > self.min_size:
+            tam -= 0.2
+        while txt and stringWidth(txt, self.font, tam) > self.max_altura:
+            txt = txt[:-2].rstrip() + '…' if len(txt) > 2 else ''
+        return tam, txt
+
+    def wrap(self, availWidth, availHeight):
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        self._tam, self._txt = self._ajustar()
+        self.width = availWidth
+        self.height = stringWidth(self._txt, self.font, self._tam) + 2
+        return self.width, self.height
+
+    def draw(self):
+        self.canv.saveState()
+        self.canv.setFillColor(self.color)
+        self.canv.setFont(self.font, self._tam)
+        self.canv.translate(self.width / 2.0 + self._tam * 0.3, 1)
+        self.canv.rotate(90)
+        self.canv.drawString(0, 0, self._txt)
+        self.canv.restoreState()
+
+
+def _paragrafo_denso(texto, style):
+    """Parágrafo que mantém o tamanho do estilo (a padronização global forçaria 12 pt em tabelas densas)."""
+    return ParagrafoCompacto(texto, style.fontName, style.fontSize, style.leading, style.alignment, style.textColor)
+
+
 def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplinas, orientacao='landscape') -> bytes:
+    # Pauta densa: texto pequeno real e TableStyle original (sem forçar 12 pt, que partia os cabeçalhos em letras soltas)
+    Paragraph = _paragrafo_denso
+    TableStyle = _ReportLabTableStyle
+    ParagraphStyle = _estilo_denso
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
-    
+
     # Margens estreitas (0.5cm) para garantir largura util maxima de 28.7cm no A4 Paisagem
     doc = SimpleDocTemplate(
         buffer,
@@ -641,7 +695,7 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     elements.append(Paragraph(f"PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO {ano_letivo or 2026}", style_pauta_title))
 
     # Subtitulo com dados da Turma
-    dt_nome = turma.director_turma.nome if getattr(turma, 'director_turma', None) else "Manuel"
+    dt_nome = turma.director_turma.nome if getattr(turma, 'director_turma', None) else ""
     turma_nome = turma.nome if getattr(turma, 'nome', None) else '10ª Classe A'
     grau_ano = turma.grau_ano if getattr(turma, 'grau_ano', None) else '10ª Classe'
     turno = turma.turno if getattr(turma, 'turno', None) else 'MANHA'
@@ -652,8 +706,8 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
     # 2. Tabela Oficial da Pauta com Encaixe Milimetrico
     n_discs = max(len(disciplinas), 1)
-    font_disc_sz = 6.0 if n_discs >= 11 else 7.0
-    lead_disc = 7.0 if n_discs >= 11 else 8.0
+    font_disc_sz = 6.5 if n_discs >= 11 else 7.5
+    lead_disc = 7.5 if n_discs >= 11 else 8.5
 
     sh_num = ParagraphStyle('HN', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
     sh_nome = ParagraphStyle('HNome', fontName='Times-Bold', fontSize=7.0, leading=8.0, alignment=0)
@@ -663,11 +717,11 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     sh_white = ParagraphStyle('HW', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.white)
     sh_sub = ParagraphStyle('HS', fontName='Times-Roman', fontSize=5.5, leading=6.5, alignment=1)
 
-    st_num = ParagraphStyle('TNum', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=1)
-    st_nome = ParagraphStyle('TN', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=0)
-    st_c = ParagraphStyle('TC', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=1)
-    st_red = ParagraphStyle('TR', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_bold = ParagraphStyle('TB', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
+    st_num = ParagraphStyle('TNum', fontName='Times-Roman', fontSize=7.5, leading=8.5, alignment=1)
+    st_nome = ParagraphStyle('TN', fontName='Times-Bold', fontSize=7.5, leading=8.5, alignment=0)
+    st_c = ParagraphStyle('TC', fontName='Times-Roman', fontSize=7.5, leading=8.5, alignment=1)
+    st_red = ParagraphStyle('TR', fontName='Times-Bold', fontSize=7.5, leading=8.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_bold = ParagraphStyle('TB', fontName='Times-Bold', fontSize=7.5, leading=8.5, alignment=1)
     st_res_rep = ParagraphStyle('TRRep', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
     st_res_apr = ParagraphStyle('TRApr', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#111827'))
 
@@ -923,6 +977,9 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     Gera o PDF oficial da Pauta de Exames no formato A4 Paisagem (Landscape)
     respeitando integralmente a estrutura curricular e o modelo oficial do MEC.
     """
+    Paragraph = _paragrafo_denso
+    TableStyle = _ReportLabTableStyle
+    ParagraphStyle = _estilo_denso
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
     doc = SimpleDocTemplate(
@@ -1023,6 +1080,7 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         ('SPAN', (2, 0), (2, 2)),
         ('SPAN', (3, 0), (3, 2)),
         ('SPAN', (4, 0), (4, 2)),
+        ('BACKGROUND', (0, 0), (4, 2), colors.HexColor('#1e3a8a')),
     ]
 
     curr_col = 5
@@ -1033,10 +1091,10 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         table_styles.append(('SPAN', (curr_col, 0), (curr_col + 3, 0)))
 
         row_hdr2.extend([
-            Paragraph("Frequência", sh_sub),
-            Paragraph("Exame", sh_sub),
-            Paragraph("Exame", sh_sub),
-            Paragraph("Média", sh_sub),
+            ParagrafoVertical("Frequência", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+            ParagrafoVertical("Exame", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+            ParagrafoVertical("Exame", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+            ParagrafoVertical("Média", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
         ])
         row_hdr3.extend([
             Paragraph("", sh_sub),
@@ -1051,10 +1109,12 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     # Disciplinas sem Exame
     for d in disciplinas_sem_exame:
         d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
-        row_hdr1.append(Paragraph(d_nome_curto, sh_bold_w))
-        row_hdr2.append(Paragraph("Frequência", sh_sub))
-        row_hdr3.append(Paragraph("", sh_sub))
-        table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))
+        # Coluna única e estreita: o nome da disciplina é escrito na vertical, ocupando as 3 linhas do cabeçalho
+        row_hdr1.append(ParagrafoVertical(d_nome_curto, 'Times-Bold', 6.0, colors.white, max_altura=2.9 * cm))
+        row_hdr2.append("")
+        row_hdr3.append("")
+        table_styles.append(('SPAN', (curr_col, 0), (curr_col, 2)))
+        table_styles.append(('BACKGROUND', (curr_col, 0), (curr_col, 2), colors.HexColor('#1e3a8a')))
         curr_col += 1
 
     # Resultado Final
@@ -1153,7 +1213,7 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     # Assinaturas
     dap_nome = getattr(escola, 'dap_nome', '') or ''
     dir_nome = getattr(escola, 'director_nome', '') or ''
-    dt_nome = turma_info.get('director_turma', 'O Director de Turma') or 'O Director de Turma'
+    dt_nome = turma_info.get('director_turma', '') or ''
 
     sig_data = [
         ["______________________________", "______________________________", "______________________________"],
