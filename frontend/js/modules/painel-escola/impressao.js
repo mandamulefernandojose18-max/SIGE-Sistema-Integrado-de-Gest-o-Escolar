@@ -42,7 +42,7 @@ async function prepararCentralImpressao() {
 
 
 
-async function aoSelecionarTurmaImpressao() {
+async function aoSelecionarTurmaImpressaoBase() {
 
   const turmaId = document.getElementById('printSelectTurma')?.value;
 
@@ -90,7 +90,7 @@ async function aoSelecionarTurmaImpressao() {
 
 
 
-function alternarCamposImpressao(tipo) {
+function alternarCamposImpressaoBase(tipo) {
 
   const selAluno = document.getElementById('printSelectAluno');
 
@@ -152,7 +152,7 @@ function alternarCamposImpressao(tipo) {
 
 
 
-async function carregarVisualizacaoImpressao() {
+async function carregarVisualizacaoImpressaoBase() {
 
   const tipo = document.getElementById('printTipoDoc').value;
 
@@ -526,7 +526,7 @@ function aoMudarOrientacaoPauta(valor) {
 
 
 
-function imprimirDocumentoCentral() {
+function imprimirDocumentoCentralBase() {
 
   const tipo = document.getElementById('printTipoDoc')?.value || '';
 
@@ -556,7 +556,7 @@ function imprimirDocumentoCentral() {
 
 
 
-async function descarregarPdfCentral() {
+async function descarregarPdfCentralBase() {
 
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
 
@@ -802,7 +802,7 @@ async function descarregarDocxCentral() {
 
 
 
-async function descarregarXlsxCentral() {
+async function descarregarXlsxCentralBase() {
 
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
 
@@ -902,7 +902,7 @@ async function descarregarXlsxCentral() {
 
 
 
-async function descarregarZipCentral() {
+async function descarregarZipCentralBase() {
 
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
 
@@ -3466,3 +3466,251 @@ function imprimirDocumentoComTitulo(titulo) {
 
 const PLANO_CURRICULAR_MINEDH_FRONTEND = PLANO_CURRICULAR_MEC_FRONTEND;
 
+
+// ==================== DOCUMENTOS EMITIDOS PELO SERVIDOR (PDF OFICIAL) ====================
+// Pautas, actas, cadernetas, estatísticas e fichas são gerados no servidor (ReportLab). A pré-visualização e a
+// impressão usam exactamente o mesmo PDF do botão "PDF", pelo que o resultado impresso é sempre igual ao descarregado.
+
+const TIPOS_PDF_SERVIDOR_CENTRAL = ['PAUTA_TURMA', 'PAUTA_EXAME', 'ACTA_CONSELHO', 'CADERNETA', 'ESTATISTICAS', 'FICHA'];
+
+function usaPdfServidorCentral(tipo) {
+  return TIPOS_PDF_SERVIDOR_CENTRAL.includes(tipo);
+}
+
+function obterPdfServidorCentral(tipo, turmaId, alunoId, orientacao) {
+  const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+  const individual = alunoId && alunoId !== 'TODOS';
+  if (tipo === 'PAUTA_TURMA') {
+    return { url: `/api/v1/pautas/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, nome: `Pauta_Oficial_${turmaId}.pdf` };
+  }
+  if (tipo === 'PAUTA_EXAME') {
+    return { url: `/api/v1/pautas/exames/turma/${turmaId}/pdf?anoLetivo=${ano}&orientacao=${orientacao}`, nome: `Pauta_Exames_${turmaId}_${ano}.pdf` };
+  }
+  if (tipo === 'ACTA_CONSELHO') {
+    let sessao = {};
+    try { sessao = JSON.parse(localStorage.getItem(`sige_sessao_acta_${turmaId}`) || '{}'); } catch (e) { sessao = {}; }
+    const params = new URLSearchParams({ anoLetivo: ano, orientacao: orientacao });
+    if (sessao.presidente) params.append('presidente', sessao.presidente);
+    if (sessao.data) params.append('data', sessao.data);
+    return { url: `/api/v1/pautas/turma/${turmaId}/acta-pdf?${params.toString()}`, nome: `Acta_Conselho_${turmaId}.pdf` };
+  }
+  if (tipo === 'CADERNETA') {
+    // No modo Caderneta o seletor "Destinatário" lista as disciplinas (alocações) da turma escolhida
+    return { url: `/api/v1/professores/caderneta/${alunoId}/pdf?orientacao=${orientacao}`, nome: `Caderneta_${alunoId}.pdf` };
+  }
+  if (tipo === 'ESTATISTICAS') {
+    return { url: `/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=${ano}&periodo=GLOBAL&orientacao=${orientacao}`, nome: `Estatisticas_Aproveitamento_${ano}.pdf` };
+  }
+  if (tipo === 'FICHA') {
+    return individual
+      ? { url: `/api/v1/impressao/ficha/${alunoId}/pdf?orientacao=${orientacao}`, nome: `Ficha_${alunoId}.pdf` }
+      : { url: `/api/v1/impressao/lote/turma/${turmaId}/pdf?tipo=FICHA&orientacao=${orientacao}`, nome: `Fichas_Turma_${turmaId}.pdf` };
+  }
+  return null;
+}
+
+function avisoCentralImpressao(msg, tipo = 'warning') {
+  if (typeof mostrarNotificacao === 'function') mostrarNotificacao(msg, tipo);
+  else alert(msg);
+}
+
+// Valida a selecção necessária para o documento; devolve { turmaId, alunoId, orientacao, info } ou null
+async function resolverPdfServidorCentral(tipo) {
+  const orientacao = obterOrientacaoAtiva(tipo);
+  const alunoId = document.getElementById('printSelectAluno')?.value;
+  let turmaId = document.getElementById('printSelectTurma')?.value;
+  if (tipo !== 'ESTATISTICAS') {
+    turmaId = await obterTurmaAtivaOuPrimeira(turmaId);
+    if (!turmaId) {
+      avisoCentralImpressao('Por favor, selecione primeiro uma turma.');
+      return null;
+    }
+  }
+  if (tipo === 'CADERNETA' && (!alunoId || alunoId === 'TODOS')) {
+    avisoCentralImpressao('Seleccione a disciplina (caderneta) da turma em "Destinatário".');
+    return null;
+  }
+  return { turmaId, alunoId, orientacao, info: obterPdfServidorCentral(tipo, turmaId, alunoId, orientacao) };
+}
+
+async function obterBlobPdfServidor(url) {
+  const fullUrl = formatarUrlApi(url);
+  const montarHeaders = () => {
+    const h = {};
+    if (state.token) h['Authorization'] = `Bearer ${state.token}`;
+    const tenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
+      || state.tenant?.id
+      || state.user?.escola_id;
+    if (tenantId) h['X-Tenant-ID'] = tenantId;
+    return h;
+  };
+  let res = await fetch(fullUrl, { headers: montarHeaders() });
+  if (res.status === 401) {
+    const novoToken = await renovarTokenAcesso();
+    if (novoToken) res = await fetch(fullUrl, { headers: montarHeaders() });
+  }
+  if (!res.ok) {
+    let msg = null;
+    try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const e = await res.json();
+        msg = e.error || e.detail || e.message;
+      }
+    } catch (_) {}
+    if (!msg) {
+      if (res.status === 403) msg = 'Acesso negado: sem permissão para este documento.';
+      else if (res.status === 404) msg = 'Documento não encontrado.';
+      else if (res.status >= 500) msg = 'Erro interno no servidor ao gerar o documento.';
+      else msg = `Falha ao gerar o documento (HTTP ${res.status})`;
+    }
+    throw new Error(msg);
+  }
+  return new Blob([await res.arrayBuffer()], { type: 'application/pdf' });
+}
+
+// Mostra o PDF oficial dentro da área de pré-visualização; devolve o iframe já carregado (ou null)
+async function visualizarPdfServidorCentral(tipo) {
+  const preview = document.getElementById('printAreaPreview');
+  if (!preview) return null;
+  const sel = await resolverPdfServidorCentral(tipo);
+  if (!sel) return null;
+
+  preview.style.display = 'block';
+  preview.classList.remove('p-5');
+  preview.classList.add('p-2');
+  preview.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A processar documento oficial...</p></div>';
+  atualizarOrientacaoDocumentoCentral(sel.orientacao);
+
+  try {
+    const blob = await obterBlobPdfServidor(sel.info.url);
+    if (window.__sigePdfPreviewUrl) URL.revokeObjectURL(window.__sigePdfPreviewUrl);
+    window.__sigePdfPreviewUrl = URL.createObjectURL(blob);
+    return await new Promise(resolve => {
+      const frame = document.createElement('iframe');
+      frame.id = 'printPdfFrame';
+      frame.title = 'Pré-visualização do documento oficial';
+      frame.style.cssText = 'width:100%;height:78vh;border:1px solid #e2e8f0;border-radius:8px;background:#fff;';
+      frame.onload = () => resolve(frame);
+      frame.src = window.__sigePdfPreviewUrl;
+      preview.innerHTML = '';
+      preview.appendChild(frame);
+      setTimeout(() => resolve(frame), 4000);
+    });
+  } catch (err) {
+    preview.innerHTML = `<div class="alert alert-danger text-center mb-0">${err.message || 'Erro ao processar documento'}</div>`;
+    return null;
+  }
+}
+
+function limparPreviewImpressaoCentral() {
+  const preview = document.getElementById('printAreaPreview');
+  if (!preview) return;
+  preview.innerHTML = '';
+  preview.style.display = 'none';
+  preview.classList.remove('p-2');
+  preview.classList.add('p-5');
+}
+
+// ---- Selecção de Caderneta: "Destinatário" passa a listar as disciplinas (alocações) da turma ----
+async function carregarAlocacoesCadernetaImpressao(turmaId) {
+  const sel = document.getElementById('printSelectAluno');
+  if (!sel) return;
+  if (!turmaId) {
+    sel.innerHTML = '<option value="">Seleccione primeiro a turma...</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">A carregar disciplinas da turma...</option>';
+  try {
+    const res = await apiFetch('/api/v1/professores/minhas-turmas');
+    const alocs = (res.data || []).filter(a => String(a.turma?.id || a.turma) === String(turmaId));
+    if (!alocs.length) {
+      sel.innerHTML = '<option value="">Sem disciplinas atribuídas a professores nesta turma</option>';
+      return;
+    }
+    sel.innerHTML = alocs.map(a => `<option value="${a.id}">${a.disciplina_nome} — ${a.professor_nome || 'Professor'}</option>`).join('');
+  } catch (err) {
+    sel.innerHTML = '<option value="">Não foi possível carregar as disciplinas</option>';
+  }
+}
+
+async function aoSelecionarTurmaImpressao() {
+  const tipo = document.getElementById('printTipoDoc')?.value;
+  if (tipo === 'CADERNETA') {
+    await carregarAlocacoesCadernetaImpressao(document.getElementById('printSelectTurma')?.value);
+    return;
+  }
+  return aoSelecionarTurmaImpressaoBase();
+}
+
+function alternarCamposImpressao(tipo) {
+  limparPreviewImpressaoCentral();
+  if (tipo === 'CADERNETA') {
+    const selOrientacao = document.getElementById('printOrientacaoSelect');
+    if (selOrientacao && selOrientacao.value === 'auto') definirOrientacaoDocumentoCentral('landscape');
+    const selAluno = document.getElementById('printSelectAluno');
+    if (selAluno) selAluno.disabled = false;
+    return aoSelecionarTurmaImpressao();
+  }
+  return alternarCamposImpressaoBase(tipo);
+}
+
+async function carregarVisualizacaoImpressao() {
+  const tipo = document.getElementById('printTipoDoc')?.value;
+  if (usaPdfServidorCentral(tipo)) {
+    await visualizarPdfServidorCentral(tipo);
+    return;
+  }
+  const preview = document.getElementById('printAreaPreview');
+  if (preview) {
+    preview.classList.remove('p-2');
+    preview.classList.add('p-5');
+  }
+  return carregarVisualizacaoImpressaoBase();
+}
+
+function imprimirDocumentoCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || '';
+  if (!usaPdfServidorCentral(tipo)) return imprimirDocumentoCentralBase();
+  visualizarPdfServidorCentral(tipo).then(frame => {
+    if (!frame) return;
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch (err) {
+      // Alguns navegadores bloqueiam a impressão do visualizador interno: abre o PDF num separador
+      window.open(window.__sigePdfPreviewUrl, '_blank');
+    }
+  });
+}
+
+async function descarregarPdfCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  if (!usaPdfServidorCentral(tipo)) return descarregarPdfCentralBase();
+  const sel = await resolverPdfServidorCentral(tipo);
+  if (sel) await downloadFicheiroBinario(sel.info.url, sel.info.nome);
+}
+
+async function descarregarXlsxCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  if (tipo === 'CADERNETA') {
+    const sel = await resolverPdfServidorCentral(tipo);
+    if (sel) await downloadFicheiroBinario(`/api/v1/professores/caderneta/${sel.alunoId}/xlsx?orientacao=${sel.orientacao}`, `Caderneta_${sel.alunoId}.xlsx`);
+    return;
+  }
+  if (tipo === 'ESTATISTICAS') {
+    const ano = document.getElementById('impressaoAnoSelect')?.value || '2026';
+    await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=${ano}&periodo=GLOBAL`, `Estatisticas_Aproveitamento_${ano}.xlsx`);
+    return;
+  }
+  return descarregarXlsxCentralBase();
+}
+
+async function descarregarZipCentral() {
+  const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
+  if (tipo === 'CADERNETA' || tipo === 'ESTATISTICAS') {
+    avisoCentralImpressao('O pacote ZIP não está disponível para este documento. Use PDF ou Excel.');
+    return;
+  }
+  return descarregarZipCentralBase();
+}

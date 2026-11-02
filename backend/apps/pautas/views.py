@@ -971,6 +971,29 @@ class PautasEstatisticasGeraisView(APIView):
             'data': dados
         })
 
+class PautasEstatisticasGeraisPDFView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from common.utils.tenant import get_tenant_escola
+        from apps.documentos.services.pdf_service import gerar_estatisticas_gerais_pdf
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Instituição não identificada.'}, status=400)
+
+        ano_letivo = request.query_params.get('anoLetivo', '2026')
+        periodo = request.query_params.get('periodo', 'GLOBAL')
+        orientacao = request.query_params.get('orientacao', 'landscape')
+
+        dados = compilar_estatisticas_gerais_escola(escola, ano_letivo=ano_letivo, periodo=periodo)
+        pdf_bytes = gerar_estatisticas_gerais_pdf(escola, ano_letivo, periodo, dados, orientacao=orientacao)
+
+        fname = _safe_ascii_filename(f"Estatisticas_Aproveitamento_{ano_letivo}.pdf")
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        return response
+
+
 class PautasEstatisticasGeraisXLSXView(APIView):
     permission_classes = [IsAuthenticated]
 

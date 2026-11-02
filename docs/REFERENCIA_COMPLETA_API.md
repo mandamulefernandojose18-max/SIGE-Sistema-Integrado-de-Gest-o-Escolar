@@ -231,6 +231,7 @@
 | `GET` | `/api/v1/pautas/turma/<uuid:turma_id>/acta-docx/`| Pedagógico | Download da Acta Oficial em formato Word editável (`.docx`). |
 | `GET` | `/api/v1/pautas/turma/<uuid:turma_id>/acta-xlsx/`| Pedagógico | Download da Acta Oficial em formato Excel (`.xlsx`). |
 | `GET` | `/api/v1/pautas/estatisticas-gerais/` | Autenticado | Mapa estatístico comparativo de aproveitamento de todas as turmas. |
+| `GET` | `/api/v1/pautas/estatisticas-gerais/pdf/` | Autenticado | Mapa estatístico geral em PDF A4 (`anoLetivo`, `periodo`, `orientacao`). |
 | `GET` | `/api/v1/pautas/estatisticas-gerais/xlsx/` | Autenticado | Exportação do mapa estatístico geral em Excel (`.xlsx`). |
 
 ---

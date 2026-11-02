@@ -21,7 +21,8 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate as _ReportLabSimpleDocTemplate, Paragraph as _ReportLabParagraph,
-    Spacer, Table, TableStyle as _ReportLabTableStyle, Image as RLImage, KeepTogether, PageBreak, Flowable
+    Spacer, Table, TableStyle as _ReportLabTableStyle, Image as RLImage, KeepTogether, PageBreak, Flowable,
+    CondPageBreak
 )
 from reportlab.lib.styles import getSampleStyleSheet as _orig_getSampleStyleSheet, ParagraphStyle
 
@@ -892,8 +893,8 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     elements.append(Spacer(1, 0.4 * cm))
 
     # Assinaturas da Pauta (3 colunas: DT, DAP, Diretor)
-    dap_nome = getattr(escola, 'dap_nome', 'O Director Pedagógico (DAP)') or 'O Director Pedagógico (DAP)'
-    dir_nome = getattr(escola, 'director_nome', 'O Director da Escola') or 'O Director da Escola'
+    dap_nome = getattr(escola, 'dap_nome', '') or ''
+    dir_nome = getattr(escola, 'director_nome', '') or ''
 
     sig_data = [
         ["______________________________", "______________________________", "______________________________"],
@@ -1150,8 +1151,8 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     elements.append(Spacer(1, 0.4 * cm))
 
     # Assinaturas
-    dap_nome = getattr(escola, 'dap_nome', 'O Director Pedagógico (DAP)') or 'O Director Pedagógico (DAP)'
-    dir_nome = getattr(escola, 'director_nome', 'O Director da Escola') or 'O Director da Escola'
+    dap_nome = getattr(escola, 'dap_nome', '') or ''
+    dir_nome = getattr(escola, 'director_nome', '') or ''
     dt_nome = turma_info.get('director_turma', 'O Director de Turma') or 'O Director de Turma'
 
     sig_data = [
@@ -1889,13 +1890,40 @@ def gerar_certificado_pdf(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 
 # ==================== 5. ACTA DO CONSELHO (HORIZONTAL / LANDSCAPE) ====================
 
+class ParagrafoCompacto(Flowable):
+    """
+    Texto de células de tabelas estatísticas densas (acta). A padronização global força 12 pt em
+    todos os Paragraph; este flowable mantém o tamanho pedido e escapa a essa padronização.
+    """
+    def __init__(self, texto, font='Times-Roman', size=5.5, leading=None, align=1, color=colors.black):
+        super().__init__()
+        st = ParagraphStyle('compacto')
+        st.fontName = font
+        st.fontSize = size
+        st.leading = leading or (size + 1.2)
+        st.alignment = align
+        st.textColor = color
+        self._p = _ReportLabParagraph(texto, st)
+
+    def wrap(self, availWidth, availHeight):
+        self.width, self.height = self._p.wrap(availWidth, availHeight)
+        return self.width, self.height
+
+    def draw(self):
+        self._p.drawOn(self.canv, 0, 0)
+
+
 def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
                     tabela_efectivo=None, tabela_aproveitamento=None,
                     disciplinas=None, trimestres_com_notas=None,
                     estatisticas=None, presidente=None, data_sessao=None,
                     orientacao='landscape', params_sessao=None, **kwargs) -> bytes:
+    # Tabelas densas da acta usam o TableStyle original (a padronização global forçaria 12 pt e sobrepunha linhas de 8,5 pt)
+    TableStyle = _ReportLabTableStyle
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
+    largura_util = page_size[0] - 2.0 * cm
+    retrato = page_size[0] < page_size[1]
     doc = SimpleDocTemplate(
         buffer,
         pagesize=page_size,
@@ -2026,6 +2054,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 5.5),
+        ('LEADING', (0, 0), (-1, -1), 6.5),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
@@ -2101,6 +2130,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 5.5),
+        ('LEADING', (0, 0), (-1, -1), 6.5),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
@@ -2184,26 +2214,33 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     col_t1 = [Paragraph("<b>APROVEITAMENTO POR TRIMESTRES E FIM DO ANO (EFECTIVOS E MOVIMENTO)</b>", style_th_block), Spacer(1, 0.06 * cm), t1_table]
     col_t2 = [Paragraph("<b>APROVEITAMENTO PEDAGÓGICO POR FAIXAS E CRESCIMENTO</b>", style_th_block), Spacer(1, 0.06 * cm), t2_table]
 
-    t_side_by_side = Table([[col_t1, col_t2]], colWidths=[13.2 * cm, 14.3 * cm])
-    t_side_by_side.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    elements.append(t_side_by_side)
+    if retrato:
+        # Em vertical não cabem lado a lado: empilhadas, cada uma inteira na sua página
+        elements.append(KeepTogether(col_t1))
+        elements.append(Spacer(1, 0.25 * cm))
+        elements.append(KeepTogether(col_t2))
+    else:
+        t_side_by_side = Table([[col_t1, col_t2]], colWidths=[13.2 * cm, 14.3 * cm])
+        t_side_by_side.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(t_side_by_side)
 
     # 6. TABELA 3: Aproveitamento Pedagógico por Disciplina (Fluxo Contínuo)
     if discs:
+        elements.append(CondPageBreak(7.0 * cm))
         elements.append(Spacer(1, 0.3 * cm))
-        style_sec = ParagraphStyle('SecHdr', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1, textColor=colors.HexColor('#1e3a8a'))
+        style_sec =ParagraphStyle('SecHdr', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1, textColor=colors.HexColor('#1e3a8a'))
         elements.append(Paragraph("<b>ÁREA CURRICULAR & ESTATÍSTICA PEDAGÓGICA POR DISCIPLINA</b>", style_sec))
         elements.append(Spacer(1, 0.2 * cm))
 
         num_d = len(discs)
         col_w_class = 3.5 * cm
-        disp_w = 24.0 * cm
+        disp_w = largura_util - col_w_class - 0.2 * cm
         d_width = disp_w / max(num_d, 1)
         sub_w = d_width / 3.0
 
@@ -2212,7 +2249,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         row0 = ['CLASSIFICAÇÃO']
         row1 = ['']
         for d in discs:
-            row0.extend([d.get('nome', '').upper(), '', ''])
+            row0.extend([ParagrafoCompacto((d.get('nome', '') or '').upper(), 'Times-Bold', 5.5, 6.5, 1, colors.white), '', ''])
             row1.extend(['H', 'M', 'HM'])
 
         data_t3 = [row0, row1]
@@ -2234,6 +2271,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
             ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 5.5),
+            ('LEADING', (0, 0), (-1, -1), 6.5),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
@@ -2289,6 +2327,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
 
     # 7. TABELA 4: Relação Nominal dos Alunos e Deliberação do Conselho
     style_sec_nom = ParagraphStyle('SecNomHdr', fontName='Times-Bold', fontSize=9.5, leading=12, alignment=1, textColor=colors.HexColor('#1e3a8a'))
+    elements.append(CondPageBreak(5.0 * cm))
     elements.append(Paragraph("<b>RELAÇÃO NOMINAL DOS ALUNOS E DELIBERAÇÃO DO CONSELHO</b>", style_sec_nom))
     elements.append(Spacer(1, 0.2 * cm))
 
@@ -2319,7 +2358,8 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             Paragraph(res_val, style_res)
         ])
 
-    t_alunos = Table(tabela_alunos_data, colWidths=[1.2 * cm, 12.6 * cm, 3.2 * cm, 3.5 * cm, 7.0 * cm], repeatRows=1)
+    esc_larg = largura_util / (27.5 * cm)
+    t_alunos = Table(tabela_alunos_data, colWidths=[w * cm * esc_larg for w in (1.2, 12.6, 3.2, 3.5, 7.0)], repeatRows=1)
     t_alunos.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
@@ -2337,7 +2377,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         ["\n__________________________________", "\n__________________________________", "\n__________________________________"],
         [pres_final, "Secretário(a) Designado(a)", dir_turma_final]
     ]
-    t_sig = Table(sig_data, colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm])
+    t_sig = Table(sig_data, colWidths=[largura_util / 3.0] * 3)
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
@@ -2366,7 +2406,7 @@ def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
     esc_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária')
     esc_prov = _obter_campo_escola(escola, 'provincia', 'Inhambane')
     esc_dist = _obter_campo_escola(escola, 'distrito', 'Massinga')
-    elements.extend(gerar_cabecalho_mec(styles, esc_nome, esc_prov, esc_dist, escola=escola))
+    elements.extend(gerar_cabecalho_mec(styles, esc_nome, esc_prov, esc_dist, compacto=True, escola=escola))
 
     style_title = ParagraphStyle('FichaTitle', parent=styles['Normal'], alignment=1, fontSize=12, leading=15, fontName='Times-Bold')
     elements.append(Paragraph("FICHA BIOGRÁFICA DO ALUNO", style_title))
@@ -2401,21 +2441,19 @@ def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
     ]
 
     tabela_data = []
-    style_l = ParagraphStyle('FL', fontName='Times-Bold', fontSize=8.5, leading=11)
-    style_v = ParagraphStyle('FV', fontName='Times-Roman', fontSize=8.5, leading=11)
 
     for label, val in campos:
-        tabela_data.append([Paragraph(label, style_l), Paragraph(str(val), style_v)])
+        tabela_data.append([ParagrafoCompacto(label, 'Times-Bold', 10, 12, 0), ParagrafoCompacto(str(val), 'Times-Roman', 10, 12, 0)])
 
-    t_bio = Table(tabela_data, colWidths=[5.5 * cm, 12.5 * cm])
+    t_bio = Table(tabela_data, colWidths=[6.6 * cm, 11.4 * cm])
     t_bio.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8fafc')),
-        ('TOPPADDING', (0, 0), (-1, -1), 2.0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.0),
+        ('TOPPADDING', (0, 0), (-1, -1), 1.0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.0),
     ]))
     elements.append(t_bio)
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.2 * cm))
 
     # Tabela 2: Plano Curricular & Disciplinas que Estuda
     style_sec = ParagraphStyle('SecFicha', parent=styles['Normal'], alignment=0, fontSize=9.0, leading=11, fontName='Times-Bold', textColor=colors.HexColor('#1e3a8a'))
@@ -2424,29 +2462,27 @@ def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
 
     disciplinas = obter_disciplinas_plano_curricular(aluno, escola)
     headers_disc = [
-        Paragraph('<b>Nº</b>', ParagraphStyle('DH1', fontName='Times-Bold', fontSize=8, alignment=1, textColor=colors.whitesmoke)),
-        Paragraph('<b>Código</b>', ParagraphStyle('DH2', fontName='Times-Bold', fontSize=8, alignment=1, textColor=colors.whitesmoke)),
-        Paragraph('<b>Disciplina Curricular</b>', ParagraphStyle('DH3', fontName='Times-Bold', fontSize=8, textColor=colors.whitesmoke)),
-        Paragraph('<b>Carga Horária</b>', ParagraphStyle('DH4', fontName='Times-Bold', fontSize=8, alignment=1, textColor=colors.whitesmoke)),
+        ParagrafoCompacto('<b>Nº</b>', 'Times-Bold', 9.5, 11, 1, colors.white),
+        ParagrafoCompacto('<b>Código</b>', 'Times-Bold', 9.5, 11, 1, colors.white),
+        ParagrafoCompacto('<b>Disciplina Curricular</b>', 'Times-Bold', 9.5, 11, 0, colors.white),
+        ParagrafoCompacto('<b>Carga Horária</b>', 'Times-Bold', 9.5, 11, 1, colors.white),
     ]
     data_disc = [headers_disc]
-    style_td_c = ParagraphStyle('DC', fontName='Times-Roman', fontSize=7.5, leading=9.5, alignment=1)
-    style_td_l = ParagraphStyle('DL', fontName='Times-Roman', fontSize=7.5, leading=9.5, alignment=0)
 
     for d in disciplinas:
         data_disc.append([
-            Paragraph(str(d.get('numero', '-')), style_td_c),
-            Paragraph(str(d.get('codigo', '-')), style_td_c),
-            Paragraph(str(d.get('nome', '-')), style_td_l),
-            Paragraph(str(d.get('carga', '-')), style_td_c),
+            ParagrafoCompacto(str(d.get('numero', '-')), 'Times-Roman', 9.5, 11, 1),
+            ParagrafoCompacto(str(d.get('codigo', '-')), 'Times-Roman', 9.5, 11, 1),
+            ParagrafoCompacto(str(d.get('nome', '-')), 'Times-Roman', 9.5, 11, 0),
+            ParagrafoCompacto(str(d.get('carga', '-')), 'Times-Roman', 9.5, 11, 1),
         ])
 
     t_disc = Table(data_disc, colWidths=[1.2 * cm, 2.8 * cm, 11.2 * cm, 2.8 * cm])
     disc_styles = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
-        ('TOPPADDING', (0, 0), (-1, -1), 1.6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.6),
+        ('TOPPADDING', (0, 0), (-1, -1), 0.8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.8),
     ]
     for r_i in range(1, len(data_disc)):
         if r_i % 2 == 0:
@@ -2454,7 +2490,7 @@ def construir_elementos_ficha(aluno, escola, orientacao='portrait'):
 
     t_disc.setStyle(TableStyle(disc_styles))
     elements.append(t_disc)
-    elements.append(Spacer(1, 0.45 * cm))
+    elements.append(Spacer(1, 0.2 * cm))
 
     # Assinaturas Oficiais
     sig_data = [
@@ -2712,7 +2748,106 @@ def gerar_recibo_pdf(pagamento, escola, orientacao='portrait') -> bytes:
 
 # ==================== 8. CADERNETA DE AVALIAÇÃO CONTÍNUA DO PROFESSOR (PDF HORIZONTAL) ====================
 
+def gerar_estatisticas_gerais_pdf(escola, ano_letivo, periodo, stats_data, orientacao='landscape') -> bytes:
+    """Mapa consolidado de rendimento (escola, classes, turmas e disciplinas) em A4."""
+    buffer = io.BytesIO()
+    page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
+    doc = SimpleDocTemplate(
+        buffer, pagesize=page_size,
+        rightMargin=1.0 * cm, leftMargin=1.0 * cm, topMargin=0.8 * cm, bottomMargin=0.8 * cm
+    )
+    styles = getSampleStyleSheet()
+    esc_nome = _obter_campo_escola(escola, 'nome', 'Escola Secundária')
+    esc_prov = _obter_campo_escola(escola, 'provincia', 'Inhambane')
+    esc_dist = _obter_campo_escola(escola, 'distrito', 'Massinga')
+    elements = list(gerar_cabecalho_mec(styles, esc_nome, esc_prov, esc_dist, compacto=True, escola=escola))
+
+    periodo_rotulo = 'MÉDIA ANUAL / MFD' if str(periodo).upper() in ('GLOBAL', 'ANUAL', 'MFD') else str(periodo)
+    s_tit = ParagraphStyle('EstTit', parent=styles['Normal'], alignment=1, fontSize=11, leading=13, fontName='Times-Bold')
+    s_sub = ParagraphStyle('EstSub', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=10.5, fontName='Times-Roman')
+    s_sec = ParagraphStyle('EstSec', parent=styles['Normal'], fontSize=9, leading=11, fontName='Times-Bold', textColor=colors.HexColor('#1e3a8a'))
+    s_c = ParagraphStyle('EstC', fontName='Times-Roman', fontSize=8, leading=9.5, alignment=1)
+    s_l = ParagraphStyle('EstL', fontName='Times-Roman', fontSize=8, leading=9.5, alignment=0)
+    s_h = ParagraphStyle('EstH', fontName='Times-Bold', fontSize=7.5, leading=9, alignment=1, textColor=colors.white)
+    elements.append(Paragraph('MAPA CONSOLIDADO DO RENDIMENTO E APROVEITAMENTO PEDAGÓGICO', s_tit))
+    elements.append(Paragraph(
+        f"Ano Lectivo: {ano_letivo} | Período: {periodo_rotulo} | Data de Emissão: {datetime.date.today().strftime('%d/%m/%Y')}", s_sub))
+    elements.append(Spacer(1, 0.2 * cm))
+
+    largura = page_size[0] - 2.0 * cm
+
+    def _tabela(titulo, cabecalhos, linhas, vazio, col_esq=(0,)):
+        elements.append(CondPageBreak(4.0 * cm))
+        elements.append(Paragraph(titulo, s_sec))
+        elements.append(Spacer(1, 0.08 * cm))
+        dados = [[Paragraph(h, s_h) for h in cabecalhos]]
+        if not linhas:
+            dados.append([Paragraph(vazio, s_l)] + [Paragraph('', s_c)] * (len(cabecalhos) - 1))
+        for ln in linhas:
+            dados.append([Paragraph(str(v), s_l if i in col_esq else s_c) for i, v in enumerate(ln)])
+        t = Table(dados, colWidths=[largura / len(cabecalhos)] * len(cabecalhos), repeatRows=1)
+        estilo = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 1.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
+        ]
+        if not linhas:
+            estilo.append(('SPAN', (0, 1), (-1, 1)))
+        t.setStyle(TableStyle(estilo))
+        elements.append(t)
+        elements.append(Spacer(1, 0.25 * cm))
+
+    ge = stats_data.get('geralEscola', {}) or {}
+    ins, ava, apr, rep = (ge.get(k, {}) or {} for k in ('inscritos', 'avaliados', 'aprovados', 'reprovados'))
+    _tabela('1. RESUMO GLOBAL DA ESCOLA',
+            ['Inscritos (H)', 'Inscritos (M)', 'Inscritos Total', 'Avaliados Total', 'Aprovados', '% Aprov.', 'Reprovados', '% Reprov.'],
+            [[ins.get('h', 0), ins.get('m', 0), ins.get('total', 0), ava.get('total', 0),
+              apr.get('total', 0), f"{apr.get('pct', 0)}%", rep.get('total', 0), f"{rep.get('pct', 0)}%"]],
+            'Sem dados')
+
+    def _cls(c):
+        i, a, p, r = (c.get(k, {}) or {} for k in ('inscritos', 'avaliados', 'aprovados', 'reprovados'))
+        return [f"{c.get('classe')} Classe", c.get('turmas', 0), i.get('h', 0), i.get('m', 0), i.get('total', 0),
+                a.get('total', 0), p.get('total', 0), f"{p.get('pct', 0)}%", r.get('total', 0), f"{r.get('pct', 0)}%"]
+    _tabela('2. RENDIMENTO POR CLASSE',
+            ['Classe', 'Turmas', 'Inscritos (H)', 'Inscritos (M)', 'Inscritos Total', 'Avaliados', 'Aprovados', '% Aprov.', 'Reprovados', '% Reprov.'],
+            [_cls(c) for c in stats_data.get('porClasse', [])], 'Sem classes registadas')
+
+    def _trm(t):
+        i, a, p, r = (t.get(k, {}) or {} for k in ('inscritos', 'avaliados', 'aprovados', 'reprovados'))
+        return [t.get('turmaNome', ''), t.get('grau_ano', ''), t.get('turno', ''), t.get('directorTurma', '-'),
+                i.get('total', 0), a.get('total', 0), p.get('total', 0), f"{p.get('pct', 0)}%",
+                r.get('total', 0), f"{r.get('pct', 0)}%"]
+    _tabela('3. APROVEITAMENTO PEDAGÓGICO POR TURMA',
+            ['Turma', 'Classe', 'Turno', 'Director de Turma', 'Inscritos', 'Avaliados', 'Aprovados', '% Aprov.', 'Reprovados', '% Reprov.'],
+            [_trm(t) for t in stats_data.get('porTurma', [])], 'Sem turmas activas', col_esq=(0, 3))
+
+    def _dsc(d):
+        a, p, r = (d.get(k, {}) or {} for k in ('avaliados', 'aprovados', 'reprovados'))
+        med = d.get('mediaFinal')
+        return [d.get('nome', ''), d.get('codigo', ''), a.get('h', 0), a.get('m', 0), a.get('total', 0),
+                p.get('total', 0), f"{p.get('pct', 0)}%", r.get('total', 0), f"{r.get('pct', 0)}%",
+                med if med is not None else '-']
+    _tabela('4. RENDIMENTO COMPARATIVO POR DISCIPLINA',
+            ['Disciplina', 'Código', 'Avaliados (H)', 'Avaliados (M)', 'Avaliados Total', 'Aprovados', '% Aprov.', 'Reprovados', '% Reprov.', 'Média Final'],
+            [_dsc(d) for d in stats_data.get('porDisciplina', [])], 'Sem disciplinas registadas')
+
+    sig = Table([['O Director Pedagógico (DAP)', 'O Chefe da Secretaria', 'O Director da Escola'],
+                 ['\n______________________________'] * 3],
+                colWidths=[largura / 3] * 3)
+    sig.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+                             ('FONTSIZE', (0, 0), (-1, -1), 8.5)]))
+    elements.append(KeepTogether([sig]))
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
+    # Cabeçalhos da grelha em texto simples: usar o TableStyle original (a padronização global forçaria 12 pt e sobrepunha colunas)
+    TableStyle = _ReportLabTableStyle
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
     doc = SimpleDocTemplate(
@@ -2945,7 +3080,8 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
         ('FONTNAME', (0, 2), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 6.0),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('LEADING', (0, 0), (-1, -1), 8.5),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (1, 2), (1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),

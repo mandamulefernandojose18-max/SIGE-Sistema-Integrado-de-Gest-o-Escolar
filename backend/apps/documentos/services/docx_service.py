@@ -87,6 +87,21 @@ def finalizar_formatacao_documento_docx(doc):
                     for r in p.runs:
                         aplicar_fonte_times(r, pt_size=12, bold=r.bold, italic=r.italic, color_rgb=getattr(getattr(r, 'font', None), 'color', None) and r.font.color.rgb)
 
+def compactar_documento_docx(doc, tamanho_pt=10, espacamento=1.0):
+    """Reduz tamanho e espaçamento de todo o conteúdo (usado em documentos que devem caber numa só página)."""
+    paragrafos = list(doc.paragraphs)
+    for tab in doc.tables:
+        for row in tab.rows:
+            for cell in row.cells:
+                paragrafos.extend(cell.paragraphs)
+    for p in paragrafos:
+        p.paragraph_format.line_spacing = espacamento
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0) if p.text.strip() else Pt(2)
+        for r in p.runs:
+            r.font.size = Pt(tamanho_pt)
+
+
 def salvar_docx_padronizado(doc, buffer):
     """Aplica a padronização universal obrigatória (Times New Roman 12, espaçamento 1,5) e grava o buffer."""
     finalizar_formatacao_documento_docx(doc)
@@ -1307,7 +1322,10 @@ def gerar_ficha_docx(aluno, escola, orientacao='portrait') -> bytes:
     configurar_secao_pagina(doc, orientacao=orientacao, margem_pol=0.55)
     inserir_conteudo_ficha_docx(doc, aluno, escola)
     buffer = io.BytesIO()
-    salvar_docx_padronizado(doc, buffer)
+    # A ficha biográfica tem de caber numa única página A4: passagem compacta após a padronização global
+    finalizar_formatacao_documento_docx(doc)
+    compactar_documento_docx(doc, tamanho_pt=10, espacamento=1.0)
+    doc.save(buffer)
     buffer.seek(0)
     return buffer.getvalue()
 

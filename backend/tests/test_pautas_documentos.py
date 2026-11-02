@@ -409,6 +409,26 @@ class TestPautasEDocumentos:
 
 
 
+    def test_estatisticas_gerais_pdf_e_acta_em_ambas_orientacoes(self):
+        import re
+        res_est = self.client.get('/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=2026')
+        assert res_est.status_code == 200
+        assert res_est['Content-Type'] == 'application/pdf'
+        assert res_est.content[:4] == b'%PDF'
+
+        for orientacao in ('portrait', 'landscape'):
+            res_acta = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/acta-pdf?anoLetivo=2026&orientacao={orientacao}')
+            assert res_acta.status_code == 200
+            assert res_acta['Content-Type'] == 'application/pdf'
+            assert res_acta.content[:4] == b'%PDF'
+
+    def test_ficha_biografica_cabe_numa_unica_pagina(self):
+        import re
+        res = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/pdf')
+        assert res.status_code == 200
+        paginas = len(re.findall(rb'/Type\s*/Page[^s]', res.content))
+        assert paginas == 1, f'A ficha biográfica deve caber numa só página (tem {paginas})'
+
     def test_permissoes_parciais_exames_por_grupo_disciplina(self):
         from apps.professores.models import Professor, AlocacaoDocente
 

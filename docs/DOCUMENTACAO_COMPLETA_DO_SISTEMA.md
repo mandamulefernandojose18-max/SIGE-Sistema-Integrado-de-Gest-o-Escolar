@@ -704,6 +704,12 @@ Centro unificado para emissão, pré-visualização em folha A4 e descarregament
   8. **Acta Oficial do Conselho de Avaliação (`ACTA_CONSELHO`)**
   9. **Caderneta do Professor (`CADERNETA`)**
   10. **Estatísticas Gerais de Rendimento Escolar (`ESTATISTICAS`)**
+- **Pré-visualização = PDF oficial (02/11/2026):** Ficha, Pauta Geral, Pauta de Exames, Acta, Caderneta e Estatísticas são emitidos pelo servidor (ReportLab). A pré-visualização e o botão **Imprimir** mostram exactamente o mesmo PDF do botão **PDF**, pelo que o impresso nunca difere do descarregado nem sai em branco.
+  - **Caderneta:** o seletor *Destinatário* lista as disciplinas (alocações) da turma escolhida (`Turma → Disciplina/Professor`); disponível em PDF e Excel (sem ZIP).
+  - **Estatísticas Gerais:** novo PDF `GET /api/v1/pautas/estatisticas-gerais/pdf/` (resumo, classes, turmas e disciplinas), além do Excel.
+  - **Ficha Biográfica:** cabe sempre numa única página A4 (PDF e Word), mesmo com 13 disciplinas.
+  - **Acta:** tabelas estatísticas em letra compacta real (sem sobreposição de linhas) e layout adaptado a Vertical e Horizontal; títulos nunca ficam órfãos no fim da página.
+  - **Assinaturas das pautas:** sem nome fictício; mostra apenas os nomes reais registados.
 - **Modo Individual vs. Modo Lote por Turma (Simultaneidade de Lista + Todos os Documentos):**
   - O operador pode selecionar **um Aluno específico** ou escolher **"Todos os Alunos da Turma (Emissão em Lote)"**.
   - **Entrega Simultânea da Lista e dos Documentos:** Na emissão ou descarregamento em lote, o sistema gera e descarrega simultaneamente a lista oficial nominal dos emitidos e todos os próprios documentos individuais de cada aluno:

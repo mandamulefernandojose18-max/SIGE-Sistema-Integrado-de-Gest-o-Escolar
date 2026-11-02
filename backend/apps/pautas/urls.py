@@ -11,6 +11,7 @@ from .views import (
     ActaXLSXView,
     PautasEstatisticasGeraisView,
     PautasEstatisticasGeraisXLSXView,
+    PautasEstatisticasGeraisPDFView,
     PautaExamesView,
     PautaExamesXLSXView,
     PautaExamesPDFView,
@@ -59,7 +60,9 @@ urlpatterns = [
     path('turma/<uuid:turma_id>/acta-json/', PautaExportJSONView.as_view(), name='acta_json'),
     path('estatisticas-gerais', PautasEstatisticasGeraisView.as_view(), name='pautas_estatisticas_no_slash'),
     path('estatisticas-gerais/', PautasEstatisticasGeraisView.as_view(), name='pautas_estatisticas'),
-    path('estatisticas-gerais/xlsx', PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx_no_slash'),
+    path('estatisticas-gerais/pdf', PautasEstatisticasGeraisPDFView.as_view(), name='pautas_estatisticas_pdf_no_slash'),
+    path('estatisticas-gerais/pdf/', PautasEstatisticasGeraisPDFView.as_view(), name='pautas_estatisticas_pdf'),
+    path('estatisticas-gerais/xlsx',PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx_no_slash'),
     path('estatisticas-gerais/xlsx/', PautasEstatisticasGeraisXLSXView.as_view(), name='pautas_estatisticas_xlsx'),
     # Pauta de Exames Oficiais (MEC)
     path('exames/turma/<uuid:turma_id>', PautaExamesView.as_view(), name='pauta_exames_no_slash'),
