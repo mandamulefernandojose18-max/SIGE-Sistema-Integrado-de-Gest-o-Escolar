@@ -442,11 +442,13 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '', cfg: dict = None) -> 
                 c.drawImage(marca, x * cm, h - y * cm - alto, lado, alto, mask='auto')
         linhas_ocultas = [(h - 8, primeiro)] + [(y, aviso) for y in range(24, int(h) - 12, 36)] + [(4, primeiro)]
         for i, (y, linha) in enumerate(linhas_ocultas):
+            c.saveState()  # o modo de texto invisível persiste na página: isolar para não apagar o aviso visível
             t = c.beginText(8, y)
             t.setTextRenderMode(3)  # invisível
             t.setFont("Helvetica", 4)
             t.textLine(linha)
             c.drawText(t)
+            c.restoreState()
             if i == 0:
                 _desenhar_aviso_visivel(c, w, h, data)  # depois do 1.º aviso oculto, antes do último
         c.showPage()

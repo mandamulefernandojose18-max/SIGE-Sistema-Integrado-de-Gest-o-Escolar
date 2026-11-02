@@ -121,6 +121,19 @@ def test_pdf_no_lugar_comeca_e_acaba_com_aviso_curto_e_titulo():
     assert "LEIA PRIMEIRO" in leitor.metadata.title
 
 
+def test_pdf_no_lugar_aviso_visivel_realmente_desenhado_na_folha():
+    """Regressão: o modo de texto invisível do aviso oculto não pode apagar as faixas visíveis (fotografia da folha)."""
+    import pypdfium2 as pdfium
+    from reportlab.pdfgen import canvas
+    from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
+    b = io.BytesIO(); c = canvas.Canvas(b); c.showPage(); c.save()  # folha em branco
+    saida, _ = codificar_ficheiro_no_lugar(b.getvalue(), "t.pdf", DATA, url='')
+    img = pdfium.PdfDocument(saida)[0].render(scale=2).to_pil().convert("L")
+    topo = img.crop((0, 0, img.width, 50))
+    fundo = img.crop((0, img.height - 50, img.width, img.height))
+    assert min(topo.getdata()) < 128 and min(fundo.getdata()) < 128
+
+
 def test_docx_no_lugar_primeiro_e_ultimo_texto_sao_o_aviso_curto():
     import docx
     from docx.oxml.ns import qn
