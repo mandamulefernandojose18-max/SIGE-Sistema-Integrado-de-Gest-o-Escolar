@@ -351,20 +351,18 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
       const discNome = d.disciplina?.nome || '-';
       const discCod = d.disciplina?.codigo ? ` (${d.disciplina.codigo})` : '';
       document.getElementById('cadBoxDisciplina').textContent = `${discNome}${discCod}`;
+      const profNome = `${d.professor?.nome || d.alocacao?.professor_nome || '-'} ${d.professor?.apelido || ''}`.trim();
+      const dtNome = d.directorTurma?.nome && d.directorTurma.nome !== '-' ? d.directorTurma.nome : (d.turma?.director_turma_nome || d.alocacao?.director_turma_nome || '-');
       if (document.getElementById('cadDocenteAssinatura')) {
-        document.getElementById('cadDocenteAssinatura').textContent = profNome || 'Fernando José Mandamule';
+        document.getElementById('cadDocenteAssinatura').textContent = profNome;
       }
       if (document.getElementById('cadDTAssinatura')) {
-        document.getElementById('cadDTAssinatura').textContent = dtNome || 'Bionisio';
+        document.getElementById('cadDTAssinatura').textContent = dtNome;
       }
-    
-
-      const profNome = `${d.professor?.nome || d.alocacao?.professor_nome || '-'} ${d.professor?.apelido || ''}`.trim();
       document.getElementById('cadBoxProfessor').textContent = profNome;
       document.getElementById('cadBoxContacto').textContent = d.professor?.telefone || d.alocacao?.professor_telefone || '-';
       document.getElementById('cadBoxArea').textContent = d.professor?.especialidade || d.alocacao?.professor_especialidade || d.turma?.area || 'Ensino Geral';
 
-      const dtNome = d.directorTurma?.nome && d.directorTurma.nome !== '-' ? d.directorTurma.nome : (d.turma?.director_turma_nome || d.alocacao?.director_turma_nome || '-');
       document.getElementById('cadBoxTurmaDirector').textContent = `${d.turma?.nome || d.alocacao?.turma_nome || '-'} | DT: ${dtNome}`;
       document.getElementById('cadBoxClasseTurno').textContent = `${d.turma?.grau_ano || d.alocacao?.turma_grau || '-'} | ${d.turma?.turno || d.alocacao?.turma_turno || 'Diurno'}`;
       document.getElementById('cadBoxEfectivo').textContent = `H: ${d.efectivo?.h || 0} | M: ${d.efectivo?.m || 0} | Total: ${d.efectivo?.total || 0}`;

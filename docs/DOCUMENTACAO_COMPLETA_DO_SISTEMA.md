@@ -1292,3 +1292,8 @@ O SIGE dispõe de infraestrutura nativa e padronizada para operação por agente
 - **Regras Inquebráveis Unificadas**: Todos os agentes operam sob as mesmas diretrizes inquebráveis de ocultação total de IPs, orçamento estrito de US$ 6/mês, proibição absoluta de dados fictícios, interface em cascata $\\mathcal{O}(1)$ para $ cadernetas e sincronização contínua de documentação.
 - **Consulte o guia detalhado:** [docs/MIGRACAO_CLAUDE.md](MIGRACAO_CLAUDE.md).
 
+
+
+### Correcao (2026-11-04) - Caderneta: cabecalho e alunos
+O carregamento da caderneta (paineis Escola e Professor) usava profNome/dtNome antes da declaracao, interrompendo o preenchimento do cabecalho (professor, contacto, area, turma, efectivo) e da tabela de alunos. Declaracao reordenada e removidos nomes de assinatura fixos (sem dados ficticios).
+
