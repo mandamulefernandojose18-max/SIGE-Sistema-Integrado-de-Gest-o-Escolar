@@ -633,6 +633,9 @@ function renderizarTabelaHistoricoProvas(lista) {
             <button type="button" class="btn btn-outline-danger" onclick="descarregarFicheiroAutenticado('/api/v1/ferramentas/provas-anti-ia/${p.id}/descarregar-pdf/', 'Prova_${p.codigo_autenticidade}')" title="Descarregar prova codificada">
               <i class="bi bi-download me-1"></i> Prova
             </button>
+            <button type="button" class="btn btn-outline-dark" onclick="abrirCopiasPorAluno('${p.id}')" title="Uma cópia por aluno, com código único (rastreio)">
+              <i class="bi bi-people me-1"></i> Cópias
+            </button>
             <button type="button" class="btn btn-outline-primary" onclick="abrirDetalheProvaHistorico('${p.id}')" title="Ver Detalhes">
               <i class="bi bi-eye"></i>
             </button>
@@ -692,6 +695,74 @@ async function abrirDetalheProvaHistorico(provaId) {
       alternarAbaProvasAntiIa('tab-preview-prova');
     }
   } catch (_) {}
+}
+
+/**
+ * Cópias por aluno: filtros em cascata Classe -> Turma (altura constante, qualquer que seja o nº de turmas).
+ * Gera um ZIP com uma cópia por aluno activo, cada uma com código único impresso no rodapé.
+ */
+async function abrirCopiasPorAluno(provaId) {
+  const prova = (window.state.provasAntiIaHistorico || []).find(p => p.id === provaId);
+  const antigo = document.getElementById('modalCopiasAntiIa');
+  if (antigo) antigo.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal fade" id="modalCopiasAntiIa" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-people me-2"></i>Cópias por aluno</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-3">Cada aluno activo da turma recebe uma cópia de
+            <strong>${prova ? prova.titulo : 'esta prova'}</strong> com um código único impresso no rodapé. Se uma cópia
+            aparecer resolvida ou partilhada, o código identifica a quem foi entregue. As questões não são alteradas.</p>
+          <label class="form-label small fw-bold" for="copiasClasse">Classe</label>
+          <select id="copiasClasse" class="form-select mb-3" disabled><option>A carregar...</option></select>
+          <label class="form-label small fw-bold" for="copiasTurma">Turma</label>
+          <select id="copiasTurma" class="form-select" disabled><option value="">Escolha primeiro a classe</option></select>
+          <div id="copiasMsg" class="small text-danger mt-3"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+          <button type="button" class="btn btn-danger" id="copiasDescarregar" disabled><i class="bi bi-download me-1"></i>Descarregar (.zip)</button>
+        </div>
+      </div></div>
+    </div>`);
+  const modalEl = document.getElementById('modalCopiasAntiIa');
+  const selClasse = modalEl.querySelector('#copiasClasse');
+  const selTurma = modalEl.querySelector('#copiasTurma');
+  const btn = modalEl.querySelector('#copiasDescarregar');
+  const msg = modalEl.querySelector('#copiasMsg');
+  new bootstrap.Modal(modalEl).show();
+  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove());
+
+  let turmas = [];
+  try {
+    const res = await apiFetch('/api/v1/escola-admin/turmas');
+    turmas = (res && res.data) || [];
+  } catch (_) { /* sem permissão ou sem rede: estado vazio abaixo */ }
+  if (!turmas.length) {
+    selClasse.innerHTML = '<option>Sem turmas registadas</option>';
+    msg.textContent = 'Não há turmas registadas a que o seu perfil tenha acesso.';
+    return;
+  }
+  const classes = [...new Set(turmas.map(t => t.grau_ano).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+  selClasse.innerHTML = '<option value="">Seleccione a classe</option>' + classes.map(c => `<option>${c}</option>`).join('');
+  selClasse.disabled = false;
+  selClasse.addEventListener('change', () => {
+    const doGrau = turmas.filter(t => t.grau_ano === selClasse.value);
+    selTurma.innerHTML = '<option value="">Seleccione a turma</option>' + doGrau.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+    selTurma.disabled = !doGrau.length;
+    btn.disabled = true;
+    msg.textContent = '';
+  });
+  selTurma.addEventListener('change', () => { btn.disabled = !selTurma.value; msg.textContent = ''; });
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    await descarregarFicheiroAutenticado(
+      `/api/v1/ferramentas/provas-anti-ia/${provaId}/copias/?turma_id=${encodeURIComponent(selTurma.value)}`, 'Copias_prova.zip');
+    btn.disabled = false;
+  });
 }
 
 function formatarDataHora(isoStr) {

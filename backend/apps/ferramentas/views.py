@@ -1920,6 +1920,79 @@ def api_provas_anti_ia_descarregar_pdf(request, prova_id):
     return _aplicar_cabecalhos_seguranca(res)
 
 
+MAX_COPIAS_POR_TURMA = 80
+
+
+@csrf_exempt
+def api_provas_anti_ia_copias(request, prova_id):
+    """
+    GET ?turma_id=<uuid>: ZIP com uma cópia da prova por aluno ACTIVO da turma, cada uma com código único
+    visível no rodapé e registado (rastreio). A turma tem de ser da escola da prova.
+    """
+    import zipfile
+    from django.core.exceptions import ValidationError
+    from django.utils.text import slugify
+    from .models import CopiaProvaBlindada
+    from .services.anti_ai_service import carimbar_copia, gerar_codigo_copia
+
+    prova, erro = _prova_do_pedido(request, prova_id)
+    if erro:
+        return erro
+    user = _autenticar_pedido(request)
+    ext = prova.ficheiro_extensao or ''
+    if not prova.ficheiro_codificado or ext not in ('.pdf', '.docx'):
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': False, 'message': 'As cópias por aluno só estão disponíveis para provas PDF ou Word importadas.'}, status=422))
+    try:
+        turma = Turma.objects.get(id=request.GET.get('turma_id', ''), **({'escola': prova.escola} if prova.escola_id else {}))
+    except (Turma.DoesNotExist, ValueError, ValidationError):
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Turma não encontrada.'}, status=404))
+    alunos = list(Aluno.objects.filter(turma=turma, escola=turma.escola, status='ATIVO').order_by('nome', 'apelido')[:MAX_COPIAS_POR_TURMA + 1])
+    if not alunos:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': False, 'message': 'Esta turma não tem alunos activos registados.'}, status=404))
+    if len(alunos) > MAX_COPIAS_POR_TURMA:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({
+            'success': False, 'message': f'A turma tem mais de {MAX_COPIAS_POR_TURMA} alunos activos.'}, status=422))
+
+    base = bytes(prova.ficheiro_codificado)
+    buf, registos = io.BytesIO(), []
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_STORED) as z:
+        for a in alunos:
+            nome = f"{a.nome} {a.apelido or ''}".strip()
+            codigo = gerar_codigo_copia()
+            conteudo = carimbar_copia(base, ext, codigo, f"{nome} — {turma.nome}")
+            z.writestr(f"COPIA_{codigo}_{slugify(nome)[:40]}{ext}", conteudo)
+            registos.append(CopiaProvaBlindada(
+                prova=prova, aluno=a, codigo=codigo, nome_aluno=nome, turma_nome=turma.nome,
+                gerado_por=user if user and user.is_authenticated else None))
+    CopiaProvaBlindada.objects.bulk_create(registos)
+    dados = buf.getvalue()
+    res = HttpResponse(dados, content_type='application/zip')
+    res['Content-Disposition'] = f'attachment; filename="COPIAS_{prova.codigo_autenticidade}_{slugify(turma.nome)}.zip"'
+    res['Content-Length'] = len(dados)
+    return _aplicar_cabecalhos_seguranca(res)
+
+
+@csrf_exempt
+def api_provas_anti_ia_copia_verificar(request, codigo):
+    """GET: a quem foi emitida a cópia com este código (apenas dentro da escola da prova)."""
+    from .models import CopiaProvaBlindada
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    qs = CopiaProvaBlindada.objects.select_related('prova')
+    if user.role != 'SUPERADMIN':
+        qs = qs.filter(prova__escola=user.escola)
+    copia = qs.filter(codigo=(codigo or '').strip().upper()).first()
+    if not copia:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Código de cópia não encontrado.'}, status=404))
+    return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'data': {
+        'codigo': copia.codigo, 'aluno': copia.nome_aluno, 'turma': copia.turma_nome,
+        'prova': copia.prova.titulo, 'disciplina': copia.prova.disciplina,
+        'emitida_em': timezone.localtime(copia.created_at).strftime('%d/%m/%Y %H:%M')}}))
+
+
 @csrf_exempt
 def api_provas_anti_ia_simular_ia(request, prova_id):
     """

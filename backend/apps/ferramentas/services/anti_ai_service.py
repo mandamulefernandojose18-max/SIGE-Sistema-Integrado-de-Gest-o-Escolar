@@ -497,6 +497,71 @@ def _marca_agua_qr_docx(d, url: str, cfg: dict):
                 inline.getparent().remove(inline)
 
 
+def gerar_codigo_copia() -> str:
+    """Código curto e único da cópia de um aluno (impresso na folha)."""
+    import secrets
+    return "C" + secrets.token_hex(4).upper()
+
+
+def carimbar_copia(dados: bytes, extensao: str, codigo: str, rotulo: str):
+    """
+    Carimba uma prova JÁ codificada (PDF ou DOCX) com o código da cópia e o nome do aluno, em texto visível
+    (rodapé de todas as páginas) e oculto. Não altera nenhuma questão. Devolve bytes, ou None se o formato não suporta.
+    """
+    texto = f"Cópia N.º {codigo} — {rotulo}"
+    if extensao == '.pdf':
+        from pypdf import PdfReader, PdfWriter
+        from reportlab.pdfgen import canvas
+        leitor, escritor = PdfReader(io.BytesIO(dados)), PdfWriter()
+        for pagina in leitor.pages:
+            w, h = float(pagina.mediabox.width), float(pagina.mediabox.height)
+            sobreposicao = io.BytesIO()
+            c = canvas.Canvas(sobreposicao, pagesize=(w, h))
+            c.setFont("Helvetica-Bold", 7)
+            c.setFillColorRGB(0.1, 0.1, 0.1)
+            c.drawCentredString(w / 2, 3, texto if c.stringWidth(texto, "Helvetica-Bold", 7) < w - 16 else texto[:90])
+            c.saveState()
+            t = c.beginText(8, h / 2)
+            t.setTextRenderMode(3)
+            t.setFont("Helvetica", 4)
+            t.textLine(f"SIGE copy code {codigo} issued to {rotulo}")
+            c.drawText(t)
+            c.restoreState()
+            c.showPage(); c.save()
+            sobreposicao.seek(0)
+            pagina.merge_page(PdfReader(sobreposicao).pages[0])
+            escritor.add_page(pagina)
+        if leitor.metadata:
+            escritor.add_metadata({k: v for k, v in leitor.metadata.items() if isinstance(v, str)})
+        saida = io.BytesIO()
+        escritor.write(saida)
+        return saida.getvalue()
+    if extensao == '.docx':
+        import docx
+        from docx.shared import Pt, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        d = docx.Document(io.BytesIO(dados))
+        feitos = set()
+        for sec in d.sections:
+            for parte in (sec.footer, sec.first_page_footer, sec.even_page_footer):
+                if id(parte._element) in feitos:
+                    continue
+                feitos.add(id(parte._element))
+                parte.is_linked_to_previous = False
+                p = parte.add_paragraph(texto)
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.space_before = p.paragraph_format.space_after = Pt(0)
+                for r in p.runs:
+                    r.bold = True
+                    r.font.size = Pt(8)
+                    r.font.color.rgb = RGBColor(0x10, 0x10, 0x10)
+        d.core_properties.keywords = f"copia:{codigo}"
+        saida = io.BytesIO()
+        d.save(saida)
+        return saida.getvalue()
+    return None
+
+
 def _aviso_visivel_docx(d, data: str):
     """Aviso em texto claro e VISÍVEL (PT/EN) no cabeçalho e no rodapé de todas as páginas; não depende das definições da escola."""
     from docx.shared import Pt, RGBColor

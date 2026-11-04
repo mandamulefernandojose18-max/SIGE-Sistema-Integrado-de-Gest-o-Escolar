@@ -380,3 +380,19 @@ class LogTentativaResolucaoIA(models.Model):
         verbose_name = 'Tentativa de Resolução IA'
         verbose_name_plural = 'Tentativas de Resolução IA'
         ordering = ['-timestamp']
+
+
+class CopiaProvaBlindada(models.Model):
+    """Cópia individual de uma prova blindada, com código único impresso na folha e ligado a um aluno (rastreio)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    prova = models.ForeignKey(ProvaBlindada, on_delete=models.CASCADE, related_name='copias', db_index=True)
+    aluno = models.ForeignKey('alunos.Aluno', on_delete=models.SET_NULL, null=True, blank=True, related_name='copias_provas')
+    codigo = models.CharField(max_length=16, unique=True, db_index=True)
+    nome_aluno = models.CharField(max_length=255)
+    turma_nome = models.CharField(max_length=100, blank=True, default='')
+    gerado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='copias_provas_geradas')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'sige_provas_copias'
+        ordering = ['nome_aluno']
