@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.5.26",
-  "build": "20261104_1700",
+  "version": "2.5.27",
+  "build": "20261104_1800",
   "data": "2026-11-04",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Presencas: pesquisa de alunos, filtro de disciplina na consulta, justificacao de faltas pela secretaria/direccao (auditada) e resumo de assiduidade por aluno."
+  "novidades": "Presencas: exportacao do resumo de assiduidade em PDF e XLSX (Times New Roman, faltas injustificadas a vermelho)."
 }

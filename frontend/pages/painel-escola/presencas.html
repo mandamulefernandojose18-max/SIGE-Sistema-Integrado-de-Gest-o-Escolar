@@ -54,6 +54,14 @@
         <span class="small text-muted" id="presResumo">&nbsp;</span>
         <input type="search" id="presBusca" class="form-control form-control-sm" style="max-width: 220px;"
                placeholder="Pesquisar nome ou matrícula" oninput="presAoPesquisar()" autocomplete="off">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Exportar assiduidade">
+          <button class="btn btn-outline-danger" type="button" onclick="presExportar('pdf')" title="Exportar resumo de assiduidade da turma em PDF">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+          </button>
+          <button class="btn btn-outline-success" type="button" onclick="presExportar('xlsx')" title="Exportar resumo de assiduidade da turma em Excel">
+            <i class="bi bi-file-earmark-excel me-1"></i> XLSX
+          </button>
+        </div>
         <div class="d-flex gap-2" id="presAcoes" style="display: none !important;">
           <button class="btn btn-outline-success btn-sm" type="button" onclick="presMarcarTodosPresentes()">
             <i class="bi bi-check2-all me-1"></i> Todos presentes

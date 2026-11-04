@@ -196,6 +196,16 @@ function presGuardarMarcacoesLocais() {
   });
 }
 
+// Exporta o resumo de assiduidade (todo o ano lectivo da turma escolhida; disciplina opcional) em PDF/XLSX.
+window.presExportar = function (formato) {
+  const turmaId = document.getElementById('presTurma')?.value;
+  if (!turmaId) { mostrarToast('Escolha a classe, a secção e a turma para exportar.', 'warning'); return; }
+  const discId = document.getElementById('presDisciplina')?.value;
+  let q = `formato=${formato}&turma_id=${encodeURIComponent(turmaId)}&ano_letivo=${encodeURIComponent(presState.ano)}`;
+  if (discId) q += `&disciplina_id=${encodeURIComponent(discId)}`;
+  return downloadFicheiroBinario(`/api/v1/alunos/presencas/exportar/?${q}`, `assiduidade.${formato}`);
+};
+
 // Secretaria/direcção: justificar falta injustificada (com motivo, fica auditado).
 const PRES_PERFIS_JUSTIFICAR = ['DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA', 'SUPERADMIN'];
 window.presJustificar = async function (id) {

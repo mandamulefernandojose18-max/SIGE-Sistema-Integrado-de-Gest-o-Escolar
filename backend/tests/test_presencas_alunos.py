@@ -94,6 +94,19 @@ class TestPresencasAlunos:
         assert linha['total'] == 1 and linha['injustificadas'] == 1 and linha['percent_faltas'] == 100.0
         assert self.client.get('/api/v1/alunos/presencas/resumo/?ano_letivo=2025').data['resultados'] == []
 
+    def test_exportar_pdf_e_xlsx_apenas(self):
+        self._lote()
+        base = f'/api/v1/alunos/presencas/exportar/?ano_letivo=2026&turma_id={self.turma26.id}'
+        pdf = self.client.get(base + '&formato=pdf')
+        assert pdf.status_code == 200 and pdf['Content-Type'] == 'application/pdf' and pdf.content[:4] == b'%PDF'
+        xl = self.client.get(base + '&formato=xlsx')
+        assert xl.status_code == 200 and xl.content[:2] == b'PK'
+        assert self.client.get(base + '&formato=docx').status_code == 400
+
+    def test_exportar_sem_registos_gera_documento_vazio(self):
+        r = self.client.get('/api/v1/alunos/presencas/exportar/?ano_letivo=2025&formato=pdf')
+        assert r.status_code == 200 and r.content[:4] == b'%PDF'
+
     def test_perfil_sem_permissao_nao_lanca(self):
         sec = Usuario.objects.create_user(email='sec.pres@sige.mz', password='PassSec123!', role='SECRETARIA', escola=self.escola)
         c = APIClient()

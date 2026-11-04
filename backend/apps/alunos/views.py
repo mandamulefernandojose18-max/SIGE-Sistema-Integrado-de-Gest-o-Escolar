@@ -694,28 +694,43 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
     def resumo(self, request):
         """Assiduidade agregada por aluno (filtros: ano_letivo, turma_id, disciplina_id, data_inicio, data_fim).
         Só dados reais; sem registos devolve lista vazia."""
-        from django.db.models import Count, Q
+        from . import services_assiduidade as svc
+        return Response({'success': True, 'resultados': svc.calcular_resumo(self._qs_resumo())})
+
+    def _qs_resumo(self):
         qs = self.get_queryset().order_by()
-        p = request.query_params
+        p = self.request.query_params
         if p.get('data_inicio'):
             qs = qs.filter(data__gte=p['data_inicio'])
         if p.get('data_fim'):
             qs = qs.filter(data__lte=p['data_fim'])
-        linhas = qs.values('aluno_id', 'aluno__matricula', 'aluno__nome', 'aluno__apelido').annotate(
-            total=Count('id'),
-            presentes=Count('id', filter=Q(status='PRESENTE')),
-            justificadas=Count('id', filter=Q(status='FALTA_JUSTIFICADA')),
-            injustificadas=Count('id', filter=Q(status='FALTA_INJUSTIFICADA')),
-            atrasos=Count('id', filter=Q(status='ATRASO')),
-        ).order_by('-injustificadas', 'aluno__nome')
-        out = []
-        for l in linhas:
-            faltas = l['justificadas'] + l['injustificadas']
-            out.append({
-                'aluno': str(l['aluno_id']), 'matricula': l['aluno__matricula'],
-                'nome': f"{l['aluno__nome']} {l['aluno__apelido'] or ''}".strip(),
-                'total': l['total'], 'presentes': l['presentes'], 'justificadas': l['justificadas'],
-                'injustificadas': l['injustificadas'], 'atrasos': l['atrasos'],
-                'percent_faltas': round(100 * faltas / l['total'], 1) if l['total'] else 0,
-            })
-        return Response({'success': True, 'resultados': out})
+        return qs
+
+    @action(detail=False, methods=['get'], url_path='exportar')
+    def exportar(self, request):
+        """Exporta o resumo de assiduidade em PDF ou XLSX (Times New Roman), com os mesmos filtros do resumo."""
+        from django.http import HttpResponse
+        from rest_framework.exceptions import ValidationError
+        from apps.disciplinas.models import Disciplina
+        from . import services_assiduidade as svc
+        formato = (request.query_params.get('formato') or 'pdf').lower()
+        if formato not in ('pdf', 'xlsx'):
+            raise ValidationError({'formato': 'Use pdf ou xlsx.'})
+        p = request.query_params
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        turma = Turma.objects.filter(id=p['turma_id'], escola=escola).first() if p.get('turma_id') and escola else None
+        disc = Disciplina.objects.filter(id=p['disciplina_id'], escola=escola).first() if p.get('disciplina_id') and escola else None
+        filtros = {
+            'Ano lectivo': p.get('ano_letivo') or p.get('ano') or '',
+            'Turma': f'{turma.grau_ano} {turma.nome}' if turma else '',
+            'Disciplina': disc.nome if disc else '',
+            'De': p.get('data_inicio', ''), 'Até': p.get('data_fim', ''),
+        }
+        resumo = svc.calcular_resumo(self._qs_resumo())
+        if formato == 'xlsx':
+            resp = HttpResponse(svc.gerar_xlsx(resumo, escola, filtros),
+                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        else:
+            resp = HttpResponse(svc.gerar_pdf(resumo, escola, filtros), content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="assiduidade.{formato}"'
+        return resp
