@@ -57,3 +57,5 @@ certs/
 
 # Ficheiros soltos
 IMG-*.jpg
+
+backend/media/

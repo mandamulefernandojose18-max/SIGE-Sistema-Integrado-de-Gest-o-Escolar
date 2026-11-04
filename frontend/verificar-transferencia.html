@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificação de Guia de Transferência — SIGE</title>
+  <script>
+    if (window.location.hostname !== 'sigesaas.duckdns.org' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      window.location.replace('https://sigesaas.duckdns.org' + window.location.pathname + window.location.search);
+    }
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { background: #0f172a; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; color: #1e293b; }
+    .cartao { max-width: 560px; width: 100%; border: 0; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 20px 35px -10px rgba(0,0,0,.5); }
+    .topo { padding: 28px 20px; text-align: center; color: #fff; background: #334155; }
+    .topo.ok { background: linear-gradient(135deg, #047857, #10b981); }
+    .topo.erro { background: linear-gradient(135deg, #b91c1c, #ef4444); }
+  </style>
+</head>
+<body>
+<div class="cartao">
+  <div id="topo" class="topo">
+    <i id="icone" class="bi bi-hourglass-split display-4"></i>
+    <h4 id="titulo" class="mt-2 mb-1 fw-bold">A verificar documento...</h4>
+    <p id="descricao" class="mb-0 small text-white-50"></p>
+  </div>
+  <div class="p-4">
+    <table class="table table-sm table-bordered mb-0 d-none" id="dados">
+      <tbody>
+        <tr><th class="bg-light w-40">Documento</th><td id="dTipo"></td></tr>
+        <tr><th class="bg-light">Número</th><td id="dNumero" class="fw-bold"></td></tr>
+        <tr><th class="bg-light">Instituição</th><td id="dEscola"></td></tr>
+        <tr><th class="bg-light">Aluno</th><td id="dAluno"></td></tr>
+        <tr><th class="bg-light">Aprovado em</th><td id="dData"></td></tr>
+      </tbody>
+    </table>
+    <div class="text-center mt-3"><a href="https://sigesaas.duckdns.org/" class="btn btn-outline-secondary btn-sm">Ir para o Portal SIGE</a></div>
+  </div>
+  <div class="bg-light text-center py-3 text-muted small border-top">SIGE — Sistema Integrado de Gestão Escolar • República de Moçambique</div>
+</div>
+<script>
+  (async function () {
+    const topo = document.getElementById('topo'), icone = document.getElementById('icone');
+    const codigo = new URLSearchParams(location.search).get('codigo');
+    function falha(t, d) {
+      topo.className = 'topo erro'; icone.className = 'bi bi-x-octagon display-4';
+      document.getElementById('titulo').textContent = t; document.getElementById('descricao').textContent = d;
+    }
+    if (!codigo) { falha('Código em falta', 'Nenhum código de verificação foi indicado.'); return; }
+    try {
+      const r = await fetch('/api/v1/alunos/transferencias/verificar/' + encodeURIComponent(codigo) + '/');
+      const j = await r.json();
+      if (!r.ok || !j.autentico) { falha('Documento não encontrado', j.message || 'O código não corresponde a nenhum documento emitido.'); return; }
+      const d = j.data;
+      topo.className = 'topo ok'; icone.className = 'bi bi-patch-check-fill display-4';
+      document.getElementById('titulo').textContent = 'Documento autêntico';
+      document.getElementById('descricao').textContent = 'Emitido pelo SIGE e aprovado pela Direcção da escola.';
+      document.getElementById('dTipo').textContent = d.tipo;
+      document.getElementById('dNumero').textContent = d.numero;
+      document.getElementById('dEscola').textContent = d.escola;
+      document.getElementById('dAluno').textContent = d.aluno;
+      document.getElementById('dData').textContent = d.data_aprovacao ? d.data_aprovacao.split('-').reverse().join('/') : '-';
+      document.getElementById('dados').classList.remove('d-none');
+    } catch (e) { falha('Erro de ligação', 'Não foi possível contactar o servidor SIGE.'); }
+  })();
+</script>
+</body>
+</html>

@@ -222,6 +222,7 @@ class TransferenciaAnulacao(models.Model):
         ('PENDENTE', 'Pendente de Aprovação'),
         ('APROVADO', 'Aprovado pelo Director'),
         ('REJEITADO', 'Rejeitado'),
+        ('CANCELADO', 'Cancelado'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
     solicitado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, related_name='solicitacoes_transferencia')
@@ -229,6 +230,34 @@ class TransferenciaAnulacao(models.Model):
     data_solicitacao = models.DateField(auto_now_add=True)
     data_aprovacao = models.DateTimeField(null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
+
+    MOTIVO_CATEGORIA_CHOICES = [
+        ('MUDANCA_RESIDENCIA', 'Mudança de residência'),
+        ('DESISTENCIA', 'Desistência'),
+        ('FALTA_ASSIDUIDADE', 'Falta de assiduidade'),
+        ('PEDIDO_ENCARREGADO', 'Pedido do encarregado de educação'),
+        ('OUTRO', 'Outro'),
+    ]
+    motivo_categoria = models.CharField(max_length=30, choices=MOTIVO_CATEGORIA_CHOICES, default='OUTRO')
+    # Retrato do aluno no momento do pedido (a turma pode mudar depois da aprovação).
+    classe_snapshot = models.CharField(max_length=50, blank=True, default='')
+    turma_snapshot = models.CharField(max_length=100, blank=True, default='')
+    ano_letivo_snapshot = models.CharField(max_length=10, blank=True, default='')
+    # Estado do aluno antes do processo, para repor em caso de rejeição/cancelamento (transferência de entrada).
+    estado_anterior_aluno = models.CharField(max_length=20, blank=True, default='')
+    # Quitação: {'biblioteca': bool, 'material': bool, 'documentos': bool}; a das propinas é calculada dos pagamentos reais.
+    quitacao = models.JSONField(default=dict, blank=True)
+    quitacao_dispensada = models.BooleanField(default=False)
+    quitacao_justificacao = models.TextField(blank=True, default='')
+    # Rejeição / cancelamento
+    motivo_rejeicao = models.TextField(blank=True, default='')
+    rejeitado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='rejeicoes_transferencia')
+    data_rejeicao = models.DateTimeField(null=True, blank=True)
+    # Documento oficial
+    numero_sequencial = models.PositiveIntegerField(null=True, blank=True)
+    ano_guia = models.CharField(max_length=4, blank=True, default='')
+    codigo_verificacao = models.CharField(max_length=24, blank=True, default='', db_index=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -241,6 +270,42 @@ class TransferenciaAnulacao(models.Model):
             models.Index(fields=['aluno']),
             models.Index(fields=['status']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'ano_guia', 'numero_sequencial'],
+                condition=models.Q(numero_sequencial__isnull=False),
+                name='unique_guia_transferencia_escola_ano_numero',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.tipo}: {self.aluno.nome} ({self.status})'
+
+    @property
+    def numero_guia_oficial(self):
+        if not self.numero_sequencial:
+            return ''
+        prefixo = 'DA' if self.tipo == 'ANULACAO_MATRICULA' else 'GT'
+        return f'{prefixo}-{self.ano_guia}-{self.numero_sequencial:04d}'
+
+
+def _caminho_anexo_transferencia(instance, filename):
+    import os
+    ext = os.path.splitext(filename)[1].lower()
+    return f'transferencias/{instance.transferencia_id}/{uuid.uuid4().hex}{ext}'
+
+
+class AnexoTransferencia(models.Model):
+    """Documento anexo a um processo (pedido do encarregado, guia da outra escola)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transferencia = models.ForeignKey(TransferenciaAnulacao, on_delete=models.CASCADE, related_name='anexos')
+    ficheiro = models.FileField(upload_to=_caminho_anexo_transferencia, max_length=255)
+    nome_original = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100, blank=True, default='')
+    tamanho = models.PositiveIntegerField(default=0)
+    carregado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_transferencias_anexos'
+        ordering = ['created_at']

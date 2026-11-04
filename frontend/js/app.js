@@ -3231,6 +3231,7 @@ async function navegarPara(viewId) {
   if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
   if (viewId === 'presencas' && typeof carregarPresencasAno === 'function') carregarPresencasAno(state.anosPorView[viewId]);
   if (viewId === 'certificados') carregarCertificados();
+  if (viewId === 'transferencias' && typeof carregarListaTransferencias === 'function') carregarListaTransferencias();
   if (viewId === 'pagamentos') carregarPagamentos();
   if (viewId === 'impressao') prepararCentralImpressao();
   if (viewId === 'desbloqueio') prepararDesbloqueioTrimestre();
@@ -21650,6 +21651,8 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarPainelMaterialEscolar === 'function') await carregarPainelMaterialEscolar();
   } else if (viewId === 'certificados') {
     if (typeof carregarCertificados === 'function') await carregarCertificados();
+  } else if (viewId === 'transferencias') {
+    if (typeof carregarListaTransferencias === 'function') await carregarListaTransferencias();
   } else if (viewId === 'pagamentos') {
     if (typeof carregarPagamentos === 'function') await carregarPagamentos(ano);
   } else if (viewId === 'impressao') {

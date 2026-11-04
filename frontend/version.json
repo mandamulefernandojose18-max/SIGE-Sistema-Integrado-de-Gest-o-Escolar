@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.5.24",
-  "build": "20261104_1200",
+  "version": "2.5.25",
+  "build": "20261104_1530",
   "data": "2026-11-04",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Central de Impressao: ficha biografica numa so pagina; acta sem sobreposicao; caderneta e estatisticas (PDF/Excel) ligadas; pre-visualizacao e impressao usam o PDF oficial."
+  "novidades": "Transferencias e Anulacoes: pagina volta a aparecer (seletor de ano lectivo), novo processo, quitacao, rejeicao com motivo, guia/declaracao em PDF com QR, lote, anexos, exportacao e resumo."
 }

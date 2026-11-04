@@ -182,16 +182,82 @@ class PresencaAlunoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'escola', 'professor', 'registado_por', 'created_at', 'updated_at']
 
 class TransferenciaAnulacaoSerializer(serializers.ModelSerializer):
+    aluno = serializers.PrimaryKeyRelatedField(queryset=Aluno.objects.all(), required=False)
     aluno_nome = serializers.CharField(source='aluno.nome_completo', read_only=True)
     aluno_matricula = serializers.CharField(source='aluno.matricula', read_only=True)
-    turma_nome = serializers.CharField(source='aluno.turma.nome', read_only=True, default='')
+    aluno_estado = serializers.CharField(source='aluno.status', read_only=True)
+    turma_nome = serializers.SerializerMethodField()
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    motivo_categoria_display = serializers.CharField(source='get_motivo_categoria_display', read_only=True)
+    numero_guia = serializers.CharField(source='numero_guia_oficial', read_only=True)
+    solicitado_por_nome = serializers.SerializerMethodField()
+    aprovado_por_nome = serializers.SerializerMethodField()
+    rejeitado_por_nome = serializers.SerializerMethodField()
+    dias_pendente = serializers.SerializerMethodField()
+    atrasado = serializers.SerializerMethodField()
+    quitacao_info = serializers.SerializerMethodField()
+    anexos = serializers.SerializerMethodField()
+    pode_documento = serializers.SerializerMethodField()
 
     class Meta:
         model = TransferenciaAnulacao
         fields = [
-            'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula', 'turma_nome',
-            'tipo', 'escola_origem_destino', 'motivo', 'guia_numero',
-            'status', 'solicitado_por', 'aprovado_por', 'data_solicitacao',
-            'data_aprovacao', 'observacoes', 'created_at', 'updated_at'
+            'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula', 'aluno_estado', 'turma_nome',
+            'tipo', 'tipo_display', 'escola_origem_destino', 'motivo', 'motivo_categoria', 'motivo_categoria_display',
+            'guia_numero', 'numero_guia', 'codigo_verificacao',
+            'status', 'status_display', 'solicitado_por', 'solicitado_por_nome', 'aprovado_por', 'aprovado_por_nome',
+            'rejeitado_por_nome', 'motivo_rejeicao', 'data_rejeicao',
+            'data_solicitacao', 'data_aprovacao', 'observacoes',
+            'classe_snapshot', 'turma_snapshot', 'ano_letivo_snapshot',
+            'quitacao_info', 'quitacao_dispensada', 'quitacao_justificacao',
+            'dias_pendente', 'atrasado', 'anexos', 'pode_documento',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'escola', 'guia_numero', 'codigo_verificacao', 'status', 'solicitado_por', 'aprovado_por',
+            'motivo_rejeicao', 'data_rejeicao', 'data_solicitacao', 'data_aprovacao',
+            'classe_snapshot', 'turma_snapshot', 'ano_letivo_snapshot',
+            'quitacao_dispensada', 'quitacao_justificacao', 'created_at', 'updated_at',
+        ]
+        extra_kwargs = {'motivo': {'required': False, 'allow_blank': True}}
+
+    def get_turma_nome(self, obj):
+        return obj.turma_snapshot or (obj.aluno.turma.nome if obj.aluno.turma else '')
+
+    @staticmethod
+    def _nome(u):
+        return (getattr(u, 'nome', '') or getattr(u, 'email', '')) if u else ''
+
+    def get_solicitado_por_nome(self, obj):
+        return self._nome(obj.solicitado_por)
+
+    def get_aprovado_por_nome(self, obj):
+        return self._nome(obj.aprovado_por)
+
+    def get_rejeitado_por_nome(self, obj):
+        return self._nome(obj.rejeitado_por)
+
+    def get_dias_pendente(self, obj):
+        if obj.status != 'PENDENTE':
+            return 0
+        from django.utils import timezone
+        return max(0, (timezone.localdate() - obj.data_solicitacao).days)
+
+    def get_atrasado(self, obj):
+        from .services_transferencias import PRAZO_ALERTA_DIAS
+        return obj.status == 'PENDENTE' and self.get_dias_pendente(obj) > PRAZO_ALERTA_DIAS
+
+    def get_quitacao_info(self, obj):
+        # Só interessa enquanto o processo está em curso (evita consultas em listas históricas).
+        if obj.status != 'PENDENTE' or obj.tipo == 'TRANSFERENCIA_ENTRADA':
+            return None
+        from .services_transferencias import quitacao_info
+        return quitacao_info(obj)
+
+    def get_anexos(self, obj):
+        return [{'id': str(a.id), 'nome': a.nome_original, 'tamanho': a.tamanho, 'tipo': a.content_type}
+                for a in obj.anexos.all()]
+
+    def get_pode_documento(self, obj):
+        return obj.status == 'APROVADO' and bool(obj.numero_sequencial)

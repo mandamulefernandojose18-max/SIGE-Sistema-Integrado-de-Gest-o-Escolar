@@ -1,8 +1,8 @@
 from django.urls import path, include
 from common.routers import OptionalSlashRouter
+from .views_transferencias import TransferenciaAnulacaoViewSet, VerificarTransferenciaView
 from .views import (
     PresencaAlunoViewSet,
-    TransferenciaAnulacaoViewSet,
     AlunoViewSet,
     AlunoStatsView,
     AlunoPerfilMeView,
@@ -18,6 +18,8 @@ router.register(r'transferencias', TransferenciaAnulacaoViewSet, basename='aluno
 router.register(r'', AlunoViewSet, basename='alunos')
 
 urlpatterns = [
+    path('transferencias/verificar/<str:codigo>/', VerificarTransferenciaView.as_view(), name='transferencias_verificar'),
+    path('transferencias/verificar/<str:codigo>', VerificarTransferenciaView.as_view(), name='transferencias_verificar_no_slash'),
     path('stats', AlunoStatsView.as_view(), name='alunos_stats_no_slash'),
     path('stats/', AlunoStatsView.as_view(), name='alunos_stats'),
     path('perfil/me', AlunoPerfilMeView.as_view(), name='alunos_perfil_me_no_slash'),
