@@ -2978,14 +2978,26 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     ]
     data_table = [row_top, row_sub]
 
+    # Mesmas regras do ecrã: valores <= 0 aparecem como '-'; MT e MFD arredondados ao inteiro
     def fmt_n(val):
         if val is None or val == '' or val == '-':
             return '-'
         try:
             f = float(val)
+            if f <= 0:
+                return '-'
             return str(round(f, 1) if f % 1 != 0 else int(f))
         except (ValueError, TypeError):
             return str(val)
+
+    def fmt_m(val):
+        r = fmt_n(val)
+        if r == '-':
+            return r
+        try:
+            return str(int(float(val) + 0.5))
+        except (ValueError, TypeError):
+            return r
 
     style_nome = ParagraphStyle('CadAlNome', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=0)
     for idx, al in enumerate(alunos, start=1):
@@ -2997,10 +3009,10 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
             str(al.get('numero') or idx),
             Paragraph(nome_c, style_nome),
             str(al.get('genero') or 'M'),
-            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')), str(t1.get('comportamento') or '-'),
-            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')), str(t2.get('comportamento') or '-'),
-            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')), str(t3.get('comportamento') or '-'),
-            fmt_n(al.get('mfd'))
+            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_m(t1.get('mt')), str(t1.get('comportamento') or '-'),
+            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_m(t2.get('mt')), str(t2.get('comportamento') or '-'),
+            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_m(t3.get('mt')), str(t3.get('comportamento') or '-'),
+            fmt_m(al.get('mfd'))
         ]
         data_table.append(r)
 
@@ -3162,6 +3174,17 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     for col_mt in (9, 17, 25, 27):
         t_styles.append(('BACKGROUND', (col_mt, 2), (col_mt, stat_rows_start - 1), colors.HexColor('#f8fafc')))
         t_styles.append(('FONTNAME', (col_mt, 2), (col_mt, stat_rows_start - 1), 'Times-Bold'))
+
+    # Notas negativas (< 9,5) a vermelho nas linhas dos alunos, como no ecrã
+    for r_i in range(2, stat_rows_start):
+        for c_i in range(3, 28):
+            if c_i in (10, 18, 26):  # colunas Cp (comportamento)
+                continue
+            try:
+                if float(data_table[r_i][c_i]) < 9.5:
+                    t_styles.append(('TEXTCOLOR', (c_i, r_i), (c_i, r_i), colors.HexColor('#dc2626')))
+            except (ValueError, TypeError):
+                pass
 
     # Estilização das Linhas Estatísticas Oficiais
     t_styles.extend([

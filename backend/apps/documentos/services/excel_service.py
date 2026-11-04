@@ -2118,21 +2118,21 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     ws.title = f"Caderneta {turma_nome}"[:31]
     configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=0)
 
-    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA DE CAMBINE').upper()
+    esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()
     prov = escola_info.get('provincia') or 'Inhambane'
-    dist = escola_info.get('distrito') or 'Morrumbene'
-    disc_nome = (disc_info.get('nome') or 'MATEMÁTICA').upper()
-    disc_cod = disc_info.get('codigo') or 'MAT-11CG'
+    dist = escola_info.get('distrito') or 'Massinga'
+    disc_nome = (disc_info.get('nome') or 'Disciplina').upper()
+    disc_cod = disc_info.get('codigo') or disc_nome[:3]
     ano_letivo = turma_info.get('ano_letivo') or '2026'
-    grau_ano = turma_info.get('grau_ano') or '11ª Classe'
-    turno = turma_info.get('turno') or 'TARDE'
-    sala = turma_info.get('sala') or '1'
+    grau_ano = turma_info.get('grau_ano') or ''
+    turno = turma_info.get('turno') or 'MANHÃ'
+    sala = turma_info.get('sala') or '-'
     ef_h = ef_info.get('h', sum(1 for a in alunos if (a.get('genero') or '').upper() == 'M'))
     ef_m = ef_info.get('m', sum(1 for a in alunos if (a.get('genero') or '').upper().startswith('F')))
     ef_tot = ef_info.get('total', len(alunos))
-    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Fernando José Mandamule'
-    prof_tel = prof_info.get('telefone') or '+258 842988844'
-    dt_nome = dt_info.get('nome') or 'Bionisio'
+    prof_nome = f"{prof_info.get('nome') or ''} {prof_info.get('apelido') or ''}".strip() or 'Professor'
+    prof_tel = prof_info.get('telefone') or '-'
+    dt_nome = dt_info.get('nome') or '-'
 
     # 1. Logótipo Oficial Escolhido pela Instituição & Cabeçalho Institucional Oficial (28 colunas A a AB)
     inserir_logo_cabecalho_xlsx(ws, escola_info, cell='A1')
@@ -2208,15 +2208,26 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     ws.row_dimensions[10].height = 22
     aplicar_estilo_intervalo(ws, 1, 9, 28, 10, font=FONT_HEADER_SM, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
-    # 3. Linhas dos Alunos
+    # 3. Linhas dos Alunos (mesmas regras do ecrã: <= 0 aparece '-'; MT e MFD arredondados ao inteiro)
     def fmt_n(val):
         if val is None or val == '' or val == '-':
             return '-'
         try:
             f = float(val)
+            if f <= 0:
+                return '-'
             return round(f, 1) if f % 1 != 0 else int(f)
         except (ValueError, TypeError):
             return str(val)
+
+    def fmt_m(val):
+        r = fmt_n(val)
+        if r == '-':
+            return r
+        try:
+            return int(float(val) + 0.5)
+        except (ValueError, TypeError):
+            return r
 
     row = 10
     for idx, al in enumerate(alunos, start=1):
@@ -2231,15 +2242,15 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
             nome_completo,
             al.get('genero') or 'M',
             fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')),
-            fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')),
+            fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_m(t1.get('mt')),
             str(t1.get('comportamento') or '-'),
             fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')),
-            fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')),
+            fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_m(t2.get('mt')),
             str(t2.get('comportamento') or '-'),
             fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')),
-            fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')),
+            fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_m(t3.get('mt')),
             str(t3.get('comportamento') or '-'),
-            fmt_n(al.get('mfd'))
+            fmt_m(al.get('mfd'))
         ]
         for col_idx, val in enumerate(vals, start=1):
             c = ws.cell(row=row, column=col_idx, value=val)
@@ -2250,6 +2261,9 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
                 c.font = FONT_TINY_BOLD
             else:
                 c.font = FONT_TINY
+            # Notas negativas (< 9,5) a vermelho, como no ecrã
+            if col_idx >= 4 and col_idx not in (11, 19, 27) and isinstance(val, (int, float)) and val < 9.5:
+                c.font = FONT_RED_SM
 
     # 4. Parâmetros Estatísticos Oficiais (Colunas 4 a 28)
     col_stat_map = {

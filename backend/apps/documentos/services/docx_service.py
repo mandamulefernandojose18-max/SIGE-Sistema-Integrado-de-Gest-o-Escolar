@@ -1596,14 +1596,26 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
         set_cell_shading(t.rows[0].cells[c_i], '1E3A8A')
         r.font.color.rgb = RGBColor(0xff, 0xff, 0xff)
 
+    # Mesmas regras do ecrã: valores <= 0 aparecem como '-'; MT e MFD arredondados ao inteiro
     def fmt_n(val):
         if val is None or val == '' or val == '-':
             return '-'
         try:
             f = float(val)
+            if f <= 0:
+                return '-'
             return str(round(f, 1) if f % 1 != 0 else int(f))
         except (ValueError, TypeError):
             return str(val)
+
+    def fmt_m(val):
+        r = fmt_n(val)
+        if r == '-':
+            return r
+        try:
+            return str(int(float(val) + 0.5))
+        except (ValueError, TypeError):
+            return r
 
     for idx, al in enumerate(alunos, start=1):
         row = t.add_row()
@@ -1615,10 +1627,10 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
             str(al.get('numero') or idx),
             nome_c,
             str(al.get('genero') or 'M'),
-            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_n(t1.get('mt')), str(t1.get('comportamento') or '-'),
-            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_n(t2.get('mt')), str(t2.get('comportamento') or '-'),
-            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_n(t3.get('mt')), str(t3.get('comportamento') or '-'),
-            fmt_n(al.get('mfd'))
+            fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_m(t1.get('mt')), str(t1.get('comportamento') or '-'),
+            fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_m(t2.get('mt')), str(t2.get('comportamento') or '-'),
+            fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_m(t3.get('mt')), str(t3.get('comportamento') or '-'),
+            fmt_m(al.get('mfd'))
         ]
         for c_i, v in enumerate(vals):
             p = row.cells[c_i].paragraphs[0]
@@ -1626,6 +1638,12 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
             r = p.add_run(v)
             is_bold = (c_i in (9, 17, 25, 27))
             aplicar_fonte_times(r, pt_size=6.0, bold=is_bold)
+            if c_i >= 3 and c_i not in (10, 18, 26):
+                try:
+                    if float(v) < 9.5:
+                        r.font.color.rgb = RGBColor(0xDC, 0x26, 0x26)
+                except (ValueError, TypeError):
+                    pass
             if c_i in (9, 17, 25, 27):
                 set_cell_shading(row.cells[c_i], 'F8FAFC')
 

@@ -260,24 +260,6 @@ async function descarregarCadernetaDocx() {
 }
 
 async function exportarCadernetaWord() {
-  const table = document.querySelector('.caderneta-tabela');
-  if (window.SigeExport && table && table.querySelectorAll('tbody tr').length > 0 && !table.innerText.includes('Selecione uma turma')) {
-    const disciplina = document.getElementById('cadBoxDisciplina')?.innerText || 'Disciplina';
-    const turma = document.getElementById('cadBoxTurmaDirector')?.innerText || 'Turma';
-    const ano = document.getElementById('cadHeaderAno')?.innerText || '2026';
-    await window.SigeExport.exportarTabelaHtml(table, 'word', {
-      titulo: 'Caderneta Escolar Oficial — Registo de Avaliações',
-      subtitulo: `${disciplina} | ${turma} | Ano Lectivo ${ano}`,
-      orientacao: 'landscape',
-      nomeFicheiro: `Caderneta_${disciplina}_${turma}_${ano}.docx`,
-      metadadosExtras: {
-        'Disciplina': disciplina,
-        'Turma': turma,
-        'Ano': ano
-      }
-    });
-    return;
-  }
   await descarregarCadernetaDocx();
 }
 

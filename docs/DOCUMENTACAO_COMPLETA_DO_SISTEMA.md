@@ -1307,3 +1307,7 @@ O SIGE dispõe de infraestrutura nativa e padronizada para operação por agente
 ### Correcao (2026-11-04) - Caderneta: cabecalho e alunos
 O carregamento da caderneta (paineis Escola e Professor) usava profNome/dtNome antes da declaracao, interrompendo o preenchimento do cabecalho (professor, contacto, area, turma, efectivo) e da tabela de alunos. Declaracao reordenada e removidos nomes de assinatura fixos (sem dados ficticios).
 
+
+### Caderneta: PDF/XLSX/DOCX identicos ao ecra (2026-11-04)
+Os botoes de PDF, Excel e Word da caderneta (paineis Escola e Professor) deixaram de exportar a partir do HTML (que perdia o parametro estatistico e o cabecalho de 2 niveis) e usam sempre os geradores do servidor (/api/v1/professores/caderneta/<id>/pdf|xlsx|docx). Estes incluem o bloco Parametro estatistico (Avaliados, Positivos, % Positivos, Negativos, % Negativos, faixas 0-9,4 a 18,5-20 e Media da Coluna), MT/MFD arredondados ao inteiro, valores <= 0 como '-' e notas negativas a vermelho, como no ecra. Removidos valores ficticios por omissao do gerador Excel.
+

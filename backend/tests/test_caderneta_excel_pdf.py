@@ -119,6 +119,12 @@ class TestCadernetaPautaFormatacaoExata:
         assert ws['E11'].value == 14.5
         assert ws['K11'].value == 'B'
 
+        # O Excel tem de incluir o bloco do parametro estatistico, tal como o ecra
+        rotulos_a = [str(c.value) for c in ws['A'] if c.value]
+        for rotulo in ('Parametro estatistico', 'Avaliados', 'Positivos', '% Positivos',
+                       'Negativos', '% Negativos', '0 a 9,4', '18,5 a 20', 'Média da Coluna'):
+            assert rotulo in rotulos_a, f"Falta '{rotulo}' no XLSX"
+
         # 2. Gerar e Validar Caderneta em PDF
         pdf_bytes = gerar_caderneta_pdf(caderneta_data)
         assert len(pdf_bytes) > 2000
