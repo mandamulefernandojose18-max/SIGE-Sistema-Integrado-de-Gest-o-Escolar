@@ -124,6 +124,7 @@ window.presCarregarAlunos = async function () {
     ]);
     presState.alunos = presLista(resAlunos);
     presState.todosRegistos = presLista(resPres);
+    await presCarregarRisco(turmaId);
     if (!prof) presPopularDisciplinasConsulta();
     presRenderLista();
   } catch (e) {
@@ -222,10 +223,54 @@ window.presJustificar = async function (id) {
   }
 };
 
+// Alerta de risco: % de faltas do ano lectivo (todas as aulas da turma) >= limite definido pela direcção.
+async function presCarregarRisco(turmaId) {
+  presState.risco = {};
+  presState.limite = null;
+  try {
+    const res = await apiFetch(`/api/v1/alunos/presencas/resumo/?turma_id=${turmaId}&ano_letivo=${encodeURIComponent(presState.ano)}`);
+    presState.limite = res?.limite_percent ?? null;
+    (res?.resultados || []).forEach(r => { if (r.em_risco) presState.risco[r.aluno] = r; });
+  } catch (e) { /* sem alerta de risco se o resumo falhar */ }
+}
+
+const PRES_PERFIS_LIMITE = ['DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'SUPERADMIN'];
+const PRES_PERFIS_SMS = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'FINANCEIRO'];
+
+window.presDefinirLimite = async function () {
+  const atual = presState.limite ?? '';
+  const v = prompt('Limite de faltas (%) a partir do qual o aluno entra em risco (1-100). Deixe vazio para desactivar os alertas:', atual);
+  if (v === null) return;
+  try {
+    const res = await apiFetch('/api/v1/alunos/presencas/limite/', { method: 'POST', body: JSON.stringify({ limite_percent: v.trim() }) });
+    if (res?.success) { mostrarToast(res.limite_percent ? `Limite definido: ${res.limite_percent}%.` : 'Alertas de risco desactivados.', 'success'); presCarregarAlunos(); }
+    else mostrarToast(res?.message || res?.detail || 'Não foi possível definir o limite.', 'danger');
+  } catch (e) { mostrarToast(e?.message || 'Erro ao definir o limite.', 'danger'); }
+};
+
+// Aviso manual ao encarregado (confirmado pelo utilizador) pelo gateway SMS já configurado da escola.
+window.presAvisarEncarregado = async function (alunoId, dataTxt, disciplina) {
+  const al = presState.alunos.find(a => String(a.id) === String(alunoId));
+  if (!al?.contato_responsavel) { mostrarToast('Este aluno não tem contacto do encarregado registado.', 'warning'); return; }
+  const [a, m, d] = String(dataTxt).split('-');
+  const texto = `Aviso da escola: o educando ${al.nome || ''} ${al.apelido || ''} faltou em ${d}/${m}/${a}${disciplina ? ' (' + disciplina + ')' : ''}. Em caso de motivo justificado, contacte a secretaria.`.replace(/\s+/g, ' ');
+  if (!confirm(`Enviar SMS ao encarregado (${al.contato_responsavel})?\n\n${texto}`)) return;
+  try {
+    const res = await apiFetch('/api/v1/ferramentas/sms/enviar', {
+      method: 'POST',
+      body: JSON.stringify({ modo: 'MANUAL', destinatarios: al.contato_responsavel, mensagem: texto, tipo: 'FALTA', canal: 'ANDROID_GATEWAY' })
+    });
+    if (res?.success) mostrarToast('Aviso enviado ao encarregado.', 'success');
+    else mostrarToast(res?.message || res?.detail || 'Não foi possível enviar o aviso.', 'danger');
+  } catch (e) { mostrarToast(e?.message || 'Erro ao enviar o aviso.', 'danger'); }
+};
+
 function presCelulasBase(al, i) {
+  const r = presState.risco?.[String(al.id)];
+  const risco = r ? ` <span class="badge bg-danger" title="${r.percent_faltas}% de faltas (limite ${presState.limite}%)"><i class="bi bi-exclamation-triangle-fill me-1"></i>Em risco ${String(r.percent_faltas).replace('.', ',')}%</span>` : '';
   return `<td class="ps-3 text-muted">${i + 1}</td>
     <td class="font-monospace small">${escapeHtml(al.matricula)}</td>
-    <td class="fw-semibold">${escapeHtml((al.nome || '') + ' ' + (al.apelido || ''))}</td>`;
+    <td class="fw-semibold">${escapeHtml((al.nome || '') + ' ' + (al.apelido || ''))}${risco}</td>`;
 }
 
 function presLinhaEditavel(al, i) {
@@ -246,11 +291,19 @@ function presLinhaLeitura(al, i) {
   const badges = regs.length ? regs.map(reg => {
     const e = PRES_ESTADOS.find(x => x.v === reg.status);
     const disc = reg.disciplina_nome ? ` <small class="text-muted">${escapeHtml(reg.disciplina_nome)}</small>` : '';
-    const btn = (podeJustificar && reg.status === 'FALTA_INJUSTIFICADA')
+    const falta = reg.status === 'FALTA_INJUSTIFICADA';
+    let btn = (podeJustificar && falta)
       ? ` <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="presJustificar('${escapeHtml(String(reg.id))}')">Justificar</button>` : '';
+    if (falta && PRES_PERFIS_SMS.includes(state.user?.role)) {
+      btn += ` <button type="button" class="btn btn-link btn-sm p-0 align-baseline" title="Enviar SMS ao encarregado" onclick="presAvisarEncarregado('${escapeHtml(String(al.id))}','${escapeHtml(String(reg.data))}','${escapeHtml(reg.disciplina_nome || '')}')"><i class="bi bi-chat-dots"></i> Avisar</button>`;
+    }
     return `<div><span class="badge bg-${e?.cls || 'secondary'}">${e?.rotulo || escapeHtml(reg.status)}</span>${disc}${btn}</div>`;
   }).join('') : '<span class="badge bg-light text-muted border">Sem registo</span>';
-  const obs = regs.map(r => [r.observacao, r.justificacao ? `Justificação: ${r.justificacao}` : ''].filter(Boolean).join(' · ')).filter(Boolean).join(' | ');
+  const obs = regs.map(r => [
+    r.observacao,
+    r.justificacao ? `Justificação: ${r.justificacao}` : '',
+    (r.pedido_justificacao && r.status === 'FALTA_INJUSTIFICADA') ? `Pedido do encarregado: ${r.pedido_justificacao}` : ''
+  ].filter(Boolean).join(' · ')).filter(Boolean).join(' | ');
   return `<tr>${presCelulasBase(al, i)}<td class="text-center">${badges}</td>
     <td class="pe-3 small text-muted">${escapeHtml(obs)}</td></tr>`;
 }
@@ -270,7 +323,11 @@ function presAtualizarResumo() {
   } else {
     Object.values(presState.registos).flat().forEach(r => { if (r.status in cont) cont[r.status]++; });
   }
-  resumo.innerHTML = `${presState.alunos.length} alunos · <span class="text-success">${cont.PRESENTE} presentes</span> · ` +
+  const nRisco = Object.keys(presState.risco || {}).length;
+  const limiteTxt = presState.limite ? ` · <span class="${nRisco ? 'text-danger fw-semibold' : ''}">${nRisco} em risco (≥ ${presState.limite}% faltas)</span>` : '';
+  const btnLimite = PRES_PERFIS_LIMITE.includes(state.user?.role)
+    ? ` · <a href="#" class="small" onclick="presDefinirLimite(); return false;">${presState.limite ? 'alterar' : 'definir'} limite de faltas</a>` : '';
+  resumo.innerHTML = `${presState.alunos.length} alunos${limiteTxt}${btnLimite} ·<span class="text-success">${cont.PRESENTE} presentes</span> · ` +
     `<span class="text-warning">${cont.FALTA_JUSTIFICADA} F. justif.</span> · ` +
     `<span class="text-danger">${cont.FALTA_INJUSTIFICADA} F. injustif.</span> · ${cont.ATRASO} atrasos`;
 }

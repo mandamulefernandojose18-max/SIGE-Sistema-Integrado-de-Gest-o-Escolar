@@ -10,8 +10,9 @@ from django.db.models import Count, Q
 COLUNAS = ['N.º', 'Matrícula', 'Nome do aluno', 'Aulas', 'Presenças', 'F. justif.', 'F. injustif.', 'Atrasos', '% Faltas']
 
 
-def calcular_resumo(qs):
-    """Agrega por aluno. `qs` já filtrado e limitado ao tenant."""
+def calcular_resumo(qs, limite=None):
+    """Agrega por aluno. `qs` já filtrado e limitado ao tenant.
+    `limite` (% de faltas da escola; None = desactivado) marca `em_risco` os alunos que o atingem."""
     linhas = qs.order_by().values('aluno_id', 'aluno__matricula', 'aluno__nome', 'aluno__apelido').annotate(
         total=Count('id'),
         presentes=Count('id', filter=Q(status='PRESENTE')),
@@ -29,6 +30,7 @@ def calcular_resumo(qs):
             'injustificadas': l['injustificadas'], 'atrasos': l['atrasos'],
             'percent_faltas': round(100 * faltas / l['total'], 1) if l['total'] else 0,
         })
+        out[-1]['em_risco'] = bool(limite) and out[-1]['percent_faltas'] >= limite
     return out
 
 

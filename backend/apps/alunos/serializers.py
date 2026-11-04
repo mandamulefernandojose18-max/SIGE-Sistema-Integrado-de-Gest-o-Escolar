@@ -177,10 +177,12 @@ class PresencaAlunoSerializer(serializers.ModelSerializer):
             'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula',
             'turma', 'turma_nome', 'disciplina', 'disciplina_nome',
             'professor', 'data', 'status', 'observacao', 'registado_por',
-            'justificacao', 'justificada_em', 'created_at', 'updated_at'
+            'justificacao', 'justificada_em', 'pedido_justificacao', 'pedido_justificacao_em',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'escola', 'professor', 'registado_por',
-                            'justificacao', 'justificada_em', 'created_at', 'updated_at']
+                            'justificacao', 'justificada_em', 'pedido_justificacao', 'pedido_justificacao_em',
+                            'created_at', 'updated_at']
 
 class TransferenciaAnulacaoSerializer(serializers.ModelSerializer):
     aluno = serializers.PrimaryKeyRelatedField(queryset=Aluno.objects.all(), required=False)

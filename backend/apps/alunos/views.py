@@ -565,6 +565,24 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         ).exists():
             raise PermissionDenied('Esta turma/disciplina não está atribuída ao seu perfil.')
 
+    @staticmethod
+    def _uuid_ou_400(valor, nome):
+        import uuid as _uuid
+        from rest_framework.exceptions import ValidationError
+        try:
+            return str(_uuid.UUID(str(valor)))
+        except ValueError:
+            raise ValidationError({nome: 'Identificador inválido.'})
+
+    @staticmethod
+    def _data_ou_400(valor, nome):
+        from datetime import date
+        from rest_framework.exceptions import ValidationError
+        try:
+            return date.fromisoformat(str(valor)[:10])
+        except ValueError:
+            raise ValidationError({nome: 'Data inválida (use AAAA-MM-DD).'})
+
     def get_queryset(self):
         user = self.request.user
         role = getattr(user, 'role', '')
@@ -577,7 +595,10 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         elif role != 'SUPERADMIN':
             return PresencaAluno.objects.none()
 
-        if role == 'ALUNO':
+        if role in ('ALUNO', 'ENCARREGADO'):
+            # Só o próprio educando; sem vínculo (aluno_id) não vê nada (antes o encarregado via a escola toda).
+            if not getattr(user, 'aluno_id', None):
+                return PresencaAluno.objects.none()
             qs = qs.filter(aluno__id=user.aluno_id)
         elif role == 'PROFESSOR':
             prof_id = getattr(user, 'professor_id', None)
@@ -588,14 +609,11 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(turma_id__in=list(turma_ids))
 
         params = self.request.query_params
-        if params.get('turma_id'):
-            qs = qs.filter(turma_id=params['turma_id'])
-        if params.get('aluno_id'):
-            qs = qs.filter(aluno_id=params['aluno_id'])
-        if params.get('disciplina_id'):
-            qs = qs.filter(disciplina_id=params['disciplina_id'])
+        for chave, campo in (('turma_id', 'turma_id'), ('aluno_id', 'aluno_id'), ('disciplina_id', 'disciplina_id')):
+            if params.get(chave):
+                qs = qs.filter(**{campo: self._uuid_ou_400(params[chave], chave)})
         if params.get('data'):
-            qs = qs.filter(data=params['data'])
+            qs = qs.filter(data=self._data_ou_400(params['data'], 'data'))
         ano = params.get('ano_letivo') or params.get('ano')
         if ano and str(ano).upper() != 'TODOS':
             qs = qs.filter(turma__ano_letivo=ano)
@@ -695,15 +713,92 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         """Assiduidade agregada por aluno (filtros: ano_letivo, turma_id, disciplina_id, data_inicio, data_fim).
         Só dados reais; sem registos devolve lista vazia."""
         from . import services_assiduidade as svc
-        return Response({'success': True, 'resultados': svc.calcular_resumo(self._qs_resumo())})
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        limite = getattr(escola, 'limite_faltas_percent', None)
+        resultados = svc.calcular_resumo(self._qs_resumo(), limite)
+        return Response({'success': True, 'limite_percent': limite,
+                         'total_em_risco': sum(1 for r in resultados if r['em_risco']),
+                         'resultados': resultados})
+
+    @action(detail=False, methods=['get'], url_path='faltas-trimestre')
+    def faltas_trimestre(self, request):
+        """Faltas (justificadas + injustificadas) de um aluno numa disciplina durante um trimestre,
+        contadas a partir das presenças reais. Serve de sugestão para o campo 'Faltas' da caderneta/pauta."""
+        from datetime import date
+        p = request.query_params
+        aluno_id, disciplina_id = p.get('aluno_id'), p.get('disciplina_id')
+        tri = {'1_TRIMESTRE': 1, '2_TRIMESTRE': 2, '3_TRIMESTRE': 3}.get(p.get('trimestre', ''))
+        if not (aluno_id and disciplina_id and tri):
+            return Response({'success': False, 'message': 'Aluno, disciplina e trimestre são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        ini, fim = (getattr(escola, f'data_inicio_t{tri}', None), getattr(escola, f'data_fim_t{tri}', None)) if escola else (None, None)
+        if not (ini and fim):
+            return Response({'success': False, 'message': f'As datas do {tri}º trimestre não estão configuradas na escola.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        qs = self.get_queryset().order_by().filter(aluno_id=aluno_id, disciplina_id=disciplina_id, data__gte=ini, data__lte=fim)
+        if p.get('turma_id'):
+            qs = qs.filter(turma_id=p['turma_id'])
+        total = qs.count()
+        faltas = qs.filter(status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')).count()
+        return Response({'success': True, 'faltas': faltas, 'aulas_registadas': total,
+                         'de': ini.isoformat(), 'ate': fim.isoformat()})
+
+    PERFIS_LIMITE = ('DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'SUPERADMIN')
+
+    @action(detail=False, methods=['get', 'post'], url_path='limite')
+    def limite(self, request):
+        """Limite de faltas (%) a partir do qual o aluno entra na lista de risco. Vazio/null desactiva os alertas."""
+        from rest_framework.exceptions import PermissionDenied
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        if not escola:
+            return Response({'success': False, 'message': 'Escola não identificada.'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.method == 'POST':
+            if getattr(request.user, 'role', '') not in self.PERFIS_LIMITE:
+                raise PermissionDenied('Apenas a direcção define o limite de faltas.')
+            bruto = request.data.get('limite_percent')
+            if bruto in (None, ''):
+                novo = None
+            else:
+                try:
+                    novo = int(bruto)
+                except (TypeError, ValueError):
+                    return Response({'success': False, 'message': 'Limite inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+                if not 1 <= novo <= 100:
+                    return Response({'success': False, 'message': 'O limite deve estar entre 1 e 100 %.'}, status=status.HTTP_400_BAD_REQUEST)
+            escola.limite_faltas_percent = novo
+            escola.save(update_fields=['limite_faltas_percent'])
+            registrar_auditoria(usuario=request.user, escola=escola, entidade='Escola', acao='LIMITE_FALTAS',
+                                objeto_id=str(escola.id), descricao=f'Limite de faltas definido para {novo}',
+                                depois={'limite_faltas_percent': novo})
+        return Response({'success': True, 'limite_percent': escola.limite_faltas_percent})
+
+    @action(detail=True, methods=['post'], url_path='pedir-justificacao')
+    def pedir_justificacao(self, request, pk=None):
+        """Aluno/encarregado pede a justificação de uma falta injustificada do próprio educando.
+        A decisão continua a ser da secretaria/direcção (endpoint `justificar`)."""
+        from rest_framework.exceptions import PermissionDenied
+        if getattr(request.user, 'role', '') not in ('ALUNO', 'ENCARREGADO'):
+            raise PermissionDenied('Apenas o aluno ou o encarregado pedem justificação.')
+        reg = self.get_object()  # já restrito ao educando do utilizador
+        motivo = str(request.data.get('motivo') or '').strip()[:255]
+        if not motivo:
+            return Response({'success': False, 'message': 'Indique o motivo do pedido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if reg.status != 'FALTA_INJUSTIFICADA':
+            return Response({'success': False, 'message': 'Só se pede justificação de faltas injustificadas.'}, status=status.HTTP_400_BAD_REQUEST)
+        reg.pedido_justificacao = motivo
+        reg.pedido_justificacao_em = timezone.now()
+        reg.save(update_fields=['pedido_justificacao', 'pedido_justificacao_em', 'updated_at'])
+        registrar_auditoria(usuario=request.user, escola=reg.escola, entidade='PresencaAluno', acao='PEDIDO_JUSTIFICACAO',
+                            objeto_id=str(reg.id), descricao=f'Pedido de justificação da falta de {reg.data}: {motivo}')
+        return Response({'success': True, 'presenca': PresencaAlunoSerializer(reg).data})
 
     def _qs_resumo(self):
         qs = self.get_queryset().order_by()
         p = self.request.query_params
         if p.get('data_inicio'):
-            qs = qs.filter(data__gte=p['data_inicio'])
+            qs = qs.filter(data__gte=self._data_ou_400(p['data_inicio'], 'data_inicio'))
         if p.get('data_fim'):
-            qs = qs.filter(data__lte=p['data_fim'])
+            qs = qs.filter(data__lte=self._data_ou_400(p['data_fim'], 'data_fim'))
         return qs
 
     @action(detail=False, methods=['get'], url_path='exportar')
@@ -718,15 +813,15 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
             raise ValidationError({'formato': 'Use pdf ou xlsx.'})
         p = request.query_params
         escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
-        turma = Turma.objects.filter(id=p['turma_id'], escola=escola).first() if p.get('turma_id') and escola else None
-        disc = Disciplina.objects.filter(id=p['disciplina_id'], escola=escola).first() if p.get('disciplina_id') and escola else None
+        turma = Turma.objects.filter(id=self._uuid_ou_400(p['turma_id'], 'turma_id'), escola=escola).first() if p.get('turma_id') and escola else None
+        disc = Disciplina.objects.filter(id=self._uuid_ou_400(p['disciplina_id'], 'disciplina_id'), escola=escola).first() if p.get('disciplina_id') and escola else None
         filtros = {
             'Ano lectivo': p.get('ano_letivo') or p.get('ano') or '',
             'Turma': f'{turma.grau_ano} {turma.nome}' if turma else '',
             'Disciplina': disc.nome if disc else '',
             'De': p.get('data_inicio', ''), 'Até': p.get('data_fim', ''),
         }
-        resumo = svc.calcular_resumo(self._qs_resumo())
+        resumo = svc.calcular_resumo(self._qs_resumo(), getattr(escola, 'limite_faltas_percent', None))
         if formato == 'xlsx':
             resp = HttpResponse(svc.gerar_xlsx(resumo, escola, filtros),
                                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

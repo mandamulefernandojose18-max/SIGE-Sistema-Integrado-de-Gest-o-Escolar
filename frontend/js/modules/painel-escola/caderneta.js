@@ -805,7 +805,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
       <div class="row g-2 mb-3">
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Faltas no Trimestre</label>
-          <input type="number" id="mlnFaltas" class="form-control" value="0" min="0">
+          <div class="input-group"><input type="number" id="mlnFaltas" class="form-control" value="0" min="0"><button type="button" class="btn btn-outline-secondary" title="Contar as faltas registadas nas presenças deste trimestre" onclick="mlnSugerirFaltasPresencas()"><i class="bi bi-person-check"></i></button></div><small class="text-muted">Use <i class="bi bi-person-check"></i> para sugerir pelas presenças.</small>
         </div>
         <div class="col-md-8">
           <label class="form-label small fw-semibold">Anotação Especial do Aluno</label>
@@ -1060,3 +1060,20 @@ function calcularPrevisoesCadernetaModal() {
   if (elComp) elComp.textContent = comp;
 }
 
+// Sugere o nº de faltas do trimestre a partir das presenças reais (não grava; o professor confirma e grava a nota).
+window.mlnSugerirFaltasPresencas = async function () {
+  const v = (id) => document.getElementById(id)?.value || '';
+  const aluno = v('mlnAluno'), disc = v('mlnDisciplinaId'), turma = v('mlnTurmaId'), tri = v('mlnPeriodo');
+  if (!aluno || !disc || !tri) { mostrarToast('Escolha o aluno e o trimestre.', 'warning'); return; }
+  try {
+    const res = await apiFetch(`/api/v1/alunos/presencas/faltas-trimestre/?aluno_id=${encodeURIComponent(aluno)}&disciplina_id=${encodeURIComponent(disc)}&turma_id=${encodeURIComponent(turma)}&trimestre=${encodeURIComponent(tri)}`);
+    if (res?.success) {
+      document.getElementById('mlnFaltas').value = res.faltas;
+      mostrarToast(`${res.faltas} falta(s) em ${res.aulas_registadas} aula(s) registadas no trimestre. Confirme e grave.`, 'info');
+    } else {
+      mostrarToast(res?.message || 'Não foi possível sugerir as faltas.', 'warning');
+    }
+  } catch (e) {
+    mostrarToast(e?.message || 'Não foi possível sugerir as faltas.', 'warning');
+  }
+};

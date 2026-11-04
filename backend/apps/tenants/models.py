@@ -69,6 +69,8 @@ class Escola(models.Model):
     codigo_escola = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     logo_base64 = models.TextField(blank=True, null=True)
     galeria_logos = models.JSONField(default=list, blank=True)
+    # Assiduidade: % de faltas a partir da qual o aluno entra na lista de risco (null = alertas desactivados)
+    limite_faltas_percent = models.PositiveSmallIntegerField(null=True, blank=True)
     modo_uso_logo = models.CharField(
         max_length=30,
         default='DOCUMENTOS',

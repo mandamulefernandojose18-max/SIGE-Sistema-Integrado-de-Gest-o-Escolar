@@ -187,6 +187,9 @@ class PresencaAluno(models.Model):
     justificacao = models.CharField(max_length=255, blank=True, default='')
     justificada_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     justificada_em = models.DateTimeField(null=True, blank=True)
+    # Pedido de justificação feito pelo aluno/encarregado; a decisão é da secretaria/direcção
+    pedido_justificacao = models.CharField(max_length=255, blank=True, default='')
+    pedido_justificacao_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
