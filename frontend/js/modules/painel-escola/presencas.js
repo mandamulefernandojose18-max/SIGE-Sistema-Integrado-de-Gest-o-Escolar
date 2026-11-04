@@ -1,6 +1,6 @@
 // Presenças & Assiduidade — filtros em cascata (Ano Lectivo → Classe → Secção/Área → Turma → Disciplina → Data).
 // PROFESSOR: lança presenças/faltas nas suas alocações. Restantes perfis: consulta (só leitura).
-const presState = { itens: [], ano: '', alunos: [], registos: {} };
+const presState = { itens: [], ano: '', alunos: [], registos: {}, todosRegistos: [] };
 
 const PRES_ESTADOS = [
   { v: 'PRESENTE', rotulo: 'Presente', cls: 'success' },
@@ -25,7 +25,7 @@ window.carregarPresencasAno = async function (ano) {
   presState.ano = ano;
   const prof = presEhProfessor();
   const wrapDisc = document.getElementById('presDiscWrap');
-  if (wrapDisc) wrapDisc.style.display = prof ? '' : 'none';
+  if (wrapDisc) wrapDisc.style.display = '';
   const sub = document.getElementById('presencasSubtitulo');
   if (sub) sub.textContent = prof
     ? 'Lance as presenças e faltas (justificadas/injustificadas) dos alunos das suas turmas.'
@@ -123,19 +123,92 @@ window.presCarregarAlunos = async function () {
       apiFetch(urlPres)
     ]);
     presState.alunos = presLista(resAlunos);
-    presState.registos = {};
-    presLista(resPres).forEach(p => { presState.registos[p.aluno] = p; });
-
-    if (!presState.alunos.length) {
-      tbody.innerHTML = presLinhaVazia('Nenhum aluno activo nesta turma.');
-      return;
-    }
-    tbody.innerHTML = presState.alunos.map((al, i) => prof ? presLinhaEditavel(al, i) : presLinhaLeitura(al, i)).join('');
-    mostrarAcoes(prof);
-    presAtualizarResumo();
-    if (prof) tbody.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', presAtualizarResumo));
+    presState.todosRegistos = presLista(resPres);
+    if (!prof) presPopularDisciplinasConsulta();
+    presRenderLista();
   } catch (e) {
     tbody.innerHTML = presLinhaVazia('Erro ao carregar a lista de assiduidade.', 'text-danger');
+  }
+};
+
+// Consulta: o filtro de disciplina só lista disciplinas com registos reais na data (nunca inventadas).
+function presPopularDisciplinasConsulta() {
+  const sel = document.getElementById('presDisciplina');
+  if (!sel) return;
+  const anterior = sel.value;
+  const discs = new Map();
+  presState.todosRegistos.forEach(p => { if (p.disciplina) discs.set(String(p.disciplina), p.disciplina_nome || 'Disciplina'); });
+  sel.innerHTML = '<option value="">Todas as disciplinas</option>' +
+    [...discs.entries()].map(([id, nome]) => `<option value="${escapeHtml(id)}">${escapeHtml(nome)}</option>`).join('');
+  sel.value = discs.has(anterior) ? anterior : '';
+  sel.disabled = discs.size === 0;
+}
+
+window.presAoMudarDisciplina = function () {
+  if (presEhProfessor()) presCarregarAlunos(); else presRenderLista();
+};
+
+window.presRenderLista = function () {
+  const tbody = document.getElementById('tabelaListaPresencas');
+  const acoes = document.getElementById('presAcoes');
+  const prof = presEhProfessor();
+  if (!tbody) return;
+  const discFiltro = !prof ? (document.getElementById('presDisciplina')?.value || '') : '';
+  presState.registos = {};
+  presState.todosRegistos
+    .filter(p => !discFiltro || String(p.disciplina) === discFiltro)
+    .forEach(p => {
+      if (prof) presState.registos[p.aluno] = p;
+      else (presState.registos[p.aluno] = presState.registos[p.aluno] || []).push(p);
+    });
+
+  if (!presState.alunos.length) {
+    tbody.innerHTML = presLinhaVazia('Nenhum aluno activo nesta turma.');
+    return;
+  }
+  const termo = (document.getElementById('presBusca')?.value || '').trim().toLowerCase();
+  const visiveis = presState.alunos
+    .map((al, i) => ({ al, i }))
+    .filter(({ al }) => !termo || `${al.nome || ''} ${al.apelido || ''} ${al.matricula || ''}`.toLowerCase().includes(termo));
+  tbody.innerHTML = visiveis.length
+    ? visiveis.map(({ al, i }) => prof ? presLinhaEditavel(al, i) : presLinhaLeitura(al, i)).join('')
+    : presLinhaVazia('Nenhum aluno corresponde à pesquisa.');
+  if (acoes) acoes.style.setProperty('display', prof ? 'flex' : 'none', 'important');
+  presAtualizarResumo();
+  if (prof) tbody.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', presAtualizarResumo));
+};
+
+// Pesquisa: no modo professor preserva as marcações já feitas antes de re-renderizar.
+window.presAoPesquisar = function () {
+  if (presEhProfessor()) presGuardarMarcacoesLocais();
+  presRenderLista();
+};
+
+function presGuardarMarcacoesLocais() {
+  document.querySelectorAll('#tabelaListaPresencas input[type="radio"]:checked').forEach(r => {
+    const id = r.name.replace('pres_', '');
+    presState.registos[id] = { ...(presState.registos[id] || {}), aluno: id, status: r.value };
+    const obs = document.getElementById(`obs_${id}`);
+    if (obs) presState.registos[id].observacao = obs.value;
+    const idx = presState.todosRegistos.findIndex(p => String(p.aluno) === id);
+    if (idx >= 0) presState.todosRegistos[idx] = presState.registos[id];
+    else presState.todosRegistos.push(presState.registos[id]);
+  });
+}
+
+// Secretaria/direcção: justificar falta injustificada (com motivo, fica auditado).
+const PRES_PERFIS_JUSTIFICAR = ['DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA', 'SUPERADMIN'];
+window.presJustificar = async function (id) {
+  const motivo = (prompt('Motivo da justificação da falta (ex.: doença, luto):') || '').trim();
+  if (!motivo) return;
+  try {
+    const res = await apiFetch(`/api/v1/alunos/presencas/${id}/justificar/`, {
+      method: 'POST', body: JSON.stringify({ motivo })
+    });
+    if (res?.success) { mostrarToast('Falta justificada.', 'success'); presCarregarAlunos(); }
+    else mostrarToast(res?.message || res?.detail || 'Não foi possível justificar.', 'danger');
+  } catch (e) {
+    mostrarToast(e?.message || 'Erro ao justificar a falta.', 'danger');
   }
 };
 
@@ -158,13 +231,18 @@ function presLinhaEditavel(al, i) {
 }
 
 function presLinhaLeitura(al, i) {
-  const reg = presState.registos[al.id];
-  const e = PRES_ESTADOS.find(x => x.v === reg?.status);
-  const badge = e
-    ? `<span class="badge bg-${e.cls}">${e.rotulo}</span>${reg.disciplina_nome ? ` <small class="text-muted">${escapeHtml(reg.disciplina_nome)}</small>` : ''}`
-    : '<span class="badge bg-light text-muted border">Sem registo</span>';
-  return `<tr>${presCelulasBase(al, i)}<td class="text-center">${badge}</td>
-    <td class="pe-3 small text-muted">${escapeHtml(reg?.observacao || '')}</td></tr>`;
+  const regs = presState.registos[al.id] || [];
+  const podeJustificar = PRES_PERFIS_JUSTIFICAR.includes(state.user?.role);
+  const badges = regs.length ? regs.map(reg => {
+    const e = PRES_ESTADOS.find(x => x.v === reg.status);
+    const disc = reg.disciplina_nome ? ` <small class="text-muted">${escapeHtml(reg.disciplina_nome)}</small>` : '';
+    const btn = (podeJustificar && reg.status === 'FALTA_INJUSTIFICADA')
+      ? ` <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="presJustificar('${escapeHtml(String(reg.id))}')">Justificar</button>` : '';
+    return `<div><span class="badge bg-${e?.cls || 'secondary'}">${e?.rotulo || escapeHtml(reg.status)}</span>${disc}${btn}</div>`;
+  }).join('') : '<span class="badge bg-light text-muted border">Sem registo</span>';
+  const obs = regs.map(r => [r.observacao, r.justificacao ? `Justificação: ${r.justificacao}` : ''].filter(Boolean).join(' · ')).filter(Boolean).join(' | ');
+  return `<tr>${presCelulasBase(al, i)}<td class="text-center">${badges}</td>
+    <td class="pe-3 small text-muted">${escapeHtml(obs)}</td></tr>`;
 }
 
 function presAtualizarResumo() {
@@ -172,9 +250,15 @@ function presAtualizarResumo() {
   if (!resumo) return;
   const cont = { PRESENTE: 0, FALTA_JUSTIFICADA: 0, FALTA_INJUSTIFICADA: 0, ATRASO: 0 };
   if (presEhProfessor()) {
-    document.querySelectorAll('#tabelaListaPresencas input[type="radio"]:checked').forEach(r => { cont[r.value]++; });
+    // Conta todos os alunos (inclui os ocultos pela pesquisa): marcação local > registo guardado > Presente.
+    const visiveis = {};
+    document.querySelectorAll('#tabelaListaPresencas input[type="radio"]:checked').forEach(r => { visiveis[r.name.replace('pres_', '')] = r.value; });
+    presState.alunos.forEach(al => {
+      const st = visiveis[al.id] || presState.registos[al.id]?.status || 'PRESENTE';
+      if (st in cont) cont[st]++;
+    });
   } else {
-    Object.values(presState.registos).forEach(r => { if (r.status in cont) cont[r.status]++; });
+    Object.values(presState.registos).flat().forEach(r => { if (r.status in cont) cont[r.status]++; });
   }
   resumo.innerHTML = `${presState.alunos.length} alunos · <span class="text-success">${cont.PRESENTE} presentes</span> · ` +
     `<span class="text-warning">${cont.FALTA_JUSTIFICADA} F. justif.</span> · ` +
@@ -194,10 +278,12 @@ window.presSalvarLote = async function () {
     mostrarToast('Selecione a turma, a disciplina e a data.', 'warning');
     return;
   }
-  const registos = [...document.querySelectorAll('#tabelaListaPresencas input[type="radio"]:checked')].map(r => {
-    const aluno = r.name.replace('pres_', '');
-    return { aluno, status: r.value, observacao: document.getElementById(`obs_${aluno}`)?.value || '' };
-  });
+  presGuardarMarcacoesLocais();
+  const registos = presState.alunos.map(al => ({
+    aluno: String(al.id),
+    status: presState.registos[al.id]?.status || 'PRESENTE',
+    observacao: presState.registos[al.id]?.observacao || ''
+  }));
   if (!registos.length) { mostrarToast('Nenhum aluno na lista para guardar.', 'warning'); return; }
 
   const btn = document.getElementById('presBtnSalvar');

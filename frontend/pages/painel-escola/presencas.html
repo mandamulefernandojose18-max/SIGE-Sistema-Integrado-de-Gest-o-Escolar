@@ -39,7 +39,7 @@
           </div>
           <div class="col-6 col-md-3" id="presDiscWrap">
             <label class="form-label small fw-semibold text-muted mb-1">Disciplina</label>
-            <select id="presDisciplina" class="form-select form-select-sm" onchange="presCarregarAlunos()"></select>
+            <select id="presDisciplina" class="form-select form-select-sm" onchange="presAoMudarDisciplina()"></select>
           </div>
           <div class="col-12 col-md-2">
             <label class="form-label small fw-semibold text-muted mb-1">Data da Aula</label>
@@ -52,6 +52,8 @@
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
         <span class="small text-muted" id="presResumo">&nbsp;</span>
+        <input type="search" id="presBusca" class="form-control form-control-sm" style="max-width: 220px;"
+               placeholder="Pesquisar nome ou matrícula" oninput="presAoPesquisar()" autocomplete="off">
         <div class="d-flex gap-2" id="presAcoes" style="display: none !important;">
           <button class="btn btn-outline-success btn-sm" type="button" onclick="presMarcarTodosPresentes()">
             <i class="bi bi-check2-all me-1"></i> Todos presentes

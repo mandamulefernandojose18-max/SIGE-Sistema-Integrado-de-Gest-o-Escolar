@@ -664,3 +664,58 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
                 )
                 guardados += 1
         return Response({'success': True, 'guardados': guardados})
+
+    PERFIS_JUSTIFICAR = ('DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA', 'SUPERADMIN')
+
+    @action(detail=True, methods=['post'], url_path='justificar')
+    def justificar(self, request, pk=None):
+        """Secretaria/direcção converte uma falta injustificada em justificada (com motivo, auditado)."""
+        from rest_framework.exceptions import PermissionDenied
+        if getattr(request.user, 'role', '') not in self.PERFIS_JUSTIFICAR:
+            raise PermissionDenied('Sem permissão para justificar faltas.')
+        reg = self.get_object()
+        motivo = str(request.data.get('motivo') or '').strip()[:255]
+        if not motivo:
+            return Response({'success': False, 'message': 'Indique o motivo da justificação.'}, status=status.HTTP_400_BAD_REQUEST)
+        if reg.status != 'FALTA_INJUSTIFICADA':
+            return Response({'success': False, 'message': 'Só é possível justificar faltas injustificadas.'}, status=status.HTTP_400_BAD_REQUEST)
+        antes = {'status': reg.status}
+        reg.status = 'FALTA_JUSTIFICADA'
+        reg.justificacao = motivo
+        reg.justificada_por = request.user
+        reg.justificada_em = timezone.now()
+        reg.save(update_fields=['status', 'justificacao', 'justificada_por', 'justificada_em', 'updated_at'])
+        registrar_auditoria(usuario=request.user, escola=reg.escola, entidade='PresencaAluno', acao='JUSTIFICAR',
+                            objeto_id=str(reg.id), descricao=f'Falta de {reg.data} justificada: {motivo}',
+                            antes=antes, depois={'status': reg.status})
+        return Response({'success': True, 'presenca': PresencaAlunoSerializer(reg).data})
+
+    @action(detail=False, methods=['get'], url_path='resumo')
+    def resumo(self, request):
+        """Assiduidade agregada por aluno (filtros: ano_letivo, turma_id, disciplina_id, data_inicio, data_fim).
+        Só dados reais; sem registos devolve lista vazia."""
+        from django.db.models import Count, Q
+        qs = self.get_queryset().order_by()
+        p = request.query_params
+        if p.get('data_inicio'):
+            qs = qs.filter(data__gte=p['data_inicio'])
+        if p.get('data_fim'):
+            qs = qs.filter(data__lte=p['data_fim'])
+        linhas = qs.values('aluno_id', 'aluno__matricula', 'aluno__nome', 'aluno__apelido').annotate(
+            total=Count('id'),
+            presentes=Count('id', filter=Q(status='PRESENTE')),
+            justificadas=Count('id', filter=Q(status='FALTA_JUSTIFICADA')),
+            injustificadas=Count('id', filter=Q(status='FALTA_INJUSTIFICADA')),
+            atrasos=Count('id', filter=Q(status='ATRASO')),
+        ).order_by('-injustificadas', 'aluno__nome')
+        out = []
+        for l in linhas:
+            faltas = l['justificadas'] + l['injustificadas']
+            out.append({
+                'aluno': str(l['aluno_id']), 'matricula': l['aluno__matricula'],
+                'nome': f"{l['aluno__nome']} {l['aluno__apelido'] or ''}".strip(),
+                'total': l['total'], 'presentes': l['presentes'], 'justificadas': l['justificadas'],
+                'injustificadas': l['injustificadas'], 'atrasos': l['atrasos'],
+                'percent_faltas': round(100 * faltas / l['total'], 1) if l['total'] else 0,
+            })
+        return Response({'success': True, 'resultados': out})

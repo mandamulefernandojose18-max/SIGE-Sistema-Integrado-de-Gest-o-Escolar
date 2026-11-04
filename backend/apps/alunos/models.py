@@ -183,6 +183,10 @@ class PresencaAluno(models.Model):
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PRESENTE')
     observacao = models.CharField(max_length=255, blank=True, default='')
     registado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
+    # Justificação posterior (secretaria/direcção) de uma falta injustificada
+    justificacao = models.CharField(max_length=255, blank=True, default='')
+    justificada_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    justificada_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
