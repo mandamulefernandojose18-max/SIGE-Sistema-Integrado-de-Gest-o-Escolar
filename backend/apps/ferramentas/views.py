@@ -1628,6 +1628,10 @@ def api_provas_anti_ia_codificar(request):
     tipo_avaliacao = dados.get('tipo_avaliacao') or 'ACS 1'
     duracao_minutos = int(dados.get('duracao_minutos') or 90)
     orientacoes = dados.get('orientacoes') or ''
+    from .services.anti_ai_service import opcoes_selo
+    opcoes_selagem, erro_selos = opcoes_selo(dados)
+    if erro_selos:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': erro_selos}, status=400))
 
     # Data de bloqueio da IA
     data_bloq_str = dados.get('data_bloqueio_ia')
@@ -1679,7 +1683,7 @@ def api_provas_anti_ia_codificar(request):
             codificado_bytes, codificado_ext = codificar_ficheiro_no_lugar(
                 original_bytes, original_nome, data_txt,
                 url=url_instrucoes_ia(resultado_codificacao['codigo_autenticidade']),
-                cfg=_definicoes_da_escola(escola))
+                cfg={**_definicoes_da_escola(escola), **opcoes_selagem})
         except Exception:
             codificado_bytes, codificado_ext = None, ''
         if not codificado_bytes:

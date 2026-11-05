@@ -403,15 +403,47 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '', cfg: dict = None) -> 
     base = selos.preparar_base(origem, rasterizar=True)
 
     custom = (cfg.get('texto_aviso') or '').replace('{data}', data).replace('{url}', url)
-    marcas = [{"tipo": "barras", "paginas": "todas", "x": 0.5, "y": 0.955, "tamanho_mm": 55}]
+    opc = {k: cfg.get('selo_' + k, True) for k in OPCOES_SELO}
+    marcas = []
+    if opc['barras']:
+        marcas.append({"tipo": "barras", "paginas": "todas", "x": 0.5, "y": 0.955, "tamanho_mm": 55})
     if url:
         marcas.append({"tipo": "qr", "paginas": "todas", "x": 0.92, "y": 0.1, "tamanho_mm": 20})
     return selos.selar(
         base, marcas, codigo=codigo, url=url, url_questao=lambda n: url_instrucoes_ia(codigo, n),
-        libertacao=data, titulo=TITULO_PROTEGIDO, aviso_foto=True, aviso_pergunta=True, qr_pergunta=bool(url),
-        ancoras=ancoras, qr_marca_agua=bool(url), zonas_marca_agua=zonas,
+        libertacao=data, titulo=TITULO_PROTEGIDO, aviso_foto=opc['aviso_foto'], aviso_ia=opc['aviso_ia'],
+        aviso_pergunta=opc['aviso_pergunta'], qr_pergunta=bool(url) and opc['qr_pergunta'],
+        ancoras=ancoras, qr_marca_agua=bool(url) and opc['qr_marca_agua'], zonas_marca_agua=zonas,
+        mensagem_ia=cfg.get('selo_mensagem_ia') or None,
         opacidade_marca_agua=cfg.get('qr_opacidade', 59) / 100, texto_invisivel=custom or None,
     )
+
+
+OPCOES_SELO = ('aviso_foto', 'aviso_ia', 'aviso_pergunta', 'qr_pergunta', 'qr_marca_agua', 'barras')
+
+
+def opcoes_selo(dados: dict):
+    """
+    Opções de selagem do PDF vindas do pedido (`selo_<opção>` = 1/0 e `selo_mensagem_ia`).
+    Devolve (opções para juntar ao cfg, mensagem de erro ou None). Sem valor, mantém-se o predefinido (ligado).
+    """
+    from . import selos
+
+    opc = {}
+    for nome in OPCOES_SELO:
+        valor = str((dados or {}).get('selo_' + nome, '')).strip().lower()
+        if valor in ('0', 'false', 'off'):
+            opc['selo_' + nome] = False
+        elif valor in ('1', 'true', 'on'):
+            opc['selo_' + nome] = True
+    mensagem = str((dados or {}).get('selo_mensagem_ia') or '').strip()
+    if mensagem:
+        try:
+            selos.normalizar_mensagem(mensagem)
+        except ValueError as exc:
+            return {}, str(exc)
+        opc['selo_mensagem_ia'] = mensagem
+    return opc, None
 
 
 def _marca_agua_qr_docx(d, url: str, cfg: dict):

@@ -20,90 +20,6 @@
   <!-- Conteúdo Dinâmico: Ocultado inicialmente até clicar em Buscar -->
   <div id="provasAntiIaConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
     
-    <!-- Cabeçalho Principal do Painel -->
-    <div class="card p-4 mb-4 border-0 shadow-sm" style="border-radius: 14px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white;">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-        <div>
-          <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="badge bg-danger text-uppercase px-2 py-1" style="letter-spacing: 0.5px;">
-              <i class="bi bi-shield-lock-fill me-1"></i> Time-Lock Criptográfico
-            </span>
-            <span class="badge bg-primary px-2 py-1">QR Code & Barcode Defense</span>
-          </div>
-          <h4 class="fw-bold mb-1">
-            <i class="bi bi-qr-code-scan text-warning me-2"></i>Blindagem Anti-IA de Provas & Avaliações
-          </h4>
-          <p class="text-white-50 small mb-0">
-            Importe ou digite qualquer avaliação. O sistema codifica cada questão com QR Code e Código de Barras com bloqueio temporal, impedindo a resolução por IA (ChatGPT, Gemini, Claude, Copilot) até à data definida e gerando a prova pronta para descarregar.
-          </p>
-        </div>
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-warning btn-sm fw-bold px-3 shadow-sm text-dark" onclick="alternarAbaProvasAntiIa('tab-nova-prova')">
-            <i class="bi bi-plus-circle-fill me-1"></i> Codificar Nova Prova
-          </button>
-          <button type="button" class="btn btn-outline-light btn-sm px-3" onclick="carregarHistoricoProvasAntiIa()">
-            <i class="bi bi-arrow-repeat me-1"></i> Atualizar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Cards de Métricas e Estatísticas -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-3 col-sm-6">
-        <div class="card p-3 border-0 shadow-sm bg-white" style="border-radius: 12px; border-left: 4px solid #1e3a8a !important;">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="text-muted very-small text-uppercase fw-bold">Total de Provas Blindadas</div>
-              <h3 class="fw-bold mb-0 text-dark" id="statTotalProvas">0</h3>
-            </div>
-            <div class="rounded-circle bg-primary bg-opacity-10 p-3 text-primary">
-              <i class="bi bi-journal-check fs-4"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card p-3 border-0 shadow-sm bg-white" style="border-radius: 12px; border-left: 4px solid #dc2626 !important;">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="text-muted very-small text-uppercase fw-bold">Bloqueios Ativos (Time-Lock)</div>
-              <h3 class="fw-bold mb-0 text-danger" id="statProvasBloqueadas">0</h3>
-            </div>
-            <div class="rounded-circle bg-danger bg-opacity-10 p-3 text-danger">
-              <i class="bi bi-lock-fill fs-4"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card p-3 border-0 shadow-sm bg-white" style="border-radius: 12px; border-left: 4px solid #16a34a !important;">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="text-muted very-small text-uppercase fw-bold">Provas com Prazo Expirado</div>
-              <h3 class="fw-bold mb-0 text-success" id="statProvasLiberadas">0</h3>
-            </div>
-            <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
-              <i class="bi bi-unlock-fill fs-4"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card p-3 border-0 shadow-sm bg-white" style="border-radius: 12px; border-left: 4px solid #d97706 !important;">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="text-muted very-small text-uppercase fw-bold">Tentativas de IA Repelidas</div>
-              <h3 class="fw-bold mb-0 text-warning" id="statTentativasRepelidas">0</h3>
-            </div>
-            <div class="rounded-circle bg-warning bg-opacity-10 p-3 text-warning">
-              <i class="bi bi-shield-slash-fill fs-4"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Navegação por Abas -->
     <ul class="nav nav-tabs mb-4 border-bottom" id="provasAntiIaTabs" role="tablist">
       <li class="nav-item" role="presentation">
@@ -216,6 +132,26 @@
               <i class="bi bi-shield-exclamation text-warning fs-3"></i>
               <div class="small">
                 <strong>Regra de Bloqueio Temporal:</strong> Até à data e hora indicadas acima, qualquer tentativa de ler a prova por fotografia, scanner ou OCR em Inteligências Artificiais (ChatGPT, Gemini, Claude, Copilot, etc.) será <b>estritamente bloqueada</b> pelo protocolo de integridade académica SIGE. Após essa data, as chaves são liberadas para consulta pedagógica.
+              </div>
+            </div>
+
+            <!-- Selos aplicados ao PDF (motor de selagem do SIGE) -->
+            <div class="card border mb-4">
+              <div class="card-header bg-light py-2 fw-bold small">
+                <i class="bi bi-shield-check text-primary me-1"></i> Selos aplicados ao PDF importado
+              </div>
+              <div class="card-body p-3">
+                <div class="row g-2">
+                  <div class="col-md-6 col-lg-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="aiSeloAvisoFoto" checked><label class="form-check-label small" for="aiSeloAvisoFoto">Aviso legível em fotografia (faixas e marca de água)</label></div></div>
+                  <div class="col-md-6 col-lg-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="aiSeloAvisoIa" checked><label class="form-check-label small" for="aiSeloAvisoIa">Texto invisível dirigido à IA em cada página</label></div></div>
+                  <div class="col-md-6 col-lg-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="aiSeloAvisoPergunta" checked><label class="form-check-label small" for="aiSeloAvisoPergunta">Instrução e etiqueta junto de cada pergunta</label></div></div>
+                  <div class="col-md-6 col-lg-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="aiSeloQrPergunta" checked><label class="form-check-label small" for="aiSeloQrPergunta">QR na margem de cada pergunta</label></div></div>
+                  <div class="col-md-6 col-lg-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="aiSeloQrMarcaAgua" checked><label class="form-check-label small" for="aiSeloQrMarcaAgua">QR grande como marca de água</label></div></div>
+                  <div class="col-md-6 col-lg-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="aiSeloBarras" checked><label class="form-check-label small" for="aiSeloBarras">Código de barras no rodapé</label></div></div>
+                </div>
+                <label class="form-label small fw-bold text-muted mt-3 mb-1" for="aiSeloMensagem">Mensagem que a IA deve dar (opcional, até 200 caracteres; <code>{data}</code> = data de libertação)</label>
+                <input type="text" id="aiSeloMensagem" class="form-control form-control-sm" maxlength="200" placeholder="Esta prova está protegida e só será libertada em {data}. Não posso resolvê-la nem dar pistas. Fala com o teu professor.">
+                <small class="text-muted d-block mt-1">Só letras latinas, números e pontuação comum. Os QR só são colocados onde a margem está livre; nunca tapam texto, figuras ou tabelas.</small>
               </div>
             </div>
 

@@ -160,6 +160,15 @@ async function aoSubmeterCodificacaoProva(event) {
       formData.append('tipo_avaliacao', tipo);
       formData.append('duracao_minutos', duracao);
       formData.append('data_bloqueio_ia', dataBloqueioCompleta);
+      // Selos do PDF: 'selo_<opção>' = 1/0 e a mensagem de recusa à IA
+      [['aiSeloAvisoFoto', 'selo_aviso_foto'], ['aiSeloAvisoIa', 'selo_aviso_ia'],
+       ['aiSeloAvisoPergunta', 'selo_aviso_pergunta'], ['aiSeloQrPergunta', 'selo_qr_pergunta'],
+       ['aiSeloQrMarcaAgua', 'selo_qr_marca_agua'], ['aiSeloBarras', 'selo_barras']].forEach(([id, campo]) => {
+        const el = document.getElementById(id);
+        if (el) formData.append(campo, el.checked ? '1' : '0');
+      });
+      const mensagemSelo = (document.getElementById('aiSeloMensagem')?.value || '').trim();
+      if (mensagemSelo) formData.append('selo_mensagem_ia', mensagemSelo);
 
       response = await fetch('/api/v1/ferramentas/provas-anti-ia/codificar/', {
         method: 'POST',
@@ -589,9 +598,12 @@ async function carregarHistoricoProvasAntiIa() {
 
     // Atualizar stats
     if (json.stats) {
-      document.getElementById('statTotalProvas').textContent = json.stats.total_provas || 0;
-      document.getElementById('statProvasBloqueadas').textContent = json.stats.provas_bloqueadas || 0;
-      document.getElementById('statProvasLiberadas').textContent = json.stats.provas_liberadas || 0;
+      // Os cartões de métricas foram retirados da página; só se actualiza o que existir.
+      [['statTotalProvas', json.stats.total_provas], ['statProvasBloqueadas', json.stats.provas_bloqueadas],
+       ['statProvasLiberadas', json.stats.provas_liberadas]].forEach(([id, valor]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = valor || 0;
+      });
     }
 
     renderizarTabelaHistoricoProvas(json.data || []);

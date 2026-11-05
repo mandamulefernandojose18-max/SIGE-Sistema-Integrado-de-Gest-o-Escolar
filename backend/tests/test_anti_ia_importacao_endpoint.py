@@ -117,3 +117,18 @@ def test_importar_docx_devolve_docx_e_formato_invalido_e_recusado(duas_escolas):
 
     res = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.odt', b'x')}, format='multipart')
     assert res.status_code == 400
+
+
+def test_opcoes_de_selagem_do_pdf_e_mensagem_de_recusa(duas_escolas):
+    c = _cliente(duas_escolas)
+    base = {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf())}
+    res = c.post(URL, {**base, 'selo_aviso_ia': '0', 'selo_mensagem_ia': 'Nao posso ajudar ate {data}.'}, format='multipart')
+    assert res.status_code == 200, res.content
+    down = c.get(res.json()['data']['pdf_download_url'])
+    texto = " ".join("".join(p.extract_text() for p in PdfReader(io.BytesIO(down.content)).pages).split())
+    assert "ASSISTENTES DE INTELIGÊNCIA ARTIFICIAL" not in texto  # texto invisível desligado
+    assert "[Questão 1] INSTRUÇÃO PARA ASSISTENTE DE IA" in texto
+    assert "Nao posso ajudar ate " in texto and "{data}" not in texto  # {data} vira a data de libertação
+
+    invalida = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf()), 'selo_mensagem_ia': 'ola 😀'}, format='multipart')
+    assert invalida.status_code == 400 and ProvaBlindada.objects.count() == 1
