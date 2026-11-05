@@ -1,4 +1,4 @@
-<!-- SIGE - PAINEL-ALUNO | As Minhas Faltas (consulta e PDF) -->
+<!-- SIGE - PAINEL-ALUNO | As Minhas Faltas (visualização no ecrã + exportação PDF/XLSX) -->
 <section id="view-aluno-faltas" class="modulo-view" style="display: none;">
   <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
     <div class="d-flex align-items-center">
@@ -20,11 +20,50 @@
           <h5 class="fw-bold mb-1"><i class="bi bi-person-check-fill text-success me-2"></i>As Minhas Faltas</h5>
           <div class="small text-muted" id="alunoFaltasClasse"></div>
         </div>
-        <button type="button" class="btn btn-danger btn-sm fw-bold" id="btnAlunoFaltasPdf" onclick="descarregarAlunoFaltasPdf()">
-          <i class="bi bi-file-earmark-pdf-fill me-1"></i> Ver / Descarregar PDF
-        </button>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Exportar faltas">
+          <button type="button" class="btn btn-outline-danger fw-bold" id="btnAlunoFaltasPdf" onclick="descarregarAlunoFaltasPdf()">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
+          </button>
+          <button type="button" class="btn btn-outline-success fw-bold" id="btnAlunoFaltasXlsx" onclick="descarregarAlunoFaltasXlsx()">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i> XLSX
+          </button>
+        </div>
       </div>
-      <p class="text-muted small mb-0" id="alunoFaltasInfo">O PDF é gerado automaticamente com as faltas de todas as disciplinas do ano lectivo seleccionado.</p>
+
+      <!-- Resumo no ecrã: só dados reais; sem registos mostra apenas o estado vazio -->
+      <div class="row g-2 mb-3 text-center" id="alunoFaltasCartoes"></div>
+
+      <div class="table-responsive mb-3">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light small text-uppercase text-muted">
+            <tr>
+              <th>Disciplina</th>
+              <th class="text-center">Aulas</th>
+              <th class="text-center">Presenças</th>
+              <th class="text-center">F. justif.</th>
+              <th class="text-center">F. injustif.</th>
+              <th class="text-center">Atrasos</th>
+              <th class="text-center">% Faltas</th>
+            </tr>
+          </thead>
+          <tbody id="alunoFaltasTabela">
+            <tr><td colspan="7" class="text-center text-muted py-3">Escolha o ano lectivo e clique em Buscar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h6 class="fw-semibold small text-uppercase text-muted mb-2">Faltas e atrasos registados</h6>
+      <!-- Altura fixa com scroll: não cresce com o número de registos -->
+      <div class="border rounded" style="max-height: 280px; overflow-y: auto;">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light small text-uppercase text-muted" style="position: sticky; top: 0;">
+            <tr><th>Data</th><th>Disciplina</th><th>Estado</th><th>Observação / Justificação</th></tr>
+          </thead>
+          <tbody id="alunoFaltasRegistos">
+            <tr><td colspan="4" class="text-center text-muted py-3">—</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </section>

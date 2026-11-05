@@ -10,7 +10,7 @@ from .views import (
     AlunoMePagamentosView
 )
 
-from .views_me import AlunoMeAnosView, AlunoMeFaltasPdfView
+from .views_me import AlunoMeAnosView, AlunoMeFaltasPdfView, AlunoMeFaltasView, AlunoMeFaltasXlsxView
 
 router = OptionalSlashRouter()
 router.register(r'presencas', PresencaAlunoViewSet, basename='alunos-presencas')
@@ -30,6 +30,10 @@ urlpatterns = [
     path('me/pagamentos/', AlunoMePagamentosView.as_view(), name='alunos_me_pagamentos'),
     path('me/anos', AlunoMeAnosView.as_view(), name='alunos_me_anos_no_slash'),
     path('me/anos/', AlunoMeAnosView.as_view(), name='alunos_me_anos'),
+    path('me/faltas', AlunoMeFaltasView.as_view(), name='alunos_me_faltas_no_slash'),
+    path('me/faltas/', AlunoMeFaltasView.as_view(), name='alunos_me_faltas'),
+    path('me/faltas/xlsx', AlunoMeFaltasXlsxView.as_view(), name='alunos_me_faltas_xlsx_no_slash'),
+    path('me/faltas/xlsx/', AlunoMeFaltasXlsxView.as_view(), name='alunos_me_faltas_xlsx'),
     path('me/faltas/pdf', AlunoMeFaltasPdfView.as_view(), name='alunos_me_faltas_pdf_no_slash'),
     path('me/faltas/pdf/', AlunoMeFaltasPdfView.as_view(), name='alunos_me_faltas_pdf'),
     path('', include(router.urls)),

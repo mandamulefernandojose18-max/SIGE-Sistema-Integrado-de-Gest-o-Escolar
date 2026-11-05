@@ -107,6 +107,9 @@ window.presCarregarAlunos = async function () {
   if (resumo) resumo.innerHTML = '&nbsp;';
 
   if (!turmaId || (prof && !discId)) {
+    presState.resumoTurma = [];
+    presState.resumoDisciplina = '';
+    presRenderResumoTurma();
     tbody.innerHTML = presLinhaVazia(presState.itens.length
       ? 'Escolha a classe, a secção, a turma e a disciplina para ver a lista de alunos.'
       : `Nenhuma turma atribuída encontrada no ano lectivo ${escapeHtml(presState.ano)}.`);
@@ -145,8 +148,10 @@ function presPopularDisciplinasConsulta() {
   sel.disabled = discs.size === 0;
 }
 
-window.presAoMudarDisciplina = function () {
-  if (presEhProfessor()) presCarregarAlunos(); else presRenderLista();
+window.presAoMudarDisciplina = async function () {
+  if (presEhProfessor()) { presCarregarAlunos(); return; }
+  await presCarregarRisco(document.getElementById('presTurma')?.value);
+  presRenderLista();
 };
 
 window.presRenderLista = function () {
@@ -227,11 +232,42 @@ window.presJustificar = async function (id) {
 async function presCarregarRisco(turmaId) {
   presState.risco = {};
   presState.limite = null;
+  presState.resumoTurma = [];
+  const base = `/api/v1/alunos/presencas/resumo/?turma_id=${turmaId}&ano_letivo=${encodeURIComponent(presState.ano)}`;
+  const discId = document.getElementById('presDisciplina')?.value;
   try {
-    const res = await apiFetch(`/api/v1/alunos/presencas/resumo/?turma_id=${turmaId}&ano_letivo=${encodeURIComponent(presState.ano)}`);
+    // Risco: sempre sobre todas as disciplinas da turma no ano lectivo.
+    const res = await apiFetch(base);
     presState.limite = res?.limite_percent ?? null;
     (res?.resultados || []).forEach(r => { if (r.em_risco) presState.risco[r.aluno] = r; });
-  } catch (e) { /* sem alerta de risco se o resumo falhar */ }
+    // Painel de resumo: com a disciplina escolhida (professor: a sua), senão toda a turma.
+    const resPainel = discId ? await apiFetch(`${base}&disciplina_id=${encodeURIComponent(discId)}`) : res;
+    presState.resumoTurma = resPainel?.resultados || [];
+    presState.resumoDisciplina = discId ? (document.getElementById('presDisciplina')?.selectedOptions?.[0]?.textContent || '') : '';
+  } catch (e) { /* sem alerta/resumo se falhar */ }
+  presRenderResumoTurma();
+}
+
+// Resumo de assiduidade da turma no ecrã (visualização, além de exportar). Altura fixa com scroll.
+function presRenderResumoTurma() {
+  const tbody = document.getElementById('presResumoTurmaCorpo');
+  const titulo = document.getElementById('presResumoTurmaTitulo');
+  if (!tbody) return;
+  if (titulo) titulo.textContent = presState.resumoDisciplina ? `Resumo de assiduidade — ${presState.resumoDisciplina}` : 'Resumo de assiduidade da turma';
+  const dados = presState.resumoTurma || [];
+  if (!dados.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Ainda não existem registos de assiduidade para esta turma neste ano lectivo.</td></tr>';
+    return;
+  }
+  const pct = (v) => String(v).replace('.', ',') + '%';
+  tbody.innerHTML = dados.map((r, i) => `<tr class="${r.em_risco ? 'table-danger' : ''}">
+      <td class="ps-3 text-muted">${i + 1}</td>
+      <td class="font-monospace small">${escapeHtml(r.matricula)}</td>
+      <td class="fw-semibold">${escapeHtml(r.nome)}${r.em_risco ? ' <span class="badge bg-danger">Em risco</span>' : ''}</td>
+      <td class="text-center">${r.total}</td><td class="text-center">${r.presentes}</td>
+      <td class="text-center">${r.justificadas}</td>
+      <td class="text-center ${r.injustificadas ? 'text-danger fw-semibold' : ''}">${r.injustificadas}</td>
+      <td class="text-center">${r.atrasos}</td><td class="text-center pe-3">${pct(r.percent_faltas)}</td></tr>`).join('');
 }
 
 const PRES_PERFIS_LIMITE = ['DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'SUPERADMIN'];

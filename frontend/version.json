@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.5.28",
-  "build": "20261104_1900",
-  "data": "2026-11-04",
+  "version": "2.5.29",
+  "build": "20261105_0900",
+  "data": "2026-11-05",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Presencas: alerta de risco por limite de faltas, pedido de justificacao pelo encarregado/aluno, aviso manual ao encarregado por SMS, sugestao de faltas na caderneta; encarregado so ve o proprio educando."
+  "novidades": "Presencas: o professor e o aluno passam a ver o resumo de assiduidade no ecra (alem de exportar PDF/XLSX); portal do aluno com faltas por disciplina e registos."
 }

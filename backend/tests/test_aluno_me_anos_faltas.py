@@ -29,6 +29,38 @@ class TestAlunoMeAnosFaltas:
         assert res['Content-Type'] == 'application/pdf'
         assert res.content.startswith(b'%PDF')
 
+    def test_faltas_visualizacao_sem_registos_mostra_vazio_real(self):
+        res = self.client.get('/api/v1/alunos/me/faltas?ano=2026')
+        assert res.status_code == 200
+        assert res.data['disciplinas'] == [] and res.data['registos'] == []
+        assert res.data['classe'] == '7ª Classe'
+
+    def test_faltas_visualizacao_e_xlsx_com_registos_reais(self):
+        from apps.disciplinas.models import Disciplina
+        from apps.alunos.models import PresencaAluno
+        disc = Disciplina.objects.create(escola=self.escola, nome='Matemática', codigo='MAT', classe='7ª Classe', area='Geral')
+        for dia, st in (('2026-03-02', 'PRESENTE'), ('2026-03-03', 'FALTA_INJUSTIFICADA'), ('2026-03-04', 'FALTA_JUSTIFICADA')):
+            PresencaAluno.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma, disciplina=disc, data=dia, status=st)
+        res = self.client.get('/api/v1/alunos/me/faltas?ano=2026')
+        d = res.data['disciplinas'][0]
+        assert (d['disciplina'], d['aulas'], d['presencas'], d['faltas'], d['injustificadas']) == ('Matemática', 3, 1, 2, 1)
+        assert [r['status'] for r in res.data['registos']] == ['FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA']  # só faltas, mais recentes primeiro
+        xl = self.client.get('/api/v1/alunos/me/faltas/xlsx?ano=2026')
+        assert xl.status_code == 200 and xl.content[:2] == b'PK'
+
+    def test_faltas_visualizacao_nao_mostra_outro_aluno(self):
+        from apps.disciplinas.models import Disciplina
+        from apps.alunos.models import PresencaAluno
+        outro = Aluno.objects.create(escola=self.escola, turma=self.turma, matricula='ME_002', nome='Outro',
+                                     data_nascimento='2012-02-02', genero='F')
+        disc = Disciplina.objects.create(escola=self.escola, nome='Física', codigo='FIS', classe='7ª Classe', area='Geral')
+        PresencaAluno.objects.create(escola=self.escola, aluno=outro, turma=self.turma, disciplina=disc, data='2026-03-03', status='FALTA_INJUSTIFICADA')
+        assert self.client.get('/api/v1/alunos/me/faltas?ano=2026').data['registos'] == []
+
+    def test_faltas_visualizacao_ano_sem_matricula(self):
+        assert self.client.get('/api/v1/alunos/me/faltas?ano=2019').status_code == 400
+        assert self.client.get('/api/v1/alunos/me/faltas/xlsx?ano=2019').status_code == 400
+
     def test_material_so_por_disciplina_da_classe_e_area(self):
         from apps.disciplinas.models import Disciplina
         from apps.material_escolar.models import MaterialEscolar

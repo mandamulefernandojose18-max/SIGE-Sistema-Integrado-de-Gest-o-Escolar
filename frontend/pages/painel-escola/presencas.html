@@ -90,5 +90,27 @@
         </div>
       </div>
     </div>
+
+    <!-- Resumo de assiduidade (visualização no ecrã; actualiza ao lançar). Altura fixa com scroll. -->
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-header bg-white py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="fw-semibold small text-uppercase text-muted" id="presResumoTurmaTitulo">Resumo de assiduidade da turma</span>
+        <span class="small text-muted">Ano lectivo completo · exportável em PDF/XLSX</span>
+      </div>
+      <div class="card-body p-0" style="max-height: 340px; overflow-y: auto;">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light small text-uppercase text-muted" style="position: sticky; top: 0;">
+            <tr>
+              <th class="ps-3" style="width: 50px;">#</th><th>Matrícula</th><th>Nome do aluno</th>
+              <th class="text-center">Aulas</th><th class="text-center">Presenças</th><th class="text-center">F. justif.</th>
+              <th class="text-center">F. injustif.</th><th class="text-center">Atrasos</th><th class="text-center pe-3">% Faltas</th>
+            </tr>
+          </thead>
+          <tbody id="presResumoTurmaCorpo">
+            <tr><td colspan="9" class="text-center text-muted py-3">Escolha a classe, a secção, a turma (e a disciplina) para ver o resumo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </section>

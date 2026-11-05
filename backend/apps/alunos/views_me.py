@@ -53,6 +53,98 @@ class AlunoMeAnosView(APIView):
         return Response({'success': True, 'data': dados})
 
 
+def _faltas_do_aluno(aluno, ano):
+    """Resumo por disciplina + registos de falta/atraso do ano lectivo (só presenças reais). None se o ano não for do aluno."""
+    turmas = {str(t.ano_letivo): t for t in _turmas_do_aluno(aluno)}
+    if not ano or ano not in turmas:
+        return None
+    qs = (PresencaAluno.objects.filter(aluno=aluno, turma__ano_letivo=ano)
+          .select_related('disciplina').order_by('disciplina__nome', 'data'))
+    por_disc = OrderedDict()
+    registos = []
+    for p in qs:
+        nome = p.disciplina.nome if p.disciplina else 'Geral'
+        r = por_disc.setdefault(nome, {'PRESENTE': 0, 'FALTA_JUSTIFICADA': 0, 'FALTA_INJUSTIFICADA': 0, 'ATRASO': 0})
+        r[p.status] = r.get(p.status, 0) + 1
+        if p.status != 'PRESENTE':
+            registos.append({'id': str(p.id), 'data': p.data.isoformat(), 'disciplina': nome, 'status': p.status,
+                             'observacao': p.observacao, 'justificacao': p.justificacao,
+                             'pedido_justificacao': p.pedido_justificacao})
+    registos.sort(key=lambda r: r['data'], reverse=True)
+    return turmas[ano], por_disc, registos
+
+
+class AlunoMeFaltasView(APIView):
+    """Visualização das faltas do próprio aluno (por disciplina e registos), sem precisar de exportar."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        aluno = _aluno_do_pedido(request)
+        if not aluno:
+            return Response({'success': False, 'message': 'Utilizador não é um aluno cadastrado.'}, status=status.HTTP_404_NOT_FOUND)
+        res = _faltas_do_aluno(aluno, str(request.query_params.get('ano') or '').strip())
+        if res is None:
+            return Response({'success': False, 'message': 'Ano lectivo inválido para este aluno.'}, status=status.HTTP_400_BAD_REQUEST)
+        turma, por_disc, registos = res
+        disciplinas = [{'disciplina': n, 'presencas': r['PRESENTE'], 'justificadas': r['FALTA_JUSTIFICADA'],
+                        'injustificadas': r['FALTA_INJUSTIFICADA'], 'atrasos': r['ATRASO'],
+                        'faltas': r['FALTA_JUSTIFICADA'] + r['FALTA_INJUSTIFICADA'],
+                        'aulas': sum(r.values())} for n, r in por_disc.items()]
+        return Response({'success': True, 'classe': turma.grau_ano, 'turma': turma.nome, 'ano': str(turma.ano_letivo),
+                         'disciplinas': disciplinas, 'registos': registos})
+
+
+class AlunoMeFaltasXlsxView(APIView):
+    """XLSX das faltas do próprio aluno (Times New Roman), igual ao resumo do ecrã."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        aluno = _aluno_do_pedido(request)
+        if not aluno:
+            return Response({'success': False, 'message': 'Utilizador não é um aluno cadastrado.'}, status=status.HTTP_404_NOT_FOUND)
+        ano = str(request.query_params.get('ano') or '').strip()
+        res = _faltas_do_aluno(aluno, ano)
+        if res is None:
+            return Response({'success': False, 'message': 'Ano lectivo inválido para este aluno.'}, status=status.HTTP_400_BAD_REQUEST)
+        turma, por_disc, _ = res
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Faltas'
+        ws.append([(aluno.escola.nome or '').upper()])
+        ws.append([f'MAPA DE FALTAS — ANO LECTIVO {ano}'])
+        ws.append([f'Aluno: {aluno.nome_completo} | Código: {aluno.matricula} | {turma.grau_ano} Turma {turma.nome}'])
+        ws.append([])
+        ws.append(['Disciplina', 'Presenças', 'Faltas Just.', 'Faltas Injust.', 'Atrasos', 'Total Faltas'])
+        if not por_disc:
+            ws.append(['Não existem registos de presenças/faltas para este ano lectivo.'])
+        tot = [0, 0, 0, 0]
+        for nome, r in por_disc.items():
+            fj, fi = r['FALTA_JUSTIFICADA'], r['FALTA_INJUSTIFICADA']
+            ws.append([nome, r['PRESENTE'], fj, fi, r['ATRASO'], fj + fi])
+            tot = [tot[0] + r['PRESENTE'], tot[1] + fj, tot[2] + fi, tot[3] + r['ATRASO']]
+        if por_disc:
+            ws.append(['TOTAL', tot[0], tot[1], tot[2], tot[3], tot[1] + tot[2]])
+        normal, negrito = Font(name='Times New Roman', size=11), Font(name='Times New Roman', size=11, bold=True)
+        for row in ws.iter_rows():
+            for c in row:
+                c.font = normal
+        for r in (1, 2, 5):
+            for c in ws[r]:
+                c.font = negrito
+        if por_disc:
+            for c in ws[ws.max_row]:
+                c.font = negrito
+        for i, w in enumerate([32, 11, 13, 14, 9, 13], start=1):
+            ws.column_dimensions[chr(64 + i)].width = w
+        buf = io.BytesIO()
+        wb.save(buf)
+        resp = HttpResponse(buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp['Content-Disposition'] = f'attachment; filename="faltas_{ano}.xlsx"'
+        return resp
+
+
 class AlunoMeFaltasPdfView(APIView):
     """PDF de faltas do aluno, gerado a partir das presenças de todas as disciplinas."""
     permission_classes = [IsAuthenticated]
