@@ -1,8 +1,8 @@
 {
-  "version": "2.5.30",
-  "build": "20261105_1000",
+  "version": "2.5.31",
+  "build": "20261105_1100",
   "data": "2026-11-05",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Blindagem Anti-IA: removidos o cabecalho escuro e os cartoes de metricas; novas opcoes de selos do PDF (aviso em foto, QR por pergunta, marca de agua, codigo de barras, mensagem de recusa)."
+  "novidades": "Blindagem Anti-IA: novo Painel (proxima libertacao com contagem decrescente, metricas, filtro e pesquisa), atalhos de data e resumo em portugues, no modelo da plataforma de provas."
 }

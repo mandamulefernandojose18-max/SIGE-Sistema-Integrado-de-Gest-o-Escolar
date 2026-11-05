@@ -27,6 +27,8 @@ function inicializarModulo_provas_anti_ia() {
     adicionarQuestaoBuilder();
   }
 
+  iniciarInterfaceZipProvasAntiIa();
+  atualizarResumoDataProvaAntiIa();
   carregarHistoricoProvasAntiIa();
 }
 
@@ -607,8 +609,162 @@ async function carregarHistoricoProvasAntiIa() {
     }
 
     renderizarTabelaHistoricoProvas(json.data || []);
+    renderizarPainelProvasAntiIa(json.data || [], json.stats || {});
 
   } catch (_) {}
+}
+
+// ---------------------------------------------------------------------
+// Painel (no modelo da plataforma Pedagogia): próxima libertação com contagem
+// decrescente, métricas, filtro por estado e pesquisa. Só mostra registos reais.
+// ---------------------------------------------------------------------
+const AI_MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const AI_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const AI_DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+let aiPainelEstado = 'todas';
+let aiRelogioTimer = null;
+
+function aiEscapar(texto) {
+  const d = document.createElement('div');
+  d.textContent = texto == null ? '' : String(texto);
+  return d.innerHTML;
+}
+
+function renderizarPainelProvasAntiIa(lista, stats) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('aiMetProtegidas', stats.provas_bloqueadas || 0);
+  set('aiMetConcluidas', stats.provas_liberadas || 0);
+  set('aiMetTotal', stats.total_provas || 0);
+  set('aiMetTentativas', (lista || []).reduce((s, p) => s + (p.tentativas_bloqueadas || 0), 0));
+
+  // próxima prova a sair da proteção
+  const destaque = document.getElementById('aiPainelDestaque');
+  const proximas = (lista || []).filter(p => p.bloqueada).sort((a, b) => new Date(a.data_bloqueio_ia) - new Date(b.data_bloqueio_ia));
+  if (aiRelogioTimer) { clearInterval(aiRelogioTimer); aiRelogioTimer = null; }
+  if (destaque) {
+    if (proximas.length) {
+      const p = proximas[0];
+      document.getElementById('aiPainelDestaqueTitulo').textContent = p.titulo;
+      document.getElementById('aiPainelDestaqueData').textContent = `${formatarDataHora(p.data_bloqueio_ia)} · ${p.codigo_autenticidade}`;
+      destaque.hidden = false;
+      const alvo = new Date(p.data_bloqueio_ia).getTime();
+      const relogio = document.getElementById('aiPainelRelogio');
+      const pad = (n) => String(n).padStart(2, '0');
+      const tick = () => {
+        const falta = Math.max(Math.floor((alvo - Date.now()) / 1000), 0);
+        const v = { d: Math.floor(falta / 86400), h: Math.floor(falta % 86400 / 3600), m: Math.floor(falta % 3600 / 60), s: falta % 60 };
+        Object.entries(v).forEach(([u, n]) => { const el = relogio.querySelector(`[data-u="${u}"]`); if (el) el.textContent = u === 'd' ? String(n) : pad(n); });
+        if (falta === 0) { clearInterval(aiRelogioTimer); aiRelogioTimer = null; setTimeout(carregarHistoricoProvasAntiIa, 1500); }
+      };
+      tick();
+      aiRelogioTimer = setInterval(tick, 1000);
+    } else {
+      destaque.hidden = true;
+    }
+  }
+
+  const caixa = document.getElementById('aiPainelLista');
+  if (!caixa) return;
+  caixa.innerHTML = (lista || []).map(p => {
+    const d = new Date(p.data_bloqueio_ia);
+    const livre = !p.bloqueada;
+    const texto = `${p.titulo} ${p.disciplina} ${p.classe} ${p.codigo_autenticidade}`.toLowerCase();
+    return `
+      <div class="ai-item" data-estado="${livre ? 'livre' : 'embargo'}" data-texto="${aiEscapar(texto)}">
+        <div class="ai-data-tile ${livre ? 'ai-livre' : ''}"><b>${isNaN(d) ? '–' : d.getDate()}</b><small>${isNaN(d) ? '' : AI_MESES_CURTOS[d.getMonth()]}</small></div>
+        <div>
+          <div class="ai-item-titulo">${aiEscapar(p.titulo)}</div>
+          <div class="ai-item-meta">
+            <span>${aiEscapar(p.disciplina)} · ${aiEscapar(p.classe)}</span>
+            <span>${livre ? 'Protecção terminada' : 'Protegida até ' + aiEscapar(formatarDataHora(p.data_bloqueio_ia))}</span>
+            <span class="font-monospace">${aiEscapar(p.codigo_autenticidade)}</span>
+          </div>
+        </div>
+        <div class="ai-item-lado d-flex flex-wrap align-items-center gap-2">
+          ${livre ? '<span class="badge bg-success"><i class="bi bi-unlock-fill me-1"></i>Libertada</span>' : '<span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Sob embargo</span>'}
+          <span class="small text-muted">${p.tentativas_bloqueadas || 0} tentativa${(p.tentativas_bloqueadas || 0) === 1 ? '' : 's'} repelida${(p.tentativas_bloqueadas || 0) === 1 ? '' : 's'}</span>
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-danger" title="Descarregar prova codificada" onclick="descarregarFicheiroAutenticado('/api/v1/ferramentas/provas-anti-ia/${aiEscapar(p.id)}/descarregar-pdf/', 'Prova_${aiEscapar(p.codigo_autenticidade)}')"><i class="bi bi-download"></i></button>
+            <button type="button" class="btn btn-outline-dark" title="Uma cópia por aluno" onclick="abrirCopiasPorAluno('${aiEscapar(p.id)}')"><i class="bi bi-people"></i></button>
+            <button type="button" class="btn btn-outline-primary" title="Ver detalhes" onclick="abrirDetalheProvaHistorico('${aiEscapar(p.id)}')"><i class="bi bi-eye"></i></button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const vazio = document.getElementById('aiPainelVazio');
+  if (vazio && !(lista || []).length) {
+    vazio.innerHTML = '<i class="bi bi-file-earmark-lock2 fs-2 d-block mb-2"></i><strong class="d-block">Ainda não carregaste nenhuma prova</strong>' +
+      '<span class="small d-block mb-3">Carrega um PDF ou Word, escolhe a data de libertação e as proteções anti-IA.</span>' +
+      '<button type="button" class="btn btn-primary btn-sm" onclick="alternarAbaProvasAntiIa(\'tab-nova-prova\')">Carregar a primeira prova</button>';
+    vazio.hidden = false;
+  }
+  aplicarFiltroPainelProvasAntiIa();
+}
+
+function aplicarFiltroPainelProvasAntiIa() {
+  const caixa = document.getElementById('aiPainelLista');
+  const vazio = document.getElementById('aiPainelVazio');
+  if (!caixa) return;
+  const q = (document.getElementById('aiPainelPesquisa')?.value || '').trim().toLowerCase();
+  const itens = [...caixa.querySelectorAll('.ai-item')];
+  let visiveis = 0;
+  itens.forEach(it => {
+    const ok = (aiPainelEstado === 'todas' || it.dataset.estado === aiPainelEstado) && (!q || it.dataset.texto.includes(q));
+    it.hidden = !ok;
+    if (ok) visiveis += 1;
+  });
+  if (vazio && itens.length) {
+    vazio.hidden = visiveis > 0;
+    vazio.textContent = 'Nenhuma prova corresponde ao filtro.';
+  }
+}
+
+function aiDataMaputoAgora() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Maputo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date()).map(x => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+}
+
+function atualizarResumoDataProvaAntiIa() {
+  const data = document.getElementById('aiProvaDataBloqueio')?.value;
+  const hora = document.getElementById('aiProvaHoraBloqueio')?.value || '00:00';
+  const resumo = document.getElementById('aiResumoData');
+  if (!resumo) return;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(data || '');
+  if (!m) { resumo.hidden = true; return; }
+  const alvo = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const d = new Date(alvo);
+  const hoje = aiDataMaputoAgora();
+  const falta = Math.round((alvo - Date.UTC(new Date(hoje).getUTCFullYear(), new Date(hoje).getUTCMonth(), new Date(hoje).getUTCDate())) / 86400000);
+  const quando = falta < 0 ? 'Esta data já passou.' : falta === 0 ? 'Hoje.' : `Daqui a ${falta} dia${falta === 1 ? '' : 's'}.`;
+  resumo.textContent = `Libertada ${AI_DIAS[d.getUTCDay()]}, ${d.getUTCDate()} de ${AI_MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}, às ${hora} (hora de Maputo). ${quando}`;
+  resumo.hidden = false;
+}
+
+function iniciarInterfaceZipProvasAntiIa() {
+  const raiz = document.getElementById('view-provas-anti-ia');
+  if (!raiz || raiz.dataset.zipPronto === '1') return;
+  raiz.dataset.zipPronto = '1';
+  raiz.querySelectorAll('#aiPainelFiltros button[data-valor]').forEach(b => b.addEventListener('click', () => {
+    aiPainelEstado = b.dataset.valor;
+    raiz.querySelectorAll('#aiPainelFiltros button[data-valor]').forEach(x => {
+      x.classList.toggle('active', x === b);
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+    aplicarFiltroPainelProvasAntiIa();
+  }));
+  document.getElementById('aiPainelPesquisa')?.addEventListener('input', aplicarFiltroPainelProvasAntiIa);
+  raiz.querySelectorAll('[data-ai-dias]').forEach(b => b.addEventListener('click', () => {
+    const d = new Date(aiDataMaputoAgora() + (+b.dataset.aiDias) * 86400000);
+    const pad = (n) => String(n).padStart(2, '0');
+    document.getElementById('aiProvaDataBloqueio').value = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+    document.getElementById('aiProvaHoraBloqueio').value = '08:00';
+    atualizarResumoDataProvaAntiIa();
+  }));
+  ['aiProvaDataBloqueio', 'aiProvaHoraBloqueio'].forEach(id => document.getElementById(id)?.addEventListener('input', atualizarResumoDataProvaAntiIa));
+  atualizarResumoDataProvaAntiIa();
 }
 
 /**
