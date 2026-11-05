@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   var API = '/api/v1/escudo/';
-  var estado = { vista: 'painel', pid: null, catalogo: null, timers: [] };
+  var estado = { vista: 'painel', pid: null, catalogo: null, timers: [], pronto: false };
 
   function token() { try { return (window.state && window.state.token) || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token') || ''; } catch (_) { return ''; } }
   function cab() { var t = token(); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
@@ -60,7 +60,8 @@
     } catch (e) {
       c.innerHTML = '<div id="escudoAviso"></div><div class="vazio">' + ico('alert') + '<strong>' + esc(e.message) + '</strong><button class="btn secundario" data-ir="painel">Voltar ao painel</button></div>';
     }
-    c.scrollIntoView({ block: 'start' });
+    estado.pronto = true;
+    c.scrollIntoView({ block: 'nearest' });
   }
 
   // ---------------- relógio ----------------
@@ -483,6 +484,12 @@
       var menu = ev.target.closest('[data-vista]');
       if (menu) { ev.preventDefault(); ir(menu.dataset.vista); }
     });
+    // O router do SIGE só mostra o módulo depois de escolher o Ano Lectivo: desenha o painel quando ficar visível.
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) {
+        if (!estado.pronto && es.some(function (e) { return e.isIntersecting; })) ir('painel');
+      }).observe(app);
+    }
   }
 
   window.inicializarModulo_provas_anti_ia = function () {

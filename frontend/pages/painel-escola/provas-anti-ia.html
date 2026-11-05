@@ -3,6 +3,21 @@
 <!-- Conteudo desenhado por js/provas-anti-ia.js; estilos limitados a .escudo-app          -->
 <!-- ===================================================================== -->
 <section id="view-provas-anti-ia" class="modulo-view" style="display: none;">
+  <!-- Barra superior padrão SIGE: cada módulo só mostra dados depois de escolher o Ano Lectivo e clicar em Buscar -->
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="provasAntiIaAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('provas-anti-ia')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="provasAntiIaConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
 <style>
 .escudo-app{
   --papel: #f5f3ee; --superficie: #fff; --superficie-2: #faf9f6; --tinta: #16202c; --suave: #66707e; --linha: #e5e1d7;
@@ -296,6 +311,7 @@
     </div>
   </aside>
   <div><main class="conteudo" id="escudoConteudo"><p class="suave">A carregar…</p></main></div>
+</div>
 </div>
 </div>
 </section>
