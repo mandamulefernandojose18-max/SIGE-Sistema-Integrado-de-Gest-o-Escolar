@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'apps.certificados',
     'apps.dashboard',
     'apps.ferramentas',
+    'apps.escudo',
 ]
 
 MIDDLEWARE = [

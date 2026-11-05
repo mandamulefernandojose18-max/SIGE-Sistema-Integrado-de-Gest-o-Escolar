@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g-dev \
     libfreetype6-dev \
     fonts-liberation \
+    fonts-dejavu-core \
+    libreoffice-writer \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

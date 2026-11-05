@@ -1,8 +1,8 @@
 {
-  "version": "2.5.32",
-  "build": "20261105_1300",
+  "version": "2.6.0",
+  "build": "20261105_1500",
   "data": "2026-11-05",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Blindagem Anti-IA: pagina da prova (embargo com progresso, leituras, copias), editor de posicao dos codigos com pre-visualizacao real da pagina selada e metricas de copias e leituras."
+  "novidades": "Escudo Anti-IA de Provas: pagina refeita de raiz a partir da plataforma Pedagogia (Painel, Carregar prova, Pagina da prova, Selos e copias, variantes por copia, cofre cifrado AES-256, embargo opcional)."
 }

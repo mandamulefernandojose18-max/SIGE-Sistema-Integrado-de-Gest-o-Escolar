@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, re_path, include
 from django.http import JsonResponse
 from apps.ferramentas.views import pagina_ia_prova
+from apps.escudo.urls import publico as escudo_publico
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 def health_check(request):
@@ -29,6 +30,7 @@ api_v1_patterns = [
     re_path(r'^documentos/?', include('apps.documentos.urls')),
     re_path(r'^dashboard/?', include('apps.dashboard.urls')),
     re_path(r'^ferramentas/?', include('apps.ferramentas.urls')),
+    re_path(r'^escudo/', include('apps.escudo.urls')),
     path('', include('apps.tenants.urls')),
 ]
 
@@ -39,6 +41,9 @@ urlpatterns = [
 
     # Rotas diretas de Ferramentas /ferramentas/prompt-gateway
     re_path(r'^ferramentas/?', include('apps.ferramentas.urls')),
+
+    # Escudo Anti-IA: destino dos QR e códigos de barras de cada cópia (/ia/v/<prova>/<cópia>/...)
+    *escudo_publico,
 
     # Página pública com as instruções para IA, aberta pelo QR Code das provas codificadas
     path('ia/', pagina_ia_prova, name='pagina_ia_geral'),

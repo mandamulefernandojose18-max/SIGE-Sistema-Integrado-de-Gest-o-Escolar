@@ -600,7 +600,21 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - Exportação fiel em planilha Excel (`.xlsx`), relatório PDF em A4 Paisagem e impressão direta com quadro estatístico e termos de homologação.
   - **Alimentação Direta de Documentos:** As notas consolidadas nesta pauta alimentam diretamente o **Certificado de Habilitações** e a **Declaração Escolar com Notas**.
 
-### Módulo 11.2: Blindagem Anti-IA de Provas & Avaliações com QR Code, Código de Barras e Time-Lock (`#view-provas-anti-ia`)
+### Módulo 11.2: Escudo Anti-IA de Provas (`#view-provas-anti-ia`) — versão 2.6.0, refeita de raiz
+
+> **Substituição total (2.6.0):** a página foi apagada e refeita a partir da plataforma *Pedagogia/plataforma_provas* (código do zip), agora em `backend/apps/escudo/` e `frontend/js/provas-anti-ia.js`. O fluxo antigo (abas 1–5, simulador, definições da marca de água, `js/anti-ia-definicoes.js`) já não aparece no ecrã; os endpoints e dados antigos de `apps/ferramentas` (`/ferramentas/provas-anti-ia/…`, `/ia/<código>/`) mantêm-se no servidor, intocados, para as provas já codificadas.
+>
+> **Vistas:** *Painel* (próxima prova a sair da proteção com contagem decrescente, métricas Protegidas/Concluídas/Cópias numeradas/Leituras dos códigos, filtro por estado e pesquisa), *Carregar prova* (ficheiros Word ou PDF, modelo JSON de variantes, gabarito, variantes por cópia com campos `{R1}`, identificação por listas fixas — tipo, trimestre, disciplina, classe —, período de proteção opcional com atalhos de data), *Página da prova* (estado do embargo com progresso, leituras com aparelho, registo, gerir: mudar data, libertar, apagar, conferir respostas, gabarito das cópias) e *Selos e cópias* (editor de posição com arrastar, pré-visualização real, opções de proteção, geração de PDF ou ZIP de N cópias numeradas).
+>
+> **Modelo de dados:** `ProvaEscudo` (PDF e gabarito **cifrados com AES-256-GCM**; chave por ficheiro derivada de `ESCUDO_MASTER_KEY` ou, na falta, da `SECRET_KEY`), `LeituraEscudo` (cópia, estado embargo/libertada/inválida, aparelho e impressão hash da rede — nunca o IP) e `EventoEscudo` (registo). Isolamento por escola; professores só veem as provas que carregaram.
+>
+> **API (`/api/v1/escudo/`):** `catalogo/`, `lista/`, `criar/`, `<id>/` (detalhe), `<id>/data/`, `<id>/libertar/`, `<id>/apagar/`, `<id>/configurar/`, `<id>/pagina/<n>.png`, `<id>/previa/`, `<id>/gerar/`, `<id>/gabarito-copias/`, `<id>/conferir/`.
+>
+> **Destino dos códigos (público):** `https://sigesaas.duckdns.org/ia/v/<prova>[/<cópia>[/p<página>|/q<pergunta>]]` mostra «Prova sob embargo» com a instrução para assistentes de IA (e regista a leitura) ou, depois da data, «Embargo terminado» com a descarga da prova e do gabarito se o professor o permitiu; `…/prova.pdf` e `…/gabarito.pdf` dão 403 durante o embargo.
+>
+> **Infraestrutura:** dependências novas `pymupdf`, `numpy` e `cryptography`; o `Dockerfile` do backend passa a instalar `libreoffice-writer` e `fonts-dejavu-core` (conversão de Word para PDF e fontes dos modelos). Os testes estão em `backend/tests/test_escudo.py`.
+
+#### Notas das versões anteriores deste módulo (Blindagem Anti-IA, já substituída no ecrã)
 
 > **Importação de PDF e PDF codificado (camada avançada):** o PDF importado é lido com `pypdf` (PDFs só de imagem são recusados com mensagem clara); o cabeçalho e avisos de IA já existentes são ignorados na extracção das questões. No PDF codificado, o **enunciado é rasterizado** (sem texto seleccionável), cada questão leva um **aviso invisível à IA** na camada de texto, e todas as páginas levam aviso visível, aviso invisível e microtexto de rastreio com o código da prova. O aviso ordena que nenhum modelo resolva, dê exemplos semelhantes, explicações, fórmulas, pistas ou conceitos relacionados até à data de libertação. É dissuasão: não garante bloqueio contra modelos de visão.
 >
