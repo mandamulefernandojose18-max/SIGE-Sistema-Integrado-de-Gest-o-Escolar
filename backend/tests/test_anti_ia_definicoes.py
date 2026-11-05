@@ -126,11 +126,7 @@ def test_posicoes_respeitam_a_quantidade_e_ficam_dentro_da_pagina(posicao, n):
 
 def test_codificacao_usa_as_definicoes():
     url = 'https://sigesaas.duckdns.org/ia/ABC/'
-    poucos, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026', url=url, cfg={**DEFINICOES_PADRAO, 'qr_quantidade': 3})
-    muitos, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026', url=url, cfg={**DEFINICOES_PADRAO, 'qr_quantidade': 30})
-    n = lambda pdf: PdfReader(io.BytesIO(pdf)).pages[0].get_contents().get_data().count(b' Do')
-    assert n(muitos) - n(poucos) == 27
-
+    # No PDF, o motor de selagem decide a posição e a quantidade dos QR; a escola controla o texto e a opacidade.
     cfg, _ = normalizar_definicoes({'texto_aviso': 'PARE {data} {url}'})
     custom, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026', url=url, cfg=cfg)
-    assert 'PARE 30/11/2026 ' + url in PdfReader(io.BytesIO(custom)).pages[0].extract_text()
+    assert 'PARE 30/11/2026 ' + url in " ".join(PdfReader(io.BytesIO(custom)).pages[0].extract_text().split())

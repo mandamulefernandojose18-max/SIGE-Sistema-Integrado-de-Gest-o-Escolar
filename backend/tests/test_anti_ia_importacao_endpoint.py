@@ -55,15 +55,17 @@ def test_importar_pdf_devolve_o_mesmo_pdf_codificado(duas_escolas):
     down = c.get(dados['pdf_download_url'])
     assert down.status_code == 200 and '.pdf' in down['Content-Disposition']
     texto = "".join(p.extract_text() for p in PdfReader(io.BytesIO(down.content)).pages)
-    assert "fio condutor" not in texto and "SYSTEM NOTICE" in texto
+    assert "fio condutor" not in texto and "ASSISTENTES DE INTELIGÊNCIA ARTIFICIAL" in texto
 
 
 def test_pdf_e_docx_levam_varios_qr_como_marca_de_agua(duas_escolas):
+    import pymupdf
     from apps.ferramentas.services.anti_ai_service import codificar_ficheiro_no_lugar
     url = 'https://sigesaas.duckdns.org/ia/ABC/'
-    pdf, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026 às 23:59', url=url)
-    pagina = PdfReader(io.BytesIO(pdf)).pages[0]
-    assert pagina.get_contents().get_data().count(b' Do') > 4  # fundo + vários QR (mesmo objecto, repetido)
+    traços = lambda pdf: len(pymupdf.open(stream=pdf, filetype='pdf')[0].get_drawings())
+    com_qr, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026 às 23:59', url=url)
+    sem_qr, _ = codificar_ficheiro_no_lugar(_pdf(), 't.pdf', '30/11/2026 às 23:59', url='')
+    assert traços(com_qr) > traços(sem_qr) + 100  # QR de marca de água, de canto e da pergunta (vectoriais)
 
     d = docx.Document(); d.add_paragraph("1. Pergunta A")
     b = io.BytesIO(); d.save(b)
