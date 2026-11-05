@@ -12,6 +12,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import RowBreak, ColBreak
 from common.utils.avaliacoes_mocambique import obter_nome_completo_aluno
+from .xlsx_seguro import nome_folha, normalizar_logo_png, guardar_xlsx_seguro
 
 # Estilos padrão Times New Roman — Rigorosamente Tamanho 12 e Espaçamento 1,5
 FONT_TITLE = Font(name='Times New Roman', size=12, bold=True, color='000000')
@@ -79,7 +80,7 @@ def finalizar_formatacao_documento_xlsx(wb):
 
 def salvar_xlsx_padronizado(wb, buffer):
     finalizar_formatacao_documento_xlsx(wb)
-    wb.save(buffer)
+    guardar_xlsx_seguro(wb, buffer)
 
 FILL_SUCCESS = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
 FILL_ROW_HM = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
@@ -155,7 +156,10 @@ def inserir_logo_cabecalho_xlsx(ws, escola, cell='A1'):
         )
     try:
         from openpyxl.drawing.image import Image as OpenpyxlImage
-        img = OpenpyxlImage(io.BytesIO(logo_bytes))
+        logo_png = normalizar_logo_png(logo_bytes)
+        if not logo_png:
+            return
+        img = OpenpyxlImage(io.BytesIO(logo_png))
         img.width = 46
         img.height = 46
         ws.add_image(img, cell)
@@ -168,7 +172,7 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     wb = openpyxl.Workbook()
     ws = wb.active
     turma_nome = turma.nome if getattr(turma, 'nome', None) else 'Turma'
-    ws.title = f"Pauta {turma_nome[:25]}"
+    ws.title = nome_folha(f"Pauta {turma_nome[:25]}")
     configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=0)
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -494,7 +498,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
     ws = wb.active
     turma_info = dados_pauta.get('turma', {})
     turma_nome = turma_info.get('nome', 'Turma')
-    ws.title = f"Exames {turma_nome[:20]}"
+    ws.title = nome_folha(f"Exames {turma_nome[:20]}")
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     disciplinas = dados_pauta.get('disciplinas', [])
@@ -773,7 +777,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
 def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao='portrait') -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Boletim {aluno.matricula[:10]}"
+    ws.title = nome_folha(f"Boletim {aluno.matricula[:10]}")
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -933,7 +937,7 @@ def gerar_boletim_xlsx(aluno, escola, ano_letivo, notas_disciplinas, orientacao=
 def gerar_declaracao_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, director_nome=None, orientacao='portrait') -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Declaração {aluno.matricula[:10]}"
+    ws.title = nome_folha(f"Declaração {aluno.matricula[:10]}")
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -1025,7 +1029,7 @@ def gerar_declaracao_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_gl
 def gerar_certificado_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_global=None, codigo_autenticidade=None, orientacao='portrait') -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Certificado {aluno.matricula[:10]}"
+    ws.title = nome_folha(f"Certificado {aluno.matricula[:10]}")
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -1110,7 +1114,7 @@ def gerar_acta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos,
                     orientacao='landscape', params_sessao=None, **kwargs) -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Acta {turma.nome[:25]}"
+    ws.title = nome_folha(f"Acta {turma.nome[:25]}")
     configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=1)
     ws.row_breaks = RowBreak()
     ws.col_breaks = ColBreak()
@@ -1776,7 +1780,7 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
     wb = openpyxl.Workbook()
     # 1. Página 1: Mapa Oficial de Emissão em Lote
     ws = wb.active
-    ws.title = "Mapa de Emissão"
+    ws.title = nome_folha("Mapa de Emissão")
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     # Logótipo Oficial Escolhido pela Instituição
@@ -1847,7 +1851,7 @@ def gerar_lote_xlsx(turma, escola, tipo_documento, alunos_documentos, orientacao
 def gerar_estatisticas_gerais_xlsx(escola, ano_letivo, periodo, stats_data, orientacao='landscape') -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Estatísticas {ano_letivo}"
+    ws.title = nome_folha(f"Estatísticas {ano_letivo}")
     configurar_pagina_excel(ws, orientacao=orientacao)
 
     nome_escola = _obter_campo_escola(escola, 'nome', 'Escola Secundária')
@@ -2115,7 +2119,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     estatisticas = caderneta_data.get('estatisticasColunas') or {}
 
     turma_nome = turma_info.get('nome') or 'Turma'
-    ws.title = f"Caderneta {turma_nome}"[:31]
+    ws.title = nome_folha(f"Caderneta {turma_nome}")
     configurar_pagina_excel(ws, orientacao=orientacao, fit_to_height=0)
 
     esc_nome = (escola_info.get('nome') or 'ESCOLA SECUNDÁRIA').upper()

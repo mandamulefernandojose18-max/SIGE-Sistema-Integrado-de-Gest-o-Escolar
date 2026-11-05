@@ -1639,6 +1639,16 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     const isPdf = filename.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('pdf');
     const isDocx = filename.toLowerCase().endsWith('.docx') || url.toLowerCase().includes('docx');
     const isJson = filename.toLowerCase().endsWith('.json') || url.toLowerCase().includes('json');
+    // Integridade: XLSX/DOCX são ZIP e começam por "PK". Se não, o servidor devolveu outra coisa (erro/HTML).
+    if ((filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.docx')) && !isJson) {
+      const cab = new Uint8Array(arrayBuffer.slice(0, 2));
+      if (arrayBuffer.byteLength < 100 || cab[0] !== 0x50 || cab[1] !== 0x4B) {
+        let detalhe = '';
+        try { detalhe = new TextDecoder('utf-8').decode(arrayBuffer.slice(0, 400)).replace(/<[^>]*>/g, ' ').trim(); } catch (_) {}
+        console.error('[DOWNLOAD] Resposta não é um ficheiro Office válido:', detalhe);
+        throw new Error('O servidor não devolveu um ficheiro válido. Tente novamente; se persistir, contacte o suporte.');
+      }
+    }
     let mimeType = 'application/octet-stream';
     if (isXlsx) mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     else if (isPdf) mimeType = 'application/pdf';

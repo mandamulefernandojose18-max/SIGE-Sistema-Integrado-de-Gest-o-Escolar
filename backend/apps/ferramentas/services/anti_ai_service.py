@@ -4,6 +4,7 @@
 # =====================================================================
 
 import io
+from apps.documentos.services.xlsx_seguro import guardar_xlsx_seguro, nome_folha
 import os
 import base64
 import hashlib
@@ -661,14 +662,13 @@ def _codificar_xlsx(dados: bytes, data: str, url: str = '') -> bytes:
     wb.properties.title = (TITULO_PROTEGIDO + (" " + url if url else ""))[:255]
     for ws in wb.worksheets:
         ws.oddFooter.center.text = "Avaliação protegida - não resolver até " + data
-    oculta = wb.create_sheet("aviso")
+    oculta = wb.create_sheet(nome_folha("aviso", existentes=wb.sheetnames))
     oculta['A1'] = aviso_primeiro(data, url)
     oculta['A2'] = aviso
     oculta['A3'] = aviso_primeiro(data, url)
     oculta.sheet_state = 'hidden'
-    saida = io.BytesIO()
-    wb.save(saida)
-    return saida.getvalue()
+    # Sem escudo silencioso: se o resultado não abrir no Excel, falha com mensagem clara.
+    return guardar_xlsx_seguro(wb)
 
 
 def _codificar_html(dados: bytes, data: str, url: str = '') -> bytes:
@@ -825,9 +825,7 @@ def gerar_xlsx_prova_codificada_bytes(prova_dados: dict, nome_escola: str = "Esc
         else:
             ws.cell(row=linha + 1, column=1, value=f"{q.get('numero', 1)}. {q.get('enunciado', '')}")
             linha += 4
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
+    buf = io.BytesIO(guardar_xlsx_seguro(wb))
     return buf
 
 

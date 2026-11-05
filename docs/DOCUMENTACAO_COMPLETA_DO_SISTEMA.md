@@ -1336,3 +1336,13 @@ O carregamento da caderneta (paineis Escola e Professor) usava profNome/dtNome a
 ### Caderneta: PDF/XLSX/DOCX identicos ao ecra (2026-11-04)
 Os botoes de PDF, Excel e Word da caderneta (paineis Escola e Professor) deixaram de exportar a partir do HTML (que perdia o parametro estatistico e o cabecalho de 2 niveis) e usam sempre os geradores do servidor (/api/v1/professores/caderneta/<id>/pdf|xlsx|docx). Estes incluem o bloco Parametro estatistico (Avaliados, Positivos, % Positivos, Negativos, % Negativos, faixas 0-9,4 a 18,5-20 e Media da Coluna), MT/MFD arredondados ao inteiro, valores <= 0 como '-' e notas negativas a vermelho, como no ecra. Removidos valores ficticios por omissao do gerador Excel.
 
+
+
+### Exportacao Excel blindada: ficheiros .xlsx que abrem sempre (2026-11-05)
+Novo modulo backend/apps/documentos/services/xlsx_seguro.py, usado por todos os geradores XLSX (pautas, actas, boletins, declaracoes, certificados, estatisticas, cadernetas, assiduidade, transferencias, faltas do aluno, escudo anti-IA):
+- nome_folha(): nomes de folha validos para o Excel (sem \ / ? * [ ] :, maximo 31 caracteres, sem apostrofo nas pontas, unicos). Turmas como "10 A/B" deixam de gerar erro.
+- sanear_workbook(): texto nunca e lido como formula (=, +, -, @), sem caracteres de controlo e com maximo de 32 767 caracteres por celula.
+- normalizar_logo_png(): o logotipo e sempre convertido para PNG RGB(A) (WebP, CMYK e paleta deixam de corromper o ficheiro).
+- guardar_xlsx_seguro()/validar_xlsx_bytes(): antes de entregar, o ficheiro e reaberto (ZIP integro, partes obrigatorias, sem celulas fundidas sobrepostas). Se falhar, o servidor devolve erro claro em vez de um ficheiro avariado. No escudo anti-IA a folha oculta "aviso" tem nome unico e nao ha entrega silenciosa sem escudo.
+- Frontend: downloadFicheiroBinario confirma a assinatura ZIP ("PK") de .xlsx/.docx e mostra mensagem clara se o servidor nao devolveu um ficheiro valido; a exportacao Excel do navegador (ExcelJS) sanitiza o nome da folha e o texto das celulas.
+- Testes: backend/tests/test_xlsx_seguro.py. Frontend 2.6.3 (cache v3.2.16).

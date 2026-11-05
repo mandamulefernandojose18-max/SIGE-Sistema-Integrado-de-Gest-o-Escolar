@@ -5,6 +5,7 @@ Tipografia oficial: Times New Roman.
 """
 import io
 
+from apps.documentos.services.xlsx_seguro import guardar_xlsx_seguro
 from django.db.models import Count, Q
 
 COLUNAS = ['N.º', 'Matrícula', 'Nome do aluno', 'Aulas', 'Presenças', 'F. justif.', 'F. injustif.', 'Atrasos', '% Faltas']
@@ -82,9 +83,7 @@ def gerar_xlsx(resumo, escola, filtros):
             row[6].font = vermelho
     for i, w in enumerate([6, 20, 36, 8, 11, 11, 13, 9, 10], start=1):
         ws.column_dimensions[chr(64 + i)].width = w
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return guardar_xlsx_seguro(wb)
 
 
 def gerar_pdf(resumo, escola, filtros):

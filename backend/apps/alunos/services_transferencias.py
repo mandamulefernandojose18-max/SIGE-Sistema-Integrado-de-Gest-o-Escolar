@@ -4,6 +4,7 @@ Tudo é calculado a partir de registos reais (pagamentos, notas, presenças); na
 Valores monetários em MZN.
 """
 import io
+from apps.documentos.services.xlsx_seguro import guardar_xlsx_seguro
 import secrets
 from decimal import Decimal
 
@@ -213,9 +214,7 @@ def gerar_xlsx_lista(itens):
             c.font = fonte
     for i, w in enumerate([12, 32, 22, 14, 12, 24, 30, 28, 22, 14], start=1):
         ws.column_dimensions[chr(64 + i)].width = w
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return guardar_xlsx_seguro(wb)
 
 
 def gerar_pdf_lista(itens, escola):

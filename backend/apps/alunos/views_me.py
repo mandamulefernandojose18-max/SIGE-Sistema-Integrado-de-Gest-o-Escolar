@@ -1,5 +1,6 @@
 """Endpoints do Portal do Aluno: anos lectivos/classes reais e PDF de faltas."""
 import io
+from apps.documentos.services.xlsx_seguro import guardar_xlsx_seguro
 from collections import OrderedDict
 
 from django.http import HttpResponse
@@ -138,9 +139,7 @@ class AlunoMeFaltasXlsxView(APIView):
                 c.font = negrito
         for i, w in enumerate([32, 11, 13, 14, 9, 13], start=1):
             ws.column_dimensions[chr(64 + i)].width = w
-        buf = io.BytesIO()
-        wb.save(buf)
-        resp = HttpResponse(buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp = HttpResponse(guardar_xlsx_seguro(wb), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         resp['Content-Disposition'] = f'attachment; filename="faltas_{ano}.xlsx"'
         return resp
 

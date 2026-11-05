@@ -1,8 +1,8 @@
 {
-  "version": "2.6.2",
-  "build": "20261105_1700",
+  "version": "2.6.3",
+  "build": "20261105_1830",
   "data": "2026-11-05",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Escudo Anti-IA: o painel e o Carregar prova (ficheiros, variantes, identificacao, periodo) aparecem logo depois de Buscar; menu em barra para dar espaco; testes de Word com variantes."
+  "novidades": "Exportacao Excel blindada: nomes de folha validos, textos nunca lidos como formula, logotipo normalizado, validacao do ficheiro antes de entregar e verificacao na descarga."
 }

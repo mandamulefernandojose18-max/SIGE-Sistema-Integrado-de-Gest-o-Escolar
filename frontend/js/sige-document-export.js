@@ -341,7 +341,9 @@
     workbook.modified = new Date();
 
     const meta = obterMetadadosInstituicao();
-    const worksheet = workbook.addWorksheet(nomeAba.substring(0, 31), {
+    // Nome de folha válido no Excel: sem \ / ? * [ ] : e com no máximo 31 caracteres
+    const nomeAbaSeguro = String(nomeAba || 'Dados').replace(/[\\\/?*\[\]:]/g, '-').replace(/^'+|'+$/g, '').trim().substring(0, 31) || 'Dados';
+    const worksheet = workbook.addWorksheet(nomeAbaSeguro, {
       pageSetup: { paperSize: 9, orientation: 'landscape' },
       views: [{ state: 'frozen', ySplit: 5 }]
     });
@@ -398,7 +400,11 @@
 
     // Linhas de Dados
     linhas.forEach((linhaDados, idx) => {
-      const row = worksheet.addRow(linhaDados);
+      // Limites do Excel: 32 767 caracteres por célula e sem caracteres de controlo XML
+      const linhaSegura = linhaDados.map((v) => typeof v === 'string'
+        ? v.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '').substring(0, 32767)
+        : v);
+      const row = worksheet.addRow(linhaSegura);
       row.height = 20;
       const isAlt = idx % 2 === 1;
 
