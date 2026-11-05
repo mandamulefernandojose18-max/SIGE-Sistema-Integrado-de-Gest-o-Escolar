@@ -1354,3 +1354,5 @@ Todos os documentos Excel passam por embelezar_workbook() (backend/apps/document
 - Nada e escondido: linhas e colunas ficam como no ecra do sistema.
 - Altura das linhas ajustada ao texto com quebra (sem texto cortado), sem grelha de fundo, impressao centrada na pagina e cor de separador azul institucional.
 - Ficheiros de terceiros (provas do escudo anti-IA) usam embelezar=False e nao sao alterados.
+
+- Tabelas Excel: o cabecalho da tabela (azul institucional) repete-se em cada pagina impressa e as linhas de dados levam riscas alternadas suaves; funcao _melhorar_tabela em xlsx_seguro.py.

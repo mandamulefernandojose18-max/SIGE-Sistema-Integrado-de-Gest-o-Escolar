@@ -161,6 +161,51 @@ def _ajustar_alturas(ws, max_r, max_c):
             ws.row_dimensions[r].height = min(max(atual, precisa), 409)
 
 
+_AZUL_CABECALHO = '1E3A8A'
+_ZEBRA = 'F1F5F9'
+
+
+def _cor_fundo(cell):
+    f = cell.fill
+    if f is None or getattr(f, 'fill_type', None) != 'solid':
+        return None
+    rgb = getattr(f.start_color, 'rgb', None)
+    return rgb[-6:].upper() if isinstance(rgb, str) else None
+
+
+def _tem_borda(cell):
+    b = cell.border
+    return bool(b and (b.left.style or b.right.style or b.top.style or b.bottom.style))
+
+
+def _melhorar_tabela(ws, max_r, max_c):
+    """Cabeçalho da tabela repetido em cada página impressa e linhas de dados com riscas alternadas."""
+    from openpyxl.styles import PatternFill
+    cab = []
+    for r in range(1, max_r + 1):
+        cel = [ws.cell(row=r, column=c) for c in range(1, max_c + 1)]
+        cheias = [c for c in cel if c.value is not None or _cor_fundo(c)]
+        if cheias and sum(1 for c in cheias if _cor_fundo(c) == _AZUL_CABECALHO) * 2 >= len(cheias) and len(cheias) >= 3:
+            cab.append(r)
+        elif cab:
+            break
+    if not cab:
+        return
+    ult_cab = cab[-1]
+    ws.print_title_rows = f'{cab[0]}:{ult_cab}'
+    zebra = PatternFill(start_color=_ZEBRA, end_color=_ZEBRA, fill_type='solid')
+    n = 0
+    for r in range(ult_cab + 1, max_r + 1):
+        linha = [ws.cell(row=r, column=c) for c in range(1, max_c + 1)]
+        if not _tem_borda(linha[0]) or all(c.value is None for c in linha):
+            break
+        n += 1
+        if n % 2 == 0:
+            for c in linha:
+                if _cor_fundo(c) is None and _tem_borda(c):
+                    c.fill = zebra
+
+
 def embelezar_workbook(wb):
     """
     Apresentação final de todos os documentos Excel do SIGE:
@@ -174,6 +219,7 @@ def embelezar_workbook(wb):
             continue
         _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)
+        _melhorar_tabela(ws, max_r, max_c)
         # Nada é escondido: o documento mostra-se como no ecrã do sistema.
         for r in range(1, max_r + 1):
             if ws.row_dimensions[r].height is None:
