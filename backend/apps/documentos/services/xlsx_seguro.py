@@ -209,10 +209,12 @@ def _melhorar_tabela(ws, max_r, max_c):
 def embelezar_workbook(wb):
     """
     Apresentação final de todos os documentos Excel do SIGE:
-      * não esconde nada (linhas e colunas ficam como no ecrã do sistema);
+      * esconde todas as linhas e colunas sem conteúdo: só a área abrangida pelo conteúdo fica visível;
       * centra o logótipo sobre o cabeçalho e deixa-lhe espaço próprio;
       * ajusta a altura das linhas ao texto, sem grelha de fundo e com impressão centrada.
     """
+    from openpyxl.utils import get_column_letter, column_index_from_string
+    from openpyxl.worksheet.dimensions import ColumnDimension
     for ws in wb.worksheets:
         max_r, max_c = _limites_conteudo(ws)
         if max_r == 0 or max_c == 0:
@@ -220,10 +222,23 @@ def embelezar_workbook(wb):
         _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)
         _melhorar_tabela(ws, max_r, max_c)
-        # Nada é escondido: o documento mostra-se como no ecrã do sistema.
+        # Linhas: todas as do conteúdo têm altura explícita; as restantes ficam escondidas (zeroHeight)
         for r in range(1, max_r + 1):
             if ws.row_dimensions[r].height is None:
                 ws.row_dimensions[r].height = 22
+        ws.sheet_format.zeroHeight = True
+        # Colunas: esconde da primeira vazia até ao fim da folha (XFD)
+        if max_c < _ULTIMA_COLUNA:
+            for chave in list(ws.column_dimensions.keys()):
+                cd0 = ws.column_dimensions[chave]
+                ini = cd0.min or column_index_from_string(chave)
+                if ini > max_c:
+                    del ws.column_dimensions[chave]  # evita <col> sobrepostos com o intervalo escondido
+                elif cd0.max and cd0.max > max_c:
+                    cd0.max = max_c
+            letra = get_column_letter(max_c + 1)
+            ws.column_dimensions[letra] = ColumnDimension(
+                ws, index=letra, min=max_c + 1, max=_ULTIMA_COLUNA, hidden=True)
         ws.sheet_view.showGridLines = False
         ws.sheet_view.zoomScale = 100
         ws.print_options.horizontalCentered = True

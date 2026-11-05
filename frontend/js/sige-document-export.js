@@ -447,6 +447,19 @@
       col.width = Math.max(maxLen + 3, 10);
     });
 
+    // Só a área com conteúdo fica visível: colunas até XFD e as linhas seguintes escondidas
+    const ultimaCol = Math.max(totalCols, cabecalhos.length);
+    for (let c = ultimaCol + 1; c <= 16384; c++) {
+      worksheet.getColumn(c).hidden = true;
+    }
+    const ultimaLinha = worksheet.rowCount;
+    for (let r = ultimaLinha + 1; r <= ultimaLinha + 1000; r++) {
+      const linhaOculta = worksheet.getRow(r);
+      linhaOculta.getCell(1).value = '';
+      linhaOculta.hidden = true;
+    }
+    worksheet.views = [Object.assign({}, (worksheet.views && worksheet.views[0]) || {}, { showGridLines: false })];
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const safeNome = nomeFicheiro.toLowerCase().endsWith('.xlsx') ? nomeFicheiro : `${nomeFicheiro}.xlsx`;

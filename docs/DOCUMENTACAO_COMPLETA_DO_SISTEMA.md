@@ -1356,3 +1356,7 @@ Todos os documentos Excel passam por embelezar_workbook() (backend/apps/document
 - Ficheiros de terceiros (provas do escudo anti-IA) usam embelezar=False e nao sao alterados.
 
 - Tabelas Excel: o cabecalho da tabela (azul institucional) repete-se em cada pagina impressa e as linhas de dados levam riscas alternadas suaves; funcao _melhorar_tabela em xlsx_seguro.py.
+
+
+### Excel: so a area com conteudo fica visivel (2026-11-05)
+embelezar_workbook() passa a esconder todas as linhas (zeroHeight, linhas do conteudo com altura explicita) e colunas (da primeira vazia ate XFD, sem <col> sobrepostos) fora da area abrangida pelo conteudo, em todos os documentos Excel do servidor. Verificado no Excel (UsedRange vs linhas/colunas ocultas) e em Visualizacao Protegida. Exportacoes do navegador (ExcelJS) escondem as colunas ate XFD e 1000 linhas apos o conteudo, sem grelha. Provas anti-IA (embelezar=False) nao sao alteradas. Frontend 2.6.4.

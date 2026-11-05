@@ -74,3 +74,28 @@ def test_logo_normalizado_para_png(modo, fmt):
 def test_logo_invalido_devolve_none():
     assert normalizar_logo_png(b'nao e imagem') is None
     assert normalizar_logo_png(b'') is None
+
+
+def test_oculta_linhas_e_colunas_sem_conteudo():
+    from apps.documentos.services.xlsx_seguro import embelezar_workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(['A', 'B', 'C'])
+    ws.append([1, 2, 3])
+    ws.column_dimensions['H'].width = 30  # largura definida fora da área de conteúdo
+    dados = guardar_xlsx_seguro(wb)
+    import zipfile
+    x = zipfile.ZipFile(io.BytesIO(dados)).read('xl/worksheets/sheet1.xml').decode()
+    assert 'zeroHeight="1"' in x
+    assert 'min="4"' in x and 'max="16384"' in x and 'hidden="1"' in x
+    assert 'min="8"' not in x  # sem <col> sobrepostos
+    ws2 = openpyxl.load_workbook(io.BytesIO(dados)).active
+    assert ws2['C2'].value == 3
+
+
+def test_embelezar_false_nao_altera():
+    wb = openpyxl.Workbook()
+    wb.active.append([1, 2])
+    dados = guardar_xlsx_seguro(wb, embelezar=False)
+    import zipfile
+    assert 'zeroHeight' not in zipfile.ZipFile(io.BytesIO(dados)).read('xl/worksheets/sheet1.xml').decode()
