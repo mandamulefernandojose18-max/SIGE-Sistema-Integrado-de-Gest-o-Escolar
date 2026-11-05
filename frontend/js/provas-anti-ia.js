@@ -494,6 +494,6 @@
 
   window.inicializarModulo_provas_anti_ia = function () {
     ligar();
-    ir('painel');
+    return ir('painel');
   };
 })();

@@ -185,3 +185,77 @@ def test_variantes_por_copia_gabarito_e_conferir(duas_escolas):
     assert c.get(API + pid + '/gabarito-copias/?n=abc').status_code == 200
     # Conferir só existe para provas em Word com respostas: aqui deve recusar com mensagem clara
     assert c.post(API + pid + '/conferir/', {'copia': '1', 'respostas': '1: 5'}).status_code in (200, 400)
+
+def _docx_prova():
+    import docx
+    d = docx.Document()
+    d.add_paragraph('1. Uma resistência de {R1} ohm ligada a {U} V. Calcule a corrente.')
+    d.add_paragraph('A. 1 A')
+    d.add_paragraph('B. 2 A')
+    d.add_paragraph('2. Qual é a potência com {U} V e {R1} ohm?')
+    d.add_paragraph('A. 3 W')
+    d.add_paragraph('B. 4 W')
+    b = io.BytesIO()
+    d.save(b)
+    return b.getvalue()
+
+
+@pytest.fixture
+def conversor_falso(monkeypatch):
+    """Sem Word/LibreOffice no computador de testes: o DOCX vira PDF com o texto dos parágrafos (em produção converte o LibreOffice)."""
+    import docx
+    from reportlab.pdfgen import canvas
+    from apps.escudo.services import conversao
+
+    def converter(dados):
+        d = docx.Document(io.BytesIO(dados))
+        b = io.BytesIO()
+        c = canvas.Canvas(b)
+        y = 780
+        for p in d.paragraphs:
+            c.drawString(70, y, p.text)
+            y -= 40
+        c.showPage()
+        c.save()
+        return b.getvalue()
+    monkeypatch.setattr(conversao, 'docx_para_pdf', converter)
+
+
+def test_word_com_variantes_gabarito_e_conferir(duas_escolas, conversor_falso):
+    c = _cliente(duas_escolas)
+    res = c.post(API + 'criar/', {
+        **CAMPOS, 'libertacao': _futuro(), 'prova': SimpleUploadedFile('p.docx', _docx_prova()),
+        'variaveis_word': 'R1 = 2 a 6\nU = 6 a 24 passo 6', 'condicoes_word': '',
+        'respostas_word': '1: {U/R1:.2f} A\n2: {U**2/R1:.1f} W'}, format='multipart')
+    assert res.status_code == 200, res.content
+    pid = _pid(res)
+    d = c.get(API + pid + '/').json()['data']
+    assert d['variantes']['variaveis'] == ['R1', 'U'] and d['variantes']['combinacoes'] >= 5 and d['tem_chave']
+    cfg = c.get(API + pid + '/configurar/').json()['data']
+    assert cfg['tem_docx'] is True  # só há opções de baralhar quando o Word original está guardado (cifrado)
+
+    form = {'marcas': '[]', 'copias': '3', 'baralhar_perguntas': 'on', 'baralhar_alternativas': 'on', 'aviso_foto': 'on'}
+    zipado = c.post(API + pid + '/gerar/', form)
+    assert zipado.status_code == 200, zipado.content[:200]
+    z = zipfile.ZipFile(io.BytesIO(zipado.content))
+    copias = sorted(n for n in z.namelist() if 'copia_' in n)
+    assert len(copias) == 3 and any('GABARITO' in n for n in z.namelist())
+    textos = [PdfReader(io.BytesIO(z.read(n))).pages[0].extract_text() for n in copias]
+    assert len(set(textos)) == 3  # valores e/ou ordem diferentes em cada cópia
+    assert '{R1}' not in textos[0] and 'ohm' in textos[0]
+
+    certo = c.post(API + pid + '/conferir/', {'copia': '1', 'respostas': '1: 99; 2: 99'})
+    assert certo.status_code == 200 and certo.json()['data']['serial'] == 1 and len(certo.json()['data']['linhas']) == 2
+    assert c.post(API + pid + '/conferir/', {'copia': '9', 'respostas': '1: 1'}).status_code == 400  # cópia inexistente
+
+
+def test_word_sem_variaveis_e_pdf_recusa_variantes(duas_escolas, conversor_falso):
+    c = _cliente(duas_escolas)
+    ok = c.post(API + 'criar/', {**CAMPOS, 'libertacao': _futuro(), 'prova': SimpleUploadedFile('p.docx', _docx_prova())}, format='multipart')
+    assert ok.status_code == 200, ok.content
+    assert c.get(API + _pid(ok) + '/').json()['data']['variantes'] is None
+    pdf_com_campos = c.post(API + 'criar/', {**CAMPOS, 'libertacao': _futuro(), 'prova': SimpleUploadedFile('p.pdf', _pdf()),
+                                             'variaveis_word': 'R1 = 2 a 6'}, format='multipart')
+    assert pdf_com_campos.status_code == 400  # variantes por campos precisam do Word
+    modelo_mau = c.post(API + 'criar/', {**CAMPOS, 'libertacao': _futuro(), 'modelo': SimpleUploadedFile('m.json', b'{nao json')}, format='multipart')
+    assert modelo_mau.status_code == 400

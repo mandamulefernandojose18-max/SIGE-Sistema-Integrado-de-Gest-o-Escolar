@@ -1,8 +1,8 @@
 {
-  "version": "2.6.1",
-  "build": "20261105_1600",
+  "version": "2.6.2",
+  "build": "20261105_1700",
   "data": "2026-11-05",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Escudo Anti-IA: corrigida a pagina em branco (voltou o seletor de Ano Lectivo + Buscar que o SIGE exige em cada modulo)."
+  "novidades": "Escudo Anti-IA: o painel e o Carregar prova (ficheiros, variantes, identificacao, periodo) aparecem logo depois de Buscar; menu em barra para dar espaco; testes de Word com variantes."
 }

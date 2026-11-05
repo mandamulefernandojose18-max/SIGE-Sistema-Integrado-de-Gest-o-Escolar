@@ -272,7 +272,13 @@
 /* ---- integração no SIGE: marca roxa, sem barra lateral fixa em altura total ---- */
 .escudo-app { --marca: #5b0be0; --marca-suave: #efe7ff; --lateral: #161a2e; --lateral-ativo: #232a47; --papel: transparent; font: 15px/1.55 var(--fonte); color: var(--tinta); }
 .escudo-app .app { min-height: 0; border-radius: 14px; overflow: hidden; background: #f5f3ee; }
-.escudo-app .lateral { position: static; height: auto; min-height: 640px; }
+.escudo-app .app { grid-template-columns: 1fr; }
+.escudo-app .lateral { position: static; height: auto; min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px 16px; }
+.escudo-app .menu { display: flex; flex-direction: row; gap: 6px; width: auto; }
+.escudo-app .menu a { width: auto; padding: 8px 14px; }
+.escudo-app .menu .destaque-menu { margin-top: 0; }
+.escudo-app .lateral-fundo { margin: 0 0 0 auto; display: block; }
+.escudo-app .armazem { padding: 6px 12px; }
 .escudo-app .conteudo { max-width: none; padding: 26px clamp(14px, 3vw, 36px) 60px; }
 .escudo-app .topo-movel { display: none; }
 .escudo-app .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }

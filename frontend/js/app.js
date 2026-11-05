@@ -21664,6 +21664,9 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarAlunoCalendario === 'function') await carregarAlunoCalendario(ano);
   } else if (viewId === 'professor-perfil') {
     if (typeof carregarPerfilDocenteIndividual === 'function') await carregarPerfilDocenteIndividual();
+  } else if (viewId === 'provas-anti-ia') {
+    // Escudo Anti-IA: depois de Buscar, desenha o painel (provas, métricas, próxima libertação)
+    if (typeof window.inicializarModulo_provas_anti_ia === 'function') await window.inicializarModulo_provas_anti_ia();
   }
 }
 
