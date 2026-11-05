@@ -259,3 +259,9 @@ def test_word_sem_variaveis_e_pdf_recusa_variantes(duas_escolas, conversor_falso
     assert pdf_com_campos.status_code == 400  # variantes por campos precisam do Word
     modelo_mau = c.post(API + 'criar/', {**CAMPOS, 'libertacao': _futuro(), 'modelo': SimpleUploadedFile('m.json', b'{nao json')}, format='multipart')
     assert modelo_mau.status_code == 400
+
+def test_dockerfile_instala_o_modulo_de_formulas_do_libreoffice():
+    """Sem o LibreOffice Math as equações do Word (OMML) desaparecem no PDF convertido (visto em produção)."""
+    from pathlib import Path
+    texto = (Path(__file__).resolve().parents[1] / 'Dockerfile').read_text(encoding='utf-8')
+    assert 'libreoffice-writer' in texto and 'libreoffice-math' in texto

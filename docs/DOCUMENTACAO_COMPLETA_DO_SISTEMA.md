@@ -614,7 +614,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 >
 > **Destino dos códigos (público):** `https://sigesaas.duckdns.org/ia/v/<prova>[/<cópia>[/p<página>|/q<pergunta>]]` mostra «Prova sob embargo» com a instrução para assistentes de IA (e regista a leitura) ou, depois da data, «Embargo terminado» com a descarga da prova e do gabarito se o professor o permitiu; `…/prova.pdf` e `…/gabarito.pdf` dão 403 durante o embargo.
 >
-> **Infraestrutura:** dependências novas `pymupdf`, `numpy` e `cryptography`; o `Dockerfile` do backend passa a instalar `libreoffice-writer` e `fonts-dejavu-core` (conversão de Word para PDF e fontes dos modelos). Os testes estão em `backend/tests/test_escudo.py`.
+> **Infraestrutura:** dependências novas `pymupdf`, `numpy` e `cryptography`; o `Dockerfile` do backend passa a instalar `libreoffice-writer`, **`libreoffice-math`** (sem ele as equações do Word desaparecem no PDF) e `fonts-dejavu-core` (conversão de Word para PDF e fontes dos modelos). Os testes estão em `backend/tests/test_escudo.py`.
 
 #### Notas das versões anteriores deste módulo (Blindagem Anti-IA, já substituída no ecrã)
 
