@@ -1791,10 +1791,16 @@ def api_provas_anti_ia_listar(request):
     ativas = qs.filter(data_bloqueio_ia__gt=agora).count()
     liberadas = qs.filter(data_bloqueio_ia__lte=agora).count()
 
+    from django.db.models import Count
+    from .models import CopiaProvaBlindada, LogTentativaResolucaoIA
+    total_copias = CopiaProvaBlindada.objects.filter(prova__in=qs).count()
+    total_leituras = LogTentativaResolucaoIA.objects.filter(prova__in=qs).count()
     lista = []
-    for p in qs[:50]:
+    for p in qs.annotate(n_copias=Count('copias', distinct=True), n_leituras=Count('logs_tentativas', distinct=True))[:50]:
         is_bloq = p.is_bloqueada()
         lista.append({
+            'copias': p.n_copias,
+            'leituras': p.n_leituras,
             'id': str(p.id),
             'codigo_autenticidade': p.codigo_autenticidade,
             'titulo': p.titulo,
@@ -1816,10 +1822,75 @@ def api_provas_anti_ia_listar(request):
         'stats': {
             'total_provas': total_provas,
             'provas_bloqueadas': ativas,
-            'provas_liberadas': liberadas
+            'provas_liberadas': liberadas,
+            'copias': total_copias,
+            'leituras': total_leituras,
         },
         'data': lista
     }))
+
+
+@csrf_exempt
+def api_provas_anti_ia_pagina(request, prova_id):
+    """GET: dados da página de uma prova (estado do embargo, acessos à página de instruções, cópias numeradas)."""
+    prova, erro = _prova_do_pedido(request, prova_id)
+    if erro:
+        return erro
+    acessos = [{
+        'quando': a.timestamp.isoformat(), 'questao': a.numero_questao,
+        'sistema': a.sistema_identificado, 'bloqueado': a.bloqueado,
+    } for a in prova.logs_tentativas.all()[:50]]
+    copias = [{
+        'codigo': c.codigo, 'aluno': c.nome_aluno, 'turma': c.turma_nome,
+        'criada_em': c.created_at.isoformat(),
+    } for c in prova.copias.all()[:200]]
+    return _aplicar_cabecalhos_seguranca(JsonResponse({'success': True, 'data': {
+        'id': str(prova.id), 'codigo_autenticidade': prova.codigo_autenticidade, 'titulo': prova.titulo,
+        'disciplina': prova.disciplina, 'classe': prova.classe, 'trimestre': prova.trimestre,
+        'tipo_avaliacao': prova.tipo_avaliacao, 'duracao_minutos': prova.duracao_minutos,
+        'criada_em': prova.created_at.isoformat(), 'data_bloqueio_ia': prova.data_bloqueio_ia.isoformat(),
+        'bloqueada': prova.is_bloqueada(), 'tentativas_bloqueadas': prova.tentativas_bloqueadas,
+        'total_acessos': prova.logs_tentativas.count(), 'total_copias': prova.copias.count(),
+        'acessos': acessos, 'copias': copias,
+        'formato': (prova.ficheiro_extensao or '.pdf').lstrip('.').upper(),
+        'url_instrucoes_ia': url_instrucoes_ia(prova.codigo_autenticidade),
+    }}))
+
+
+@csrf_exempt
+def api_provas_anti_ia_previa_selos(request):
+    """
+    POST (multipart): pré-visualização real de uma página do PDF selado com as opções e posições escolhidas.
+    Nada é guardado. Campos: ficheiro (PDF), pagina (0..), data_texto, selo_* e selo_marcas.
+    """
+    if request.method != 'POST':
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405))
+    user = _autenticar_pedido(request)
+    if not user or not user.is_authenticated:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Não autenticado.'}, status=401))
+    ficheiro = request.FILES.get('ficheiro')
+    if not ficheiro or not ficheiro.name.lower().endswith('.pdf'):
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Envie um ficheiro PDF.'}, status=400))
+    if ficheiro.size > 15 * 1024 * 1024:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'O PDF excede 15 MB.'}, status=400))
+    import base64
+    from .services.anti_ai_service import opcoes_selo, gerar_previa_selos
+    escola = getattr(request, 'tenant', None) or getattr(user, 'escola', None)
+    opcoes, erro_selos = opcoes_selo(request.POST.dict())
+    if erro_selos:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': erro_selos}, status=400))
+    try:
+        png, paginas, pagina = gerar_previa_selos(
+            ficheiro.read(), request.POST.get('data_texto') or 'DD/MM/AAAA às HH:MM',
+            {**_definicoes_da_escola(escola), **opcoes}, int(request.POST.get('pagina') or 0))
+    except ValueError as exc:
+        return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': str(exc)}, status=400))
+    except Exception:
+        return _aplicar_cabecalhos_seguranca(JsonResponse(
+            {'success': False, 'message': 'Não foi possível gerar a pré-visualização deste PDF.'}, status=422))
+    return _aplicar_cabecalhos_seguranca(JsonResponse({
+        'success': True, 'paginas': paginas, 'pagina': pagina,
+        'imagem': 'data:image/png;base64,' + base64.b64encode(png).decode('ascii')}))
 
 
 @csrf_exempt

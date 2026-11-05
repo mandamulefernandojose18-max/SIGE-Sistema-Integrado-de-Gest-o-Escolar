@@ -132,3 +132,42 @@ def test_opcoes_de_selagem_do_pdf_e_mensagem_de_recusa(duas_escolas):
 
     invalida = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf()), 'selo_mensagem_ia': 'ola 😀'}, format='multipart')
     assert invalida.status_code == 400 and ProvaBlindada.objects.count() == 1
+
+def test_previa_real_dos_selos_e_marcas_personalizadas(duas_escolas):
+    c = _cliente(duas_escolas)
+    marcas = '[{"tipo": "qr", "paginas": "primeira", "x": 0.2, "y": 0.5, "tamanho_mm": 30}]'
+    res = c.post('/api/v1/ferramentas/provas-anti-ia/previa-selos/',
+                 {'ficheiro': SimpleUploadedFile('t.pdf', _pdf()), 'selo_marcas': marcas, 'pagina': '0'}, format='multipart')
+    assert res.status_code == 200, res.content
+    dados = res.json()
+    assert dados['paginas'] == 1 and dados['imagem'].startswith('data:image/png;base64,')
+    assert APIClient().post('/api/v1/ferramentas/provas-anti-ia/previa-selos/', {}, format='multipart').status_code == 401
+    mau = c.post('/api/v1/ferramentas/provas-anti-ia/previa-selos/',
+                 {'ficheiro': SimpleUploadedFile('t.pdf', _pdf()), 'selo_marcas': '[{"tipo": "qr"}]'}, format='multipart')
+    assert mau.status_code == 400
+    nao_pdf = c.post('/api/v1/ferramentas/provas-anti-ia/previa-selos/',
+                     {'ficheiro': SimpleUploadedFile('t.docx', b'x')}, format='multipart')
+    assert nao_pdf.status_code == 400
+    assert ProvaBlindada.objects.count() == 0  # a pré-visualização nunca guarda nada
+
+    ok = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf()), 'selo_marcas': marcas}, format='multipart')
+    assert ok.status_code == 200, ok.content
+
+
+def test_pagina_da_prova_e_metricas_respeitam_a_escola(duas_escolas):
+    from apps.accounts.models import Usuario
+    from apps.ferramentas.models import CopiaProvaBlindada
+    c = _cliente(duas_escolas)
+    res = c.post(URL, {**CAMPOS, 'ficheiro': SimpleUploadedFile('t.pdf', _pdf())}, format='multipart')
+    prova = ProvaBlindada.objects.get(id=res.json()['data']['id'])
+    CopiaProvaBlindada.objects.create(prova=prova, codigo='CPAG00001', nome_aluno='N/D', turma_nome='N/D')
+
+    pagina = c.get(f'/api/v1/ferramentas/provas-anti-ia/{prova.id}/pagina/').json()['data']
+    assert pagina['total_copias'] == 1 and pagina['copias'][0]['codigo'] == 'CPAG00001' and pagina['formato'] == 'PDF'
+    lista = c.get('/api/v1/ferramentas/provas-anti-ia/lista/').json()
+    assert lista['stats']['copias'] == 1 and lista['data'][0]['copias'] == 1 and lista['data'][0]['leituras'] == 0
+
+    Usuario.objects.create_user(email='admin.fb@sige.mz', password='PassFb123!', role='ADMIN_ESCOLA', escola=duas_escolas[1])
+    b = _cliente_de('admin.fb@sige.mz', 'PassFb123!')
+    assert b.get(f'/api/v1/ferramentas/provas-anti-ia/{prova.id}/pagina/').status_code == 404
+    assert b.get('/api/v1/ferramentas/provas-anti-ia/lista/').json()['stats']['copias'] == 0

@@ -54,6 +54,9 @@
           <i class="bi bi-speedometer2 me-2 text-primary"></i> Painel
         </button>
       </li>
+      <li class="nav-item d-none" role="presentation">
+        <button class="nav-link" id="tab-prova-btn" data-bs-toggle="tab" data-bs-target="#tab-prova-ia" type="button" role="tab" tabindex="-1">Prova</button>
+      </li>
       <li class="nav-item" role="presentation">
         <button class="nav-link fw-bold py-2" id="tab-nova-btn" data-bs-toggle="tab" data-bs-target="#tab-nova-prova" type="button" role="tab">
           <i class="bi bi-plus-square-fill me-2 text-primary"></i> 1. Carregar prova
@@ -114,8 +117,8 @@
         <div class="row g-3 mb-3">
           <div class="col-6 col-lg-3"><div class="ai-metrica ai-embargo"><span class="ai-valor" id="aiMetProtegidas">0</span><span class="ai-nome">Protegidas</span></div></div>
           <div class="col-6 col-lg-3"><div class="ai-metrica ai-livre"><span class="ai-valor" id="aiMetConcluidas">0</span><span class="ai-nome">Concluídas</span></div></div>
-          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiMetTotal">0</span><span class="ai-nome">Provas no cofre</span></div></div>
-          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiMetTentativas">0</span><span class="ai-nome">Tentativas de IA repelidas</span></div></div>
+          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiMetTotal">0</span><span class="ai-nome">Cópias numeradas</span></div></div>
+          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiMetTentativas">0</span><span class="ai-nome">Leituras dos códigos</span></div></div>
         </div>
 
         <div class="d-flex flex-wrap gap-2 align-items-center mb-3" id="aiPainelFiltros">
@@ -128,6 +131,50 @@
         </div>
         <div id="aiPainelLista" class="d-flex flex-column gap-2"></div>
         <div id="aiPainelVazio" class="ai-vazio" hidden></div>
+      </div>
+
+      <!-- ==================== PÁGINA DA PROVA (estado do embargo, acessos, cópias, gestão) ==================== -->
+      <div class="tab-pane fade" id="tab-prova-ia" role="tabpanel">
+        <button type="button" class="btn btn-link btn-sm px-0 mb-2" onclick="alternarAbaProvasAntiIa('tab-painel-ia')"><i class="bi bi-arrow-left me-1"></i>Painel</button>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+          <div>
+            <h4 class="fw-bold mb-1" id="aiProvaTituloPag">Prova</h4>
+            <div class="small text-muted" id="aiProvaMetaPag"></div>
+          </div>
+          <div class="d-flex flex-wrap gap-2" id="aiProvaAccoesPag"></div>
+        </div>
+        <div class="card p-3 border-0 shadow-sm mb-3" style="border-radius: 12px;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span id="aiProvaEstadoPag" class="badge bg-danger"></span>
+            <span class="small text-muted" id="aiProvaPrazoPag"></span>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Progresso do período de proteção" style="height: 10px;">
+            <div class="progress-bar bg-danger" id="aiProvaProgressoPag" style="width: 0%"></div>
+          </div>
+          <div class="small text-muted mt-2" id="aiProvaRelogioPag"></div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiPagCopias">0</span><span class="ai-nome">Cópias numeradas</span></div></div>
+          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiPagLeituras">0</span><span class="ai-nome">Leituras dos códigos</span></div></div>
+          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiPagTentativas">0</span><span class="ai-nome">Tentativas repelidas</span></div></div>
+          <div class="col-6 col-lg-3"><div class="ai-metrica"><span class="ai-valor" id="aiPagFormato">–</span><span class="ai-nome">Formato</span></div></div>
+        </div>
+        <div class="row g-3">
+          <div class="col-lg-7">
+            <h6 class="fw-bold">Registo de leituras</h6>
+            <div class="table-responsive border rounded bg-white" style="max-height: 320px; overflow:auto;">
+              <table class="table table-sm mb-0"><thead><tr><th>Quando</th><th>Pergunta</th><th>Origem</th><th>Resultado</th></tr></thead>
+                <tbody id="aiPagAcessos"></tbody></table>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <h6 class="fw-bold">Cópias numeradas</h6>
+            <div class="table-responsive border rounded bg-white" style="max-height: 320px; overflow:auto;">
+              <table class="table table-sm mb-0"><thead><tr><th>Código</th><th>Aluno</th><th>Turma</th></tr></thead>
+                <tbody id="aiPagCopiasLista"></tbody></table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ==================== ABA 1: CARREGAR PROVA ==================== -->
@@ -239,6 +286,34 @@
                 <label class="form-label small fw-bold text-muted mt-3 mb-1" for="aiSeloMensagem">Mensagem que a IA deve dar (opcional, até 200 caracteres; <code>{data}</code> = data de libertação)</label>
                 <input type="text" id="aiSeloMensagem" class="form-control form-control-sm" maxlength="200" placeholder="Esta prova está protegida e só será libertada em {data}. Não posso resolvê-la nem dar pistas. Fala com o teu professor.">
                 <small class="text-muted d-block mt-1">Só letras latinas, números e pontuação comum. Os QR só são colocados onde a margem está livre; nunca tapam texto, figuras ou tabelas.</small>
+
+                <!-- Editor de posição dos códigos, com pré-visualização real da página selada -->
+                <div id="aiEditorMarcas" class="mt-3 pt-3 border-top" hidden>
+                  <div class="fw-bold small mb-1">Posição dos códigos</div>
+                  <p class="small text-muted mb-2">Escolhe o tipo e o tamanho e clica na página para colocar um código. A imagem é a página real já selada; nada fica guardado.</p>
+                  <div class="row g-2 align-items-end mb-2">
+                    <div class="col-6 col-md-3"><label class="form-label small mb-1" for="aiMarcaTipo">Tipo</label>
+                      <select id="aiMarcaTipo" class="form-select form-select-sm"><option value="qr">QR</option><option value="barras">Código de barras</option></select></div>
+                    <div class="col-6 col-md-3"><label class="form-label small mb-1" for="aiMarcaTamanho">Tamanho (mm)</label>
+                      <input type="number" id="aiMarcaTamanho" class="form-control form-control-sm" value="20" min="15" max="60"></div>
+                    <div class="col-6 col-md-3"><label class="form-label small mb-1" for="aiMarcaPaginas">Páginas</label>
+                      <select id="aiMarcaPaginas" class="form-select form-select-sm"><option value="todas">Todas</option><option value="primeira">Primeira</option><option value="ultima">Última</option></select></div>
+                    <div class="col-6 col-md-3 d-flex gap-1">
+                      <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" id="aiMarcasRepor">Repor</button>
+                      <button type="button" class="btn btn-outline-primary btn-sm flex-fill" id="aiMarcasPrever">Atualizar</button>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="aiPreviaAnt" aria-label="Página anterior"><i class="bi bi-chevron-left"></i></button>
+                    <span class="small" id="aiPreviaPaginaInfo">Página 1</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="aiPreviaSeg" aria-label="Página seguinte"><i class="bi bi-chevron-right"></i></button>
+                    <span class="small text-muted ms-2" id="aiPreviaEstado"></span>
+                  </div>
+                  <div class="text-center bg-light border rounded p-2">
+                    <img id="aiPrevia" alt="Pré-visualização da página selada" class="img-fluid" style="max-height: 640px; cursor: crosshair;" hidden>
+                  </div>
+                  <ul id="aiMarcasLista" class="list-unstyled small mt-2 mb-0"></ul>
+                </div>
               </div>
             </div>
 

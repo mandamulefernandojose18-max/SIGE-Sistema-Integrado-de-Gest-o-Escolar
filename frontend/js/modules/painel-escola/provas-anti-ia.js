@@ -118,7 +118,197 @@ function aoSelecionarArquivoProva(input) {
       infoEl.textContent = `Ficheiro selecionado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
       infoEl.style.display = 'block';
     }
+    abrirEditorMarcasProvaAntiIa(file);
   }
+}
+
+// ---------------------------------------------------------------------
+// Editor de posição dos códigos: pré-visualização real da página selada (PDF).
+// `aiMarcas` = null usa as posições predefinidas; ao clicar na página passa a lista editável.
+// ---------------------------------------------------------------------
+var AI_MARCAS_PREDEFINIDAS = () => ([
+  { tipo: 'barras', paginas: 'todas', x: 0.5, y: 0.955, tamanho_mm: 55 },
+  { tipo: 'qr', paginas: 'todas', x: 0.92, y: 0.1, tamanho_mm: 20 },
+]);
+window.state.aiMarcas = null;
+var aiPreviaPagina = 0;
+var aiPreviaTotal = 1;
+var aiPreviaTimer = null;
+
+function aiOpcoesSelosEmFormulario(formData) {
+  [['aiSeloAvisoFoto', 'selo_aviso_foto'], ['aiSeloAvisoIa', 'selo_aviso_ia'],
+   ['aiSeloAvisoPergunta', 'selo_aviso_pergunta'], ['aiSeloQrPergunta', 'selo_qr_pergunta'],
+   ['aiSeloQrMarcaAgua', 'selo_qr_marca_agua'], ['aiSeloBarras', 'selo_barras']].forEach(([id, campo]) => {
+    const el = document.getElementById(id);
+    if (el) formData.append(campo, el.checked ? '1' : '0');
+  });
+  const mensagem = (document.getElementById('aiSeloMensagem')?.value || '').trim();
+  if (mensagem) formData.append('selo_mensagem_ia', mensagem);
+  if (window.state.aiMarcas) formData.append('selo_marcas', JSON.stringify(window.state.aiMarcas));
+}
+
+function aiDataTextoProva() {
+  const d = document.getElementById('aiProvaDataBloqueio')?.value;
+  const h = document.getElementById('aiProvaHoraBloqueio')?.value || '00:00';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
+  return m ? `${m[3]}/${m[2]}/${m[1]} às ${h}` : 'DD/MM/AAAA às HH:MM';
+}
+
+function abrirEditorMarcasProvaAntiIa(file) {
+  const editor = document.getElementById('aiEditorMarcas');
+  if (!editor) return;
+  const ehPdf = /\.pdf$/i.test(file.name);
+  editor.hidden = !ehPdf;
+  if (!ehPdf) return;
+  aiPreviaPagina = 0;
+  window.state.aiMarcas = null;
+  atualizarListaMarcasProvaAntiIa();
+  atualizarPreviaSelosProvaAntiIa();
+  if (editor.dataset.pronto === '1') return;
+  editor.dataset.pronto = '1';
+  const img = document.getElementById('aiPrevia');
+  img.addEventListener('click', (e) => {
+    const r = img.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const tipo = document.getElementById('aiMarcaTipo').value;
+    const faixa = tipo === 'qr' ? [15, 60] : [30, 90];
+    let mm = parseFloat(document.getElementById('aiMarcaTamanho').value) || faixa[0];
+    mm = Math.min(Math.max(mm, faixa[0]), faixa[1]);
+    const marcas = window.state.aiMarcas || AI_MARCAS_PREDEFINIDAS();
+    if (marcas.length >= 20) { document.getElementById('aiPreviaEstado').textContent = 'No máximo 20 marcas por prova.'; return; }
+    marcas.push({
+      tipo, paginas: document.getElementById('aiMarcaPaginas').value, tamanho_mm: mm,
+      x: Math.round(((e.clientX - r.left) / r.width) * 1000) / 1000,
+      y: Math.round(((e.clientY - r.top) / r.height) * 1000) / 1000,
+    });
+    window.state.aiMarcas = marcas;
+    atualizarListaMarcasProvaAntiIa();
+    atualizarPreviaSelosProvaAntiIa();
+  });
+  document.getElementById('aiMarcaTipo').addEventListener('change', (e) => {
+    document.getElementById('aiMarcaTamanho').value = e.target.value === 'qr' ? 20 : 55;
+  });
+  document.getElementById('aiMarcasPrever').addEventListener('click', atualizarPreviaSelosProvaAntiIa);
+  document.getElementById('aiMarcasRepor').addEventListener('click', () => {
+    window.state.aiMarcas = null;
+    atualizarListaMarcasProvaAntiIa();
+    atualizarPreviaSelosProvaAntiIa();
+  });
+  document.getElementById('aiPreviaAnt').addEventListener('click', () => { aiPreviaPagina = Math.max(aiPreviaPagina - 1, 0); atualizarPreviaSelosProvaAntiIa(); });
+  document.getElementById('aiPreviaSeg').addEventListener('click', () => { aiPreviaPagina = Math.min(aiPreviaPagina + 1, aiPreviaTotal - 1); atualizarPreviaSelosProvaAntiIa(); });
+}
+
+function atualizarListaMarcasProvaAntiIa() {
+  const ul = document.getElementById('aiMarcasLista');
+  if (!ul) return;
+  const marcas = window.state.aiMarcas;
+  if (!marcas) { ul.innerHTML = '<li class="text-muted">Posições predefinidas (código de barras no rodapé e QR no canto). Clica na página para as personalizar.</li>'; return; }
+  ul.innerHTML = marcas.map((m, i) => `
+    <li class="d-flex align-items-center gap-2 py-1 border-bottom">
+      <span class="badge bg-light text-dark border">${m.tipo === 'qr' ? 'QR' : 'Barras'}</span>
+      <span>${m.tamanho_mm} mm · ${m.paginas === 'todas' ? 'todas as páginas' : m.paginas === 'primeira' ? 'primeira página' : 'última página'} · (${Math.round(m.x * 100)}%, ${Math.round(m.y * 100)}%)</span>
+      <button type="button" class="btn btn-sm btn-outline-danger ms-auto py-0" data-ai-remover="${i}" aria-label="Remover marca"><i class="bi bi-x-lg"></i></button>
+    </li>`).join('');
+  ul.querySelectorAll('[data-ai-remover]').forEach(b => b.addEventListener('click', () => {
+    marcas.splice(+b.dataset.aiRemover, 1);
+    atualizarListaMarcasProvaAntiIa();
+    atualizarPreviaSelosProvaAntiIa();
+  }));
+}
+
+function atualizarPreviaSelosProvaAntiIa() {
+  clearTimeout(aiPreviaTimer);
+  aiPreviaTimer = setTimeout(async () => {
+    const input = document.getElementById('aiProvaInputArquivo');
+    const file = input && input.files && input.files[0];
+    const img = document.getElementById('aiPrevia');
+    const estado = document.getElementById('aiPreviaEstado');
+    if (!file || !/\.pdf$/i.test(file.name) || !img) return;
+    estado.textContent = 'A gerar pré-visualização…';
+    const fd = new FormData();
+    fd.append('ficheiro', file);
+    fd.append('pagina', String(aiPreviaPagina));
+    fd.append('data_texto', aiDataTextoProva());
+    aiOpcoesSelosEmFormulario(fd);
+    try {
+      const res = await fetch('/api/v1/ferramentas/provas-anti-ia/previa-selos/', {
+        method: 'POST', headers: { 'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : '' }, body: fd });
+      const json = await res.json();
+      if (!res.ok || !json.success) { estado.textContent = json.message || 'Não foi possível gerar a pré-visualização.'; return; }
+      aiPreviaTotal = json.paginas;
+      aiPreviaPagina = json.pagina;
+      img.src = json.imagem;
+      img.hidden = false;
+      document.getElementById('aiPreviaPaginaInfo').textContent = `Página ${json.pagina + 1} de ${json.paginas}`;
+      estado.textContent = '';
+    } catch (_) {
+      estado.textContent = 'Sem ligação ao servidor.';
+    }
+  }, 250);
+}
+
+// ---------------------------------------------------------------------
+// Página da prova: estado do embargo com progresso, leituras, cópias e gestão.
+// ---------------------------------------------------------------------
+var aiPaginaTimer = null;
+
+async function abrirPaginaProvaAntiIa(provaId) {
+  try {
+    const res = await fetch(`/api/v1/ferramentas/provas-anti-ia/${encodeURIComponent(provaId)}/pagina/`, {
+      headers: { 'Authorization': obterTokenSige() ? `Bearer ${obterTokenSige()}` : '' } });
+    const json = await res.json();
+    if (!res.ok || !json.success) return;
+    renderizarPaginaProvaAntiIa(json.data);
+    alternarAbaProvasAntiIa('tab-prova-ia');
+  } catch (_) { /* sem rede: o painel mantém-se */ }
+}
+
+function renderizarPaginaProvaAntiIa(p) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('aiProvaTituloPag', p.titulo);
+  set('aiProvaMetaPag', `${p.disciplina} · ${p.classe} · ${p.trimestre} · ${p.tipo_avaliacao} · ${p.codigo_autenticidade}`);
+  set('aiPagCopias', p.total_copias);
+  set('aiPagLeituras', p.total_acessos);
+  set('aiPagTentativas', p.tentativas_bloqueadas);
+  set('aiPagFormato', p.formato);
+  set('aiProvaPrazoPag', `Protegida até ${formatarDataHora(p.data_bloqueio_ia)} (hora de Maputo)`);
+
+  const estado = document.getElementById('aiProvaEstadoPag');
+  const barra = document.getElementById('aiProvaProgressoPag');
+  const relogio = document.getElementById('aiProvaRelogioPag');
+  if (aiPaginaTimer) { clearInterval(aiPaginaTimer); aiPaginaTimer = null; }
+  const ini = new Date(p.criada_em).getTime(), fim = new Date(p.data_bloqueio_ia).getTime();
+  const pad = (n) => String(n).padStart(2, '0');
+  const tick = () => {
+    const agora = Date.now();
+    const livre = agora >= fim;
+    estado.className = `badge ${livre ? 'bg-success' : 'bg-danger'}`;
+    estado.innerHTML = livre ? '<i class="bi bi-unlock-fill me-1"></i>Libertada' : '<i class="bi bi-lock-fill me-1"></i>Sob embargo';
+    barra.className = `progress-bar ${livre ? 'bg-success' : 'bg-danger'}`;
+    barra.style.width = `${fim > ini ? Math.min(Math.max((agora - ini) / (fim - ini), 0), 1) * 100 : 100}%`;
+    const falta = Math.max(Math.floor((fim - agora) / 1000), 0);
+    relogio.textContent = livre ? 'O período de proteção terminou.' :
+      `Faltam ${Math.floor(falta / 86400)}d ${pad(Math.floor(falta % 86400 / 3600))}:${pad(Math.floor(falta % 3600 / 60))}:${pad(falta % 60)}`;
+    if (livre && aiPaginaTimer) { clearInterval(aiPaginaTimer); aiPaginaTimer = null; }
+  };
+  tick();
+  aiPaginaTimer = setInterval(tick, 1000);
+
+  const nomeId = aiEscapar(p.id), nomeCod = aiEscapar(p.codigo_autenticidade);
+  document.getElementById('aiProvaAccoesPag').innerHTML = `
+    <button type="button" class="btn btn-danger btn-sm" onclick="descarregarFicheiroAutenticado('/api/v1/ferramentas/provas-anti-ia/${nomeId}/descarregar-pdf/', 'Prova_${nomeCod}')"><i class="bi bi-download me-1"></i>Descarregar prova</button>
+    <button type="button" class="btn btn-outline-dark btn-sm" onclick="abrirCopiasPorAluno('${nomeId}')"><i class="bi bi-people me-1"></i>Cópias por aluno</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm text-danger" onclick="eliminarProvaHistorico('${nomeId}').then(() => alternarAbaProvasAntiIa('tab-painel-ia'))"><i class="bi bi-trash me-1"></i>Eliminar</button>`;
+
+  const acessos = document.getElementById('aiPagAcessos');
+  acessos.innerHTML = p.acessos.length ? p.acessos.map(a => `
+    <tr><td class="small">${aiEscapar(formatarDataHora(a.quando))}</td><td>${a.questao || '–'}</td>
+    <td class="small">${aiEscapar(a.sistema)}</td><td>${a.bloqueado ? '<span class="badge bg-danger">Bloqueado</span>' : '<span class="badge bg-success">Libertado</span>'}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="text-center text-muted py-3">Ainda ninguém leu os códigos desta prova.</td></tr>';
+  const copias = document.getElementById('aiPagCopiasLista');
+  copias.innerHTML = p.copias.length ? p.copias.map(c => `
+    <tr><td class="font-monospace small">${aiEscapar(c.codigo)}</td><td>${aiEscapar(c.aluno)}</td><td class="small">${aiEscapar(c.turma)}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="text-center text-muted py-3">Ainda não foram geradas cópias numeradas.</td></tr>';
 }
 
 /**
@@ -162,15 +352,8 @@ async function aoSubmeterCodificacaoProva(event) {
       formData.append('tipo_avaliacao', tipo);
       formData.append('duracao_minutos', duracao);
       formData.append('data_bloqueio_ia', dataBloqueioCompleta);
-      // Selos do PDF: 'selo_<opção>' = 1/0 e a mensagem de recusa à IA
-      [['aiSeloAvisoFoto', 'selo_aviso_foto'], ['aiSeloAvisoIa', 'selo_aviso_ia'],
-       ['aiSeloAvisoPergunta', 'selo_aviso_pergunta'], ['aiSeloQrPergunta', 'selo_qr_pergunta'],
-       ['aiSeloQrMarcaAgua', 'selo_qr_marca_agua'], ['aiSeloBarras', 'selo_barras']].forEach(([id, campo]) => {
-        const el = document.getElementById(id);
-        if (el) formData.append(campo, el.checked ? '1' : '0');
-      });
-      const mensagemSelo = (document.getElementById('aiSeloMensagem')?.value || '').trim();
-      if (mensagemSelo) formData.append('selo_mensagem_ia', mensagemSelo);
+      // Selos do PDF: opções, mensagem de recusa à IA e posições escolhidas no editor
+      aiOpcoesSelosEmFormulario(formData);
 
       response = await fetch('/api/v1/ferramentas/provas-anti-ia/codificar/', {
         method: 'POST',
@@ -618,11 +801,11 @@ async function carregarHistoricoProvasAntiIa() {
 // Painel (no modelo da plataforma Pedagogia): próxima libertação com contagem
 // decrescente, métricas, filtro por estado e pesquisa. Só mostra registos reais.
 // ---------------------------------------------------------------------
-const AI_MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const AI_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const AI_DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-let aiPainelEstado = 'todas';
-let aiRelogioTimer = null;
+var AI_MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+var AI_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+var AI_DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+var aiPainelEstado = 'todas';
+var aiRelogioTimer = null;
 
 function aiEscapar(texto) {
   const d = document.createElement('div');
@@ -634,8 +817,8 @@ function renderizarPainelProvasAntiIa(lista, stats) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('aiMetProtegidas', stats.provas_bloqueadas || 0);
   set('aiMetConcluidas', stats.provas_liberadas || 0);
-  set('aiMetTotal', stats.total_provas || 0);
-  set('aiMetTentativas', (lista || []).reduce((s, p) => s + (p.tentativas_bloqueadas || 0), 0));
+  set('aiMetTotal', stats.copias || 0);
+  set('aiMetTentativas', stats.leituras || 0);
 
   // próxima prova a sair da proteção
   const destaque = document.getElementById('aiPainelDestaque');
@@ -673,7 +856,7 @@ function renderizarPainelProvasAntiIa(lista, stats) {
       <div class="ai-item" data-estado="${livre ? 'livre' : 'embargo'}" data-texto="${aiEscapar(texto)}">
         <div class="ai-data-tile ${livre ? 'ai-livre' : ''}"><b>${isNaN(d) ? '–' : d.getDate()}</b><small>${isNaN(d) ? '' : AI_MESES_CURTOS[d.getMonth()]}</small></div>
         <div>
-          <div class="ai-item-titulo">${aiEscapar(p.titulo)}</div>
+          <div class="ai-item-titulo"><a href="#" class="text-decoration-none text-reset" onclick="abrirPaginaProvaAntiIa('${aiEscapar(p.id)}'); return false;">${aiEscapar(p.titulo)}</a></div>
           <div class="ai-item-meta">
             <span>${aiEscapar(p.disciplina)} · ${aiEscapar(p.classe)}</span>
             <span>${livre ? 'Protecção terminada' : 'Protegida até ' + aiEscapar(formatarDataHora(p.data_bloqueio_ia))}</span>
@@ -682,11 +865,11 @@ function renderizarPainelProvasAntiIa(lista, stats) {
         </div>
         <div class="ai-item-lado d-flex flex-wrap align-items-center gap-2">
           ${livre ? '<span class="badge bg-success"><i class="bi bi-unlock-fill me-1"></i>Libertada</span>' : '<span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Sob embargo</span>'}
-          <span class="small text-muted">${p.tentativas_bloqueadas || 0} tentativa${(p.tentativas_bloqueadas || 0) === 1 ? '' : 's'} repelida${(p.tentativas_bloqueadas || 0) === 1 ? '' : 's'}</span>
+          <span class="small text-muted">${p.copias || 0} cópia${(p.copias || 0) === 1 ? '' : 's'} · ${p.leituras || 0} leitura${(p.leituras || 0) === 1 ? '' : 's'}</span>
           <div class="btn-group btn-group-sm">
             <button type="button" class="btn btn-outline-danger" title="Descarregar prova codificada" onclick="descarregarFicheiroAutenticado('/api/v1/ferramentas/provas-anti-ia/${aiEscapar(p.id)}/descarregar-pdf/', 'Prova_${aiEscapar(p.codigo_autenticidade)}')"><i class="bi bi-download"></i></button>
             <button type="button" class="btn btn-outline-dark" title="Uma cópia por aluno" onclick="abrirCopiasPorAluno('${aiEscapar(p.id)}')"><i class="bi bi-people"></i></button>
-            <button type="button" class="btn btn-outline-primary" title="Ver detalhes" onclick="abrirDetalheProvaHistorico('${aiEscapar(p.id)}')"><i class="bi bi-eye"></i></button>
+            <button type="button" class="btn btn-outline-primary" title="Abrir a página da prova" onclick="abrirPaginaProvaAntiIa('${aiEscapar(p.id)}')"><i class="bi bi-eye"></i></button>
           </div>
         </div>
       </div>`;

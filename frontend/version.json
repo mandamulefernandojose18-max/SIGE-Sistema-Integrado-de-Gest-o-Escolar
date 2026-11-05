@@ -1,8 +1,8 @@
 {
-  "version": "2.5.31",
-  "build": "20261105_1100",
+  "version": "2.5.32",
+  "build": "20261105_1300",
   "data": "2026-11-05",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Blindagem Anti-IA: novo Painel (proxima libertacao com contagem decrescente, metricas, filtro e pesquisa), atalhos de data e resumo em portugues, no modelo da plataforma de provas."
+  "novidades": "Blindagem Anti-IA: pagina da prova (embargo com progresso, leituras, copias), editor de posicao dos codigos com pre-visualizacao real da pagina selada e metricas de copias e leituras."
 }

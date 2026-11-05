@@ -404,11 +404,14 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '', cfg: dict = None) -> 
 
     custom = (cfg.get('texto_aviso') or '').replace('{data}', data).replace('{url}', url)
     opc = {k: cfg.get('selo_' + k, True) for k in OPCOES_SELO}
-    marcas = []
-    if opc['barras']:
-        marcas.append({"tipo": "barras", "paginas": "todas", "x": 0.5, "y": 0.955, "tamanho_mm": 55})
-    if url:
-        marcas.append({"tipo": "qr", "paginas": "todas", "x": 0.92, "y": 0.1, "tamanho_mm": 20})
+    if cfg.get('selo_marcas') is not None:
+        marcas = selos.validar_marcas(cfg['selo_marcas'])  # posições escolhidas no editor
+    else:
+        marcas = []
+        if opc['barras']:
+            marcas.append({"tipo": "barras", "paginas": "todas", "x": 0.5, "y": 0.955, "tamanho_mm": 55})
+        if url:
+            marcas.append({"tipo": "qr", "paginas": "todas", "x": 0.92, "y": 0.1, "tamanho_mm": 20})
     return selos.selar(
         base, marcas, codigo=codigo, url=url, url_questao=lambda n: url_instrucoes_ia(codigo, n),
         libertacao=data, titulo=TITULO_PROTEGIDO, aviso_foto=opc['aviso_foto'], aviso_ia=opc['aviso_ia'],
@@ -417,6 +420,19 @@ def _codificar_pdf(dados: bytes, data: str, url: str = '', cfg: dict = None) -> 
         mensagem_ia=cfg.get('selo_mensagem_ia') or None,
         opacidade_marca_agua=cfg.get('qr_opacidade', 59) / 100, texto_invisivel=custom or None,
     )
+
+
+def gerar_previa_selos(dados: bytes, data: str, cfg: dict, pagina: int = 0, dpi: int = 80):
+    """
+    Pré-visualização REAL de uma página do PDF já selado com as opções e posições escolhidas.
+    Nada é guardado. Devolve (png_bytes, total_de_paginas, pagina_devolvida).
+    """
+    import pymupdf
+
+    selado = _codificar_pdf(dados, data, url_instrucoes_ia('PREVIA'), cfg)
+    with pymupdf.open(stream=selado, filetype='pdf') as doc:
+        pagina = min(max(int(pagina), 0), doc.page_count - 1)
+        return doc[pagina].get_pixmap(dpi=dpi, alpha=False).tobytes('png'), doc.page_count, pagina
 
 
 OPCOES_SELO = ('aviso_foto', 'aviso_ia', 'aviso_pergunta', 'qr_pergunta', 'qr_marca_agua', 'barras')
@@ -436,6 +452,12 @@ def opcoes_selo(dados: dict):
             opc['selo_' + nome] = False
         elif valor in ('1', 'true', 'on'):
             opc['selo_' + nome] = True
+    marcas_json = str((dados or {}).get('selo_marcas') or '').strip()
+    if marcas_json:
+        try:
+            opc['selo_marcas'] = selos.validar_marcas(json.loads(marcas_json))
+        except (ValueError, TypeError) as exc:
+            return {}, f'Posições dos códigos inválidas: {exc}'
     mensagem = str((dados or {}).get('selo_mensagem_ia') or '').strip()
     if mensagem:
         try:
