@@ -668,7 +668,7 @@ def _codificar_xlsx(dados: bytes, data: str, url: str = '') -> bytes:
     oculta['A3'] = aviso_primeiro(data, url)
     oculta.sheet_state = 'hidden'
     # Sem escudo silencioso: se o resultado não abrir no Excel, falha com mensagem clara.
-    return guardar_xlsx_seguro(wb)
+    return guardar_xlsx_seguro(wb, embelezar=False)
 
 
 def _codificar_html(dados: bytes, data: str, url: str = '') -> bytes:
@@ -825,7 +825,7 @@ def gerar_xlsx_prova_codificada_bytes(prova_dados: dict, nome_escola: str = "Esc
         else:
             ws.cell(row=linha + 1, column=1, value=f"{q.get('numero', 1)}. {q.get('enunciado', '')}")
             linha += 4
-    buf = io.BytesIO(guardar_xlsx_seguro(wb))
+    buf = io.BytesIO(guardar_xlsx_seguro(wb, embelezar=False))
     return buf
 
 

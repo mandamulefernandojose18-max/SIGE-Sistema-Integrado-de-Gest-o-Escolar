@@ -1346,3 +1346,11 @@ Novo modulo backend/apps/documentos/services/xlsx_seguro.py, usado por todos os 
 - guardar_xlsx_seguro()/validar_xlsx_bytes(): antes de entregar, o ficheiro e reaberto (ZIP integro, partes obrigatorias, sem celulas fundidas sobrepostas). Se falhar, o servidor devolve erro claro em vez de um ficheiro avariado. No escudo anti-IA a folha oculta "aviso" tem nome unico e nao ha entrega silenciosa sem escudo.
 - Frontend: downloadFicheiroBinario confirma a assinatura ZIP ("PK") de .xlsx/.docx e mostra mensagem clara se o servidor nao devolveu um ficheiro valido; a exportacao Excel do navegador (ExcelJS) sanitiza o nome da folha e o texto das celulas.
 - Testes: backend/tests/test_xlsx_seguro.py. Frontend 2.6.3 (cache v3.2.16).
+
+
+### Excel: cabecalho e logotipo centrados, apresentacao fiel ao ecra (2026-11-05)
+Todos os documentos Excel passam por embelezar_workbook() (backend/apps/documentos/services/xlsx_seguro.py), chamado por guardar_xlsx_seguro():
+- O logotipo da instituicao fica centrado sobre o cabecalho (o intervalo fundido da linha 1) e a linha 1 ganha espaco proprio, com o texto do cabecalho encostado por baixo.
+- Nada e escondido: linhas e colunas ficam como no ecra do sistema.
+- Altura das linhas ajustada ao texto com quebra (sem texto cortado), sem grelha de fundo, impressao centrada na pagina e cor de separador azul institucional.
+- Ficheiros de terceiros (provas do escudo anti-IA) usam embelezar=False e nao sao alterados.
