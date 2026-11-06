@@ -39,7 +39,7 @@ $segura = Read-Host "Cola a palavra-passe de aplicacao (nao aparece no ecra)" -A
 $ponteiro = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
 try { $senha = ([Runtime.InteropServices.Marshal]::PtrToStringBSTR($ponteiro)).Replace(" ", "").Trim() }
 finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ponteiro) }
-if ($senha.Length -lt 8 -or $senha -match '[\s''"\\$`]') { throw "Palavra-passe invalida (muito curta ou com caracteres nao suportados). Nada foi alterado." }
+if (($Servidor -like "*gmail*" -and $senha.Length -ne 16) -or $senha.Length -lt 8 -or $senha -match '[\s''"\\$`]') { throw "Isso nao e uma palavra-passe de aplicacao do Gmail (tem 16 letras, ex.: abcd efgh ijkl mnop; a palavra-passe normal da conta NAO serve). Nada foi alterado." }
 
 # utilizador e palavra-passe seguem em duas linhas pela entrada padrao do SSH: nao ficam no historico nem na lista de processos
 $remoto = "read -r U && read -r P && cd $Pasta && touch .env && sed -i -e '/^EMAIL_HOST=/d' -e '/^EMAIL_PORT=/d' -e '/^EMAIL_HOST_USER=/d' -e '/^EMAIL_HOST_PASSWORD=/d' -e '/^DEFAULT_FROM_EMAIL=/d' .env && printf 'EMAIL_HOST=${Servidor}\nEMAIL_PORT=${Porta}\nEMAIL_HOST_USER=%s\nEMAIL_HOST_PASSWORD=%s\nDEFAULT_FROM_EMAIL=SIGE <%s>\n' ""`$U"" ""`$P"" ""`$U"" >> .env && chmod 600 .env && docker compose up -d backend"
@@ -48,5 +48,6 @@ $senha = $null
 
 Start-Sleep -Seconds 15
 Write-Host "A enviar e-mail de teste para $Utilizador ..." -ForegroundColor Cyan
-Invocar-Remoto "docker exec sige_backend python manage.py shell -c ""from django.core.mail import send_mail; from django.conf import settings as s; print('enviados:', send_mail('[SIGE] Teste de e-mail', 'Os avisos das provas Anti-IA ja chegam a este endereco.', None, [s.EMAIL_HOST_USER]))"""
+$teste = 'from django.core.mail import send_mail; from django.conf import settings as s; print("enviados:", send_mail("[SIGE] Teste de e-mail", "Os avisos das provas Anti-IA ja chegam a este endereco.", None, [s.EMAIL_HOST_USER]))'
+Invocar-Remoto "docker exec -i sige_backend python manage.py shell" $teste
 Write-Host "Pronto. Verifica a caixa de entrada (e o spam) de $Utilizador." -ForegroundColor Green
