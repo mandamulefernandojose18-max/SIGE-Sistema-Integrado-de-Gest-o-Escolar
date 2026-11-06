@@ -215,6 +215,72 @@ def _numero_bloco(bloco):
     return RE_PERGUNTA_DOCX.match(_texto_elemento(bloco[0]).strip()).group(1)
 
 
+RE_EM_LINHA = re.compile(r"(?:(?<=\s)|^)\(?([A-Ea-e])[).]\s")
+_M_MATEMATICA = "{http://schemas.openxmlformats.org/officeDocument/2006/math}oMath"
+
+
+def _em_linha(el):
+    """Marcadores «A. », «B. »… de uma linha com várias alternativas (ou None se não for uma linha assim)."""
+    marcas = list(RE_EM_LINHA.finditer(_texto_elemento(el)))
+    letras = [m.group(1).upper() for m in marcas]
+    return marcas if len(marcas) >= 2 and letras == list("ABCDE"[:len(marcas)]) else None
+
+
+def _grupos_alternativas(bloco):
+    """Grupos de parágrafos de alternativas seguidos e em sequência (A, B, C…), um por pergunta; linhas em linha ficam de fora."""
+    grupos, atual, ultima = [], [], None
+
+    def fechar():
+        if len(atual) >= 2:
+            grupos.append(list(atual))
+
+    for el in bloco:
+        m = RE_ALTERNATIVA.match(_texto_elemento(el)) if el.tag == _W + "p" and not _em_linha(el) else None
+        letra = m.group(1).upper() if m else None
+        if letra and atual and letra == chr(ord(ultima) + 1):
+            atual.append(el)
+            ultima = letra
+        else:
+            fechar()
+            atual, ultima = ([el], letra) if letra == "A" else ([], None)
+    fechar()
+    return grupos
+
+
+def _baralhar_em_linha(p, rng):
+    """Alternativas na horizontal («A. x    B. y    C. z»): troca o texto das alternativas e mantém a linha, os espaços e a posição.
+
+    Só mexe em parágrafos de texto simples (sem equações nem imagens): se houver, deixa a linha como está.
+    """
+    marcas = _em_linha(p)
+    if not marcas or any(True for _ in p.iter(_M_MATEMATICA)) or any(True for _ in p.iter(_W + "drawing", _W + "object", _W + "pict")):
+        return None
+    if any(r.find(_W + "tab") is not None or r.find(_W + "br") is not None for r in p.iter(_W + "r")):
+        return None  # alinhada com tabulações ou quebras: não se mexe
+    nos = list(p.iter(_W_TEXTO))
+    texto = "".join(t.text or "" for t in nos)
+    itens = []
+    for i, m in enumerate(marcas):
+        fim = marcas[i + 1].start() if i + 1 < len(marcas) else len(texto)
+        corpo = texto[m.end():fim]
+        conteudo = corpo.rstrip()
+        itens.append((m.group(0), conteudo, corpo[len(conteudo):]))
+    ordem = list(range(len(itens)))
+    rng.shuffle(ordem)
+    novo, letras = texto[:marcas[0].start()], {}
+    for k, i in enumerate(ordem):
+        marcador, _, espaco = itens[k]
+        maiuscula = marcas[k].group(1).isupper()
+        letra = "ABCDE"[k]
+        novo += re.sub(r"[A-Ea-e]", letra if maiuscula else letra.lower(), marcador, count=1) + itens[i][1] + espaco
+        letras["ABCDE"[i]] = letra
+    nos[0].text = novo
+    nos[0].set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    for t in nos[1:]:
+        t.text = ""
+    return letras
+
+
 def baralhar_docx(dados, pid, serial, perguntas=True, alternativas=True):
     """Devolve (docx, mapa) com a ordem das perguntas e das alternativas própria da cópia.
 
@@ -242,21 +308,24 @@ def baralhar_docx(dados, pid, serial, perguntas=True, alternativas=True):
         original = _numero_bloco(bloco)
         mapa["perguntas"][original] = str(novo)
         _trocar_inicio(bloco[0], RE_PERGUNTA_DOCX, str(novo))
-        # alternativas: parágrafos seguidos «A) …» dentro da pergunta
-        alts = [el for el in bloco if el.tag == _W + "p" and RE_ALTERNATIVA.match(_texto_elemento(el))]
+        # alternativas, sem desorganizar a prova: cada grupo de parágrafos seguidos «A. … B. … C. …» baralha-se só dentro de si
+        # (nunca se misturam alternativas de perguntas diferentes) e as alternativas em linha («A. x   B. y   C. z») continuam
+        # em linha, na mesma posição, só com o texto trocado.
         letras = {}
-        if len(alts) >= 2:
-            idx = [bloco.index(a) for a in alts]
-            nova = list(alts)
-            if alternativas and serial != 1:
+        if alternativas and serial != 1:
+            for grupo in _grupos_alternativas(bloco):
+                idx = [bloco.index(a) for a in grupo]
+                nova = list(grupo)
                 rng.shuffle(nova)
-            for k, (lugar, el) in enumerate(zip(idx, nova)):
-                letra_original = RE_ALTERNATIVA.match(_texto_elemento(el)).group(1).upper()
-                letra_nova = "ABCDE"[k]
-                maiuscula = RE_ALTERNATIVA.match(_texto_elemento(el)).group(1).isupper()
-                _trocar_inicio(el, RE_ALTERNATIVA, letra_nova if maiuscula else letra_nova.lower())
-                letras[letra_original] = letra_nova
-                bloco[lugar] = el
+                for k, (lugar, el) in enumerate(zip(idx, nova)):
+                    m = RE_ALTERNATIVA.match(_texto_elemento(el))
+                    letra_nova = "ABCDE"[k]
+                    _trocar_inicio(el, RE_ALTERNATIVA, letra_nova if m.group(1).isupper() else letra_nova.lower())
+                    letras[m.group(1).upper()] = letra_nova
+                    bloco[lugar] = el
+            for el in bloco:
+                if el.tag == _W + "p":
+                    letras.update(_baralhar_em_linha(el, rng) or {})
         mapa["alternativas"][original] = letras
         for el in bloco:
             corpo.insert(pos, el)

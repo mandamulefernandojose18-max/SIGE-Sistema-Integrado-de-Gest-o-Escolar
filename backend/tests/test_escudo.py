@@ -322,3 +322,42 @@ def test_word_so_existe_quando_a_prova_foi_carregada_em_word(duas_escolas):
     r = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'formato': 'word'})
     assert r.status_code == 400 and 'Word' in r.json()['message']
     assert c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'formato': 'pdf'}).status_code == 200
+
+def test_baralhar_nao_desorganiza_alternativas_em_linha_nem_mistura_perguntas():
+    """Alternativas na horizontal continuam na horizontal; grupos de alternativas nunca se misturam entre perguntas."""
+    import docx
+    from apps.escudo.services import variantes_word as vw
+    d = docx.Document()
+    d.add_paragraph('Cabeçalho da prova')
+    d.add_paragraph('1. Pergunta em linha?')
+    d.add_paragraph('A. cem por cento.            B. cinquenta.                C. vinte e cinco.          D. zero.')
+    d.add_paragraph('2. Pergunta vertical?')
+    for t in ('A. alfa', 'B. beta', 'C. gama', 'D. delta'):
+        d.add_paragraph(t)
+    d.add_paragraph('3. Outra vertical?')
+    for t in ('A. um', 'B. dois', 'C. três', 'D. quatro', 'E. cinco'):
+        d.add_paragraph(t)
+    d.add_paragraph('4. Última?')
+    for t in ('A. norte', 'B. sul', 'C. este', 'D. oeste'):
+        d.add_paragraph(t)
+    b = io.BytesIO()
+    d.save(b)
+    for serial in (2, 3, 4, 5):
+        saida, mapa = vw.baralhar_docx(b.getvalue(), 'ABCD1234', serial, perguntas=False, alternativas=True)
+        paragrafos = [p.text for p in docx.Document(io.BytesIO(saida)).paragraphs]
+        i1 = paragrafos.index('1. Pergunta em linha?')
+        linha = paragrafos[i1 + 1]
+        assert linha[:3] == 'A. ' and ' B. ' in linha and ' C. ' in linha and ' D. ' in linha  # continua numa só linha, A-B-C-D
+        for chave in ('cem por cento', 'cinquenta', 'vinte e cinco', 'zero'):
+            assert chave in linha  # nada se perdeu
+        for pergunta, esperado in (('2. Pergunta vertical?', {'alfa', 'beta', 'gama', 'delta'}),
+                                   ('3. Outra vertical?', {'um', 'dois', 'três', 'quatro', 'cinco'}),
+                                   ('4. Última?', {'norte', 'sul', 'este', 'oeste'})):
+            i = paragrafos.index(pergunta)
+            grupo = paragrafos[i + 1:i + 1 + len(esperado)]
+            assert {x.split('. ', 1)[1] for x in grupo} == esperado  # as alternativas ficam na sua pergunta
+            assert [x[0] for x in grupo] == list('ABCDE'[:len(esperado)])  # e reetiquetadas A, B, C…
+        assert set(mapa['alternativas']['1']) == set('ABCD')
+    # a cópia 1 fica exactamente como foi carregada
+    um, _ = vw.baralhar_docx(b.getvalue(), 'ABCD1234', 1, perguntas=True, alternativas=True)
+    assert [p.text for p in docx.Document(io.BytesIO(um)).paragraphs] == [p.text for p in docx.Document(io.BytesIO(b.getvalue())).paragraphs]
