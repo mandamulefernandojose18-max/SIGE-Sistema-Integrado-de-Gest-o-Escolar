@@ -301,7 +301,7 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
     assert corpo_xml.count('<wp:anchor') == 4  # 2 perguntas x (etiqueta + QR) ancoradas ao parágrafo
     assert 'INSTRUÇÃO PARA ASSISTENTE DE IA' in corpo_xml and 'AVISO PARA ASSISTENTES' in corpo_xml  # texto invisível
     assert 'PAGE' in etree.tostring(doc.sections[0].footer._element).decode()  # rodapé com campos de página
-    assert doc.sections[0].top_margin >= 52 * 12700 and doc.sections[0].bottom_margin >= 64 * 12700
+    assert doc.sections[0].top_margin == 72 * 12700 and doc.sections[0].bottom_margin == 72 * 12700  # margens do original: a paginação não muda
     assert c.get(API + pid + '/configurar/').json()['data']['formato'] == 'word'  # lembra a escolha
 
     ambos = c.post(API + pid + '/gerar/', {**base, 'copias': '3', 'formato': 'ambos'})
@@ -367,19 +367,35 @@ def test_catalogo_nao_expoe_onde_ficam_guardadas_as_provas(duas_escolas):
     assert 'armazem' not in dados and 'armazem_detalhe' not in dados
     assert 'tipos' in dados and 'disciplinas' in dados
 
-def test_word_margem_inferior_livra_o_codigo_de_barras_do_fundo():
+def test_word_nao_muda_margens_nem_paginacao_e_faixas_cabem_nas_margens():
     import docx
     from apps.escudo.services import word_selo
     d = docx.Document()
-    d.sections[0].bottom_margin = 20 * 12700  # margem do original mais estreita do que o código de barras
+    sec = d.sections[0]
+    sec.top_margin, sec.bottom_margin = 32 * 12700, 40 * 12700  # margens estreitas, como a de provas reais
     d.add_paragraph('1. Pergunta?')
     b = io.BytesIO()
     d.save(b)
     marcas = [{'tipo': 'barras', 'paginas': 'todas', 'x': 0.5, 'y': 0.955, 'tamanho_mm': 55}]
     saida = word_selo.selar_docx(b.getvalue(), pid='ABCD1234', serial=1, libertacao='30/11/2026 08:00', titulo='T',
                                  url_base='https://sigesaas.duckdns.org/ia', marcas=marcas)
-    sec = docx.Document(io.BytesIO(saida)).sections[0]
-    altura_pt = sec.page_height / 12700
+    novo = docx.Document(io.BytesIO(saida)).sections[0]
+    assert (novo.top_margin, novo.bottom_margin) == (32 * 12700, 40 * 12700)  # nada é alargado
+    assert (novo.left_margin, novo.right_margin, novo.page_width, novo.page_height) == (sec.left_margin, sec.right_margin, sec.page_width, sec.page_height)
+
+
+def test_faixa_de_aviso_do_pdf_continua_igual_e_a_do_word_adapta_se_as_margens():
+    import pymupdf
     from apps.escudo.services import selos
-    topo_barras = selos.geometria(marcas[0], sec.page_width / 12700, altura_pt).y0
-    assert altura_pt - sec.bottom_margin / 12700 <= topo_barras  # o texto acaba antes de começar o código de barras
+    em_branco = pymupdf.open()
+    em_branco.new_page(width=612, height=792)
+    base = em_branco.tobytes()
+
+    def altura_da_faixa(limite):
+        pdf = selos.selar(base, [], url_base='https://sigesaas.duckdns.org/ia', pid='ABCD1234', serial=1, libertacao='30/11/2026 08:00',
+                          aviso_foto=True, aviso_visivel=False, aviso_ia=False, limite_faixa=limite)
+        with pymupdf.open(stream=pdf, filetype='pdf') as d:
+            pix = d[0].get_pixmap(dpi=72, alpha=False)
+        # linhas do topo que têm o cinzento da faixa (0.93 -> 237)
+        return sum(1 for y in range(pix.height // 2) if pix.pixel(2, y)[0] == 237)
+    assert altura_da_faixa(None) > 32 >= altura_da_faixa((32, 40)) > 0  # PDF: faixa normal; Word: cabe nos 32 pt da margem  # Word: cabe na margem superior que a prova já tem

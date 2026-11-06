@@ -346,10 +346,10 @@ class Servico:
         return docx
 
     def zona_word(self, p, op):
-        """Onde cabe o QR de fundo no Word: mede-se a cópia 1 já com as margens das faixas (uma conversão por geração)."""
+        """Onde cabe o QR de fundo no Word: mede-se a cópia 1, que tem a mesma paginação que o Word final (uma conversão por geração)."""
         from . import word_selo
         try:
-            pdf = conversao.docx_para_pdf(word_selo.so_margens(self.docx_da_copia(p, op, 1), op.get("marcas")))
+            pdf = conversao.docx_para_pdf(self.docx_da_copia(p, op, 1))
             zonas = selos.espaco_marca_agua(pdf)
             return zonas[0] if zonas else None
         except Exception:

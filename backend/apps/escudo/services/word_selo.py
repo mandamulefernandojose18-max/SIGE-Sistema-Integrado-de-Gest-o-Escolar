@@ -23,8 +23,6 @@ from . import selos, variantes_word
 
 EMU_PT = 12700
 WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-MARGEM_TOPO_PT = 52      # espaço que a faixa de aviso ocupa em cima (como o PDF reserva)
-MARGEM_BASE_PT = 64
 _contador = [1000]
 
 
@@ -122,32 +120,6 @@ def _rodape_texto(parte, libertacao, codigo):
     _campo(p, "NUMPAGES")
 
 
-def _margem_base(marcas, largura, altura):
-    """Margem inferior que livra as faixas de aviso e os códigos colocados no fundo da página (ex.: o código de barras)."""
-    base = MARGEM_BASE_PT
-    for m in marcas or []:
-        if m.get("paginas") in ("todas", "primeira"):
-            r = selos.geometria(m, largura, altura)
-            if r.y0 > altura * 0.7:
-                base = max(base, altura - r.y0 + 6)
-    return base
-
-
-def so_margens(dados, marcas=None):
-    """O Word só com as margens alargadas (sem camadas): serve para medir onde a página fica livre para o QR de fundo."""
-    doc = Document(io.BytesIO(dados))
-    s0 = doc.sections[0]
-    base = _margem_base(marcas, s0.page_width / EMU_PT, s0.page_height / EMU_PT)
-    for sec in doc.sections:
-        sec.top_margin = max(sec.top_margin, Pt(MARGEM_TOPO_PT))
-        sec.bottom_margin = max(sec.bottom_margin, Pt(base))
-        sec.header_distance = Pt(8)
-        sec.footer_distance = Pt(4)
-    saida = io.BytesIO()
-    doc.save(saida)
-    return saida.getvalue()
-
-
 def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona_agua=None, aviso_foto=True, aviso_ia=True,
                aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
@@ -157,17 +129,11 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     sec0 = doc.sections[0]
     largura, altura = sec0.page_width / EMU_PT, sec0.page_height / EMU_PT
 
-    # margens: as faixas de aviso nunca tapam a prova (o PDF reserva o mesmo espaço)
-    base_pt = _margem_base(marcas, largura, altura)
+    # a paginação não muda: as margens ficam como foram carregadas e as faixas de aviso adaptam-se ao espaço que elas dão
+    limite = (min(s.top_margin for s in doc.sections) / EMU_PT, min(s.bottom_margin for s in doc.sections) / EMU_PT)
     for sec in doc.sections:
-        if aviso_foto:
-            sec.top_margin = max(sec.top_margin, Pt(MARGEM_TOPO_PT))
-            sec.bottom_margin = max(sec.bottom_margin, Pt(base_pt))
-        elif base_pt > MARGEM_BASE_PT:  # sem faixas, mas com um código no fundo da página
-            sec.bottom_margin = max(sec.bottom_margin, Pt(base_pt))
-        sec.header_distance = Pt(8)
-        sec.footer_distance = Pt(4)
-
+        sec.header_distance = min(sec.header_distance, Pt(8))  # só aproxima o cabeçalho/rodapé do bordo; não empurra o corpo
+        sec.footer_distance = min(sec.footer_distance, Pt(4))
     # camada de página: o mesmo desenho do PDF, sobre uma página em branco, convertido em PNG transparente
     def camada(marcas_pagina):
         em_branco = fitz.open()
@@ -177,7 +143,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         pdf = selos.selar(base, marcas_pagina, url_base=url_base, pid=pid, serial=serial, libertacao=libertacao, titulo=titulo,
                           aviso_visivel=False, aviso_ia=False, aviso_foto=aviso_foto, mensagem_ia=mensagem_ia,
                           aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua,
-                          zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False)
+                          zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False, limite_faixa=limite if aviso_foto else None)
         with fitz.open(stream=pdf, filetype="pdf") as d:
             return d[0].get_pixmap(dpi=170, alpha=True).tobytes("png")
 
