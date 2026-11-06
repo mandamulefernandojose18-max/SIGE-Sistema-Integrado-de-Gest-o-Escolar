@@ -1422,3 +1422,9 @@ ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook a
 
 **Alertas de leitura dentro do SIGE (v2.8.8).** Sem depender de e-mail: cada leitura de um código durante a protecção conta como «nova» até o professor abrir a prova. O painel mostra uma faixa «N leituras novas» (actualizada a cada minuto) com ligações às provas, e cada prova com leituras novas leva o distintivo correspondente; abrir a prova marca-as como vistas e mostra o aparelho, a hora e o local (se autorizado). Leituras depois da libertação não contam como alerta.
 
+
+
+### Excel: erro "nao pode ser aberto em visualizacao protegida" (2026-11-07)
+Os ficheiros .xlsx do SIGE foram verificados no Excel (ZIP/XML validos, Visualizacao Protegida OK). O erro e do Excel do computador: o registo de resiliencia do Office (HKCU\Software\Microsoft\Office\16.0\Excel\Resiliency\DisabledItems) pode listar o "Pre-visualizador do Microsoft Excel" como desactivado apos uma falha, o que impede abrir ficheiros descarregados (marca da internet) em Visualizacao Protegida.
+Solucao no Excel: fechar todas as janelas do Excel; Ficheiro > Opcoes > Suplementos > Gerir: Itens Desactivados > Ir > seleccionar o item > Activar. Alternativas: Propriedades do ficheiro > Desbloquear, ou Reparacao Rapida do Office. Para nao fechar o Excel a forca (o que repoe o problema), usar sempre o botao Fechar.
+O frontend (2.6.5) mostra uma vez esta dica ao descarregar o primeiro .xlsx.
