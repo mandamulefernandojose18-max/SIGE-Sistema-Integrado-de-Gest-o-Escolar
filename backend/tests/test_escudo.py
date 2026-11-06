@@ -366,3 +366,20 @@ def test_catalogo_nao_expoe_onde_ficam_guardadas_as_provas(duas_escolas):
     dados = _cliente(duas_escolas).get(API + 'catalogo/').json()['data']
     assert 'armazem' not in dados and 'armazem_detalhe' not in dados
     assert 'tipos' in dados and 'disciplinas' in dados
+
+def test_word_margem_inferior_livra_o_codigo_de_barras_do_fundo():
+    import docx
+    from apps.escudo.services import word_selo
+    d = docx.Document()
+    d.sections[0].bottom_margin = 20 * 12700  # margem do original mais estreita do que o código de barras
+    d.add_paragraph('1. Pergunta?')
+    b = io.BytesIO()
+    d.save(b)
+    marcas = [{'tipo': 'barras', 'paginas': 'todas', 'x': 0.5, 'y': 0.955, 'tamanho_mm': 55}]
+    saida = word_selo.selar_docx(b.getvalue(), pid='ABCD1234', serial=1, libertacao='30/11/2026 08:00', titulo='T',
+                                 url_base='https://sigesaas.duckdns.org/ia', marcas=marcas)
+    sec = docx.Document(io.BytesIO(saida)).sections[0]
+    altura_pt = sec.page_height / 12700
+    from apps.escudo.services import selos
+    topo_barras = selos.geometria(marcas[0], sec.page_width / 12700, altura_pt).y0
+    assert altura_pt - sec.bottom_margin / 12700 <= topo_barras  # o texto acaba antes de começar o código de barras
