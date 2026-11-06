@@ -77,6 +77,23 @@ def test_pauta_exames_exame_unido_freq_abreviada_e_colunas_compactas():
     assert sum(larg(c) for c in 'FGHI') < 40
 
 
+def test_tabela_opaca_com_moldura_e_linhas_avancadas():
+    ws = verificar_como_o_excel(gerar_pauta_exames_xlsx(_dados_exames(), {'nome': 'Escola Teste'})).active
+    # moldura grossa à volta e canto superior esquerdo opaco
+    a4 = ws['A4']
+    assert a4.border.left.style == 'thick' and a4.border.top.style == 'thick'
+    # linha dupla por baixo do cabeçalho (última linha de cabeçalho -> primeira de dados)
+    assert ws['A7'].border.top.style == 'double' or ws['F6'].border.bottom.style == 'double'
+    # separação média entre blocos de disciplina e pontilhado entre linhas de dados
+    assert ws['F7'].border.left.style == 'medium'
+    # nenhuma célula da tabela fica transparente
+    for linha in ws.iter_rows(min_row=4, max_row=7, max_col=12):
+        for c in linha:
+            if isinstance(c, openpyxl.cell.cell.MergedCell):
+                continue  # o openpyxl não relê o estilo das células fundidas secundárias
+            assert c.fill.fill_type == 'solid', c.coordinate
+
+
 def test_cabecalho_fundido_longo_cabe_sem_cortar_palavra():
     d = _dados_exames()
     d['disciplinas_com_exame'][0]['nome'] = 'Empreendedorismo'

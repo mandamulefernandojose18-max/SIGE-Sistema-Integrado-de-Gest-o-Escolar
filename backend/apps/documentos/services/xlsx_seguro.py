@@ -206,6 +206,90 @@ def _melhorar_tabela(ws, max_r, max_c):
                     c.fill = zebra
 
 
+_NAVY = '1E3A8A'
+_OURO = 'C9A227'
+_CINZA_LINHA = '94A3B8'
+_CINZA_VERT = 'CBD5E1'
+_AZUL_CLARO = '5B74B8'
+
+
+def _componentes_tabela(ws, max_r, max_c):
+    """Agrupa as células com borda (fusões incluídas) em tabelas ligadas entre si."""
+    com_borda = set()
+    for row in ws.iter_rows(min_row=1, max_row=max_r, max_col=max_c):
+        for c in row:
+            if _tem_borda(c):
+                com_borda.add((c.row, c.column))
+    for rg in ws.merged_cells.ranges:
+        if (rg.min_row, rg.min_col) in com_borda:
+            for r in range(rg.min_row, rg.max_row + 1):
+                for c in range(rg.min_col, rg.max_col + 1):
+                    com_borda.add((r, c))
+    vistos, comps = set(), []
+    for ini in sorted(com_borda):
+        if ini in vistos:
+            continue
+        pilha, comp = [ini], set()
+        vistos.add(ini)
+        while pilha:
+            r, c = pilha.pop()
+            comp.add((r, c))
+            for viz in ((r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)):
+                if viz in com_borda and viz not in vistos:
+                    vistos.add(viz)
+                    pilha.append(viz)
+        comps.append(comp)
+    return comps
+
+
+def aplicar_moldura_tabelas(ws, max_r, max_c):
+    """
+    Tabelas opacas e com linhas de nível profissional:
+      * fundo branco sólido em toda a tabela (nunca transparente);
+      * moldura exterior grossa (thick) azul institucional;
+      * linha dupla dourada por baixo do cabeçalho;
+      * separação média (medium) entre grupos de colunas (ex.: bloco de cada disciplina);
+      * linhas finas verticais e tracejado pontilhado (dotted) entre linhas de dados.
+    """
+    from openpyxl.styles import Border, Side, PatternFill
+    branco = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+    for comp in _componentes_tabela(ws, max_r, max_c):
+        navy = {p for p in comp if _cor_fundo(ws.cell(row=p[0], column=p[1])) == _AZUL_CABECALHO}
+        grupos = set()  # colunas c: linha vertical entre c e c+1 é fronteira de grupo
+        if navy:
+            topo = min(r for r, _ in navy)
+            for rg in ws.merged_cells.ranges:
+                if rg.min_row == topo and rg.max_col > rg.min_col and (rg.min_row, rg.min_col) in comp:
+                    grupos.update({rg.min_col - 1, rg.max_col})
+
+        def lado(estilo, cor):
+            return Side(style=estilo, color=cor)
+
+        def aresta_h(a, b):  # a acima, b abaixo
+            if a not in comp or b not in comp:
+                return lado('thick', _NAVY)
+            if a in navy and b not in navy:
+                return lado('double', _OURO)
+            if a in navy and b in navy:
+                return lado('thin', _AZUL_CLARO)
+            return lado('dotted', _CINZA_LINHA)
+
+        def aresta_v(a, b):  # a à esquerda, b à direita
+            if a not in comp or b not in comp:
+                return lado('thick', _NAVY)
+            if a[1] in grupos:
+                return lado('medium', 'FFFFFF' if a in navy else _NAVY)
+            return lado('thin', _AZUL_CLARO if a in navy else _CINZA_VERT)
+
+        for (r, c) in comp:
+            cel = ws.cell(row=r, column=c)
+            if getattr(cel.fill, 'fill_type', None) is None:
+                cel.fill = branco
+            cel.border = Border(
+                left=aresta_v((r, c - 1), (r, c)), right=aresta_v((r, c), (r, c + 1)),
+                top=aresta_h((r - 1, c), (r, c)), bottom=aresta_h((r, c), (r + 1, c)))
+
+
 def embelezar_workbook(wb):
     """
     Apresentação final de todos os documentos Excel do SIGE:
@@ -222,6 +306,7 @@ def embelezar_workbook(wb):
         _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)
         _melhorar_tabela(ws, max_r, max_c)
+        aplicar_moldura_tabelas(ws, max_r, max_c)
         # Linhas: todas as do conteúdo têm altura explícita; as restantes ficam escondidas (zeroHeight)
         for r in range(1, max_r + 1):
             if ws.row_dimensions[r].height is None:

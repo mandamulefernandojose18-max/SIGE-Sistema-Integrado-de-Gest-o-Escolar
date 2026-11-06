@@ -1367,3 +1367,13 @@ embelezar_workbook() passa a esconder todas as linhas (zeroHeight, linhas do con
 - Cabecalhos fundidos (disciplina sobre varias colunas, ex.: TIC): ajustar_larguras_cabecalho_fundido() em excel_service.py garante que a palavra mais comprida cabe, sem alargar colunas quando o nome e curto; aplicado a pauta e pauta de exames.
 - Erro "o ficheiro nao pode ser aberto / esta protegido": o openpyxl gravava um <workbookProtection/> vazio em todos os livros; guardar_xlsx_seguro() passa a remove-lo (wb.security = None).
 - Testes: backend/tests/test_xlsx_exportacoes.py (cabecalho de exames + varredura de todas as exportacoes Excel: pauta, exames, estatisticas, acta, boletim, declaracao, certificado, lote, com verificacao estrita de XML, colunas, alturas e protecao).
+
+### Excel: tabelas opacas com molduras avancadas
+
+Todos os documentos Excel passam por aplicar_moldura_tabelas() (xlsx_seguro.py, chamada por embelezar_workbook): cada tabela (conjunto de celulas com borda) e detectada automaticamente e fica com:
+- fundo branco solido (nunca transparente; riscas alternadas e cores existentes sao mantidas);
+- moldura exterior grossa (thick) em azul institucional;
+- linha dupla (double) dourada por baixo do cabecalho;
+- linha media (medium) a separar grupos de colunas (ex.: bloco de cada disciplina);
+- linhas finas (thin) verticais e pontilhado (dotted) entre linhas de dados; linhas finas claras dentro do cabecalho.
+Testes: backend/tests/test_xlsx_exportacoes.py.
