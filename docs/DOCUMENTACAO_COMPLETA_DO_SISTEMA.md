@@ -1386,3 +1386,7 @@ Testes: backend/tests/test_xlsx_exportacoes.py.
 - Colunas de nome do aluno dimensionadas a ~1,2 unidades por caracter (Times New Roman 12 negrito) e altura das linhas com margem maior.
 - Pauta de exames: nas disciplinas sem exame, "Freq." fica fundido nas duas linhas do cabecalho.
 - Testes: backend/tests/test_xlsx_exportacoes.py.
+
+### Excel: larguras de todas as tabelas ao conteudo
+
+ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook antes de garantir_palavras_inteiras): cada coluna de tabela tem a largura do seu conteudo real (dados pelo texto inteiro, cabecalhos pela palavra mais comprida), encolhendo o que sobrava e alargando o que faltava (min. 5,5; max. 60). Vale para todos os documentos Excel. Teste: test_larguras_seguem_o_conteudo_real.

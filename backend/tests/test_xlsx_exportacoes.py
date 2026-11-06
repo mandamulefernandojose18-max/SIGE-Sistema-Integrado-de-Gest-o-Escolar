@@ -113,6 +113,16 @@ def test_palavras_nunca_partidas_e_freq_unida_sem_exame():
     assert ws.column_dimensions['K'].width >= len('Reprovado(a)') * 1.3 - 1
 
 
+def test_larguras_seguem_o_conteudo_real():
+    d = _dados_exames()
+    d['alunos'][0]['candidato'] = '0411S0001.11.02.2026.cg.02'
+    ws = verificar_como_o_excel(gerar_pauta_exames_xlsx(d, {'nome': 'E'})).active
+    cand = ws.column_dimensions['B'].width
+    assert len('0411S0001.11.02.2026.cg.02') * 1.15 <= cand <= 40   # cabe o código, sem sobra exagerada
+    assert ws.column_dimensions['D'].width <= 12                      # «Género»: coluna curta
+    assert ws.column_dimensions['A'].width <= 12                      # «Nº de Ordem»
+
+
 def test_cabecalho_fundido_longo_cabe_sem_cortar_palavra():
     d = _dados_exames()
     d['disciplinas_com_exame'][0]['nome'] = 'Empreendedorismo'

@@ -321,6 +321,41 @@ def garantir_palavras_inteiras(ws, max_r, max_c):
                     ws.column_dimensions[l].width = min(w + falta / len(letras), _LARGURA_MAX_COLUNA)
 
 
+def ajustar_larguras_ao_conteudo(ws, max_r, max_c):
+    """
+    Largura de cada coluna de tabela em função do conteúdo real (encolhe o que sobra, alarga o que falta):
+    dados pelo texto inteiro, cabeçalhos pela palavra mais comprida (quebram nos espaços).
+    Células fundidas na horizontal ficam a cargo de garantir_palavras_inteiras().
+    """
+    from openpyxl.utils import get_column_letter
+    horiz = set()
+    for rg in ws.merged_cells.ranges:
+        if rg.max_col > rg.min_col:
+            for r in range(rg.min_row, rg.max_row + 1):
+                for c in range(rg.min_col, rg.max_col + 1):
+                    horiz.add((r, c))
+    tabela = set().union(*_componentes_tabela(ws, max_r, max_c)) if max_r and max_c else set()
+    precisa = {}
+    for (r, c) in tabela:
+        if (r, c) in horiz:
+            continue
+        cel = ws.cell(row=r, column=c)
+        v = cel.value
+        if v is None or v == '':
+            continue
+        txt = v if isinstance(v, str) else (f'{v:.2f}' if isinstance(v, float) else str(v))
+        negrito = bool(cel.font and cel.font.bold)
+        fator = 1.3 if negrito else 1.15
+        cabecalho = _cor_fundo(cel) == _AZUL_CABECALHO or (cel.alignment and cel.alignment.wrap_text and '\n' in txt)
+        if cabecalho:
+            comp = max((len(p) for p in txt.split()), default=0)
+        else:
+            comp = max((len(l) for l in txt.split('\n')), default=0)
+        precisa[c] = max(precisa.get(c, 0), comp * fator + 2.5)
+    for c, w in precisa.items():
+        ws.column_dimensions[get_column_letter(c)].width = round(max(5.5, min(w, _LARGURA_MAX_COLUNA)), 1)
+
+
 def embelezar_workbook(wb):
     """
     Apresentação final de todos os documentos Excel do SIGE:
@@ -334,6 +369,7 @@ def embelezar_workbook(wb):
         max_r, max_c = _limites_conteudo(ws)
         if max_r == 0 or max_c == 0:
             continue
+        ajustar_larguras_ao_conteudo(ws, max_r, max_c)
         garantir_palavras_inteiras(ws, max_r, max_c)
         _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)
