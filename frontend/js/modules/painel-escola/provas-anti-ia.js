@@ -95,7 +95,7 @@
   async function vistaPainel(c) {
     var d = (await api('lista/')).data, r = d.resumo, p = d.proxima;
     var h = '<header class="cabecalho"><div><h1>Painel</h1><p class="suave">As tuas provas com proteção anti-IA, o período de proteção e quem já leu os códigos.</p></div>' +
-      '<div class="acoes"><button class="btn" data-ir="nova">' + ico('plus') + ' Carregar prova</button></div></header><div id="escudoAviso"></div>';
+      '<div class="acoes"><button class="btn" data-ir="nova">' + ico('plus') + ' Carregar prova</button></div></header><div id="escudoAviso"></div><div id="escudoNovas" class="aviso atencao" role="alert" hidden></div>';
     if (p) {
       h += '<section class="destaque" aria-label="Próxima libertação"><div><h2>Próxima prova a sair da proteção</h2><p class="titulo">' + esc(p.titulo) + '</p>' +
         '<p class="pequeno">' + esc(p.estado.texto) + ' (Maputo) · <a href="#" data-ir="prova" data-pid="' + esc(p.id) + '">abrir prova</a></p></div>' + relogio(p.estado.iso) + '</section>';
@@ -118,7 +118,7 @@
           '<div><div class="titulo">' + esc(x.titulo) + '</div><div class="meta">' + (x.disciplina ? '<span>' + esc(x.disciplina) + (x.classe ? ' · ' + esc(x.classe) : '') + '</span>' : '') +
           '<span>' + esc(e.texto) + '</span><span class="mono">' + esc(x.id) + '</span></div></div><div class="lado">' +
           (e.liberada ? '<span class="pilula livre">' + ico('unlock') + ' Libertada</span>' : '<span class="pilula embargo">' + ico('lock') + ' Sob embargo</span>') +
-          '<span>' + plural(x.copias, 'cópia', 'cópias') + ' · ' + plural(x.leituras, 'leitura', 'leituras') + '</span></div></a>';
+          (x.novas ? '<span class="pilula perigo">' + plural(x.novas, 'leitura nova', 'leituras novas') + '</span>' : '') + '<span>' + plural(x.copias, 'cópia', 'cópias') + ' · ' + plural(x.leituras, 'leitura', 'leituras') + '</span></div></a>';
       });
       h += '</div><p class="vazio" id="escudoSemResultados" hidden>Nenhuma prova corresponde ao filtro.</p>';
     } else {
@@ -127,6 +127,15 @@
     }
     c.innerHTML = h;
     iniciarRelogios();
+    var banner = $('#escudoNovas'), mostrarNovas = function (provas) {
+      var com = provas.filter(function (x) { return x.novas > 0; }), total = com.reduce(function (s, x) { return s + x.novas; }, 0);
+      banner.hidden = !total;
+      if (!total) return;
+      banner.innerHTML = ico('alert') + '<span><strong>' + plural(total, 'leitura nova', 'leituras novas') + ' de códigos durante a protecção.</strong> Alguém leu o QR ou o código de barras (na folha, numa fotografia ou numa captura). ' +
+        com.slice(0, 3).map(function (x) { return '<a href="#" data-ir="prova" data-pid="' + esc(x.id) + '">' + esc(x.titulo) + ' (' + x.novas + ')</a>'; }).join(' · ') + '. Abre a prova para ver o aparelho, a hora e o local.</span>';
+    };
+    mostrarNovas(d.provas);
+    estado.timers.push(setInterval(async function () { try { mostrarNovas((await api('lista/')).data.provas); } catch (er) { /* sem rede: mantém o aviso */ } }, 60000));
     var filtro = 'todas', lista = $('#escudoLista');
     if (lista) {
       var aplicar = function () {

@@ -99,6 +99,14 @@ class Armazem:
             p.save()
             EventoEscudo.objects.create(prova=p, texto=evento)
 
+    def novas_por_prova(self, codigos):
+        """Leituras novas (durante a protecção, ainda não vistas) por código de prova."""
+        linhas = LeituraEscudo.objects.filter(prova__codigo__in=list(codigos), vista=False).values("prova__codigo").annotate(n=Count("id"))
+        return {l["prova__codigo"]: l["n"] for l in linhas}
+
+    def marcar_vistas(self, pid):
+        LeituraEscudo.objects.filter(prova__codigo=pid, vista=False).update(vista=True)
+
     def guardar_local(self, leitura_id, pid, latitude, longitude, precisao_m):
         """Guarda o local de uma leitura (só uma vez, só se quem leu autorizou no navegador); devolve True se guardou."""
         return bool(LeituraEscudo.objects.filter(pk=leitura_id, prova__codigo=pid, latitude__isnull=True).update(
@@ -115,7 +123,8 @@ class Armazem:
         valido = serial is None or 1 <= serial <= p.copias
         estado = "invalida" if not valido else "libertada" if liberada else "embargo"
         impressao = hashlib.sha256(("escudo-rede:" + (rede or "")).encode()).hexdigest()[:12] if rede else ""
-        leitura = LeituraEscudo.objects.create(prova=p, serial=serial, estado=estado, aparelho=(aparelho or "")[:120], rede=impressao)
+        leitura = LeituraEscudo.objects.create(prova=p, serial=serial, estado=estado, aparelho=(aparelho or "")[:120], rede=impressao,
+                                               vista=estado == "libertada")
         return {"id": pid, "leitura_id": leitura.id, "estado": estado,"titulo": p.titulo, "libertacao": tempo.para_iso(p.libertacao), "liberada": liberada,
                 "valido": valido, "publicar_apos": p.publicar_apos, "tem_gabarito": bool(p.gabarito_cifrado),
                 "mensagem_ia": (p.config or {}).get("mensagem_ia")}

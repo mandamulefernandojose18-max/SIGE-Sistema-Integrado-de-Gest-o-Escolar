@@ -1418,3 +1418,7 @@ ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook a
 
 **E-mail do dono definido ao carregar a prova (v2.8.7).** O formulário «Carregar prova» tem o campo «E-mail do professor para os avisos»: cada prova leva o endereço do seu professor-dono (vazio = e-mail da conta) e pode ser mudado depois em Gerir > Avisos por e-mail.
 
+
+
+**Alertas de leitura dentro do SIGE (v2.8.8).** Sem depender de e-mail: cada leitura de um código durante a protecção conta como «nova» até o professor abrir a prova. O painel mostra uma faixa «N leituras novas» (actualizada a cada minuto) com ligações às provas, e cada prova com leituras novas leva o distintivo correspondente; abrir a prova marca-as como vistas e mostra o aparelho, a hora e o local (se autorizado). Leituras depois da libertação não contam como alerta.
+

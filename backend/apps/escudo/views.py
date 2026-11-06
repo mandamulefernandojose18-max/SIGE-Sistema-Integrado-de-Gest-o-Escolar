@@ -149,11 +149,13 @@ def lista(request):
     elif ativa:  # superadmin com uma escola seleccionada vê só essa
         qs = qs.filter(escola=ativa)
     provas = [p for p in svc().arm.listar(qs) if _visivel(user, p)]
-    itens = [_resumo_prova(p) for p in provas]
+    novas = svc().arm.novas_por_prova([p['id'] for p in provas])
+    itens = [{**_resumo_prova(p), 'novas': novas.get(p['id'], 0)} for p in provas]
     embargadas = sorted((x for x in itens if not x['estado']['liberada']), key=lambda x: x['estado']['iso'])
     libertadas = sorted((x for x in itens if x['estado']['liberada']), key=lambda x: x['estado']['iso'], reverse=True)
     resumo = {'total': len(itens), 'embargo': len(embargadas), 'libertadas': len(libertadas),
-              'leituras': sum(x['leituras'] for x in itens), 'copias': sum(x['copias'] for x in itens)}
+              'leituras': sum(x['leituras'] for x in itens), 'copias': sum(x['copias'] for x in itens),
+              'novas': sum(x['novas'] for x in itens)}
     proxima = next((x for x in embargadas if not x['estado']['sem_data']), None)
     return _json({'success': True, 'data': {'provas': embargadas + libertadas, 'resumo': resumo, 'proxima': proxima}})
 
@@ -169,6 +171,8 @@ def detalhe(request, pid):
     contagem = {k: sum(1 for x in leituras if x['estado'] == k) for k in ('embargo', 'libertada', 'invalida')}
     criada, lib, agora = tempo.de_iso(p['criada_em']), tempo.de_iso(p['libertacao']), s.agora()
     progresso = min(max((agora - criada).total_seconds() / max((lib - criada).total_seconds(), 1), 0), 1)
+    novas_antes = s.arm.novas_por_prova([pid]).get(pid, 0)
+    s.arm.marcar_vistas(pid)  # abrir a prova é ver as leituras
     modelo = s.modelo(p)
     info = modelo and modelo.get('variaveis') and {
         'combinacoes': variantes.combinacoes(modelo), 'perguntas': len(modelo['perguntas']), 'variaveis': list(modelo['variaveis'])}
@@ -182,7 +186,7 @@ def detalhe(request, pid):
         'eventos': [{**e, 'quando_texto': tempo.formatar_iso(e['quando'])} for e in s.eventos(pid)],
         'campo_data': tempo.para_campo_local(p['libertacao']), 'link': f'{URL_BASE_PUBLICA}/v/{pid}',
         'criada_texto': tempo.formatar_iso(p['criada_em']),
-        'avisos': {'ativos': bool((p['config'] or {}).get('notificar_leituras', True)), 'email_activo': alertas.email_activo(),
+        'novas_antes': novas_antes, 'avisos': {'ativos': bool((p['config'] or {}).get('notificar_leituras', True)), 'email_activo': alertas.email_activo(),
                    'email': (p['config'] or {}).get('email_avisos', ''), 'email_conta': alertas.email_da_conta(p['id'])}}})
 
 

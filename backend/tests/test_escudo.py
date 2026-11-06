@@ -899,3 +899,19 @@ def test_email_dos_avisos_definido_ao_carregar_a_prova(duas_escolas):
     assert ProvaEscudo.objects.count() == 0  # nada fica guardado se o e-mail é inválido
     pid = _pid(_criar(c, email_avisos='prof.fisica@escola.test'))
     assert c.get(API + pid + '/').json()['data']['avisos']['email'] == 'prof.fisica@escola.test'
+
+
+def test_leituras_novas_aparecem_no_painel_ate_o_professor_abrir_a_prova(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    assert c.get(API + 'lista/').json()['data']['resumo']['novas'] == 0
+    APIClient().get(f'/ia/v/{pid}/1/q3')
+    APIClient().get(f'/ia/v/{pid}/1')
+    d = c.get(API + 'lista/').json()['data']
+    assert d['resumo']['novas'] == 2 and d['provas'][0]['novas'] == 2
+    assert c.get(API + pid + '/').json()['data']['novas_antes'] == 2  # abrir a prova mostra quantas eram novas
+    d = c.get(API + 'lista/').json()['data']
+    assert d['resumo']['novas'] == 0 and d['provas'][0]['novas'] == 0  # e passam a vistas
+    ProvaEscudo.objects.filter(codigo=pid).update(libertacao=datetime(2020, 1, 1))
+    APIClient().get(f'/ia/v/{pid}/1')  # depois do embargo já não é alerta
+    assert c.get(API + 'lista/').json()['data']['resumo']['novas'] == 0

@@ -1665,6 +1665,17 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     a.click();
     a.remove();
     setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 5000);
+    // Dica única: o Excel do computador pode recusar a Visualização Protegida por causa de um item desactivado
+    if (isXlsx) {
+      try {
+        if (!localStorage.getItem('sige_dica_excel_vp')) {
+          localStorage.setItem('sige_dica_excel_vp', '1');
+          if (typeof mostrarNotificacao === 'function') {
+            mostrarNotificacao('Excel: se aparecer "O ficheiro não pôde ser aberto em visualização protegida", feche todas as janelas do Excel e, no Excel, vá a Ficheiro > Opções > Suplementos > Gerir: Itens Desactivados > Ir, e active o item listado. Em alternativa, clique no ficheiro com o botão direito > Propriedades > Desbloquear.', 'info');
+          }
+        }
+      } catch (_) {}
+    }
     return true;
   } catch (err) {
     console.error('[DOWNLOAD] Falha no download do documento:', err);

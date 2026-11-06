@@ -39,6 +39,7 @@ class LeituraEscudo(models.Model):
     longitude = models.FloatField(null=True, blank=True)
     precisao_m = models.PositiveIntegerField(null=True, blank=True)
     notificada = models.BooleanField(default=False, db_index=True)
+    vista = models.BooleanField(default=True, db_index=True)  # False = leitura nova que o professor ainda não viu no SIGE
 
     class Meta:
         db_table = 'sige_escudo_leituras'
