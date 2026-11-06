@@ -258,7 +258,8 @@
     var h = '<div class="migalhas"><a href="#" data-ir="painel">Painel</a> / <span>' + esc(p.id) + '</span></div>' +
       '<header class="cabecalho"><div><h1>' + esc(p.titulo) + '</h1><p class="suave">' + (p.disciplina ? esc(p.disciplina) + (p.classe ? ' · ' + esc(p.classe) : '') + ' · ' : '') +
       plural(p.paginas, 'página', 'páginas') + ' · código <span class="mono">' + esc(p.id) + '</span></p></div>' +
-      '<div class="acoes"><button class="btn" data-ir="configurar" data-pid="' + esc(p.id) + '">' + ico('qr') + ' Selos e cópias</button></div></header><div id="escudoAviso"></div>' +
+      '<div class="acoes"><button class="btn" data-ir="configurar" data-pid="' + esc(p.id) + '">' + ico('qr') + ' Selos e cópias</button>' +
+      '<button class="btn secundario" type="button" id="escudoEditarTopo">Editar prova</button><button class="btn perigo" type="button" id="escudoApagarTopo">Eliminar prova</button></div></header><div id="escudoAviso"></div>' +
       '<section class="cartao"><div class="estado-grande"><div>' +
       (e.sem_data ? '<span class="pilula embargo">' + ico('shield') + ' Protegida contra IA</span><h2>Sem data limite</h2><p class="suave">Só as proteções anti-IA: os códigos nunca entregam a prova. Define uma data abaixo se quiseres um embargo.</p>'
         : e.liberada ? '<span class="pilula livre">' + ico('unlock') + ' Libertada</span><h2>Embargo terminado</h2><p class="suave">Libertada em ' + esc(e.texto) + ' (hora de Maputo).</p>'
@@ -299,6 +300,13 @@
       '<div class="cartao"><h2>Ligação dos códigos</h2><p class="sub">É para aqui que os QR e os códigos de barras levam.</p><dl class="lista-chave">' +
       '<div><dt>Endereço</dt><dd><code>' + esc(p.link) + '</code></dd></div><div><dt>Cópias válidas</dt><dd>' + p.copias + '</dd></div>' +
       '<div><dt>Depois da data</dt><dd>' + (p.publicar_apos ? 'entrega a prova' : 'só confirma') + '</dd></div><div><dt>Gabarito</dt><dd>' + (p.tem_gabarito ? 'guardado' : 'sem gabarito') + '</dd></div></dl></div></div>' +
+      '<div class="cartao" style="margin-top:1rem"><h2>Editar prova</h2><p class="sub">Corrige o título, troca o ficheiro ou o gabarito sem criar outra prova: o código, as cópias já emitidas, as leituras e as opções de selos mantêm-se.</p>' +
+      '<form id="escudoFormEditar"><label class="campo"><span>Título</span><input name="titulo" maxlength="120" value="' + esc(p.titulo) + '" required></label>' +
+      '<div class="duas"><label class="campo"><span>Disciplina</span><input name="disciplina" maxlength="60" value="' + esc(p.disciplina || '') + '"></label><label class="campo"><span>Classe</span><input name="classe" maxlength="30" value="' + esc(p.classe || '') + '"></label></div>' +
+      '<label class="campo"><span>Novo ficheiro da prova (Word ou PDF) <small>opcional</small></span><input type="file" name="prova" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>' +
+      '<label class="campo"><span>Novo gabarito <small>opcional</small></span><input type="file" name="gabarito" accept=".docx,.pdf,application/pdf"></label>' +
+      (p.tem_gabarito ? '<label class="caixa"><input type="checkbox" name="remover_gabarito"><span>Remover o gabarito guardado</span></label>' : '') +
+      '<button class="btn secundario">Guardar alterações</button></form></div>' +
       '<div class="perigo-zona"><h2>Apagar prova</h2><p class="sub">Remove a prova, os ficheiros cifrados e as leituras. Não se pode desfazer.</p><button class="btn perigo" id="escudoApagar">Apagar prova</button></div></section>';
     c.innerHTML = h;
     $$('[data-pct]', c).forEach(function (el) { requestAnimationFrame(function () { el.style.width = el.dataset.pct + '%'; }); });
@@ -328,6 +336,12 @@
     if (lib) lib.addEventListener('click', async function () {
       if (!confirm('Libertar já? A prova passará a estar disponível a quem ler os códigos.')) return;
       try { var r = await api(pid + '/libertar/', { method: 'POST' }); await ir('prova', pid); aviso(r.message); } catch (er) { aviso(er.message, 'atencao'); }
+    });
+    $('#escudoApagarTopo').addEventListener('click', function () { $('#escudoApagar').click(); });
+    $('#escudoEditarTopo').addEventListener('click', function () { abas[2].click(); $('#escudoFormEditar').scrollIntoView({ block: 'center' }); });
+    $('#escudoFormEditar').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      try { var r = await api(pid + '/editar/', { method: 'POST', body: new FormData(ev.target) }); await ir('prova', pid); aviso(r.message); } catch (er) { aviso(er.message, 'atencao'); }
     });
     $('#escudoApagar').addEventListener('click', async function () {
       if (!confirm('Apagar esta prova do cofre? Esta acção não se pode desfazer.')) return;
@@ -369,7 +383,7 @@
     var pg = k.perguntas, resumoPerg = pg.total ? '<small><strong>' + plural(pg.total, 'pergunta detetada', 'perguntas detetadas') + ', QR em ' + pg.com_qr +
       (pg.sem_qr.length ? ' (sem espaço livre em ' + pg.sem_qr.join(', ') + ')' : '') + '.</strong></small>' : '<small><strong>Nenhuma pergunta numerada detetada (1., 2., Questão 3:…); só se aplicam os avisos gerais.</strong></small>';
     var h = '<div class="migalhas"><a href="#" data-ir="painel">Painel</a> / <a href="#" data-ir="prova" data-pid="' + esc(pid) + '">' + esc(k.titulo) + '</a> / <span>Selos</span></div>' +
-      '<header class="cabecalho"><div><h1>Selos e cópias</h1><p class="suave">Clica na página para pôr um código; arrasta para o mover. Podes pôr vários, em qualquer parte.</p></div></header><div id="escudoAviso"></div>' +
+      '<header class="cabecalho"><div><h1>Selos e cópias</h1><p class="suave">Clica na página para pôr um código; arrasta para o mover. Podes pôr vários, em qualquer parte.</p></div><div class="acoes"><button class="btn secundario" type="button" data-ir="prova" data-pid="' + esc(pid) + '">Editar ou eliminar prova</button></div></header><div id="escudoAviso"></div>' +
       (k.com_variantes ? '<p class="aviso">' + ico('info') + '<span>Prova com variantes: este ecrã mostra a <strong>cópia 1</strong>. Cada cópia gerada leva valores diferentes e o ZIP inclui o gabarito de todas as cópias (só para o professor).</span></p>' : '') +
       '<form class="configurador" id="escudoFormSelos"><div class="lado-pagina"><div class="barra"><label class="campo"><span>Página</span><select id="escudoSelPagina">' +
       Array.from({ length: k.paginas }, function (_, i) { return '<option value="' + (i + 1) + '">' + (i + 1) + ' de ' + k.paginas + '</option>'; }).join('') + '</select></label>' +
@@ -392,7 +406,10 @@
       '<label class="campo"><span>QR laterais por página</span><select name="qr_pagina">' +
         Array.from({ length: (k.max_qr_pagina || 6) + 1 }, function (_, n) { return '<option value="' + n + '"' + (n === k.qr_pagina ? ' selected' : '') + '>' + (n === 0 ? 'Nenhum' : n + (n === 1 ? ' QR' : ' QR')) + '</option>'; }).join('') + '</select>' +
         '<small>Quantos QR (com o endereço da página) cada página leva, em sítios livres escolhidos só por essa página; valem para o PDF e para o Word.</small></label>' +
-      cx('qr_marca_agua', 'QR como marca de água', 'Um QR grande e claro por trás de toda a página, com o endereço da cópia. Não se elimina recortando um canto.') +
+      '<label class="campo"><span>Tamanho de cada QR lateral: <output>' + k.tamanho_qr_pagina + '</output> mm</span><input type="range" name="tamanho_qr_pagina" data-saida min="' + k.limites_qr.pagina[0] + '" max="' + k.limites_qr.pagina[1] + '" value="' + k.tamanho_qr_pagina + '"></label>' +
+      '<label class="campo"><span>QR de fundo (grande)</span><select name="qr_marca_agua"><option value="1"' + (o.qr_marca_agua ? ' selected' : '') + '>Mostrar QR de fundo</option><option value="0"' + (o.qr_marca_agua ? '' : ' selected') + '>Não mostrar QR de fundo</option></select>' +
+        '<small>Um QR grande e translúcido por trás da página, com o endereço da cópia. Não se elimina recortando um canto.</small></label>' +
+      '<label class="campo"><span>Tamanho do QR de fundo: <output>' + k.tamanho_qr_fundo + '</output> mm</span><input type="range" name="tamanho_qr_fundo" data-saida min="' + k.limites_qr.fundo[0] + '" max="' + k.limites_qr.fundo[1] + '" value="' + k.tamanho_qr_fundo + '"></label>' +
       cx('aviso_foto', 'Aviso legível em fotografias', 'Faixa no topo, faixas laterais e marca de água «IA: não resolver».') +
       cx('aviso_ia', 'Texto invisível para assistentes de IA', 'Lido por quem envia o PDF; não aparece numa foto.') +
       cx('rasterizar', 'Converter páginas em imagem', 'Retira o texto copiável do PDF.') +
@@ -416,6 +433,7 @@
     var form = $('#escudoFormSelos'), palco = $('#escudoPalco'), img = $('#escudoPaginaImg'), lista = $('#escudoListaMarcas');
     var tipo = $('#escudoNovoTipo'), mm = $('#escudoNovoMm'), mmVal = $('#escudoNovoMmVal'), paginas = $('#escudoNovoPaginas');
     palco.style.aspectRatio = k.largura_mm + ' / ' + k.altura_mm;
+    $$('input[type=range][data-saida]', form).forEach(function (r) { r.addEventListener('input', function () { r.parentNode.querySelector('output').textContent = r.value; }); });
     var visivel = function (m) { return typeof m.paginas !== 'number' || m.paginas === paginaAtual; };
     var rotulo = function (m) { return typeof m.paginas === 'number' ? 'pág. ' + m.paginas : m.paginas; };
     var dimMm = function (m) { return m.tipo === 'qr' ? [m.tamanho_mm, m.tamanho_mm] : [m.tamanho_mm, Math.max(8, m.tamanho_mm * 0.22) + 4 + 3.5]; };

@@ -10,6 +10,7 @@ urlpatterns = [
     path('<str:pid>/data/', views.alterar_data),
     path('<str:pid>/libertar/', views.libertar),
     path('<str:pid>/apagar/', views.apagar),
+    path('<str:pid>/editar/', views.editar),
     path('<str:pid>/configurar/', views.configurar),
     path('<str:pid>/pagina/<int:n>.png', views.pagina_png),
     path('<str:pid>/previa/', views.previa),

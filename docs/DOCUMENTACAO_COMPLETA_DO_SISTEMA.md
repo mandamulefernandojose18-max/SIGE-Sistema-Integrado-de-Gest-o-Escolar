@@ -1398,3 +1398,7 @@ ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook a
 
 **Word igual ao PDF (v2.8.2).** O Word leva agora os mesmos selos do PDF: o código de barras e os QR escolhidos em «Selos» (primeira, última, n.º de página ou todas) e o QR lateral de cada página, ancorados página a página à frente do texto, usando a paginação real da cópia 1 (medida com o LibreOffice), sem alterar margens nem paginação. Em «Selos e cópias» escolhe-se **quantos QR laterais por página** (0 a 6, predefinido 1); cada QR leva o endereço da página e vai para um espaço livre diferente, no PDF e no Word.
 
+
+
+**Tamanhos dos QR, QR de fundo opcional e edição da prova (v2.8.3).** Em «Selos e cópias»: o QR de fundo pode ser **mostrado ou não** (lista «Mostrar / Não mostrar QR de fundo») e tem tamanho próprio (40 a 200 mm, centrado na zona livre da página); cada QR lateral tem tamanho próprio (10 a 45 mm) e o seu número por página (0 a 6). Valem para o PDF e para o Word. Na página da prova, os botões **Editar prova** e **Eliminar prova** (e o separador Gerir) permitem corrigir título, disciplina e classe, trocar o ficheiro da prova (Word ou PDF) e o gabarito, ou remover o gabarito, sem carregar outra prova: o código, as cópias já emitidas, as leituras e as opções de selos mantêm-se, o ficheiro continua cifrado e o guião antigo é descartado. Endpoint `POST /api/v1/escudo/<id>/editar/` (dono ou gestão da escola); `POST .../apagar/` elimina a prova do cofre.
+

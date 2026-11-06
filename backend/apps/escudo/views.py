@@ -103,7 +103,8 @@ def _ler_opcoes(form, cfg_antiga=None):
         rasterizar=on('rasterizar'), aviso_visivel=on('aviso_visivel'), aviso_foto=on('aviso_foto'), aviso_ia=on('aviso_ia'),
         aviso_pergunta=on('aviso_pergunta'), qr_pergunta=on('qr_pergunta'), qr_marca_agua=on('qr_marca_agua'),
         qr_pagina=selos.contar_qr_pagina(form.get('qr_pagina', 1)), mensagem_ia=form.get('mensagem_ia'),
-        baralhar_perguntas=on('baralhar_perguntas'), baralhar_alternativas=on('baralhar_alternativas'))
+        baralhar_perguntas=on('baralhar_perguntas'), baralhar_alternativas=on('baralhar_alternativas'),
+        tamanho_qr_fundo=form.get('tamanho_qr_fundo'), tamanho_qr_pagina=form.get('tamanho_qr_pagina'))
     op['formato'] = formato
     op['guiao_opcao'] = 'com' if (form.get('guiao') or '').strip().lower() in ('com', 'on', '1', 'true') else 'sem'
     return op
@@ -239,6 +240,28 @@ def libertar(request, pid):
 
 @csrf_exempt
 @_tratar
+def editar(request, pid):
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    if request.method != 'POST':
+        return _erro('Método não permitido.', 405)
+    if user.role not in PAPEIS_GESTAO and p.get('dono_id') != user.id:
+        return _erro('Só pode editar as provas que carregou.', 403)
+    f, fx = request.POST, request.FILES
+    s = svc()
+    ficheiro, gab = fx.get('prova'), fx.get('gabarito')
+    publicar = f.get('publicar_apos')
+    s.editar(pid, titulo=f.get('titulo'), disciplina=f.get('disciplina'), classe=f.get('classe'),
+             publicar_apos=None if publicar is None else publicar in ('on', '1', 'true'),
+             pdf=ficheiro.read(s.max_bytes + 1) if ficheiro else b'',
+             gabarito=gab.read(s.max_bytes + 1) if gab else b'',
+             remover_gabarito=f.get('remover_gabarito') in ('on', '1', 'true'))
+    return _json({'success': True, 'message': 'Prova actualizada. Os códigos já impressos continuam a valer.'})
+
+
+@csrf_exempt
+@_tratar
 def apagar(request, pid):
     user, p, erro = _prova(request, pid)
     if erro:
@@ -268,6 +291,8 @@ def configurar(request, pid):
             ('qr_marca_agua', True), ('aviso_foto', True), ('aviso_ia', True), ('rasterizar', False),
             ('aviso_visivel', True))},
         'qr_pagina': selos.contar_qr_pagina(cfg.get('qr_pagina', 1)), 'max_qr_pagina': selos.MAX_QR_PAGINA,
+        'tamanho_qr_fundo': cfg.get('tamanho_qr_fundo') or 120, 'tamanho_qr_pagina': cfg.get('tamanho_qr_pagina') or selos.LADO_QR_PAGINA_MM,
+        'limites_qr': {'fundo': list(selos.LADO_QR_FUNDO_MM), 'pagina': list(selos.LADO_QR_PAGINA_LIMITES_MM)},
         'copias': cfg.get('copias', 1), 'marcas': cfg.get('marcas', MARCAS_INICIAIS),
         'formato': cfg.get('formato', 'pdf') if cfg.get('docx_cifrado') else 'pdf',
         'url_base': URL_BASE_PUBLICA, 'tem_docx': bool(cfg.get('docx_cifrado')), 'guiao': _dados_guiao(p), 'usa_guiao': cfg.get('guiao_opcao', 'sem'),

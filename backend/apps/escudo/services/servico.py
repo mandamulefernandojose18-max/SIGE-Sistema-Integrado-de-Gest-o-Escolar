@@ -16,7 +16,7 @@ MARCAS_INICIAIS = [  # o QR de cada página é automático (qr_pagina); aqui só
 ]
 FORMATOS_SAIDA = ("pdf", "word", "ambos")
 CHAVES_CONFIG = ("formato", "guiao_opcao", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
-                 "qr_pergunta", "qr_marca_agua", "qr_pagina", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
+                 "qr_pergunta", "qr_marca_agua", "qr_pagina", "tamanho_qr_fundo", "tamanho_qr_pagina", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
 
 
 class BaseSelagem:
@@ -128,7 +128,7 @@ class Servico:
     # ---- escrita ----
     def validar_opcoes(self, *, marcas, copias, url_base, rasterizar=False, aviso_visivel=True,
                        aviso_foto=True, aviso_ia=True, aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, qr_pagina=True, mensagem_ia=None,
-                       baralhar_perguntas=False, baralhar_alternativas=False):
+                       baralhar_perguntas=False, baralhar_alternativas=False, tamanho_qr_fundo=None, tamanho_qr_pagina=None):
         """Valida as opções de selagem e devolve o dicionário usado por `selar_copia`."""
         marcas = selos.validar_marcas(marcas)
         if not 1 <= copias <= MAX_COPIAS:
@@ -139,6 +139,8 @@ class Servico:
         return {"marcas": marcas, "copias": copias, "url_base": url_base, "rasterizar": rasterizar,
                 "aviso_visivel": aviso_visivel, "aviso_foto": aviso_foto, "aviso_ia": aviso_ia,
                 "aviso_pergunta": aviso_pergunta, "qr_pergunta": qr_pergunta, "qr_marca_agua": qr_marca_agua, "qr_pagina": qr_pagina,
+                "tamanho_qr_fundo": selos.limitar_lado_qr_fundo(tamanho_qr_fundo),
+                "tamanho_qr_pagina": selos.limitar_lado_qr_pagina(tamanho_qr_pagina),
                 "baralhar_perguntas": bool(baralhar_perguntas), "baralhar_alternativas": bool(baralhar_alternativas),
                 "mensagem_ia": selos.normalizar_mensagem(mensagem_ia)}
 
@@ -208,6 +210,55 @@ class Servico:
         p = self.arm.obter(pid)
         self.arm.alterar_data(pid, tempo.para_iso(libertacao), self._agora_iso(),
                               f"Libertação alterada de {tempo.formatar_iso(p['libertacao'])} para {tempo.formatar(libertacao)}.")
+
+    def editar(self, pid, *, titulo=None, disciplina=None, classe=None, publicar_apos=None, pdf=b"", gabarito=b"",
+               remover_gabarito=False):
+        """Edita a prova guardada sem a carregar de novo: título, disciplina, classe, ficheiro da prova e gabarito.
+
+        Trocar o ficheiro mantém o código, as cópias já emitidas, as leituras e as opções de selos; o guião é refeito.
+        """
+        p = self.arm.obter(pid)
+        config = dict(p["config"] or {})
+        campos, notas = {}, []
+        if titulo is not None and titulo.strip():
+            campos["titulo"] = titulo.strip()[:120]
+            notas.append("título")
+        if disciplina is not None:
+            campos["disciplina"] = disciplina.strip()[:60]
+        if classe is not None:
+            campos["classe"] = classe.strip()[:30]
+        if publicar_apos is not None:
+            campos["publicar_apos"] = bool(publicar_apos)
+        limite = f"{self.max_bytes // (1024 * 1024)} MB"
+        paginas = p["paginas"]
+        if pdf:
+            if config.get("modelo_cifrado"):
+                raise ValueError("Esta prova usa variantes: para a mudar, carrega um modelo novo (nova prova).")
+            if len(pdf) > self.max_bytes:
+                raise ValueError(f"O ficheiro da prova excede {limite}.")
+            if conversao.eh_docx(pdf) and len(pdf) <= self.max_bytes // 2:
+                config["docx_cifrado"] = base64.b64encode(self.arm.cofre.cifrar(pid, "docx", pdf)).decode()
+            else:
+                config.pop("docx_cifrado", None)
+                if config.get("formato") in ("word", "ambos"):
+                    config["formato"] = "pdf"
+            pdf = conversao.garantir_pdf(pdf)
+            paginas, _, _ = selos.info_pdf(pdf)
+            for k in ("guiao", "guiao_cifrado"):
+                config.pop(k, None)  # o guião resolvia a prova antiga
+            notas.append("ficheiro da prova")
+        if gabarito:
+            if len(gabarito) > self.max_bytes:
+                raise ValueError(f"O ficheiro do gabarito excede {limite}.")
+            gabarito = conversao.garantir_pdf(gabarito)
+            selos.info_pdf(gabarito)
+            notas.append("gabarito")
+        elif remover_gabarito:
+            notas.append("gabarito removido")
+        if not campos and not pdf and not gabarito and not remover_gabarito:
+            raise ValueError("Não há nada para alterar.")
+        self.arm.atualizar(pid, campos, config, pdf or None, gabarito or None, remover_gabarito, paginas,
+                           "Prova editada" + (": " + ", ".join(notas) if notas else "") + ".")
 
     def libertar(self, pid):
         p = self.arm.obter(pid)
@@ -329,7 +380,8 @@ class Servico:
                            aviso_visivel=op["aviso_visivel"], aviso_ia=op["aviso_ia"], aviso_foto=op["aviso_foto"],
                            mensagem_ia=op["mensagem_ia"], aviso_pergunta=op["aviso_pergunta"],
                            qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"], qr_pagina=op.get("qr_pagina", True), ancoras=base.ancoras,
-                           zonas_marca_agua=base.zonas_agua)
+                           zonas_marca_agua=base.zonas_agua, tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
+                           tamanho_qr_pagina=op.get("tamanho_qr_pagina"))
 
     def tem_word(self, p):
         """O .docx original está guardado (cifrado): só então a prova pode sair também em Word."""
@@ -373,7 +425,8 @@ class Servico:
             marcas=op["marcas"], zona_agua=zona, aviso_foto=op["aviso_foto"], aviso_ia=op["aviso_ia"],
             aviso_pergunta=op["aviso_pergunta"], qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"],
             aviso_visivel=op["aviso_visivel"], mensagem_ia=op["mensagem_ia"], qr_pagina=op.get("qr_pagina", True),
-            pdf_layout=op.get("pdf_layout_word"))
+            pdf_layout=op.get("pdf_layout_word"), tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
+            tamanho_qr_pagina=op.get("tamanho_qr_pagina"))
 
     def resumo_perguntas(self, pid):
         """Quantas perguntas numeradas foram detetadas e em quantas cabe um QR (margem direita livre)."""

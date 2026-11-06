@@ -1,4 +1,4 @@
-﻿"""Armazém do Escudo sobre a base de dados do SIGE (PostgreSQL/SQLite): provas cifradas, leituras e registo."""
+"""Armazém do Escudo sobre a base de dados do SIGE (PostgreSQL/SQLite): provas cifradas, leituras e registo."""
 import hashlib
 from datetime import timedelta
 
@@ -81,6 +81,22 @@ class Armazem:
         p.config, p.copias = config, max(p.copias, copias)
         p.save(update_fields=["config", "copias"])
         EventoEscudo.objects.create(prova=p, texto=evento)
+
+    def atualizar(self, pid, campos, config, prova, gabarito, remover_gabarito, paginas, evento):
+        """Edita uma prova já guardada: texto, ficheiros (cifrados de novo) e configuração; as leituras e o registo ficam."""
+        with transaction.atomic():
+            p = ProvaEscudo.objects.get(codigo=pid)
+            for k, v in campos.items():
+                setattr(p, k, v)
+            p.config = config
+            if prova:
+                p.pdf_cifrado, p.paginas = cifrar(pid, "prova", prova), paginas
+            if gabarito:
+                p.gabarito_cifrado = cifrar(pid, "gabarito", gabarito)
+            elif remover_gabarito:
+                p.gabarito_cifrado = None
+            p.save()
+            EventoEscudo.objects.create(prova=p, texto=evento)
 
     def apagar(self, pid):
         ProvaEscudo.objects.filter(codigo=pid).delete()

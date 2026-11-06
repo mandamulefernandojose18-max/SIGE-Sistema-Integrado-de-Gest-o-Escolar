@@ -306,13 +306,19 @@ def espaco_marca_agua(pdf):
     return resultado
 
 
-def _qr_marca_agua(c, largura, altura, url, rect=None, opacidade=0.40):
+def _qr_marca_agua(c, largura, altura, url, rect=None, opacidade=0.40, lado_mm=None):
     """QR grande e translúcido por cima do conteúdo: identifica a cópia e não se recorta com um canto."""
     matriz = _qr_matriz(url)
     n = len(matriz)
     if rect is None:  # sem análise do conteúdo: centrado
         lado = min(LADOS_MARCA_AGUA_MM[0] * MM, largura - 30, altura - 30)
         rect = (largura - lado) / 2, (altura - lado) / 2, (largura + lado) / 2, (altura + lado) / 2
+    if lado_mm:  # tamanho pedido: mesmo centro da zona livre, sem sair da página
+        lado = max(15 * MM, min(lado_mm * MM, largura - 20, altura - 20))
+        cx, cy = (rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2
+        x0r = min(max(cx - lado / 2, 10), largura - 10 - lado)
+        y0r = min(max(cy - lado / 2, 10), altura - 10 - lado)
+        rect = (x0r, y0r, x0r + lado, y0r + lado)
     lado = rect[2] - rect[0]
     celula = lado / n
     x0, y0 = rect[0], altura - rect[3]
@@ -460,6 +466,27 @@ def _instrucoes_pergunta(c, largura, altura, ancoras, mensagem):
 
 LADO_QR_PAGINA_MM = 20
 MAX_QR_PAGINA = 6
+LADO_QR_FUNDO_MM = (40, 200)   # limites do QR de fundo (mm)
+LADO_QR_PAGINA_LIMITES_MM = (10, 45)
+
+
+def limitar_lado_qr_pagina(valor):
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return LADO_QR_PAGINA_MM
+    return max(LADO_QR_PAGINA_LIMITES_MM[0], min(LADO_QR_PAGINA_LIMITES_MM[1], v))
+
+
+def limitar_lado_qr_fundo(valor):
+    """mm pedidos para o QR de fundo, ou None (= tamanho automático, o maior que cabe)."""
+    if valor in (None, "", 0, "0"):
+        return None
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return None
+    return max(LADO_QR_FUNDO_MM[0], min(LADO_QR_FUNDO_MM[1], v))
 
 
 def contar_qr_pagina(valor):
@@ -477,11 +504,11 @@ def contar_qr_pagina(valor):
         return 0
 
 
-def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas):
+def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas, lado_mm=None):
     """Até `quantos` rectângulos para os QR desta página, sem se tocarem nem tocarem no conteúdo (menos se não houver espaço)."""
     ocupados, rects = list(ocupados), []
     for k in range(quantos):
-        rect = posicao_qr_pagina(pagina, ocupados, pid, serial, indice + 1000 * k, usadas)
+        rect = posicao_qr_pagina(pagina, ocupados, pid, serial, indice + 1000 * k, usadas, lado_mm)
         if not rect:
             break
         usadas.add(tuple(rect))
@@ -490,14 +517,14 @@ def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas):
     return rects
 
 
-def posicao_qr_pagina(pagina, ocupados, pid, serial, indice, usadas=()):
+def posicao_qr_pagina(pagina, ocupados, pid, serial, indice, usadas=(), lado_mm=None):
     """Rectângulo do QR desta página, escolhido só com o que esta página tem livre.
 
     Cada página decide por si (espaço livre + semente do código, da cópia e do n.º da página): a posição de uma
     página não se repete nas outras nem de cópia para cópia. Devolve None se a página não tiver onde o pôr.
     """
     W, H = pagina.rect.width, pagina.rect.height
-    lado = LADO_QR_PAGINA_MM * MM
+    lado = limitar_lado_qr_pagina(lado_mm) * MM
     xs = [14, (W - lado) / 2, W - 14 - lado]
     candidatas = [fitz.Rect(x, y, x + lado, y + lado) for y in range(52, int(H - 18 - lado), 36) for x in xs]
     livres = [r for r in candidatas if not any(r.intersects(o) for o in ocupados)]
@@ -519,7 +546,7 @@ def _marca_na_pagina(m, i, n):
 
 def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_visivel=True, aviso_ia=True,
           aviso_foto=False, mensagem_ia=None, aviso_pergunta=False, qr_pergunta=False, ancoras=None,
-          qr_marca_agua=False, zonas_marca_agua=None, qr_pagina=False, limite_faixa=None):
+          qr_marca_agua=False, zonas_marca_agua=None, qr_pagina=False, limite_faixa=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None):
     """Aplica as marcas, o aviso visível e o texto invisível a um PDF-base; devolve os bytes do PDF.
 
     Tudo é desenhado numa sobreposição vectorial (reportlab) e fundido página a página: uma só
@@ -544,7 +571,8 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
         if aviso_foto:
             _aviso_foto(c, W, H, libertacao, codigo, mensagem, limite_faixa)
         if qr_marca_agua:
-            _qr_marca_agua(c, W, H, url, zonas_marca_agua[i] if zonas_marca_agua and i < len(zonas_marca_agua) else None)
+            _qr_marca_agua(c, W, H, url, zonas_marca_agua[i] if zonas_marca_agua and i < len(zonas_marca_agua) else None,
+                           lado_mm=limitar_lado_qr_fundo(tamanho_qr_fundo))
         if aviso_pergunta and ancoras and i < len(ancoras):
             _instrucoes_pergunta(c, W, H, ancoras[i], mensagem)
         if qr_pergunta and ancoras and i < len(ancoras):
@@ -557,7 +585,7 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
                 if a.get("qr"):
                     ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
             ocupados += [geometria(m, W, H) + (-4, -4, 4, 4) for m in marcas if _marca_na_pagina(m, i, n)]
-            for rect in posicoes_qr_pagina(pagina, ocupados, pid, serial, i, contar_qr_pagina(qr_pagina), usadas):
+            for rect in posicoes_qr_pagina(pagina, ocupados, pid, serial, i, contar_qr_pagina(qr_pagina), usadas, tamanho_qr_pagina):
                 _desenhar_qr(c, rect, H, url)
         if aviso_visivel:
             _rodape(c, W, f"PROVA PROTEGIDA CONTRA IA{_ate(libertacao)} · cód. {codigo} · pág. {i + 1}/{n}")

@@ -748,3 +748,49 @@ def test_ia_gratuita_espera_e_repete_no_limite_e_explica_os_erros(monkeypatch):
     monkeypatch.delenv('GEMINI_API_KEY')
     with pytest.raises(ia_sige.IAIndisponivel, match='activada'):
         ia_sige.resolver_prova(_pdf_de_paginas(1))
+
+def test_editar_prova_guardada_mantem_codigo_copias_e_leituras(duas_escolas):
+    from apps.accounts.models import Usuario
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    form = {'marcas': '[]', 'aviso_foto': 'on', 'copias': '3', 'pagina': '1', 'tamanho_qr_fundo': '90', 'tamanho_qr_pagina': '25', 'qr_pagina': '2'}
+    assert c.post(API + pid + '/gerar/', form).status_code == 200
+    cfg = c.get(API + pid + '/configurar/').json()['data']
+    assert cfg['tamanho_qr_fundo'] == 90 and cfg['tamanho_qr_pagina'] == 25 and cfg['qr_pagina'] == 2
+    assert c.post(API + pid + '/editar/', {}).status_code == 400  # nada para alterar
+    novo = _pdf()
+    r = c.post(API + pid + '/editar/', {'titulo': 'Título corrigido', 'disciplina': 'Química', 'classe': '12.ª Classe',
+                                         'prova': SimpleUploadedFile('n.pdf', novo), 'gabarito': SimpleUploadedFile('g.pdf', novo)}, format='multipart')
+    assert r.status_code == 200, r.content
+    p = ProvaEscudo.objects.get(codigo=pid)
+    assert p.titulo == 'Título corrigido' and p.disciplina == 'Química' and p.copias == 3 and p.gabarito_cifrado
+    assert b'%PDF' not in bytes(p.pdf_cifrado) and p.config['tamanho_qr_fundo'] == 90  # continua cifrada; opções mantidas
+    assert c.post(API + pid + '/editar/', {'remover_gabarito': 'on'}).status_code == 200
+    assert ProvaEscudo.objects.get(codigo=pid).gabarito_cifrado is None
+    assert c.post(API + pid + '/editar/', {'prova': SimpleUploadedFile('x.txt', b'texto')}, format='multipart').status_code == 400
+    # outra escola não edita; o professor que não é dono também não
+    Usuario.objects.create_user(email='admin.fc@sige.mz', password='PassFc123!', role='ADMIN_ESCOLA', escola=duas_escolas[1])
+    assert _cliente_de('admin.fc@sige.mz', 'PassFc123!').post(API + pid + '/editar/', {'titulo': 'x'}).status_code == 404
+    assert c.post(API + pid + '/apagar/').status_code == 200 and not ProvaEscudo.objects.filter(codigo=pid).exists()
+
+
+def test_tamanho_do_qr_de_fundo_e_do_lateral():
+    import pymupdf
+    from apps.escudo.services import selos
+    assert selos.limitar_lado_qr_fundo(None) is None and selos.limitar_lado_qr_fundo(5) == 40 and selos.limitar_lado_qr_fundo(999) == 200
+    assert selos.limitar_lado_qr_pagina('x') == selos.LADO_QR_PAGINA_MM and selos.limitar_lado_qr_pagina(1) == 10
+    base = pymupdf.open()
+    base.new_page(width=595, height=842)
+    pdf = base.tobytes()
+    pag = pymupdf.open(stream=pdf, filetype='pdf')[0]
+    pequenos = selos.posicoes_qr_pagina(pag, [], 'ABCD1234', 1, 0, 2, set(), 12)
+    grandes = selos.posicoes_qr_pagina(pag, [], 'ABCD1234', 1, 0, 2, set(), 40)
+    assert len(pequenos) == len(grandes) == 2 and round(pequenos[0].width / selos.MM) == 12 and round(grandes[0].width / selos.MM) == 40
+    kw = dict(url_base='https://sigesaas.duckdns.org/ia', pid='ABCD1234', serial=1, libertacao='x', aviso_ia=False, aviso_visivel=False,
+              qr_marca_agua=True, zonas_marca_agua=[(100, 100, 300, 300)])
+    def tinta(mm):
+        with pymupdf.open(stream=selos.selar(pdf, [], tamanho_qr_fundo=mm, **kw), filetype='pdf') as d:
+            pix = d[0].get_pixmap(dpi=40)
+        xs = [x for x in range(pix.width) for y in range(pix.height) if sum(pix.pixel(x, y)[:3]) < 740]
+        return max(xs) - min(xs)
+    assert tinta(150) > tinta(50) * 2  # o tamanho pedido manda no QR de fundo
