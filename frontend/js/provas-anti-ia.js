@@ -373,6 +373,9 @@
       '<button type="button" class="btn secundario" id="escudoBtnPrevia">' + ico('eye') + ' Pré-visualizar resultado</button><button type="button" class="btn secundario" id="escudoBtnEditar" hidden>Voltar à edição</button></div>' +
       '<div id="escudoPalco" class="palco"><img id="escudoPaginaImg" alt="Página da prova" draggable="false"></div><img id="escudoPreviaImg" class="palco" alt="Pré-visualização" hidden><p class="suave" id="escudoMsgPrevia" hidden></p></div>' +
       '<aside class="lateral-config"><section class="cartao"><h2>Novo código</h2><p class="sub">Escolhe o tipo e clica na página.</p>' +
+      '<div class="campo"><span>Código de barras</span><div class="segmentado" role="group" aria-label="Código de barras">' +
+      '<button type="button" id="escudoBarrasMostrar" aria-pressed="true">Mostrar barras</button>' +
+      '<button type="button" id="escudoBarrasOcultar" aria-pressed="false">Não mostrar barras</button></div></div>' +
       '<label class="campo"><span>Tipo</span><select id="escudoNovoTipo"><option value="qr">QR</option><option value="barras">Código de barras</option></select></label>' +
       '<label class="campo"><span>Largura: <output id="escudoNovoMmVal">22</output> mm</span><input type="range" id="escudoNovoMm" min="15" max="60" value="22"></label>' +
       '<label class="campo"><span>Em que páginas</span><select id="escudoNovoPaginas"><option value="esta">Só nesta página (posição própria)</option><option value="primeira">Só a primeira</option><option value="ultima">Só a última</option></select></label>' +
@@ -424,25 +427,53 @@
       lista.replaceChildren();
       marcas.forEach(function (m, i) {
         if (!visivel(m)) return;
-        var d = dimMm(m), el = document.createElement('div');
-        el.className = 'marca' + (i === sel ? ' sel' : '');
-        el.style.left = (m.x * 100) + '%'; el.style.top = (m.y * 100) + '%';
-        el.style.width = (d[0] / k.largura_mm * 100) + '%'; el.style.height = (d[1] / k.altura_mm * 100) + '%';
-        el.textContent = m.tipo === 'qr' ? 'QR' : '|||| ||';
-        el.addEventListener('pointerdown', function (ev) {
-          ev.preventDefault(); ev.stopPropagation(); sel = i; el.setPointerCapture(ev.pointerId);
-          var mover = function (e) { var f = fraccao(e); m.x = f[0]; m.y = f[1]; el.style.left = m.x * 100 + '%'; el.style.top = m.y * 100 + '%'; };
-          var fim = function () { el.removeEventListener('pointermove', mover); el.removeEventListener('pointerup', fim); desenhar(); };
-          el.addEventListener('pointermove', mover); el.addEventListener('pointerup', fim);
-        });
-        palco.appendChild(el);
-        var li = document.createElement('li'), txt = document.createElement('span'), rm = document.createElement('button');
-        txt.textContent = (m.tipo === 'qr' ? 'QR' : 'Barras') + ' · ' + m.tamanho_mm + ' mm · ' + rotulo(m);
+        if (!m.oculta) {
+          var d = dimMm(m), el = document.createElement('div');
+          el.className = 'marca' + (i === sel ? ' sel' : '');
+          el.style.left = (m.x * 100) + '%'; el.style.top = (m.y * 100) + '%';
+          el.style.width = (d[0] / k.largura_mm * 100) + '%'; el.style.height = (d[1] / k.altura_mm * 100) + '%';
+          el.textContent = m.tipo === 'qr' ? 'QR' : '|||| ||';
+          el.addEventListener('pointerdown', function (ev) {
+            ev.preventDefault(); ev.stopPropagation(); sel = i; el.setPointerCapture(ev.pointerId);
+            var mover = function (e) { var f = fraccao(e); m.x = f[0]; m.y = f[1]; el.style.left = m.x * 100 + '%'; el.style.top = m.y * 100 + '%'; };
+            var fim = function () { el.removeEventListener('pointermove', mover); el.removeEventListener('pointerup', fim); desenhar(); };
+            el.addEventListener('pointermove', mover); el.addEventListener('pointerup', fim);
+          });
+          palco.appendChild(el);
+        }
+        // cada código tem «Ocultar/Mostrar» (guarda a posição) e «Remover» (apaga-o)
+        var li = document.createElement('li'), txt = document.createElement('span'), acoes = document.createElement('span');
+        txt.textContent = (m.tipo === 'qr' ? 'QR' : 'Barras') + ' · ' + m.tamanho_mm + ' mm · ' + rotulo(m) + (m.oculta ? ' · oculto' : '');
+        if (m.oculta) txt.className = 'suave';
+        var alt = document.createElement('button');
+        alt.type = 'button'; alt.className = 'ligacao'; alt.textContent = m.oculta ? 'Mostrar' : 'Ocultar';
+        alt.addEventListener('click', function () { if (m.oculta) delete m.oculta; else m.oculta = true; desenhar(); });
+        var rm = document.createElement('button');
         rm.type = 'button'; rm.className = 'ligacao'; rm.textContent = 'Remover';
         rm.addEventListener('click', function () { marcas.splice(i, 1); sel = -1; desenhar(); });
-        li.appendChild(txt); li.appendChild(rm); lista.appendChild(li);
+        acoes.style.display = 'inline-flex'; acoes.style.gap = '12px';
+        acoes.appendChild(alt); acoes.appendChild(rm);
+        li.appendChild(txt); li.appendChild(acoes); lista.appendChild(li);
       });
+      // estado do botão «Mostrar barras / Não mostrar barras»
+      var barrasVisiveis = marcas.some(function (m) { return m.tipo === 'barras' && !m.oculta; });
+      var bm = $('#escudoBarrasMostrar'), bo = $('#escudoBarrasOcultar');
+      if (bm && bo) { bm.setAttribute('aria-pressed', String(barrasVisiveis)); bo.setAttribute('aria-pressed', String(!barrasVisiveis)); }
     };
+    var ativas = function () { return marcas.filter(function (m) { return !m.oculta; }); };
+    var barrasMostrar = $('#escudoBarrasMostrar'), barrasOcultar = $('#escudoBarrasOcultar');
+    if (barrasMostrar && barrasOcultar) {
+      barrasMostrar.addEventListener('click', function () {
+        var existentes = marcas.filter(function (m) { return m.tipo === 'barras'; });
+        if (existentes.length) existentes.forEach(function (m) { delete m.oculta; });
+        else marcas.push({ tipo: 'barras', paginas: 'primeira', x: 0.5, y: 0.91, tamanho_mm: 50 });  // a posição predefinida
+        desenhar();
+      });
+      barrasOcultar.addEventListener('click', function () {
+        marcas.forEach(function (m) { if (m.tipo === 'barras') m.oculta = true; });
+        desenhar();
+      });
+    }
     palco.addEventListener('click', function (ev) {
       if (ev.target.closest('.marca')) return;
       var f = fraccao(ev);
@@ -455,7 +486,7 @@
     });
     var dados = function () {
       var fd = new FormData(form);
-      fd.set('marcas', JSON.stringify(marcas)); fd.set('pagina', String(paginaAtual));
+      fd.set('marcas', JSON.stringify(ativas())); fd.set('pagina', String(paginaAtual));  // os ocultos não vão
       return fd;
     };
     var previa = $('#escudoPreviaImg'), msg = $('#escudoMsgPrevia'), bPrevia = $('#escudoBtnPrevia'), bEditar = $('#escudoBtnEditar');
@@ -468,7 +499,7 @@
     bEditar.addEventListener('click', function () { previa.hidden = true; palco.hidden = false; bEditar.hidden = true; bPrevia.hidden = false; });
     form.addEventListener('submit', async function (ev) {
       ev.preventDefault();
-      if (!marcas.length && !confirm('Não colocaste nenhum código. Gerar mesmo assim?')) return;
+      if (!ativas().length && !confirm('Não colocaste nenhum código. Gerar mesmo assim?')) return;
       var btn = $('#escudoGerar'); btn.disabled = true; aviso('A gerar as cópias seladas…');
       var ok = await descarregar('POST', pid + '/gerar/', dados(), 'copias.zip');
       btn.disabled = false;
