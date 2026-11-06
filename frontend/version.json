@@ -1,8 +1,8 @@
 {
   "version": "2.6.4",
-  "build": "20261105_2300",
-  "data": "2026-11-05",
+  "build": "20261106_0900",
+  "data": "2026-11-06",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Exportacao Excel blindada: nomes de folha validos, textos nunca lidos como formula, logotipo normalizado, validacao do ficheiro antes de entregar e verificacao na descarga."
+  "novidades": "Escudo Anti-IA: as copias da prova passam a sair tambem em Word (.docx) editavel, ou em PDF e Word no mesmo ZIP."
 }

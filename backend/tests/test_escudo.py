@@ -265,3 +265,52 @@ def test_dockerfile_instala_o_modulo_de_formulas_do_libreoffice():
     from pathlib import Path
     texto = (Path(__file__).resolve().parents[1] / 'Dockerfile').read_text(encoding='utf-8')
     assert 'libreoffice-writer' in texto and 'libreoffice-math' in texto
+
+def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, conversor_falso):
+    import docx
+    from lxml import etree
+    M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    d = docx.Document()
+    d.add_paragraph('1. Uma resistência de {R1} ohm ligada a {U} V.')
+    d.add_paragraph('A. 1 A')
+    d.add_paragraph('B. 2 A')
+    p = d.add_paragraph('2. Calcule ')
+    p._p.append(etree.fromstring(f'<m:oMath xmlns:m="{M}"><m:r><m:t>ZZ9=aa</m:t></m:r></m:oMath>'))
+    b = io.BytesIO()
+    d.save(b)
+
+    c = _cliente(duas_escolas)
+    res = c.post(API + 'criar/', {**CAMPOS, 'libertacao': _futuro(), 'prova': SimpleUploadedFile('p.docx', b.getvalue()),
+                                  'variaveis_word': 'R1 = 2 a 6\nU = 6 a 24 passo 6'}, format='multipart')
+    pid = _pid(res)
+    assert c.get(API + pid + '/configurar/').json()['data']['formato'] == 'pdf'
+    base = {'marcas': '[]', 'baralhar_alternativas': 'on'}
+
+    um = c.post(API + pid + '/gerar/', {**base, 'copias': '1', 'formato': 'word'})
+    assert um.status_code == 200 and um['Content-Type'].endswith('wordprocessingml.document') and um['Content-Disposition'].endswith('.docx"')
+    doc = docx.Document(io.BytesIO(um.content))
+    xml = etree.tostring(doc.element.body).decode()
+    assert 'ZZ9=aa' in xml  # a equação do Word fica intacta
+    assert '{R1}' not in xml and 'ohm' in xml  # campos preenchidos
+    assert pid in doc.sections[0].footer.paragraphs[-1].text  # código da cópia visível no rodapé
+    assert doc.core_properties.title.startswith('LEIA PRIMEIRO')
+    assert c.get(API + pid + '/configurar/').json()['data']['formato'] == 'word'  # lembra a escolha
+
+    ambos = c.post(API + pid + '/gerar/', {**base, 'copias': '3', 'formato': 'ambos'})
+    nomes = zipfile.ZipFile(io.BytesIO(ambos.content)).namelist()
+    assert sum(n.endswith('.pdf') for n in nomes if 'copia_' in n) == 3 and sum(n.endswith('.docx') for n in nomes) == 3
+    assert any('GABARITO' in n for n in nomes)
+    so_word = c.post(API + pid + '/gerar/', {**base, 'copias': '2', 'formato': 'word'})
+    nomes = zipfile.ZipFile(io.BytesIO(so_word.content)).namelist()
+    assert len([n for n in nomes if n.endswith('.docx')]) == 2 and not [n for n in nomes if 'copia_' in n and n.endswith('.pdf')]
+    assert c.post(API + pid + '/gerar/', {**base, 'formato': 'odt'}).status_code == 400
+
+
+def test_word_so_existe_quando_a_prova_foi_carregada_em_word(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))  # PDF
+    cfg = c.get(API + pid + '/configurar/').json()['data']
+    assert cfg['tem_docx'] is False and cfg['formato'] == 'pdf'
+    r = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'formato': 'word'})
+    assert r.status_code == 400 and 'Word' in r.json()['message']
+    assert c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'formato': 'pdf'}).status_code == 200

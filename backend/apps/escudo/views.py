@@ -13,7 +13,9 @@ from apps.ferramentas.views import _autenticar_pedido
 
 from .services import catalogo, selos, tempo, variantes
 from .services.armazem import ArmazemIndisponivel
-from .services.servico import Servico, nome_seguro
+from .services.servico import FORMATOS_SAIDA, Servico, nome_seguro
+
+TIPO_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 URL_BASE_PUBLICA = "https://sigesaas.duckdns.org/ia"
 PAPEIS_GESTAO = {'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA'}
@@ -93,12 +95,17 @@ def _ler_opcoes(form, cfg_antiga=None):
         copias = int(form.get('copias') or 1)
     except ValueError:
         raise ValueError('Número de cópias inválido.') from None
-    return svc().validar_opcoes(
+    formato = (form.get('formato') or 'pdf').strip().lower()
+    if formato not in FORMATOS_SAIDA:
+        raise ValueError('Formato de saída inválido (pdf, word ou ambos).')
+    op = svc().validar_opcoes(
         marcas=json.loads(form.get('marcas') or '[]'), copias=copias, url_base=_url_base(form.get('url_base')),
         rasterizar=on('rasterizar'), aviso_visivel=on('aviso_visivel'), aviso_foto=on('aviso_foto'), aviso_ia=on('aviso_ia'),
         aviso_pergunta=on('aviso_pergunta'), qr_pergunta=on('qr_pergunta'), qr_marca_agua=on('qr_marca_agua'),
         qr_pagina=on('qr_pagina'), mensagem_ia=form.get('mensagem_ia'),
         baralhar_perguntas=on('baralhar_perguntas'), baralhar_alternativas=on('baralhar_alternativas'))
+    op['formato'] = formato
+    return op
 
 
 def _tratar(fn):
@@ -260,6 +267,7 @@ def configurar(request, pid):
             ('qr_pagina', True), ('qr_marca_agua', True), ('aviso_foto', True), ('aviso_ia', True), ('rasterizar', False),
             ('aviso_visivel', True))},
         'copias': cfg.get('copias', 1), 'marcas': cfg.get('marcas', MARCAS_INICIAIS),
+        'formato': cfg.get('formato', 'pdf') if cfg.get('docx_cifrado') else 'pdf',
         'url_base': URL_BASE_PUBLICA, 'tem_docx': bool(cfg.get('docx_cifrado')),
         'com_variantes': bool(modelo and modelo.get('variaveis')), 'perguntas': s.resumo_perguntas(pid),
         'largura_mm': round(w / selos.MM, 1), 'altura_mm': round(h / selos.MM, 1)}})
@@ -302,17 +310,27 @@ def gerar(request, pid):
         return erro
     s = svc()
     op = _ler_opcoes(request.POST)
-    base = s.preparar_base(pid, op)
+    quer_pdf, quer_word = op['formato'] in ('pdf', 'ambos'), op['formato'] in ('word', 'ambos')
+    if quer_word and not s.tem_word(p):
+        raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
+    base = s.preparar_base(pid, op) if quer_pdf else None
     nome = nome_seguro(p['titulo'])
     s.registar_geracao(pid, op)
-    if op['copias'] == 1:
-        r = HttpResponse(s.selar_copia(p, op, 1, base), content_type='application/pdf')
-        r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.pdf"'
+    if op['copias'] == 1 and not (quer_pdf and quer_word):
+        if quer_word:
+            r = HttpResponse(s.selar_word(p, op, 1), content_type=TIPO_DOCX)
+            r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.docx"'
+        else:
+            r = HttpResponse(s.selar_copia(p, op, 1, base), content_type='application/pdf')
+            r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.pdf"'
         return r
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for n in range(1, op['copias'] + 1):
-            z.writestr(f'{nome}_{pid}_copia_{n:03d}.pdf', s.selar_copia(p, op, n, base))
+            if quer_pdf:
+                z.writestr(f'{nome}_{pid}_copia_{n:03d}.pdf', s.selar_copia(p, op, n, base))
+            if quer_word:
+                z.writestr(f'{nome}_{pid}_copia_{n:03d}.docx', s.selar_word(p, op, n))
         if (p['config'] or {}).get('modelo_cifrado'):
             z.writestr(f'{nome}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
     r = HttpResponse(buf.getvalue(), content_type='application/zip')

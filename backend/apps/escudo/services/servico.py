@@ -14,7 +14,8 @@ MAX_COPIAS = 200
 MARCAS_INICIAIS = [  # o QR de cada página é automático (qr_pagina); aqui só o código de barras da primeira
     {"tipo": "barras", "paginas": "primeira", "x": 0.5, "y": 0.91, "tamanho_mm": 50},
 ]
-CHAVES_CONFIG = ("marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
+FORMATOS_SAIDA = ("pdf", "word", "ambos")
+CHAVES_CONFIG = ("formato", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
                  "qr_pergunta", "qr_marca_agua", "qr_pagina", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
 
 
@@ -329,6 +330,30 @@ class Servico:
                            mensagem_ia=op["mensagem_ia"], aviso_pergunta=op["aviso_pergunta"],
                            qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"], qr_pagina=op.get("qr_pagina", True), ancoras=base.ancoras,
                            zonas_marca_agua=base.zonas_agua)
+
+    def tem_word(self, p):
+        """O .docx original está guardado (cifrado): só então a prova pode sair também em Word."""
+        return bool((p.get("config") or {}).get("docx_cifrado"))
+
+    def selar_word(self, p, op, serial):
+        """A cópia `serial` em Word (.docx) editável: valores e ordem da cópia, avisos, QR de marca de água e código da cópia.
+
+        Parte do Word original (equações e formatação intactas): não passa pelo PDF.
+        """
+        if not self.tem_word(p):
+            raise ValueError("Para sair em Word, carrega a prova em Word (.docx).")
+        from apps.ferramentas.services import anti_ai_service as ai
+        pid, docx = p["id"], self.docx(p)
+        modelo = self.modelo(p)
+        if modelo and modelo.get("variaveis"):
+            docx = variantes_word.preencher_docx(docx, variantes.escolher_valores(modelo, pid, serial))
+        if op.get("baralhar_perguntas") or op.get("baralhar_alternativas"):
+            docx, _ = variantes_word.baralhar_docx(docx, pid, serial, op.get("baralhar_perguntas"), op.get("baralhar_alternativas"))
+        e = self.estado(p)
+        data = "a data indicada pelo professor" if e["sem_data"] else e["texto"]
+        cfg = {**ai.DEFINICOES_PADRAO, "qr_quantidade": 12, "texto_aviso": ""}
+        protegido = ai._codificar_docx(docx, data, f"{op['url_base']}/v/{pid}/{serial}", cfg)
+        return ai.carimbar_copia(protegido, ".docx", f"{pid}-{serial:03d}", p["titulo"])
 
     def resumo_perguntas(self, pid):
         """Quantas perguntas numeradas foram detetadas e em quantas cabe um QR (margem direita livre)."""

@@ -389,7 +389,12 @@
       cx('aviso_ia', 'Texto invisível para assistentes de IA', 'Lido por quem envia o PDF; não aparece numa foto.') +
       cx('rasterizar', 'Converter páginas em imagem', 'Retira o texto copiável do PDF.') +
       cx('aviso_visivel', 'Rodapé com a data de embargo') + '</section>' +
-      '<section class="cartao"><h2>Gerar</h2><label class="campo"><span>Cópias numeradas</span><input type="number" name="copias" min="1" max="200" value="' + esc(k.copias) + '"></label>' +
+      '<section class="cartao"><h2>Gerar</h2>' +
+      '<label class="campo"><span>Formato de saída</span><select name="formato"><option value="pdf"' + (k.formato === 'pdf' ? ' selected' : '') + '>PDF</option>' +
+      (k.tem_docx ? '<option value="word"' + (k.formato === 'word' ? ' selected' : '') + '>Word (.docx)</option><option value="ambos"' + (k.formato === 'ambos' ? ' selected' : '') + '>PDF e Word</option>' : '') + '</select>' +
+      (k.tem_docx ? '<small>O Word sai editável, com os avisos, o QR de marca de água e o código da cópia; o PDF sai selado, com os QR por página e por pergunta. Com as duas opções, o ZIP leva as cópias nos dois formatos.</small>'
+        : '<small>Para sair também em Word, carrega a prova em Word (.docx): esta prova só existe em PDF.</small>') + '</label>' +
+      '<label class="campo"><span>Cópias numeradas</span><input type="number" name="copias" min="1" max="200" value="' + esc(k.copias) + '"></label>' +
       '<input type="hidden" name="url_base" value="' + esc(k.url_base) + '"><p class="suave pequeno">Os códigos abrem <code>' + esc(k.url_base) + '/v/' + esc(pid) + '</code>.</p>' +
       '<button class="btn bloco" id="escudoGerar">' + ico('file') + ' Gerar e descarregar</button></section>' +
       '<section class="cartao nota"><h2>O que isto garante</h2><ul><li><strong>Garantido:</strong> a prova guardada só é libertada na data; a ligação do QR não dá nada antes.</li>' +
