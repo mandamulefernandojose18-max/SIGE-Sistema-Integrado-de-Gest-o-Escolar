@@ -106,7 +106,6 @@ def _campo(paragrafo, instrucao):
 
 def _rodape_texto(parte, libertacao, codigo):
     """«PROTEGIDA … cód. … pág. N/M» com os campos de página do Word (igual ao rodapé do PDF)."""
-    parte.is_linked_to_previous = False
     p = parte.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_before = p.paragraph_format.space_after = Pt(0)
@@ -135,49 +134,49 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         sec.header_distance = min(sec.header_distance, Pt(8))  # só aproxima o cabeçalho/rodapé do bordo; não empurra o corpo
         sec.footer_distance = min(sec.footer_distance, Pt(4))
     # camada de página: o mesmo desenho do PDF, sobre uma página em branco, convertido em PNG transparente
-    def camada(marcas_pagina):
+    def camada(marcas_pagina, completa=True):
         em_branco = fitz.open()
         em_branco.new_page(width=largura, height=altura)
         base = em_branco.tobytes()
         em_branco.close()
         pdf = selos.selar(base, marcas_pagina, url_base=url_base, pid=pid, serial=serial, libertacao=libertacao, titulo=titulo,
-                          aviso_visivel=False, aviso_ia=False, aviso_foto=aviso_foto, mensagem_ia=mensagem_ia,
-                          aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua,
-                          zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False, limite_faixa=limite if aviso_foto else None)
+                          aviso_visivel=False, aviso_ia=False, aviso_foto=aviso_foto and completa, mensagem_ia=mensagem_ia,
+                          aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua and completa,
+                          zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False,
+                          limite_faixa=limite if aviso_foto else None)
         with fitz.open(stream=pdf, filetype="pdf") as d:
             return d[0].get_pixmap(dpi=170, alpha=True).tobytes("png")
 
     todas = [m for m in marcas if m["paginas"] == "todas"]
-    primeira = [m for m in marcas if m["paginas"] in ("todas", "primeira")]
-    com_primeira = any(m["paginas"] == "primeira" for m in marcas)
+    so_primeira = [m for m in marcas if m["paginas"] == "primeira"]
     png_geral = camada(todas)
-    png_primeira = camada(primeira) if com_primeira else None
     feitos = set()
 
-    def pintar(parte, png):
+    def usar(parte, primeira_seccao):
+        """Só mexe nos cabeçalhos e rodapés que o documento define: os herdados da secção anterior já levam o mesmo,
+        e nunca se ligam/desligam definições (o conteúdo do cabeçalho e do rodapé originais fica onde estava)."""
+        if parte.is_linked_to_previous:
+            if not primeira_seccao:
+                return False
+            parte.is_linked_to_previous = False  # 1.ª secção sem definição: cria-se uma vazia (não há nada a perder)
         if id(parte._element) in feitos:
-            return
+            return False
         feitos.add(id(parte._element))
-        parte.is_linked_to_previous = False
-        _imagem_ancorada(parte.paragraphs[0], png, largura, altura, 0, 0)
+        return True
 
-    layers = bool(aviso_foto or qr_marca_agua or marcas)
-    for sec in doc.sections:
-        if com_primeira:
-            sec.different_first_page_header_footer = True
-        if layers:
-            pintar(sec.header, png_geral)
-            if sec.different_first_page_header_footer:
-                pintar(sec.first_page_header, png_primeira or png_geral)
-            if doc.settings.odd_and_even_pages_header_footer:
-                pintar(sec.even_page_header, png_geral)
-        if aviso_visivel:
-            _rodape_texto(sec.footer, libertacao, codigo)
-            if sec.different_first_page_header_footer:
-                _rodape_texto(sec.first_page_footer, libertacao, codigo)
-            if doc.settings.odd_and_even_pages_header_footer:
-                _rodape_texto(sec.even_page_footer, libertacao, codigo)
-
+    camadas = bool(aviso_foto or qr_marca_agua or todas)
+    par_cab_rod = lambda sec: [(sec.header, sec.footer)] + (
+        [(sec.first_page_header, sec.first_page_footer)] if sec.different_first_page_header_footer else []) + (
+        [(sec.even_page_header, sec.even_page_footer)] if doc.settings.odd_and_even_pages_header_footer else [])
+    for i, sec in enumerate(doc.sections):
+        for cab, rod in par_cab_rod(sec):
+            if camadas and usar(cab, i == 0):
+                _imagem_ancorada(cab.paragraphs[0], png_geral, largura, altura, 0, 0)
+            if aviso_visivel and usar(rod, i == 0):
+                _rodape_texto(rod, libertacao, codigo)
+    # marcas «só na primeira página»: ancoradas ao primeiro parágrafo do corpo, sem activar «primeira página diferente»
+    if so_primeira and doc.paragraphs:
+        _imagem_ancorada(doc.paragraphs[0], camada(so_primeira, completa=False), largura, altura, 0, 0)
     # por pergunta: etiqueta + QR na margem, ancorados ao parágrafo da pergunta, e a instrução invisível
     corpo = doc.element.body
     for p in doc.paragraphs:

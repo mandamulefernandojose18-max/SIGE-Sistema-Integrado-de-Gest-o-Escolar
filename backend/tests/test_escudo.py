@@ -399,3 +399,27 @@ def test_faixa_de_aviso_do_pdf_continua_igual_e_a_do_word_adapta_se_as_margens()
         # linhas do topo que têm o cinzento da faixa (0.93 -> 237)
         return sum(1 for y in range(pix.height // 2) if pix.pixel(2, y)[0] == 237)
     assert altura_da_faixa(None) > 32 >= altura_da_faixa((32, 40)) > 0  # PDF: faixa normal; Word: cabe nos 32 pt da margem  # Word: cabe na margem superior que a prova já tem
+
+def test_word_preserva_cabecalho_rodape_e_nao_activa_primeira_pagina_diferente():
+    import docx
+    from apps.escudo.services import word_selo
+    d = docx.Document()
+    d.sections[0].header.paragraphs[0].text = 'Cabeçalho original'
+    d.sections[0].footer.paragraphs[0].text = 'Rodapé original'
+    d.add_paragraph('1. Pergunta?')
+    d.add_section()  # 2.ª secção herda o cabeçalho e o rodapé da 1.ª
+    d.add_paragraph('2. Outra?')
+    b = io.BytesIO()
+    d.save(b)
+    marcas = [{'tipo': 'barras', 'paginas': 'primeira', 'x': 0.5, 'y': 0.91, 'tamanho_mm': 50}]  # as marcas por omissão
+    saida = word_selo.selar_docx(b.getvalue(), pid='ABCD1234', serial=1, libertacao='30/11/2026 08:00', titulo='T',
+                                 url_base='https://sigesaas.duckdns.org/ia', marcas=marcas)
+    novo = docx.Document(io.BytesIO(saida))
+    s0, s1 = novo.sections
+    assert s0.different_first_page_header_footer is False and s1.different_first_page_header_footer is False
+    assert s0.header.paragraphs[0].text == 'Cabeçalho original'
+    assert 'Rodapé original' in [p.text for p in s0.footer.paragraphs]
+    assert s1.header.is_linked_to_previous and s1.footer.is_linked_to_previous  # continuam a herdar: nada foi duplicado
+    from lxml import etree
+    primeiro = etree.tostring(novo.paragraphs[0]._p, encoding='unicode')
+    assert '<wp:anchor' in primeiro  # a marca «só na primeira página» vai no corpo, ancorada ao primeiro parágrafo
