@@ -61,7 +61,8 @@ class Armazem:
 
     def leituras(self, pid):
         return [{"serial": l.serial, "quando": tempo.para_iso(l.quando), "estado": l.estado,
-                 "aparelho": l.aparelho or None, "rede": l.rede or None}
+                 "aparelho": l.aparelho or None, "rede": l.rede or None,
+                "latitude": l.latitude, "longitude": l.longitude, "precisao_m": l.precisao_m}
                 for l in LeituraEscudo.objects.filter(prova__codigo=pid)[:100]]
 
     def eventos(self, pid):
@@ -98,6 +99,11 @@ class Armazem:
             p.save()
             EventoEscudo.objects.create(prova=p, texto=evento)
 
+    def guardar_local(self, leitura_id, pid, latitude, longitude, precisao_m):
+        """Guarda o local de uma leitura (só uma vez, só se quem leu autorizou no navegador); devolve True se guardou."""
+        return bool(LeituraEscudo.objects.filter(pk=leitura_id, prova__codigo=pid, latitude__isnull=True).update(
+            latitude=round(latitude, 5), longitude=round(longitude, 5), precisao_m=max(0, min(int(precisao_m or 0), 100000))))
+
     def apagar(self, pid):
         ProvaEscudo.objects.filter(codigo=pid).delete()
 
@@ -109,8 +115,8 @@ class Armazem:
         valido = serial is None or 1 <= serial <= p.copias
         estado = "invalida" if not valido else "libertada" if liberada else "embargo"
         impressao = hashlib.sha256(("escudo-rede:" + (rede or "")).encode()).hexdigest()[:12] if rede else ""
-        LeituraEscudo.objects.create(prova=p, serial=serial, estado=estado, aparelho=(aparelho or "")[:120], rede=impressao)
-        return {"id": pid, "titulo": p.titulo, "libertacao": tempo.para_iso(p.libertacao), "liberada": liberada,
+        leitura = LeituraEscudo.objects.create(prova=p, serial=serial, estado=estado, aparelho=(aparelho or "")[:120], rede=impressao)
+        return {"id": pid, "leitura_id": leitura.id, "estado": estado,"titulo": p.titulo, "libertacao": tempo.para_iso(p.libertacao), "liberada": liberada,
                 "valido": valido, "publicar_apos": p.publicar_apos, "tem_gabarito": bool(p.gabarito_cifrado),
                 "mensagem_ia": (p.config or {}).get("mensagem_ia")}
 

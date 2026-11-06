@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from apps.ferramentas.views import _autenticar_pedido
 
-from .services import catalogo, guiao, guiao_job, ia_sige, selos, tempo, variantes
+from .services import alertas, catalogo, guiao, guiao_job, ia_sige, selos, tempo, variantes
 from .services.armazem import ArmazemIndisponivel
 from .services.servico import FORMATOS_SAIDA, Servico, nome_seguro
 
@@ -181,7 +181,8 @@ def detalhe(request, pid):
                             'codigo_copia': f"{pid}-{l['serial']:03d}" if l['serial'] else None} for l in leituras],
         'eventos': [{**e, 'quando_texto': tempo.formatar_iso(e['quando'])} for e in s.eventos(pid)],
         'campo_data': tempo.para_campo_local(p['libertacao']), 'link': f'{URL_BASE_PUBLICA}/v/{pid}',
-        'criada_texto': tempo.formatar_iso(p['criada_em'])}})
+        'criada_texto': tempo.formatar_iso(p['criada_em']),
+        'avisos': {'ativos': bool((p['config'] or {}).get('notificar_leituras', True)), 'email_activo': alertas.email_activo()}}})
 
 
 # ----------------------------------------------------------------- escrita
@@ -263,7 +264,8 @@ def editar(request, pid):
              publicar_apos=None if publicar is None else publicar in ('on', '1', 'true'),
              pdf=ficheiro.read(s.max_bytes + 1) if ficheiro else b'',
              gabarito=gab.read(s.max_bytes + 1) if gab else b'',
-             remover_gabarito=f.get('remover_gabarito') in ('on', '1', 'true'))
+             remover_gabarito=f.get('remover_gabarito') in ('on', '1', 'true'),
+             notificar_leituras=None if f.get('notificar_leituras') is None else f.get('notificar_leituras') in ('on', '1', 'true'))
     return _json({'success': True, 'message': 'Prova actualizada. Os códigos já impressos continuam a valer.'})
 
 
@@ -511,6 +513,8 @@ def _pagina_publica(request, pid, serial=None, pergunta=None, numero_pagina=None
     except ValueError:
         mensagem = selos.mensagem_final(None, e['texto'])
     bloqueada = valido and not e['liberada']
+    if not e['liberada'] and p.get('estado') != 'libertada':
+        alertas.agendar(pid)  # avisa o dono por e-mail (se activo): aparelho e, se autorizado, o local
     if bloqueada:
         onde = (f'a questão {int(pergunta)} de uma prova de avaliação sob embargo' if pergunta else
                 f'a página {int(numero_pagina)} de uma prova de avaliação protegida' if numero_pagina else
@@ -552,12 +556,47 @@ def _pagina_publica(request, pid, serial=None, pergunta=None, numero_pagina=None
              '.ia{margin-top:18px;padding:14px;border-radius:10px;background:#fcefd9;text-align:left;font-size:.95rem}'
              'blockquote{margin:8px 0 0;font-weight:600}.btn{display:inline-block;padding:9px 16px;border-radius:8px;background:#5b0be0;color:#fff;text-decoration:none}'
              'small{color:#66707e}</style></head><body>' + oculto + f'<main>{corpo}<p><small>'
-             + (f'Cópia n.º {int(serial)} · ' if serial and valido else '') + f'Código {_esc(pid)} · Escudo Anti-IA</small></p></main></body></html>')
+             + (f'Cópia n.º {int(serial)} · ' if serial and valido else '') + f'Código {_esc(pid)} · Escudo Anti-IA</small></p>'
+             + (_aviso_local(pid, p) if not e['liberada'] else '') + '</main></body></html>')
     resp = HttpResponse(html_, content_type='text/html; charset=utf-8')
     resp['Cache-Control'] = 'no-store'
     if bloqueada:
         resp['X-Robots-Tag'] = 'noindex, nofollow, noai, noimageai'
     return resp
+
+
+_SCRIPT_LOCAL = (
+    "<script>(function(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(function(g){"
+    "fetch('/ia/v/%(pid)s/local/',{method:'POST',headers:{'Content-Type':'application/json'},"
+    "body:JSON.stringify({t:'%(token)s',lat:g.coords.latitude,lon:g.coords.longitude,acc:g.coords.accuracy})}).catch(function(){});"
+    "},function(){},{timeout:20000,maximumAge:0});})();</script>")
+
+
+def _aviso_local(pid, p):
+    """Aviso visível de que a leitura foi registada e pedido (do navegador, recusável) para partilhar o local com o professor."""
+    from django.core.signing import dumps
+    token = dumps({'l': p.get('leitura_id'), 'p': pid}, salt='escudo-local')
+    return ('<p><small>Esta leitura foi registada (hora e tipo de aparelho) e o professor responsável pode ser avisado. '
+            'O teu navegador vai perguntar se queres partilhar a localização; é opcional.</small></p>'
+            + _SCRIPT_LOCAL % {'pid': pid, 'token': token})
+
+
+@csrf_exempt
+def local_leitura(request, pid):
+    """Recebe o local autorizado pelo leitor (uma vez por leitura, token assinado e válido por 1 hora)."""
+    from django.core.signing import BadSignature, loads
+    if request.method != 'POST' or not re.fullmatch(r'[A-Z0-9]{8}', pid):
+        return HttpResponse(status=405)
+    try:
+        d = json.loads(request.body[:2000] or b'{}')
+        t = loads(d.get('t', ''), salt='escudo-local', max_age=3600)
+        lat, lon, acc = float(d['lat']), float(d['lon']), float(d.get('acc') or 0)
+    except (ValueError, KeyError, TypeError, BadSignature):
+        return HttpResponse(status=400)
+    if t.get('p') != pid or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return HttpResponse(status=400)
+    svc().arm.guardar_local(t.get('l'), pid, lat, lon, acc)
+    return HttpResponse(status=204)
 
 
 def verificar(request, pid, serial=None):

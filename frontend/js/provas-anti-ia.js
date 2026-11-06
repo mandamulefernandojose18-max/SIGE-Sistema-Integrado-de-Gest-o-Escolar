@@ -284,10 +284,10 @@
       '<span class="pilula ' + (cont.invalida ? 'perigo' : '') + '">' + plural(cont.invalida, 'código não reconhecido', 'códigos não reconhecidos') + '</span></div>';
     if (p.leituras_lista.length) {
       var rot = { embargo: 'Lida durante o embargo', libertada: 'Lida depois da libertação', invalida: 'Código não reconhecido' };
-      h += '<div class="tabela-rolar"><table><thead><tr><th>Quando (Maputo)</th><th>Cópia</th><th>Aparelho</th><th>Rede</th><th>Resultado</th></tr></thead><tbody>' +
+      h += '<div class="tabela-rolar"><table><thead><tr><th>Quando (Maputo)</th><th>Cópia</th><th>Aparelho</th><th>Rede</th><th>Local</th><th>Resultado</th></tr></thead><tbody>' +
         p.leituras_lista.map(function (l) {
           return '<tr><td>' + esc(l.quando_texto) + '</td><td>' + (l.codigo_copia ? '<span class="mono">' + esc(l.codigo_copia) + '</span>' : '<span class="suave">código geral</span>') +
-            '</td><td>' + esc(l.aparelho || '—') + '</td><td class="mono">' + esc(l.rede || '—') + '</td><td>' + esc(rot[l.estado] || l.estado) + '</td></tr>';
+            '</td><td>' + esc(l.aparelho || '—') + '</td><td class="mono">' + esc(l.rede || '—') + '</td><td>' + (l.latitude != null ? '<a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=' + l.latitude + '&mlon=' + l.longitude + '#map=17/' + l.latitude + '/' + l.longitude + '">Ver no mapa</a><small> (±' + esc(l.precisao_m || '?') + ' m)</small>' : '<span class="suave">não autorizado</span>') + '</td><td>' + esc(rot[l.estado] || l.estado) + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     } else {
       h += '<div class="vazio">' + ico('eye') + '<strong>Ainda ninguém leu os códigos</strong><span>Quando alguém ler um QR ou código de barras, aparece aqui com a cópia e a hora.</span></div>';
@@ -300,6 +300,9 @@
       '<div class="cartao"><h2>Ligação dos códigos</h2><p class="sub">É para aqui que os QR e os códigos de barras levam.</p><dl class="lista-chave">' +
       '<div><dt>Endereço</dt><dd><code>' + esc(p.link) + '</code></dd></div><div><dt>Cópias válidas</dt><dd>' + p.copias + '</dd></div>' +
       '<div><dt>Depois da data</dt><dd>' + (p.publicar_apos ? 'entrega a prova' : 'só confirma') + '</dd></div><div><dt>Gabarito</dt><dd>' + (p.tem_gabarito ? 'guardado' : 'sem gabarito') + '</dd></div></dl></div></div>' +
+      '<div class="cartao" style="margin-top:1rem"><h2>Avisos por e-mail</h2><p class="sub">Quando alguém lê o QR ou o código de barras desta prova durante a protecção (na folha, numa fotografia ou numa captura de ecrã), o SIGE avisa-te com a hora, a cópia, o aparelho e, se a pessoa autorizar no telemóvel, o local aproximado. Não detecta o acto de fotografar: só a leitura do código. Máximo de um e-mail a cada 5 minutos por prova.</p>' +
+      (p.avisos.email_activo ? '' : '<p class="aviso atencao">' + ico('alert') + '<span>O envio de e-mail ainda não está activado no servidor: o administrador tem de o configurar. Entretanto, as leituras ficam registadas no separador Leituras.</span></p>') +
+      '<form id="escudoFormAvisos"><label class="campo"><span>Receber avisos</span><select name="notificar_leituras"><option value="1"' + (p.avisos.ativos ? ' selected' : '') + '>Sim, avisar-me por e-mail</option><option value="0"' + (p.avisos.ativos ? '' : ' selected') + '>Não avisar</option></select></label><button class="btn secundario">Guardar</button></form></div>' +
       '<div class="cartao" style="margin-top:1rem"><h2>Editar prova</h2><p class="sub">Corrige o título, troca o ficheiro ou o gabarito sem criar outra prova: o código, as cópias já emitidas, as leituras e as opções de selos mantêm-se.</p>' +
       '<form id="escudoFormEditar"><label class="campo"><span>Título</span><input name="titulo" maxlength="120" value="' + esc(p.titulo) + '" required></label>' +
       '<div class="duas"><label class="campo"><span>Disciplina</span><input name="disciplina" maxlength="60" value="' + esc(p.disciplina || '') + '"></label><label class="campo"><span>Classe</span><input name="classe" maxlength="30" value="' + esc(p.classe || '') + '"></label></div>' +
@@ -339,6 +342,10 @@
     });
     $('#escudoApagarTopo').addEventListener('click', function () { $('#escudoApagar').click(); });
     $('#escudoEditarTopo').addEventListener('click', function () { abas[2].click(); $('#escudoFormEditar').scrollIntoView({ block: 'center' }); });
+    $('#escudoFormAvisos').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      try { var r = await api(pid + '/editar/', { method: 'POST', body: new FormData(ev.target) }); await ir('prova', pid); aviso('Preferência de avisos guardada.'); } catch (er) { aviso(er.message, 'atencao'); }
+    });
     $('#escudoFormEditar').addEventListener('submit', async function (ev) {
       ev.preventDefault();
       try { var r = await api(pid + '/editar/', { method: 'POST', body: new FormData(ev.target) }); await ir('prova', pid); aviso(r.message); } catch (er) { aviso(er.message, 'atencao'); }

@@ -1,4 +1,4 @@
-﻿"""Escudo Anti-IA: provas cifradas (AES-256-GCM), com embargo opcional, leituras dos códigos e cópias seladas."""
+"""Escudo Anti-IA: provas cifradas (AES-256-GCM), com embargo opcional, leituras dos códigos e cópias seladas."""
 from django.db import models
 
 
@@ -35,6 +35,10 @@ class LeituraEscudo(models.Model):
     aparelho = models.CharField(max_length=120, blank=True, default='')
     rede = models.CharField(max_length=16, blank=True, default='', help_text='Impressão (hash) da rede, nunca o IP')
     quando = models.DateTimeField(auto_now_add=True, db_index=True)
+    latitude = models.FloatField(null=True, blank=True)  # só se quem leu autorizou no navegador
+    longitude = models.FloatField(null=True, blank=True)
+    precisao_m = models.PositiveIntegerField(null=True, blank=True)
+    notificada = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = 'sige_escudo_leituras'

@@ -212,7 +212,7 @@ class Servico:
                               f"Libertação alterada de {tempo.formatar_iso(p['libertacao'])} para {tempo.formatar(libertacao)}.")
 
     def editar(self, pid, *, titulo=None, disciplina=None, classe=None, publicar_apos=None, pdf=b"", gabarito=b"",
-               remover_gabarito=False):
+               remover_gabarito=False, notificar_leituras=None):
         """Edita a prova guardada sem a carregar de novo: título, disciplina, classe, ficheiro da prova e gabarito.
 
         Trocar o ficheiro mantém o código, as cópias já emitidas, as leituras e as opções de selos; o guião é refeito.
@@ -255,7 +255,10 @@ class Servico:
             notas.append("gabarito")
         elif remover_gabarito:
             notas.append("gabarito removido")
-        if not campos and not pdf and not gabarito and not remover_gabarito:
+        if notificar_leituras is not None:
+            config['notificar_leituras'] = bool(notificar_leituras)
+            notas.append('avisos por e-mail ' + ('ligados' if notificar_leituras else 'desligados'))
+        if not campos and not pdf and not gabarito and not remover_gabarito and notificar_leituras is None:
             raise ValueError("Não há nada para alterar.")
         self.arm.atualizar(pid, campos, config, pdf or None, gabarito or None, remover_gabarito, paginas,
                            "Prova editada" + (": " + ", ".join(notas) if notas else "") + ".")

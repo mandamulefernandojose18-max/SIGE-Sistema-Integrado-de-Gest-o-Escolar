@@ -821,3 +821,55 @@ def test_so_o_super_admin_ve_provas_de_outras_escolas(duas_escolas):
         assert estranho.post(API + pid + '/' + url, {'titulo': 'x'}).status_code == 404, url
     assert estranho.get(API + 'lista/').json()['data']['resumo']['total'] == 0
     assert ProvaEscudo.objects.get(codigo=pid).titulo == p.titulo
+
+
+def test_leitura_no_embargo_pede_local_guarda_so_com_token_e_avisa_o_dono_por_email(duas_escolas, monkeypatch, settings):
+    import re
+    from django.core import mail
+    from apps.escudo.services import alertas
+    monkeypatch.setenv('EMAIL_HOST', 'smtp.exemplo.test')
+    settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+    monkeypatch.setattr(alertas, 'agendar', lambda *a, **k: None)  # o envio é testado a seguir, sem esperar
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    pag = APIClient().get(f'/ia/v/{pid}/1/q2', HTTP_USER_AGENT='Mozilla/5.0 (Linux; Android 14; SM-A546B) Chrome/120')
+    assert pag.status_code == 200
+    html = pag.content.decode()
+    assert 'navigator.geolocation' in html and 'registada' in html  # aviso visível + pedido do navegador (recusável)
+    token = re.search(r"t:'([^']+)'", html).group(1)
+    local = f'/ia/v/{pid}/local/'
+    ok = {'t': token, 'lat': -25.9653, 'lon': 32.5892, 'acc': 35}
+    assert APIClient().post(local, {**ok, 't': 'falso'}, format='json').status_code == 400   # token forjado
+    assert APIClient().post(local, {**ok, 'lat': 123}, format='json').status_code == 400     # coordenadas impossíveis
+    outra = _pid(_criar(c))
+    assert APIClient().post(f'/ia/v/{outra}/local/', ok, format='json').status_code == 400   # token de outra prova
+    assert APIClient().post(local, ok, format='json').status_code == 204
+    assert APIClient().post(local, {**ok, 'lat': 1.0}, format='json').status_code == 204      # 2.ª tentativa não altera
+    l = LeituraEscudo.objects.get(prova__codigo=pid)
+    assert round(l.latitude, 3) == -25.965 and l.precisao_m == 35
+    assert alertas.enviar_aviso(pid) == 1 and len(mail.outbox) == 1
+    corpo = mail.outbox[0].body
+    assert 'openstreetmap.org' in corpo and pid + '-001' in corpo and 'aparelho:' in corpo
+    assert not re.search(r'\b\d{1,3}(\.\d{1,3}){3}\b', corpo)  # nunca IPs
+    assert mail.outbox[0].to == [ProvaEscudo.objects.get(codigo=pid).criado_por.email]
+    APIClient().get(f'/ia/v/{pid}/1')
+    assert alertas.enviar_aviso(pid) == -1 and len(mail.outbox) == 1   # no máximo 1 e-mail por janela
+    # desligar os avisos
+    assert c.post(API + pid + '/editar/', {'notificar_leituras': '0'}).status_code == 200
+    LeituraEscudo.objects.filter(prova__codigo=pid).update(notificada=False)
+    assert alertas.enviar_aviso(pid) == 0 and len(mail.outbox) == 1
+    d = c.get(API + pid + '/').json()['data']
+    assert d['avisos'] == {'ativos': False, 'email_activo': True}
+    assert d['leituras_lista'][-1]['latitude'] is not None
+
+
+def test_sem_email_configurado_nao_avisa_e_depois_da_libertacao_nao_pede_local(duas_escolas, monkeypatch):
+    from apps.escudo.services import alertas
+    monkeypatch.delenv('EMAIL_HOST', raising=False)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    APIClient().get(f'/ia/v/{pid}/1')
+    assert alertas.email_activo() is False and alertas.enviar_aviso(pid) == 0
+    ProvaEscudo.objects.filter(codigo=pid).update(libertacao=datetime(2020, 1, 1))
+    html = APIClient().get(f'/ia/v/{pid}/1').content.decode()
+    assert 'navigator.geolocation' not in html  # sem embargo, não se pede local
