@@ -79,9 +79,10 @@ def _imagem_ancorada(paragrafo, png, largura_pt, altura_pt, x_pt, y_pt, rel_h="p
 
 def _run_oculto(paragrafo, texto, no_inicio=False):
     run = Paragraph(paragrafo, None).add_run(texto)
+    rpr = run._r.get_or_add_rPr()
+    rpr.insert(0, OxmlElement("w:vanish"))  # primeiro filho de rPr (ordem do esquema): oculto, não ocupa espaço nem se imprime
     run.font.size = Pt(1)
     run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-    run._r.get_or_add_rPr().append(OxmlElement("w:vanish"))  # não ocupa espaço nem se imprime: o layout não muda
     if no_inicio:
         paragrafo.remove(run._r)
         paragrafo.insert(1 if paragrafo.pPr is not None else 0, run._r)
