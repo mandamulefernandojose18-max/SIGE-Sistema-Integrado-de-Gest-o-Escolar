@@ -1360,3 +1360,10 @@ Todos os documentos Excel passam por embelezar_workbook() (backend/apps/document
 
 ### Excel: so a area com conteudo fica visivel (2026-11-05)
 embelezar_workbook() passa a esconder todas as linhas (zeroHeight, linhas do conteudo com altura explicita) e colunas (da primeira vazia ate XFD, sem <col> sobrepostos) fora da area abrangida pelo conteudo, em todos os documentos Excel do servidor. Verificado no Excel (UsedRange vs linhas/colunas ocultas) e em Visualizacao Protegida. Exportacoes do navegador (ExcelJS) escondem as colunas ate XFD e 1000 linhas apos o conteudo, sem grelha. Provas anti-IA (embelezar=False) nao sao alteradas. Frontend 2.6.4.
+
+### Excel: pauta de exames compacta e livro nunca "protegido"
+
+- Pauta de Exames (gerar_pauta_exames_xlsx): a palavra "Exame" aparece uma so vez por disciplina, fundida sobre as colunas 1a e 2a epoca; "Frequencia" passa a "Freq.". Colunas de notas estreitas e larguras definidas pelo conteudo (nome do aluno, resultado, disciplinas que reprovou).
+- Cabecalhos fundidos (disciplina sobre varias colunas, ex.: TIC): ajustar_larguras_cabecalho_fundido() em excel_service.py garante que a palavra mais comprida cabe, sem alargar colunas quando o nome e curto; aplicado a pauta e pauta de exames.
+- Erro "o ficheiro nao pode ser aberto / esta protegido": o openpyxl gravava um <workbookProtection/> vazio em todos os livros; guardar_xlsx_seguro() passa a remove-lo (wb.security = None).
+- Testes: backend/tests/test_xlsx_exportacoes.py (cabecalho de exames + varredura de todas as exportacoes Excel: pauta, exames, estatisticas, acta, boletim, declaracao, certificado, lote, com verificacao estrita de XML, colunas, alturas e protecao).

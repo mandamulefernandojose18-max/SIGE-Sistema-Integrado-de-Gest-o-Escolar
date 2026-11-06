@@ -119,6 +119,27 @@ def auto_ajustar_colunas(ws, padding=4):
                 max_len = max(max_len, len(val_str))
         ws.column_dimensions[col_letter].width = max(max_len + padding, 10)
 
+def ajustar_larguras_cabecalho_fundido(ws, linha_ini, linha_fim, folga=2.5):
+    """
+    Garante que cada cabeçalho fundido na horizontal (ex.: nome da disciplina sobre 4 colunas)
+    cabe na largura somada das suas colunas: a palavra mais comprida nunca é cortada e,
+    se sobrar espaço (ex.: «TIC»), as colunas não são alargadas.
+    """
+    for rg in list(ws.merged_cells.ranges):
+        if rg.min_row < linha_ini or rg.max_row > linha_fim or rg.max_col == rg.min_col:
+            continue
+        v = ws.cell(row=rg.min_row, column=rg.min_col).value
+        if not isinstance(v, str) or not v.strip():
+            continue
+        necessario = max(len(p) for p in v.replace('\n', ' ').split()) * 1.15 + folga
+        letras = [get_column_letter(i) for i in range(rg.min_col, rg.max_col + 1)]
+        atuais = [ws.column_dimensions[l].width or 8.43 for l in letras]
+        falta = necessario - sum(atuais)
+        if falta > 0:
+            for l, w in zip(letras, atuais):
+                ws.column_dimensions[l].width = w + falta / len(letras)
+
+
 def configurar_pagina_excel(ws, orientacao='portrait', fit_to_height=0):
     """Configura A4, orientação e ajuste de página para impressão sem cortes nem quebras indevidas."""
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
@@ -478,6 +499,7 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
 
     ws.column_dimensions[get_column_letter(mg_col)].width = 9.0
     ws.column_dimensions[get_column_letter(res_col)].width = 14.0
+    ajustar_larguras_cabecalho_fundido(ws, 7, 7)
 
     buffer = io.BytesIO()
     salvar_xlsx_padronizado(wb, buffer)
@@ -583,16 +605,15 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         aplicar_estilo_intervalo(ws, c_start, 4, c_end, 4, font=FONT_HEADER, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
         # Linha 5 e 6:
-        # Col c_start: Frequência
+        # Col c_start: Freq. (abreviado)
         ws.merge_cells(start_row=5, start_column=c_start, end_row=6, end_column=c_start)
-        cell_f = ws.cell(row=5, column=c_start, value="Frequência")
+        cell_f = ws.cell(row=5, column=c_start, value="Freq.")
         cell_f.font = FONT_SMALL_BOLD
         cell_f.alignment = ALIGN_CENTER
-        # Col c_start + 1: Exame 1ª época
+        # "Exame" unido nas duas colunas (1ª e 2ª época)
+        ws.merge_cells(start_row=5, start_column=c_start + 1, end_row=5, end_column=c_start + 2)
         ws.cell(row=5, column=c_start + 1, value="Exame").font = FONT_SMALL_BOLD
         ws.cell(row=6, column=c_start + 1, value="1ª").font = FONT_SMALL_BOLD
-        # Col c_start + 2: Exame 2ª época
-        ws.cell(row=5, column=c_start + 2, value="Exame").font = FONT_SMALL_BOLD
         ws.cell(row=6, column=c_start + 2, value="2ª").font = FONT_SMALL_BOLD
         # Col c_start + 3: Média
         ws.merge_cells(start_row=5, start_column=c_start + 3, end_row=6, end_column=c_end)
@@ -611,7 +632,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         ws.cell(row=4, column=curr_c).alignment = ALIGN_CENTER
         ws.cell(row=4, column=curr_c).border = THIN_BORDER
 
-        ws.cell(row=5, column=curr_c, value="Frequência").font = FONT_SMALL_BOLD
+        ws.cell(row=5, column=curr_c, value="Freq.").font = FONT_SMALL_BOLD
         ws.cell(row=6, column=curr_c, value="").font = FONT_SMALL_BOLD
         aplicar_estilo_intervalo(ws, curr_c, 5, curr_c, 6, font=FONT_SMALL_BOLD, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_CENTER)
         curr_c += 1
@@ -764,8 +785,18 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
     ws.cell(row=current_row, column=2, value="______________________________________").font = FONT_REGULAR
     ws.cell(row=current_row, column=total_cols - 3, value="______________________________________").font = FONT_REGULAR
 
-    auto_ajustar_colunas(ws, padding=2)
-    ws.column_dimensions['C'].width = 28  # Nome do Aluno
+    # Larguras em função do conteúdo (colunas de notas compactas; cabeçalhos fundidos sempre cabem)
+    max_nome = max((len(obter_nome_completo_aluno(a) or '') for a in alunos), default=25)
+    larguras_fixas = {1: 6, 2: 12, 3: max(24, min(45, max_nome + 2)), 4: 7, 5: 10}
+    for idx_c, w in larguras_fixas.items():
+        ws.column_dimensions[get_column_letter(idx_c)].width = w
+    for c_idx in range(6, c_res_start):
+        ws.column_dimensions[get_column_letter(c_idx)].width = 7.5
+    ws.column_dimensions[get_column_letter(c_res_start)].width = 13
+    ws.column_dimensions[get_column_letter(c_res_start + 1)].width = 7
+    max_rep = max((len(str((a.get('resultado_final') or {}).get('disciplinas_reprovou', '') or '')) for a in alunos), default=0)
+    ws.column_dimensions[get_column_letter(c_res_start + 2)].width = max(18, min(40, max_rep + 2))
+    ajustar_larguras_cabecalho_fundido(ws, 4, 6)
 
     buffer = io.BytesIO()
     salvar_xlsx_padronizado(wb, buffer)

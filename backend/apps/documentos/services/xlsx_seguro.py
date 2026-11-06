@@ -299,6 +299,8 @@ def guardar_xlsx_seguro(wb, destino=None, embelezar=True):
     ``embelezar=False`` preserva a folha como está (ficheiros de terceiros, p. ex. provas).
     """
     sanear_workbook(wb)
+    # O openpyxl grava um <workbookProtection/> vazio; o Excel pode tratá-lo como livro protegido.
+    wb.security = None
     if embelezar:
         embelezar_workbook(wb)
     tmp = io.BytesIO()
