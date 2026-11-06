@@ -314,6 +314,8 @@ def gerar(request, pid):
     if quer_word and not s.tem_word(p):
         raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
     base = s.preparar_base(pid, op) if quer_pdf else None
+    if quer_word and op['qr_marca_agua']:
+        op['zona_word'] = s.zona_word(p, op)  # uma só medição para todas as cópias em Word
     nome = nome_seguro(p['titulo'])
     s.registar_geracao(pid, op)
     if op['copias'] == 1 and not (quer_pdf and quer_word):

@@ -122,6 +122,19 @@ def _rodape_texto(parte, libertacao, codigo):
     _campo(p, "NUMPAGES")
 
 
+def so_margens(dados):
+    """O Word só com as margens alargadas (sem camadas): serve para medir onde a página fica livre para o QR de fundo."""
+    doc = Document(io.BytesIO(dados))
+    for sec in doc.sections:
+        sec.top_margin = max(sec.top_margin, Pt(MARGEM_TOPO_PT))
+        sec.bottom_margin = max(sec.bottom_margin, Pt(MARGEM_BASE_PT))
+        sec.header_distance = Pt(8)
+        sec.footer_distance = Pt(4)
+    saida = io.BytesIO()
+    doc.save(saida)
+    return saida.getvalue()
+
+
 def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona_agua=None, aviso_foto=True, aviso_ia=True,
                aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
@@ -193,8 +206,8 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         n = int(m.group(1))
         if aviso_pergunta:
             _run_oculto(p._p, selos.texto_pergunta(n, mensagem))
-            etiqueta = _png(24, 16, lambda c: _desenhar_etiqueta(c))
-            _imagem_ancorada(p, etiqueta, 24, 16, 16, 0, rel_h="page", rel_v="paragraph", atras=False)
+            etiqueta = _png(36, 16, lambda c: _desenhar_etiqueta(c))
+            _imagem_ancorada(p, etiqueta, 36, 16, 12, 0, rel_h="page", rel_v="paragraph", atras=False)
         if qr_pergunta:
             lado = selos.TAM_QR_PERGUNTA
             qr = _png(lado, lado, lambda c: selos._desenhar_qr(c, fitz.Rect(0, 0, lado, lado), lado, f"{url_base}/v/{pid}/{serial}/q{n}"))

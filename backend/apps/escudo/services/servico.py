@@ -335,6 +335,25 @@ class Servico:
         """O .docx original está guardado (cifrado): só então a prova pode sair também em Word."""
         return bool((p.get("config") or {}).get("docx_cifrado"))
 
+    def docx_da_copia(self, p, op, serial):
+        """O .docx da cópia (valores e ordem), ainda sem protecção."""
+        pid, docx = p["id"], self.docx(p)
+        modelo = self.modelo(p)
+        if modelo and modelo.get("variaveis"):
+            docx = variantes_word.preencher_docx(docx, variantes.escolher_valores(modelo, pid, serial))
+        if op.get("baralhar_perguntas") or op.get("baralhar_alternativas"):
+            docx, _ = variantes_word.baralhar_docx(docx, pid, serial, op.get("baralhar_perguntas"), op.get("baralhar_alternativas"))
+        return docx
+
+    def zona_word(self, p, op):
+        """Onde cabe o QR de fundo no Word: mede-se a cópia 1 já com as margens das faixas (uma conversão por geração)."""
+        from . import word_selo
+        try:
+            pdf = conversao.docx_para_pdf(word_selo.so_margens(self.docx_da_copia(p, op, 1)))
+            zonas = selos.espaco_marca_agua(pdf)
+            return zonas[0] if zonas else None
+        except Exception:
+            return None
     def selar_word(self, p, op, serial):
         """A cópia `serial` em Word (.docx) editável: valores e ordem da cópia, avisos, QR de marca de água e código da cópia.
 
@@ -342,19 +361,12 @@ class Servico:
         """
         if not self.tem_word(p):
             raise ValueError("Para sair em Word, carrega a prova em Word (.docx).")
-        pid, docx = p["id"], self.docx(p)
-        modelo = self.modelo(p)
-        if modelo and modelo.get("variaveis"):
-            docx = variantes_word.preencher_docx(docx, variantes.escolher_valores(modelo, pid, serial))
-        if op.get("baralhar_perguntas") or op.get("baralhar_alternativas"):
-            docx, _ = variantes_word.baralhar_docx(docx, pid, serial, op.get("baralhar_perguntas"), op.get("baralhar_alternativas"))
+        pid = p["id"]
+        docx = self.docx_da_copia(p, op, serial)
         from . import word_selo
-        zona = None
-        try:
-            zonas = selos.espaco_marca_agua(self.abrir(pid))
-            zona = zonas[0] if zonas else None
-        except Exception:
-            zona = None
+        zona = op.get("zona_word")
+        if zona is None and "zona_word" not in op and op.get("qr_marca_agua"):
+            zona = self.zona_word(p, op)
         return word_selo.selar_docx(
             docx, pid=pid, serial=serial, libertacao=self.estado(p)["texto"], titulo=p["titulo"], url_base=op["url_base"],
             marcas=op["marcas"], zona_agua=zona, aviso_foto=op["aviso_foto"], aviso_ia=op["aviso_ia"],
