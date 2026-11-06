@@ -56,7 +56,7 @@ def _guardar(codigo, mudancas=None, guiao_dados=None):
 def iniciar(codigo):
     """Põe a geração em marcha. Devolve (estado, mensagem de erro ou None)."""
     if not ia_sige.disponivel():
-        return None, "A IA do SIGE ainda não está activada neste servidor (falta a chave ANTHROPIC_API_KEY)."
+        return None, "A IA do SIGE ainda não está activada neste servidor (falta a chave da IA)."
     p = ProvaEscudo.objects.defer("pdf_cifrado", "gabarito_cifrado").get(codigo=codigo)
     atual = estado(p.config)
     if atual["estado"] == "gerando":

@@ -391,7 +391,8 @@ def _dados_guiao(p):
     if g['pronto']:
         questoes = guiao_job.resumo_questoes(guiao_job.dados(p['id'], p['config']) or {})
     uso = g.get('uso') or {}
-    return {'disponivel': ia_sige.disponivel(), 'estado': g['estado'], 'mensagem': g.get('mensagem', ''), 'pronto': g['pronto'],
+    return {'disponivel': ia_sige.disponivel(), 'gratuito': ia_sige.gratuito(), 'provedor': ia_sige.provedor() or '', 'aviso_privacidade': ia_sige.aviso_privacidade(),
+            'estado': g['estado'], 'mensagem': g.get('mensagem', ''), 'pronto': g['pronto'],
             'inicio': g.get('inicio'), 'fim': g.get('fim'), 'revisto': bool(g.get('revisto')), 'modelo': g.get('modelo') or ia_sige.modelo(),
             'custo_usd': uso.get('custo_usd'), 'geracoes_24h': g['geracoes_24h'], 'limite_24h': g['limite_24h'],
             'questoes': questoes}

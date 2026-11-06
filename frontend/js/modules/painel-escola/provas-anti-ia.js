@@ -527,11 +527,11 @@
       guiaoCaixa.hidden = false;
       var h = '';
       if (!g.disponivel) {
-        h = '<p class="aviso atencao">' + ico('alert') + '<span>A IA do SIGE ainda não está activada neste servidor. O administrador tem de configurar a chave da IA. Enquanto isso, escolhe «Sem Guião».</span></p>';
+        h = '<p class="aviso atencao">' + ico('alert') + '<span>A IA do SIGE ainda não está activada neste servidor. O administrador pode activá-la sem custo com uma chave gratuita do Google Gemini (script <code>definir-chave-ia.ps1</code>). Enquanto isso, escolhe «Sem Guião».</span></p>';
       } else if (g.estado === 'gerando') {
         h = '<p class="aviso">' + ico('clock') + '<span><strong>A IA está a resolver a prova…</strong> Pode demorar alguns minutos (provas longas, até uns 10). Podes esperar aqui: o estado actualiza-se sozinho.</span></p>';
       } else if (g.pronto) {
-        h = '<p class="aviso">' + ico('check') + '<span><strong>Guião pronto</strong> · ' + plural(g.questoes.length, 'questão', 'questões') + (g.custo_usd != null ? ' · custo aproximado ' + fmtUsd(g.custo_usd) : '') +
+        h = '<p class="aviso">' + ico('check') + '<span><strong>Guião pronto</strong> · ' + plural(g.questoes.length, 'questão', 'questões') + (g.gratuito ? ' · gratuito' : g.custo_usd != null ? ' · custo aproximado ' + fmtUsd(g.custo_usd) : '') +
           (g.revisto ? ' · revisto por ti' : '') + '. <strong>Confere-o antes de usar: foi escrito por IA e pode errar.</strong></span></p>' +
           '<div class="tabela-rolar"><table><thead><tr><th>Q.</th><th>Opção</th><th>Resposta</th><th>Confiança</th></tr></thead><tbody>' +
           g.questoes.map(function (q) {
@@ -546,8 +546,9 @@
           '<p class="suave pequeno">Gerações hoje: ' + g.geracoes_24h + ' de ' + g.limite_24h + '. Se mudares a opção correcta de uma questão, o Guião passa a usá-la.</p>';
       } else {
         h = (g.estado === 'erro' ? '<p class="aviso atencao">' + ico('alert') + '<span>' + esc(g.mensagem || 'Não foi possível gerar o Guião.') + '</span></p>' : '') +
-          '<p class="suave pequeno">A IA do SIGE lê a prova e escreve a resolução completa (' + esc(g.modelo) + '). Demora alguns minutos e tem um custo aproximado de <strong>US$ 0,20 a 0,60</strong> por prova. ' +
-          'O texto da prova é enviado à IA só quando carregares em «Gerar Guião».</p>' +
+          '<p class="suave pequeno">A IA do SIGE lê a prova e escreve a resolução completa (' + esc(g.modelo) + '). Demora alguns minutos. ' +
+          (g.gratuito ? '<strong>Serviço gratuito: sem custo.</strong> ' : 'Custo aproximado de <strong>US$ 0,20 a 0,60</strong> por prova. ') +
+          esc(g.aviso_privacidade || '') + ' A prova só é enviada quando carregares em «Gerar Guião».</p>' +
           '<button type="button" class="btn bloco" data-guiao-gerar>' + ico('shield') + ' Gerar Guião com a IA</button>';
       }
       guiaoCaixa.innerHTML = h;

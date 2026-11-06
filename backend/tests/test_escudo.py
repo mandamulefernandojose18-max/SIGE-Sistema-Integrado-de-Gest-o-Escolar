@@ -505,7 +505,7 @@ def test_guiao_sem_chave_da_ia_diz_porque_nao_gera(duas_escolas, monkeypatch):
     e = c.get(API + pid + '/guiao/').json()['data']
     assert e['disponivel'] is False and e['estado'] == 'nenhum' and e['pronto'] is False
     r = c.post(API + pid + '/guiao/gerar/')
-    assert r.status_code == 503 and 'ANTHROPIC_API_KEY' in r.json()['message']
+    assert r.status_code == 503 and 'chave da IA' in r.json()['message']
 
 
 def test_guiao_fluxo_completo_gerar_rever_corrigir_e_sair_nos_dois_formatos(duas_escolas, ia_falsa, conversor_falso):
@@ -517,7 +517,7 @@ def test_guiao_fluxo_completo_gerar_rever_corrigir_e_sair_nos_dois_formatos(duas
     r = c.post(API + pid + '/guiao/gerar/')
     assert r.status_code == 202, r.content
     e = c.get(API + pid + '/guiao/').json()['data']
-    assert e['estado'] == 'pronto' and e['pronto'] and e['custo_usd'] == 0.192 and e['modelo'] == 'claude-opus-5-5'
+    assert e['estado'] == 'pronto' and e['pronto'] and e['custo_usd'] == 0.192 and e['modelo']
     assert [q['numero'] for q in e['questoes']] == ['1', '2'] and e['questoes'][0]['opcao_correcta'] == 'B'
     assert e['questoes'][1]['confianca'] == 'baixa' and e['geracoes_24h'] == 1
     assert ia_falsa and ia_falsa[0][0] == b'%PDF-'  # a IA recebe o PDF da prova
@@ -583,3 +583,137 @@ def test_equacao_que_continua_a_anterior_leva_marca_para_nao_aparecer_um_placeho
     from apps.escudo.services.latex_omml import latex_para_omml
     assert '\u200b' in latex_para_omml(r'=(2^{3}+2)-(0^{3}+0)=10')  # sem isto o LibreOffice desenha «¿» à esquerda do «=»
     assert '\u200b' not in latex_para_omml(r'x=\frac{1}{2}')
+
+# ----------------------------------------------------------------- IA do SIGE: fornecedores (gratuitos e pagos)
+def _limpar_chaves(monkeypatch):
+    for v in ('GEMINI_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'SIGE_IA_CHAVE', 'SIGE_IA_URL', 'ANTHROPIC_API_KEY',
+              'ANTHROPIC_AUTH_TOKEN', 'SIGE_IA_PROVEDOR', 'SIGE_IA_MODELO'):
+        monkeypatch.delenv(v, raising=False)
+
+
+def test_ia_escolhe_o_fornecedor_gratuito_antes_do_pago(monkeypatch):
+    from apps.escudo.services import ia_sige
+    _limpar_chaves(monkeypatch)
+    assert ia_sige.provedor() is None and not ia_sige.disponivel() and not ia_sige.gratuito()
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx')
+    assert ia_sige.provedor() == 'anthropic' and not ia_sige.gratuito() and ia_sige.modelo() == 'claude-opus-5-5'
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk_x')
+    assert ia_sige.provedor() == 'groq' and ia_sige.gratuito()  # nunca gasta dinheiro se houver um serviço gratuito
+    monkeypatch.setenv('GEMINI_API_KEY', 'AIzaxxxxxxxx')
+    assert ia_sige.provedor() == 'gemini' and ia_sige.gratuito() and 'Google' in ia_sige.aviso_privacidade()
+    monkeypatch.setenv('SIGE_IA_PROVEDOR', 'anthropic')
+    assert ia_sige.provedor() == 'anthropic'  # a escolha explícita do administrador manda
+    monkeypatch.setenv('SIGE_IA_PROVEDOR', 'groq')
+    monkeypatch.setenv('SIGE_IA_MODELO', 'outro-modelo')
+    assert ia_sige.provedor() == 'groq' and ia_sige.modelo() == 'outro-modelo'
+    assert ia_sige.custo_estimado(1000, 1000) == 0.0
+    _limpar_chaves(monkeypatch)
+    monkeypatch.setenv('SIGE_IA_CHAVE', 'k')
+    assert ia_sige.provedor() is None  # serviço genérico precisa também de SIGE_IA_URL
+    monkeypatch.setenv('SIGE_IA_URL', 'http://localhost:11434/v1')
+    assert ia_sige.provedor() == 'openai'
+
+
+def test_ia_extrai_json_de_respostas_sujas_e_completa_campos():
+    from apps.escudo.services import ia_sige
+    assert ia_sige._extrair_json('```json\n{"questoes": []}\n```') == {'questoes': []}
+    assert ia_sige._extrair_json('Aqui está: {"questoes": [{"numero": 1}]} fim') == {'questoes': [{'numero': 1}]}
+    with pytest.raises(ia_sige.IAIndisponivel):
+        ia_sige._extrair_json('sem json nenhum')
+    norm = ia_sige._normalizar({'questoes': [{'numero': 1, 'passos': [{'descricao': 'a'}], 'opcao_correcta': 'b', 'tipo': 'xpto'}]})
+    q = norm['questoes'][0]
+    assert q['numero'] == '1' and q['opcao_correcta'] == 'B' and q['tipo'] == 'aberta' and q['confianca'] == 'media'
+    assert q['passos'] == [{'descricao': 'a', 'equacao': ''}] and q['resposta_final'] == ''
+    with pytest.raises(ia_sige.IAIndisponivel):
+        ia_sige._normalizar({'questoes': []})
+
+
+class _RespostaHttp:
+    def __init__(self, corpo):
+        self._corpo = json.dumps(corpo).encode()
+
+    def read(self):
+        return self._corpo
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _pdf_de_paginas(n):
+    from reportlab.pdfgen import canvas
+    b = io.BytesIO()
+    c = canvas.Canvas(b)
+    for i in range(n):
+        c.drawString(72, 700, f'{i + 1}. Pergunta numero {i + 1}?')
+        c.showPage()
+    c.save()
+    return b.getvalue()
+
+
+def test_ia_gratuita_envia_paginas_como_imagens_em_lotes_e_junta_as_questoes(monkeypatch):
+    import urllib.request
+    from apps.escudo.services import ia_sige
+    _limpar_chaves(monkeypatch)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk_teste')  # o Groq recebe 2 páginas por pedido
+    pedidos = []
+
+    def falso(req, timeout=None):
+        corpo = json.loads(req.data.decode())
+        pedidos.append((req.full_url, req.headers.get('Authorization'), corpo))
+        imagens = [p for m in corpo['messages'] for p in (m['content'] if isinstance(m['content'], list) else []) if p['type'] == 'image_url']
+        n = len(pedidos)
+        qs = [{'numero': str(n), 'enunciado': 'E', 'tipo': 'calculo', 'passos': [{'descricao': 'p', 'equacao': 'x=1'}],
+               'resposta_final': '1', 'opcao_correcta': '', 'texto_opcao_correcta': '', 'justificacao_opcao': '', 'confianca': 'alta', 'observacao': ''}]
+        if n == 2:
+            qs.append({**qs[0], 'numero': '1'})  # repetida: só entra uma vez
+        return _RespostaHttp({'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps({'questoes': qs, 'observacoes_gerais': f'o{n}'})}}],
+                              'usage': {'prompt_tokens': 100 * len(imagens), 'completion_tokens': 50}})
+    monkeypatch.setattr(urllib.request, 'urlopen', falso)
+    r = ia_sige.resolver_prova(_pdf_de_paginas(3), 'Teste', 'Matemática', '11.ª Classe')
+    assert len(pedidos) == 2  # 3 páginas, 2 por pedido
+    assert pedidos[0][0] == 'https://api.groq.com/openai/v1/chat/completions' and pedidos[0][1] == 'Bearer gsk_teste'
+    msg = pedidos[0][2]['messages']
+    assert msg[0]['role'] == 'system' and 'GUIÃO' in msg[0]['content'] and 'JSON' in msg[0]['content']
+    imgs = [p for p in msg[1]['content'] if p['type'] == 'image_url']
+    assert len(imgs) == 2 and imgs[0]['image_url']['url'].startswith('data:image/png;base64,')
+    assert [q['numero'] for q in r['dados']['questoes']] == ['1', '2']  # sem duplicados
+    assert r['uso']['gratuito'] is True and r['uso']['custo_usd'] == 0.0 and r['uso']['provedor'] == 'groq'
+    assert r['uso']['entrada'] == 300 and r['dados']['observacoes_gerais'] == 'o1 o2'
+
+
+def test_ia_gratuita_espera_e_repete_no_limite_e_explica_os_erros(monkeypatch):
+    import urllib.error
+    import urllib.request
+    from apps.escudo.services import ia_sige
+    _limpar_chaves(monkeypatch)
+    monkeypatch.setenv('GEMINI_API_KEY', 'AIzaTeste')
+    monkeypatch.setattr(ia_sige.time, 'sleep', lambda s: None)
+    estados = iter([429, 200])
+    quest = {'questoes': [{'numero': '1', 'enunciado': 'E', 'tipo': 'aberta', 'passos': [], 'resposta_final': '', 'opcao_correcta': '',
+                           'texto_opcao_correcta': '', 'justificacao_opcao': '', 'confianca': 'alta', 'observacao': ''}], 'observacoes_gerais': ''}
+
+    def com_limite(req, timeout=None):
+        if next(estados) == 429:
+            raise urllib.error.HTTPError(req.full_url, 429, 'too many', {}, io.BytesIO(b'{}'))
+        return _RespostaHttp({'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(quest)}}]})
+    monkeypatch.setattr(urllib.request, 'urlopen', com_limite)
+    r = ia_sige.resolver_prova(_pdf_de_paginas(1))
+    assert len(r['dados']['questoes']) == 1 and r['uso']['provedor'] == 'gemini'  # esperou e repetiu
+
+    def recusada(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 401, 'no', {}, io.BytesIO(b'{}'))
+    monkeypatch.setattr(urllib.request, 'urlopen', recusada)
+    with pytest.raises(ia_sige.IAIndisponivel, match='chave da IA foi recusada'):
+        ia_sige.resolver_prova(_pdf_de_paginas(1))
+
+    def cortada(req, timeout=None):
+        return _RespostaHttp({'choices': [{'finish_reason': 'length', 'message': {'content': '{'}}]})
+    monkeypatch.setattr(urllib.request, 'urlopen', cortada)
+    with pytest.raises(ia_sige.IAIndisponivel, match='cortada'):
+        ia_sige.resolver_prova(_pdf_de_paginas(1))
+    monkeypatch.delenv('GEMINI_API_KEY')
+    with pytest.raises(ia_sige.IAIndisponivel, match='activada'):
+        ia_sige.resolver_prova(_pdf_de_paginas(1))
