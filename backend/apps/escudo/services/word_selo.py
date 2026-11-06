@@ -124,8 +124,73 @@ def _rodape_texto(parte, libertacao, codigo):
     _campo(p, "NUMPAGES")
 
 
+def _norm(texto):
+    return re.sub(r"\W+", "", (texto or "").lower())
+
+
+def _primeiros_por_pagina(doc, paginas_texto):
+    """Para cada página do PDF medido, o primeiro parágrafo do corpo que começa nela (None se não se achar)."""
+    textos = [_norm(t) for t in paginas_texto]
+    achados = [None] * len(textos)
+    atual = 0
+    for p in doc.paragraphs:
+        chave = _norm("".join(t.text or "" for t in p._p.iter(qn("w:t"))))[:20]
+        if len(chave) < 8:
+            continue
+        for j in range(atual, min(atual + 2, len(textos))):
+            if chave in textos[j]:
+                if achados[j] is None:
+                    achados[j] = p
+                atual = j
+                break
+    if textos and achados[0] is None and doc.paragraphs:
+        achados[0] = doc.paragraphs[0]
+    return achados
+
+
+def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base):
+    """[(parágrafo, [(png, largura, altura, x, y), …]), …]: as marcas de cada página e o QR lateral, nas mesmas posições do PDF.
+
+    Mede-se o PDF da cópia 1 (mesma paginação do Word): o QR lateral escolhe o espaço livre de cada página e cada marca
+    («primeira», «última», n.º, todas) fica ancorada ao primeiro parágrafo que começa na página certa.
+    """
+    with fitz.open(stream=pdf_layout, filetype="pdf") as layout:
+        n = layout.page_count
+        achados = _primeiros_por_pagina(doc, [pg.get_text() for pg in layout])
+        ancoras = selos.detectar_perguntas(pdf_layout)
+        resultado, usadas = [], set()
+        for i, pagina in enumerate(layout):
+            W, H = pagina.rect.width, pagina.rect.height
+            itens = []
+            doces = [m for m in marcas if selos._marca_na_pagina(m, i, n)]
+            if doces:
+                def desenhar(c, doces=doces, W=W, H=H, i=i):
+                    for m in doces:
+                        rect = selos.geometria(m, W, H)
+                        if m["tipo"] == "qr":
+                            selos._desenhar_qr(c, rect, H, f"{url_base.rstrip('/')}/v/{pid}/{serial}/p{i + 1}")
+                        else:
+                            selos._desenhar_barras(c, rect, H, selos.codigo_barras(pid, serial), m["tamanho_mm"])
+                itens.append((_png(W, H, desenhar, dpi=170), W, H, 0, 0))
+            if selos.contar_qr_pagina(qr_pagina):
+                ocupados = selos._retangulos_ocupados(pagina)
+                for a in (ancoras[i] if i < len(ancoras) else []):
+                    if a.get("qr"):
+                        ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
+                ocupados += [selos.geometria(m, W, H) + (-4, -4, 4, 4) for m in doces]
+                for rect in selos.posicoes_qr_pagina(pagina, ocupados, pid, serial, i, selos.contar_qr_pagina(qr_pagina), usadas):
+                    lado = rect.width
+                    png = _png(lado, lado, lambda c, lado=lado, i=i: selos._desenhar_qr(
+                        c, fitz.Rect(0, 0, lado, lado), lado, f"{url_base.rstrip('/')}/v/{pid}/{serial}/p{i + 1}"))
+                    itens.append((png, lado, lado, rect.x0, rect.y0))
+            if itens and achados[i] is not None:
+                resultado.append((achados[i], itens))
+    return resultado
+
+
 def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona_agua=None, aviso_foto=True, aviso_ia=True,
-               aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None):
+               aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None,
+               qr_pagina=True, pdf_layout=None):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
     doc = Document(io.BytesIO(dados))
     codigo = selos.codigo_barras(pid, serial)
@@ -152,8 +217,13 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         with fitz.open(stream=pdf, filetype="pdf") as d:
             return d[0].get_pixmap(dpi=170, alpha=True).tobytes("png")
 
-    todas = [m for m in marcas if m["paginas"] == "todas"]
-    so_primeira = [m for m in marcas if m["paginas"] == "primeira"]
+    # com a paginação real (PDF medido da cópia 1), as marcas e o QR lateral vão página a página, à frente do texto
+    por_pagina = _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base) if pdf_layout else None
+    if por_pagina:
+        todas, so_primeira = [], []
+    else:
+        todas = [m for m in marcas if m["paginas"] == "todas"]
+        so_primeira = [m for m in marcas if m["paginas"] == "primeira"]
     png_geral = camada(todas)
     feitos = set()
 
@@ -182,6 +252,9 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     # marcas «só na primeira página»: ancoradas ao primeiro parágrafo do corpo, sem activar «primeira página diferente»
     if so_primeira and doc.paragraphs:
         _imagem_ancorada(doc.paragraphs[0], camada(so_primeira, completa=False), largura, altura, 0, 0)
+    for paragrafo, itens in (por_pagina or []):
+        for png, w, h, x, y in itens:
+            _imagem_ancorada(paragrafo, png, w, h, x, y, atras=False)
     # por pergunta: etiqueta + QR na margem, ancorados ao parágrafo da pergunta, e a instrução invisível
     corpo = doc.element.body
     for p in doc.paragraphs:

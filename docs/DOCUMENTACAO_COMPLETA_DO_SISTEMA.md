@@ -1394,3 +1394,7 @@ Testes: backend/tests/test_xlsx_exportacoes.py.
 ### Excel: larguras de todas as tabelas ao conteudo
 
 ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook antes de garantir_palavras_inteiras): cada coluna de tabela tem a largura do seu conteudo real (dados pelo texto inteiro, cabecalhos pela palavra mais comprida), encolhendo o que sobrava e alargando o que faltava (min. 5,5; max. 60). Vale para todos os documentos Excel. Teste: test_larguras_seguem_o_conteudo_real.
+
+
+**Word igual ao PDF (v2.8.2).** O Word leva agora os mesmos selos do PDF: o código de barras e os QR escolhidos em «Selos» (primeira, última, n.º de página ou todas) e o QR lateral de cada página, ancorados página a página à frente do texto, usando a paginação real da cópia 1 (medida com o LibreOffice), sem alterar margens nem paginação. Em «Selos e cópias» escolhe-se **quantos QR laterais por página** (0 a 6, predefinido 1); cada QR leva o endereço da página e vai para um espaço livre diferente, no PDF e no Word.
+

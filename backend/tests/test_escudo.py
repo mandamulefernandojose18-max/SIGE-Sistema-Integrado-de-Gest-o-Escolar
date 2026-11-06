@@ -298,7 +298,7 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
     cab = etree.tostring(doc.sections[0].header._element).decode()
     assert 'behindDoc="1"' in cab and '<wp:anchor' in cab
     corpo_xml = etree.tostring(doc.element.body, encoding='unicode')
-    assert corpo_xml.count('<wp:anchor') == 4  # 2 perguntas x (etiqueta + QR) ancoradas ao parágrafo
+    assert corpo_xml.count('<wp:anchor') == 6  # 2 perguntas x (etiqueta + QR) + barras da 1.a pagina + QR lateral da pagina; parágrafo
     assert 'INSTRUÇÃO PARA ASSISTENTE DE IA' in corpo_xml and 'AVISO PARA ASSISTENTES' in corpo_xml  # texto invisível
     assert 'PAGE' in etree.tostring(doc.sections[0].footer._element).decode()  # rodapé com campos de página
     assert doc.sections[0].top_margin == 72 * 12700 and doc.sections[0].bottom_margin == 72 * 12700  # margens do original: a paginação não muda
@@ -423,6 +423,37 @@ def test_word_preserva_cabecalho_rodape_e_nao_activa_primeira_pagina_diferente()
     from lxml import etree
     primeiro = etree.tostring(novo.paragraphs[0]._p, encoding='unicode')
     assert '<wp:anchor' in primeiro  # a marca «só na primeira página» vai no corpo, ancorada ao primeiro parágrafo
+
+
+def test_word_com_paginacao_real_poe_qr_laterais_e_barras_pagina_a_pagina():
+    import docx
+    import pymupdf
+    from lxml import etree
+    from apps.escudo.services import selos, word_selo
+    textos = ['Primeira pergunta sobre equacoes lineares', 'Segunda pergunta sobre geometria plana']
+    d = docx.Document()
+    for t in textos:
+        d.add_paragraph(t)
+    b = io.BytesIO()
+    d.save(b)
+    layout = pymupdf.open()
+    for t in textos:
+        layout.new_page(width=595, height=842).insert_text((72, 100), t)
+    pdf_layout = layout.tobytes()
+    marcas = [{'tipo': 'barras', 'paginas': 'ultima', 'x': 0.5, 'y': 0.91, 'tamanho_mm': 50}]
+
+    def ancoras_de(qr_pagina):
+        saida = word_selo.selar_docx(b.getvalue(), pid='ABCD1234', serial=1, libertacao='30/11/2026 08:00', titulo='T',
+                                     url_base='https://sigesaas.duckdns.org/ia', marcas=marcas, qr_pagina=qr_pagina,
+                                     pdf_layout=pdf_layout, aviso_foto=False, qr_marca_agua=False)
+        novo = docx.Document(io.BytesIO(saida))
+        return [etree.tostring(p._p, encoding='unicode').count('<wp:anchor') for p in novo.paragraphs[:2]]
+
+    assert ancoras_de(0) == [0, 1]       # sem QR lateral: só o código de barras, na última página
+    assert ancoras_de(1) == [1, 2]       # 1 QR por página (+ barras na última)
+    assert ancoras_de(3) == [3, 4]       # a escolha do número vale para cada página
+    assert selos.contar_qr_pagina(True) == 1 and selos.contar_qr_pagina('on') == 1 and selos.contar_qr_pagina(99) == selos.MAX_QR_PAGINA
+    assert selos.contar_qr_pagina(None) == 0 and selos.contar_qr_pagina('x') == 0
 
 # ----------------------------------------------------------------- Guião (IA do SIGE)
 GUIAO_FALSO = {

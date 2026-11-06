@@ -459,6 +459,35 @@ def _instrucoes_pergunta(c, largura, altura, ancoras, mensagem):
 
 
 LADO_QR_PAGINA_MM = 20
+MAX_QR_PAGINA = 6
+
+
+def contar_qr_pagina(valor):
+    """Quantos QR laterais por página: True/«on» = 1 (comportamento antigo), False/vazio = 0, número limitado a 0…6."""
+    if valor is None or valor is False:
+        return 0
+    if valor is True:
+        return 1
+    texto = str(valor).strip().lower()
+    if texto in ("on", "true"):
+        return 1
+    try:
+        return max(0, min(MAX_QR_PAGINA, int(texto)))
+    except ValueError:
+        return 0
+
+
+def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas):
+    """Até `quantos` rectângulos para os QR desta página, sem se tocarem nem tocarem no conteúdo (menos se não houver espaço)."""
+    ocupados, rects = list(ocupados), []
+    for k in range(quantos):
+        rect = posicao_qr_pagina(pagina, ocupados, pid, serial, indice + 1000 * k, usadas)
+        if not rect:
+            break
+        usadas.add(tuple(rect))
+        ocupados.append(rect + (-4, -4, 4, 4))
+        rects.append(rect)
+    return rects
 
 
 def posicao_qr_pagina(pagina, ocupados, pid, serial, indice, usadas=()):
@@ -522,15 +551,13 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
             for a in ancoras[i]:
                 if a.get("qr") and a["qr"][1] >= 48 and a["qr"][3] <= H - 16:  # fora da faixa do topo e do rodapé
                     _desenhar_qr(c, fitz.Rect(a["qr"]), H, f"{url_base.rstrip('/')}/v/{pid}/{serial}/q{a['n']}")
-        if qr_pagina:
+        if contar_qr_pagina(qr_pagina):
             ocupados = _retangulos_ocupados(pagina)
             for a in (ancoras[i] if qr_pergunta and ancoras and i < len(ancoras) else []):
                 if a.get("qr"):
                     ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
             ocupados += [geometria(m, W, H) + (-4, -4, 4, 4) for m in marcas if _marca_na_pagina(m, i, n)]
-            rect = posicao_qr_pagina(pagina, ocupados, pid, serial, i, usadas)
-            if rect:
-                usadas.add(tuple(rect))
+            for rect in posicoes_qr_pagina(pagina, ocupados, pid, serial, i, contar_qr_pagina(qr_pagina), usadas):
                 _desenhar_qr(c, rect, H, url)
         if aviso_visivel:
             _rodape(c, W, f"PROVA PROTEGIDA CONTRA IA{_ate(libertacao)} · cód. {codigo} · pág. {i + 1}/{n}")

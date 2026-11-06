@@ -350,6 +350,7 @@ class Servico:
         from . import word_selo
         try:
             pdf = conversao.docx_para_pdf(self.docx_da_copia(p, op, 1))
+            op["pdf_layout_word"] = pdf  # mesma paginação do Word final: serve para pôr as marcas e o QR lateral página a página
             zonas = selos.espaco_marca_agua(pdf)
             return zonas[0] if zonas else None
         except Exception:
@@ -365,13 +366,14 @@ class Servico:
         docx = self.docx_da_copia(p, op, serial)
         from . import word_selo
         zona = op.get("zona_word")
-        if zona is None and "zona_word" not in op and op.get("qr_marca_agua"):
+        if zona is None and "zona_word" not in op and (op.get("qr_marca_agua") or op.get("qr_pagina") or op["marcas"]):
             zona = self.zona_word(p, op)
         return word_selo.selar_docx(
             docx, pid=pid, serial=serial, libertacao=self.estado(p)["texto"], titulo=p["titulo"], url_base=op["url_base"],
             marcas=op["marcas"], zona_agua=zona, aviso_foto=op["aviso_foto"], aviso_ia=op["aviso_ia"],
             aviso_pergunta=op["aviso_pergunta"], qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"],
-            aviso_visivel=op["aviso_visivel"], mensagem_ia=op["mensagem_ia"])
+            aviso_visivel=op["aviso_visivel"], mensagem_ia=op["mensagem_ia"], qr_pagina=op.get("qr_pagina", True),
+            pdf_layout=op.get("pdf_layout_word"))
 
     def resumo_perguntas(self, pid):
         """Quantas perguntas numeradas foram detetadas e em quantas cabe um QR (margem direita livre)."""

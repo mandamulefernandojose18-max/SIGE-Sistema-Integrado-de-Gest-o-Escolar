@@ -102,7 +102,7 @@ def _ler_opcoes(form, cfg_antiga=None):
         marcas=json.loads(form.get('marcas') or '[]'), copias=copias, url_base=_url_base(form.get('url_base')),
         rasterizar=on('rasterizar'), aviso_visivel=on('aviso_visivel'), aviso_foto=on('aviso_foto'), aviso_ia=on('aviso_ia'),
         aviso_pergunta=on('aviso_pergunta'), qr_pergunta=on('qr_pergunta'), qr_marca_agua=on('qr_marca_agua'),
-        qr_pagina=on('qr_pagina'), mensagem_ia=form.get('mensagem_ia'),
+        qr_pagina=selos.contar_qr_pagina(form.get('qr_pagina', 1)), mensagem_ia=form.get('mensagem_ia'),
         baralhar_perguntas=on('baralhar_perguntas'), baralhar_alternativas=on('baralhar_alternativas'))
     op['formato'] = formato
     op['guiao_opcao'] = 'com' if (form.get('guiao') or '').strip().lower() in ('com', 'on', '1', 'true') else 'sem'
@@ -265,8 +265,9 @@ def configurar(request, pid):
         'mensagem_padrao': selos.MENSAGEM_PADRAO, 'mensagem_ia': cfg.get('mensagem_ia') or selos.MENSAGEM_PADRAO,
         'opcoes': {k: cfg.get(k, d) for k, d in (
             ('aviso_pergunta', True), ('qr_pergunta', True), ('baralhar_perguntas', False), ('baralhar_alternativas', False),
-            ('qr_pagina', True), ('qr_marca_agua', True), ('aviso_foto', True), ('aviso_ia', True), ('rasterizar', False),
+            ('qr_marca_agua', True), ('aviso_foto', True), ('aviso_ia', True), ('rasterizar', False),
             ('aviso_visivel', True))},
+        'qr_pagina': selos.contar_qr_pagina(cfg.get('qr_pagina', 1)), 'max_qr_pagina': selos.MAX_QR_PAGINA,
         'copias': cfg.get('copias', 1), 'marcas': cfg.get('marcas', MARCAS_INICIAIS),
         'formato': cfg.get('formato', 'pdf') if cfg.get('docx_cifrado') else 'pdf',
         'url_base': URL_BASE_PUBLICA, 'tem_docx': bool(cfg.get('docx_cifrado')), 'guiao': _dados_guiao(p), 'usa_guiao': cfg.get('guiao_opcao', 'sem'),
