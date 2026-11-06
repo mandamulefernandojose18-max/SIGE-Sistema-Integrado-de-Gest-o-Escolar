@@ -94,6 +94,25 @@ def test_tabela_opaca_com_moldura_e_linhas_avancadas():
             assert c.fill.fill_type == 'solid', c.coordinate
 
 
+def test_nome_do_aluno_cabe_numa_linha_sem_corte():
+    d = _dados_exames()
+    d['alunos'][0]['nome'] = 'Viviana Yolanda Mandamule'
+    ws = verificar_como_o_excel(gerar_pauta_exames_xlsx(d, {'nome': 'E'})).active
+    assert ws.column_dimensions['C'].width >= len('Viviana Yolanda Mandamule') * 1.2
+    assert (ws.row_dimensions[7].height or 0) >= 20
+
+
+def test_palavras_nunca_partidas_e_freq_unida_sem_exame():
+    d = _dados_exames(n_com=1, n_sem=1)
+    d['disciplinas_sem_exame'][0]['nome'] = 'Agropecuária'
+    d['alunos'][0]['resultado_final']['aprovado'] = 'Reprovado'
+    ws = verificar_como_o_excel(gerar_pauta_exames_xlsx(d, {'nome': 'E'})).active
+    fundidas = {str(r) for r in ws.merged_cells.ranges}
+    assert 'J5:J6' in fundidas                    # Freq. unida nas 2 linhas (sem exame)
+    assert ws.column_dimensions['J'].width >= len('Agropecuária') * 1.3
+    assert ws.column_dimensions['K'].width >= len('Reprovado(a)') * 1.3 - 1
+
+
 def test_cabecalho_fundido_longo_cabe_sem_cortar_palavra():
     d = _dados_exames()
     d['disciplinas_com_exame'][0]['nome'] = 'Empreendedorismo'

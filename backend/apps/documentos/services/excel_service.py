@@ -489,7 +489,7 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     # Ajuste Automático Milimétrico de Colunas em Função do Conteúdo
     max_nome_len = max((len(a.get('nomeCompleto') or a.get('nome') or obter_nome_completo_aluno(a) or '') for a in dados_alunos), default=25)
     ws.column_dimensions['A'].width = 5.0
-    ws.column_dimensions['B'].width = max(28.0, min(45.0, max_nome_len + 3.0))
+    ws.column_dimensions['B'].width = max(28.0, min(60.0, max_nome_len * 1.2 + 3.0))
     ws.column_dimensions['C'].width = 5.5
 
     w_sub = 5.5 if n_discs >= 10 else 6.5
@@ -632,8 +632,8 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         ws.cell(row=4, column=curr_c).alignment = ALIGN_CENTER
         ws.cell(row=4, column=curr_c).border = THIN_BORDER
 
+        ws.merge_cells(start_row=5, start_column=curr_c, end_row=6, end_column=curr_c)
         ws.cell(row=5, column=curr_c, value="Freq.").font = FONT_SMALL_BOLD
-        ws.cell(row=6, column=curr_c, value="").font = FONT_SMALL_BOLD
         aplicar_estilo_intervalo(ws, curr_c, 5, curr_c, 6, font=FONT_SMALL_BOLD, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_CENTER)
         curr_c += 1
 
@@ -787,7 +787,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
 
     # Larguras em função do conteúdo (colunas de notas compactas; cabeçalhos fundidos sempre cabem)
     max_nome = max((len(obter_nome_completo_aluno(a) or '') for a in alunos), default=25)
-    larguras_fixas = {1: 6, 2: 12, 3: max(24, min(45, max_nome + 2)), 4: 7, 5: 10}
+    larguras_fixas = {1: 6, 2: 12, 3: max(24, min(60, max_nome * 1.2 + 3)), 4: 7, 5: 10}
     for idx_c, w in larguras_fixas.items():
         ws.column_dimensions[get_column_letter(idx_c)].width = w
     for c_idx in range(6, c_res_start):
@@ -2526,7 +2526,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     # Ajuste Automático Milimétrico de Colunas em Função do Conteúdo
     max_nome_len = max((len(al.get('nomeCompleto') or obter_nome_completo_aluno(al) or '') for al in alunos), default=25)
     ws.column_dimensions['A'].width = 5.0
-    ws.column_dimensions['B'].width = max(28.0, min(45.0, max_nome_len + 3.0))
+    ws.column_dimensions['B'].width = max(28.0, min(60.0, max_nome_len * 1.2 + 3.0))
     ws.column_dimensions['C'].width = 5.5
     for c_idx in range(4, 29):
         col_letter = get_column_letter(c_idx)

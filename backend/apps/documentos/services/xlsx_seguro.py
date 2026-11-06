@@ -154,8 +154,9 @@ def _ajustar_alturas(ws, max_r, max_c):
             c_fim = rg.max_col if rg is not None else c
             larg_chars = sum((_largura_coluna_px(ws, i) - 5) / _PX_POR_CHAR for i in range(c, c_fim + 1))
             larg_chars = max(larg_chars - 1, 3)
-            linhas = sum(max(1, math.ceil(len(t) * 1.08 / larg_chars)) for t in v.split('\n'))
-            precisa = max(precisa, linhas * _ALTURA_LINHA_PT + 4)
+            # Times New Roman 12 (negrito) ocupa ~1,2 unidades de largura por carácter
+            linhas = sum(max(1, math.ceil(len(t) * 1.25 / larg_chars)) for t in v.split('\n'))
+            precisa = max(precisa, linhas * _ALTURA_LINHA_PT + 6)
         if precisa:
             atual = ws.row_dimensions[r].height or 0
             ws.row_dimensions[r].height = min(max(atual, precisa), 409)
@@ -290,6 +291,36 @@ def aplicar_moldura_tabelas(ws, max_r, max_c):
                 top=aresta_h((r - 1, c), (r, c)), bottom=aresta_h((r, c), (r + 1, c)))
 
 
+_LARGURA_MAX_COLUNA = 60
+
+
+def garantir_palavras_inteiras(ws, max_r, max_c):
+    """
+    Nenhuma palavra é partida a meio («Reprova/da», «Agro/pec/uária»): se a palavra mais comprida
+    de uma célula com quebra de linha não cabe na largura das suas colunas, as colunas são alargadas.
+    «do/da» e restantes palavras só mudam de linha nos espaços.
+    """
+    from openpyxl.utils import get_column_letter
+    fundidas = {(rg.min_row, rg.min_col): rg for rg in ws.merged_cells.ranges}
+    for r in range(1, max_r + 1):
+        for c in range(1, max_c + 1):
+            cel = ws.cell(row=r, column=c)
+            v = cel.value
+            if not isinstance(v, str) or not v.strip() or not (cel.alignment and cel.alignment.wrap_text):
+                continue
+            palavra = max(len(p) for p in v.split())
+            fator = 1.3 if (cel.font and cel.font.bold) else 1.15
+            necessario = palavra * fator + 2.5
+            rg = fundidas.get((r, c))
+            c_fim = rg.max_col if rg is not None else c
+            letras = [get_column_letter(i) for i in range(c, c_fim + 1)]
+            atuais = [ws.column_dimensions[l].width or 8.43 for l in letras]
+            falta = min(necessario, _LARGURA_MAX_COLUNA * len(letras)) - sum(atuais)
+            if falta > 0:
+                for l, w in zip(letras, atuais):
+                    ws.column_dimensions[l].width = min(w + falta / len(letras), _LARGURA_MAX_COLUNA)
+
+
 def embelezar_workbook(wb):
     """
     Apresentação final de todos os documentos Excel do SIGE:
@@ -303,6 +334,7 @@ def embelezar_workbook(wb):
         max_r, max_c = _limites_conteudo(ws)
         if max_r == 0 or max_c == 0:
             continue
+        garantir_palavras_inteiras(ws, max_r, max_c)
         _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)
         _melhorar_tabela(ws, max_r, max_c)

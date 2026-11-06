@@ -1377,3 +1377,10 @@ Todos os documentos Excel passam por aplicar_moldura_tabelas() (xlsx_seguro.py, 
 - linha media (medium) a separar grupos de colunas (ex.: bloco de cada disciplina);
 - linhas finas (thin) verticais e pontilhado (dotted) entre linhas de dados; linhas finas claras dentro do cabecalho.
 Testes: backend/tests/test_xlsx_exportacoes.py.
+
+### Excel: palavras nunca partidas e nomes visiveis
+
+- garantir_palavras_inteiras() (xlsx_seguro.py, chamada por embelezar_workbook): se a palavra mais comprida de uma celula com quebra nao cabe na largura das colunas, estas sao alargadas (max. 60); nada de "Reprova/da" ou "Agro/pec/uaria". As quebras so ocorrem nos espacos.
+- Colunas de nome do aluno dimensionadas a ~1,2 unidades por caracter (Times New Roman 12 negrito) e altura das linhas com margem maior.
+- Pauta de exames: nas disciplinas sem exame, "Freq." fica fundido nas duas linhas do cabecalho.
+- Testes: backend/tests/test_xlsx_exportacoes.py.
