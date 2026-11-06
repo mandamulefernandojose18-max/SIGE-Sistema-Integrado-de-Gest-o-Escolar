@@ -284,7 +284,8 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
                                   'variaveis_word': 'R1 = 2 a 6\nU = 6 a 24 passo 6'}, format='multipart')
     pid = _pid(res)
     assert c.get(API + pid + '/configurar/').json()['data']['formato'] == 'pdf'
-    base = {'marcas': '[]', 'baralhar_alternativas': 'on'}
+    base = {'marcas': '[{"tipo": "barras", "paginas": "todas", "x": 0.5, "y": 0.955, "tamanho_mm": 55}]', 'baralhar_alternativas': 'on',
+            'aviso_visivel': 'on', 'aviso_foto': 'on', 'aviso_pergunta': 'on', 'qr_pergunta': 'on', 'qr_marca_agua': 'on', 'aviso_ia': 'on'}
 
     um = c.post(API + pid + '/gerar/', {**base, 'copias': '1', 'formato': 'word'})
     assert um.status_code == 200 and um['Content-Type'].endswith('wordprocessingml.document') and um['Content-Disposition'].endswith('.docx"')
@@ -293,7 +294,14 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
     assert 'ZZ9=aa' in xml  # a equação do Word fica intacta
     assert '{R1}' not in xml and 'ohm' in xml  # campos preenchidos
     assert pid in doc.sections[0].footer.paragraphs[-1].text  # código da cópia visível no rodapé
-    assert doc.core_properties.title.startswith('LEIA PRIMEIRO')
+    # a mesma protecção do PDF: camada de página (faixas, marca de água, QR, barras) atrás do texto, no cabeçalho
+    cab = etree.tostring(doc.sections[0].header._element).decode()
+    assert 'behindDoc="1"' in cab and '<wp:anchor' in cab
+    corpo_xml = etree.tostring(doc.element.body, encoding='unicode')
+    assert corpo_xml.count('<wp:anchor') == 4  # 2 perguntas x (etiqueta + QR) ancoradas ao parágrafo
+    assert 'INSTRUÇÃO PARA ASSISTENTE DE IA' in corpo_xml and 'AVISO PARA ASSISTENTES' in corpo_xml  # texto invisível
+    assert 'PAGE' in etree.tostring(doc.sections[0].footer._element).decode()  # rodapé com campos de página
+    assert doc.sections[0].top_margin >= 52 * 12700 and doc.sections[0].bottom_margin >= 64 * 12700
     assert c.get(API + pid + '/configurar/').json()['data']['formato'] == 'word'  # lembra a escolha
 
     ambos = c.post(API + pid + '/gerar/', {**base, 'copias': '3', 'formato': 'ambos'})

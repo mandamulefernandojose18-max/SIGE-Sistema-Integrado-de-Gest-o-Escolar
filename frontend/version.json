@@ -1,8 +1,8 @@
 {
   "version": "2.6.4",
-  "build": "20261106_0900",
+  "build": "20261106_1000",
   "data": "2026-11-06",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Escudo Anti-IA: as copias da prova passam a sair tambem em Word (.docx) editavel, ou em PDF e Word no mesmo ZIP."
+  "novidades": "Escudo Anti-IA: o Word sai com a mesma proteccao do PDF (faixas de aviso, marca de agua, QR, codigo de barras, etiquetas por pergunta e rodape com o codigo)."
 }
