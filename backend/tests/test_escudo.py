@@ -794,3 +794,30 @@ def test_tamanho_do_qr_de_fundo_e_do_lateral():
         xs = [x for x in range(pix.width) for y in range(pix.height) if sum(pix.pixel(x, y)[:3]) < 740]
         return max(xs) - min(xs)
     assert tinta(150) > tinta(50) * 2  # o tamanho pedido manda no QR de fundo
+
+
+def test_so_o_super_admin_ve_provas_de_outras_escolas(duas_escolas):
+    from types import SimpleNamespace
+    from apps.accounts.models import Usuario
+    from apps.escudo import views
+    a, b = duas_escolas
+    pid = _pid(_criar(_cliente(duas_escolas)))
+    p = ProvaEscudo.objects.get(codigo=pid)
+    prova = {'escola_id': p.escola_id, 'dono_id': p.criado_por_id}
+    gestor_b = SimpleNamespace(role='ADMIN_ESCOLA', escola_id=b.id, id=999)
+    sem_escola = SimpleNamespace(role='ADMIN_ESCOLA', escola_id=None, id=998)
+    super_admin = SimpleNamespace(role='SUPERADMIN', escola_id=None, id=997)
+    assert not views._visivel(gestor_b, prova) and not views._visivel(sem_escola, prova)
+    assert not views._visivel(sem_escola, {'escola_id': None, 'dono_id': 1})  # None == None nunca dá acesso
+    assert views._visivel(super_admin, prova)
+    Usuario.objects.create_user(email='sa.x@sige.mz', password='PassSa123!', role='SUPERADMIN')
+    sa = _cliente_de('sa.x@sige.mz', 'PassSa123!')
+    assert sa.get(API + pid + '/').status_code == 200
+    Usuario.objects.create_user(email='admin.fd@sige.mz', password='PassFd123!', role='ADMIN_ESCOLA', escola=b)
+    estranho = _cliente_de('admin.fd@sige.mz', 'PassFd123!')
+    for url in ('', 'configurar/', 'guiao/', 'guiao/descarregar/', 'pagina/1.png', 'gabarito-copias/'):
+        assert estranho.get(API + pid + '/' + url).status_code == 404, url
+    for url in ('editar/', 'apagar/', 'data/', 'libertar/', 'guiao/gerar/', 'gerar/', 'previa/'):
+        assert estranho.post(API + pid + '/' + url, {'titulo': 'x'}).status_code == 404, url
+    assert estranho.get(API + 'lista/').json()['data']['resumo']['total'] == 0
+    assert ProvaEscudo.objects.get(codigo=pid).titulo == p.titulo

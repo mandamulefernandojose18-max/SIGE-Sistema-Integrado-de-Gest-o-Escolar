@@ -50,7 +50,8 @@ def _visivel(user, p):
     """SUPERADMIN vê tudo; a escola só vê as suas; quem não é gestor só vê as provas que carregou."""
     if user.role == 'SUPERADMIN':
         return True
-    if p.get('escola_id') != getattr(user, 'escola_id', None):
+    escola = getattr(user, 'escola_id', None)
+    if escola is None or p.get('escola_id') != escola:  # sem escola (nem a prova nem o utilizador) nunca coincide por acaso
         return False
     return user.role in PAPEIS_GESTAO or p.get('dono_id') == user.id
 
@@ -193,6 +194,12 @@ def criar(request):
     if not user:
         return _erro('Não autenticado.', 401)
     s, f = svc(), request.POST
+    # a prova pertence sempre à escola do utilizador; só o Super Admin pode escolher outra (a escola seleccionada)
+    escola = getattr(user, 'escola', None)
+    if user.role == 'SUPERADMIN':
+        escola = getattr(request, 'tenant', None) or escola
+    elif escola is None:
+        return _erro('A sua conta não está associada a nenhuma escola.', 403)
     ficheiro, gab, mod = request.FILES.get('prova'), request.FILES.get('gabarito'), request.FILES.get('modelo')
     titulo = catalogo.titulo_avaliacao(f.get('tipo_avaliacao'), f.get('disciplina'), f.get('classe'), f.get('trimestre'))
     lib = f.get('libertacao', '').strip()
@@ -209,7 +216,7 @@ def criar(request):
         publicar_apos=f.get('publicar_apos') in ('on', '1', 'true'), so_word=False, dono=str(user.id),
         variaveis_word=f.get('variaveis_word', ''), condicoes_word=f.get('condicoes_word', ''),
         respostas_word=f.get('respostas_word', ''),
-        escola=getattr(request, 'tenant', None) or getattr(user, 'escola', None), criado_por=user)
+        escola=escola, criado_por=user)
     return _json({'success': True, 'data': {'id': pid}})
 
 

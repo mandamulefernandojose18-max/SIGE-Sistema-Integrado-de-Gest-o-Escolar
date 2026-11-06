@@ -1402,3 +1402,7 @@ ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook a
 
 **Tamanhos dos QR, QR de fundo opcional e edição da prova (v2.8.3).** Em «Selos e cópias»: o QR de fundo pode ser **mostrado ou não** (lista «Mostrar / Não mostrar QR de fundo») e tem tamanho próprio (40 a 200 mm, centrado na zona livre da página); cada QR lateral tem tamanho próprio (10 a 45 mm) e o seu número por página (0 a 6). Valem para o PDF e para o Word. Na página da prova, os botões **Editar prova** e **Eliminar prova** (e o separador Gerir) permitem corrigir título, disciplina e classe, trocar o ficheiro da prova (Word ou PDF) e o gabarito, ou remover o gabarito, sem carregar outra prova: o código, as cópias já emitidas, as leituras e as opções de selos mantêm-se, o ficheiro continua cifrado e o guião antigo é descartado. Endpoint `POST /api/v1/escudo/<id>/editar/` (dono ou gestão da escola); `POST .../apagar/` elimina a prova do cofre.
 
+
+
+**Isolamento por escola no Escudo (v2.8.4).** Cada prova pertence à escola de quem a carrega; só o **Super Admin** vê ou altera provas de várias escolas. Uma conta sem escola não carrega provas nem vê as das escolas (um valor vazio nunca coincide com outro). Dentro da escola, a gestão vê todas as provas e cada professor só as suas; editar e eliminar exigem ser o dono ou a gestão da escola. Provas, ficheiros, gabaritos, Guiões, leituras e cópias de outra escola respondem sempre «não encontrada».
+
