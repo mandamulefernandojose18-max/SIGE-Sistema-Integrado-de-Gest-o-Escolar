@@ -1414,3 +1414,7 @@ ajustar_larguras_ao_conteudo() (xlsx_seguro.py, chamada por embelezar_workbook a
 
 **E-mail dos avisos definido no sistema (v2.8.6).** Em Gerir > Avisos por e-mail há um campo para escrever o endereço que recebe os avisos de leitura de cada prova; vazio, usa-se o e-mail da conta de quem carregou a prova. O endereço é validado ao guardar.
 
+
+
+**E-mail do dono definido ao carregar a prova (v2.8.7).** O formulário «Carregar prova» tem o campo «E-mail do professor para os avisos»: cada prova leva o endereço do seu professor-dono (vazio = e-mail da conta) e pode ser mudado depois em Gerir > Avisos por e-mail.
+

@@ -178,6 +178,7 @@
       '<label class="campo"><span>Trimestre <small>(opcional)</small></span><select name="trimestre"><option value="">—</option>' + k.trimestres.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select></label></div>' +
       '<div class="duas"><label class="campo"><span>Disciplina</span><select name="disciplina" required>' + opcoes(k.disciplinas) + '</select></label>' +
       '<label class="campo"><span>Classe</span><select name="classe" required>' + opcoes(k.classes) + '</select></label></div>' +
+      '<label class="campo"><span>E-mail do professor para os avisos <small>(opcional)</small></span><input type="email" name="email_avisos" maxlength="120" placeholder="Vazio: o e-mail da tua conta"><small>Recebe aqui o aviso quando alguém ler o QR ou o código de barras desta prova durante a protecção. Podes mudá-lo depois em Gerir.</small></label>' +
       '<p class="suave pequeno">O título fica, por exemplo, «1.ª ACS de Física · 11.ª Classe · II Trimestre».</p></section>' +
       '<section class="passo cartao"><h2>Período de proteção <small class="suave">(opcional)</small></h2>' +
       '<p class="suave pequeno">Deixa vazio para aplicar só as proteções anti-IA, sem embargo: o conteúdo nunca é entregue por código.</p>' +

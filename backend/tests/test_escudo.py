@@ -891,3 +891,11 @@ def test_email_dos_avisos_definido_no_sistema(duas_escolas, monkeypatch, setting
     assert alertas.enviar_aviso(pid) == 1 and mail.outbox[0].to == ['direccao@escola.test']
     assert c.post(API + pid + '/editar/', {'email_avisos': ''}).status_code == 200  # vazio: volta ao e-mail da conta
     assert c.get(API + pid + '/').json()['data']['avisos']['email'] == ''
+
+
+def test_email_dos_avisos_definido_ao_carregar_a_prova(duas_escolas):
+    c = _cliente(duas_escolas)
+    assert _criar(c, email_avisos='nao-e-email').status_code == 400
+    assert ProvaEscudo.objects.count() == 0  # nada fica guardado se o e-mail é inválido
+    pid = _pid(_criar(c, email_avisos='prof.fisica@escola.test'))
+    assert c.get(API + pid + '/').json()['data']['avisos']['email'] == 'prof.fisica@escola.test'

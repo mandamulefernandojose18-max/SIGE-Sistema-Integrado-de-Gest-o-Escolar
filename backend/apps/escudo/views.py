@@ -202,6 +202,14 @@ def criar(request):
         escola = getattr(request, 'tenant', None) or escola
     elif escola is None:
         return _erro('A sua conta não está associada a nenhuma escola.', 403)
+    email_avisos = (f.get('email_avisos') or '').strip()
+    if email_avisos:  # valida antes de guardar a prova
+        from django.core.exceptions import ValidationError
+        from django.core.validators import validate_email
+        try:
+            validate_email(email_avisos)
+        except ValidationError:
+            return _erro('O e-mail dos avisos não é válido.')
     ficheiro, gab, mod = request.FILES.get('prova'), request.FILES.get('gabarito'), request.FILES.get('modelo')
     titulo = catalogo.titulo_avaliacao(f.get('tipo_avaliacao'), f.get('disciplina'), f.get('classe'), f.get('trimestre'))
     lib = f.get('libertacao', '').strip()
@@ -219,6 +227,8 @@ def criar(request):
         variaveis_word=f.get('variaveis_word', ''), condicoes_word=f.get('condicoes_word', ''),
         respostas_word=f.get('respostas_word', ''),
         escola=escola, criado_por=user)
+    if email_avisos:
+        s.editar(pid, email_avisos=email_avisos)
     return _json({'success': True, 'data': {'id': pid}})
 
 
