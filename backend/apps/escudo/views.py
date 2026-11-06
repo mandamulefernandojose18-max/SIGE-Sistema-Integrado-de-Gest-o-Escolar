@@ -182,7 +182,8 @@ def detalhe(request, pid):
         'eventos': [{**e, 'quando_texto': tempo.formatar_iso(e['quando'])} for e in s.eventos(pid)],
         'campo_data': tempo.para_campo_local(p['libertacao']), 'link': f'{URL_BASE_PUBLICA}/v/{pid}',
         'criada_texto': tempo.formatar_iso(p['criada_em']),
-        'avisos': {'ativos': bool((p['config'] or {}).get('notificar_leituras', True)), 'email_activo': alertas.email_activo()}}})
+        'avisos': {'ativos': bool((p['config'] or {}).get('notificar_leituras', True)), 'email_activo': alertas.email_activo(),
+                   'email': (p['config'] or {}).get('email_avisos', ''), 'email_conta': alertas.email_da_conta(p['id'])}}})
 
 
 # ----------------------------------------------------------------- escrita
@@ -265,7 +266,8 @@ def editar(request, pid):
              pdf=ficheiro.read(s.max_bytes + 1) if ficheiro else b'',
              gabarito=gab.read(s.max_bytes + 1) if gab else b'',
              remover_gabarito=f.get('remover_gabarito') in ('on', '1', 'true'),
-             notificar_leituras=None if f.get('notificar_leituras') is None else f.get('notificar_leituras') in ('on', '1', 'true'))
+             notificar_leituras=None if f.get('notificar_leituras') is None else f.get('notificar_leituras') in ('on', '1', 'true'),
+             email_avisos=f.get('email_avisos'))
     return _json({'success': True, 'message': 'Prova actualizada. Os códigos já impressos continuam a valer.'})
 
 

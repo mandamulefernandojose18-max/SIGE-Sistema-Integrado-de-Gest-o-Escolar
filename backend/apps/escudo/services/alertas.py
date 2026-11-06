@@ -23,6 +23,12 @@ def email_activo():
     return bool((os.environ.get("EMAIL_HOST") or "").strip())
 
 
+def email_da_conta(prova_codigo):
+    from ..models import ProvaEscudo
+    p = ProvaEscudo.objects.select_related("criado_por").filter(codigo=prova_codigo).first()
+    return getattr(p.criado_por, "email", "") if p and p.criado_por_id else ""
+
+
 def _linha(l):
     quando = tempo.formatar(l.quando)
     cod = f"{l.prova.codigo}-{l.serial:03d}" if l.serial else l.prova.codigo
@@ -44,7 +50,7 @@ def enviar_aviso(prova_codigo):
     prova = ProvaEscudo.objects.select_related("criado_por").filter(codigo=prova_codigo).first()
     if not prova or not (prova.config or {}).get("notificar_leituras", True):
         return 0
-    destino = getattr(prova.criado_por, "email", "") if prova.criado_por_id else ""
+    destino = (prova.config or {}).get("email_avisos") or (getattr(prova.criado_por, "email", "") if prova.criado_por_id else "")
     pendentes = list(LeituraEscudo.objects.filter(prova=prova, notificada=False).exclude(estado="libertada").order_by("quando"))
     if not destino or not pendentes:
         return 0

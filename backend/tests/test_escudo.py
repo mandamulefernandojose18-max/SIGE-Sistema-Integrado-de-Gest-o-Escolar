@@ -859,7 +859,7 @@ def test_leitura_no_embargo_pede_local_guarda_so_com_token_e_avisa_o_dono_por_em
     LeituraEscudo.objects.filter(prova__codigo=pid).update(notificada=False)
     assert alertas.enviar_aviso(pid) == 0 and len(mail.outbox) == 1
     d = c.get(API + pid + '/').json()['data']
-    assert d['avisos'] == {'ativos': False, 'email_activo': True}
+    assert d['avisos']['ativos'] is False and d['avisos']['email_activo'] is True
     assert d['leituras_lista'][-1]['latitude'] is not None
 
 
@@ -873,3 +873,21 @@ def test_sem_email_configurado_nao_avisa_e_depois_da_libertacao_nao_pede_local(d
     ProvaEscudo.objects.filter(codigo=pid).update(libertacao=datetime(2020, 1, 1))
     html = APIClient().get(f'/ia/v/{pid}/1').content.decode()
     assert 'navigator.geolocation' not in html  # sem embargo, não se pede local
+
+
+def test_email_dos_avisos_definido_no_sistema(duas_escolas, monkeypatch, settings):
+    from django.core import mail
+    from apps.escudo.services import alertas
+    monkeypatch.setenv('EMAIL_HOST', 'smtp.exemplo.test')
+    settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+    monkeypatch.setattr(alertas, 'agendar', lambda *a, **k: None)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    assert c.post(API + pid + '/editar/', {'email_avisos': 'isto nao e email'}).status_code == 400
+    assert c.post(API + pid + '/editar/', {'email_avisos': 'direccao@escola.test'}).status_code == 200
+    d = c.get(API + pid + '/').json()['data']['avisos']
+    assert d['email'] == 'direccao@escola.test' and d['email_conta']
+    APIClient().get(f'/ia/v/{pid}/1')
+    assert alertas.enviar_aviso(pid) == 1 and mail.outbox[0].to == ['direccao@escola.test']
+    assert c.post(API + pid + '/editar/', {'email_avisos': ''}).status_code == 200  # vazio: volta ao e-mail da conta
+    assert c.get(API + pid + '/').json()['data']['avisos']['email'] == ''
