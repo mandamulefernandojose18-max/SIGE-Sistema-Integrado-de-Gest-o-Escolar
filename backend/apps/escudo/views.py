@@ -129,7 +129,7 @@ def catalogo_view(request):
     return _json({'success': True, 'data': {
         'tipos': catalogo.TIPOS_AVALIACAO, 'trimestres': catalogo.TRIMESTRES, 'disciplinas': catalogo.DISCIPLINAS,
         'classes': catalogo.CLASSES, 'mensagem_padrao': selos.MENSAGEM_PADRAO, 'url_base': URL_BASE_PUBLICA,
-        'max_mb': svc().max_bytes // (1024 * 1024), 'armazem': svc().arm.nome, 'armazem_detalhe': svc().arm.detalhe}})
+        'max_mb': svc().max_bytes // (1024 * 1024)}})
 
 
 @csrf_exempt

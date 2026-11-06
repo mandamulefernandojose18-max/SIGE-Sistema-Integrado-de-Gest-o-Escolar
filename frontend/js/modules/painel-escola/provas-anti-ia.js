@@ -187,7 +187,7 @@
       '<li><strong>Variantes</strong><time>Com campos {R1} no Word, cada cópia sai com números próprios e o gabarito de cada uma: a resolução de uma cópia não serve às outras.</time></li>' +
       '<li><strong>Rastreio</strong><time>O código da cópia em toda a página, QR em cada página e código de barras: qualquer foto que circule diz de que cópia saiu. Cada leitura regista o aparelho.</time></li>' +
       '<li><strong>Avisos</strong><time>Aviso «IA: não resolver» visível nas fotografias. Dissuade, mas não obriga a IA a recusar.</time></li>' +
-      '<li><strong>Protecção</strong><time>O ficheiro fica cifrado (AES-256, em ' + esc(k.armazem) + ') até à data escolhida.</time></li></ol></section>' +
+      '<li><strong>Protecção</strong><time>O ficheiro fica cifrado e guardado em segurança até à data escolhida.</time></li></ol></section>' +
       '<button class="btn bloco" id="escudoContinuar">' + ico('shield') + ' Continuar para as proteções anti-IA</button></aside></form>';
     ligarFormNova(c);
   }

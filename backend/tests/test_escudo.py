@@ -361,3 +361,8 @@ def test_baralhar_nao_desorganiza_alternativas_em_linha_nem_mistura_perguntas():
     # a cópia 1 fica exactamente como foi carregada
     um, _ = vw.baralhar_docx(b.getvalue(), 'ABCD1234', 1, perguntas=True, alternativas=True)
     assert [p.text for p in docx.Document(io.BytesIO(um)).paragraphs] == [p.text for p in docx.Document(io.BytesIO(b.getvalue())).paragraphs]
+
+def test_catalogo_nao_expoe_onde_ficam_guardadas_as_provas(duas_escolas):
+    dados = _cliente(duas_escolas).get(API + 'catalogo/').json()['data']
+    assert 'armazem' not in dados and 'armazem_detalhe' not in dados
+    assert 'tipos' in dados and 'disciplinas' in dados
