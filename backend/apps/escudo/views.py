@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from apps.ferramentas.views import _autenticar_pedido
 
-from .services import catalogo, selos, tempo, variantes
+from .services import catalogo, guiao, guiao_job, ia_sige, selos, tempo, variantes
 from .services.armazem import ArmazemIndisponivel
 from .services.servico import FORMATOS_SAIDA, Servico, nome_seguro
 
@@ -105,6 +105,7 @@ def _ler_opcoes(form, cfg_antiga=None):
         qr_pagina=on('qr_pagina'), mensagem_ia=form.get('mensagem_ia'),
         baralhar_perguntas=on('baralhar_perguntas'), baralhar_alternativas=on('baralhar_alternativas'))
     op['formato'] = formato
+    op['guiao_opcao'] = 'com' if (form.get('guiao') or '').strip().lower() in ('com', 'on', '1', 'true') else 'sem'
     return op
 
 
@@ -268,7 +269,7 @@ def configurar(request, pid):
             ('aviso_visivel', True))},
         'copias': cfg.get('copias', 1), 'marcas': cfg.get('marcas', MARCAS_INICIAIS),
         'formato': cfg.get('formato', 'pdf') if cfg.get('docx_cifrado') else 'pdf',
-        'url_base': URL_BASE_PUBLICA, 'tem_docx': bool(cfg.get('docx_cifrado')),
+        'url_base': URL_BASE_PUBLICA, 'tem_docx': bool(cfg.get('docx_cifrado')), 'guiao': _dados_guiao(p), 'usa_guiao': cfg.get('guiao_opcao', 'sem'),
         'com_variantes': bool(modelo and modelo.get('variaveis')), 'perguntas': s.resumo_perguntas(pid),
         'largura_mm': round(w / selos.MM, 1), 'altura_mm': round(h / selos.MM, 1)}})
 
@@ -311,6 +312,9 @@ def gerar(request, pid):
     s = svc()
     op = _ler_opcoes(request.POST)
     quer_pdf, quer_word = op['formato'] in ('pdf', 'ambos'), op['formato'] in ('word', 'ambos')
+    com_guiao = op['guiao_opcao'] == 'com'
+    if com_guiao and not guiao_job.estado(p['config'])['pronto']:
+        raise ValueError('O Guião ainda não está pronto: gere-o primeiro (botão «Gerar Guião») ou escolha «Sem Guião».')
     if quer_word and not s.tem_word(p):
         raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
     base = s.preparar_base(pid, op) if quer_pdf else None
@@ -318,7 +322,7 @@ def gerar(request, pid):
         op['zona_word'] = s.zona_word(p, op)  # uma só medição para todas as cópias em Word
     nome = nome_seguro(p['titulo'])
     s.registar_geracao(pid, op)
-    if op['copias'] == 1 and not (quer_pdf and quer_word):
+    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao:
         if quer_word:
             r = HttpResponse(s.selar_word(p, op, 1), content_type=TIPO_DOCX)
             r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.docx"'
@@ -335,6 +339,10 @@ def gerar(request, pid):
                 z.writestr(f'{nome}_{pid}_copia_{n:03d}.docx', s.selar_word(p, op, n))
         if (p['config'] or {}).get('modelo_cifrado'):
             z.writestr(f'{nome}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
+        if com_guiao:  # Guião (resolução detalhada), só para o professor
+            docx_g = _docx_do_guiao(p)
+            z.writestr(f'{nome}_{pid}_GUIAO_so_professor.docx', docx_g)  # o Guião sai sempre em Word e em PDF
+            z.writestr(f'{nome}_{pid}_GUIAO_so_professor.pdf', guiao.construir_pdf(docx_g))
     r = HttpResponse(buf.getvalue(), content_type='application/zip')
     r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_copias.zip"'
     return r
@@ -367,6 +375,81 @@ def conferir(request, pid):
         return erro
     r = svc().conferir(pid, int(request.POST.get('copia') or 0), request.POST.get('respostas', ''))
     return _json({'success': True, 'data': r})
+
+
+# ----------------------------------------------------------------- Guião (resolução detalhada, IA do SIGE)
+def _docx_do_guiao(p):
+    dados = guiao_job.dados(p['id'], p['config'])
+    if not dados:
+        raise ValueError('O Guião ainda não está pronto.')
+    return guiao.construir_docx(dados, p['titulo'], p['disciplina'], p['classe'], p['id'])
+
+
+def _dados_guiao(p):
+    g = guiao_job.estado(p['config'])
+    questoes = []
+    if g['pronto']:
+        questoes = guiao_job.resumo_questoes(guiao_job.dados(p['id'], p['config']) or {})
+    uso = g.get('uso') or {}
+    return {'disponivel': ia_sige.disponivel(), 'estado': g['estado'], 'mensagem': g.get('mensagem', ''), 'pronto': g['pronto'],
+            'inicio': g.get('inicio'), 'fim': g.get('fim'), 'revisto': bool(g.get('revisto')), 'modelo': g.get('modelo') or ia_sige.modelo(),
+            'custo_usd': uso.get('custo_usd'), 'geracoes_24h': g['geracoes_24h'], 'limite_24h': g['limite_24h'],
+            'questoes': questoes}
+
+
+@csrf_exempt
+@_tratar
+def guiao_estado(request, pid):
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    return _json({'success': True, 'data': _dados_guiao(p)})
+
+
+@csrf_exempt
+@_tratar
+def guiao_gerar(request, pid):
+    if request.method != 'POST':
+        return _erro('Método não permitido.', 405)
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    _, mensagem = guiao_job.iniciar(pid)
+    if mensagem:
+        return _erro(mensagem, 503 if 'activada' in mensagem else 429)
+    p = svc().prova(pid)
+    return _json({'success': True, 'data': _dados_guiao(p)}, 202)
+
+
+@csrf_exempt
+@_tratar
+def guiao_corrigir(request, pid):
+    if request.method != 'POST':
+        return _erro('Método não permitido.', 405)
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    opcao = request.POST.get('opcao_correcta')
+    resposta = request.POST.get('resposta_final')
+    guiao_job.corrigir(pid, request.POST.get('numero', ''), opcao, resposta)
+    return _json({'success': True, 'data': _dados_guiao(svc().prova(pid))})
+
+
+@csrf_exempt
+@_tratar
+def guiao_descarregar(request, pid):
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    docx_g = _docx_do_guiao(p)
+    nome = nome_seguro(p['titulo'])
+    if (request.GET.get('formato') or 'pdf').lower() == 'word':
+        r = HttpResponse(docx_g, content_type=TIPO_DOCX)
+        r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_GUIAO_so_professor.docx"'
+        return r
+    r = HttpResponse(guiao.construir_pdf(docx_g), content_type='application/pdf')
+    r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_GUIAO_so_professor.pdf"'
+    return r
 
 
 # ----------------------------------------------------------------- páginas públicas (destino dos códigos)

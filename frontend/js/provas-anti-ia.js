@@ -29,7 +29,10 @@
     return r;
   }
 
-  function limparTimers() { estado.timers.forEach(clearInterval); estado.timers = []; }
+  function limparTimers() {
+    estado.timers.forEach(function (t) { if (t && t.limpar) t.limpar(); else clearInterval(t); });
+    estado.timers = [];
+  }
 
   function aviso(msg, tipo) {
     var el = $('#escudoAviso');
@@ -397,6 +400,10 @@
       (k.tem_docx ? '<option value="word"' + (k.formato === 'word' ? ' selected' : '') + '>Word (.docx)</option><option value="ambos"' + (k.formato === 'ambos' ? ' selected' : '') + '>PDF e Word</option>' : '') + '</select>' +
       (k.tem_docx ? '<small>O Word sai editável, com os avisos, o QR de marca de água e o código da cópia; o PDF sai selado, com os QR por página e por pergunta. Com as duas opções, o ZIP leva as cópias nos dois formatos.</small>'
         : '<small>Para sair também em Word, carrega a prova em Word (.docx): esta prova só existe em PDF.</small>') + '</label>' +
+      '<label class="campo"><span>Guião (resolução detalhada)</span><select name="guiao" id="escudoGuiaoSel"><option value="sem">Sem Guião</option>' +
+      '<option value="com"' + (k.usa_guiao === 'com' ? ' selected' : '') + '>Com Guião</option></select>' +
+      '<small>A IA do SIGE resolve a prova passo a passo, sem omitir cálculos, com as equações em forma matemática e a opção correcta no fim. Sai em PDF e em Word, só para o professor.</small></label>' +
+      '<div id="escudoGuiaoCaixa" class="guiao-caixa" hidden></div>' +
       '<label class="campo"><span>Cópias numeradas</span><input type="number" name="copias" min="1" max="200" value="' + esc(k.copias) + '"></label>' +
       '<input type="hidden" name="url_base" value="' + esc(k.url_base) + '"><p class="suave pequeno">Os códigos abrem <code>' + esc(k.url_base) + '/v/' + esc(pid) + '</code>.</p>' +
       '<button class="btn bloco" id="escudoGerar">' + ico('file') + ' Gerar e descarregar</button></section>' +
@@ -499,12 +506,79 @@
     bEditar.addEventListener('click', function () { previa.hidden = true; palco.hidden = false; bEditar.hidden = true; bPrevia.hidden = false; });
     form.addEventListener('submit', async function (ev) {
       ev.preventDefault();
+      if (guiaoSel.value === 'com' && !(guiaoEstado && guiaoEstado.pronto)) {
+        aviso('O Guião ainda não está pronto: carrega em «Gerar Guião com a IA» e espera, ou escolhe «Sem Guião».', 'atencao');
+        return;
+      }
       if (!ativas().length && !confirm('Não colocaste nenhum código. Gerar mesmo assim?')) return;
       var btn = $('#escudoGerar'); btn.disabled = true; aviso('A gerar as cópias seladas…');
       var ok = await descarregar('POST', pid + '/gerar/', dados(), 'copias.zip');
       btn.disabled = false;
       if (ok) aviso('Cópias geradas e descarregadas.');
     });
+    // ---- Guião (resolução detalhada pela IA do SIGE) ----
+    var guiaoSel = $('#escudoGuiaoSel'), guiaoCaixa = $('#escudoGuiaoCaixa'), guiaoTimer = null, guiaoEstado = k.guiao;
+    var fmtUsd = function (v) { return v == null ? '' : 'US$ ' + v.toFixed(2).replace('.', ','); };
+    var pararGuiaoTimer = function () { if (guiaoTimer) { clearInterval(guiaoTimer); guiaoTimer = null; } };
+    estado.timers.push({ limpar: pararGuiaoTimer });
+    var pintarGuiao = function (g) {
+      guiaoEstado = g;
+      if (guiaoSel.value !== 'com') { guiaoCaixa.hidden = true; return; }
+      guiaoCaixa.hidden = false;
+      var h = '';
+      if (!g.disponivel) {
+        h = '<p class="aviso atencao">' + ico('alert') + '<span>A IA do SIGE ainda não está activada neste servidor. O administrador tem de configurar a chave da IA. Enquanto isso, escolhe «Sem Guião».</span></p>';
+      } else if (g.estado === 'gerando') {
+        h = '<p class="aviso">' + ico('clock') + '<span><strong>A IA está a resolver a prova…</strong> Pode demorar alguns minutos (provas longas, até uns 10). Podes esperar aqui: o estado actualiza-se sozinho.</span></p>';
+      } else if (g.pronto) {
+        h = '<p class="aviso">' + ico('check') + '<span><strong>Guião pronto</strong> · ' + plural(g.questoes.length, 'questão', 'questões') + (g.custo_usd != null ? ' · custo aproximado ' + fmtUsd(g.custo_usd) : '') +
+          (g.revisto ? ' · revisto por ti' : '') + '. <strong>Confere-o antes de usar: foi escrito por IA e pode errar.</strong></span></p>' +
+          '<div class="tabela-rolar"><table><thead><tr><th>Q.</th><th>Opção</th><th>Resposta</th><th>Confiança</th></tr></thead><tbody>' +
+          g.questoes.map(function (q) {
+            var opcoes = ['', 'A', 'B', 'C', 'D', 'E'].map(function (o) { return '<option value="' + o + '"' + (o === (q.opcao_correcta || '') ? ' selected' : '') + '>' + (o || '—') + '</option>'; }).join('');
+            var conf = q.confianca === 'baixa' ? '<span class="pilula perigo" title="' + esc(q.observacao) + '">Baixa</span>' : q.confianca === 'media' ? '<span class="pilula embargo" title="' + esc(q.observacao) + '">Média</span>' : '<span class="pilula livre">Alta</span>';
+            return '<tr><td>' + esc(q.numero) + '</td><td>' + (q.tipo === 'escolha_multipla' || q.opcao_correcta ? '<select data-guiao-opcao="' + esc(q.numero) + '" aria-label="Opção correcta da questão ' + esc(q.numero) + '">' + opcoes + '</select>' : '<span class="suave">—</span>') +
+              '</td><td>' + esc((q.resposta_final || '').replace(/\$/g, '')) + '</td><td>' + conf + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<div class="acoes"><button type="button" class="btn secundario pequeno" data-guiao-baixar="pdf">' + ico('file') + ' Guião em PDF</button>' +
+          '<button type="button" class="btn secundario pequeno" data-guiao-baixar="word">' + ico('file') + ' Guião em Word</button>' +
+          '<button type="button" class="btn secundario pequeno" data-guiao-gerar>Voltar a gerar</button></div>' +
+          '<p class="suave pequeno">Gerações hoje: ' + g.geracoes_24h + ' de ' + g.limite_24h + '. Se mudares a opção correcta de uma questão, o Guião passa a usá-la.</p>';
+      } else {
+        h = (g.estado === 'erro' ? '<p class="aviso atencao">' + ico('alert') + '<span>' + esc(g.mensagem || 'Não foi possível gerar o Guião.') + '</span></p>' : '') +
+          '<p class="suave pequeno">A IA do SIGE lê a prova e escreve a resolução completa (' + esc(g.modelo) + '). Demora alguns minutos e tem um custo aproximado de <strong>US$ 0,20 a 0,60</strong> por prova. ' +
+          'O texto da prova é enviado à IA só quando carregares em «Gerar Guião».</p>' +
+          '<button type="button" class="btn bloco" data-guiao-gerar>' + ico('shield') + ' Gerar Guião com a IA</button>';
+      }
+      guiaoCaixa.innerHTML = h;
+      if (g.estado === 'gerando' && !guiaoTimer) {
+        guiaoTimer = setInterval(async function () {
+          try { var r = await api(pid + '/guiao/'); if (r.data.estado !== 'gerando') pararGuiaoTimer(); pintarGuiao(r.data); } catch (_) { /* tenta no próximo ciclo */ }
+        }, 5000);
+      }
+      if (g.estado !== 'gerando') pararGuiaoTimer();
+    };
+    guiaoSel.addEventListener('change', function () { pintarGuiao(guiaoEstado); });
+    guiaoCaixa.addEventListener('click', async function (ev) {
+      var b = ev.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-guiao-gerar')) {
+        if (guiaoEstado.pronto && !confirm('Já existe um Guião (e a tua revisão). Gerar outro substitui-o e tem custo. Continuar?')) return;
+        b.disabled = true;
+        try { var r = await api(pid + '/guiao/gerar/', { method: 'POST' }); pintarGuiao(r.data); }
+        catch (e) { aviso(e.message, 'atencao'); b.disabled = false; }
+      } else if (b.dataset.guiaoBaixar) {
+        descarregar('GET', pid + '/guiao/descarregar/?formato=' + b.dataset.guiaoBaixar, null, 'guiao.' + (b.dataset.guiaoBaixar === 'word' ? 'docx' : 'pdf'));
+      }
+    });
+    guiaoCaixa.addEventListener('change', async function (ev) {
+      var s = ev.target.closest('select[data-guiao-opcao]');
+      if (!s) return;
+      var fd = new FormData(); fd.append('numero', s.dataset.guiaoOpcao); fd.append('opcao_correcta', s.value);
+      try { var r = await api(pid + '/guiao/corrigir/', { method: 'POST', body: fd }); pintarGuiao(r.data); aviso('Opção da questão ' + s.dataset.guiaoOpcao + ' actualizada no Guião.'); }
+      catch (e) { aviso(e.message, 'atencao'); }
+    });
+    pintarGuiao(k.guiao);
     await carregarImagem(img, pid + '/pagina/1.png');
     desenhar();
   }

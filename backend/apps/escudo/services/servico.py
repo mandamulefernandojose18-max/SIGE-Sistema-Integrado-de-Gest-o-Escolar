@@ -15,7 +15,7 @@ MARCAS_INICIAIS = [  # o QR de cada página é automático (qr_pagina); aqui só
     {"tipo": "barras", "paginas": "primeira", "x": 0.5, "y": 0.91, "tamanho_mm": 50},
 ]
 FORMATOS_SAIDA = ("pdf", "word", "ambos")
-CHAVES_CONFIG = ("formato", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
+CHAVES_CONFIG = ("formato", "guiao_opcao", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
                  "qr_pergunta", "qr_marca_agua", "qr_pagina", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
 
 

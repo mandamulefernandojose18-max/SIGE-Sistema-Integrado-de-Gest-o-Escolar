@@ -16,6 +16,10 @@ urlpatterns = [
     path('<str:pid>/gerar/', views.gerar),
     path('<str:pid>/gabarito-copias/', views.gabarito_copias),
     path('<str:pid>/conferir/', views.conferir),
+    path('<str:pid>/guiao/', views.guiao_estado),
+    path('<str:pid>/guiao/gerar/', views.guiao_gerar),
+    path('<str:pid>/guiao/corrigir/', views.guiao_corrigir),
+    path('<str:pid>/guiao/descarregar/', views.guiao_descarregar),
 ]
 publico = [
     re_path(r'^ia/v/(?P<pid>[A-Z0-9]{8})/?$', views.verificar),

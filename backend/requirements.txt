@@ -19,3 +19,4 @@ pypdfium2>=4.30,<6.0
 pymupdf>=1.24
 numpy>=1.26
 cryptography>=42
+anthropic>=1.0

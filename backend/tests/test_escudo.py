@@ -423,3 +423,158 @@ def test_word_preserva_cabecalho_rodape_e_nao_activa_primeira_pagina_diferente()
     from lxml import etree
     primeiro = etree.tostring(novo.paragraphs[0]._p, encoding='unicode')
     assert '<wp:anchor' in primeiro  # a marca «só na primeira página» vai no corpo, ancorada ao primeiro parágrafo
+
+# ----------------------------------------------------------------- Guião (IA do SIGE)
+GUIAO_FALSO = {
+    'questoes': [
+        {'numero': '1', 'enunciado': 'Resolva $x^2-5x+6=0$.', 'tipo': 'escolha_multipla',
+         'passos': [{'descricao': 'Aplica-se a fórmula resolvente', 'equacao': r'x=\frac{-b\pm\sqrt{b^{2}-4ac}}{2a}'},
+                    {'descricao': 'Substituem-se $a=1$, $b=-5$ e $c=6$', 'equacao': r'x=\frac{5\pm\sqrt{25-24}}{2}'},
+                    {'descricao': 'Calculam-se as duas raízes', 'equacao': r'x_{1}=3 \quad\text{ou}\quad x_{2}=2'}],
+         'resposta_final': r'$x\in\{2,3\}$', 'opcao_correcta': 'B', 'texto_opcao_correcta': '2 e 3',
+         'justificacao_opcao': 'As outras alternativas não verificam a equação.', 'confianca': 'alta', 'observacao': ''},
+        {'numero': '2', 'enunciado': 'Calcule $\\int_0^1 x\\,dx$.', 'tipo': 'calculo',
+         'passos': [{'descricao': 'Primitiva de $x$', 'equacao': r'\int_0^1 x\,dx=\left[\frac{x^{2}}{2}\right]_0^1'},
+                    {'descricao': 'Aplica-se a regra de Barrow', 'equacao': r'=\frac{1}{2}-0=\frac{1}{2}'}],
+         'resposta_final': r'$\frac{1}{2}$', 'opcao_correcta': '', 'texto_opcao_correcta': '', 'justificacao_opcao': '',
+         'confianca': 'baixa', 'observacao': 'O limite superior está pouco legível.'},
+    ],
+    'observacoes_gerais': 'Resolução de teste.',
+}
+
+
+@pytest.fixture
+def ia_falsa(monkeypatch):
+    from apps.escudo.services import guiao_job, ia_sige
+    monkeypatch.setattr(ia_sige, 'disponivel', lambda: True)
+    monkeypatch.setattr(guiao_job, 'SINCRONO', True)
+    chamadas = []
+
+    def resolver(pdf, titulo='', disciplina='', classe=''):
+        chamadas.append((pdf[:5], titulo))
+        return {'dados': GUIAO_FALSO, 'uso': {'modelo': 'claude-opus-5-5', 'entrada': 3000, 'saida': 9000, 'custo_usd': 0.192}}
+    monkeypatch.setattr(ia_sige, 'resolver_prova', resolver)
+    return chamadas
+
+
+def test_latex_para_equacoes_nativas_em_duas_dimensoes():
+    from lxml import etree
+    from apps.escudo.services.latex_omml import latex_para_omml
+    casos = {
+        r'x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}': {'f', 'rad', 'sSup', 'num', 'den'},
+        r'\int_0^1 x^2\,dx=\frac{1}{3}': {'nary', 'f', 'sSup'},
+        r'\sum_{i=1}^{n} i=\frac{n(n+1)}{2}': {'nary', 'f'},
+        r'\lim_{x\to 0}\frac{\sin x}{x}=1': {'limLow', 'f'},
+        r'\begin{cases}x+y=3\\x-y=1\end{cases}': {'d', 'eqArr'},
+        r'\vec{F}=m\vec{a}': {'acc'},
+        r'\left(\frac{a}{b}\right)^{2}': {'d', 'f', 'sSup'},
+        r'\begin{pmatrix}1&2\\3&4\end{pmatrix}': {'m', 'mr'},
+        r'\sqrt[3]{27}=3': {'rad', 'deg'},
+        r'v=3,5\ \text{m/s}': {'nor'},
+    }
+    for latex, esperado in casos.items():
+        tags = {t.tag.split('}')[1] for t in etree.fromstring(latex_para_omml(latex)).iter() if isinstance(t.tag, str)}
+        assert esperado <= tags, (latex, esperado - tags)
+    assert latex_para_omml('') == '' and latex_para_omml('$$') == ''
+    texto = ''.join(etree.fromstring(latex_para_omml(r'a \neq b \leq \pi')).itertext())
+    assert '≠' in texto and '≤' in texto and 'π' in texto and '\\' not in texto
+
+
+def test_guiao_em_word_tem_equacoes_nativas_passos_e_opcao_correcta():
+    import docx
+    from lxml import etree
+    from apps.escudo.services import guiao
+    saida = guiao.construir_docx(GUIAO_FALSO, '2.ª ACS de Matemática', 'Matemática', '11.ª Classe', 'ABCD1234')
+    d = docx.Document(io.BytesIO(saida))
+    xml = etree.tostring(d.element.body, encoding='unicode')
+    assert xml.count('<m:oMathPara') >= 5 and '<m:f>' in xml and '<m:rad>' in xml and '<m:nary>' in xml  # equações nativas, não texto linear
+    assert '\\frac' not in xml and '\\sqrt' not in xml  # nenhum LaTeX cru no documento
+    texto = '\n'.join(p.text for p in d.paragraphs)
+    assert 'Questão 1' in texto and 'Questão 2' in texto and 'Opção correcta: B) 2 e 3' in texto
+    assert '1. Aplica-se a fórmula resolvente' in texto and '3. Calculam-se as duas raízes' in texto
+    assert 'Atenção: O limite superior' in texto  # confiança baixa avisa o professor
+    assert 'reservado ao professor' in texto
+    assert 'Times New Roman' in xml or d.styles['Normal'].font.name == 'Times New Roman'
+
+
+def test_guiao_sem_chave_da_ia_diz_porque_nao_gera(duas_escolas, monkeypatch):
+    from apps.escudo.services import ia_sige
+    monkeypatch.setattr(ia_sige, 'disponivel', lambda: False)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    e = c.get(API + pid + '/guiao/').json()['data']
+    assert e['disponivel'] is False and e['estado'] == 'nenhum' and e['pronto'] is False
+    r = c.post(API + pid + '/guiao/gerar/')
+    assert r.status_code == 503 and 'ANTHROPIC_API_KEY' in r.json()['message']
+
+
+def test_guiao_fluxo_completo_gerar_rever_corrigir_e_sair_nos_dois_formatos(duas_escolas, ia_falsa, conversor_falso):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    antes = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'guiao': 'com'})
+    assert antes.status_code == 400 and 'Guião ainda não está pronto' in antes.json()['message']  # nada sai sem Guião gerado
+
+    r = c.post(API + pid + '/guiao/gerar/')
+    assert r.status_code == 202, r.content
+    e = c.get(API + pid + '/guiao/').json()['data']
+    assert e['estado'] == 'pronto' and e['pronto'] and e['custo_usd'] == 0.192 and e['modelo'] == 'claude-opus-5-5'
+    assert [q['numero'] for q in e['questoes']] == ['1', '2'] and e['questoes'][0]['opcao_correcta'] == 'B'
+    assert e['questoes'][1]['confianca'] == 'baixa' and e['geracoes_24h'] == 1
+    assert ia_falsa and ia_falsa[0][0] == b'%PDF-'  # a IA recebe o PDF da prova
+
+    corr = c.post(API + pid + '/guiao/corrigir/', {'numero': '1', 'opcao_correcta': 'C'})
+    assert corr.status_code == 200 and corr.json()['data']['questoes'][0]['opcao_correcta'] == 'C' and corr.json()['data']['revisto']
+    assert c.post(API + pid + '/guiao/corrigir/', {'numero': '1', 'opcao_correcta': 'Z'}).status_code == 400
+    assert c.post(API + pid + '/guiao/corrigir/', {'numero': '99', 'opcao_correcta': 'A'}).status_code == 400
+
+    zipado = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'guiao': 'com', 'formato': 'pdf'})
+    assert zipado.status_code == 200 and zipado['Content-Type'] == 'application/zip'
+    nomes = zipfile.ZipFile(io.BytesIO(zipado.content)).namelist()
+    assert any('_copia_001.pdf' in n for n in nomes)  # a prova, em PDF
+    assert any(n.endswith('GUIAO_so_professor.pdf') for n in nomes) and any(n.endswith('GUIAO_so_professor.docx') for n in nomes)  # Guião: PDF e Word
+    sem = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'guiao': 'sem'})
+    assert sem['Content-Type'] == 'application/pdf'  # «Sem Guião»: sai só a prova, como antes
+    assert c.get(API + pid + '/configurar/').json()['data']['usa_guiao'] == 'sem'
+
+    word = c.get(API + pid + '/guiao/descarregar/?formato=word')
+    assert word.status_code == 200 and word['Content-Type'].endswith('wordprocessingml.document')
+    pdf = c.get(API + pid + '/guiao/descarregar/')
+    assert pdf.status_code == 200 and pdf.content.startswith(b'%PDF')
+    import docx
+    assert 'Opção correcta: C' in '\n'.join(p.text for p in docx.Document(io.BytesIO(word.content)).paragraphs)  # a correcção do professor vale
+
+    p = ProvaEscudo.objects.get(codigo=pid)
+    assert b'x^' not in bytes(p.pdf_cifrado) and 'guiao_cifrado' in p.config and 'Aplica-se' not in json.dumps(p.config)  # o guião fica cifrado
+
+
+def test_guiao_erros_da_ia_e_limite_diario(duas_escolas, ia_falsa, monkeypatch):
+    from apps.escudo.services import guiao_job, ia_sige
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+
+    def falha(*a, **k):
+        raise ia_sige.IAIndisponivel('A IA está com muitos pedidos neste momento. Tente de novo dentro de alguns minutos.')
+    monkeypatch.setattr(ia_sige, 'resolver_prova', falha)
+    c.post(API + pid + '/guiao/gerar/')
+    e = c.get(API + pid + '/guiao/').json()['data']
+    assert e['estado'] == 'erro' and 'muitos pedidos' in e['mensagem'] and e['pronto'] is False
+
+    monkeypatch.setattr(guiao_job, 'LIMITE_24H', 2)
+    c.post(API + pid + '/guiao/gerar/')  # 2.ª tentativa do dia
+    limite = c.post(API + pid + '/guiao/gerar/')
+    assert limite.status_code == 429 and 'Limite' in limite.json()['message']
+
+
+def test_guiao_respeita_a_escola_e_a_autoria(duas_escolas, ia_falsa):
+    from apps.accounts.models import Usuario
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    c.post(API + pid + '/guiao/gerar/')
+    Usuario.objects.create_user(email='admin.fb@sige.mz', password='PassFb123!', role='ADMIN_ESCOLA', escola=duas_escolas[1])
+    b = _cliente_de('admin.fb@sige.mz', 'PassFb123!')
+    for sufixo in ('guiao/', 'guiao/descarregar/'):
+        assert b.get(API + pid + '/' + sufixo).status_code == 404
+    assert b.post(API + pid + '/guiao/gerar/').status_code == 404
+    assert b.post(API + pid + '/guiao/corrigir/', {'numero': '1', 'opcao_correcta': 'A'}).status_code == 404
+    assert APIClient().get(API + pid + '/guiao/').status_code == 401
+    assert 'guiao' not in APIClient().get(f'/ia/v/{pid}/prova.pdf').content.decode().lower()  # nunca público
