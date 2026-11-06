@@ -578,3 +578,8 @@ def test_guiao_respeita_a_escola_e_a_autoria(duas_escolas, ia_falsa):
     assert b.post(API + pid + '/guiao/corrigir/', {'numero': '1', 'opcao_correcta': 'A'}).status_code == 404
     assert APIClient().get(API + pid + '/guiao/').status_code == 401
     assert 'guiao' not in APIClient().get(f'/ia/v/{pid}/prova.pdf').content.decode().lower()  # nunca público
+
+def test_equacao_que_continua_a_anterior_leva_marca_para_nao_aparecer_um_placeholder():
+    from apps.escudo.services.latex_omml import latex_para_omml
+    assert '\u200b' in latex_para_omml(r'=(2^{3}+2)-(0^{3}+0)=10')  # sem isto o LibreOffice desenha «¿» à esquerda do «=»
+    assert '\u200b' not in latex_para_omml(r'x=\frac{1}{2}')

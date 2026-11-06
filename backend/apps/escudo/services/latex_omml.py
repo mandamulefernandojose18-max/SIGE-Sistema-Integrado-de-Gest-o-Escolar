@@ -350,4 +350,7 @@ def latex_para_omml(latex):
         corpo.append(a.sequencia())
         if a.ver() in ("&", "\\\\"):
             a.tomar()
-    return f'<m:oMath xmlns:m="{M_NS}">{"".join(corpo)}</m:oMath>'
+    cabeca = ""
+    if re.match(r"^(=|<|>|\+|-|\\(leq|le|geq|ge|neq|ne|approx|equiv|Rightarrow|Leftrightarrow|to|pm|mp|cdot|times|div)(?![a-zA-Z]))", texto):
+        cabeca = _r("\u200b")  # equação que continua a anterior («= …»): sem operando à esquerda o LibreOffice desenha um «¿»
+    return f'<m:oMath xmlns:m="{M_NS}">{cabeca}{"".join(corpo)}</m:oMath>'

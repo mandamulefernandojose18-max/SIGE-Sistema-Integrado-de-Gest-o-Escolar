@@ -69,6 +69,15 @@ def _campo(p, instrucao):
     f = OxmlElement("w:fldSimple")
     f.set(qn("w:instr"), f" {instrucao} ")
     r = OxmlElement("w:r")
+    rpr = OxmlElement("w:rPr")
+    fonte = OxmlElement("w:rFonts")
+    for atr in ("w:ascii", "w:hAnsi", "w:cs"):
+        fonte.set(qn(atr), FONTE)
+    tam = OxmlElement("w:sz")
+    tam.set(qn("w:val"), "17")
+    rpr.append(fonte)
+    rpr.append(tam)
+    r.append(rpr)
     t = OxmlElement("w:t")
     t.text = "1"
     r.append(t)
