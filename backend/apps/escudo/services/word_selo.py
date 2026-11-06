@@ -71,10 +71,14 @@ def _ancorar(run, largura_pt, altura_pt, x_pt, y_pt, rel_h="page", rel_v="page",
     pai.remove(inline)
 
 
-def _imagem_ancorada(paragrafo, png, largura_pt, altura_pt, x_pt, y_pt, rel_h="page", rel_v="page", atras=True):
+def _imagem_ancorada(paragrafo, png, largura_pt, altura_pt, x_pt, y_pt, rel_h="page", rel_v="page", atras=True, alt=None):
     run = paragrafo.add_run()
     run.add_picture(io.BytesIO(png), width=Emu(int(largura_pt * EMU_PT)), height=Emu(int(altura_pt * EMU_PT)))
     _ancorar(run, largura_pt, altura_pt, x_pt, y_pt, rel_h, rel_v, atras)
+    if alt:  # texto alternativo da imagem: leva a instrução para IA sem pôr texto no parágrafo (não desloca o conteúdo)
+        for doc_pr in run._r.iter("{%s}docPr" % WP):
+            doc_pr.set("descr", alt)
+            doc_pr.set("title", "Aviso: prova protegida contra IA")
 
 
 def _run_oculto(paragrafo, texto, no_inicio=False):
@@ -187,13 +191,14 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
             continue
         n = int(m.group(1))
         if aviso_pergunta:
-            _run_oculto(p._p, selos.texto_pergunta(n, mensagem))
             etiqueta = _png(36, 16, lambda c: _desenhar_etiqueta(c))
-            _imagem_ancorada(p, etiqueta, 36, 16, 12, 0, rel_h="page", rel_v="paragraph", atras=False)
+            _imagem_ancorada(p, etiqueta, 36, 16, 12, 0, rel_h="page", rel_v="paragraph", atras=False,
+                             alt=selos.texto_pergunta(n, mensagem))
         if qr_pergunta:
             lado = selos.TAM_QR_PERGUNTA
             qr = _png(lado, lado, lambda c: selos._desenhar_qr(c, fitz.Rect(0, 0, lado, lado), lado, f"{url_base}/v/{pid}/{serial}/q{n}"))
-            _imagem_ancorada(p, qr, lado, lado, largura - selos.MARGEM_QR_PERGUNTA - lado, 0, rel_h="page", rel_v="paragraph", atras=False)
+            _imagem_ancorada(p, qr, lado, lado, largura - selos.MARGEM_QR_PERGUNTA - lado, 0, rel_h="page", rel_v="paragraph", atras=False,
+                             alt=selos.texto_pergunta(n, mensagem))
 
     # texto invisível para assistentes de IA: o primeiro e o último que um leitor de texto encontra
     com_texto = [p for p in corpo.iter(qn("w:p")) if "".join(t.text or "" for t in p.iter(qn("w:t"))).strip()]
