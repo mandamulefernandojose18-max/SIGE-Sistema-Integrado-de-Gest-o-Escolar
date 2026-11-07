@@ -44,7 +44,8 @@ class TenantMiddleware(MiddlewareMixin):
                 # Para todos os utilizadores comuns: bloquear acesso à API se a escola não estiver ATIVA ou estiver bloqueada.
                 st = str(getattr(request.tenant, 'status', '') or '').strip().upper()
                 bloqueada = bool(getattr(request.tenant, 'bloqueada_manualmente', False))
-                if st != 'ATIVA' or bloqueada:
+                from apps.tenants.saas_middleware import suspensao_em_modo_leitura
+                if (st != 'ATIVA' or bloqueada) and not suspensao_em_modo_leitura(request.tenant):
                     from django.http import JsonResponse
                     is_exempt = (
                         request.path.startswith('/api/v1/auth/')

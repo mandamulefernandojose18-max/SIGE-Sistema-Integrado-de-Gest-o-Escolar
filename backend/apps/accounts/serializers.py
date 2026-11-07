@@ -210,7 +210,8 @@ class LoginSerializer(serializers.Serializer):
                 status_escola = str(getattr(escola, 'status', '') or '').strip().upper()
                 bloqueada = bool(getattr(escola, 'bloqueada_manualmente', False))
 
-                if status_escola != 'ATIVA' or bloqueada:
+                from apps.tenants.saas_middleware import suspensao_em_modo_leitura
+                if (status_escola != 'ATIVA' or bloqueada) and not suspensao_em_modo_leitura(escola):
                     try:
                         LogAcesso.objects.create(
                             escola=escola,

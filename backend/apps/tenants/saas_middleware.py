@@ -33,6 +33,20 @@ def obter_estado_assinatura_cached(instituicao_id):
     return estado, ass_id
 
 
+def suspensao_em_modo_leitura(escola):
+    """
+    Suspensão por falta de pagamento (assinatura 'suspensa', escola SUSPENSA, sem bloqueio manual):
+    a escola entra em modo de apenas leitura em vez de ficar totalmente bloqueada.
+    Desactivação manual do SuperAdmin e bloqueio manual continuam a bloquear tudo.
+    """
+    if escola is None or getattr(escola, 'bloqueada_manualmente', False):
+        return False
+    if str(getattr(escola, 'status', '') or '').strip().upper() != 'SUSPENSA':
+        return False
+    estado, _ = obter_estado_assinatura_cached(escola.id)
+    return estado == 'suspensa'
+
+
 def limpar_cache_assinatura(instituicao_id=None):
     if instituicao_id:
         _ASSINATURA_CACHE.pop(str(instituicao_id), None)
@@ -141,8 +155,23 @@ class VerificarAssinaturaMiddleware(MiddlewareMixin):
 
         path = request.path
 
-        # 2. Verificação para ESTADO SUSPENSA ou CANCELADA
-        if estado in ('suspensa', 'cancelada'):
+        # 2a. SUSPENSA: modo de apenas leitura (consulta livre; só pagamentos/regularização permitem escrita)
+        if estado == 'suspensa':
+            is_isenta = any(path.startswith(prefix) for prefix in self.ROTAS_ISENTAS_SEMPRE)
+            if request.method not in ('GET', 'HEAD', 'OPTIONS') and not is_isenta:
+                return JsonResponse({
+                    'success': False,
+                    'codigo': 'ASSINATURA_RESTRITA',
+                    'estado_assinatura': estado,
+                    'message': (
+                        f'Subscrição suspensa: a instituição ({instituicao.nome}) está em modo de apenas leitura. '
+                        f'Pode consultar os dados, mas não criar, editar ou eliminar até regularizar o pagamento '
+                        f'(submeta o comprovativo na página de regularização).'
+                    )
+                }, status=403)
+
+        # 2b. CANCELADA: bloqueio total (apenas login, logout e regularização)
+        elif estado == 'cancelada':
             is_isenta = any(path.startswith(prefix) for prefix in self.ROTAS_ISENTAS_SEMPRE)
             if not is_isenta:
                 return JsonResponse({
@@ -180,6 +209,6 @@ class VerificarAssinaturaMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         # Injeta cabeçalho com alerta para o frontend quando em_atraso ou restrita
         estado = getattr(request, 'assinatura_estado', None)
-        if estado in ('em_atraso', 'restrita'):
+        if estado in ('em_atraso', 'restrita', 'suspensa'):
             response['X-Assinatura-Alerta'] = estado
         return response

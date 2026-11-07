@@ -220,15 +220,26 @@ class TestAssinaturasSaaS:
         self.assinatura.save()
         limpar_cache_assinatura(self.escola.id)
 
-        # Tentativa de aceder a alunos (GET) agora também deve ser BLOQUEADA
-        res_get_bloqueado = self.client.get('/api/v1/alunos/')
-        assert res_get_bloqueado.status_code == 403
-        corpo_bloq = res_get_bloqueado.content.decode('utf-8')
-        assert "Acesso suspenso" in corpo_bloq
+        # Suspensa = modo de apenas leitura: consulta (GET) permitida, escrita bloqueada
+        assert self.client.get('/api/v1/alunos/').status_code == 200
+        res_post_susp = self.client.post('/api/v1/alunos/', {
+            'nome': 'Aluno Bloqueado', 'turma': str(self.turma.id), 'genero': 'M', 'data_nascimento': '2010-01-01'
+        }, format='json')
+        assert res_post_susp.status_code == 403
+        assert "apenas leitura" in res_post_susp.content.decode('utf-8')
 
         # Acesso à área de regularização e faturas deve continuar PERMITIDO
         res_minha_ass = self.client.get('/api/v1/saas/minha-assinatura/')
         assert res_minha_ass.status_code == 200
+
+        # Caso C: Estado 'cancelada' mantém o bloqueio total
+        self.assinatura.estado = 'cancelada'
+        self.assinatura.save()
+        limpar_cache_assinatura(self.escola.id)
+        res_get_bloqueado = self.client.get('/api/v1/alunos/')
+        assert res_get_bloqueado.status_code == 403
+        assert "Acesso suspenso" in res_get_bloqueado.content.decode('utf-8')
+        assert self.client.get('/api/v1/saas/minha-assinatura/').status_code == 200
 
     # 5. Confirmação de Pagamento Reactiva a Assinatura (Pagamento Total e Parcial)
     def test_confirmar_pagamento_reactiva_assinatura(self):

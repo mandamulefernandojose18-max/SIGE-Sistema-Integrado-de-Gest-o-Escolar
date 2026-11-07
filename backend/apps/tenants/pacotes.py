@@ -138,6 +138,26 @@ def funcionalidades_da_escola(escola):
 EXCECOES_NUCLEO = ('/api/v1/alunos/presencas/faltas-trimestre',)
 
 
+def mensagem_limite_excedido(escola, tipo):
+    """
+    Mensagem de erro se a escola já atingiu o limite do pacote ('alunos' ou 'professores'); None se pode adicionar.
+    Escola sem pacote não tem limite.
+    """
+    if escola is None or not getattr(escola, 'pacote_id', None):
+        return None
+    pacote = escola.pacote
+    if tipo == 'alunos':
+        from apps.alunos.models import Aluno
+        atual, limite, rotulo = Aluno.objects.filter(escola=escola).count(), pacote.limite_alunos, 'alunos'
+    else:
+        from apps.professores.models import Professor
+        atual, limite, rotulo = Professor.objects.filter(escola=escola).count(), pacote.limite_professores, 'professores'
+    if atual >= limite:
+        return (f'Limite do pacote {pacote.nome} atingido: {atual} de {limite} {rotulo}. '
+                f'Contacte o Engenheiro do Sistema para mudar para um pacote superior.')
+    return None
+
+
 def funcionalidade_para_caminho(caminho):
     if caminho.startswith(EXCECOES_NUCLEO):
         return None

@@ -3088,6 +3088,11 @@ function atualizarFaixaAlertaSaaS(estado) {
   if (faixa) {
     faixa.style.display = 'none';
   }
+  // Suspensão por falta de pagamento = modo de apenas leitura: avisa uma vez por sessão.
+  if (estado === 'suspensa' && state.user?.role !== 'SUPERADMIN' && !window._avisoSuspensaoLeitura) {
+    window._avisoSuspensaoLeitura = true;
+    mostrarToast('Subscrição suspensa: o sistema está em modo de apenas leitura. Regularize o pagamento na página de assinatura para voltar a editar.', 'warning');
+  }
 }
 
 function tratarAcessoRestritoOuSuspenso(codigo, mensagem) {

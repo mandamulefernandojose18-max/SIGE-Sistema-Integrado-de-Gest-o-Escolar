@@ -473,6 +473,9 @@ class SaasAssinatura(models.Model):
     dias_tolerancia = models.IntegerField(default=5)
     dias_ate_suspensao = models.IntegerField(default=15)
     data_bloqueio_manual = models.DateField(null=True, blank=True)
+    # Excepção negociada: até esta data a escola não passa a 'suspensa' (fica no máximo em modo restrito)
+    suspensao_adiada_ate = models.DateField(null=True, blank=True)
+    suspensao_adiada_motivo = models.TextField(blank=True, default='')
     multa_tipo = models.CharField(
         max_length=20,
         default='nenhuma',

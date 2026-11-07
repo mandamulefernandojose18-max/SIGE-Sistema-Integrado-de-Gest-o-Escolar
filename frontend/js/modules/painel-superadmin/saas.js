@@ -945,6 +945,17 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
               </label>
             </div>
           </div>
+          <div class="col-12">
+            <div class="border rounded p-2 bg-light">
+              <label class="form-label small fw-bold mb-1"><i class="bi bi-shield-exclamation text-warning me-1"></i>Excepção: não suspender automaticamente</label>
+              <div class="row g-2">
+                <div class="col-md-4"><input type="date" id="editEscolaAdiarAte" class="form-control form-control-sm" aria-label="Não suspender até"></div>
+                <div class="col-md-8"><input type="text" id="editEscolaAdiarMotivo" class="form-control form-control-sm" placeholder="Motivo obrigatório (ex.: acordo de pagamento)" maxlength="500"></div>
+              </div>
+              <small class="text-muted">Até à data indicada (máx. 90 dias) a escola fica no máximo em modo restrito. Fica registado na auditoria. Deixe vazio para não alterar.</small>
+              <div><button type="button" class="btn btn-link btn-sm p-0" id="btnRemoverAdiamento">Remover excepção activa</button></div>
+            </div>
+          </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Data de Vencimento do Contrato</label>
             <input type="date" id="editEscolaDataFim" class="form-control" value="${dataFimStr}">
@@ -1002,9 +1013,27 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
 
     atualizarDistritosEdicaoEscola(escola.provincia || 'Maputo Cidade', escola.distrito);
 
+    document.getElementById('btnRemoverAdiamento')?.addEventListener('click', async () => {
+      if (!confirm('Remover a excepção de suspensão desta escola?')) return;
+      try {
+        const r = await apiFetch(`/api/v1/saas/instituicoes/${escolaId}/adiar-suspensao`, { method: 'POST', body: JSON.stringify({ ate: null }) });
+        alert((r && r.message) || 'Excepção removida.');
+        carregarAlarmesSaaS();
+      } catch (err) { alert(err.message || 'Erro ao remover excepção.'); }
+    });
+
     document.getElementById('formModalEditarEscola')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
+        const adiarAte = document.getElementById('editEscolaAdiarAte')?.value;
+        const adiarMotivo = document.getElementById('editEscolaAdiarMotivo')?.value?.trim();
+        if (adiarAte) {
+          if (!adiarMotivo || adiarMotivo.length < 5) return alert('Indique o motivo da excepção de suspensão (mínimo 5 caracteres).');
+          const rAd = await apiFetch(`/api/v1/saas/instituicoes/${escolaId}/adiar-suspensao`, {
+            method: 'POST', body: JSON.stringify({ ate: adiarAte, motivo: adiarMotivo })
+          });
+          if (!rAd || !rAd.success) return alert((rAd && rAd.message) || 'Não foi possível registar a excepção.');
+        }
         const body = {
           nome: document.getElementById('editEscolaNome').value,
           tipo_escola: document.getElementById('editEscolaTipo')?.value || 'S',

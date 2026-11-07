@@ -103,6 +103,16 @@ def calcular_alarmes():
         alarmes.append(_alarme('anomalias', 'Anomalias em pagamentos', 'aviso', itens,
                                descricao='Referências repetidas ou valores diferentes do devido.'))
 
+    # 4b. Excepções activas "não suspender até <data>" (informativo)
+    adiadas = SaasAssinatura.objects.select_related('instituicao').filter(
+        suspensao_adiada_ate__gte=hoje).order_by('suspensao_adiada_ate')
+    itens = [{'instituicao_id': str(a.instituicao_id), 'instituicao': a.instituicao.nome,
+              'detalhe': f'até {a.suspensao_adiada_ate.strftime("%d/%m/%Y")} · {(a.suspensao_adiada_motivo or "")[:70]}'}
+             for a in adiadas]
+    if itens:
+        alarmes.append(_alarme('suspensao_adiada', 'Excepções: suspensão adiada', 'info', itens,
+                               descricao='Escolas com acordo para não serem suspensas automaticamente até à data indicada.'))
+
     # 5. Rotina diária (faturação/suspensão/reactivação): falhou ou não corre há muito tempo
     ultima = SaasRotinaExecucao.objects.order_by('-executada_em').first()
     if ultima is None:

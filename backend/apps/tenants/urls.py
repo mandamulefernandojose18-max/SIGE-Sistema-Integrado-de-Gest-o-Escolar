@@ -18,6 +18,7 @@ from .views import (
 from .saas_views import (
     SaasResumoView,
     SaasAlarmesView,
+    SaasAdiarSuspensaoView,
     SaasAssinaturasListView,
     SaasAssinaturaDetalheView,
     SaasPagamentosPendentesView,
@@ -70,6 +71,8 @@ saas_pagamentos_urls = [
     path('resumo/', SaasResumoView.as_view(), name='saas_resumo'),
     path('alarmes', SaasAlarmesView.as_view(), name='saas_alarmes_no_slash'),
     path('alarmes/', SaasAlarmesView.as_view(), name='saas_alarmes'),
+    path('instituicoes/<uuid:pk>/adiar-suspensao', SaasAdiarSuspensaoView.as_view(), name='saas_adiar_suspensao_no_slash'),
+    path('instituicoes/<uuid:pk>/adiar-suspensao/', SaasAdiarSuspensaoView.as_view(), name='saas_adiar_suspensao'),
     path('assinaturas', SaasAssinaturasListView.as_view(), name='saas_assinaturas_list_no_slash'),
     path('assinaturas/', SaasAssinaturasListView.as_view(), name='saas_assinaturas_list'),
     path('assinaturas/<uuid:pk>', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_detalhe_no_slash'),

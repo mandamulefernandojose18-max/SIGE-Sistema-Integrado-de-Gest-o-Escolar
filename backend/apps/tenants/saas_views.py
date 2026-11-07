@@ -79,6 +79,62 @@ class SaasResumoView(APIView):
         })
 
 
+class SaasAdiarSuspensaoView(APIView):
+    """Excepção negociada: 'não suspender automaticamente até <data>' (máx. 90 dias, motivo obrigatório)."""
+    permission_classes = [IsAuthenticated]
+    MAX_DIAS = 90
+
+    def post(self, request, pk):
+        if not is_superadmin_user(request.user):
+            return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
+
+        ass = SaasAssinatura.objects.select_related('instituicao').filter(instituicao_id=pk).order_by('-created_at').first()
+        if not ass:
+            return Response({'success': False, 'message': 'Assinatura SaaS não encontrada para a instituição.'}, status=status.HTTP_404_NOT_FOUND)
+
+        utilizador = request.user.nome or request.user.email
+        ate_raw = request.data.get('ate')
+        motivo = str(request.data.get('motivo') or '').strip()
+        hoje = timezone.localdate()
+
+        if not ate_raw:  # remover a excepção
+            anterior = ass.suspensao_adiada_ate
+            ass.suspensao_adiada_ate = None
+            ass.suspensao_adiada_motivo = ''
+            ass.save(update_fields=['suspensao_adiada_ate', 'suspensao_adiada_motivo', 'updated_at'])
+            SaasLogAssinatura.objects.create(
+                instituicao=ass.instituicao, assinatura=ass, accao='ADIAMENTO_SUSPENSAO_REMOVIDO',
+                estado_anterior=ass.estado, estado_novo=ass.estado, feito_por=utilizador,
+                motivo=f'Excepção removida (era até {anterior}).' if anterior else 'Sem excepção activa.')
+            limpar_cache_assinatura(ass.instituicao_id)
+            return Response({'success': True, 'message': 'Excepção de suspensão removida.'})
+
+        try:
+            ate = date.fromisoformat(str(ate_raw)[:10])
+        except ValueError:
+            return Response({'success': False, 'message': 'Data inválida (use AAAA-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+        if ate < hoje or (ate - hoje).days > self.MAX_DIAS:
+            return Response({'success': False, 'message': f'A data deve estar entre hoje e {self.MAX_DIAS} dias.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(motivo) < 5:
+            return Response({'success': False, 'message': 'O motivo é obrigatório (mínimo 5 caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ass.suspensao_adiada_ate = ate
+        ass.suspensao_adiada_motivo = motivo[:500]
+        ass.save(update_fields=['suspensao_adiada_ate', 'suspensao_adiada_motivo', 'updated_at'])
+        SaasLogAssinatura.objects.create(
+            instituicao=ass.instituicao, assinatura=ass, accao='SUSPENSAO_ADIADA',
+            estado_anterior=ass.estado, estado_novo=ass.estado, feito_por=utilizador,
+            motivo=f'Não suspender automaticamente até {ate}. Motivo: {motivo[:500]}')
+
+        # Se já estava suspensa por falta de pagamento, reavalia (passa a modo restrito durante a excepção)
+        if ass.estado == 'suspensa' and not ass.instituicao.bloqueada_manualmente:
+            from .saas_services import avaliar_regras_automaticas_instituicao
+            avaliar_regras_automaticas_instituicao(ass.instituicao_id, 'auto_avaliar', feito_por=utilizador,
+                                                   motivo_personalizado=f'Excepção de suspensão até {ate}.')
+        limpar_cache_assinatura(ass.instituicao_id)
+        return Response({'success': True, 'message': f'A escola não será suspensa automaticamente até {ate.strftime("%d/%m/%Y")}.'})
+
+
 class SaasAlarmesView(APIView):
     """Alarmes de supervisão de pagamentos (comprovativos, vencimentos, atrasos, suspensões, anomalias, rotina)."""
     permission_classes = [IsAuthenticated]

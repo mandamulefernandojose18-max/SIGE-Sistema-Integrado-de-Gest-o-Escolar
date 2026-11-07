@@ -71,6 +71,11 @@ class AlunoViewSet(viewsets.ModelViewSet):
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de matricular o aluno.'
             })
 
+        from apps.tenants.pacotes import mensagem_limite_excedido
+        msg_limite = mensagem_limite_excedido(escola, 'alunos')
+        if msg_limite:
+            raise drf_serializers.ValidationError({'limite': msg_limite})
+
         turma = serializer.validated_data.get('turma')
         if turma and turma.escola_id != escola.id:
             raise drf_serializers.ValidationError({

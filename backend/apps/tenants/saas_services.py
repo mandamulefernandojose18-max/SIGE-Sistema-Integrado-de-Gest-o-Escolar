@@ -129,6 +129,12 @@ def adicionar_meses_e_dias(data_base, meses, dias):
     return data_result
 
 
+def suspensao_esta_adiada(ass, hoje=None):
+    """True se existe uma excepção activa 'não suspender até <data>' para a assinatura."""
+    hoje = hoje or timezone.localdate()
+    return bool(ass.suspensao_adiada_ate and hoje <= ass.suspensao_adiada_ate)
+
+
 def avaliar_expiracao_assinatura(ass):
     """
     Verificação instantânea em tempo real executada no middleware:
@@ -172,8 +178,11 @@ def avaliar_expiracao_assinatura(ass):
         lim_sus = lim_tol + timedelta(days=ass.dias_ate_suspensao)
 
         if hoje >= lim_sus:
-            em_corte = True
-            break
+            if suspensao_esta_adiada(ass, hoje):
+                em_restricao = True   # excepção negociada: no máximo modo restrito
+            else:
+                em_corte = True
+                break
         elif hoje > lim_tol:
             em_restricao = True
         elif hoje > data_ef:
@@ -185,7 +194,10 @@ def avaliar_expiracao_assinatura(ass):
             lim_tol = ass.proxima_fatura_em + timedelta(days=ass.dias_tolerancia)
             lim_sus = lim_tol + timedelta(days=ass.dias_ate_suspensao)
             if hoje >= lim_sus:
-                em_corte = True
+                if suspensao_esta_adiada(ass, hoje):
+                    em_restricao = True
+                else:
+                    em_corte = True
             elif hoje > lim_tol:
                 em_restricao = True
             elif hoje > ass.proxima_fatura_em:
@@ -375,7 +387,9 @@ def avaliar_regras_automaticas_instituicao(instituicao_id, acao_desejada=None, f
             fat.save()
 
         passou_corte = (hoje >= limite_suspensao) or (ass.data_bloqueio_manual and hoje >= ass.data_bloqueio_manual)
-        if passou_corte:
+        if passou_corte and suspensao_esta_adiada(ass, hoje):
+            faturas_em_restricao.append(fat)   # excepção negociada: no máximo modo restrito
+        elif passou_corte:
             faturas_em_corte.append(fat)
         elif hoje > limite_tolerancia:
             faturas_em_restricao.append(fat)
@@ -442,7 +456,7 @@ def avaliar_regras_automaticas_instituicao(instituicao_id, acao_desejada=None, f
         if ass.proxima_fatura_em:
             limite_tol = ass.proxima_fatura_em + timedelta(days=ass.dias_tolerancia)
             limite_sus = limite_tol + timedelta(days=ass.dias_ate_suspensao)
-            if hoje >= limite_sus:
+            if hoje >= limite_sus and not suspensao_esta_adiada(ass, hoje):
                 novo_estado = 'suspensa'
                 novo_status_escola = 'SUSPENSA'
                 motivo_padrao = f"Suspensão automática: período da subscrição expirado em {ass.proxima_fatura_em} e tolerância de corte esgotada."

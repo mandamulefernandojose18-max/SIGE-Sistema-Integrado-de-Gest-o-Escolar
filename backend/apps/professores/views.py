@@ -36,6 +36,11 @@ class ProfessorViewSet(viewsets.ModelViewSet):
                 'escola': 'Nenhuma escola seleccionada. Por favor, seleccione uma escola no topo antes de cadastrar o professor.'
             })
 
+        from apps.tenants.pacotes import mensagem_limite_excedido
+        msg_limite = mensagem_limite_excedido(escola, 'professores')
+        if msg_limite:
+            raise drf_serializers.ValidationError({'limite': msg_limite})
+
         serializer.save(escola=escola)
 
     def list(self, request, *args, **kwargs):
