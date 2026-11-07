@@ -408,6 +408,8 @@ class EscolaViewSet(viewsets.ModelViewSet):
             codigo_escola=(data.get('codigo_escola') or '').strip().upper() or None,
             plano=plano,
             pacote=pacote,
+            # Escolas novas são facturadas pelo preço do pacote (contratos antigos mantêm o plano)
+            facturar_por_pacote=bool(pacote),
             usar_emblema_nacional=data.get('usar_emblema_nacional', True),
             logo_url=None if is_b64_logo else raw_logo,
             logo_base64=raw_logo if is_b64_logo else (data.get('logo_base64') or None),

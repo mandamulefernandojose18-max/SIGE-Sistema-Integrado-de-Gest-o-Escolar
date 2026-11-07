@@ -17,10 +17,20 @@ class SaasAssinaturaSerializer(serializers.ModelSerializer):
     instituicao_status = serializers.CharField(source='instituicao.status', read_only=True)
     instituicao_bloqueada_manualmente = serializers.BooleanField(source='instituicao.bloqueada_manualmente', read_only=True)
     modo_controlo = serializers.SerializerMethodField()
+    preco_mensal_contratado = serializers.SerializerMethodField()
+    facturado_por_pacote = serializers.SerializerMethodField()
 
     class Meta:
         model = SaasAssinatura
         fields = '__all__'
+
+    def get_preco_mensal_contratado(self, obj):
+        from .saas_services import preco_mensal_contratado
+        return float(preco_mensal_contratado(obj))
+
+    def get_facturado_por_pacote(self, obj):
+        from .saas_services import usa_preco_do_pacote
+        return usa_preco_do_pacote(obj)
 
     def get_modo_controlo(self, obj):
         if getattr(obj.instituicao, 'bloqueada_manualmente', False):

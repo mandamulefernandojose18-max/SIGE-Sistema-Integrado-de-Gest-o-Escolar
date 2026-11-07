@@ -81,6 +81,12 @@ def preco_periodo(preco_mensal, meses, desconto_pct):
     return (liquido / Decimal('50')).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * Decimal('50')
 
 
+def desconto_periodo(pacote, periodicidade):
+    """Desconto (%) do pacote para uma periodicidade (mensal/trimestral/semestral/anual)."""
+    descontos = {**DESCONTOS_PADRAO, **(getattr(pacote, 'descontos', None) or {})}
+    return Decimal(str(descontos.get(str(periodicidade).lower(), 0)))
+
+
 def tabela_precos(pacote):
     """Preços por periodicidade de um pacote, com o desconto aplicado."""
     descontos = {**DESCONTOS_PADRAO, **(pacote.descontos or {})}

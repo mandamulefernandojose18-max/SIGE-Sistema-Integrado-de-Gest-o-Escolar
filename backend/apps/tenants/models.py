@@ -86,6 +86,8 @@ class Escola(models.Model):
     plano = models.ForeignKey(Plano, on_delete=models.SET_NULL, null=True, blank=True, related_name='escolas')
     # Pacote de funcionalidades; nulo = acesso total (retrocompatibilidade)
     pacote = models.ForeignKey('Pacote', on_delete=models.SET_NULL, null=True, blank=True, related_name='escolas')
+    # Quando True, as novas faturas usam o preço do pacote; False mantém o preço do plano contratado (contratos antigos)
+    facturar_por_pacote = models.BooleanField(default=False)
     data_adesao = models.DateTimeField(default=timezone.now)
 
     # Dados Oficiais para Documentação MEC

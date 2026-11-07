@@ -752,10 +752,13 @@ class SaasCalcularAdiantamentoView(APIView):
 
         excedente = max(Decimal('0.00'), valor - total_devido)
         plano = ass.plano
+        from .saas_services import preco_mensal_contratado, desconto_contratado_pct
+        preco_mensal_efectivo = preco_mensal_contratado(ass)
         tempo = calcular_tempo_correspondente_valor(
             valor=excedente,
-            preco_mensal=plano.preco_mensal if plano else Decimal('0.00'),
-            periodicidade=ass.periodicidade
+            preco_mensal=preco_mensal_efectivo,
+            periodicidade=ass.periodicidade,
+            desconto_pct=desconto_contratado_pct(ass)
         )
 
         base_data = ass.proxima_fatura_em or timezone.localdate()
@@ -783,7 +786,8 @@ class SaasCalcularAdiantamentoView(APIView):
                 'proxima_fatura_atual': str(base_data),
                 'nova_proxima_fatura': str(nova_data),
                 'plano_nome': plano.nome if plano else 'Plano Básico',
-                'preco_mensal': float(plano.preco_mensal) if plano else 0.0,
+                'preco_mensal': float(preco_mensal_efectivo),
+                'facturado_por_pacote': ass.instituicao.facturar_por_pacote and bool(ass.instituicao.pacote_id),
                 'periodicidade': ass.periodicidade
             }
         })

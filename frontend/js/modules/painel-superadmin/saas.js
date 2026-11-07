@@ -938,6 +938,12 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
             <label class="form-label small fw-bold text-primary">Pacote de Funcionalidades</label>
             <select id="editEscolaPacote" class="form-select border-primary">${opcoesPacotesSaaS(escola.pacote, false)}</select>
             <small class="text-muted">Define o que a escola pode usar (aplica-se de imediato). "Acesso total" = sem restrições.</small>
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="editEscolaFacturarPacote" ${escola.facturar_por_pacote ? 'checked' : ''}>
+              <label class="form-check-label small" for="editEscolaFacturarPacote">
+                <strong>Facturar pelo preço do pacote</strong> — as <em>próximas</em> faturas e adiantamentos usam o preço mensal e os descontos do pacote. Faturas já emitidas e contratos antigos (desmarcado) não mudam.
+              </label>
+            </div>
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Data de Vencimento do Contrato</label>
@@ -1011,6 +1017,7 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           provincia: document.getElementById('editEscolaProvincia').value,
           distrito: document.getElementById('editEscolaDistrito').value,
           pacote: document.getElementById('editEscolaPacote')?.value || null,
+          facturar_por_pacote: !!document.getElementById('editEscolaFacturarPacote')?.checked && !!document.getElementById('editEscolaPacote')?.value,
           usar_emblema_nacional: document.getElementById('editEscolaEmblema').checked,
           logo_url: document.getElementById('editEscolaLogoFinal')?.value || null
         };

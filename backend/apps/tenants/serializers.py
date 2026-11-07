@@ -83,7 +83,7 @@ class EscolaListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Escola
         fields = [
-            'pacote', 'pacote_nome', 'pacote_codigo', 'funcionalidades',
+            'pacote', 'pacote_nome', 'pacote_codigo', 'funcionalidades', 'facturar_por_pacote',
             'id', 'nome', 'nif_cnpj', 'email', 'telefone', 'provincia', 'distrito',
             'tipo_escola', 'director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome',
             'usar_emblema_nacional', 'codigo_escola', 'status', 'ano_letivo_ativo', 'trimestre_ativo',

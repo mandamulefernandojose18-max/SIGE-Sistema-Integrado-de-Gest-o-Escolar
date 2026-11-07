@@ -33,7 +33,39 @@ def calcular_data_limite_efectiva_python(fatura):
     return fatura.data_limite
 
 
-def calcular_tempo_correspondente_valor(valor, preco_mensal, periodicidade='mensal'):
+def usa_preco_do_pacote(ass):
+    """True se a escola é facturada pelo preço do pacote (flag activa e pacote atribuído)."""
+    esc = ass.instituicao if ass else None
+    return bool(esc and getattr(esc, 'facturar_por_pacote', False) and getattr(esc, 'pacote_id', None))
+
+
+def preco_mensal_contratado(ass):
+    """Preço mensal base: do pacote (se facturar por pacote) ou do plano SaaS contratado."""
+    if usa_preco_do_pacote(ass):
+        return ass.instituicao.pacote.preco_mensal
+    return ass.plano.preco_mensal if ass.plano else Decimal('0.00')
+
+
+def desconto_contratado_pct(ass):
+    """Desconto (%) da periodicidade da assinatura quando facturada por pacote; None = fórmula legada."""
+    if usa_preco_do_pacote(ass):
+        from .pacotes import desconto_periodo
+        return desconto_periodo(ass.instituicao.pacote, ass.periodicidade)
+    return None
+
+
+def valor_fatura_periodo(ass):
+    """Valor da fatura de um período completo (pacote: preço do período arredondado a 50 MZN)."""
+    from .pacotes import PERIODOS_MESES, preco_periodo
+    meses = PERIODOS_MESES.get(ass.periodicidade, 1)
+    if usa_preco_do_pacote(ass):
+        return preco_periodo(ass.instituicao.pacote.preco_mensal, meses, desconto_contratado_pct(ass))
+    base = ass.plano.preco_mensal
+    fator = {'trimestral': Decimal('0.95'), 'semestral': Decimal('0.90'), 'anual': Decimal('0.85')}.get(ass.periodicidade, Decimal('1'))
+    return base * Decimal(meses) * fator
+
+
+def calcular_tempo_correspondente_valor(valor, preco_mensal, periodicidade='mensal', desconto_pct=None):
     """
     Calcula com precisão matemática a quanto tempo (meses e dias) corresponde um montante
     em função do preço base mensal do plano e da periodicidade contratada (com descontos aplicáveis).
@@ -47,11 +79,14 @@ def calcular_tempo_correspondente_valor(valor, preco_mensal, periodicidade='mens
     if val <= 0 or p_mensal <= 0:
         return {'meses': 0, 'dias': 0, 'preco_efetivo_mensal': p_mensal, 'preco_diario': Decimal('0.00')}
 
-    fator = {
-        'trimestral': Decimal('0.95'),
-        'semestral': Decimal('0.90'),
-        'anual': Decimal('0.85'),
-    }.get(str(periodicidade).lower(), Decimal('1.00'))
+    if desconto_pct is not None:
+        fator = (Decimal('100') - Decimal(str(desconto_pct))) / Decimal('100')
+    else:
+        fator = {
+            'trimestral': Decimal('0.95'),
+            'semestral': Decimal('0.90'),
+            'anual': Decimal('0.85'),
+        }.get(str(periodicidade).lower(), Decimal('1.00'))
 
     preco_efetivo_mensal = p_mensal * fator
     preco_diario = preco_efetivo_mensal / Decimal('30.0')
@@ -232,11 +267,12 @@ def aplicar_pagamento_adiantado_python(ass, fatura_principal, valor_pago_total, 
         'descricao': 'Nenhum adiantamento adicional.'
     }
 
-    if sobra > Decimal('0.00') and ass.plano and ass.plano.preco_mensal > Decimal('0.00'):
+    if sobra > Decimal('0.00') and preco_mensal_contratado(ass) > Decimal('0.00'):
         tempo = calcular_tempo_correspondente_valor(
             valor=sobra,
-            preco_mensal=ass.plano.preco_mensal,
-            periodicidade=ass.periodicidade
+            preco_mensal=preco_mensal_contratado(ass),
+            periodicidade=ass.periodicidade,
+            desconto_pct=desconto_contratado_pct(ass)
         )
         meses = tempo['meses']
         dias = tempo['dias']
@@ -522,6 +558,10 @@ def _executar_rotina_diaria_core():
             fim = proxima - timedelta(days=1)
             valor = plano.preco_mensal
             limite = date(inicio.year, inicio.month, 10)
+
+        # Escolas facturadas pelo pacote: preço do período calculado (mensal x meses - desconto, arredondado a 50)
+        if usa_preco_do_pacote(ass):
+            valor = valor_fatura_periodo(ass)
 
         if ass.modo_data_limite == 'dia_fixo' and ass.dia_limite:
             ultimo_dia = calendar.monthrange(inicio.year, inicio.month)[1]
