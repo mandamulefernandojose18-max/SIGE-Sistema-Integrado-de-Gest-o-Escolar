@@ -9,12 +9,13 @@ Tudo isolado por escola (tenant). Só dados reais: sem alunos reais não há fol
 """
 from django.http import HttpResponse
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.alunos.models import Aluno
 from apps.disciplinas.models import Disciplina
+from apps.tenants.models import Escola
 from apps.turmas.models import Turma
 from common.utils.tenant import get_tenant_escola
 
@@ -193,3 +194,42 @@ class FolhaRespostaGerarView(APIView):
         resp['X-Total-Folhas'] = str(total)
         resp['Access-Control-Expose-Headers'] = 'Content-Disposition, X-Total-Folhas'
         return _definir_content_disposition(resp, nome)
+
+
+class FolhaRespostaVerificarView(APIView):
+    """
+    Verificação pública (QR da folha). Confirma que a folha foi emitida pelo SIGE sem expor dados pessoais:
+    não devolve o nome do aluno, só classe/turma e o código mascarado.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_scope = 'verificacao'
+
+    def get(self, request):
+        dados = fr.validar_token_verificacao(request.query_params.get('d'), request.query_params.get('s'))
+        if not dados:
+            return Response({'valida': False, 'detail': 'Código inválido ou adulterado.'}, status=404)
+        escola = Escola.objects.filter(id=dados.get('e') or None).first() if dados.get('e') else None
+        if not escola:
+            return Response({'valida': False, 'detail': 'Escola não encontrada.'}, status=404)
+        codigo = dados.get('a') or ''
+        aluno_info = None
+        if codigo:
+            aluno = Aluno.objects.filter(escola=escola, matricula=codigo).select_related('turma').first()
+            aluno_info = {
+                'registado': bool(aluno),
+                'classe': (aluno.turma.grau_ano if aluno and aluno.turma_id else (aluno.classe if aluno else '')) or '',
+                'turma': (aluno.turma.nome if aluno and aluno.turma_id else '') or '',
+                'codigo_mascarado': ('••••' + codigo[-4:]) if len(codigo) > 4 else '••••',
+            }
+        return Response({
+            'valida': True,
+            'escola': {'nome': escola.nome, 'codigo': escola.codigo_escola or ''},
+            'avaliacao': fr.ROTULO_TIPO_COMPLETO.get(dados.get('t'), dados.get('t') or ''),
+            'disciplina': dados.get('d') or '',
+            'ano_letivo': dados.get('y') or '',
+            'versao': dados.get('v') or '',
+            'n_perguntas': dados.get('n'),
+            'folha_em_branco': not codigo,
+            'aluno': aluno_info,
+        })

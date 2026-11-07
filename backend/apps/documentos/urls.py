@@ -36,6 +36,7 @@ from .views_folha_resposta import (
     FolhaRespostaContextoView,
     FolhaRespostaAlunosView,
     FolhaRespostaGerarView,
+    FolhaRespostaVerificarView,
 )
 
 urlpatterns = [
@@ -44,6 +45,8 @@ urlpatterns = [
     path('folha-resposta/contexto/', FolhaRespostaContextoView.as_view(), name='folha_resposta_contexto'),
     path('folha-resposta/alunos', FolhaRespostaAlunosView.as_view(), name='folha_resposta_alunos_no_slash'),
     path('folha-resposta/alunos/', FolhaRespostaAlunosView.as_view(), name='folha_resposta_alunos'),
+    path('folha-resposta/verificar', FolhaRespostaVerificarView.as_view(), name='folha_resposta_verificar_no_slash'),
+    path('folha-resposta/verificar/', FolhaRespostaVerificarView.as_view(), name='folha_resposta_verificar'),
     path('folha-resposta/gerar', FolhaRespostaGerarView.as_view(), name='folha_resposta_gerar_no_slash'),
     path('folha-resposta/gerar/', FolhaRespostaGerarView.as_view(), name='folha_resposta_gerar'),
 

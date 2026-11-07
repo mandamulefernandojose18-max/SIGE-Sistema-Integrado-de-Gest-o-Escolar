@@ -12,12 +12,16 @@ de registo (OMR) nos quatro cantos para digitalização/leitura óptica.
 O módulo não toca na base de dados: recebe dicionários simples (ver `montar_dados_escola` / `montar_dados_aluno`).
 Nunca inventa alunos: sem alunos reais não há folha personalizada (apenas folhas em branco explícitas).
 """
+import base64
 import datetime
 import hashlib
+import hmac
 import io
+import json
 import math
 import re
 
+from django.conf import settings
 from reportlab.graphics import renderPDF
 from reportlab.graphics.barcode import code128
 from reportlab.graphics.barcode.qr import QrCodeWidget
@@ -212,6 +216,7 @@ def normalizar_config(dados, escola=None):
 def montar_dados_escola(escola):
     """Dados reais da escola (modelo `Escola`) num dicionário simples."""
     return {
+        'id': str(escola.id),
         'nome': escola.nome or '',
         'codigo': escola.codigo_escola or '',
         'provincia': escola.provincia or '',
@@ -244,14 +249,47 @@ def codigo_folha(escola, aluno, config, ano):
     return 'FR-' + hashlib.sha1(base.encode('utf-8')).hexdigest()[:10].upper()
 
 
-def _payload_qr(escola, aluno, config, ano, versao):
-    """
-    Conteúdo do QR: só um código compacto e neutro (sem nomes de países, sem texto livre, sem dados pessoais):
-    SIGE-FR | código da folha | código do aluno | avaliação | ano lectivo | versão | nº de perguntas
-    """
+DOMINIO_OFICIAL = 'https://sigesaas.duckdns.org'
+
+
+def _b64(raw):
+    return base64.urlsafe_b64encode(raw).decode('ascii').rstrip('=')
+
+
+def _unb64(txt):
+    return base64.urlsafe_b64decode(txt + '=' * (-len(txt) % 4))
+
+
+def _assinatura(token):
+    return hmac.new(settings.SECRET_KEY.encode('utf-8'), token.encode('ascii'), hashlib.sha256).hexdigest()[:16]
+
+
+def gerar_token_verificacao(escola, aluno, config, ano, versao):
+    """Token assinado (HMAC) com os dados mínimos da folha; não exige guardar nada na base de dados."""
     al = aluno or {}
-    return '|'.join(['SIGE-FR', codigo_folha(escola, aluno, config, ano), al.get('codigo') or 'BRANCO',
-                     config['tipo'], str(ano), versao or '-', str(config['n_perguntas'])])
+    dados = {'e': str(escola.get('id') or ''), 'a': al.get('codigo') or '', 't': config['tipo'],
+             'd': config['disciplina'], 'y': str(ano), 'v': versao or '', 'n': config['n_perguntas']}
+    token = _b64(json.dumps(dados, separators=(',', ':'), ensure_ascii=False).encode('utf-8'))
+    return token, _assinatura(token)
+
+
+def validar_token_verificacao(token, assinatura):
+    """Devolve os dados da folha se a assinatura for autêntica; caso contrário None."""
+    try:
+        if not token or not assinatura or len(token) > 2000:
+            return None
+        if not hmac.compare_digest(_assinatura(token), str(assinatura)):
+            return None
+        dados = json.loads(_unb64(token).decode('utf-8'))
+        return dados if isinstance(dados, dict) else None
+    except Exception:
+        return None
+
+
+def _payload_qr(escola, aluno, config, ano, versao):
+    """O QR abre a página oficial de verificação da folha (domínio do SIGE)."""
+    token, sig = gerar_token_verificacao(escola, aluno, config, ano, versao)
+    return f'{DOMINIO_OFICIAL}/verificar-folha.html?d={token}&s={sig}'
 
 
 # --------------------------------------------------------------------------------------

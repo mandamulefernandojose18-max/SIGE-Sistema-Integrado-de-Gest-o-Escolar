@@ -156,3 +156,23 @@ def test_classe_filtra_por_area(cenario):
     assert r.status_code == 200 and r['X-Total-Folhas'] == '1'
     r = c.post(URL + 'gerar/', _corpo(escopo='classe', classe='10ª Classe'), format='json')
     assert r['X-Total-Folhas'] == '4'
+
+
+def test_qr_abre_pagina_oficial_e_verificacao_publica(cenario):
+    a, turma, _ = cenario
+    esc = fr.montar_dados_escola(a)
+    aluno = Aluno.objects.filter(turma=turma).first()
+    cfg = fr.normalizar_config({'disciplina': 'Matemática', 'n_perguntas': 10, 'versoes': 'A'}, esc)
+    url = fr._payload_qr(esc, fr.montar_dados_aluno(aluno, 1), cfg, '2026', 'A')
+    assert url.startswith('https://sigesaas.duckdns.org/verificar-folha.html?d=')
+    import urllib.parse as up
+    q = dict(up.parse_qsl(up.urlparse(url).query))
+    r = APIClient().get(URL + 'verificar/', q)  # público: sem login
+    assert r.status_code == 200 and r.data['valida'] is True
+    assert r.data['escola']['nome'] == 'Escola A' and r.data['disciplina'] == 'Matemática'
+    assert aluno.nome not in str(r.data) and aluno.matricula not in str(r.data)  # sem dados pessoais
+    assert r.data['aluno']['codigo_mascarado'].endswith(aluno.matricula[-4:])
+    # adulterado
+    q['s'] = '0' * 16
+    assert APIClient().get(URL + 'verificar/', q).status_code == 404
+    assert APIClient().get(URL + 'verificar/').status_code == 404
