@@ -510,9 +510,10 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
     altura_disp = Y_FIM_GRELHA - y_ini
     folgas = ((linhas - 1) // 5) * FOLGA_GRUPO
     altura_linha = min(6.4, (altura_disp - ALTURA_CABECALHO_GRELHA - folgas) / linhas)
-    passo = min(7.4, (largura_col - 11.5) / n_alt)
-    larg_alt = min(6.2, passo * 0.84)
-    alt_alt = min(3.8, altura_linha * 0.72)
+    passo = min(13.0, (largura_col - 11.5) / n_alt)
+    larg_alt = min(9.6, passo * 0.84)
+    alt_alt = min(4.8, altura_linha * 0.76)
+    tam_letra = max(6.2, min(8.0, alt_alt * 1.7))
     total_q = fim - inicio
     cols_usadas = math.ceil(total_q / linhas)
     for col in range(cols_usadas):
@@ -551,7 +552,7 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
             cy = y_lin + altura_linha / 2
             for i, letra in enumerate(letras):
                 cx = x0 + 10.2 + passo * i + passo / 2 - 0.6
-                _bolha(c, cx, cy, larg_alt, alt_alt, letra, preenchida=bool(gabarito and gabarito[q] == letra))
+                _bolha(c, cx, cy, larg_alt, alt_alt, letra, preenchida=bool(gabarito and gabarito[q] == letra), tam_letra=tam_letra)
     c.setFillColor(PRETO)
     c.setStrokeColor(PRETO)
 
