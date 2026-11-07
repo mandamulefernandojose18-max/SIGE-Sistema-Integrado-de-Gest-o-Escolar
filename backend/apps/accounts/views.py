@@ -53,7 +53,7 @@ class LoginView(APIView):
         if user.escola_id:
             from apps.tenants.models import Escola
             from apps.tenants.serializers import EscolaListSerializer
-            escola = Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').filter(id=user.escola_id).first()
+            escola = Escola.objects.select_related('plano', 'pacote').prefetch_related('assinaturas__plano').filter(id=user.escola_id).first()
             if escola:
                 escola_data = EscolaListSerializer(escola).data
 

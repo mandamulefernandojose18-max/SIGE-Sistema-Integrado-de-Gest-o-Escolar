@@ -2581,6 +2581,46 @@ function renderizarSidebarPorNivel(role) {
   `;
 
   navContainer.innerHTML = html;
+  aplicarFuncionalidadesPacoteNoMenu();
+}
+
+// Funcionalidade (pacote) que protege cada entrada do menu; o núcleo MEC não aparece aqui (sempre visível).
+const FUNCIONALIDADE_POR_MENU = {
+  'classes-exames': 'exames',
+  'exames': 'exames',
+  'estatisticas-aproveitamento': 'estatisticas',
+  'horarios': 'rotina',
+  'sumarios': 'rotina',
+  'presencas': 'rotina',
+  'ocorrencias': 'rotina',
+  'calendario': 'comunicacao',
+  'transferencias': 'comunicacao',
+  'comunicados': 'comunicacao',
+  'material-escolar': 'material_escolar',
+  'aluno-notas': 'portal_aluno',
+  'aluno-faltas': 'portal_aluno',
+  'aluno-calendario': 'portal_aluno',
+  'pagamentos': 'financas',
+  'despesas': 'financas',
+  'aluno-pagamentos': 'financas',
+  'auditoria': 'auditoria',
+  'provas-anti-ia': 'ia_anti_ia',
+  'prompt-gateway': 'gateway'
+};
+
+// Esconde do menu as funcionalidades que não fazem parte do pacote da escola (sem pacote = acesso total).
+function aplicarFuncionalidadesPacoteNoMenu() {
+  const lista = state.tenant?.funcionalidades;
+  if (!Array.isArray(lista)) return;
+  const isSuperAdminMaster = state.user?.role === 'SUPERADMIN' && !localStorage.getItem('sige_selected_tenant');
+  if (isSuperAdminMaster) return;
+  Object.entries(FUNCIONALIDADE_POR_MENU).forEach(([menuId, func]) => {
+    if (lista.includes(func)) return;
+    ['nav-', 'subnav-'].forEach(prefixo => {
+      const el = document.getElementById(prefixo + menuId);
+      if (el) el.style.display = 'none';
+    });
+  });
 }
 
 function aplicarPermissoesVisualizacao(role) {
@@ -3307,10 +3347,13 @@ async function carregarDashboardGeral(anoParam = null, forcarBusca = false) {
     }
 
     // Gráficos
-    const resFin = await apiFetch('/api/v1/pagamentos/stats', { ignoreAuthRedirect: true });
-    if (resFin && resFin.success && resFin.data) {
-      renderizarGraficoDashboardFaturamento(resFin.data.historicoMeses || []);
-    }
+    // Finanças pode não estar no pacote da escola (403): não impede os restantes gráficos.
+    try {
+      const resFin = await apiFetch('/api/v1/pagamentos/stats', { ignoreAuthRedirect: true });
+      if (resFin && resFin.success && resFin.data) {
+        renderizarGraficoDashboardFaturamento(resFin.data.historicoMeses || []);
+      }
+    } catch (_) {}
 
     const resAlunos = await apiFetch('/api/v1/alunos/stats', { ignoreAuthRedirect: true });
     if (resAlunos && resAlunos.success && resAlunos.data) {

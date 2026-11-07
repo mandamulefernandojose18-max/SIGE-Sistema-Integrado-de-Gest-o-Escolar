@@ -10,8 +10,9 @@ from django.db.models import Sum, Count, Q, OuterRef, Subquery, IntegerField, fu
 
 logger = logging.getLogger(__name__)
 
-from .models import Plano, Escola, AssinaturaEscola, AnoLectivo
-from .serializers import PlanoSerializer, EscolaSerializer, EscolaListSerializer, AssinaturaEscolaSerializer, AnoLectivoSerializer
+from .models import Plano, Escola, AssinaturaEscola, AnoLectivo, Pacote
+from .pacotes import CATALOGO_FUNCIONALIDADES, PERIODOS_MESES
+from .serializers import PacoteSerializer, PlanoSerializer, EscolaSerializer, EscolaListSerializer, AssinaturaEscolaSerializer, AnoLectivoSerializer
 from apps.accounts.models import Usuario
 from apps.accounts.serializers import UsuarioSerializer
 from apps.alunos.models import Aluno
@@ -280,6 +281,34 @@ class PlanoViewSet(viewsets.ModelViewSet):
             return Response({'success': True, 'data': PlanoSerializer(plano).data})
         return Response({'success': False, 'message': 'Preço não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
 
+class PacoteViewSet(viewsets.ModelViewSet):
+    """Pacotes de funcionalidades e preços (só SuperAdmin). Sem eliminação: desactivar em vez de apagar."""
+    queryset = Pacote.objects.all()
+    serializer_class = PacoteSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return Pacote.objects.annotate(total_escolas_count=Count('escolas')).order_by('ordem', 'nome')
+
+    def list(self, request, *args, **kwargs):
+        return Response({
+            'success': True,
+            'data': PacoteSerializer(self.get_queryset(), many=True).data,
+            'catalogo': [{'chave': c, 'rotulo': r, 'descricao': d} for c, r, d in CATALOGO_FUNCIONALIDADES],
+            'periodos': list(PERIODOS_MESES.keys()),
+        })
+
+    def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        resp = super().update(request, *args, **kwargs)
+        return Response({'success': True, 'data': resp.data})
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response({'success': True, 'data': resp.data}, status=status.HTTP_201_CREATED)
+
+
 class EscolaViewSet(viewsets.ModelViewSet):
     serializer_class = EscolaSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
@@ -293,7 +322,7 @@ class EscolaViewSet(viewsets.ModelViewSet):
             Professor.objects.filter(escola=OuterRef('pk')).values('escola').annotate(c=Count('id')).values('c')[:1],
             output_field=IntegerField()
         )
-        return Escola.objects.select_related('plano').prefetch_related('assinaturas__plano').annotate(
+        return Escola.objects.select_related('plano', 'pacote').prefetch_related('assinaturas__plano').annotate(
             total_alunos_count=functions.Coalesce(aluno_count_sq, 0),
             total_professores_count=functions.Coalesce(prof_count_sq, 0)
         ).all()
@@ -346,6 +375,17 @@ class EscolaViewSet(viewsets.ModelViewSet):
         if not plano:
             plano = Plano.objects.filter(ativo=True).first()
 
+        # Pacote de funcionalidades (por omissão: Pedagógico)
+        pacote = None
+        pacote_id = data.get('pacote_id') or data.get('pacote')
+        if pacote_id:
+            try:
+                pacote = Pacote.objects.filter(id=pacote_id).first()
+            except (ValueError, Exception):
+                pacote = None
+        if not pacote:
+            pacote = Pacote.objects.filter(codigo='pedagogico', ativo=True).first()
+
         # Criar a Escola
         raw_logo = data.get('logo_url') or None
         is_b64_logo = bool(raw_logo and str(raw_logo).startswith('data:'))
@@ -367,6 +407,7 @@ class EscolaViewSet(viewsets.ModelViewSet):
             chefe_secretaria_nome=secr_nome_in,
             codigo_escola=(data.get('codigo_escola') or '').strip().upper() or None,
             plano=plano,
+            pacote=pacote,
             usar_emblema_nacional=data.get('usar_emblema_nacional', True),
             logo_url=None if is_b64_logo else raw_logo,
             logo_base64=raw_logo if is_b64_logo else (data.get('logo_base64') or None),

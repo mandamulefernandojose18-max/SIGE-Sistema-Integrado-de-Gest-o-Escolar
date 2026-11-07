@@ -1,5 +1,48 @@
 from rest_framework import serializers
-from .models import Plano, Escola, AssinaturaEscola, AnoLectivo
+from .models import Plano, Escola, AssinaturaEscola, AnoLectivo, Pacote
+from .pacotes import CHAVES_FUNCIONALIDADES, DESCONTOS_PADRAO, PERIODOS_MESES, tabela_precos
+
+
+class PacoteSerializer(serializers.ModelSerializer):
+    preco_mensal = serializers.DecimalField(max_digits=12, decimal_places=2, coerce_to_string=False)
+    precos = serializers.SerializerMethodField()
+    total_escolas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pacote
+        fields = ['id', 'codigo', 'nome', 'descricao', 'preco_mensal', 'limite_alunos', 'limite_professores',
+                  'funcionalidades', 'descontos', 'recomendado', 'ativo', 'ordem', 'precos', 'total_escolas']
+        read_only_fields = ['id']
+
+    def get_precos(self, obj):
+        return tabela_precos(obj)
+
+    def get_total_escolas(self, obj):
+        return getattr(obj, 'total_escolas_count', None) if hasattr(obj, 'total_escolas_count') else obj.escolas.count()
+
+    def validate_funcionalidades(self, valor):
+        if not isinstance(valor, list):
+            raise serializers.ValidationError('Deve ser uma lista de funcionalidades.')
+        invalidas = [v for v in valor if v not in CHAVES_FUNCIONALIDADES]
+        if invalidas:
+            raise serializers.ValidationError(f'Funcionalidades desconhecidas: {", ".join(map(str, invalidas))}')
+        return list(dict.fromkeys(valor))
+
+    def validate_descontos(self, valor):
+        if not isinstance(valor, dict):
+            raise serializers.ValidationError('Deve ser um objecto {periodo: percentagem}.')
+        limpo = {}
+        for k, v in valor.items():
+            if k not in PERIODOS_MESES:
+                raise serializers.ValidationError(f'Período desconhecido: {k}')
+            try:
+                n = float(v)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(f'Desconto inválido para {k}.')
+            if not 0 <= n <= 90:
+                raise serializers.ValidationError(f'O desconto de {k} deve estar entre 0 e 90%.')
+            limpo[k] = n
+        return {**DESCONTOS_PADRAO, **limpo}
 
 class PlanoSerializer(serializers.ModelSerializer):
     preco = serializers.DecimalField(max_digits=12, decimal_places=2, coerce_to_string=False)
@@ -27,10 +70,20 @@ class EscolaListSerializer(serializers.ModelSerializer):
     codigo_secretaria = serializers.ReadOnlyField()
     codigos_orgaos = serializers.SerializerMethodField()
     plano = serializers.SerializerMethodField()
+    pacote_nome = serializers.CharField(source='pacote.nome', read_only=True, default=None)
+    pacote_codigo = serializers.CharField(source='pacote.codigo', read_only=True, default=None)
+    funcionalidades = serializers.SerializerMethodField()
+
+    def get_funcionalidades(self, obj):
+        """Funcionalidades efectivas: sem pacote = acesso total."""
+        if not obj.pacote_id:
+            return list(CHAVES_FUNCIONALIDADES)
+        return list(obj.pacote.funcionalidades or [])
 
     class Meta:
         model = Escola
         fields = [
+            'pacote', 'pacote_nome', 'pacote_codigo', 'funcionalidades',
             'id', 'nome', 'nif_cnpj', 'email', 'telefone', 'provincia', 'distrito',
             'tipo_escola', 'director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome',
             'usar_emblema_nacional', 'codigo_escola', 'status', 'ano_letivo_ativo', 'trimestre_ativo',
@@ -102,11 +155,20 @@ class EscolaSerializer(serializers.ModelSerializer):
     codigo_direccao_pedagogica = serializers.ReadOnlyField()
     codigo_secretaria = serializers.ReadOnlyField()
     codigos_orgaos = serializers.SerializerMethodField()
+    pacote_nome = serializers.CharField(source='pacote.nome', read_only=True, default=None)
+    pacote_codigo = serializers.CharField(source='pacote.codigo', read_only=True, default=None)
+    funcionalidades = serializers.SerializerMethodField()
 
     class Meta:
         model = Escola
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_funcionalidades(self, obj):
+        """Funcionalidades efectivas: sem pacote = acesso total."""
+        if not obj.pacote_id:
+            return list(CHAVES_FUNCIONALIDADES)
+        return list(obj.pacote.funcionalidades or [])
 
     def get_codigos_orgaos(self, obj):
         from common.utils.geografia_mocambique import obter_codigos_orgaos_escola

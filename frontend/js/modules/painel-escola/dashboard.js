@@ -44,10 +44,13 @@ async function carregarDashboardGeral() {
     }
 
     // Gráficos
-    const resFin = await apiFetch('/api/v1/pagamentos/stats', { ignoreAuthRedirect: true });
-    if (resFin && resFin.success && resFin.data) {
-      renderizarGraficoDashboardFaturamento(resFin.data.historicoMeses || []);
-    }
+    // Finanças pode não estar no pacote da escola (403): não impede os restantes gráficos.
+    try {
+      const resFin = await apiFetch('/api/v1/pagamentos/stats', { ignoreAuthRedirect: true });
+      if (resFin && resFin.success && resFin.data) {
+        renderizarGraficoDashboardFaturamento(resFin.data.historicoMeses || []);
+      }
+    } catch (_) {}
 
     const resAlunos = await apiFetch('/api/v1/alunos/stats', { ignoreAuthRedirect: true });
     if (resAlunos && resAlunos.success && resAlunos.data) {

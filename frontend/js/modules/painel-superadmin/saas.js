@@ -125,6 +125,119 @@ function renderizarTabelaEscolasSaaS() {
   }
 }
 
+// ==================== 0.1 PACOTES DE FUNCIONALIDADES ====================
+const PERIODOS_PACOTE = [['mensal', 'Mensal', 1], ['trimestral', 'Trimestral', 3], ['semestral', 'Semestral', 6], ['anual', 'Anual', 12]];
+
+function precoPeriodoPacote(mensal, meses, descontoPct) {
+  const liquido = Number(mensal || 0) * meses * (100 - Number(descontoPct || 0)) / 100;
+  return Math.floor(liquido / 50 + 0.5) * 50;
+}
+
+// Opções <option> dos pacotes para os modais de escola. `selecionado` = id ou código do pacote.
+function opcoesPacotesSaaS(selecionado, porCodigo) {
+  const lista = (state.pacotesSaaS || []).filter(p => p.ativo !== false);
+  let html = porCodigo ? '' : '<option value="">Acesso total (sem restrições)</option>';
+  html += lista.map(p => {
+    const sel = porCodigo ? p.codigo === selecionado : p.id === selecionado;
+    return `<option value="${escapeHtml(p.id)}" ${sel ? 'selected' : ''}>${escapeHtml(p.nome)} — ${formatarMoeda(Number(p.preco_mensal))}/mês</option>`;
+  }).join('');
+  return html || '<option value="">Acesso total (sem restrições)</option>';
+}
+
+async function carregarPacotesSaaS() {
+  const tabela = document.getElementById('tabelaPacotesSaas');
+  if (!tabela) return;
+  try {
+    const res = await apiFetch('/api/v1/saas-admin/pacotes');
+    if (!res || !res.success || !Array.isArray(res.data)) throw new Error((res && res.message) || 'Resposta inválida');
+    state.pacotesSaaS = res.data;
+    const catalogo = res.catalogo || [];
+    if (res.data.length === 0) {
+      tabela.innerHTML = '<tbody><tr><td class="text-center py-4 text-muted">Nenhum pacote configurado.</td></tr></tbody>';
+      return;
+    }
+    const cols = res.data;
+    let html = '<thead class="table-light"><tr><th style="min-width:230px">Pacote</th>';
+    cols.forEach(p => {
+      html += `<th class="text-center" style="min-width:190px">${escapeHtml(p.nome)}
+        ${p.recomendado ? '<span class="badge bg-success ms-1">Recomendado</span>' : ''}
+        <div class="small fw-normal text-muted">${Number(p.total_escolas || 0)} escola(s)</div></th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    html += '<tr><th class="table-light">Preço mensal base (MZN)</th>' + cols.map(p =>
+      `<td><input type="number" min="0" step="50" class="form-control form-control-sm text-center fw-bold" id="pac-${p.id}-preco" value="${Number(p.preco_mensal)}" oninput="recalcularPrecosPacote('${p.id}')" aria-label="Preço mensal de ${escapeHtml(p.nome)}"></td>`).join('') + '</tr>';
+
+    html += '<tr><th class="table-light">Limite de alunos / professores</th>' + cols.map(p =>
+      `<td><div class="d-flex gap-1"><input type="number" min="1" class="form-control form-control-sm text-center" id="pac-${p.id}-alunos" value="${p.limite_alunos}" title="Alunos"><input type="number" min="1" class="form-control form-control-sm text-center" id="pac-${p.id}-profs" value="${p.limite_professores}" title="Professores"></div></td>`).join('') + '</tr>';
+
+    html += `<tr class="table-light"><th colspan="${cols.length + 1}" class="small text-uppercase text-muted">Funcionalidades incluídas <span class="fw-normal">(o núcleo MEC — alunos, turmas, caderneta, pautas, certificados — está sempre incluído)</span></th></tr>`;
+    catalogo.forEach(f => {
+      html += `<tr><td><span class="fw-semibold">${escapeHtml(f.rotulo)}</span><br><small class="text-muted">${escapeHtml(f.descricao)}</small></td>` + cols.map(p =>
+        `<td class="text-center"><input type="checkbox" class="form-check-input" id="pac-${p.id}-f-${f.chave}" ${(p.funcionalidades || []).includes(f.chave) ? 'checked' : ''} aria-label="${escapeHtml(f.rotulo)} no pacote ${escapeHtml(p.nome)}"></td>`).join('') + '</tr>';
+    });
+
+    html += '<tr><th class="table-light">Desconto por período (%)</th>' + cols.map(p => {
+      const d = (p.precos || {});
+      return `<td>${PERIODOS_PACOTE.filter(x => x[0] !== 'mensal').map(([k, rot]) =>
+        `<div class="input-group input-group-sm mb-1"><span class="input-group-text" style="width:92px">${rot}</span><input type="number" min="0" max="90" step="0.01" class="form-control text-center" id="pac-${p.id}-d-${k}" value="${d[k]?.desconto_percentual ?? 0}" oninput="recalcularPrecosPacote('${p.id}')"></div>`).join('')}</td>`;
+    }).join('') + '</tr>';
+
+    html += '<tr><th class="table-light">Preço por período (calculado)</th>' + cols.map(p =>
+      `<td class="small" id="pac-${p.id}-precos"></td>`).join('') + '</tr>';
+
+    html += '<tr><th class="table-light"></th>' + cols.map(p =>
+      `<td class="text-center"><button class="btn btn-primary btn-sm" onclick="guardarPacoteSaaS('${p.id}')"><i class="bi bi-save me-1"></i>Guardar</button></td>`).join('') + '</tr></tbody>';
+
+    tabela.innerHTML = html;
+    cols.forEach(p => recalcularPrecosPacote(p.id));
+  } catch (err) {
+    tabela.innerHTML = `<tbody><tr><td class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Falha ao carregar pacotes (${escapeHtml(err.message || 'erro')}). <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarPacotesSaaS()">Tentar novamente</button></td></tr></tbody>`;
+  }
+}
+
+function recalcularPrecosPacote(id) {
+  const mensal = Number(document.getElementById(`pac-${id}-preco`)?.value || 0);
+  const el = document.getElementById(`pac-${id}-precos`);
+  if (!el) return;
+  el.innerHTML = PERIODOS_PACOTE.map(([k, rot, meses]) => {
+    const d = k === 'mensal' ? 0 : Number(document.getElementById(`pac-${id}-d-${k}`)?.value || 0);
+    const preco = precoPeriodoPacote(mensal, meses, d);
+    return `<div class="d-flex justify-content-between"><span>${rot}</span><strong>${formatarMoeda(preco)}</strong></div>`;
+  }).join('');
+}
+
+async function guardarPacoteSaaS(id) {
+  const pacote = (state.pacotesSaaS || []).find(p => p.id === id);
+  if (!pacote) return;
+  const funcionalidades = [...document.querySelectorAll(`[id^="pac-${id}-f-"]`)]
+    .filter(c => c.checked).map(c => c.id.replace(`pac-${id}-f-`, ''));
+  const descontos = {};
+  PERIODOS_PACOTE.filter(x => x[0] !== 'mensal').forEach(([k]) => {
+    descontos[k] = Number(document.getElementById(`pac-${id}-d-${k}`)?.value || 0);
+  });
+  const payload = {
+    preco_mensal: Number(document.getElementById(`pac-${id}-preco`)?.value || 0),
+    limite_alunos: Number(document.getElementById(`pac-${id}-alunos`)?.value || 1),
+    limite_professores: Number(document.getElementById(`pac-${id}-profs`)?.value || 1),
+    funcionalidades,
+    descontos
+  };
+  const afectadas = Number(pacote.total_escolas || 0);
+  if (!confirm(`Guardar alterações do pacote ${pacote.nome}?\nAplica-se de imediato a ${afectadas} escola(s) que o usam.`)) return;
+  try {
+    const res = await apiFetch(`/api/v1/saas-admin/pacotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    if (res && res.success) {
+      mostrarNotificacao(`Pacote ${pacote.nome} actualizado.`, 'success');
+      carregarPacotesSaaS();
+    } else {
+      alert((res && res.message) || 'Não foi possível guardar o pacote.');
+    }
+  } catch (err) {
+    alert(err.message || 'Erro ao guardar o pacote.');
+  }
+}
+
 // ==================== 1. CARREGAMENTO DO PAINEL SAAS ====================
 async function carregarPainelSaaS() {
   const tbodyEscolas = document.getElementById('tabelaSaasEscolas');
@@ -230,6 +343,7 @@ async function carregarPainelSaaS() {
                 <td><code>${escapeHtml(e.nif_cnpj)}</code></td>
                 <td>
                   <span class="badge bg-light text-dark border">${escapeHtml(planoNome)}</span>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle" title="Pacote de funcionalidades">${escapeHtml(e.pacote_nome || 'Acesso total')}</span>
                   <br><strong class="small text-success">${valorContrato}</strong>
                 </td>
                 <td><small>${escapeHtml(dataFim)}</small><br>${badgeDiasRestantesSaaS(e)}</td>
@@ -268,6 +382,9 @@ async function carregarPainelSaaS() {
         tbodyEscolas.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Falha ao carregar escolas (${escapeHtml(errMsg)}). <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarPainelSaaS()"><i class="bi bi-arrow-clockwise me-1"></i> Recarregar</button></td></tr>`;
       }
     }
+
+    // 2.1 Pacotes de funcionalidades (não bloqueia o resto do painel)
+    carregarPacotesSaaS();
 
     // 3. Tabela de Preços dos Planos
     if (tbodyPlanos) {
@@ -367,6 +484,7 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       if (res && res.success && res.data) {
         state.tenant = res.data;
         atualizarBadgeTenant(state.tenant);
+        if (typeof aplicarFuncionalidadesPacoteNoMenu === 'function') aplicarFuncionalidadesPacoteNoMenu();
       }
       if (typeof carregarDadosGlobaisEscola === 'function') {
         carregarDadosGlobaisEscola();
@@ -519,6 +637,10 @@ async function modalCadastrarEscolaSuperAdmin() {
             <select id="cadEscolaPlano" class="form-select" required>${optPlanos}</select>
           </div>
           <div class="col-md-5">
+            <label class="form-label small fw-semibold">Pacote de Funcionalidades</label>
+            <select id="cadEscolaPacote" class="form-select">${opcoesPacotesSaaS('pedagogico', true)}</select>
+          </div>
+          <div class="col-md-5">
             <label class="form-label small fw-semibold">Valor do Contrato (MZN)</label>
             <input type="number" id="cadEscolaValor" class="form-control" placeholder="Valor acordado em MZN">
           </div>
@@ -656,6 +778,7 @@ async function submeterCadastroEscolaSuperAdmin(e) {
       provincia,
       distrito,
       plano_id: planoId,
+      pacote_id: document.getElementById('cadEscolaPacote')?.value || undefined,
       valor_contrato: valor,
       director_nome: adminNome || undefined,
       dap_nome: dapNome || undefined,
@@ -739,6 +862,11 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
             <input type="text" id="editEscolaTelefone" class="form-control" value="${escola.telefone || '+258 '}">
           </div>
 
+          <div class="col-12">
+            <label class="form-label small fw-bold text-primary">Pacote de Funcionalidades</label>
+            <select id="editEscolaPacote" class="form-select border-primary">${opcoesPacotesSaaS(escola.pacote, false)}</select>
+            <small class="text-muted">Define o que a escola pode usar (aplica-se de imediato). "Acesso total" = sem restrições.</small>
+          </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Data de Vencimento do Contrato</label>
             <input type="date" id="editEscolaDataFim" class="form-control" value="${dataFimStr}">
@@ -810,6 +938,7 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           dias_adicionais: Number(document.getElementById('editEscolaDiasAdicionais').value) || undefined,
           provincia: document.getElementById('editEscolaProvincia').value,
           distrito: document.getElementById('editEscolaDistrito').value,
+          pacote: document.getElementById('editEscolaPacote')?.value || null,
           usar_emblema_nacional: document.getElementById('editEscolaEmblema').checked,
           logo_url: document.getElementById('editEscolaLogoFinal')?.value || null
         };

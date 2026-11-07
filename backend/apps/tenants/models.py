@@ -43,6 +43,35 @@ class Plano(models.Model):
     def __str__(self):
         return f"{self.nome} ({self.preco} MZN)"
 
+class Pacote(models.Model):
+    """Pacote de funcionalidades (Essencial, Pedagógico, Completo) que define o preço mensal base."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    codigo = models.SlugField(max_length=40, unique=True)
+    nome = models.CharField(max_length=60)
+    descricao = models.TextField(blank=True, default='')
+    preco_mensal = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0'))])
+    limite_alunos = models.IntegerField(default=500, validators=[MinValueValidator(1)])
+    limite_professores = models.IntegerField(default=50, validators=[MinValueValidator(1)])
+    funcionalidades = models.JSONField(default=list, blank=True)
+    descontos = models.JSONField(default=dict, blank=True)
+    recomendado = models.BooleanField(default=False)
+    ativo = models.BooleanField(default=True)
+    ordem = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_pacotes'
+        ordering = ['ordem', 'nome']
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError('Eliminação não permitida: desactive o pacote em vez de o apagar.')
+
+    def __str__(self):
+        return f'{self.nome} ({self.preco_mensal} MZN/mês)'
+
+
 class Escola(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nome = models.CharField(max_length=255)
@@ -55,6 +84,8 @@ class Escola(models.Model):
     ano_letivo_ativo = models.CharField(max_length=10, default='2026')
     trimestre_ativo = models.CharField(max_length=20, default='1_TRIMESTRE')
     plano = models.ForeignKey(Plano, on_delete=models.SET_NULL, null=True, blank=True, related_name='escolas')
+    # Pacote de funcionalidades; nulo = acesso total (retrocompatibilidade)
+    pacote = models.ForeignKey('Pacote', on_delete=models.SET_NULL, null=True, blank=True, related_name='escolas')
     data_adesao = models.DateTimeField(default=timezone.now)
 
     # Dados Oficiais para Documentação MEC
@@ -309,6 +340,15 @@ class Escola(models.Model):
 
     def __str__(self):
         return f"{self.nome} [{self.codigo_escola or self.status}]"
+
+
+def _invalidar_cache_pacotes(sender, instance, **kwargs):
+    from .pacotes import limpar_cache_funcionalidades
+    limpar_cache_funcionalidades()
+
+
+models.signals.post_save.connect(_invalidar_cache_pacotes, sender=Pacote, dispatch_uid='cache_pacote_save')
+models.signals.post_save.connect(_invalidar_cache_pacotes, sender=Escola, dispatch_uid='cache_escola_pacote_save')
 
 
 class AssinaturaEscola(models.Model):

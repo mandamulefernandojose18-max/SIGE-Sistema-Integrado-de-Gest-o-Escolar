@@ -4,6 +4,7 @@ from .views import (
     GeografiaView,
     SaaSMetricsView,
     PlanoViewSet,
+    PacoteViewSet,
     EscolaViewSet,
     VerificarExpiracoesView,
     EscolaAdminInfoView,
@@ -35,6 +36,7 @@ from .saas_views import (
 router = OptionalSlashRouter()
 router.register(r'escolas', EscolaViewSet, basename='saas_escola')
 router.register(r'planos', PlanoViewSet, basename='saas_plano')
+router.register(r'pacotes', PacoteViewSet, basename='saas_pacote')
 router.register(r'anos-letivos', AnoLectivoViewSet, basename='saas_ano_letivo')
 
 escola_router = OptionalSlashRouter()

@@ -40,6 +40,33 @@ def limpar_cache_assinatura(instituicao_id=None):
         _ASSINATURA_CACHE.clear()
 
 
+class VerificarFuncionalidadeMiddleware(MiddlewareMixin):
+    """
+    Bloqueia (403) rotas de funcionalidades que não fazem parte do pacote da escola.
+    - SUPERADMIN: isento. Escola sem pacote: acesso total. Núcleo MEC: nunca bloqueado.
+    """
+
+    def process_request(self, request):
+        from apps.tenants.pacotes import funcionalidade_para_caminho, funcionalidades_da_escola
+        chave = funcionalidade_para_caminho(request.path)
+        if not chave:
+            return None
+        user = getattr(request, 'user', None)
+        if not (user and user.is_authenticated) or getattr(user, 'role', '') == 'SUPERADMIN':
+            return None
+        escola = getattr(request, 'tenant', None) or getattr(user, 'escola', None)
+        incluidas = funcionalidades_da_escola(escola)
+        if incluidas is None or chave in incluidas:
+            return None
+        return JsonResponse({
+            'success': False,
+            'codigo': 'FUNCIONALIDADE_NAO_INCLUIDA',
+            'funcionalidade': chave,
+            'message': 'Esta funcionalidade não está incluída no pacote contratado pela sua instituição. '
+                       'Contacte o Engenheiro do Sistema para mudar de pacote.',
+        }, status=403)
+
+
 class VerificarAssinaturaMiddleware(MiddlewareMixin):
     """
     Middleware corporativo de Controlo de Acesso por Assinatura SaaS:

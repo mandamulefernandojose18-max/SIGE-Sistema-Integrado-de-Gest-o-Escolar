@@ -85,6 +85,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'common.middleware.tenant.TenantMiddleware',
     'apps.tenants.saas_middleware.VerificarAssinaturaMiddleware',
+    'apps.tenants.saas_middleware.VerificarFuncionalidadeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
