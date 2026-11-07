@@ -235,8 +235,38 @@ class TestPlanosPagamentoMultiTenant:
         )
 
         self.login('super@sige.co.mz', 'SuperPassword123!')
+        # Sem confirmação do nome: recusa e nada é eliminado
         res = self.client.delete(f'/api/v1/saas-admin/escolas/{nova_escola.id}/')
+        assert res.status_code == 400
+        res = self.client.delete(f'/api/v1/saas-admin/escolas/{nova_escola.id}/',
+                                 {'confirmar_nome': 'Outro Nome'}, format='json')
+        assert res.status_code == 400
+        assert Escola.objects.filter(id=nova_escola.id).exists()
+
+        res = self.client.delete(f'/api/v1/saas-admin/escolas/{nova_escola.id}/',
+                                 {'confirmar_nome': 'escola para eliminar'}, format='json')
         assert res.status_code == 200
         assert res.data.get('success') is True
         assert not Escola.objects.filter(id=nova_escola.id).exists()
+
+        from apps.accounts.models import LogAuditoria
+        log = LogAuditoria.objects.filter(entidade='ESCOLA', acao='ELIMINAR', objeto_id=str(nova_escola.id)).first()
+        assert log is not None and log.usuario_role == 'SUPERADMIN'
+
+    def test_superadmin_inspecao_regista_auditoria(self):
+        from apps.accounts.models import LogAuditoria
+        self.login('super@sige.co.mz', 'SuperPassword123!')
+        res = self.client.post(f'/api/v1/saas-admin/escolas/{self.escola_a.id}/inspecao/', {'fase': 'INICIO'}, format='json')
+        assert res.status_code == 200
+        res = self.client.post(f'/api/v1/saas-admin/escolas/{self.escola_a.id}/inspecao/', {'fase': 'FIM'}, format='json')
+        assert res.status_code == 200
+        acoes = set(LogAuditoria.objects.filter(escola=self.escola_a, entidade='ESCOLA').values_list('acao', flat=True))
+        assert {'INSPECAO_INICIO', 'INSPECAO_FIM'} <= acoes
+        res = self.client.post(f'/api/v1/saas-admin/escolas/{self.escola_a.id}/inspecao/', {'fase': 'X'}, format='json')
+        assert res.status_code == 400
+
+    def test_admin_escola_nao_pode_registar_inspecao(self):
+        self.login('admin.massinga@sige.edu.mz', 'PassMassinga123!')
+        res = self.client.post(f'/api/v1/saas-admin/escolas/{self.escola_a.id}/inspecao/', {'fase': 'INICIO'}, format='json')
+        assert res.status_code in (401, 403, 404)
 

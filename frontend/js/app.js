@@ -17927,12 +17927,19 @@ function gerarTabelaPautaHtml(d) {
 }
 
 async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
-  const rotulo = codigo ? `[${codigo}] ${nome}` : `[${nome}]`;
-  if (!confirm(`ATENÇÃO ENGENHEIRO:\nTem a certeza que deseja ELIMINAR DEFINITIVAMENTE a instituição ${rotulo} e todos os seus dados?\nEsta operação não pode ser revertida!`)) return;
+  const nomeLimpo = (nome || '').replace(/\\'/g, "'");
+  const rotulo = codigo ? `[${codigo}] ${nomeLimpo}` : `[${nomeLimpo}]`;
+  const digitado = prompt(`ATENÇÃO: eliminar DEFINITIVAMENTE ${rotulo} e todos os seus dados. Esta operação não pode ser revertida e fica registada na auditoria.\n\nPara confirmar, digite o nome exacto da escola:\n${nomeLimpo}`);
+  if (digitado === null) return;
+  if (digitado.trim().toLowerCase() !== nomeLimpo.trim().toLowerCase()) {
+    alert('O nome digitado não corresponde. Nada foi eliminado.');
+    return;
+  }
 
   try {
     const res = await apiFetch(`/api/v1/saas-admin/escolas/${escolaId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      body: JSON.stringify({ confirmar_nome: digitado.trim() })
     });
     if (res.success) {
       alert(res.message || 'Escola eliminada com sucesso');

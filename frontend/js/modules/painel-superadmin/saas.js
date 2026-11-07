@@ -337,6 +337,9 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
       atualizarBotaoToggleNotasDap(state.tenant.permitir_visualizacao_notas !== false);
     }
 
+    // Auditoria: regista o início da inspeção (não bloqueia a navegação se falhar)
+    apiFetch(`/api/v1/saas-admin/escolas/${escolaId}/inspecao`, { method: 'POST', body: JSON.stringify({ fase: 'INICIO' }), ignoreAuthRedirect: true }).catch(() => {});
+
     // Activar banner de inspeção (SÓ E SÓ PARA O SUPERADMIN)
     document.body.classList.add('role-superadmin');
     document.body.classList.add('inspecionando-escola');
@@ -376,6 +379,10 @@ async function alternarEscolaSuperAdmin(escolaId, escolaNome = '', escolaStatus 
 }
 
 function sairModoInspecaoSuperAdmin() {
+  const tenantId = state.tenant?.id || localStorage.getItem('sige_selected_tenant');
+  if (tenantId) {
+    apiFetch(`/api/v1/saas-admin/escolas/${tenantId}/inspecao`, { method: 'POST', body: JSON.stringify({ fase: 'FIM' }), ignoreAuthRedirect: true }).catch(() => {});
+  }
   document.body.classList.remove('inspecionando-escola');
   if (state.user?.role !== 'SUPERADMIN') {
     document.body.classList.remove('role-superadmin');
@@ -934,12 +941,20 @@ async function descarregarExtratoEscolaSuperAdmin(escolaId) {
 
 // ==================== 8. ELIMINAR ESCOLA ====================
 async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
-  const rotulo = codigo ? `[${codigo}] ${nome}` : `[${nome}]`;
-  if (!confirm(`ATENÇÃO ENGENHEIRO:\nTem a certeza que deseja ELIMINAR DEFINITIVAMENTE a instituição ${rotulo} e todos os seus dados?\nEsta operação não pode ser revertida!`)) return;
+  const nomeLimpo = (nome || '').replace(/\\'/g, "'");
+  const rotulo = codigo ? `[${codigo}] ${nomeLimpo}` : `[${nomeLimpo}]`;
+  // Confirmação reforçada: o nome da escola tem de ser digitado (acção irreversível).
+  const digitado = prompt(`ATENÇÃO: eliminar DEFINITIVAMENTE ${rotulo} e todos os seus dados. Esta operação não pode ser revertida e fica registada na auditoria.\n\nPara confirmar, digite o nome exacto da escola:\n${nomeLimpo}`);
+  if (digitado === null) return;
+  if (digitado.trim().toLowerCase() !== nomeLimpo.trim().toLowerCase()) {
+    alert('O nome digitado não corresponde. Nada foi eliminado.');
+    return;
+  }
 
   try {
     const res = await apiFetch(`/api/v1/saas-admin/escolas/${escolaId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      body: JSON.stringify({ confirmar_nome: digitado.trim() })
     });
     if (res && res.success) {
       alert(res.message || 'Instituição eliminada com sucesso.');

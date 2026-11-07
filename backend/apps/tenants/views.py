@@ -482,11 +482,45 @@ class EscolaViewSet(viewsets.ModelViewSet):
             'data': EscolaSerializer(escola).data
         })
 
+    @staticmethod
+    def _ip_pedido(request):
+        fwd = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        return (fwd.split(',')[0].strip() if fwd else request.META.get('REMOTE_ADDR')) or '127.0.0.1'
+
+    @action(detail=True, methods=['post'], url_path='inspecao')
+    def inspecao(self, request, pk=None):
+        """Regista na auditoria o início/fim da inspeção (impersonação) de uma escola pelo SuperAdmin."""
+        from apps.accounts.audit import registrar_auditoria
+        escola = self.get_object()
+        fase = str(request.data.get('fase', 'INICIO')).upper()
+        if fase not in ('INICIO', 'FIM'):
+            return Response({'success': False, 'message': "Campo 'fase' inválido (INICIO ou FIM)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        registrar_auditoria(
+            usuario=request.user,
+            escola=escola,
+            entidade='ESCOLA',
+            acao=f'INSPECAO_{fase}',
+            objeto_id=escola.id,
+            descricao=f"SuperAdmin {'entrou em' if fase == 'INICIO' else 'saiu de'} modo de inspeção na escola [{escola.codigo_escola or '-'}] {escola.nome}.",
+            ip=self._ip_pedido(request),
+        )
+        return Response({'success': True, 'message': 'Inspeção registada na auditoria.'})
+
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         escola = self.get_object()
         nome = escola.nome
         cod = escola.codigo_escola or ''
+
+        # Confirmação reforçada: o SuperAdmin tem de digitar o nome exacto da escola.
+        confirmar = str(request.data.get('confirmar_nome', '') if hasattr(request.data, 'get') else '').strip()
+        if confirmar.casefold() != (nome or '').strip().casefold():
+            return Response({
+                'success': False,
+                'message': 'Confirmação inválida: digite o nome exacto da escola para a eliminar.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        escola_id = str(escola.id)
 
         # Se existirem registos nas tabelas de gestão SaaS (assinaturas, logs, faturas),
         # limpar de forma controlada com autorização de sessão SuperAdmin para respeitar os triggers de integridade
@@ -507,6 +541,18 @@ class EscolaViewSet(viewsets.ModelViewSet):
             logger.warning(f"Aviso ao limpar registos SaaS da escola {cod} ({escola.id}): {e_del}")
 
         escola.delete()
+        # Registo global (escola=None) para sobreviver à eliminação em cascata dos logs da escola.
+        from apps.accounts.audit import registrar_auditoria
+        registrar_auditoria(
+            usuario=request.user,
+            escola=None,
+            entidade='ESCOLA',
+            acao='ELIMINAR',
+            objeto_id=escola_id,
+            descricao=f"SuperAdmin eliminou definitivamente a escola [{cod or '-'}] {nome}.",
+            antes={'nome': nome, 'codigo_escola': cod},
+            ip=self._ip_pedido(request),
+        )
         identificador = f"[{cod}] {nome}" if cod else nome
         return Response({
             'success': True,
