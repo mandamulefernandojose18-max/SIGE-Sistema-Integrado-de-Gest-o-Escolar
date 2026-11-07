@@ -20,10 +20,20 @@ HORAS_ROTINA_ATRASADA = 36
 
 def _alarme(codigo, titulo, severidade, itens, total=None, descricao=''):
     total = len(itens) if total is None else total
+    # `_ids`: escolas (ou "sistema:<codigo>") afectadas, usado só para a contagem distinta
+    ids = {i['instituicao_id'] or f'sistema:{codigo}' for i in itens}
     return {
         'codigo': codigo, 'titulo': titulo, 'severidade': severidade,
-        'descricao': descricao, 'total': total, 'itens': itens[:MAX_ITENS],
+        'descricao': descricao, 'total': total, 'itens': itens[:MAX_ITENS], '_ids': ids,
     }
+
+
+def _escolas_distintas(alarmes, severidades):
+    ids = set()
+    for a in alarmes:
+        if a['severidade'] in severidades:
+            ids |= a['_ids']
+    return len(ids)
 
 
 def calcular_alarmes():
@@ -39,6 +49,7 @@ def calcular_alarmes():
         itens.append({
             'instituicao_id': str(p.instituicao_id), 'instituicao': p.instituicao.nome,
             'detalhe': f'{p.valor} MZN · ref. {p.referencia} · há {horas} h', 'horas': horas,
+            'pagamento_id': str(p.id),  # permite confirmar/rejeitar directamente no cartão
         })
     if itens:
         critico = any(i['horas'] >= HORAS_COMPROVATIVO_CRITICO for i in itens)
@@ -130,12 +141,15 @@ def calcular_alarmes():
 
     ordem = {'critica': 0, 'aviso': 1, 'info': 2}
     alarmes.sort(key=lambda a: ordem[a['severidade']])
+
+    # Contagem por ESCOLA distinta (uma escola em vários alarmes conta uma vez) e sem alarmes informativos.
+    # `itens` está truncado a MAX_ITENS, por isso a contagem usa as listas completas guardadas abaixo.
     return {
         'gerado_em': agora.isoformat(),
-        'total_alertas': sum(a['total'] for a in alarmes),
-        'criticos': sum(a['total'] for a in alarmes if a['severidade'] == 'critica'),
+        'total_alertas': _escolas_distintas(alarmes, {'critica', 'aviso'}),
+        'criticos': _escolas_distintas(alarmes, {'critica'}),
         'nivel': ('critica' if any(a['severidade'] == 'critica' for a in alarmes)
-                  else 'aviso' if alarmes else 'ok'),
+                  else 'aviso' if any(a['severidade'] == 'aviso' for a in alarmes) else 'ok'),
         'ultima_rotina': (ultima.executada_em.isoformat() if ultima else None),
-        'alarmes': alarmes,
+        'alarmes': [{k: v for k, v in a.items() if k != '_ids'} for a in alarmes],
     }

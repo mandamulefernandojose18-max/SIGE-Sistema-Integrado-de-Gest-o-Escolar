@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -299,14 +300,70 @@ class PacoteViewSet(viewsets.ModelViewSet):
             'periodos': list(PERIODOS_MESES.keys()),
         })
 
+    CAMPOS_AUDITADOS = ('preco_mensal', 'limite_alunos', 'limite_professores', 'funcionalidades', 'descontos', 'recomendado', 'ativo')
+
+    @staticmethod
+    def _snapshot(pacote):
+        return {
+            'preco_mensal': float(pacote.preco_mensal), 'limite_alunos': pacote.limite_alunos,
+            'limite_professores': pacote.limite_professores, 'funcionalidades': sorted(pacote.funcionalidades or []),
+            'descontos': pacote.descontos or {}, 'recomendado': pacote.recomendado, 'ativo': pacote.ativo,
+        }
+
     def update(self, request, *args, **kwargs):
+        from apps.accounts.audit import registrar_auditoria
         kwargs['partial'] = True
+        instancia = self.get_object()
+        antes = self._snapshot(instancia)
         resp = super().update(request, *args, **kwargs)
+        instancia.refresh_from_db()
+        depois = self._snapshot(instancia)
+        mudou = {k: (antes[k], depois[k]) for k in self.CAMPOS_AUDITADOS if antes[k] != depois[k]}
+        if mudou:
+            registrar_auditoria(
+                usuario=request.user, escola=None, entidade='PACOTE', acao='ALTERAR', objeto_id=instancia.id,
+                descricao=f"SuperAdmin alterou o pacote {instancia.nome}: {', '.join(mudou.keys())}.",
+                antes={k: v[0] for k, v in mudou.items()}, depois={k: v[1] for k, v in mudou.items()},
+                ip=EscolaViewSet._ip_pedido(request),
+            )
         return Response({'success': True, 'data': resp.data})
 
     def create(self, request, *args, **kwargs):
         resp = super().create(request, *args, **kwargs)
         return Response({'success': True, 'data': resp.data}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='impacto')
+    def impacto(self, request, pk=None):
+        """Pré-visualização (sem gravar) do efeito de alterar um pacote nas escolas que o usam."""
+        pacote = self.get_object()
+        d = request.data
+        serializer = PacoteSerializer(pacote, data=d, partial=True)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        novo_preco = Decimal(str(v.get('preco_mensal', pacote.preco_mensal)))
+        novas = set(v.get('funcionalidades', pacote.funcionalidades or []))
+        antigas = set(pacote.funcionalidades or [])
+        rotulos = {c: r for c, r, _ in CATALOGO_FUNCIONALIDADES}
+        novo_la = v.get('limite_alunos', pacote.limite_alunos)
+        novo_lp = v.get('limite_professores', pacote.limite_professores)
+
+        escolas = Escola.objects.filter(pacote=pacote).annotate(
+            n_alunos=Count('alunos', distinct=True), n_profs=Count('professores', distinct=True))
+        total = escolas.count()
+        facturadas = escolas.filter(facturar_por_pacote=True).count()
+        acima = [e for e in escolas if e.n_alunos > novo_la or e.n_profs > novo_lp]
+        return Response({'success': True, 'data': {
+            'total_escolas': total,
+            'escolas_facturadas_por_pacote': facturadas,
+            'preco_mensal_anterior': float(pacote.preco_mensal),
+            'preco_mensal_novo': float(novo_preco),
+            'variacao_receita_mensal': float((novo_preco - pacote.preco_mensal) * facturadas),
+            'funcionalidades_removidas': [rotulos.get(c, c) for c in sorted(antigas - novas)],
+            'funcionalidades_adicionadas': [rotulos.get(c, c) for c in sorted(novas - antigas)],
+            'escolas_acima_do_limite': [
+                {'nome': e.nome, 'alunos': e.n_alunos, 'professores': e.n_profs} for e in acima[:5]],
+            'total_acima_do_limite': len(acima),
+        }})
 
 
 class EscolaViewSet(viewsets.ModelViewSet):
@@ -322,7 +379,7 @@ class EscolaViewSet(viewsets.ModelViewSet):
             Professor.objects.filter(escola=OuterRef('pk')).values('escola').annotate(c=Count('id')).values('c')[:1],
             output_field=IntegerField()
         )
-        return Escola.objects.select_related('plano', 'pacote').prefetch_related('assinaturas__plano').annotate(
+        return Escola.objects.select_related('plano', 'pacote').prefetch_related('assinaturas__plano', 'saas_assinaturas').annotate(
             total_alunos_count=functions.Coalesce(aluno_count_sq, 0),
             total_professores_count=functions.Coalesce(prof_count_sq, 0)
         ).all()
@@ -418,6 +475,12 @@ class EscolaViewSet(viewsets.ModelViewSet):
 
         # Criar a Assinatura inicial
         valor_contrato = data.get('valor_contrato')
+        # Com pacote, o valor do contrato é o preço do período do pacote (evita contradições com valores digitados)
+        if pacote and plano:
+            from .pacotes import PERIODOS_MESES, desconto_periodo, preco_periodo
+            periodo = (plano.nome or '').strip().lower()
+            if periodo in PERIODOS_MESES:
+                valor_contrato = preco_periodo(pacote.preco_mensal, PERIODOS_MESES[periodo], desconto_periodo(pacote, periodo))
         if valor_contrato is None and plano:
             valor_contrato = plano.preco
         elif valor_contrato is None:

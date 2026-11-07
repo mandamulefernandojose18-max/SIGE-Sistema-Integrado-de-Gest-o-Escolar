@@ -147,6 +147,41 @@ function actualizarBadgeAlarmesSaaS(total, nivel) {
   badge.title = `${total} alerta(s) de supervisão de pagamentos`;
 }
 
+// Botões de acção directa em cada item do alarme (confirmar/rejeitar comprovativo, abrir ou adiar suspensão)
+function botoesAccaoAlarme(codigo, item) {
+  const id = escapeHtml(item.instituicao_id || '');
+  if (codigo === 'comprovativos_pendentes' && item.pagamento_id) {
+    const pid = escapeHtml(item.pagamento_id);
+    return `<button class="btn btn-success btn-sm py-0 px-2" onclick="decidirPagamentoAlarme('${pid}', true)" title="Confirmar pagamento"><i class="bi bi-check-lg"></i> Confirmar</button>
+            <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="decidirPagamentoAlarme('${pid}', false)" title="Rejeitar pagamento"><i class="bi bi-x-lg"></i> Rejeitar</button>`;
+  }
+  if (!item.instituicao_id) return '';
+  if (codigo === 'a_entrar_em_suspensao') {
+    return `<button class="btn btn-outline-warning btn-sm py-0 px-2" onclick="modalEditarEscolaSuperAdmin('${id}', 'acesso')" title="Registar excepção de suspensão"><i class="bi bi-shield-exclamation"></i> Adiar suspensão</button>`;
+  }
+  return `<button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarEscolaSuperAdmin('${id}')" title="Abrir escola"><i class="bi bi-box-arrow-up-right"></i> Abrir</button>`;
+}
+
+async function decidirPagamentoAlarme(pagamentoId, confirmar) {
+  try {
+    let corpo;
+    if (confirmar) {
+      if (!confirm('Confirmar este pagamento? A fatura será abatida e, se estiver liquidada, a escola é reactivada.')) return;
+    } else {
+      const motivo = prompt('Motivo da rejeição (obrigatório):');
+      if (motivo === null) return;
+      if (!motivo.trim()) return alert('O motivo de rejeição é obrigatório.');
+      corpo = JSON.stringify({ motivo: motivo.trim() });
+    }
+    const res = await apiFetch(`/api/v1/saas/pagamentos/${pagamentoId}/${confirmar ? 'confirmar' : 'rejeitar'}`, { method: 'POST', body: corpo });
+    mostrarNotificacao((res && (res.message || res.data?.mensagem)) || (confirmar ? 'Pagamento confirmado.' : 'Pagamento rejeitado.'), 'success');
+    carregarAlarmesSaaS();
+    carregarPainelSaaS();
+  } catch (err) {
+    alert(err.message || 'Não foi possível concluir a operação.');
+  }
+}
+
 async function carregarAlarmesSaaS() {
   const lista = document.getElementById('listaAlarmesSaas');
   const resumo = document.getElementById('resumoAlarmesSaas');
@@ -160,7 +195,7 @@ async function carregarAlarmesSaaS() {
     if (icone) icone.className = `bi bi-bell-fill me-2 text-${d.nivel === 'critica' ? 'danger' : d.nivel === 'aviso' ? 'warning' : 'success'}`;
     const ultima = d.ultima_rotina ? new Date(d.ultima_rotina).toLocaleString('pt-PT') : 'nunca';
     if (resumo) resumo.textContent = d.total_alertas
-      ? `${d.total_alertas} alerta(s), ${d.criticos} crítico(s). Última rotina diária: ${ultima}.`
+      ? `${d.total_alertas} escola(s)/item(ns) com alertas, ${d.criticos} crítico(s). Última rotina diária: ${ultima}.`
       : `Sem alertas. Última rotina diária: ${ultima}.`;
     if (!d.alarmes.length) {
       lista.innerHTML = '<div class="alert alert-success py-2 mb-0 small"><i class="bi bi-check-circle-fill me-2"></i>Tudo em ordem: não há pagamentos por supervisionar.</div>';
@@ -168,10 +203,12 @@ async function carregarAlarmesSaaS() {
     }
     lista.innerHTML = '<div class="row g-2">' + d.alarmes.map(a => {
       const est = ALARME_ESTILO[a.severidade] || ALARME_ESTILO.info;
-      const itens = a.itens.map(i => `<li class="small"><strong>${escapeHtml(i.instituicao)}</strong> <span class="text-muted">— ${escapeHtml(i.detalhe)}</span></li>`).join('');
-      const mais = a.total > a.itens.length ? `<li class="small text-muted">… e mais ${a.total - a.itens.length}. Ver em Assinaturas &amp; Pagamentos.</li>` : '';
+      const itens = a.itens.map(i => `<li class="small mb-1"><div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+          <span><strong>${escapeHtml(i.instituicao)}</strong> <span class="text-muted">— ${escapeHtml(i.detalhe)}</span></span>
+          <span class="d-flex gap-1">${botoesAccaoAlarme(a.codigo, i)}</span></div></li>`).join('');
+      const mais = a.total > a.itens.length ? `<li class="small text-muted">… e mais ${a.total - a.itens.length}. <a href="javascript:void(0)" onclick="navegarPara('pagamentos-saas')">Ver todos em Assinaturas &amp; Pagamentos</a>.</li>` : '';
       return `<div class="col-12 col-lg-6">
-        <details class="border border-${est.cls} border-opacity-50 rounded p-2 bg-${est.cls} bg-opacity-10 h-100">
+        <details ${a.severidade === 'critica' ? 'open' : ''} class="border border-${est.cls} border-opacity-50 rounded p-2 bg-${est.cls} bg-opacity-10 h-100">
           <summary class="d-flex align-items-center gap-2 fw-semibold" style="cursor:pointer">
             <i class="bi ${est.icone} text-${est.cls}"></i>
             <span class="flex-grow-1">${escapeHtml(a.titulo)}</span>
@@ -221,6 +258,7 @@ async function carregarPacotesSaaS() {
     const res = await apiFetch('/api/v1/saas-admin/pacotes');
     if (!res || !res.success || !Array.isArray(res.data)) throw new Error((res && res.message) || 'Resposta inválida');
     state.pacotesSaaS = res.data;
+    state.catalogoPacotesSaaS = res.catalogo || [];
     const catalogo = res.catalogo || [];
     if (res.data.length === 0) {
       tabela.innerHTML = '<tbody><tr><td class="text-center py-4 text-muted">Nenhum pacote configurado.</td></tr></tbody>';
@@ -293,12 +331,48 @@ async function guardarPacoteSaaS(id) {
     funcionalidades,
     descontos
   };
-  const afectadas = Number(pacote.total_escolas || 0);
-  if (!confirm(`Guardar alterações do pacote ${pacote.nome}?\nAplica-se de imediato a ${afectadas} escola(s) que o usam.`)) return;
+  // Pré-visualização do impacto (não grava nada) antes de confirmar
+  let imp = null;
   try {
-    const res = await apiFetch(`/api/v1/saas-admin/pacotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    const r = await apiFetch(`/api/v1/saas-admin/pacotes/${id}/impacto`, { method: 'POST', body: JSON.stringify(payload) });
+    imp = r && r.success ? r.data : null;
+  } catch (err) {
+    return alert('Não foi possível calcular o impacto: ' + (err.message || 'erro'));
+  }
+  if (!imp) return alert('Não foi possível calcular o impacto da alteração.');
+
+  window._pacotePendente = { id, payload, nome: pacote.nome };
+  const lista = (arr, cls) => arr.length ? `<ul class="mb-0 ${cls}">${arr.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '<span class="text-muted">Nenhuma</span>';
+  const delta = imp.variacao_receita_mensal;
+  const acima = imp.total_acima_do_limite
+    ? `<div class="alert alert-warning py-2 small mb-2"><strong>${imp.total_acima_do_limite} escola(s)</strong> já ultrapassam os novos limites (não perdem dados, mas não poderão adicionar mais):
+        <ul class="mb-0">${imp.escolas_acima_do_limite.map(e => `<li>${escapeHtml(e.nome)} — ${e.alunos} alunos, ${e.professores} professores</li>`).join('')}</ul></div>` : '';
+  const perigo = imp.funcionalidades_removidas.length && imp.total_escolas
+    ? `<div class="alert alert-danger py-2 small mb-2"><i class="bi bi-exclamation-octagon-fill me-1"></i>Retirar funcionalidades <strong>bloqueia de imediato</strong> o acesso de ${imp.total_escolas} escola(s) a estas áreas.</div>` : '';
+  abrirModal(`Confirmar alterações: ${pacote.nome}`, `
+    ${perigo}${acima}
+    <div class="row g-2 small mb-3">
+      <div class="col-6"><div class="border rounded p-2 h-100"><div class="text-muted">Escolas neste pacote</div><div class="fs-5 fw-bold">${imp.total_escolas}</div><div class="text-muted">${imp.escolas_facturadas_por_pacote} facturadas pelo pacote</div></div></div>
+      <div class="col-6"><div class="border rounded p-2 h-100"><div class="text-muted">Preço mensal</div><div class="fs-5 fw-bold">${formatarMoeda(imp.preco_mensal_anterior)} → ${formatarMoeda(imp.preco_mensal_novo)}</div>
+        <div class="${delta > 0 ? 'text-success' : delta < 0 ? 'text-danger' : 'text-muted'}">Receita mensal ${delta >= 0 ? '+' : ''}${formatarMoeda(delta)} (só próximas faturas)</div></div></div>
+      <div class="col-6"><div class="fw-semibold">Funcionalidades retiradas</div>${lista(imp.funcionalidades_removidas, 'text-danger')}</div>
+      <div class="col-6"><div class="fw-semibold">Funcionalidades adicionadas</div>${lista(imp.funcionalidades_adicionadas, 'text-success')}</div>
+    </div>
+    <div class="d-flex justify-content-end gap-2">
+      <button class="btn btn-outline-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarGuardarPacoteSaaS()"><i class="bi bi-save me-1"></i>Confirmar e guardar</button>
+    </div>`);
+}
+
+async function confirmarGuardarPacoteSaaS() {
+  const p = window._pacotePendente;
+  if (!p) return;
+  try {
+    const res = await apiFetch(`/api/v1/saas-admin/pacotes/${p.id}`, { method: 'PATCH', body: JSON.stringify(p.payload) });
     if (res && res.success) {
-      mostrarNotificacao(`Pacote ${pacote.nome} actualizado.`, 'success');
+      window._pacotePendente = null;
+      fecharModal();
+      mostrarNotificacao(`Pacote ${p.nome} actualizado e registado na auditoria.`, 'success');
       carregarPacotesSaaS();
     } else {
       alert((res && res.message) || 'Não foi possível guardar o pacote.');
@@ -624,13 +698,34 @@ async function toggleStatusEscola(escolaId, nome, statusAtual) {
   }
 }
 
+// Valor do contrato = preço do período do pacote escolhido (só leitura enquanto houver preço de pacote).
+function atualizarValorContratoCadastro() {
+  const pacoteId = document.getElementById('cadEscolaPacote')?.value;
+  const periodo = document.getElementById('cadEscolaPlano')?.selectedOptions[0]?.dataset.periodo;
+  const pacote = (state.pacotesSaaS || []).find(p => p.id === pacoteId);
+  const campo = document.getElementById('cadEscolaValor');
+  const info = document.getElementById('cadEscolaValorInfo');
+  if (!campo) return;
+  const preco = pacote?.precos?.[periodo]?.preco;
+  if (preco != null) {
+    campo.value = preco;
+    campo.readOnly = true;
+    if (info) info.textContent = `Calculado: pacote ${pacote.nome} · ${periodo} (${formatarMoeda(pacote.precos[periodo].preco_mensal_equivalente)}/mês equivalente, desconto ${pacote.precos[periodo].desconto_percentual}%).`;
+  } else {
+    campo.readOnly = false;
+    if (info) info.textContent = 'Sem preço de pacote para este período: indique o valor do contrato.';
+  }
+}
+
 // ==================== 4. CADASTRO DE NOVA ESCOLA ====================
 async function modalCadastrarEscolaSuperAdmin() {
   try {
     const planosRes = await apiFetch('/api/v1/saas-admin/planos');
-    const optPlanos = (planosRes.data || []).map(p => 
-      `<option value="${p.id}">${p.nome} (${p.duracao_dias} dias) — ${Number(p.preco || 0).toLocaleString('pt-PT')} MZN</option>`
+    // A periodicidade (plano) define o período; o preço vem do pacote escolhido (calculado, sem contradições)
+    const optPlanos = (planosRes.data || []).map(p =>
+      `<option value="${p.id}" data-periodo="${escapeHtml((p.nome || '').toLowerCase())}">${escapeHtml(p.nome)} (${p.duracao_dias} dias)</option>`
     ).join('');
+    if (!state.pacotesSaaS) { try { const rp = await apiFetch('/api/v1/saas-admin/pacotes'); state.pacotesSaaS = rp.data || []; } catch (_) {} }
 
     const optProvincias = (state.geografia?.provincias || [
       'Maputo Cidade', 'Maputo Província', 'Gaza', 'Inhambane', 'Sofala',
@@ -704,18 +799,19 @@ async function modalCadastrarEscolaSuperAdmin() {
             </select>
           </div>
 
-          <div class="col-md-7">
-            <label class="form-label small fw-semibold">Plano de Subscrição Inicial</label>
-            <select id="cadEscolaPlano" class="form-select" required>${optPlanos}</select>
-          </div>
           <div class="col-md-5">
             <label class="form-label small fw-semibold">Pacote de Funcionalidades</label>
-            <select id="cadEscolaPacote" class="form-select">${opcoesPacotesSaaS('pedagogico', true)}</select>
+            <select id="cadEscolaPacote" class="form-select" onchange="atualizarValorContratoCadastro()">${opcoesPacotesSaaS('pedagogico', true)}</select>
           </div>
-          <div class="col-md-5">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Periodicidade do Contrato</label>
+            <select id="cadEscolaPlano" class="form-select" onchange="atualizarValorContratoCadastro()" required>${optPlanos}</select>
+          </div>
+          <div class="col-md-3">
             <label class="form-label small fw-semibold">Valor do Contrato (MZN)</label>
-            <input type="number" id="cadEscolaValor" class="form-control" placeholder="Valor acordado em MZN">
+            <input type="number" id="cadEscolaValor" class="form-control fw-bold" placeholder="Valor em MZN">
           </div>
+          <div class="col-12 -mt-2"><small class="text-muted" id="cadEscolaValorInfo"></small></div>
 
           <div class="col-md-4">
             <label class="form-label small fw-semibold">Director da Escola (GD)</label>
@@ -771,6 +867,7 @@ async function modalCadastrarEscolaSuperAdmin() {
 
     // Event listener do formulário
     document.getElementById('formModalCadastrarEscola')?.addEventListener('submit', submeterCadastroEscolaSuperAdmin);
+    atualizarValorContratoCadastro();
   } catch (err) {
     console.error('Erro ao abrir modal de cadastro:', err);
     alert('Erro ao carregar dados do cadastro: ' + err.message);
@@ -879,23 +976,62 @@ async function submeterCadastroEscolaSuperAdmin(e) {
 }
 
 // ==================== 5. EDIÇÃO DE ESCOLA & PRAZO ====================
-async function modalEditarEscolaSuperAdmin(escolaId) {
+// Pré-visualização do pacote escolhido na edição: preços por período e funcionalidades ganhas/perdidas.
+function atualizarPreviewPacoteEdicao(escolaFuncionalidades) {
+  const sel = document.getElementById('editEscolaPacote');
+  const caixa = document.getElementById('editEscolaPreviewPacote');
+  const chkWrap = document.getElementById('editEscolaFacturarWrap');
+  if (!sel || !caixa) return;
+  const pacote = (state.pacotesSaaS || []).find(p => p.id === sel.value);
+  if (chkWrap) chkWrap.style.display = pacote ? '' : 'none';
+  if (!pacote) {
+    caixa.innerHTML = '<div class="small text-muted">Acesso total: sem restrições de funcionalidades nem limites.</div>';
+    return;
+  }
+  const catalogo = state.catalogoPacotesSaaS || [];
+  const rot = c => (catalogo.find(x => x.chave === c) || {}).rotulo || c;
+  const actuais = new Set(escolaFuncionalidades || []);
+  const novas = new Set(pacote.funcionalidades || []);
+  const ganha = [...novas].filter(c => !actuais.has(c)).map(rot);
+  const perde = [...actuais].filter(c => !novas.has(c)).map(rot);
+  const linhasPreco = ['mensal', 'trimestral', 'semestral', 'anual'].map(k => {
+    const p = pacote.precos?.[k];
+    return p ? `<div class="d-flex justify-content-between"><span class="text-capitalize">${k}</span><strong>${formatarMoeda(p.preco)}</strong></div>` : '';
+  }).join('');
+  caixa.innerHTML = `
+    <div class="row g-2 small">
+      <div class="col-md-5"><div class="fw-semibold mb-1">Preços do pacote ${escapeHtml(pacote.nome)}</div>${linhasPreco}
+        <div class="text-muted mt-1">Limites: ${pacote.limite_alunos} alunos · ${pacote.limite_professores} professores</div></div>
+      <div class="col-md-7">
+        <div class="fw-semibold text-success">A escola passa a ter</div>${ganha.length ? `<ul class="mb-1">${ganha.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '<div class="text-muted mb-1">Nada de novo</div>'}
+        <div class="fw-semibold text-danger">A escola deixa de ter</div>${perde.length ? `<ul class="mb-0">${perde.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '<div class="text-muted">Nada retirado</div>'}
+      </div>
+    </div>`;
+}
+
+async function modalEditarEscolaSuperAdmin(escolaId, aba) {
   try {
     const res = await apiFetch('/api/v1/saas-admin/escolas');
     const escola = (res.data || []).find(e => e.id === escolaId);
     if (!escola) return alert('Escola não encontrada');
+    if (!state.pacotesSaaS) { try { const rp = await apiFetch('/api/v1/saas-admin/pacotes'); state.pacotesSaaS = rp.data || []; state.catalogoPacotesSaaS = rp.catalogo || []; } catch (_) {} }
 
     const ass = escola.assinaturas && escola.assinaturas[0];
     const dataFimStr = ass?.data_fim ? new Date(ass.data_fim).toISOString().split('T')[0] : '';
     const optProvincias = (state.geografia?.provincias || [
       'Maputo Cidade', 'Maputo Província', 'Gaza', 'Inhambane', 'Sofala',
       'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa'
-    ]).map(p => 
+    ]).map(p =>
       `<option value="${p}" ${p === escola.provincia ? 'selected' : ''}>${p}</option>`
     ).join('');
     const codEscola = escola.codigo_escola || '0101S0001';
+    const adiada = escola.suspensao_adiada;
+    const avisoAdiada = adiada
+      ? `<div class="alert alert-warning py-2 small mb-2"><i class="bi bi-shield-exclamation me-1"></i>Excepção <strong>activa até ${new Date(adiada.ate).toLocaleDateString('pt-PT')}</strong>${adiada.motivo ? ` — ${escapeHtml(adiada.motivo)}` : ''}
+           <button type="button" class="btn btn-outline-danger btn-sm py-0 ms-2" id="btnRemoverAdiamento">Remover</button></div>`
+      : '<div class="small text-muted mb-2">Sem excepção activa.</div>';
 
-    abrirModal(`Editar Escola: ${escola.nome} [${codEscola}]`, `
+    abrirModal(`Editar Escola: ${escapeHtml(escola.nome)} [${codEscola}]`, `
       <form id="formModalEditarEscola">
         <div class="alert alert-light border py-2 px-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="small">
@@ -907,133 +1043,156 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
             <span class="badge bg-secondary-subtle text-secondary-emphasis border font-monospace">SECR: ${escola.codigo_secretaria || 'SECR' + codEscola}</span>
           </div>
         </div>
-        <div class="row g-3">
-          <div class="col-md-5">
-            <label class="form-label small fw-semibold">Nome da Instituição</label>
-            <input type="text" id="editEscolaNome" class="form-control" value="${escola.nome}" required>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label small fw-bold text-primary">Nível / Tipo de Escola</label>
-            <select id="editEscolaTipo" class="form-select border-primary fw-semibold">
-              <option value="S" ${(escola.tipo_escola || 'S') === 'S' ? 'selected' : ''}>S — Escola Secundária</option>
-              <option value="B" ${escola.tipo_escola === 'B' ? 'selected' : ''}>B — Escola Básica</option>
-              <option value="P" ${escola.tipo_escola === 'P' ? 'selected' : ''}>P — Escola Primária</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small fw-semibold">NUIT</label>
-            <input type="text" id="editEscolaNUIT" class="form-control" value="${escola.nif_cnpj}" required>
-          </div>
 
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">E-mail</label>
-            <input type="email" id="editEscolaEmail" class="form-control" value="${escola.email}" required>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Telefone</label>
-            <input type="text" id="editEscolaTelefone" class="form-control" value="${escola.telefone || '+258 '}">
-          </div>
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item"><button class="nav-link active" id="tabEdDados" type="button" data-bs-toggle="tab" data-bs-target="#paneEdDados" role="tab"><i class="bi bi-building me-1"></i>Dados</button></li>
+          <li class="nav-item"><button class="nav-link" id="tabEdContrato" type="button" data-bs-toggle="tab" data-bs-target="#paneEdContrato" role="tab"><i class="bi bi-boxes me-1"></i>Contrato &amp; Pacote</button></li>
+          <li class="nav-item"><button class="nav-link" id="tabEdAcesso" type="button" data-bs-toggle="tab" data-bs-target="#paneEdAcesso" role="tab"><i class="bi bi-shield-exclamation me-1"></i>Excepções</button></li>
+        </ul>
 
-          <div class="col-12">
-            <label class="form-label small fw-bold text-primary">Pacote de Funcionalidades</label>
-            <select id="editEscolaPacote" class="form-select border-primary">${opcoesPacotesSaaS(escola.pacote, false)}</select>
-            <small class="text-muted">Define o que a escola pode usar (aplica-se de imediato). "Acesso total" = sem restrições.</small>
-            <div class="form-check mt-2">
-              <input class="form-check-input" type="checkbox" id="editEscolaFacturarPacote" ${escola.facturar_por_pacote ? 'checked' : ''}>
-              <label class="form-check-label small" for="editEscolaFacturarPacote">
-                <strong>Facturar pelo preço do pacote</strong> — as <em>próximas</em> faturas e adiantamentos usam o preço mensal e os descontos do pacote. Faturas já emitidas e contratos antigos (desmarcado) não mudam.
-              </label>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="border rounded p-2 bg-light">
-              <label class="form-label small fw-bold mb-1"><i class="bi bi-shield-exclamation text-warning me-1"></i>Excepção: não suspender automaticamente</label>
-              <div class="row g-2">
-                <div class="col-md-4"><input type="date" id="editEscolaAdiarAte" class="form-control form-control-sm" aria-label="Não suspender até"></div>
-                <div class="col-md-8"><input type="text" id="editEscolaAdiarMotivo" class="form-control form-control-sm" placeholder="Motivo obrigatório (ex.: acordo de pagamento)" maxlength="500"></div>
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="paneEdDados" role="tabpanel">
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="form-label small fw-semibold">Nome da Instituição</label>
+                <input type="text" id="editEscolaNome" class="form-control" value="${escapeHtml(escola.nome)}" required>
               </div>
-              <small class="text-muted">Até à data indicada (máx. 90 dias) a escola fica no máximo em modo restrito. Fica registado na auditoria. Deixe vazio para não alterar.</small>
-              <div><button type="button" class="btn btn-link btn-sm p-0" id="btnRemoverAdiamento">Remover excepção activa</button></div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Data de Vencimento do Contrato</label>
-            <input type="date" id="editEscolaDataFim" class="form-control" value="${dataFimStr}">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Estender Prazo (Dias Adicionais)</label>
-            <input type="number" id="editEscolaDiasAdicionais" class="form-control" placeholder="Ex: 30" min="0">
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Província</label>
-            <select id="editEscolaProvincia" class="form-select" onchange="atualizarDistritosEdicaoEscola(this.value)">
-              ${optProvincias}
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Distrito</label>
-            <select id="editEscolaDistrito" class="form-select"></select>
-          </div>
-
-          <div class="col-12">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="editEscolaEmblema" ${escola.usar_emblema_nacional ? 'checked' : ''}>
-              <label class="form-check-label small fw-semibold" for="editEscolaEmblema">
-                Utilizar Emblema Oficial nos documentos
-              </label>
-            </div>
-          </div>
-
-          <div class="col-12">
-            <div class="card bg-light border p-3">
-              <label class="form-label small fw-bold mb-2">
-                <i class="bi bi-image me-1 text-primary"></i> Logótipo da Instituição
-              </label>
-              <div class="d-flex align-items-center gap-3 mb-2">
-                <div class="border rounded bg-white p-1 text-center d-flex align-items-center justify-content-center shadow-sm" style="width: 60px; height: 60px; overflow: hidden;">
-                  <img id="editEscolaLogoPreview" src="${escola.logo_url || 'img/emblema-mocambique.png'}" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-primary">Nível / Tipo de Escola</label>
+                <select id="editEscolaTipo" class="form-select border-primary fw-semibold">
+                  <option value="S" ${(escola.tipo_escola || 'S') === 'S' ? 'selected' : ''}>S — Escola Secundária</option>
+                  <option value="B" ${escola.tipo_escola === 'B' ? 'selected' : ''}>B — Escola Básica</option>
+                  <option value="P" ${escola.tipo_escola === 'P' ? 'selected' : ''}>P — Escola Primária</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">NUIT</label>
+                <input type="text" id="editEscolaNUIT" class="form-control" value="${escapeHtml(escola.nif_cnpj)}" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">E-mail</label>
+                <input type="email" id="editEscolaEmail" class="form-control" value="${escapeHtml(escola.email)}" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Telefone</label>
+                <input type="text" id="editEscolaTelefone" class="form-control" value="${escapeHtml(escola.telefone || '+258 ')}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Província</label>
+                <select id="editEscolaProvincia" class="form-select" onchange="atualizarDistritosEdicaoEscola(this.value)">
+                  ${optProvincias}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Distrito</label>
+                <select id="editEscolaDistrito" class="form-select"></select>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="editEscolaEmblema" ${escola.usar_emblema_nacional ? 'checked' : ''}>
+                  <label class="form-check-label small fw-semibold" for="editEscolaEmblema">Utilizar Emblema Oficial nos documentos</label>
                 </div>
-                <div class="flex-grow-1">
-                  <input type="file" id="editEscolaLogoFile" accept="image/*" class="form-control form-control-sm mb-1" onchange="processarUploadLogoModal(this, 'editEscolaLogoFinal', 'editEscolaLogoPreview')">
-                  <input type="hidden" id="editEscolaLogoFinal" value="${escola.logo_url || ''}">
-                  <div class="d-flex gap-2 align-items-center mt-1">
-                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="document.getElementById('editEscolaLogoFinal').value=''; document.getElementById('editEscolaLogoPreview').src='img/emblema-mocambique.png';">
-                      <i class="bi bi-arrow-counterclockwise me-1"></i> Usar Emblema Nacional
-                    </button>
+              </div>
+              <div class="col-12">
+                <div class="card bg-light border p-3">
+                  <label class="form-label small fw-bold mb-2"><i class="bi bi-image me-1 text-primary"></i> Logótipo da Instituição</label>
+                  <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="border rounded bg-white p-1 text-center d-flex align-items-center justify-content-center shadow-sm" style="width: 60px; height: 60px; overflow: hidden;">
+                      <img id="editEscolaLogoPreview" src="${escola.logo_url || 'img/emblema-mocambique.png'}" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                    <div class="flex-grow-1">
+                      <input type="file" id="editEscolaLogoFile" accept="image/*" class="form-control form-control-sm mb-1" onchange="processarUploadLogoModal(this, 'editEscolaLogoFinal', 'editEscolaLogoPreview')">
+                      <input type="hidden" id="editEscolaLogoFinal" value="${escola.logo_url || ''}">
+                      <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="document.getElementById('editEscolaLogoFinal').value=''; document.getElementById('editEscolaLogoPreview').src='img/emblema-mocambique.png';">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Usar Emblema Nacional
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          <div class="tab-pane fade" id="paneEdContrato" role="tabpanel">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label small fw-bold text-primary">Pacote de Funcionalidades</label>
+                <select id="editEscolaPacote" class="form-select border-primary">${opcoesPacotesSaaS(escola.pacote, false)}</select>
+                <div id="editEscolaFacturarWrap" class="form-check mt-2" ${escola.pacote ? '' : 'style="display:none"'}>
+                  <input class="form-check-input" type="checkbox" id="editEscolaFacturarPacote" ${escola.facturar_por_pacote ? 'checked' : ''}>
+                  <label class="form-check-label small" for="editEscolaFacturarPacote">
+                    <strong>Facturar pelo preço do pacote</strong> — as <em>próximas</em> faturas e adiantamentos usam o preço e os descontos do pacote. Faturas já emitidas e contratos antigos (desmarcado) não mudam.
+                  </label>
+                </div>
+              </div>
+              <div class="col-12"><div class="border rounded p-2 bg-light" id="editEscolaPreviewPacote"></div></div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Data de Vencimento do Contrato</label>
+                <input type="date" id="editEscolaDataFim" class="form-control" value="${dataFimStr}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Estender Prazo (Dias Adicionais)</label>
+                <input type="number" id="editEscolaDiasAdicionais" class="form-control" placeholder="Ex: 30" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="paneEdAcesso" role="tabpanel">
+            <div class="border rounded p-3 bg-light">
+              <label class="form-label small fw-bold mb-1"><i class="bi bi-shield-exclamation text-warning me-1"></i>Excepção: não suspender automaticamente</label>
+              ${avisoAdiada}
+              <div class="row g-2">
+                <div class="col-md-4"><input type="date" id="editEscolaAdiarAte" class="form-control form-control-sm" aria-label="Não suspender até"></div>
+                <div class="col-md-8"><input type="text" id="editEscolaAdiarMotivo" class="form-control form-control-sm" placeholder="Motivo obrigatório (ex.: acordo de pagamento)" maxlength="500"></div>
+              </div>
+              <small class="text-muted">Até à data indicada (máx. 90 dias) a escola fica no máximo em modo restrito. Fica registado na auditoria. Deixe vazio para não alterar.</small>
+            </div>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary w-100 mt-4">Actualizar Dados e Prazo</button>
+        <div id="editEscolaErro" class="alert alert-danger py-2 small mt-3 mb-0" style="display:none" role="alert"></div>
+        <button type="submit" class="btn btn-primary w-100 mt-3">Guardar alterações</button>
       </form>
     `);
 
     atualizarDistritosEdicaoEscola(escola.provincia || 'Maputo Cidade', escola.distrito);
+    atualizarPreviewPacoteEdicao(escola.funcionalidades);
+    document.getElementById('editEscolaPacote')?.addEventListener('change', () => atualizarPreviewPacoteEdicao(escola.funcionalidades));
+    if (aba === 'acesso' && typeof bootstrap !== 'undefined') bootstrap.Tab.getOrCreateInstance(document.getElementById('tabEdAcesso')).show();
+
+    const mostrarErro = (msg) => {
+      const el = document.getElementById('editEscolaErro');
+      if (el) { el.textContent = msg; el.style.display = ''; el.scrollIntoView({ block: 'nearest' }); }
+    };
 
     document.getElementById('btnRemoverAdiamento')?.addEventListener('click', async () => {
       if (!confirm('Remover a excepção de suspensão desta escola?')) return;
       try {
         const r = await apiFetch(`/api/v1/saas/instituicoes/${escolaId}/adiar-suspensao`, { method: 'POST', body: JSON.stringify({ ate: null }) });
-        alert((r && r.message) || 'Excepção removida.');
+        mostrarNotificacao((r && r.message) || 'Excepção removida.', 'success');
+        fecharModal();
         carregarAlarmesSaaS();
-      } catch (err) { alert(err.message || 'Erro ao remover excepção.'); }
+        carregarPainelSaaS();
+      } catch (err) { mostrarErro(err.message || 'Erro ao remover excepção.'); }
     });
 
     document.getElementById('formModalEditarEscola')?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const erroEl = document.getElementById('editEscolaErro');
+      if (erroEl) erroEl.style.display = 'none';
       try {
         const adiarAte = document.getElementById('editEscolaAdiarAte')?.value;
         const adiarMotivo = document.getElementById('editEscolaAdiarMotivo')?.value?.trim();
         if (adiarAte) {
-          if (!adiarMotivo || adiarMotivo.length < 5) return alert('Indique o motivo da excepção de suspensão (mínimo 5 caracteres).');
+          if (!adiarMotivo || adiarMotivo.length < 5) {
+            bootstrap.Tab.getOrCreateInstance(document.getElementById('tabEdAcesso')).show();
+            return mostrarErro('Indique o motivo da excepção de suspensão (mínimo 5 caracteres).');
+          }
           const rAd = await apiFetch(`/api/v1/saas/instituicoes/${escolaId}/adiar-suspensao`, {
             method: 'POST', body: JSON.stringify({ ate: adiarAte, motivo: adiarMotivo })
           });
-          if (!rAd || !rAd.success) return alert((rAd && rAd.message) || 'Não foi possível registar a excepção.');
+          if (!rAd || !rAd.success) return mostrarErro((rAd && rAd.message) || 'Não foi possível registar a excepção.');
         }
+        const pacoteSel = document.getElementById('editEscolaPacote')?.value || null;
         const body = {
           nome: document.getElementById('editEscolaNome').value,
           tipo_escola: document.getElementById('editEscolaTipo')?.value || 'S',
@@ -1045,8 +1204,8 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           dias_adicionais: Number(document.getElementById('editEscolaDiasAdicionais').value) || undefined,
           provincia: document.getElementById('editEscolaProvincia').value,
           distrito: document.getElementById('editEscolaDistrito').value,
-          pacote: document.getElementById('editEscolaPacote')?.value || null,
-          facturar_por_pacote: !!document.getElementById('editEscolaFacturarPacote')?.checked && !!document.getElementById('editEscolaPacote')?.value,
+          pacote: pacoteSel,
+          facturar_por_pacote: !!document.getElementById('editEscolaFacturarPacote')?.checked && !!pacoteSel,
           usar_emblema_nacional: document.getElementById('editEscolaEmblema').checked,
           logo_url: document.getElementById('editEscolaLogoFinal')?.value || null
         };
@@ -1056,14 +1215,14 @@ async function modalEditarEscolaSuperAdmin(escolaId) {
           body: JSON.stringify(body)
         });
         if (updRes && updRes.success) {
-          alert('Dados da escola e prazo contratual actualizados com sucesso!');
           fecharModal();
+          mostrarNotificacao('Dados da escola actualizados com sucesso.', 'success');
           carregarPainelSaaS();
         } else {
-          alert((updRes && updRes.message) || 'Erro ao actualizar dados');
+          mostrarErro((updRes && updRes.message) || 'Erro ao actualizar dados');
         }
       } catch (err) {
-        alert(err.message || 'Erro ao actualizar dados');
+        mostrarErro(err.message || 'Erro ao actualizar dados');
       }
     });
   } catch (err) {
@@ -1179,34 +1338,54 @@ async function descarregarExtratoEscolaSuperAdmin(escolaId) {
 // ==================== 8. ELIMINAR ESCOLA ====================
 async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
   const nomeLimpo = (nome || '').replace(/\\'/g, "'");
-  const rotulo = codigo ? `[${codigo}] ${nomeLimpo}` : `[${nomeLimpo}]`;
-  // Confirmação reforçada: o nome da escola tem de ser digitado (acção irreversível).
-  const digitado = prompt(`ATENÇÃO: eliminar DEFINITIVAMENTE ${rotulo} e todos os seus dados. Esta operação não pode ser revertida e fica registada na auditoria.\n\nPara confirmar, digite o nome exacto da escola:\n${nomeLimpo}`);
-  if (digitado === null) return;
-  if (digitado.trim().toLowerCase() !== nomeLimpo.trim().toLowerCase()) {
-    alert('O nome digitado não corresponde. Nada foi eliminado.');
-    return;
-  }
-
-  try {
-    const res = await apiFetch(`/api/v1/saas-admin/escolas/${escolaId}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ confirmar_nome: digitado.trim() })
-    });
-    if (res && res.success) {
-      alert(res.message || 'Instituição eliminada com sucesso.');
-      carregarPainelSaaS();
-      if (typeof carregarEscolasSuperAdminSelect === 'function') {
-        carregarEscolasSuperAdminSelect();
-      }
-    } else {
-      alert((res && res.message) || 'Erro ao eliminar instituição.');
-    }
-  } catch (err) {
-    alert(err.message || 'Erro ao eliminar escola');
-  }
+  const rotulo = codigo ? `[${escapeHtml(codigo)}] ${escapeHtml(nomeLimpo)}` : `[${escapeHtml(nomeLimpo)}]`;
+  window._eliminarEscolaPendente = { escolaId, nome: nomeLimpo };
+  // Confirmação reforçada: o nome da escola tem de ser digitado; o botão só activa quando coincide.
+  abrirModal('Eliminar escola definitivamente', `
+    <div class="alert alert-danger small mb-3">
+      <i class="bi bi-exclamation-octagon-fill me-1"></i>
+      Vai eliminar <strong>${rotulo}</strong> e <strong>todos os seus dados</strong>. Esta operação <strong>não pode ser revertida</strong> e fica registada na auditoria.
+    </div>
+    <label class="form-label small fw-semibold" for="inputConfirmarEliminarEscola">Para confirmar, digite o nome exacto da escola:</label>
+    <div class="form-text mb-1 user-select-all fw-bold">${escapeHtml(nomeLimpo)}</div>
+    <input type="text" id="inputConfirmarEliminarEscola" class="form-control" autocomplete="off" oninput="validarConfirmacaoEliminarEscola()">
+    <div id="erroEliminarEscola" class="text-danger small mt-2" style="display:none" role="alert"></div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-outline-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-danger" id="btnConfirmarEliminarEscola" disabled onclick="confirmarEliminarEscolaSuperAdmin()"><i class="bi bi-trash me-1"></i>Eliminar definitivamente</button>
+    </div>`);
 }
 
+function validarConfirmacaoEliminarEscola() {
+  const p = window._eliminarEscolaPendente;
+  const digitado = (document.getElementById('inputConfirmarEliminarEscola')?.value || '').trim().toLowerCase();
+  const btn = document.getElementById('btnConfirmarEliminarEscola');
+  if (btn && p) btn.disabled = digitado !== p.nome.trim().toLowerCase();
+}
+
+async function confirmarEliminarEscolaSuperAdmin() {
+  const p = window._eliminarEscolaPendente;
+  const digitado = (document.getElementById('inputConfirmarEliminarEscola')?.value || '').trim();
+  const erro = document.getElementById('erroEliminarEscola');
+  if (!p || digitado.toLowerCase() !== p.nome.trim().toLowerCase()) return;
+  try {
+    const res = await apiFetch(`/api/v1/saas-admin/escolas/${p.escolaId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmar_nome: digitado })
+    });
+    if (res && res.success) {
+      window._eliminarEscolaPendente = null;
+      fecharModal();
+      mostrarNotificacao(res.message || 'Instituição eliminada com sucesso.', 'success');
+      carregarPainelSaaS();
+      if (typeof carregarEscolasSuperAdminSelect === 'function') carregarEscolasSuperAdminSelect();
+    } else if (erro) {
+      erro.textContent = (res && res.message) || 'Erro ao eliminar instituição.'; erro.style.display = '';
+    }
+  } catch (err) {
+    if (erro) { erro.textContent = err.message || 'Erro ao eliminar escola'; erro.style.display = ''; }
+  }
+}
 // ==================== 9. LOGÓTIPO SAAS CADASTRO ====================
 function processarLogoCadastroLocal(input) {
   const file = input.files?.[0];

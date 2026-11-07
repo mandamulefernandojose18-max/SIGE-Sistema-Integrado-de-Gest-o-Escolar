@@ -79,6 +79,30 @@ class TestAlarmesSupervisaoSaaS:
         assert d['a_entrar_em_suspensao']['total'] == 1
         assert d['a_entrar_em_suspensao']['itens'][0]['instituicao'] == 'Escola Atraso'
 
+    def test_contagem_por_escola_distinta_e_sem_alarmes_informativos(self):
+        # Mesma escola com duas faturas em atraso e uma excepção informativa: conta 1 escola, não 3
+        limite = self.hoje - timedelta(days=15)
+        for n in ('FAT-C1', 'FAT-C2'):
+            SaasFatura.objects.create(assinatura=self.ass, instituicao=self.escola, numero_fatura=n,
+                                      periodo_inicio=limite - timedelta(days=5 if n == 'FAT-C2' else 0),
+                                      periodo_fim=self.hoje, valor=Decimal('1500'), data_abertura=limite,
+                                      data_limite=limite, data_limite_manual=limite, estado='em_atraso')
+        self.ass.suspensao_adiada_ate = self.hoje + timedelta(days=5)
+        self.ass.suspensao_adiada_motivo = 'acordo'
+        self.ass.save()
+        SaasRotinaExecucao.objects.create(sucesso=True)  # rotina em dia: sem alarme de sistema
+        d = calcular_alarmes()
+        assert _codigos(d)['faturas_em_atraso']['total'] == 2          # 2 faturas
+        assert 'suspensao_adiada' in _codigos(d)                        # informativo, fora da contagem
+        assert d['total_alertas'] == 1 and d['criticos'] == 1           # 1 escola
+        assert all('_ids' not in a for a in d['alarmes'])               # JSON serializável
+
+    def test_comprovativo_inclui_pagamento_id_para_accao_directa(self):
+        fat = self._fatura('FAT-AL-ACC', self.hoje + timedelta(days=3))
+        pag = SaasPagamento.objects.create(fatura=fat, instituicao=self.escola, metodo='M-Pesa', referencia='ACC1', valor=Decimal('1500'))
+        item = _codigos(calcular_alarmes())['comprovativos_pendentes']['itens'][0]
+        assert item['pagamento_id'] == str(pag.id)
+
     def test_anomalia_referencia_duplicada(self):
         fat = self._fatura('FAT-AL-DUP', self.hoje + timedelta(days=20))
         SaasPagamento.objects.create(fatura=fat, instituicao=self.escola, metodo='M-Pesa', referencia='DUP1', valor=Decimal('1500'))

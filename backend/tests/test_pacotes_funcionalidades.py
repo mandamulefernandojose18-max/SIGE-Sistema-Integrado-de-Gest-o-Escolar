@@ -122,6 +122,36 @@ class TestFuncionalidadesPorPacote:
         nova = Escola.objects.get(nif_cnpj='NIF_PAC_NOVA')
         assert nova.pacote and nova.pacote.codigo == 'pedagogico'
 
+    def test_impacto_do_pacote_antes_de_guardar_e_auditoria(self):
+        from apps.accounts.models import LogAuditoria
+        from apps.alunos.models import Aluno
+        from apps.turmas.models import Turma
+        completo = self.completo
+        self.escola.pacote = completo
+        self.escola.facturar_por_pacote = True
+        self.escola.save()
+        turma = Turma.objects.create(escola=self.escola, nome='T1', grau_ano='10ª Classe')
+        for i in range(3):
+            Aluno.objects.create(escola=self.escola, turma=turma, matricula=f'IMP{i}', nome=f'Aluno {i}',
+                                 data_nascimento='2009-01-01', genero='M')
+        self._login('root@sige.co.mz', 'SuperPassword123!')
+
+        payload = {'preco_mensal': 3000, 'funcionalidades': ['exames'], 'limite_alunos': 2}
+        res = self.client.post(f'/api/v1/saas-admin/pacotes/{completo.id}/impacto/', payload, format='json')
+        assert res.status_code == 200, res.content
+        d = res.json()['data']
+        assert d['total_escolas'] == 1 and d['escolas_facturadas_por_pacote'] == 1
+        assert d['variacao_receita_mensal'] == 600.0
+        assert 'Finanças escolares' in d['funcionalidades_removidas']
+        assert d['total_acima_do_limite'] == 1 and d['escolas_acima_do_limite'][0]['alunos'] == 3
+        completo.refresh_from_db()
+        assert float(completo.preco_mensal) == 2400.0  # a pré-visualização não grava
+
+        res = self.client.patch(f'/api/v1/saas-admin/pacotes/{completo.id}/', {'preco_mensal': 2500}, format='json')
+        assert res.status_code == 200
+        log = LogAuditoria.objects.filter(entidade='PACOTE', acao='ALTERAR', objeto_id=str(completo.id)).first()
+        assert log and log.detalhes_antes['preco_mensal'] == 2400.0 and log.detalhes_depois['preco_mensal'] == 2500.0
+
     def test_api_pacotes_so_superadmin_e_edicao(self):
         self._login('admin.pac@sige.edu.mz', 'PassPacote123!')
         assert self.client.get('/api/v1/saas-admin/pacotes/').status_code == 403

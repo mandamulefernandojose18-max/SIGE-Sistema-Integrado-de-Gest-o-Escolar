@@ -73,6 +73,7 @@ class EscolaListSerializer(serializers.ModelSerializer):
     pacote_nome = serializers.CharField(source='pacote.nome', read_only=True, default=None)
     pacote_codigo = serializers.CharField(source='pacote.codigo', read_only=True, default=None)
     funcionalidades = serializers.SerializerMethodField()
+    suspensao_adiada = serializers.SerializerMethodField()
 
     def get_funcionalidades(self, obj):
         """Funcionalidades efectivas: sem pacote = acesso total."""
@@ -80,10 +81,19 @@ class EscolaListSerializer(serializers.ModelSerializer):
             return list(CHAVES_FUNCIONALIDADES)
         return list(obj.pacote.funcionalidades or [])
 
+    def get_suspensao_adiada(self, obj):
+        """Excepção activa 'não suspender até' da assinatura mais recente (None se não existir)."""
+        from django.utils import timezone
+        todas = sorted(obj.saas_assinaturas.all(), key=lambda a: a.created_at, reverse=True)
+        ass = todas[0] if todas else None
+        if ass and ass.suspensao_adiada_ate and ass.suspensao_adiada_ate >= timezone.localdate():
+            return {'ate': str(ass.suspensao_adiada_ate), 'motivo': ass.suspensao_adiada_motivo}
+        return None
+
     class Meta:
         model = Escola
         fields = [
-            'pacote', 'pacote_nome', 'pacote_codigo', 'funcionalidades', 'facturar_por_pacote',
+            'pacote', 'pacote_nome', 'pacote_codigo', 'funcionalidades', 'facturar_por_pacote', 'suspensao_adiada',
             'id', 'nome', 'nif_cnpj', 'email', 'telefone', 'provincia', 'distrito',
             'tipo_escola', 'director_nome', 'director_carreira', 'dap_nome', 'chefe_secretaria_nome',
             'usar_emblema_nacional', 'codigo_escola', 'status', 'ano_letivo_ativo', 'trimestre_ativo',
