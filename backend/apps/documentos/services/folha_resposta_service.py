@@ -245,15 +245,13 @@ def codigo_folha(escola, aluno, config, ano):
 
 
 def _payload_qr(escola, aluno, config, ano, versao):
-    """Texto do QR: linha legível (Moçambique) + linha técnica para leitura óptica."""
+    """
+    Conteúdo do QR: só um código compacto e neutro (sem nomes de países, sem texto livre, sem dados pessoais):
+    SIGE-FR | código da folha | código do aluno | avaliação | ano lectivo | versão | nº de perguntas
+    """
     al = aluno or {}
-    nome = ' '.join(x for x in (al.get('apelido'), al.get('nome')) if x) or 'Folha em branco'
-    legivel = (f"SIGE Moçambique - Folha de Respostas | Escola: {escola.get('nome', '')}"
-               f" (cód. {escola.get('codigo') or '-'}) | Aluno: {nome} | Cód. aluno: {al.get('codigo') or '-'}"
-               f" | {config['tipo_rotulo']} - {config['disciplina']} | Ano lectivo {ano}")
-    tecnico = '|'.join(['SIGE', 'FR', 'MZ', escola.get('codigo') or '-', al.get('codigo') or 'BRANCO',
-                        config['tipo'], ano, versao or '-', str(config['n_perguntas'])])
-    return legivel + '\n' + tecnico
+    return '|'.join(['SIGE-FR', codigo_folha(escola, aluno, config, ano), al.get('codigo') or 'BRANCO',
+                     config['tipo'], str(ano), versao or '-', str(config['n_perguntas'])])
 
 
 # --------------------------------------------------------------------------------------
