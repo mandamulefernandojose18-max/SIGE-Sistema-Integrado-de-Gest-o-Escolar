@@ -72,6 +72,48 @@
               </button>
             </div>
           </div>
+          <!-- Filtros em cascata: Província → Distrito → Estado/Plano/Validade (altura constante para n escolas) -->
+          <div class="row g-2 mb-3">
+            <div class="col-12 col-md-4 col-lg-3">
+              <input type="search" id="saasFiltroBusca" class="form-control form-control-sm" placeholder="Pesquisar nome, NUIT ou código..." oninput="aplicarFiltroEscolasSaaS('q', this.value)" aria-label="Pesquisar escolas">
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+              <select id="saasFiltroProvincia" class="form-select form-select-sm" onchange="aplicarFiltroEscolasSaaS('provincia', this.value)" aria-label="Província"><option value="">Todas as províncias</option></select>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+              <select id="saasFiltroDistrito" class="form-select form-select-sm" onchange="aplicarFiltroEscolasSaaS('distrito', this.value)" aria-label="Distrito"><option value="">Todos os distritos</option></select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <select id="saasFiltroEstado" class="form-select form-select-sm" onchange="aplicarFiltroEscolasSaaS('estado', this.value)" aria-label="Estado">
+                <option value="">Todos os estados</option>
+                <option value="ATIVA">Ativa</option>
+                <option value="SUSPENSA">Suspensa</option>
+                <option value="EXPIRADA">Expirada</option>
+                <option value="INACTIVA">Inactiva</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-1">
+              <select id="saasFiltroPlano" class="form-select form-select-sm" onchange="aplicarFiltroEscolasSaaS('plano', this.value)" aria-label="Plano"><option value="">Planos</option></select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <select id="saasFiltroValidade" class="form-select form-select-sm" onchange="aplicarFiltroEscolasSaaS('validade', this.value)" aria-label="Validade">
+                <option value="">Qualquer validade</option>
+                <option value="15">Expira em ≤ 15 dias</option>
+                <option value="30">Expira em ≤ 30 dias</option>
+                <option value="60">Expira em ≤ 60 dias</option>
+                <option value="expiradas">Já expiradas</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <select id="saasFiltroOrdem" class="form-select form-select-sm" onchange="aplicarFiltroEscolasSaaS('ordem', this.value)" aria-label="Ordenar">
+                <option value="nome">Ordenar: Nome</option>
+                <option value="validade">Ordenar: Validade</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-1">
+              <button class="btn btn-outline-secondary btn-sm w-100" onclick="limparFiltrosEscolasSaaS()" title="Limpar filtros"><i class="bi bi-x-circle"></i></button>
+            </div>
+          </div>
           <div class="table-responsive">
             <table class="table table-hover align-middle">
               <thead class="table-light">
@@ -90,6 +132,10 @@
                 <tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>A carregar escolas...</td></tr>
               </tbody>
             </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
+            <small class="text-muted" id="saasPaginacaoInfo"></small>
+            <div id="saasPaginacaoNav" class="d-flex align-items-center"></div>
           </div>
         </div>
 

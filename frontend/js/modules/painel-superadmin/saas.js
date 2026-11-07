@@ -4,6 +4,127 @@
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
  */
 
+// ==================== 0. FILTROS EM CASCATA + PAGINAÇÃO (n escolas) ====================
+// Altura da tabela constante: no máximo `tamanho` linhas por página, qualquer que seja n.
+const saasFiltros = { q: '', provincia: '', distrito: '', estado: '', plano: '', validade: '', ordem: 'nome', pagina: 1, tamanho: 10 };
+
+function dataFimEscolaSaaS(e) {
+  const ass = (e.assinaturas && e.assinaturas[0]) || e.assinatura_ativa || null;
+  if (!ass?.data_fim) return null;
+  const d = new Date(ass.data_fim);
+  return isNaN(d) ? null : d;
+}
+
+function diasRestantesEscolaSaaS(e) {
+  const d = dataFimEscolaSaaS(e);
+  if (!d) return null;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.ceil((d - hoje) / 86400000);
+}
+
+function badgeDiasRestantesSaaS(e) {
+  const dias = diasRestantesEscolaSaaS(e);
+  if (dias === null) return '';
+  let cls = 'bg-success-subtle text-success', txt = `faltam ${dias} dias`;
+  if (dias < 0) { cls = 'bg-danger-subtle text-danger'; txt = `expirou há ${-dias} dias`; }
+  else if (dias <= 15) cls = 'bg-danger-subtle text-danger';
+  else if (dias <= 60) cls = 'bg-warning-subtle text-warning-emphasis';
+  return `<span class="badge ${cls}" style="font-size:0.68rem;">${txt}</span>`;
+}
+
+function popularFiltrosEscolasSaaS() {
+  const lista = state.escolasSaaS || [];
+  const unicos = (fn) => [...new Set(lista.map(fn).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
+  const preencher = (id, rotulo, valores, atual) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = `<option value="">${rotulo}</option>` + valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    el.value = valores.includes(atual) ? atual : '';
+  };
+  preencher('saasFiltroProvincia', 'Todas as províncias', unicos(e => e.provincia), saasFiltros.provincia);
+  const base = saasFiltros.provincia ? lista.filter(e => e.provincia === saasFiltros.provincia) : lista;
+  preencher('saasFiltroDistrito', 'Todos os distritos', [...new Set(base.map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt')), saasFiltros.distrito);
+  preencher('saasFiltroPlano', 'Todos os planos', unicos(e => e.plano?.nome || e.plano_nome), saasFiltros.plano);
+}
+
+function aplicarFiltroEscolasSaaS(campo, valor) {
+  saasFiltros[campo] = valor;
+  if (campo === 'provincia') { saasFiltros.distrito = ''; popularFiltrosEscolasSaaS(); }
+  saasFiltros.pagina = 1;
+  renderizarTabelaEscolasSaaS();
+}
+
+function limparFiltrosEscolasSaaS() {
+  Object.assign(saasFiltros, { q: '', provincia: '', distrito: '', estado: '', plano: '', validade: '', ordem: 'nome', pagina: 1 });
+  ['saasFiltroBusca', 'saasFiltroEstado', 'saasFiltroValidade', 'saasFiltroOrdem'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = id === 'saasFiltroOrdem' ? 'nome' : '';
+  });
+  popularFiltrosEscolasSaaS();
+  renderizarTabelaEscolasSaaS();
+}
+
+function mudarPaginaEscolasSaaS(p) {
+  saasFiltros.pagina = p;
+  renderizarTabelaEscolasSaaS();
+}
+
+function renderizarTabelaEscolasSaaS() {
+  const tbody = document.getElementById('tabelaSaasEscolas');
+  if (!tbody || typeof window._linhaEscolaSaaS !== 'function') return;
+  const f = saasFiltros;
+  const q = f.q.trim().toLowerCase();
+  let lista = (state.escolasSaaS || []).filter(e => {
+    const estado = (e.status || 'ATIVA').toUpperCase();
+    const dias = diasRestantesEscolaSaaS(e);
+    if (q) {
+      const alvo = [e.nome, e.nif_cnpj, e.codigo_escola, e.codigo_gabinete_director, e.codigo_direccao_pedagogica, e.codigo_secretaria, e.email]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!alvo.includes(q)) return false;
+    }
+    if (f.provincia && e.provincia !== f.provincia) return false;
+    if (f.distrito && e.distrito !== f.distrito) return false;
+    if (f.estado && estado !== f.estado) return false;
+    if (f.plano && (e.plano?.nome || e.plano_nome) !== f.plano) return false;
+    if (f.validade === 'expiradas' && !(dias !== null && dias < 0)) return false;
+    if (f.validade && f.validade !== 'expiradas') {
+      if (dias === null || dias < 0 || dias > Number(f.validade)) return false;
+    }
+    return true;
+  });
+
+  lista.sort((a, b) => {
+    if (f.ordem === 'validade') {
+      const da = diasRestantesEscolaSaaS(a), db = diasRestantesEscolaSaaS(b);
+      return (da ?? Infinity) - (db ?? Infinity);
+    }
+    return (a.nome || '').localeCompare(b.nome || '', 'pt');
+  });
+
+  const total = lista.length;
+  const paginas = Math.max(1, Math.ceil(total / f.tamanho));
+  if (f.pagina > paginas) f.pagina = paginas;
+  const ini = (f.pagina - 1) * f.tamanho;
+  const pagina = lista.slice(ini, ini + f.tamanho);
+
+  if (total === 0) {
+    const semEscolas = (state.escolasSaaS || []).length === 0;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">${semEscolas ? 'Nenhuma escola cadastrada no momento.' : 'Nenhuma escola corresponde aos filtros aplicados.'}</td></tr>`;
+  } else {
+    tbody.innerHTML = pagina.map(window._linhaEscolaSaaS).join('');
+  }
+
+  const info = document.getElementById('saasPaginacaoInfo');
+  if (info) info.textContent = total === 0 ? '0 escolas' : `${ini + 1}–${ini + pagina.length} de ${total} escola(s)`;
+  const nav = document.getElementById('saasPaginacaoNav');
+  if (nav) {
+    nav.innerHTML = `
+      <button class="btn btn-outline-secondary btn-sm" ${f.pagina <= 1 ? 'disabled' : ''} onclick="mudarPaginaEscolasSaaS(${f.pagina - 1})" aria-label="Página anterior"><i class="bi bi-chevron-left"></i></button>
+      <span class="small mx-2">Página ${f.pagina} / ${paginas}</span>
+      <button class="btn btn-outline-secondary btn-sm" ${f.pagina >= paginas ? 'disabled' : ''} onclick="mudarPaginaEscolasSaaS(${f.pagina + 1})" aria-label="Página seguinte"><i class="bi bi-chevron-right"></i></button>`;
+  }
+}
+
 // ==================== 1. CARREGAMENTO DO PAINEL SAAS ====================
 async function carregarPainelSaaS() {
   const tbodyEscolas = document.getElementById('tabelaSaasEscolas');
@@ -64,10 +185,9 @@ async function carregarPainelSaaS() {
           const saved = localStorage.getItem('sige_selected_tenant');
           if (saved) superAdminSelect.value = saved;
         }
-        if (listaEscolas.length === 0) {
-          tbodyEscolas.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma escola cadastrada no momento.</td></tr>';
-        } else {
-          tbodyEscolas.innerHTML = listaEscolas.map(e => {
+        saasFiltros.pagina = 1;
+        {
+          window._linhaEscolaSaaS = (e) => {
             const ass = (e.assinaturas && e.assinaturas[0]) || e.assinatura_ativa || null;
             const dataFim = ass?.data_fim ? new Date(ass.data_fim).toLocaleDateString('pt-PT') : '-';
             const statusUpper = (e.status || 'ATIVA').toUpperCase();
@@ -112,7 +232,7 @@ async function carregarPainelSaaS() {
                   <span class="badge bg-light text-dark border">${escapeHtml(planoNome)}</span>
                   <br><strong class="small text-success">${valorContrato}</strong>
                 </td>
-                <td><small>${escapeHtml(dataFim)}</small></td>
+                <td><small>${escapeHtml(dataFim)}</small><br>${badgeDiasRestantesSaaS(e)}</td>
                 <td><span class="badge ${badgeClasse}">${escapeHtml(statusUpper)}</span></td>
                 <td><small>${totalAlunos} alunos<br>${totalProfs} profs</small></td>
                 <td class="text-end">
@@ -139,7 +259,9 @@ async function carregarPainelSaaS() {
                 </td>
               </tr>
             `;
-          }).join('');
+          };
+          popularFiltrosEscolasSaaS();
+          renderizarTabelaEscolasSaaS();
         }
       } else {
         const errMsg = settledEscolas.reason?.message || (settledEscolas.value && settledEscolas.value.message) || 'Erro de comunicação ao carregar lista de instituições';
