@@ -72,9 +72,9 @@ class FolhaRespostaContextoView(APIView):
             })
         disciplinas = {}
         for d in Disciplina.objects.filter(escola=escola, ano_letivo=ano).order_by('nome'):
-            disciplinas.setdefault(d.classe, [])
-            if d.nome not in disciplinas[d.classe]:
-                disciplinas[d.classe].append(d.nome)
+            lista = disciplinas.setdefault(d.classe, [])
+            if not any(x['nome'] == d.nome and x['area'] == d.area for x in lista):
+                lista.append({'nome': d.nome, 'area': d.area})
         logo = fr.resolver_logo_documento_escola(escola)[0]
         return Response({
             'escola': {
@@ -121,7 +121,7 @@ class FolhaRespostaGerarView(APIView):
         escola = _escola_ou_erro(request)
         ano = str(dados.get('ano_letivo') or escola.ano_letivo_ativo)
         esc = fr.montar_dados_escola(escola)
-        alunos, etiqueta, classe_ref = [], '', ''
+        alunos, etiqueta, classe_ref, area_ref = [], '', '', ''
 
         if escopo == 'aluno':
             aluno, escola = _obter_aluno_e_escola(request, dados.get('aluno_id'))
@@ -133,19 +133,24 @@ class FolhaRespostaGerarView(APIView):
             alunos = [fr.montar_dados_aluno(aluno, numero)]
             etiqueta = f'{aluno.apelido or ""} {aluno.nome}'.strip()
             classe_ref = alunos[0]['classe']
+            area_ref = aluno.turma.area if aluno.turma_id else (aluno.area or '')
         elif escopo == 'turma':
             turma, escola = _obter_turma_e_escola(request, dados.get('turma_id'))
             esc = fr.montar_dados_escola(escola)
             alunos = [fr.montar_dados_aluno(a, i) for i, a in enumerate(_alunos_da_turma(turma), start=1)]
             etiqueta = f'{turma.grau_ano} {turma.nome}'
-            classe_ref = turma.grau_ano
+            classe_ref, area_ref = turma.grau_ano, turma.area
         elif escopo == 'classe':
             classe_ref = str(dados.get('classe') or '').strip()
             if not classe_ref:
                 return Response({'detail': 'Indique a classe.'}, status=400)
-            for turma in Turma.objects.filter(escola=escola, ano_letivo=ano, grau_ano=classe_ref).order_by('nome'):
+            area_ref = str(dados.get('area') or '').strip()
+            turmas_qs = Turma.objects.filter(escola=escola, ano_letivo=ano, grau_ano=classe_ref)
+            if area_ref:
+                turmas_qs = turmas_qs.filter(area=area_ref)
+            for turma in turmas_qs.order_by('nome'):
                 alunos += [fr.montar_dados_aluno(a, i) for i, a in enumerate(_alunos_da_turma(turma), start=1)]
-            etiqueta = classe_ref
+            etiqueta = f'{classe_ref} {area_ref}'.strip()
         else:
             classe_ref = str(dados.get('classe') or '').strip()
             try:
@@ -162,10 +167,10 @@ class FolhaRespostaGerarView(APIView):
 
         cfg_in = dict(dados.get('config') or {})
         if classe_ref:
-            cfg_in['disciplinas_classe'] = list(
-                Disciplina.objects.filter(escola=escola, ano_letivo=ano, classe=classe_ref).order_by('nome')
-                .values_list('nome', flat=True).distinct()
-            )
+            discs = Disciplina.objects.filter(escola=escola, ano_letivo=ano, classe=classe_ref)
+            if area_ref:
+                discs = discs.filter(area__in=['Geral', area_ref])
+            cfg_in['disciplinas_classe'] = list(discs.order_by('nome').values_list('nome', flat=True).distinct())
         try:
             config = fr.normalizar_config(cfg_in, esc)
             if formato == 'pdf':

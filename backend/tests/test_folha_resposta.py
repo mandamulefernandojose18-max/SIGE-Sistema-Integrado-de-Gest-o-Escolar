@@ -1,4 +1,4 @@
-import io
+﻿import io
 
 import openpyxl
 import pytest
@@ -85,7 +85,7 @@ def test_contexto_tem_classes_e_disciplinas(cenario):
     r = _cliente('admin.fra@sige.mz').get(URL + 'contexto/')
     assert r.status_code == 200
     assert r.data['classes'][0]['total_alunos'] == 3
-    assert 'Matemática' in r.data['disciplinas_por_classe']['10ª Classe']
+    assert {'nome': 'Matemática', 'area': 'Geral'} in r.data['disciplinas_por_classe']['10ª Classe']
     assert r.data['escola']['codigo'] == Escola.objects.get(email='fra@sige.mz').codigo_escola
 
 
@@ -144,3 +144,14 @@ def test_branco_e_validacao(cenario):
     ruim = _corpo(escopo='branco', copias=1)
     ruim['config']['n_perguntas'] = 0
     assert c.post(URL + 'gerar/', ruim, format='json').status_code == 400
+
+
+def test_classe_filtra_por_area(cenario):
+    a, _, _ = cenario
+    tc = Turma.objects.create(escola=a, nome='Turma 2', grau_ano='10ª Classe', area='Ciências', ano_letivo=a.ano_letivo_ativo)
+    Aluno.objects.create(escola=a, turma=tc, matricula='MAT_FR_C', nome='Dina', data_nascimento='2009-01-01', genero='F')
+    c = _cliente('admin.fra@sige.mz')
+    r = c.post(URL + 'gerar/', _corpo(escopo='classe', classe='10ª Classe', area='Ciências'), format='json')
+    assert r.status_code == 200 and r['X-Total-Folhas'] == '1'
+    r = c.post(URL + 'gerar/', _corpo(escopo='classe', classe='10ª Classe'), format='json')
+    assert r['X-Total-Folhas'] == '4'
