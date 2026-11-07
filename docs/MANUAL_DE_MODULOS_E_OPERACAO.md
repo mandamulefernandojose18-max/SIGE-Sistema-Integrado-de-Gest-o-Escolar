@@ -345,3 +345,7 @@
 - **Segurança & RBAC:** Proteção rigorosa com cabeçalhos anti-indexação (`X-Robots-Tag: noindex`), `Cache-Control: no-store` e restrição a utilizadores autenticados com papéis diretivos e financeiros autorizados.
 
 
+
+
+## Folha de Resposta Personalizada
+Menu *Área Pedagógica → Folha de Resposta Personalizada*: escolha o Ano Lectivo e **Buscar**; seleccione o âmbito (aluno, turma, classe ou em branco), a avaliação (tipo, disciplina, data, duração), a grelha (nº de perguntas/alternativas, cotação, versões, chave) e exporte em **PDF** ou **Excel**. Use *Pré-visualizar* para ver a primeira folha antes de imprimir. Detalhes técnicos em `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`.

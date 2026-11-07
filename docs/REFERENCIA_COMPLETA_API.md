@@ -336,3 +336,7 @@
 
 
 
+
+
+### Folha de Resposta Personalizada — `/api/v1/documentos/folha-resposta/`
+`GET contexto/?ano=`, `GET alunos/?turma_id=`, `POST gerar/` (PDF/XLSX; âmbitos aluno, turma, classe, branco). Erros: 400 (parâmetros inválidos), 403 (perfil/escola), 404 (sem alunos activos), 409 (escola sem logótipo oficial). Corpo e campos em `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`.

@@ -1,9 +1,9 @@
 {
-  "version": "2.9.4",
-  "build": "20261107_2000",
+  "version": "2.9.5",
+  "build": "20261107_2300",
   "data": "2026-11-07",
-  "nome": "SIGE — Sistema Integrado de Gestão Escolar",
-  "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "IA do SIGE gratuita: o Guiao passa a usar o Google Gemini (sem custo) ou Groq/OpenRouter; o Claude (pago) fica opcional."
+  "nome": "SIGE â€” Sistema Integrado de GestÃ£o Escolar",
+  "descricao": "Sistema Integrado de GestÃ£o Escolar (SaaS)",
+  "novidades": "Nova Folha de Resposta Personalizada (PDF/Excel) com dados do aluno, codigo de barras, cotacao, versoes e chave de correccao."
 }
 

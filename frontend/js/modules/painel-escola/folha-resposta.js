@@ -1,0 +1,297 @@
+// =====================================================================
+// SIGE - FOLHA DE RESPOSTA PERSONALIZADA
+// Filtros em cascata Classe → Turma → Aluno; exporta PDF/Excel (aluno, turma, classe, em branco).
+// API: /api/v1/documentos/folha-resposta/{contexto,alunos,gerar}
+// =====================================================================
+(function () {
+  'use strict';
+  var API = '/api/v1/documentos/folha-resposta/';
+  var CHAVE_LS = 'sige_folha_resposta_cfg';
+  var ctx = null;
+  var alunosTurma = [];
+  var ligado = false;
+  var urlPrevia = null;
+
+  function $(id) { return document.getElementById(id); }
+  function token() { try { return (window.state && window.state.token) || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token') || ''; } catch (_) { return ''; } }
+  function cab(extra) { var h = Object.assign({}, extra || {}); var t = token(); if (t) h['Authorization'] = 'Bearer ' + t; return h; }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML.replace(/"/g, '&quot;'); }
+  function toast(msg, tipo) { if (typeof window.mostrarToast === 'function') window.mostrarToast(msg, tipo || 'info'); else alert(msg); }
+  function estado(msg) { var e = $('frEstado'); if (e) e.textContent = msg || ''; }
+  function ano() { return (window.state && window.state.anosPorView && window.state.anosPorView['folha-resposta']) || ($('folhaRespostaAnoSelect') || {}).value || ''; }
+  function num(v) { var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : null; }
+  function fmt(v) { var r = Math.round(v * 100) / 100; return String(r).replace('.', ','); }
+
+  function guardar() {
+    try {
+      var c = lerConfig(true);
+      localStorage.setItem(CHAVE_LS, JSON.stringify({ tipo: c.tipo_avaliacao, n: c.n_perguntas, alt: c.n_alternativas, dur: c.duracao_min, hora: c.hora_inicio, omr: c.marcas_omr, barras: c.codigo_barras }));
+    } catch (_) { /* conveniência apenas */ }
+  }
+  function restaurar() {
+    try {
+      var s = JSON.parse(localStorage.getItem(CHAVE_LS) || 'null');
+      if (!s) return;
+      if (s.tipo && $('frTipo').querySelector('option[value="' + s.tipo + '"]')) $('frTipo').value = s.tipo;
+      if (s.n) $('frNPerg').value = s.n;
+      if (s.alt) $('frNAlt').value = s.alt;
+      if (s.dur) $('frDuracao').value = s.dur;
+      if (s.hora) $('frHora').value = s.hora;
+      $('frOmr').checked = s.omr !== false;
+      $('frBarras').checked = s.barras !== false;
+    } catch (_) { /* ignorar */ }
+  }
+
+  async function pedir(caminho, opcoes) {
+    var r = await fetch(API + caminho, Object.assign({ headers: cab() }, opcoes || {}));
+    return r;
+  }
+  async function mensagemErro(r) {
+    try { var j = await r.json(); return j.detail || j.message || 'Não foi possível concluir o pedido.'; } catch (_) { return 'Não foi possível concluir o pedido.'; }
+  }
+
+  // ---------- Cascata ----------
+  function classeActual() { return $('frClasse').value; }
+  function turmasDaClasse() {
+    var c = (ctx.classes || []).find(function (x) { return x.classe === classeActual(); });
+    return c ? c.turmas : [];
+  }
+  function preencherClasses() {
+    var sel = $('frClasse');
+    var ant = sel.value;
+    sel.innerHTML = '<option value="">-- Classe --</option>' + (ctx.classes || []).map(function (c) {
+      return '<option value="' + esc(c.classe) + '">' + esc(c.classe) + ' (' + c.total_alunos + ' alunos)</option>';
+    }).join('');
+    if (ant && (ctx.classes || []).some(function (c) { return c.classe === ant; })) sel.value = ant;
+    aoMudarClasse();
+  }
+  function aoMudarClasse() {
+    var sel = $('frTurma');
+    sel.innerHTML = '<option value="">-- Turma --</option>' + turmasDaClasse().map(function (t) {
+      return '<option value="' + esc(t.id) + '">' + esc(t.nome) + (t.area && t.area !== 'Geral' ? ' · ' + esc(t.area) : '') + ' (' + t.alunos + ')</option>';
+    }).join('');
+    preencherDisciplinas();
+    aoMudarTurma();
+  }
+  async function aoMudarTurma() {
+    alunosTurma = [];
+    $('frAluno').innerHTML = '<option value="">-- Aluno --</option>';
+    if ($('frEscopo').value === 'aluno' && $('frTurma').value) {
+      try {
+        var r = await pedir('alunos/?turma_id=' + encodeURIComponent($('frTurma').value));
+        if (r.ok) { alunosTurma = (await r.json()).alunos || []; }
+        else toast(await mensagemErro(r), 'danger');
+      } catch (_) { toast('Falha de ligação ao carregar os alunos.', 'danger'); }
+      preencherAlunos();
+    }
+    resumo();
+  }
+  function preencherAlunos() {
+    var f = ($('frAlunoBusca').value || '').trim().toLowerCase();
+    var lista = alunosTurma.filter(function (a) {
+      return !f || (a.nome + ' ' + a.apelido + ' ' + a.codigo).toLowerCase().indexOf(f) >= 0;
+    });
+    var ant = $('frAluno').value;
+    $('frAluno').innerHTML = '<option value="">-- Aluno (' + lista.length + ') --</option>' + lista.map(function (a) {
+      return '<option value="' + esc(a.id) + '">' + a.numero + '. ' + esc((a.apelido + ' ' + a.nome).trim()) + ' — ' + esc(a.codigo) + '</option>';
+    }).join('');
+    if (ant && lista.some(function (a) { return a.id === ant; })) $('frAluno').value = ant;
+  }
+  function preencherDisciplinas() {
+    var sel = $('frDisciplina');
+    var ant = sel.value;
+    var nomes = (ctx.disciplinas_por_classe || {})[classeActual()] || [];
+    sel.innerHTML = '<option value="">-- Disciplina --</option>' + nomes.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('') + '<option value="__outra__">Outra disciplina…</option>';
+    if (ant && sel.querySelector('option[value="' + ant.replace(/"/g, '\\"') + '"]')) sel.value = ant;
+    $('frDisciplinaOutra').classList.toggle('d-none', sel.value !== '__outra__');
+  }
+  function mostrarCamposEscopo() {
+    var e = $('frEscopo').value;
+    $('frBlocoClasse').classList.toggle('d-none', false);
+    $('frBlocoTurma').classList.toggle('d-none', e === 'classe' || e === 'branco');
+    $('frBlocoAluno').classList.toggle('d-none', e !== 'aluno');
+    $('frBlocoCopias').classList.toggle('d-none', e !== 'branco');
+    if (e === 'aluno') aoMudarTurma(); else resumo();
+  }
+  function resumo() {
+    var e = $('frEscopo').value, el = $('frResumoAmbito'), c = (ctx.classes || []).find(function (x) { return x.classe === classeActual(); });
+    var t = turmasDaClasse().find(function (x) { return x.id === $('frTurma').value; });
+    var txt = 'Escolha a classe e a turma.';
+    if (e === 'branco') txt = 'Serão geradas ' + (parseInt($('frCopias').value, 10) || 0) + ' folhas com os dados da escola e da avaliação; os campos do aluno ficam em branco.';
+    else if (e === 'classe') txt = c ? 'Serão geradas ' + c.total_alunos + ' folhas (todos os alunos activos da ' + c.classe + ').' : 'Escolha a classe.';
+    else if (e === 'turma') txt = t ? 'Serão geradas ' + t.alunos + ' folhas (alunos activos da turma ' + t.nome + ').' : 'Escolha a classe e a turma.';
+    else txt = $('frAluno').value ? 'Será gerada 1 folha para o aluno escolhido.' : 'Escolha a classe, a turma e o aluno.';
+    if (ctx && (!ctx.classes || !ctx.classes.length) && e !== 'branco') txt = 'Não há turmas registadas neste ano lectivo. Crie turmas e matricule alunos primeiro.';
+    el.textContent = txt;
+  }
+
+  // ---------- Cotação ----------
+  function linhaSeccao(ate, cot) {
+    var d = document.createElement('div');
+    d.className = 'd-flex align-items-center gap-2 fr-seccao';
+    d.innerHTML = '<span class="small">Até à pergunta</span><input type="number" min="1" max="200" class="form-control form-control-sm fr-sec-ate" style="width:90px" value="' + (ate || '') + '">' +
+      '<span class="small">vale</span><input type="text" inputmode="decimal" class="form-control form-control-sm fr-sec-cot" style="width:90px" value="' + (cot == null ? '' : String(cot).replace('.', ',')) + '">' +
+      '<span class="small">val. cada</span><button type="button" class="btn btn-sm btn-outline-danger fr-sec-rm" aria-label="Remover secção"><i class="bi bi-x-lg"></i></button>';
+    return d;
+  }
+  function lerSeccoes() {
+    return Array.prototype.map.call(document.querySelectorAll('#frSeccoesLista .fr-seccao'), function (d) {
+      return { ate: parseInt(d.querySelector('.fr-sec-ate').value, 10), cotacao: num(d.querySelector('.fr-sec-cot').value) };
+    });
+  }
+  function totalCotacao() {
+    var n = parseInt($('frNPerg').value, 10) || 0;
+    if (!n) return null;
+    if ($('frModoCot').value === 'seccoes') {
+      var tot = 0, ini = 1, secs = lerSeccoes();
+      for (var i = 0; i < secs.length; i++) {
+        if (!secs[i].ate || secs[i].cotacao == null || secs[i].ate < ini || secs[i].ate > n) return null;
+        tot += (secs[i].ate - ini + 1) * secs[i].cotacao; ini = secs[i].ate + 1;
+      }
+      return ini > n ? tot : null;
+    }
+    var c = num($('frCotPerg').value);
+    return (c == null ? 20 / n : c) * n;
+  }
+  function actualizarTotal() {
+    var t = totalCotacao();
+    $('frCotTotal').textContent = t == null ? '—' : fmt(t) + ' val.';
+    var n = parseInt($('frNPerg').value, 10) || 0;
+    $('frCotPerg').placeholder = n ? 'auto (' + fmt(20 / n) + ')' : 'auto (20 ÷ n)';
+  }
+  function desenharChaves() {
+    var vs = ($('frVersoes').value || '').toUpperCase().split(/[\s,;]+/).filter(Boolean).slice(0, 6);
+    if (!vs.length) vs = ['-'];
+    var atual = {};
+    Array.prototype.forEach.call(document.querySelectorAll('#frChaves textarea'), function (t) { atual[t.dataset.v] = t.value; });
+    $('frChaves').innerHTML = vs.map(function (v) {
+      return '<div class="col-12 col-md-' + (vs.length > 1 ? '6' : '12') + '"><label class="small text-muted">' + (v === '-' ? 'Chave' : 'Versão ' + esc(v)) +
+        '</label><textarea class="form-control form-control-sm" rows="2" data-v="' + esc(v) + '" placeholder="Ex.: A B C D A…">' + esc(atual[v] || '') + '</textarea></div>';
+    }).join('');
+  }
+
+  // ---------- Configuração e pedidos ----------
+  function lerConfig(semValidar) {
+    var disc = $('frDisciplina').value === '__outra__' ? $('frDisciplinaOutra').value : $('frDisciplina').value;
+    var cfg = {
+      tipo_avaliacao: $('frTipo').value, disciplina: (disc || '').trim(),
+      n_perguntas: parseInt($('frNPerg').value, 10), n_alternativas: parseInt($('frNAlt').value, 10),
+      duracao_min: $('frDuracao').value, data: $('frData').value, hora_inicio: $('frHora').value, sala: $('frSala').value,
+      professor: $('frProfessor').value, versoes: $('frVersoes').value, instrucao_extra: $('frInstrucao').value,
+      marcas_omr: $('frOmr').checked, codigo_barras: $('frBarras').checked, incluir_chave: $('frIncluirChave').checked
+    };
+    if ($('frModoCot').value === 'seccoes') cfg.seccoes = lerSeccoes();
+    else if ($('frCotPerg').value.trim()) cfg.cotacao_pergunta = $('frCotPerg').value.trim();
+    var gab = {};
+    Array.prototype.forEach.call(document.querySelectorAll('#frChaves textarea'), function (t) { if (t.value.trim()) gab[t.dataset.v] = t.value; });
+    if (Object.keys(gab).length) cfg.gabaritos = gab;
+    if (!semValidar && !cfg.disciplina) throw new Error('Escolha a disciplina.');
+    return cfg;
+  }
+  function corpo(formato) {
+    var e = $('frEscopo').value;
+    var c = { formato: formato, escopo: e, ano_letivo: ano(), config: lerConfig(false) };
+    if (e === 'aluno') { if (!$('frAluno').value) throw new Error('Escolha o aluno.'); c.aluno_id = $('frAluno').value; }
+    else if (e === 'turma') { if (!$('frTurma').value) throw new Error('Escolha a turma.'); c.turma_id = $('frTurma').value; }
+    else if (e === 'classe') { if (!classeActual()) throw new Error('Escolha a classe.'); c.classe = classeActual(); }
+    else { c.copias = parseInt($('frCopias').value, 10) || 0; c.classe = classeActual(); }
+    return c;
+  }
+  function nomeFicheiro(r, padrao) {
+    var cd = r.headers.get('Content-Disposition') || '', m = /filename\*=UTF-8''([^;]+)/.exec(cd) || /filename="([^"]+)"/.exec(cd);
+    try { return m ? decodeURIComponent(m[1]) : padrao; } catch (_) { return padrao; }
+  }
+  async function gerar(formato, previa) {
+    var btns = ['frBtnPdf', 'frBtnXlsx', 'frBtnPrevia'].map($);
+    try {
+      var c = corpo(previa ? 'pdf' : formato);
+      btns.forEach(function (b) { b.disabled = true; });
+      estado('A gerar…');
+      var r = await fetch(API + 'gerar/', { method: 'POST', headers: cab({ 'Content-Type': 'application/json' }), body: JSON.stringify(c) });
+      if (!r.ok) throw new Error(await mensagemErro(r));
+      var blob = await r.blob();
+      var total = r.headers.get('X-Total-Folhas') || '?';
+      if (previa) {
+        if (urlPrevia) URL.revokeObjectURL(urlPrevia);
+        urlPrevia = URL.createObjectURL(blob);
+        $('frPreviaFrame').src = urlPrevia + '#toolbar=1&view=FitH';
+        $('frBlocoPrevia').classList.remove('d-none');
+        $('frBlocoPrevia').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        var a = document.createElement('a');
+        var u = URL.createObjectURL(blob);
+        a.href = u; a.download = nomeFicheiro(r, 'Folha_Resposta.' + formato);
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+      }
+      estado(total + ' folha(s) geradas.');
+      guardar();
+    } catch (e) {
+      estado('');
+      toast(e.message || 'Não foi possível gerar a folha.', 'danger');
+    } finally {
+      btns.forEach(function (b) { b.disabled = false; });
+    }
+  }
+
+  function ligar() {
+    if (ligado) return;
+    ligado = true;
+    $('frEscopo').addEventListener('change', mostrarCamposEscopo);
+    $('frClasse').addEventListener('change', aoMudarClasse);
+    $('frTurma').addEventListener('change', aoMudarTurma);
+    $('frAluno').addEventListener('change', resumo);
+    $('frAlunoBusca').addEventListener('input', preencherAlunos);
+    $('frCopias').addEventListener('input', resumo);
+    $('frDisciplina').addEventListener('change', function () { $('frDisciplinaOutra').classList.toggle('d-none', this.value !== '__outra__'); });
+    $('frModoCot').addEventListener('change', function () {
+      var s = this.value === 'seccoes';
+      $('frBlocoSeccoes').classList.toggle('d-none', !s);
+      $('frBlocoCotUnif').classList.toggle('d-none', s);
+      if (s && !$('frSeccoesLista').children.length) {
+        var n = parseInt($('frNPerg').value, 10) || 40;
+        $('frSeccoesLista').appendChild(linhaSeccao(Math.ceil(n / 2), 0.5));
+        $('frSeccoesLista').appendChild(linhaSeccao(n, 1));
+      }
+      actualizarTotal();
+    });
+    $('frAddSeccao').addEventListener('click', function () {
+      if ($('frSeccoesLista').children.length >= 12) return toast('Máximo de 12 secções.', 'warning');
+      $('frSeccoesLista').appendChild(linhaSeccao('', ''));
+    });
+    $('frSeccoesLista').addEventListener('click', function (ev) {
+      var b = ev.target.closest('.fr-sec-rm'); if (b) { b.closest('.fr-seccao').remove(); actualizarTotal(); }
+    });
+    $('frSeccoesLista').addEventListener('input', actualizarTotal);
+    ['frNPerg', 'frCotPerg'].forEach(function (id) { $(id).addEventListener('input', actualizarTotal); });
+    $('frVersoes').addEventListener('input', desenharChaves);
+    $('frBtnPdf').addEventListener('click', function () { gerar('pdf'); });
+    $('frBtnXlsx').addEventListener('click', function () { gerar('xlsx'); });
+    $('frBtnPrevia').addEventListener('click', function () { gerar('pdf', true); });
+    $('frFecharPrevia').addEventListener('click', function () {
+      $('frBlocoPrevia').classList.add('d-none'); $('frPreviaFrame').src = 'about:blank';
+      if (urlPrevia) { URL.revokeObjectURL(urlPrevia); urlPrevia = null; }
+    });
+  }
+
+  window.inicializarModulo_folha_resposta = async function () {
+    if (!$('frApp')) return;
+    ligar();
+    estado('A carregar…');
+    try {
+      var r = await pedir('contexto/?ano=' + encodeURIComponent(ano()));
+      if (!r.ok) throw new Error(await mensagemErro(r));
+      ctx = await r.json();
+      $('frTipo').innerHTML = (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
+      restaurar();
+      preencherClasses();
+      mostrarCamposEscopo();
+      actualizarTotal();
+      desenharChaves();
+      estado(ctx.escola && ctx.escola.logotipo_disponivel === false ? 'Atenção: a escola não tem o logótipo oficial escolhido para documentos.' : '');
+    } catch (e) {
+      estado('');
+      toast(e.message || 'Não foi possível carregar os dados.', 'danger');
+    }
+  };
+})();
