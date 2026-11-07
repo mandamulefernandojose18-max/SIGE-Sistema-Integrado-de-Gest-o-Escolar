@@ -370,8 +370,8 @@ def _bolha(c, cx_mm, cy_mm, larg_mm, alt_mm, letra, preenchida=False, tam_letra=
     c.drawCentredString(cx_mm * mm, _y(cy_mm) - tam_letra * 0.17 * 1.9, letra)
     if riscada:  # a resposta marca-se riscando a alternativa na horizontal
         c.setStrokeColor(PRETO)
-        c.setLineWidth(1.3)
-        c.line((cx_mm - larg_mm / 2 - 0.8) * mm, _y(cy_mm), (cx_mm + larg_mm / 2 + 0.8) * mm, _y(cy_mm))
+        c.setLineWidth(0.9)
+        c.line((cx_mm - larg_mm / 2 + 1.0) * mm, _y(cy_mm), (cx_mm + larg_mm / 2 - 1.0) * mm, _y(cy_mm))  # dentro do quadrado
     c.setFillColor(PRETO)
 
 
