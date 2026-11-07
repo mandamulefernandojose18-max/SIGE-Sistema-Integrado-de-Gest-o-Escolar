@@ -837,7 +837,7 @@
         <img src="/img/logo-sige.png" alt="SIGE" class="rounded shadow-sm" style="width: 36px; height: 36px; object-fit: contain;">
         <div style="line-height: 1.2;">
           <span class="text-white d-block fw-bold" style="font-size: 0.95rem;">SIGE</span>
-          <small class="text-muted" style="font-size: 0.7rem;">Gestão Escolar Integrada</small>
+          <small class="text-white-50" style="font-size: 0.7rem;">Gestão Escolar Integrada</small>
         </div>
       </div>
       <button type="button" class="btn btn-sm btn-outline-light d-lg-none border-0 px-2 py-1" onclick="fecharSidebarMobile()" aria-label="Fechar Menu">
@@ -852,14 +852,14 @@
           <div id="sidebarEmblemaContainer">
             <i class="bi bi-building text-warning fs-5"></i>
           </div>
-          <div class="overflow-hidden">
-            <small class="text-muted d-block" style="font-size: 0.65rem; text-transform: uppercase;">Instituição</small>
+          <div class="overflow-hidden" style="min-width: 0; line-height: 1.25;">
+            <small class="text-white-50 d-block" style="font-size: 0.65rem; text-transform: uppercase;">Instituição</small>
             <strong id="sidebarEscolaNome" class="text-white d-block text-truncate small">SIGE</strong>
           </div>
         </div>
         <div class="d-flex align-items-center justify-content-between">
           <span id="sidebarStatusBadge" class="badge badge-ativa" style="font-size: 0.65rem;">ATIVA</span>
-          <span id="sidebarProvinciaBadge" class="text-muted small" style="font-size: 0.7rem;">Maputo</span>
+          <span id="sidebarProvinciaBadge" class="text-white-50 small" style="font-size: 0.7rem;">Maputo</span>
         </div>
       </div>
     </div>
@@ -1014,8 +1014,8 @@
 
       <div class="d-flex align-items-center gap-2 gap-md-3">
         <!-- Atalho Visível no Topbar: Gateway SMS & Pagamentos -->
-        <button type="button" id="btnTopbarPromptGateway" class="btn btn-sm btn-outline-warning fw-semibold shadow-sm saas-only escola-admin-only fin-only d-inline-flex align-items-center" onclick="navegarPara('prompt-gateway')" title="Aceder ao Gateway SMS, USSD e Pagamentos Móveis">
-          <i class="bi bi-broadcast-pin me-1 text-warning"></i> <span class="d-none d-md-inline">Gateway SMS & Pagamentos</span>
+        <button type="button" id="btnTopbarPromptGateway" class="btn btn-sm btn-outline-warning fw-semibold shadow-sm saas-only escola-admin-only fin-only d-inline-flex align-items-center text-nowrap" onclick="navegarPara('prompt-gateway')" title="Aceder ao Gateway SMS, USSD e Pagamentos Móveis" aria-label="Gateway SMS e Pagamentos">
+          <i class="bi bi-broadcast-pin text-warning"></i><span class="d-none d-xxl-inline ms-1">Gateway SMS & Pagamentos</span>
         </button>
 
         <!-- Botão Indicador de Actualização Pendente -->
@@ -1024,8 +1024,8 @@
         </button>
 
         <!-- Botão DAP Controlo de Visibilidade das Notas -->
-        <button id="btnToggleNotasDap" class="btn btn-outline-warning btn-sm ped-only" onclick="toggleVisibilidadeNotasDap()" title="Controlo DAP: Ativar ou ocultar visualização de notas pelos alunos">
-          <i class="bi bi-eye-fill me-1" id="iconToggleNotasDap"></i> <span id="labelToggleNotasDap">Notas Alunos: Activas</span>
+        <button id="btnToggleNotasDap" class="btn btn-outline-warning btn-sm ped-only text-nowrap" onclick="toggleVisibilidadeNotasDap()" title="Controlo DAP: Ativar ou ocultar visualização de notas pelos alunos" aria-label="Controlo DAP: visibilidade das notas dos alunos">
+          <i class="bi bi-eye-fill" id="iconToggleNotasDap"></i><span id="labelToggleNotasDap" class="d-none d-xxl-inline ms-1">Notas Alunos: Activas</span>
         </button>
 
         <!-- Botão Instalar Aplicação PWA -->
@@ -1034,13 +1034,13 @@
         </button>
 
         <!-- Botão Comprovativo de Contrato (para Escolas) -->
-        <button id="btnComprovativoEscola" class="btn btn-outline-primary btn-sm d-none" onclick="baixarComprovativoMinhaEscola()">
-          <i class="bi bi-file-earmark-check me-1"></i> Comprovativo de Contrato SIGE
+        <button id="btnComprovativoEscola" class="btn btn-outline-primary btn-sm d-none text-nowrap" onclick="baixarComprovativoMinhaEscola()" title="Comprovativo de Contrato SIGE" aria-label="Comprovativo de Contrato SIGE">
+          <i class="bi bi-file-earmark-check"></i><span class="d-none d-xxl-inline ms-1">Comprovativo de Contrato SIGE</span>
         </button>
 
         <!-- SuperAdmin Tenant Selector -->
         <div id="superAdminTenantSelectWrapper" style="display: none;">
-          <select id="superAdminTenantSelect" class="form-select form-select-sm" onchange="alternarEscolaSuperAdmin(this.value)">
+          <select id="superAdminTenantSelect" class="form-select form-select-sm text-truncate" style="min-width: 190px; max-width: 280px;" aria-label="Seleccionar escola em inspecção" onchange="alternarEscolaSuperAdmin(this.value)">
             <option value="">(Visão Master SaaS)</option>
           </select>
         </div>

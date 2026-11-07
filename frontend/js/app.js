@@ -17212,6 +17212,10 @@ function atualizarBotaoToggleNotasDap(dadosOuPublicacao, permitir) {
       label.textContent = 'Notas: Todos (I, II e III)';
     }
   }
+  // O rótulo fica oculto em ecrãs < 1400px (só ícone): o estado passa para o tooltip e leitores de ecrã.
+  btn.classList.add('text-nowrap');
+  btn.title = `Controlo DAP: ${label.textContent}. Clique para alterar a visualização de notas pelos alunos.`;
+  btn.setAttribute('aria-label', btn.title);
 }
 
 
