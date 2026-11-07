@@ -2,6 +2,10 @@
 
 Este arquivo define o contexto arquitetural, regras inquebráveis, padrões de código e comandos operacionais do **SIGE (Sistema Integrado de Gestão Escolar)** para o Claude (Claude Code CLI, Claude Desktop e Claude Projects).
 
+## 📑 Leitura Obrigatória Antes de Gerar Excel ou PDF
+
+**Antes de criar ou alterar qualquer exportação Excel (.xlsx) ou PDF, consulte SEMPRE docs/REGRAS_EXCEL_E_PDF.md** (ocultar linhas/colunas sem conteúdo, Times New Roman 12, cabeçalhos centrados, tabelas com estilos de linha profissionais, sem palavras sobrepostas, uma só gravação por guardar_xlsx_seguro).
+
 ---
 
 ## 🛡️ Regras Inquebráveis de Operação (Guardrails Absolutos)
@@ -34,8 +38,6 @@ Este arquivo define o contexto arquitetural, regras inquebráveis, padrões de c
   3. **Executar git push** para o repositório remoto.
   4. **Executar o deploy desacoplado** na VM de produção (`sigesaas.duckdns.org`), validando o funcionamento dos serviços e os atalhos locais `sige`.
 
----
-
 ## 📖 Visão Geral do Sistema & Stack
 
 - **Domínio:** Plataforma SaaS Multi-Tenant Corporativa de Gestão Escolar em Moçambique (conformidade com MEC).
@@ -44,8 +46,6 @@ Este arquivo define o contexto arquitetural, regras inquebráveis, padrões de c
 - **Banco de Dados:** PostgreSQL 16 com Row-Level Security (RLS) nativo (Produção/Supabase) e SQLite3 (Desenvolvimento local rápido).
 - **Frontend:** Single-Page Application (SPA) e Progressive Web App (PWA) em HTML5, CSS3, Vanilla JavaScript (ES6+ modular), Bootstrap 5.3.3, Bootstrap Icons, Chart.js 4.4.4.
 - **Produção / DevOps:** VM Ubuntu, Nginx Alpine (SSL Let's Encrypt), Docker Compose desacoplado, DuckDNS (`sigesaas.duckdns.org`).
-
----
 
 ## ⚡ Comandos Úteis do Projeto
 
@@ -83,8 +83,6 @@ python manage.py test
 # ou
 sige
 ```
-
----
 
 ## 🏛️ Padrões de Código e Convenções
 

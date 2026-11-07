@@ -9,3 +9,4 @@
 - Migrações: `makemigrations --check` tem de passar; nunca editar migrações já aplicadas em produção.
 - Testes: `pytest` (SQLite em memória). Proibido seeds/fixtures com dados fictícios de alunos, notas ou professores.
 - Nunca ler nem imprimir `.env`; nunca escrever IPs em código ou docs.
+- **Excel/PDF: ler PRIMEIRO docs/REGRAS_EXCEL_E_PDF.md** e gravar .xlsx sempre por guardar_xlsx_seguro (linhas/colunas vazias ocultas, Times New Roman 12, cabeçalhos centrados, tabelas com moldura profissional, palavras inteiras).

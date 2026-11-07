@@ -33,7 +33,7 @@ from .pdf_service import resolver_logo_documento_escola
 # Constantes e configuração
 # --------------------------------------------------------------------------------------
 LETRAS = 'ABCDEF'
-MAX_PERGUNTAS = 200
+MAX_PERGUNTAS = 100   # a folha cabe sempre numa única página A4
 MAX_FOLHAS = 2000
 MAX_FOLHAS_BRANCO = 500
 
@@ -67,7 +67,7 @@ FONTE_I = 'Times-Italic'
 PAG_L, PAG_A = 210.0, 297.0
 MARGEM = 12.0
 LARG_UTIL = PAG_L - 2 * MARGEM
-Y_GRELHA_1 = 156.0          # início da grelha na 1ª página
+Y_GRELHA_1 = 152.8          # início da grelha (página única)
 Y_GRELHA_CONT = 30.0        # início da grelha nas páginas de continuação
 Y_FIM_GRELHA = 283.0
 ALTURA_LINHA_MIN = 4.4
@@ -245,9 +245,15 @@ def codigo_folha(escola, aluno, config, ano):
 
 
 def _payload_qr(escola, aluno, config, ano, versao):
-    partes = ['SIGE', 'FR', escola.get('codigo') or '-', (aluno or {}).get('codigo') or 'BRANCO',
-              config['tipo'], config['disciplina'], ano, versao or '-', str(config['n_perguntas'])]
-    return '|'.join(partes)
+    """Texto do QR: linha legível (Moçambique) + linha técnica para leitura óptica."""
+    al = aluno or {}
+    nome = ' '.join(x for x in (al.get('apelido'), al.get('nome')) if x) or 'Folha em branco'
+    legivel = (f"SIGE Moçambique - Folha de Respostas | Escola: {escola.get('nome', '')}"
+               f" (cód. {escola.get('codigo') or '-'}) | Aluno: {nome} | Cód. aluno: {al.get('codigo') or '-'}"
+               f" | {config['tipo_rotulo']} - {config['disciplina']} | Ano lectivo {ano}")
+    tecnico = '|'.join(['SIGE', 'FR', 'MZ', escola.get('codigo') or '-', al.get('codigo') or 'BRANCO',
+                        config['tipo'], ano, versao or '-', str(config['n_perguntas'])])
+    return legivel + '\n' + tecnico
 
 
 # --------------------------------------------------------------------------------------
@@ -272,25 +278,10 @@ def layout_grelha(n, capacidade):
 
 
 def paginas_grelha(n):
-    """Lista de páginas da grelha: [(inicio0, fim0_exclusivo, colunas, linhas, y_inicio_mm)]."""
-    cap1 = capacidade_linhas(Y_FIM_GRELHA - Y_GRELHA_1)
-    cols, linhas = layout_grelha(n, cap1)
-    paginas = []
-    if cols * linhas >= n:
-        return [(0, n, cols, linhas, Y_GRELHA_1)]
-    # Não cabe numa página: 1ª página completa e continuação(ões) com mais espaço.
-    cap_c = capacidade_linhas(Y_FIM_GRELHA - Y_GRELHA_CONT)
-    pos = 0
-    cap_pag = 4 * cap1
-    paginas.append((0, min(n, cap_pag), 4, cap1, Y_GRELHA_1))
-    pos = cap_pag
-    while pos < n:
-        restante = n - pos
-        linhas_c = min(cap_c, math.ceil(math.ceil(restante / 4) / 5) * 5)
-        fim = min(n, pos + 4 * linhas_c)
-        paginas.append((pos, fim, 4, linhas_c, Y_GRELHA_CONT))
-        pos = fim
-    return paginas
+    """A folha cabe SEMPRE numa só página: [(inicio0, fim0_exclusivo, colunas, linhas, y_inicio_mm)]."""
+    cap = capacidade_linhas(Y_FIM_GRELHA - Y_GRELHA_1)
+    cols, linhas = layout_grelha(n, cap)
+    return [(0, n, cols, linhas, Y_GRELHA_1)]
 
 
 # --------------------------------------------------------------------------------------
@@ -367,14 +358,20 @@ def _check(c, x, y, rotulo, marcado, tam=7.5, lado=3.0, larg_txt=None):
         c.drawString((x + lado + 1.2) * mm, _y(y + lado - 0.4), rotulo)
 
 
-def _bolha(c, cx_mm, cy_mm, raio_mm, letra, preenchida=False, tam_letra=6.2):
+def _bolha(c, cx_mm, cy_mm, larg_mm, alt_mm, letra, preenchida=False, tam_letra=6.4, riscada=False):
+    """Alternativa em forma de rectângulo de cantos arredondados (não circular) com a letra no centro."""
     c.setLineWidth(0.55)
     c.setStrokeColor(PRETO)
     c.setFillColor(PRETO if preenchida else colors.white)
-    c.circle(cx_mm * mm, _y(cy_mm), raio_mm * mm, stroke=1, fill=1)
+    c.roundRect((cx_mm - larg_mm / 2) * mm, _y(cy_mm + alt_mm / 2), larg_mm * mm, alt_mm * mm,
+                min(1.0, alt_mm / 3) * mm, stroke=1, fill=1)
     c.setFillColor(colors.white if preenchida else CINZA_TEXTO)
     c.setFont(FONTE, tam_letra)
-    c.drawCentredString(cx_mm * mm, _y(cy_mm) - tam_letra * 0.32, letra)
+    c.drawCentredString(cx_mm * mm, _y(cy_mm) - tam_letra * 0.17 * 1.9, letra)
+    if riscada:  # a resposta marca-se riscando a alternativa na horizontal
+        c.setStrokeColor(PRETO)
+        c.setLineWidth(1.3)
+        c.line((cx_mm - larg_mm / 2 - 0.8) * mm, _y(cy_mm), (cx_mm + larg_mm / 2 + 0.8) * mm, _y(cy_mm))
     c.setFillColor(PRETO)
 
 
@@ -431,35 +428,33 @@ def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
     _texto_ajustado(c, f'Ano lectivo: {ano}', 110, y0 + 16.5, PAG_L - MARGEM - 110, FONTE_B, 9.5)
 
 
-def _bloco_marcas_exemplo(c, y):
-    """Faixa de instruções de preenchimento com exemplos (correcto / incorrecto)."""
-    c.setFillColor(CINZA_FUNDO)
-    c.setStrokeColor(CINZA_LINHA)
-    c.setLineWidth(0.4)
-    c.rect(MARGEM * mm, _y(y + 9), LARG_UTIL * mm, 9 * mm, stroke=1, fill=1)
-    c.setFillColor(PRETO)
-    c.setFont(FONTE_B, 7)
-    c.drawString((MARGEM + 2) * mm, _y(y + 3.6), 'COMO PREENCHER:')
-    c.setFont(FONTE, 7)
-    c.drawString((MARGEM + 2) * mm, _y(y + 7.4), 'Use esferográfica azul ou preta. Pinte a bolha completamente; não rasure.')
-    x = 128
-    _bolha(c, x, y + 4.5, 2.1, 'A', True)
-    c.setFont(FONTE_B, 7)
-    c.drawString((x + 3.2) * mm, _y(y + 5.2), 'Correcto')
-    x += 20
-    _bolha(c, x, y + 4.5, 2.1, 'B', False)
-    c.setStrokeColor(PRETO)
-    c.setLineWidth(0.7)
-    c.line((x - 1.6) * mm, _y(y + 2.9), (x + 1.6) * mm, _y(y + 6.1))
-    c.line((x - 1.6) * mm, _y(y + 6.1), (x + 1.6) * mm, _y(y + 2.9))
-    c.setFont(FONTE, 7)
-    c.drawString((x + 3.2) * mm, _y(y + 5.2), 'Incorrecto')
-    x += 21
-    _bolha(c, x, y + 4.5, 2.1, 'C', False)
+def _bloco_instrucoes(c, y, extra=''):
+    """Caixa «INSTRUÇÕES GERAIS» com o exemplo de marcação (letra D na questão 1)."""
+    h = 23.8
+    c.setFillColor(colors.white)
+    c.setStrokeColor(AZUL)
     c.setLineWidth(0.9)
-    c.line((x - 1.2) * mm, _y(y + 4.5), (x + 1.2) * mm, _y(y + 4.5))
-    c.setFont(FONTE, 7)
-    c.drawString((x + 3.2) * mm, _y(y + 5.2), 'Incompleto')
+    c.rect(MARGEM * mm, _y(y + h), LARG_UTIL * mm, h * mm, stroke=1, fill=1)
+    c.setFillColor(PRETO)
+    c.setFont(FONTE_B, 9)
+    c.drawCentredString((PAG_L / 2) * mm, _y(y + 4.2), 'INSTRUÇÕES GERAIS')
+    itens = [
+        '1. Não dobre nem rasure esta folha de respostas.',
+        '2. Todas as questões devem ser respondidas com caneta azul ou preta.',
+        '3. Responda apenas a quantidade de questões relativa à sua prova.',
+        '4. Marque apenas uma resposta por pergunta, riscando horizontalmente a alternativa, conforme o modelo abaixo.',
+    ]
+    for i, txt in enumerate(itens):
+        c.setFont(FONTE_B if i == 3 else FONTE, 8.2)
+        c.drawString((MARGEM + 3) * mm, _y(y + 8.3 + i * 3.3), txt)
+    # exemplo: marcação da letra D na questão número 1
+    ex_y = y + 21.0
+    c.setFont(FONTE_B, 7.6)
+    c.drawString((MARGEM + 3) * mm, _y(ex_y + 1.0), 'Exemplo:')
+    for i, letra in enumerate('ABCD'):
+        _bolha(c, MARGEM + 22 + i * 9.5, ex_y, 7.2, 3.6, letra, riscada=(letra == 'D'), tam_letra=6.6)
+    c.setFont(FONTE, 7.6)
+    c.drawString((MARGEM + 63) * mm, _y(ex_y + 1.0), 'risca horizontalmente a alternativa: marcação da letra D na questão número 1.' + (f'   {extra}' if extra else ''))
     c.setStrokeColor(PRETO)
 
 
@@ -480,7 +475,8 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
     folgas = ((linhas - 1) // 5) * FOLGA_GRUPO
     altura_linha = min(6.4, (altura_disp - ALTURA_CABECALHO_GRELHA - folgas) / linhas)
     passo = min(7.4, (largura_col - 11.5) / n_alt)
-    raio = min(2.25, passo * 0.34, altura_linha * 0.42)
+    larg_alt = min(6.2, passo * 0.84)
+    alt_alt = min(3.8, altura_linha * 0.72)
     total_q = fim - inicio
     cols_usadas = math.ceil(total_q / linhas)
     for col in range(cols_usadas):
@@ -519,7 +515,7 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
             cy = y_lin + altura_linha / 2
             for i, letra in enumerate(letras):
                 cx = x0 + 10.2 + passo * i + passo / 2 - 0.6
-                _bolha(c, cx, cy, raio, letra, preenchida=bool(gabarito and gabarito[q] == letra))
+                _bolha(c, cx, cy, larg_alt, alt_alt, letra, preenchida=bool(gabarito and gabarito[q] == letra))
     c.setFillColor(PRETO)
     c.setStrokeColor(PRETO)
 
@@ -546,30 +542,29 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
         _desenhar_marcas_omr(c)
     _cabecalho_institucional(c, escola, logo_reader, ano)
     # barra de título
-    _barra_titulo(c, MARGEM, 32, LARG_UTIL, 8, _titulo_prova(config), 'l', 10)
+    _barra_titulo(c, MARGEM, 31, LARG_UTIL, 7, _titulo_prova(config), 'l', 10)
     if versao:
         c.setFillColor(colors.white)
         c.setFont(FONTE_B, 10)
-        c.drawRightString((PAG_L - MARGEM - 2.5) * mm, _y(37.4), f'VERSÃO {versao}')
+        c.drawRightString((PAG_L - MARGEM - 2.5) * mm, _y(36), f'VERSÃO {versao}')
         c.setFillColor(PRETO)
 
     # I — Dados do aluno
-    xi, yi, wi, hi = MARGEM, 43, 106, 51
+    xi, yi, wi, hi = MARGEM, 40, 106, 46
     _caixa(c, xi, yi, wi, hi, 'I   DADOS DO ALUNO')
     al = aluno or {}
-    _campo(c, xi + 3, yi + 7, 72, 'APELIDO', al.get('apelido'))
-    _campo(c, xi + 3, yi + 15.5, 72, 'NOME', al.get('nome'))
-    _campo(c, xi + 3, yi + 24, 31, 'CLASSE', al.get('classe'), 9.5)
-    _campo(c, xi + 36, yi + 24, 25, 'TURMA', al.get('turma'), 9.5)
-    _campo(c, xi + 63, yi + 24, 12, 'Nº', str(al['numero']) if al.get('numero') else '', 9.5)
-    _campo(c, xi + 3, yi + 32.5, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 9.5)
+    _campo(c, xi + 3, yi + 6.3, 72, 'APELIDO', al.get('apelido'))
+    _campo(c, xi + 3, yi + 13.8, 72, 'NOME', al.get('nome'))
+    _campo(c, xi + 3, yi + 21.3, 31, 'CLASSE', al.get('classe'), 9.5)
+    _campo(c, xi + 36, yi + 21.3, 25, 'TURMA', al.get('turma'), 9.5)
+    _campo(c, xi + 63, yi + 21.3, 12, 'Nº', str(al['numero']) if al.get('numero') else '', 9.5)
+    _campo(c, xi + 3, yi + 28.8, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 9.5)
     if config['codigo_barras'] and al.get('codigo'):
-        _desenhar_codigo_barras(c, al['codigo'], xi + 3, yi + 41.2, 72, 6.2)
-    # QR (verificação / leitura óptica)
-    _desenhar_qr(c, _payload_qr(escola, aluno, config, ano, versao), xi + wi - 27.5, yi + 8.5, 24)
+        _desenhar_codigo_barras(c, al['codigo'], xi + 3, yi + 37.6, 72, 4.6)
+    _desenhar_qr(c, _payload_qr(escola, aluno, config, ano, versao), xi + wi - 27, yi + 8, 22)
     c.setFont(FONTE, 5.8)
     c.setFillColor(CINZA_TEXTO)
-    c.drawCentredString((xi + wi - 15.5) * mm, _y(yi + 35.5), 'Leitura óptica / QR')
+    c.drawCentredString((xi + wi - 16) * mm, _y(yi + 33), 'Leitura óptica / QR')
     c.setFillColor(PRETO)
 
     # II — Informações da avaliação
@@ -577,25 +572,24 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     _caixa(c, xii, yi, wii, hi, 'II   INFORMAÇÕES DA AVALIAÇÃO')
     c.setFont(FONTE_B, 5.8)
     c.setFillColor(CINZA_TEXTO)
-    c.drawString((xii + 3) * mm, _y(yi + 9.5), 'TIPO DE AVALIAÇÃO')
+    c.drawString((xii + 3) * mm, _y(yi + 8.8), 'TIPO DE AVALIAÇÃO')
     c.setFillColor(PRETO)
-    ops = TIPOS_AVALIACAO
-    pos = [(xii + 3, yi + 11.5), (xii + 27, yi + 11.5), (xii + 51, yi + 11.5), (xii + 3, yi + 16.3), (xii + 27, yi + 16.3)]
-    for (cod, rot), (px, py) in zip(ops, pos):
+    pos = [(xii + 3, yi + 10), (xii + 27, yi + 10), (xii + 51, yi + 10), (xii + 3, yi + 14.4), (xii + 27, yi + 14.4)]
+    for (cod, rot), (px, py) in zip(TIPOS_AVALIACAO, pos):
         _check(c, px, py, rot, cod == config['tipo'], tam=7.3, larg_txt=19)
-    _campo(c, xii + 3, yi + 21.5, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 9.5)
-    _campo(c, xii + 37, yi + 21.5, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 9.5)
+    _campo(c, xii + 3, yi + 19, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 9.5)
+    _campo(c, xii + 37, yi + 19, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 9.5)
     uniforme = len(config['seccoes']) == 1
     cot_txt = formatar_valor(config['seccoes'][0]['cotacao']) if uniforme else 'por secção'
-    _campo(c, xii + 3, yi + 30, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 9.5)
-    _campo(c, xii + 37, yi + 30, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 9.5)
+    _campo(c, xii + 3, yi + 26.6, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 9.5)
+    _campo(c, xii + 37, yi + 26.6, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 9.5)
     dur = f"{config['duracao_min']} min" if config['duracao_min'] else ''
-    _campo(c, xii + 3, yi + 38.5, 20, 'DURAÇÃO', dur, 9)
-    _campo(c, xii + 25, yi + 38.5, 22, 'DATA', config['data'], 9)
-    _campo(c, xii + 49, yi + 38.5, 22, 'HORA / SALA', ' · '.join(x for x in (config['hora_inicio'], config['sala']) if x), 9)
+    _campo(c, xii + 3, yi + 34.2, 20, 'DURAÇÃO', dur, 9)
+    _campo(c, xii + 25, yi + 34.2, 22, 'DATA', config['data'], 9)
+    _campo(c, xii + 49, yi + 34.2, 22, 'HORA / SALA', ' · '.join(x for x in (config['hora_inicio'], config['sala']) if x), 9)
 
     # III — Disciplina
-    yiii, hiii = 97, 36
+    yiii, hiii = 88.5, 31
     _caixa(c, MARGEM, yiii, 106, hiii, 'III   DISCIPLINA')
     nomes = list(config['disciplinas_classe'])
     if config['disciplina'] not in nomes:
@@ -604,34 +598,29 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     col_w = 34.0
     for k, nome in enumerate(nomes):
         cc, rr = divmod(k, 5)
-        _check(c, MARGEM + 3 + cc * col_w, yiii + 8 + rr * 5.5, nome, nome == config['disciplina'], tam=7.2, larg_txt=col_w - 6)
+        _check(c, MARGEM + 3 + cc * col_w, yiii + 7.4 + rr * 4.5, nome, nome == config['disciplina'], tam=7.2, larg_txt=col_w - 6)
     if config['professor']:
         c.setFont(FONTE_I, 6.8)
         c.setFillColor(CINZA_TEXTO)
-        c.drawString((MARGEM + 3) * mm, _y(yiii + hiii - 1.6), f"Professor(a): {config['professor']}"[:70])
+        c.drawString((MARGEM + 3) * mm, _y(yiii + hiii - 1.2), f"Professor(a): {config['professor']}"[:70])
         c.setFillColor(PRETO)
 
     # IV — Classificação
     _caixa(c, xii, yiii, wii, hiii, 'IV   CLASSIFICAÇÃO')
-    _campo(c, xii + 3, yiii + 6.5, 33, 'ACERTOS (n.º)', '')
+    _campo(c, xii + 3, yiii + 6, 33, 'ACERTOS (n.º)', '')
     c.setFont(FONTE, 7.5)
-    c.drawString((xii + 37) * mm, _y(yiii + 12.2), f"/ {config['n_perguntas']}")
-    _campo(c, xii + 3, yiii + 15, 33, 'CORRECÇÃO NORMAL (valores)', '')
-    _campo(c, xii + 38, yiii + 15, 33, 'RECORRECÇÃO (valores)', '')
-    _campo(c, xii + 3, yiii + 23.5, 33, 'ASS. DO PROFESSOR', '')
-    _campo(c, xii + 38, yiii + 23.5, 33, 'ASS. DO DIRECTOR DE TURMA', '')
+    c.drawString((xii + 37) * mm, _y(yiii + 11.6), f"/ {config['n_perguntas']}")
+    _campo(c, xii + 3, yiii + 13.6, 33, 'CORRECÇÃO NORMAL (valores)', '')
+    _campo(c, xii + 38, yiii + 13.6, 33, 'RECORRECÇÃO (valores)', '')
+    _campo(c, xii + 3, yiii + 21.2, 33, 'ASS. DO PROFESSOR', '')
+    _campo(c, xii + 38, yiii + 21.2, 33, 'ASS. DO DIRECTOR DE TURMA', '')
 
-    # Instruções + grelha
-    _bloco_marcas_exemplo(c, 136)
-    if config['instrucao_extra']:
-        c.setFont(FONTE_I, 7)
-        c.setFillColor(CINZA_TEXTO)
-        c.drawString(MARGEM * mm, _y(147.2), config['instrucao_extra'])
-        c.setFillColor(PRETO)
-    _barra_titulo(c, MARGEM, 148.2, LARG_UTIL, 6.2, 'GRELHA DE RESPOSTAS', 'l', 8.5)
+    # Instruções gerais + grelha
+    _bloco_instrucoes(c, 121.5, config['instrucao_extra'])
+    _barra_titulo(c, MARGEM, 146.2, LARG_UTIL, 6, 'GRELHA DE RESPOSTAS', 'l', 8.5)
     c.setFillColor(colors.white)
     c.setFont(FONTE, 6.8)
-    c.drawRightString((PAG_L - MARGEM - 2) * mm, _y(152.4), 'Cotação: ' + _descricao_cotacao(config))
+    c.drawRightString((PAG_L - MARGEM - 2) * mm, _y(150.5), 'Cotação: ' + _descricao_cotacao(config))
     c.setFillColor(PRETO)
 
 
@@ -771,13 +760,13 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
     hoje = datetime.date.today().strftime('%d/%m/%Y')
 
     TNR = 'Times New Roman'
-    f_norm = Font(name=TNR, size=10)
-    f_bold = Font(name=TNR, size=10, bold=True)
-    f_peq = Font(name=TNR, size=8, color='4A5361')
-    f_titulo = Font(name=TNR, size=11, bold=True, color='FFFFFF')
-    f_bolha = Font(name='Segoe UI Symbol', size=10)
-    f_bolha_cheia = Font(name='Segoe UI Symbol', size=10, color='000000', bold=True)
-    fundo_azul = PatternFill('solid', start_color='14325C')
+    f_norm = Font(name=TNR, size=12)
+    f_bold = Font(name=TNR, size=12, bold=True)
+    f_peq = Font(name=TNR, size=12, color='4A5361')
+    f_titulo = Font(name=TNR, size=12, bold=True, color='FFFFFF')
+    f_bolha = Font(name='Times New Roman', size=12)
+    f_bolha_cheia = Font(name='Times New Roman', size=12, color='000000', bold=True)
+    fundo_azul = PatternFill('solid', start_color='1E3A8A')
     fundo_cinza = PatternFill('solid', start_color='F1F4F8')
     fino = Side(style='thin', color='8A94A3')
     borda = Border(left=fino, right=fino, top=fino, bottom=fino)
@@ -799,7 +788,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         for cc in range(c1, c2 + 1):
             ws.cell(row=r, column=cc).fill = fundo_azul
         cel.font = f_titulo
-        cel.alignment = alinh
+        cel.alignment = centro
         ws.row_dimensions[r].height = 18
 
     def par(ws, r, c1, c2, rotulo, valor, c_val_ini=None, c_val_fim=None):
@@ -826,7 +815,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         ws.page_setup.orientation = 'portrait'
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
         ws.page_setup.fitToWidth = 1
-        ws.page_setup.fitToHeight = 0
+        ws.page_setup.fitToHeight = 1   # a folha cabe sempre numa só página
         ws.sheet_properties.pageSetUpPr = openpyxl.worksheet.properties.PageSetupProperties(fitToPage=True)
         ws.page_margins.left = ws.page_margins.right = 0.4
         ws.page_margins.top = ws.page_margins.bottom = 0.4
@@ -891,7 +880,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         ws['Q8'].fill = fundo_cinza
         ws.merge_cells('Q9:AB9')
         ws['Q9'] = '   '.join(('●' if cod == config['tipo'] else '○') + ' ' + rot for cod, rot in TIPOS_AVALIACAO)
-        ws['Q9'].font = Font(name='Segoe UI Symbol', size=9, bold=True)
+        ws['Q9'].font = Font(name='Times New Roman', size=12, bold=True)
         ws['Q9'].alignment = esq
         uniforme = len(config['seccoes']) == 1
         par(ws, 10, 17, 20, 'Nº PERGUNTAS', n, 21, 22)
@@ -915,7 +904,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             ws.merge_cells(start_row=16 + rr, start_column=c1, end_row=16 + rr, end_column=c1 + 4)
             marcado = nome == config['disciplina']
             cel = ws.cell(row=16 + rr, column=c1, value=('☑ ' if marcado else '☐ ') + nome)
-            cel.font = Font(name='Segoe UI Symbol', size=9, bold=marcado)
+            cel.font = Font(name='Times New Roman', size=12, bold=marcado)
             cel.alignment = esq
         par(ws, 16, 17, 22, 'ACERTOS (n.º)', None, 23, 25)
         ws.cell(row=16, column=26, value=f'/ {n}').font = f_norm
@@ -925,16 +914,35 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         par(ws, 20, 17, 22, 'ASS. DIR. TURMA', None, 23, 28)
         ws.row_dimensions[21].height = 5
 
-        ws.merge_cells('A22:AB22')
-        ws['A22'] = ('COMO PREENCHER: use esferográfica azul ou preta e pinte a bolha completamente (●); não rasure. '
-                     + config['instrucao_extra']).strip()
-        ws['A22'].font = f_peq
-        ws['A22'].alignment = esq
-        ws['A22'].fill = fundo_cinza
-        ws.row_dimensions[22].height = 24
-        barra(ws, 23, 1, NCOL, 'GRELHA DE RESPOSTAS   —   Cotação: ' + _descricao_cotacao(config), esq)
+        barra(ws, 22, 1, NCOL, 'INSTRUÇÕES GERAIS', centro)
+        instrucoes = [
+            '1. Não dobre nem rasure esta folha de respostas.',
+            '2. Todas as questões devem ser respondidas com caneta azul ou preta.',
+            '3. Responda apenas a quantidade de questões relativa à sua prova.',
+            '4. Marque apenas uma resposta por pergunta, riscando horizontalmente a alternativa, conforme o modelo abaixo.',
+        ]
+        for k, txt in enumerate(instrucoes):
+            r_i = 23 + k
+            ws.merge_cells(start_row=r_i, start_column=1, end_row=r_i, end_column=NCOL)
+            cel = ws.cell(row=r_i, column=1, value=txt)
+            cel.font = f_bold if k == 3 else f_norm
+            cel.alignment = esq
+        ws.merge_cells(start_row=27, start_column=1, end_row=27, end_column=4)
+        ws.cell(row=27, column=1, value='Exemplo:').font = f_bold
+        for k, letra in enumerate('ABCD'):
+            cel = ws.cell(row=27, column=6 + k * 2, value=letra)
+            ws.merge_cells(start_row=27, start_column=6 + k * 2, end_row=27, end_column=7 + k * 2)
+            for cc in (6 + k * 2, 7 + k * 2):
+                ws.cell(row=27, column=cc).border = borda
+            cel.font = Font(name='Times New Roman', size=12, bold=(letra == 'D'), strike=(letra == 'D'), color='000000')
+            cel.alignment = centro
+        ws.merge_cells(start_row=27, start_column=15, end_row=27, end_column=NCOL)
+        ws.cell(row=27, column=15, value='risca horizontalmente a alternativa: marcação da letra D na questão número 1.'
+                + (f'   {config["instrucao_extra"]}' if config['instrucao_extra'] else '')).alignment = esq
+        ws.row_dimensions[28].height = 5
+        barra(ws, 29, 1, NCOL, 'GRELHA DE RESPOSTAS   —   Cotação: ' + _descricao_cotacao(config), centro)
 
-        _grelha_excel(ws, config, 25, None, NCOL, f_norm, f_bold, f_bolha, f_bolha_cheia, fundo_azul, fundo_cinza, borda, centro, ALT)
+        _grelha_excel(ws, config, 31, None, NCOL, f_norm, f_bold, f_bolha, f_bolha_cheia, fundo_azul, fundo_cinza, borda, centro, ALT)
         ws.print_area = f'A1:{col_l(NCOL)}{ws.max_row + 1}'
 
     # ---------------- Resumo (sem fórmulas) ----------------
@@ -981,12 +989,12 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             _grelha_excel(ws, config, 9, g, NCOL, f_norm, f_bold, f_bolha, f_bolha_cheia, fundo_azul, fundo_cinza, borda, centro, ALT)
             ws.print_area = f'A1:{col_l(NCOL)}{ws.max_row + 1}'
 
-    return guardar_xlsx_seguro(wb, embelezar=False), len(alunos)
+    return guardar_xlsx_seguro(wb), len(alunos)
 
 
 def _grelha_excel(ws, config, linha_ini, gabarito, ncol, f_norm, f_bold, f_bolha, f_bolha_cheia,
                   fundo_azul, fundo_cinza, borda, centro, ALT):
-    from openpyxl.styles import Font
+    from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter as col_l
     n = config['n_perguntas']
     n_alt = config['n_alternativas']
@@ -1015,7 +1023,7 @@ def _grelha_excel(ws, config, linha_ini, gabarito, ncol, f_norm, f_bold, f_bolha
         pos = linha_ini + 1 + r + r // 5
         if r % 5 == 0 and r > 0:
             ws.row_dimensions[pos - 1].height = 5
-        ws.row_dimensions[pos].height = 21
+        ws.row_dimensions[pos].height = 24
         for b in range(cols_usadas):
             q = b * linhas + r
             if q >= n:
@@ -1033,6 +1041,10 @@ def _grelha_excel(ws, config, linha_ini, gabarito, ncol, f_norm, f_bold, f_bolha
                 if passo > 1:
                     ws.merge_cells(start_row=pos, start_column=cc, end_row=pos, end_column=cc + passo - 1)
                 marcada = bool(gabarito and gabarito[q] == LETRAS[i])
-                cel = ws.cell(row=pos, column=cc, value='●' if marcada else ALT[i])
-                cel.font = f_bolha_cheia if marcada else f_bolha
+                cel = ws.cell(row=pos, column=cc, value=LETRAS[i])
+                cel.font = Font(name='Times New Roman', size=12, bold=marcada, color='FFFFFF' if marcada else '000000')
                 cel.alignment = centro
+                for c_b in range(cc, cc + max(passo, 1)):
+                    ws.cell(row=pos, column=c_b).border = borda
+                    if marcada:
+                        ws.cell(row=pos, column=c_b).fill = PatternFill('solid', start_color='000000')

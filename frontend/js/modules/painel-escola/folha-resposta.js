@@ -185,7 +185,34 @@
     var c = num($('frCotPerg').value);
     return (c == null ? 20 / n : c) * n;
   }
+  // Prévia viva da grelha: formada a partir do nº de perguntas e de alternativas definidos no formulário.
+  function desenharGrelhaPrevia() {
+    var alvo = $('frGrelhaPrevia'); if (!alvo) return;
+    var n = parseInt($('frNPerg').value, 10) || 0;
+    var alt = parseInt($('frNAlt').value, 10) || 4;
+    var info = $('frGrelhaInfo');
+    if (n < 1) { alvo.innerHTML = '<span class="text-muted small">Defina o número de perguntas.</span>'; if (info) info.textContent = ''; return; }
+    if (n > 100) { n = 100; if (info) info.textContent = 'O máximo é 100 perguntas (a folha cabe numa só página).'; }
+    else if (info) info.textContent = n + ' pergunta(s) · ' + alt + ' alternativas · ' + 'A–' + 'ABCDEF'.charAt(alt - 1);
+    var cols = n <= 40 ? 2 : n <= 75 ? 3 : 4;
+    var linhas = Math.ceil(Math.ceil(n / cols) / 5) * 5;
+    var letras = 'ABCDEF'.slice(0, alt).split('');
+    var html = '';
+    for (var c = 0; c * linhas < n; c++) {
+      html += '<div style="min-width:190px">';
+      for (var r = 0; r < linhas && c * linhas + r < n; r++) {
+        var q = c * linhas + r + 1;
+        html += '<div class="d-flex align-items-center gap-1" style="margin-bottom:' + ((r % 5 === 4) ? '8' : '2') + 'px">' +
+          '<span class="fw-bold text-end" style="width:28px;font-size:12px;font-family:\'Times New Roman\',serif">' + q + '</span>' +
+          letras.map(function (l) { return '<span style="display:inline-block;width:26px;height:15px;line-height:13px;border:1px solid #333;border-radius:4px;text-align:center;font-size:10px;font-family:\'Times New Roman\',serif;color:#555">' + l + '</span>'; }).join('') +
+          '</div>';
+      }
+      html += '</div>';
+    }
+    alvo.innerHTML = html;
+  }
   function actualizarTotal() {
+    desenharGrelhaPrevia();
     var t = totalCotacao();
     $('frCotTotal').textContent = t == null ? '—' : fmt(t) + ' val.';
     var n = parseInt($('frNPerg').value, 10) || 0;
@@ -220,8 +247,12 @@
     if (!semValidar && !cfg.disciplina) throw new Error('Escolha a disciplina.');
     return cfg;
   }
-  function corpo(formato) {
+  function corpo(formato, previa) {
     var e = $('frEscopo').value;
+    // Pré-visualização sem aluno/turma escolhidos: mostra a folha em branco com as definições actuais.
+    if (previa && ((e === 'aluno' && !$('frAluno').value) || (e === 'turma' && !$('frTurma').value) || (e === 'classe' && !classeActual()))) {
+      return { formato: 'pdf', escopo: 'branco', copias: 1, ano_letivo: ano(), classe: classeActual(), config: lerConfig(false) };
+    }
     var c = { formato: formato, escopo: e, ano_letivo: ano(), config: lerConfig(false) };
     if (e === 'aluno') { if (!$('frAluno').value) throw new Error('Escolha o aluno.'); c.aluno_id = $('frAluno').value; }
     else if (e === 'turma') { if (!$('frTurma').value) throw new Error('Escolha a turma.'); c.turma_id = $('frTurma').value; }
@@ -236,7 +267,7 @@
   async function gerar(formato, previa) {
     var btns = ['frBtnPdf', 'frBtnXlsx', 'frBtnPrevia'].map($);
     try {
-      var c = corpo(previa ? 'pdf' : formato);
+      var c = corpo(previa ? 'pdf' : formato, previa);
       btns.forEach(function (b) { b.disabled = true; });
       estado('A gerar…');
       var r = await fetch(API + 'gerar/', { method: 'POST', headers: cab({ 'Content-Type': 'application/json' }), body: JSON.stringify(c) });
@@ -316,6 +347,7 @@
       var b = ev.target.closest('.fr-sec-rm'); if (b) { b.closest('.fr-seccao').remove(); actualizarTotal(); }
     });
     $('frSeccoesLista').addEventListener('input', actualizarTotal);
+    $('frNAlt').addEventListener('change', desenharGrelhaPrevia);
     ['frNPerg', 'frCotPerg'].forEach(function (id) { $(id).addEventListener('input', actualizarTotal); });
     $('frVersoes').addEventListener('input', desenharChaves);
     $('frBtnPdf').addEventListener('click', function () { gerar('pdf'); });

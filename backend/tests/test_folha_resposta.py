@@ -64,9 +64,10 @@ def test_config_seccoes_e_gabarito():
         fr.normalizar_config({'disciplina': 'X', 'n_perguntas': 500})
 
 
-@pytest.mark.parametrize('n', [5, 40, 75, 100, 130, 200])
+@pytest.mark.parametrize('n', [5, 40, 75, 100])
 def test_layout_cobre_todas_as_perguntas(n):
     paginas = fr.paginas_grelha(n)
+    assert len(paginas) == 1  # cabe sempre numa só página
     assert sum(fim - ini for ini, fim, *_ in paginas) == n
     for ini, fim, cols, linhas, _ in paginas:
         assert cols * linhas >= fim - ini
@@ -114,7 +115,7 @@ def test_xlsx_aluno_tem_grelha_sem_formulas(cenario):
     ws = wb.worksheets[0]
     texto = ' '.join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
     assert 'Escola A' in texto and aluno.matricula in texto and 'Matemática' in texto and a.codigo_escola in texto
-    assert 'Ⓐ' in texto
+    assert 'INSTRUÇÕES GERAIS' in texto and 'riscando horizontalmente' in texto
 
 
 def test_xlsx_turma_tem_resumo(cenario):

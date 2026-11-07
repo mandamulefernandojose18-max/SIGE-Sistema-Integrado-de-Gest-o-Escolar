@@ -1,5 +1,7 @@
 # 📚 Central de Documentação do SIGE (v2.5.0)
-### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
+#> **Leitura obrigatória antes de gerar Excel ou PDF:** [REGRAS_EXCEL_E_PDF.md](REGRAS_EXCEL_E_PDF.md)
+
+## Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 Bem-vindo à central oficial de documentação técnica, pedagógica, arquitetural e operacional do **SIGE**. Esta documentação foi elaborada para atender desenvolvedores, administradores de sistemas, diretores escolares, equipas pedagógicas e operadores de secretaria.
 

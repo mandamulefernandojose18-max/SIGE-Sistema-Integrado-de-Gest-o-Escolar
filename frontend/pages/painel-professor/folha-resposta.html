@@ -116,8 +116,8 @@
           <div class="card-body">
             <div class="row g-3">
               <div class="col-6 col-md-2">
-                <label class="form-label small mb-1" for="frNPerg">Nº de perguntas</label>
-                <input id="frNPerg" type="number" min="1" max="200" value="40" class="form-control form-control-sm">
+                <label class="form-label small mb-1" for="frNPerg">Nº de perguntas (máx. 100)</label>
+                <input id="frNPerg" type="number" min="1" max="100" value="40" class="form-control form-control-sm">
               </div>
               <div class="col-6 col-md-2">
                 <label class="form-label small mb-1" for="frNAlt">Alternativas</label>
@@ -172,6 +172,17 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Prévia da grelha: formada a partir do nº de perguntas e de alternativas definidos acima -->
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
+            <span class="fw-semibold"><i class="bi bi-eye me-1"></i> Prévia da grelha de respostas</span>
+            <span id="frGrelhaInfo" class="small text-muted"></span>
+          </div>
+          <div class="card-body"><div id="frGrelhaPrevia" class="d-flex gap-3 flex-wrap" aria-label="Prévia das perguntas"></div></div>
         </div>
       </div>
 

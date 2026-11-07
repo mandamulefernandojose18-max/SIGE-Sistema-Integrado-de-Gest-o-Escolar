@@ -356,6 +356,30 @@ def ajustar_larguras_ao_conteudo(ws, max_r, max_c):
         ws.column_dimensions[get_column_letter(c)].width = round(max(5.5, min(w, _LARGURA_MAX_COLUNA)), 1)
 
 
+def _fonte_clara(cel):
+    cor = getattr(cel.font, 'color', None)
+    rgb = getattr(cor, 'rgb', None) if cor is not None else None
+    return isinstance(rgb, str) and rgb[-6:].upper() == 'FFFFFF'
+
+
+def padronizar_fontes_e_cabecalhos(ws):
+    """
+    Regra mestra de todos os Excel do SIGE (ver docs/REGRAS_EXCEL_E_PDF.md):
+      * todo o texto em Times New Roman tamanho 12 (negrito/itálico/cor preservados);
+      * cabeçalhos (fundo escuro com letra clara) sempre centrados na horizontal e na vertical, com quebra de linha.
+    """
+    from openpyxl.styles import Alignment, Font
+    for row in ws.iter_rows():
+        for cel in row:
+            if cel.value is None and getattr(cel.fill, 'fill_type', None) is None:
+                continue
+            f = cel.font
+            cel.font = Font(name='Times New Roman', size=12, bold=f.bold, italic=f.italic, color=f.color,
+                            underline=f.underline, strike=f.strike)
+            fundo = _cor_fundo(cel)
+            if fundo and _fonte_clara(cel):
+                cel.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
 def embelezar_workbook(wb):
     """
     Apresentação final de todos os documentos Excel do SIGE:
@@ -369,6 +393,7 @@ def embelezar_workbook(wb):
         max_r, max_c = _limites_conteudo(ws)
         if max_r == 0 or max_c == 0:
             continue
+        padronizar_fontes_e_cabecalhos(ws)
         ajustar_larguras_ao_conteudo(ws, max_r, max_c)
         garantir_palavras_inteiras(ws, max_r, max_c)
         _centrar_logo(ws, max_c)
