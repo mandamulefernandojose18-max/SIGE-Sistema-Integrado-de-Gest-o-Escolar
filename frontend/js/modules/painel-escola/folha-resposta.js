@@ -204,7 +204,7 @@
     var cfg = {
       tipo_avaliacao: $('frTipo').value, disciplina: (disc || '').trim(),
       n_perguntas: parseInt($('frNPerg').value, 10), n_alternativas: parseInt($('frNAlt').value, 10),
-      duracao_min: $('frDuracao').value, data: $('frData').value, hora_inicio: $('frHora').value, sala: $('frSala').value,
+      duracao_min: $('frDuracao').value, data: dataBR($('frData').value), hora_inicio: $('frHora').value, sala: $('frSala').value,
       professor: $('frProfessor').value, versoes: $('frVersoes').value, instrucao_extra: $('frInstrucao').value,
       marcas_omr: $('frOmr').checked, codigo_barras: $('frBarras').checked, incluir_chave: $('frIncluirChave').checked
     };
@@ -262,9 +262,29 @@
     }
   }
 
+  function dataBR(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+  }
+  // Hora de início sugerida pelo turno da turma escolhida (editável); manhã por omissão.
+  function horaSugerida() {
+    var t = turmasDaClasse().find(function (x) { return x.id === $('frTurma').value; });
+    var turno = t ? String(t.turno || '').toUpperCase() : 'MANHA';
+    return turno === 'TARDE' ? '13:00' : turno === 'NOITE' ? '18:00' : '07:30';
+  }
+  function aoEscolherData() {
+    var h = $('frHora');
+    if (!$('frData').value) return;
+    if (!h.value || h.dataset.auto === '1') { h.value = horaSugerida(); h.dataset.auto = '1'; }
+  }
+
   function ligar() {
     if (ligado) return;
     ligado = true;
+    $('frData').addEventListener('click', function () { try { this.showPicker(); } catch (_) { /* navegador sem showPicker */ } });
+    $('frData').addEventListener('change', aoEscolherData);
+    $('frTurma').addEventListener('change', aoEscolherData);
+    $('frHora').addEventListener('input', function () { this.dataset.auto = '0'; });
     $('frEscopo').addEventListener('change', mostrarCamposEscopo);
     $('frClasse').addEventListener('change', aoMudarClasse);
     $('frArea').addEventListener('change', aoMudarArea);
