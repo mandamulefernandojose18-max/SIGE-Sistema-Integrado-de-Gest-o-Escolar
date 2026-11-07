@@ -1,5 +1,5 @@
 // SIGE - Service Worker com Estratégia Network-First (Garante Atualizações Imediatas)
-const CACHE_NAME = 'sige-cache-v3.2.18-20261107_0200';
+const CACHE_NAME = 'sige-cache-v3.2.19-20261107_1800';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

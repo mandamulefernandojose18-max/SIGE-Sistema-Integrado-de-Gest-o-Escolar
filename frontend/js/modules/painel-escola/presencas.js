@@ -80,14 +80,36 @@ window.presAoMudarArea = function () {
   presAoMudarTurma();
 };
 
-window.presAoMudarTurma = function () {
+window.presAoMudarTurma = async function () {
   const turmaId = document.getElementById('presTurma')?.value;
   if (presEhProfessor()) {
     const discs = presState.itens.filter(i => i.turmaId === turmaId);
     presOpcoes(document.getElementById('presDisciplina'), discs.map(d => ({ valor: d.discId, texto: d.discNome })), '—');
+  } else {
+    await presCarregarDisciplinasConsulta();
   }
   presCarregarAlunos();
 };
+
+// Consulta: disciplinas reais da classe/secção escolhida (cadastradas na escola) + opção "Todas as disciplinas".
+async function presCarregarDisciplinasConsulta() {
+  const sel = document.getElementById('presDisciplina');
+  if (!sel) return;
+  const classe = document.getElementById('presClasse')?.value || '';
+  const area = document.getElementById('presArea')?.value || '';
+  const anterior = sel.value;
+  let discs = [];
+  if (classe) {
+    try {
+      const res = await apiFetch(`/api/v1/disciplinas/?classe=${encodeURIComponent(classe)}&area=${encodeURIComponent(area)}`);
+      discs = presLista(res);
+    } catch (e) { discs = []; }
+  }
+  sel.innerHTML = '<option value="">Todas as disciplinas</option>' +
+    discs.map(d => `<option value="${escapeHtml(String(d.id))}">${escapeHtml(d.nome || 'Disciplina')}</option>`).join('');
+  sel.value = discs.some(d => String(d.id) === anterior) ? anterior : '';
+  sel.disabled = false;
+}
 
 function presLinhaVazia(msg, cls = 'text-muted') {
   return `<tr><td colspan="5" class="text-center py-4 ${cls}">${msg}</td></tr>`;
@@ -128,7 +150,6 @@ window.presCarregarAlunos = async function () {
     presState.alunos = presLista(resAlunos);
     presState.todosRegistos = presLista(resPres);
     await presCarregarRisco(turmaId);
-    if (!prof) presPopularDisciplinasConsulta();
     presRenderLista();
   } catch (e) {
     tbody.innerHTML = presLinhaVazia('Erro ao carregar a lista de assiduidade.', 'text-danger');
