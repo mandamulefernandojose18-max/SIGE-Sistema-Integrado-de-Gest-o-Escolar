@@ -16,7 +16,7 @@ MARCAS_INICIAIS = [  # o QR de cada página é automático (qr_pagina); aqui só
 ]
 FORMATOS_SAIDA = ("pdf", "word", "ambos")
 CHAVES_CONFIG = ("formato", "guiao_opcao", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
-                 "qr_pergunta", "qr_marca_agua", "qr_pagina", "tamanho_qr_fundo", "tamanho_qr_pagina", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
+                 "qr_pergunta", "qr_marca_agua", "qr_pagina", "tamanho_qr_fundo", "tamanho_qr_pagina", "armadilha", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
 
 
 class BaseSelagem:
@@ -128,7 +128,7 @@ class Servico:
     # ---- escrita ----
     def validar_opcoes(self, *, marcas, copias, url_base, rasterizar=False, aviso_visivel=True,
                        aviso_foto=True, aviso_ia=True, aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, qr_pagina=True, mensagem_ia=None,
-                       baralhar_perguntas=False, baralhar_alternativas=False, tamanho_qr_fundo=None, tamanho_qr_pagina=None):
+                       baralhar_perguntas=False, baralhar_alternativas=False, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=True):
         """Valida as opções de selagem e devolve o dicionário usado por `selar_copia`."""
         marcas = selos.validar_marcas(marcas)
         if not 1 <= copias <= MAX_COPIAS:
@@ -139,7 +139,7 @@ class Servico:
         return {"marcas": marcas, "copias": copias, "url_base": url_base, "rasterizar": rasterizar,
                 "aviso_visivel": aviso_visivel, "aviso_foto": aviso_foto, "aviso_ia": aviso_ia,
                 "aviso_pergunta": aviso_pergunta, "qr_pergunta": qr_pergunta, "qr_marca_agua": qr_marca_agua, "qr_pagina": qr_pagina,
-                "tamanho_qr_fundo": selos.limitar_lado_qr_fundo(tamanho_qr_fundo),
+                "armadilha": bool(armadilha), "tamanho_qr_fundo": selos.limitar_lado_qr_fundo(tamanho_qr_fundo),
                 "tamanho_qr_pagina": selos.limitar_lado_qr_pagina(tamanho_qr_pagina),
                 "baralhar_perguntas": bool(baralhar_perguntas), "baralhar_alternativas": bool(baralhar_alternativas),
                 "mensagem_ia": selos.normalizar_mensagem(mensagem_ia)}
@@ -277,6 +277,41 @@ class Servico:
         self.arm.atualizar(pid, campos, config, pdf or None, gabarito or None, remover_gabarito, paginas,
                            "Prova editada" + (": " + ", ".join(notas) if notas else "") + ".")
 
+    def definir_sala(self, pid, texto, inicio=None, minutos=None):
+        """Dados da sala: o que falta na folha (constante, valor, dado) fica cifrado e só aparece, a quem lê um código da cópia,
+        dentro da janela [início, início + minutos]. Texto vazio remove-os."""
+        from datetime import timedelta
+        p = self.arm.obter(pid)
+        config = dict(p["config"] or {})
+        texto = (texto or "").strip()
+        if not texto:
+            config.pop("sala_cifrado", None)
+            config.pop("sala_janela", None)
+            evento = "Dados da sala removidos."
+        else:
+            if len(texto) > 2000:
+                raise ValueError("Os dados da sala podem ter no máximo 2000 caracteres.")
+            if inicio is None or minutos is None or not 10 <= minutos <= 480:
+                raise ValueError("Indica o início e a duração dos dados da sala (10 a 480 minutos).")
+            config["sala_cifrado"] = base64.b64encode(self.arm.cofre.cifrar(pid, "sala", texto.encode("utf-8"))).decode()
+            config["sala_janela"] = {"inicio": tempo.para_iso(inicio), "fim": tempo.para_iso(inicio + timedelta(minutes=minutos))}
+            evento = f"Dados da sala definidos: abrem em {tempo.formatar(inicio)} durante {minutos} min."
+        self.arm.guardar_geracao(pid, config, 0, self._agora_iso(), evento)
+
+    def sala(self, pid, com_texto=False):
+        """(estado, texto, janela): estado None (sem dados), «antes», «aberta» ou «fechada». O texto só sai se estiver aberta ou `com_texto`."""
+        p = self.arm.obter(pid)
+        cfg = (p or {}).get("config") or {}
+        janela = cfg.get("sala_janela")
+        if not janela or not cfg.get("sala_cifrado"):
+            return None, None, None
+        agora, ini, fim = self.agora(), tempo.de_iso(janela["inicio"]), tempo.de_iso(janela["fim"])
+        estado = "antes" if agora < ini else "fechada" if agora >= fim else "aberta"
+        texto = None
+        if estado == "aberta" or com_texto:
+            texto = self.arm.cofre.decifrar(pid, "sala", base64.b64decode(cfg["sala_cifrado"])).decode("utf-8")
+        return estado, texto, janela
+
     def libertar(self, pid):
         p = self.arm.obter(pid)
         self.arm.libertar(pid, self._agora_iso(), f"Libertada manualmente (data prevista: {tempo.formatar_iso(p['libertacao'])}).")
@@ -398,7 +433,7 @@ class Servico:
                            mensagem_ia=op["mensagem_ia"], aviso_pergunta=op["aviso_pergunta"],
                            qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"], qr_pagina=op.get("qr_pagina", True), ancoras=base.ancoras,
                            zonas_marca_agua=base.zonas_agua, tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
-                           tamanho_qr_pagina=op.get("tamanho_qr_pagina"))
+                           tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=op.get("armadilha", True))
 
     def tem_word(self, p):
         """O .docx original está guardado (cifrado): só então a prova pode sair também em Word."""
@@ -443,7 +478,7 @@ class Servico:
             aviso_pergunta=op["aviso_pergunta"], qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"],
             aviso_visivel=op["aviso_visivel"], mensagem_ia=op["mensagem_ia"], qr_pagina=op.get("qr_pagina", True),
             pdf_layout=op.get("pdf_layout_word"), tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
-            tamanho_qr_pagina=op.get("tamanho_qr_pagina"))
+            tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=op.get("armadilha", True))
 
     def resumo_perguntas(self, pid):
         """Quantas perguntas numeradas foram detetadas e em quantas cabe um QR (margem direita livre)."""

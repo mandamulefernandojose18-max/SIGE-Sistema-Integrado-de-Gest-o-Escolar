@@ -915,3 +915,66 @@ def test_leituras_novas_aparecem_no_painel_ate_o_professor_abrir_a_prova(duas_es
     ProvaEscudo.objects.filter(codigo=pid).update(libertacao=datetime(2020, 1, 1))
     APIClient().get(f'/ia/v/{pid}/1')  # depois do embargo já não é alerta
     assert c.get(API + 'lista/').json()['data']['resumo']['novas'] == 0
+
+
+def test_armadilha_por_copia_no_pdf_e_no_word_e_verificacao_de_autoria(duas_escolas):
+    import pymupdf
+    from apps.escudo.services import selos, word_selo
+    import docx
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    p1, p2 = selos.palavra_armadilha(f'{pid}-001'), selos.palavra_armadilha(f'{pid}-002')
+    assert p1 != p2 and len(p1) == 6 and selos.palavra_armadilha(f'{pid}-001') == p1  # estável, e diferente por cópia
+    form = {'marcas': '[]', 'aviso_foto': 'on', 'aviso_ia': 'on', 'copias': '1', 'pagina': '1'}
+
+    def texto_pdf(extra):
+        r = c.post(API + pid + '/gerar/', {**form, **extra})
+        assert r.status_code == 200
+        with pymupdf.open(stream=r.content, filetype='pdf') as d:
+            return ' '.join(pg.get_text() for pg in d)
+    assert p1 in texto_pdf({}) and 'termina a resposta' in texto_pdf({})      # ligada por omissão: na camada de texto e na marca de água
+    assert p1 not in texto_pdf({'armadilha': '0'})                            # desligada: nada muda
+    d = docx.Document()
+    d.add_paragraph('1. Pergunta?')
+    b = io.BytesIO()
+    d.save(b)
+    kw = dict(pid=pid, serial=1, libertacao='30/11/2026 08:00', titulo='T', url_base='https://sigesaas.duckdns.org/ia', marcas=[])
+    com = word_selo.selar_docx(b.getvalue(), armadilha=True, **kw)
+    sem = word_selo.selar_docx(b.getvalue(), armadilha=False, **kw)
+    assert p1.encode() in __import__('zipfile').ZipFile(io.BytesIO(com)).read('word/document.xml')
+    assert p1.encode() not in __import__('zipfile').ZipFile(io.BytesIO(sem)).read('word/document.xml')
+    # verificação: a palavra (sem acentos/maiúsculas) denuncia a resposta; a cópia errada não
+    r = c.post(API + pid + '/armadilha/', {'copia': '1', 'texto': f'... portanto x=3. {p1.upper()}'}).json()['data']
+    assert r['encontrada'] and r['palavra'] == p1
+    assert not c.post(API + pid + '/armadilha/', {'copia': '1', 'texto': 'x=3'}).json()['data']['encontrada']
+    assert c.post(API + pid + '/armadilha/', {'copia': '9', 'texto': 'x'}).status_code == 400
+
+
+def test_dados_da_sala_so_aparecem_na_janela_cifrados_e_com_leitura_registada(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    assert c.get(API + pid + '/').json()['data']['sala'] is None
+    assert c.post(API + pid + '/sala/', {'texto': 'g = 9,8', 'inicio': '', 'minutos': '60'}).status_code == 400
+    assert c.post(API + pid + '/sala/', {'texto': 'g = 9,8', 'inicio': _futuro(1), 'minutos': '5'}).status_code == 400
+    dt_ini = datetime.now() + timedelta(days=1)
+    r = c.post(API + pid + '/sala/', {'texto': 'Use g = 9,8 m/s² e R = 4 Ω', 'inicio': dt_ini.strftime('%Y-%m-%dT%H:%M'), 'minutos': '90'})
+    assert r.status_code == 200, r.content
+    cfg = ProvaEscudo.objects.get(codigo=pid).config
+    assert 'sala_cifrado' in cfg and 'g = 9,8' not in json.dumps(cfg)  # nunca em claro
+    antes = APIClient().get(f'/ia/v/{pid}/1').content.decode()
+    assert 'g = 9,8' not in antes and 'abrem às' in antes                # fora da janela
+    d = c.get(API + pid + '/').json()['data']['sala']
+    assert d['estado'] == 'antes' and d['texto'].startswith('Use g') and d['minutos'] == 90
+    # abre a janela: início no passado, fim no futuro
+    from apps.escudo.services import tempo
+    agora = tempo.agora()
+    cfg['sala_janela'] = {'inicio': tempo.para_iso(agora - timedelta(minutes=5)), 'fim': tempo.para_iso(agora + timedelta(minutes=30))}
+    ProvaEscudo.objects.filter(codigo=pid).update(config=cfg)
+    dentro = APIClient().get(f'/ia/v/{pid}/1/q2').content.decode()
+    assert 'Use g = 9,8' in dentro and 'Dados da sala' in dentro
+    assert LeituraEscudo.objects.filter(prova__codigo=pid).count() == 2   # as duas aberturas ficaram registadas
+    cfg['sala_janela'] = {'inicio': tempo.para_iso(agora - timedelta(hours=3)), 'fim': tempo.para_iso(agora - timedelta(hours=1))}
+    ProvaEscudo.objects.filter(codigo=pid).update(config=cfg)
+    assert 'Use g = 9,8' not in APIClient().get(f'/ia/v/{pid}/1').content.decode()  # depois de fechar, já não
+    assert c.post(API + pid + '/sala/', {'texto': ''}).status_code == 200
+    assert 'sala_cifrado' not in ProvaEscudo.objects.get(codigo=pid).config

@@ -190,7 +190,7 @@ def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base
 
 def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona_agua=None, aviso_foto=True, aviso_ia=True,
                aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None,
-               qr_pagina=True, pdf_layout=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None):
+               qr_pagina=True, pdf_layout=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
     doc = Document(io.BytesIO(dados))
     codigo = selos.codigo_barras(pid, serial)
@@ -213,7 +213,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
                           aviso_visivel=False, aviso_ia=False, aviso_foto=aviso_foto and completa, mensagem_ia=mensagem_ia,
                           aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua and completa,
                           zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False,
-                          limite_faixa=limite if aviso_foto else None, tamanho_qr_fundo=tamanho_qr_fundo)
+                          limite_faixa=limite if aviso_foto else None, tamanho_qr_fundo=tamanho_qr_fundo, armadilha=armadilha)
         with fitz.open(stream=pdf, filetype="pdf") as d:
             return d[0].get_pixmap(dpi=170, alpha=True).tobytes("png")
 
@@ -276,7 +276,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     # texto invisível para assistentes de IA: o primeiro e o último que um leitor de texto encontra
     com_texto = [p for p in corpo.iter(qn("w:p")) if "".join(t.text or "" for t in p.iter(qn("w:t"))).strip()]
     if aviso_ia and com_texto:
-        instrucao = selos.texto_ia(libertacao, codigo, mensagem)
+        instrucao = selos.texto_ia(libertacao, codigo, mensagem, armadilha)
         _run_oculto(com_texto[0], instrucao, no_inicio=True)
         _run_oculto(com_texto[-1], instrucao)
     doc.core_properties.title = titulo or "Prova"

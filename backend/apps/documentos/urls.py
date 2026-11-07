@@ -32,7 +32,21 @@ from .views import (
     FichaDOCXView,
 )
 
+from .views_folha_resposta import (
+    FolhaRespostaContextoView,
+    FolhaRespostaAlunosView,
+    FolhaRespostaGerarView,
+)
+
 urlpatterns = [
+    # Folha de Resposta Personalizada (PDF/Excel: aluno, turma, classe ou em branco)
+    path('folha-resposta/contexto', FolhaRespostaContextoView.as_view(), name='folha_resposta_contexto_no_slash'),
+    path('folha-resposta/contexto/', FolhaRespostaContextoView.as_view(), name='folha_resposta_contexto'),
+    path('folha-resposta/alunos', FolhaRespostaAlunosView.as_view(), name='folha_resposta_alunos_no_slash'),
+    path('folha-resposta/alunos/', FolhaRespostaAlunosView.as_view(), name='folha_resposta_alunos'),
+    path('folha-resposta/gerar', FolhaRespostaGerarView.as_view(), name='folha_resposta_gerar_no_slash'),
+    path('folha-resposta/gerar/', FolhaRespostaGerarView.as_view(), name='folha_resposta_gerar'),
+
     # Lote de Impressão (Boletins, Declarações e Certificados da turma inteira)
     path('lote/turma/<uuid:turma_id>', LoteImpressaoView.as_view(), name='impressao_lote_no_slash'),
     path('lote/turma/<uuid:turma_id>/', LoteImpressaoView.as_view(), name='impressao_lote'),
