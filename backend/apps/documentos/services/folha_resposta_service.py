@@ -513,7 +513,7 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
     passo = min(13.0, (largura_col - 11.5) / n_alt)
     larg_alt = min(9.6, passo * 0.84)
     alt_alt = min(4.8, altura_linha * 0.76)
-    tam_letra = max(6.2, min(8.0, alt_alt * 1.7))
+    tam_letra = max(7.6, min(9.2, alt_alt * 1.95))
     total_q = fim - inicio
     cols_usadas = math.ceil(total_q / linhas)
     for col in range(cols_usadas):
