@@ -13,11 +13,15 @@
   var urlPrevia = null;
 
   function $(id) { return document.getElementById(id); }
-  function token() { try { return (window.state && window.state.token) || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token') || ''; } catch (_) { return ''; } }
+  function token() { try { return ((typeof state !== 'undefined' && state && state.token) || (window.state && window.state.token)) || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token') || ''; } catch (_) { return ''; } }
   function tenant() {
     try {
-      var s = window.state || {};
-      return (s.user && s.user.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null) || (s.tenant && s.tenant.id) || (s.user && s.user.escola_id) || '';
+      // `state` é uma const global do app.js (não existe em window.state).
+      var s = (typeof state !== 'undefined' && state) || window.state || {};
+      var sel = null;
+      try { sel = localStorage.getItem('sige_selected_tenant'); } catch (_) { /* sem storage */ }
+      var superadmin = s.user && s.user.role === 'SUPERADMIN';
+      return (superadmin || !s.user ? sel : null) || (s.tenant && s.tenant.id) || (s.user && s.user.escola_id) || '';
     } catch (_) { return ''; }
   }
   function cab(extra) {
@@ -29,7 +33,7 @@
   function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML.replace(/"/g, '&quot;'); }
   function toast(msg, tipo) { if (typeof window.mostrarToast === 'function') window.mostrarToast(msg, tipo || 'info'); else alert(msg); }
   function estado(msg) { var e = $('frEstado'); if (e) e.textContent = msg || ''; }
-  function ano() { return (window.state && window.state.anosPorView && window.state.anosPorView['folha-resposta']) || ($('folhaRespostaAnoSelect') || {}).value || ''; }
+  function ano() { var st = (typeof state !== 'undefined' && state) || window.state || {}; return (st.anosPorView && st.anosPorView['folha-resposta']) || ($('folhaRespostaAnoSelect') || {}).value || ''; }
   function num(v) { var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : null; }
   function fmt(v) { var r = Math.round(v * 100) / 100; return String(r).replace('.', ','); }
 
