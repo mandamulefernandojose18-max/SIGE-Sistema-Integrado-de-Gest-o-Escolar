@@ -125,6 +125,76 @@ function renderizarTabelaEscolasSaaS() {
   }
 }
 
+// ==================== 0.2 SUPERVISÃO DE PAGAMENTOS (ALARMES) ====================
+const ALARME_ESTILO = {
+  critica: { cls: 'danger', icone: 'bi-exclamation-octagon-fill', rotulo: 'Crítico' },
+  aviso: { cls: 'warning', icone: 'bi-exclamation-triangle-fill', rotulo: 'Atenção' },
+  info: { cls: 'info', icone: 'bi-info-circle-fill', rotulo: 'Info' }
+};
+
+function actualizarBadgeAlarmesSaaS(total, nivel) {
+  const link = document.getElementById('nav-pagamentos-saas');
+  if (!link) return;
+  let badge = link.querySelector('.badge-alarmes-saas');
+  if (!total) { if (badge) badge.remove(); return; }
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'badge rounded-pill ms-auto badge-alarmes-saas';
+    link.appendChild(badge);
+  }
+  badge.className = `badge rounded-pill ms-auto badge-alarmes-saas bg-${nivel === 'critica' ? 'danger' : 'warning text-dark'}`;
+  badge.textContent = total > 99 ? '99+' : total;
+  badge.title = `${total} alerta(s) de supervisão de pagamentos`;
+}
+
+async function carregarAlarmesSaaS() {
+  const lista = document.getElementById('listaAlarmesSaas');
+  const resumo = document.getElementById('resumoAlarmesSaas');
+  const icone = document.getElementById('iconeAlarmesSaas');
+  try {
+    const res = await apiFetch('/api/v1/saas/alarmes', { ignoreAuthRedirect: true });
+    if (!res || !res.success) throw new Error((res && res.message) || 'Resposta inválida');
+    const d = res.data;
+    actualizarBadgeAlarmesSaaS(d.total_alertas, d.nivel);
+    if (!lista) return;
+    if (icone) icone.className = `bi bi-bell-fill me-2 text-${d.nivel === 'critica' ? 'danger' : d.nivel === 'aviso' ? 'warning' : 'success'}`;
+    const ultima = d.ultima_rotina ? new Date(d.ultima_rotina).toLocaleString('pt-PT') : 'nunca';
+    if (resumo) resumo.textContent = d.total_alertas
+      ? `${d.total_alertas} alerta(s), ${d.criticos} crítico(s). Última rotina diária: ${ultima}.`
+      : `Sem alertas. Última rotina diária: ${ultima}.`;
+    if (!d.alarmes.length) {
+      lista.innerHTML = '<div class="alert alert-success py-2 mb-0 small"><i class="bi bi-check-circle-fill me-2"></i>Tudo em ordem: não há pagamentos por supervisionar.</div>';
+      return;
+    }
+    lista.innerHTML = '<div class="row g-2">' + d.alarmes.map(a => {
+      const est = ALARME_ESTILO[a.severidade] || ALARME_ESTILO.info;
+      const itens = a.itens.map(i => `<li class="small"><strong>${escapeHtml(i.instituicao)}</strong> <span class="text-muted">— ${escapeHtml(i.detalhe)}</span></li>`).join('');
+      const mais = a.total > a.itens.length ? `<li class="small text-muted">… e mais ${a.total - a.itens.length}. Ver em Assinaturas &amp; Pagamentos.</li>` : '';
+      return `<div class="col-12 col-lg-6">
+        <details class="border border-${est.cls} border-opacity-50 rounded p-2 bg-${est.cls} bg-opacity-10 h-100">
+          <summary class="d-flex align-items-center gap-2 fw-semibold" style="cursor:pointer">
+            <i class="bi ${est.icone} text-${est.cls}"></i>
+            <span class="flex-grow-1">${escapeHtml(a.titulo)}</span>
+            <span class="badge bg-${est.cls} ${est.cls === 'warning' ? 'text-dark' : ''}">${a.total}</span>
+          </summary>
+          ${a.descricao ? `<div class="small text-muted mt-1">${escapeHtml(a.descricao)}</div>` : ''}
+          <ul class="mt-2 mb-0 ps-3">${itens}${mais}</ul>
+        </details></div>`;
+    }).join('') + '</div>';
+  } catch (err) {
+    if (resumo) resumo.textContent = 'Não foi possível verificar os alarmes agora.';
+    if (lista) lista.innerHTML = `<div class="alert alert-secondary py-2 mb-0 small">Falha ao carregar alarmes (${escapeHtml(err.message || 'erro')}). <button class="btn btn-sm btn-outline-primary ms-2" onclick="carregarAlarmesSaaS()">Tentar novamente</button></div>`;
+  }
+}
+
+// Monitor: actualiza o distintivo do menu a cada 5 minutos enquanto o SuperAdmin tiver sessão.
+function iniciarMonitorAlarmesSaaS() {
+  if (window._monitorAlarmesSaaS) return;
+  window._monitorAlarmesSaaS = setInterval(() => {
+    if (state?.user?.role === 'SUPERADMIN' && !document.hidden) carregarAlarmesSaaS();
+  }, 300000);
+}
+
 // ==================== 0.1 PACOTES DE FUNCIONALIDADES ====================
 const PERIODOS_PACOTE = [['mensal', 'Mensal', 1], ['trimestral', 'Trimestral', 3], ['semestral', 'Semestral', 6], ['anual', 'Anual', 12]];
 
@@ -383,8 +453,10 @@ async function carregarPainelSaaS() {
       }
     }
 
-    // 2.1 Pacotes de funcionalidades (não bloqueia o resto do painel)
+    // 2.1 Pacotes de funcionalidades e alarmes de supervisão (não bloqueiam o resto do painel)
     carregarPacotesSaaS();
+    carregarAlarmesSaaS();
+    iniciarMonitorAlarmesSaaS();
 
     // 3. Tabela de Preços dos Planos
     if (tbodyPlanos) {

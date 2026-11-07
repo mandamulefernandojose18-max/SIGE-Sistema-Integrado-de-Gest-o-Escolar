@@ -48,6 +48,21 @@
           </div>
         </div>
 
+        <!-- Supervisão de Pagamentos: alarmes (altura constante: no máximo 6 cartões, 5 exemplos por alarme) -->
+        <div class="card p-3 mb-4" id="cardAlarmesSaas">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-bell-fill me-2" id="iconeAlarmesSaas"></i>Supervisão de Pagamentos</h5>
+              <small class="text-muted" id="resumoAlarmesSaas">A verificar alarmes...</small>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary btn-sm" onclick="navegarPara('pagamentos-saas')"><i class="bi bi-credit-card-2-front me-1"></i>Assinaturas &amp; Pagamentos</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="carregarAlarmesSaaS()" title="Actualizar alarmes" aria-label="Actualizar alarmes"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+          </div>
+          <div id="listaAlarmesSaas"></div>
+        </div>
+
         <!-- Tabela de Escolas Cadastradas -->
         <div class="card p-4 mb-4">
           <div class="d-flex justify-content-between align-items-center mb-3">

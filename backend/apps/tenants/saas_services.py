@@ -263,10 +263,11 @@ def aplicar_pagamento_adiantado_python(ass, fatura_principal, valor_pago_total, 
             'descricao': f"Valor excedente de {sobra} MZN corresponde a {desc_str} adicionais de subscrição (validade estendida até {nova_proxima.strftime('%d/%m/%Y')})."
         }
 
-    # 3. Reactivar automaticamente a instituição se não restarem faturas em atraso
+    # 3. Reactivar automaticamente a instituição se não restarem faturas por liquidar.
+    # Pagamento parcial (paga_parcial) NÃO reactiva: o estado é reavaliado pelas regras automáticas.
     restantes = SaasFatura.objects.filter(
         instituicao=ass.instituicao,
-        estado__in=['em_atraso', 'aberta']
+        estado__in=['em_atraso', 'aberta', 'paga_parcial']
     ).count()
 
     reativada = False
@@ -275,6 +276,11 @@ def aplicar_pagamento_adiantado_python(ass, fatura_principal, valor_pago_total, 
         ass.save(update_fields=['estado', 'updated_at'])
         Escola.objects.filter(id=ass.instituicao_id).update(status='ATIVA', bloqueada_manualmente=False)
         reativada = True
+    elif fatura_principal.estado == 'paga_parcial':
+        avaliar_regras_automaticas_instituicao(
+            instituicao_id=ass.instituicao_id, acao_desejada='auto_avaliar', feito_por=utilizador,
+            motivo_personalizado='Pagamento parcial recebido: estado reavaliado pelas regras automáticas.'
+        )
 
     return {
         'sobra_restante': sobra,
@@ -461,6 +467,22 @@ def avaliar_regras_automaticas_instituicao(instituicao_id, acao_desejada=None, f
 
 
 def executar_rotina_diaria_saas_python():
+    """Executa a rotina diária e regista o resultado (sucesso ou falha) para o alarme de supervisão."""
+    from .models import SaasRotinaExecucao
+    try:
+        resultado = _executar_rotina_diaria_core()
+    except Exception as exc:
+        SaasRotinaExecucao.objects.create(sucesso=False, erro=str(exc)[:2000])
+        raise
+    SaasRotinaExecucao.objects.create(
+        sucesso=True,
+        faturas_geradas=resultado.get('faturas_geradas', 0),
+        alteracoes_estado=resultado.get('alteracoes_estado', 0),
+    )
+    return resultado
+
+
+def _executar_rotina_diaria_core():
     hoje = timezone.localdate()
     faturas_geradas = 0
     alteracoes_estado = 0

@@ -79,6 +79,17 @@ class SaasResumoView(APIView):
         })
 
 
+class SaasAlarmesView(APIView):
+    """Alarmes de supervisão de pagamentos (comprovativos, vencimentos, atrasos, suspensões, anomalias, rotina)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not is_superadmin_user(request.user):
+            return Response({'success': False, 'message': 'Acesso exclusivo ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
+        from .saas_alarmes import calcular_alarmes
+        return Response({'success': True, 'data': calcular_alarmes()})
+
+
 class SaasAssinaturasListView(APIView):
     permission_classes = [IsAuthenticated]
 

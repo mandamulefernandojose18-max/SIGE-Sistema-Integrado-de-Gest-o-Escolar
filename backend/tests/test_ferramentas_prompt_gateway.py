@@ -195,7 +195,10 @@ def test_api_gateway_stats(client, superadmin_user, aluno_user):
     dados = resp.json()
     assert dados['success'] is True
     assert 'operadoras' in dados
-    assert dados['saldo_creditos_sms'] >= 0
+    # Sem fornecedor ligado, o saldo e a taxa de entrega não são inventados
+    assert dados['saldo_creditos_sms'] is None
+    assert dados['taxa_entrega_sms'] is None
+    assert all(o['status'] == 'NAO_VERIFICADO' and o['latencia'] is None for o in dados['operadoras'])
 
 
 @pytest.mark.django_db

@@ -213,22 +213,25 @@ def api_gateway_stats(request):
 
     total_sms = qs_sms.count()
     sms_entregues = qs_sms.filter(status='ENTREGUE').count()
-    taxa_entrega = round((sms_entregues / total_sms * 100), 1) if total_sms > 0 else 99.4
+    # Sem SMS enviados não há taxa real: devolve None (a interface mostra "—").
+    taxa_entrega = round((sms_entregues / total_sms * 100), 1) if total_sms > 0 else None
 
     total_trx = qs_trx.count()
     volume_mzn = sum((t.valor for t in qs_trx.filter(status='CONCLUIDO')), Decimal('0.00'))
 
     dados = {
         'success': True,
-        'saldo_creditos_sms': 2850,
+        # Saldo real só existe quando houver fornecedor de SMS ligado; até lá não se inventa um valor.
+        'saldo_creditos_sms': None,
         'total_sms_enviados': total_sms,
-        'taxa_entrega_sms': f"{taxa_entrega}%",
+        'taxa_entrega_sms': f"{taxa_entrega}%" if taxa_entrega is not None else None,
         'total_pagamentos_moveis': total_trx,
         'volume_pagamentos_mzn': float(volume_mzn),
+        # Estado e latência em tempo real não são medidos (sem ligação a fornecedor): não se fabricam valores.
         'operadoras': [
-            {'nome': 'Vodacom', 'canais': 'M-Pesa (C2B Push) & SMS', 'status': 'OPERACIONAL', 'latencia': '82 ms', 'prefixo': '84 / 85'},
-            {'nome': 'Movitel', 'canais': 'e-Mola (Push USSD) & SMS', 'status': 'OPERACIONAL', 'latencia': '94 ms', 'prefixo': '86 / 87'},
-            {'nome': 'Tmcel', 'canais': 'SMS Transacional & USSD', 'status': 'OPERACIONAL', 'latencia': '108 ms', 'prefixo': '82 / 83'}
+            {'nome': 'Vodacom', 'canais': 'M-Pesa (C2B Push) & SMS', 'status': 'NAO_VERIFICADO', 'latencia': None, 'prefixo': '84 / 85'},
+            {'nome': 'Movitel', 'canais': 'e-Mola (Push USSD) & SMS', 'status': 'NAO_VERIFICADO', 'latencia': None, 'prefixo': '86 / 87'},
+            {'nome': 'Tmcel', 'canais': 'SMS Transacional & USSD', 'status': 'NAO_VERIFICADO', 'latencia': None, 'prefixo': '82 / 83'}
         ]
     }
     return _aplicar_cabecalhos_seguranca(JsonResponse(dados))

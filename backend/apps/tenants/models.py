@@ -627,6 +627,24 @@ class SaasPagamento(models.Model):
         return f"{self.metodo} - {self.referencia} ({self.valor} MZN) [{self.estado}]"
 
 
+class SaasRotinaExecucao(models.Model):
+    """Registo de cada execução da rotina diária SaaS (faturação, suspensão e reactivação automáticas)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    executada_em = models.DateTimeField(default=timezone.now, db_index=True)
+    sucesso = models.BooleanField(default=True)
+    faturas_geradas = models.IntegerField(default=0)
+    alteracoes_estado = models.IntegerField(default=0)
+    erro = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'sige_saas_rotina_execucoes'
+        ordering = ['-executada_em']
+
+    def delete(self, *args, **kwargs):
+        from django.db import IntegrityError
+        raise IntegrityError('Eliminação não permitida: registos de execução são imutáveis.')
+
+
 class SaasLogAssinatura(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     instituicao = models.ForeignKey(Escola, on_delete=models.RESTRICT, related_name='saas_logs')

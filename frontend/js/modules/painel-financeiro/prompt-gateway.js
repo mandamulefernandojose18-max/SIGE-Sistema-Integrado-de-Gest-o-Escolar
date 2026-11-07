@@ -37,10 +37,10 @@ async function carregarEstatisticasGateway() {
     const res = await apiFetch('/api/v1/ferramentas/stats', { ignoreAuthRedirect: true });
     if (res && res.success) {
       const elSaldo = document.getElementById('gwCardSaldoSms');
-      if (elSaldo) elSaldo.textContent = (res.saldo_creditos_sms || 2850).toLocaleString('pt-PT');
+      if (elSaldo) elSaldo.textContent = (res.saldo_creditos_sms == null ? '—' : Number(res.saldo_creditos_sms).toLocaleString('pt-PT'));
 
       const elTaxa = document.getElementById('gwCardTaxaEntrega');
-      if (elTaxa) elTaxa.textContent = res.taxa_entrega_sms || '99.4%';
+      if (elTaxa) elTaxa.textContent = res.taxa_entrega_sms || '—';
 
       const elTotalSms = document.getElementById('gwCardTotalSms');
       if (elTotalSms) elTotalSms.textContent = (res.total_sms_enviados || 0).toLocaleString('pt-PT');

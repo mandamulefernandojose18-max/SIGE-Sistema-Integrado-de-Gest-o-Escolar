@@ -17,6 +17,7 @@ from .views import (
 
 from .saas_views import (
     SaasResumoView,
+    SaasAlarmesView,
     SaasAssinaturasListView,
     SaasAssinaturaDetalheView,
     SaasPagamentosPendentesView,
@@ -67,6 +68,8 @@ escola_admin_urls = [
 saas_pagamentos_urls = [
     path('resumo', SaasResumoView.as_view(), name='saas_resumo_no_slash'),
     path('resumo/', SaasResumoView.as_view(), name='saas_resumo'),
+    path('alarmes', SaasAlarmesView.as_view(), name='saas_alarmes_no_slash'),
+    path('alarmes/', SaasAlarmesView.as_view(), name='saas_alarmes'),
     path('assinaturas', SaasAssinaturasListView.as_view(), name='saas_assinaturas_list_no_slash'),
     path('assinaturas/', SaasAssinaturasListView.as_view(), name='saas_assinaturas_list'),
     path('assinaturas/<uuid:pk>', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_detalhe_no_slash'),
