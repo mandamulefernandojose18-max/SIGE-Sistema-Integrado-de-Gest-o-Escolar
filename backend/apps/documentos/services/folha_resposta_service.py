@@ -454,7 +454,7 @@ def _bloco_instrucoes(c, y, extra=''):
     for i, letra in enumerate('ABCD'):
         _bolha(c, MARGEM + 22 + i * 9.5, ex_y, 7.2, 3.6, letra, riscada=(letra == 'D'), tam_letra=6.6)
     c.setFont(FONTE, 7.6)
-    c.drawString((MARGEM + 63) * mm, _y(ex_y + 1.0), 'risca horizontalmente a alternativa: marcação da letra D na questão número 1.' + (f'   {extra}' if extra else ''))
+    c.drawString((MARGEM + 63) * mm, _y(ex_y + 1.0), extra or '')
     c.setStrokeColor(PRETO)
 
 
@@ -937,8 +937,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             cel.font = Font(name='Times New Roman', size=12, bold=(letra == 'D'), strike=(letra == 'D'), color='000000')
             cel.alignment = centro
         ws.merge_cells(start_row=27, start_column=15, end_row=27, end_column=NCOL)
-        ws.cell(row=27, column=15, value='risca horizontalmente a alternativa: marcação da letra D na questão número 1.'
-                + (f'   {config["instrucao_extra"]}' if config['instrucao_extra'] else '')).alignment = esq
+        ws.cell(row=27, column=15, value=config['instrucao_extra'] or None).alignment = esq
         ws.row_dimensions[28].height = 5
         barra(ws, 29, 1, NCOL, 'GRELHA DE RESPOSTAS   —   Cotação: ' + _descricao_cotacao(config), centro)
 
