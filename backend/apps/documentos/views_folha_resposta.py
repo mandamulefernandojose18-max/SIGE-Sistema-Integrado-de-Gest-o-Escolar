@@ -88,6 +88,7 @@ class FolhaRespostaContextoView(APIView):
             'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
             'classes': [{'classe': k, 'turmas': v, 'total_alunos': sum(x['alunos'] for x in v)} for k, v in classes.items()],
             'disciplinas_por_classe': disciplinas,
+            'regra_exclusao': _regra_da_escola(escola),
             'limites': {'max_perguntas': fr.MAX_PERGUNTAS, 'max_folhas': fr.MAX_FOLHAS,
                         'max_folhas_branco': fr.MAX_FOLHAS_BRANCO},
         })
@@ -108,22 +109,53 @@ class FolhaRespostaAlunosView(APIView):
         ]})
 
 
+def _regra_da_escola(escola):
+    from apps.escudo.services import folha as folha_mod
+    return folha_mod.regra_da_escola(escola)
+
+
+class FolhaRespostaRegraView(APIView):
+    permission_classes = [IsAuthenticated, PodeEmitirFolhas]
+
+    def post(self, request):
+        from apps.escudo.services import folha as folha_mod
+        escola = _escola_ou_erro(request)
+        dados = request.data if isinstance(request.data, dict) else {}
+        try:
+            regra = folha_mod.guardar_regra(escola, {
+                'verificar_sempre': 'on' if dados.get('verificar_sempre') else '',
+                'motivos': [m for m in (dados.get('motivos') or []) if isinstance(m, str)],
+                'faltas_minimo': dados.get('faltas_minimo') or 0})
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=400)
+        return Response(regra)
+
+
 class FolhaRespostaGerarView(APIView):
     permission_classes = [IsAuthenticated, PodeEmitirFolhas]
 
     def post(self, request):
-        dados = request.data if isinstance(request.data, dict) else {}
+        if request.content_type and request.content_type.startswith('multipart'):  # lista importada: dados em JSON + ficheiro
+            import json
+            try:
+                dados = json.loads(request.data.get('dados') or '{}')
+            except ValueError:
+                return Response({'detail': 'Pedido inválido.'}, status=400)
+            if not isinstance(dados, dict):
+                dados = {}
+        else:
+            dados = request.data if isinstance(request.data, dict) else {}
         escopo = str(dados.get('escopo') or '').lower()
         formato = str(dados.get('formato') or 'pdf').lower()
         if formato not in ('pdf', 'xlsx'):
             return Response({'detail': 'Formato inválido (pdf ou xlsx).'}, status=400)
-        if escopo not in ('aluno', 'turma', 'classe', 'branco'):
-            return Response({'detail': 'Âmbito inválido (aluno, turma, classe ou branco).'}, status=400)
+        if escopo not in ('aluno', 'turma', 'classe', 'branco', 'lista'):
+            return Response({'detail': 'Âmbito inválido (aluno, turma, classe, lista ou branco).'}, status=400)
 
         escola = _escola_ou_erro(request)
         ano = str(dados.get('ano_letivo') or escola.ano_letivo_ativo)
         esc = fr.montar_dados_escola(escola)
-        alunos, etiqueta, classe_ref, area_ref = [], '', '', ''
+        alunos, etiqueta, classe_ref, area_ref, pares, cands_lista = [], '', '', '', [], None
 
         if escopo == 'aluno':
             aluno, escola = _obter_aluno_e_escola(request, dados.get('aluno_id'))
@@ -133,13 +165,16 @@ class FolhaRespostaGerarView(APIView):
                 ordem = _alunos_da_turma(aluno.turma)
                 numero = next((i for i, a in enumerate(ordem, start=1) if a.id == aluno.id), None)
             alunos = [fr.montar_dados_aluno(aluno, numero)]
+            pares = [aluno]
             etiqueta = f'{aluno.apelido or ""} {aluno.nome}'.strip()
             classe_ref = alunos[0]['classe']
             area_ref = aluno.turma.area if aluno.turma_id else (aluno.area or '')
         elif escopo == 'turma':
             turma, escola = _obter_turma_e_escola(request, dados.get('turma_id'))
             esc = fr.montar_dados_escola(escola)
-            alunos = [fr.montar_dados_aluno(a, i) for i, a in enumerate(_alunos_da_turma(turma), start=1)]
+            lista_t = _alunos_da_turma(turma)
+            alunos = [fr.montar_dados_aluno(a, i) for i, a in enumerate(lista_t, start=1)]
+            pares = list(lista_t)
             etiqueta = f'{turma.grau_ano} {turma.nome}'
             classe_ref, area_ref = turma.grau_ano, turma.area
         elif escopo == 'classe':
@@ -151,8 +186,23 @@ class FolhaRespostaGerarView(APIView):
             if area_ref:
                 turmas_qs = turmas_qs.filter(area=area_ref)
             for turma in turmas_qs.order_by('nome'):
-                alunos += [fr.montar_dados_aluno(a, i) for i, a in enumerate(_alunos_da_turma(turma), start=1)]
+                lista_t = _alunos_da_turma(turma)
+                alunos += [fr.montar_dados_aluno(a, i) for i, a in enumerate(lista_t, start=1)]
+                pares += lista_t
             etiqueta = f'{classe_ref} {area_ref}'.strip()
+        elif escopo == 'lista':
+            ficheiro = request.FILES.get('lista')
+            if not ficheiro:
+                return Response({'detail': 'Escolha o ficheiro da lista de alunos (Excel .xlsx ou CSV).'}, status=400)
+            from apps.escudo.services import folha as folha_mod
+            try:
+                cands_lista = folha_mod._candidatos_da_lista(ficheiro, escola)
+            except ValueError as e:
+                return Response({'detail': str(e)}, status=400)
+            alunos = [c['dados'] for c in cands_lista]
+            pares = [c['aluno'] for c in cands_lista]
+            classe_ref = str(dados.get('classe') or '').strip()
+            etiqueta = 'lista importada'
         else:
             classe_ref = str(dados.get('classe') or '').strip()
             try:
@@ -166,6 +216,25 @@ class FolhaRespostaGerarView(APIView):
 
         if not alunos:
             return Response({'detail': 'Não existem alunos activos neste âmbito: não há folhas personalizadas a gerar.'}, status=404)
+
+        # Exclusões (Faltas, PPF, PDF, Transferida, Óbito, Outros) e regra automática da escola: mesma lógica do Escudo
+        excluidos, previa = [], bool(dados.get('previa'))
+        if escopo != 'branco':
+            from apps.escudo.services import folha as folha_mod
+            form = {'folha_excluir': 'sim' if dados.get('excluir') else 'nao',
+                    'folha_excluir_motivo': [m for m in (dados.get('motivos') or []) if isinstance(m, str)],
+                    'folha_excluir_faltas': str(dados.get('faltas_minimo') or ''),
+                    'folha_excluir_outros': str(dados.get('outros') or '')}
+            cands = cands_lista if cands_lista is not None else [{'dados': d, 'aluno': a, 'situacao': ''} for d, a in zip(alunos, pares)]
+            try:
+                incluidos, excluidos = folha_mod.excluir_alunos(
+                    escola, ano, str((dados.get('config') or {}).get('disciplina') or ''), cands, form)
+            except ValueError as e:
+                return Response({'detail': str(e)}, status=400)
+            if not incluidos:
+                motivo = f' ({excluidos[0][1]})' if escopo == 'aluno' and excluidos else ''
+                return Response({'detail': 'Não há folhas a gerar: todos os alunos deste âmbito ficaram excluídos' + motivo + '.'}, status=409)
+            alunos = [c['dados'] for c in incluidos]
 
         cfg_in = dict(dados.get('config') or {})
         if classe_ref:
@@ -191,7 +260,23 @@ class FolhaRespostaGerarView(APIView):
             f"Folha de resposta ({formato.upper()}) · {config['tipo_rotulo']} · {config['disciplina']} · {etiqueta} · {total} folha(s)",
         )
         nome = _safe_ascii_filename(f"Folha_Resposta_{config['disciplina']}_{config['tipo_rotulo']}_{etiqueta}_{ano}") + f'.{formato}'
-        resp = HttpResponse(conteudo, content_type='application/pdf' if formato == 'pdf' else XLSX_MIME)
+        if escopo in ('turma', 'classe', 'lista') and not previa:
+            # ZIP: as folhas + a lista (PDF e Excel) de quem teve a folha gerada e quantos, e os excluídos e porquê
+            import io
+            import zipfile
+            from apps.escudo.services import folha as folha_mod
+            titulo_lista = f"Lista de alunos com folha de resposta gerada · {config['disciplina']} · {etiqueta}"
+            lista_pdf, lista_xlsx = folha_mod.listas_geradas(escola, alunos, excluidos, titulo_lista, f'{config["tipo_rotulo"]} · {ano}')
+            base = nome.rsplit('.', 1)[0]
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+                z.writestr(nome, conteudo)
+                z.writestr(f'{base}_LISTA_ALUNOS_gerados.pdf', lista_pdf)
+                z.writestr(f'{base}_LISTA_ALUNOS_gerados.xlsx', lista_xlsx)
+            conteudo, nome, mime = buf.getvalue(), base + '.zip', 'application/zip'
+        else:
+            mime = 'application/pdf' if formato == 'pdf' else XLSX_MIME
+        resp = HttpResponse(conteudo, content_type=mime)
         resp['X-Total-Folhas'] = str(total)
         resp['Access-Control-Expose-Headers'] = 'Content-Disposition, X-Total-Folhas'
         return _definir_content_disposition(resp, nome)

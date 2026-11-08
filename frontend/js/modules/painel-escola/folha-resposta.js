@@ -135,10 +135,12 @@
   }
   function mostrarCamposEscopo() {
     var e = $('frEscopo').value;
-    $('frBlocoClasse').classList.toggle('d-none', false);
-    $('frBlocoArea').classList.toggle('d-none', e === 'branco');
-    $('frBlocoTurma').classList.toggle('d-none', e === 'classe' || e === 'branco');
+    $('frBlocoClasse').classList.toggle('d-none', e === 'lista');
+    $('frBlocoArea').classList.toggle('d-none', e === 'branco' || e === 'lista');
+    $('frBlocoTurma').classList.toggle('d-none', e === 'classe' || e === 'branco' || e === 'lista');
     $('frBlocoAluno').classList.toggle('d-none', e !== 'aluno');
+    $('frBlocoLista').classList.toggle('d-none', e !== 'lista');
+    if (e === 'lista') { $('frBlocoClasse').classList.add('d-none'); $('frBlocoArea').classList.add('d-none'); $('frBlocoTurma').classList.add('d-none'); }
     $('frBlocoCopias').classList.toggle('d-none', e !== 'branco');
     if (e === 'aluno') aoMudarTurma(); else resumo();
   }
@@ -148,6 +150,7 @@
     var t = turmasDaClasse().find(function (x) { return x.id === $('frTurma').value; });
     var txt = 'Escolha a classe e a turma.';
     if (e === 'branco') txt = 'Serão geradas ' + (parseInt($('frCopias').value, 10) || 0) + ' folhas com os dados da escola e da avaliação; os campos do aluno ficam em branco.';
+    else if (e === 'lista') txt = 'Será gerada uma folha por aluno da lista importada (o SIGE completa os dados pelo Código e aplica as exclusões).';
     else if (e === 'classe') txt = c ? 'Serão geradas ' + c.total_alunos + ' folhas (todos os alunos activos da ' + c.classe + ').' : 'Escolha a classe.';
     else if (e === 'turma') txt = t ? 'Serão geradas ' + t.alunos + ' folhas (alunos activos da turma ' + t.nome + ').' : 'Escolha a classe e a turma.';
     else txt = $('frAluno').value ? 'Será gerada 1 folha para o aluno escolhido.' : 'Escolha a classe, a turma e o aluno.';
@@ -245,6 +248,26 @@
     if (!semValidar && !cfg.disciplina) throw new Error('Escolha a disciplina.');
     return cfg;
   }
+  function motivosMarcados() {
+    return Array.prototype.filter.call(document.querySelectorAll('.fr-motivo'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+  }
+  function pintarRegra(r) {
+    if (!r) return;
+    $('frRegraSempre').checked = !!r.verificar_sempre;
+    Array.prototype.forEach.call(document.querySelectorAll('.fr-motivo'), function (c) { if (c.value !== 'outros') c.checked = (r.motivos || []).indexOf(c.value) >= 0; });
+    $('frFaltasMin').value = r.faltas_minimo || '';
+    if (r.verificar_sempre) $('frRegraMsg').textContent = 'Verificação automática activa para esta escola.';
+  }
+  async function guardarRegra() {
+    var ms = motivosMarcados().filter(function (m) { return m !== 'outros'; });
+    $('frRegraMsg').textContent = 'A guardar…';
+    try {
+      var r = await pedir('regra/', { method: 'POST', headers: cab({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ verificar_sempre: $('frRegraSempre').checked, motivos: ms, faltas_minimo: $('frFaltasMin').value || 0 }) });
+      if (!r.ok) throw new Error(await mensagemErro(r));
+      $('frRegraMsg').textContent = $('frRegraSempre').checked ? 'Regra guardada: o sistema verifica sempre antes de gerar.' : 'Verificação automática desactivada.';
+    } catch (e) { $('frRegraMsg').textContent = e.message || 'Não foi possível guardar a regra.'; }
+  }
   function corpo(formato, previa) {
     var e = $('frEscopo').value;
     // Pré-visualização sem aluno/turma escolhidos: mostra a folha em branco com as definições actuais.
@@ -252,8 +275,14 @@
       return { formato: 'pdf', escopo: 'branco', copias: 1, ano_letivo: ano(), classe: classeActual(), config: lerConfig(false) };
     }
     var c = { formato: formato, escopo: e, ano_letivo: ano(), config: lerConfig(false) };
+    if (e !== 'branco') {  // quem não faz a prova (mesma regra do Escudo Anti-IA)
+      var ms = motivosMarcados();
+      if (ms.length) { c.excluir = true; c.motivos = ms; c.faltas_minimo = $('frFaltasMin').value; c.outros = $('frOutros').value; }
+      if (previa) c.previa = true;
+    }
     if (e === 'aluno') { if (!$('frAluno').value) throw new Error('Escolha o aluno.'); c.aluno_id = $('frAluno').value; }
     else if (e === 'turma') { if (!$('frTurma').value) throw new Error('Escolha a turma.'); c.turma_id = $('frTurma').value; }
+    else if (e === 'lista') { if (!$('frLista').files.length) throw new Error('Escolha o ficheiro da lista de alunos (.xlsx ou .csv).'); }
     else if (e === 'classe') { if (!classeActual()) throw new Error('Escolha a classe.'); c.classe = classeActual(); c.area = areaActual(); }
     else { c.copias = parseInt($('frCopias').value, 10) || 0; c.classe = classeActual(); }
     return c;
@@ -268,7 +297,13 @@
       var c = corpo(previa ? 'pdf' : formato, previa);
       btns.forEach(function (b) { b.disabled = true; });
       estado('A gerar…');
-      var r = await fetch(API + 'gerar/', { method: 'POST', headers: cab({ 'Content-Type': 'application/json' }), body: JSON.stringify(c) });
+      var r;
+      if (c.escopo === 'lista') {  // lista importada: JSON + ficheiro (multipart)
+        var fd = new FormData(); fd.append('dados', JSON.stringify(c)); fd.append('lista', $('frLista').files[0]);
+        r = await fetch(API + 'gerar/', { method: 'POST', headers: cab(), body: fd });
+      } else {
+        r = await fetch(API + 'gerar/', { method: 'POST', headers: cab({ 'Content-Type': 'application/json' }), body: JSON.stringify(c) });
+      }
       if (!r.ok) throw new Error(await mensagemErro(r));
       var blob = await r.blob();
       var total = r.headers.get('X-Total-Folhas') || '?';
@@ -368,6 +403,13 @@
     $('frNAlt').addEventListener('change', desenharGrelhaPrevia);
     ['frNPerg', 'frCotPerg'].forEach(function (id) { $(id).addEventListener('input', actualizarTotal); });
     $('frVersoes').addEventListener('input', desenharChaves);
+    $('frMOutros').addEventListener('change', function () { $('frBlocoOutros').classList.toggle('d-none', !this.checked); });
+    $('frMTodos').addEventListener('click', function () {
+      var cx = Array.prototype.slice.call(document.querySelectorAll('.fr-motivo')), todos = cx.every(function (c) { return c.checked; });
+      cx.forEach(function (c) { c.checked = !todos; });
+      $('frBlocoOutros').classList.toggle('d-none', !$('frMOutros').checked);
+    });
+    $('frGuardarRegra').addEventListener('click', guardarRegra);
     $('frBtnPdf').addEventListener('click', function () { gerar('pdf'); });
     $('frBtnXlsx').addEventListener('click', function () { gerar('xlsx'); });
     $('frBtnPrevia').addEventListener('click', function () { gerar('pdf', true); });
@@ -387,6 +429,7 @@
       ctx = await r.json();
       $('frTipo').innerHTML = (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
       restaurar();
+      pintarRegra(ctx.regra_exclusao);
       preencherClasses();
       mostrarCamposEscopo();
       actualizarTotal();

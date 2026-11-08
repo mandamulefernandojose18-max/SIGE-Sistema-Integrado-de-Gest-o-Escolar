@@ -37,6 +37,7 @@
                   <option value="aluno">Um aluno</option>
                   <option value="turma" selected>Todos os alunos de uma turma</option>
                   <option value="classe">Todos os alunos de uma classe</option>
+                  <option value="lista">Alunos de uma lista importada (Excel/CSV)</option>
                   <option value="branco">Folhas em branco (sem aluno)</option>
                 </select>
               </div>
@@ -56,6 +57,9 @@
                 <label class="form-label small mb-1" for="frCopias">NÂº de folhas em branco</label>
                 <input id="frCopias" type="number" min="1" max="500" value="30" class="form-control form-control-sm">
               </div>
+              <div class="col-12 d-none" id="frBlocoLista"><label class="form-label small mb-1" for="frLista">Lista de alunos (.xlsx ou .csv)</label>
+                <input id="frLista" type="file" accept=".xlsx,.csv,.txt" class="form-control form-control-sm">
+                <div class="form-text">A primeira linha é o cabeçalho. Obrigatória: <strong>Nome</strong>. Opcionais: Apelido, Classe, Turma, Secção/Área, Nº, Código (matrícula) e Situação. Com o Código, o SIGE completa os dados e verifica faltas, PPF, PDF, transferência e óbito. A lista não fica guardada (máx. 2000 linhas / 200 folhas).</div></div>
               <div class="col-12 d-none" id="frBlocoAluno">
                 <label class="form-label small mb-1" for="frAlunoBusca">Aluno</label>
                 <input id="frAlunoBusca" type="search" class="form-control form-control-sm mb-1" placeholder="Filtrar por nome, apelido ou cÃ³digoâ€¦" autocomplete="off">
@@ -188,6 +192,38 @@
             <span id="frGrelhaInfo" class="small text-muted"></span>
           </div>
           <div class="card-body"><div id="frGrelhaPrevia" class="d-flex gap-3 flex-wrap" aria-label="PrÃ©via das perguntas"></div></div>
+        </div>
+      </div>
+
+      <!-- 4. Quem fica de fora (mesma regra do Escudo Anti-IA) -->
+      <div class="col-12" id="frBlocoExclusao">
+        <div class="card shadow-sm">
+          <div class="card-header fw-semibold"><i class="bi bi-person-dash me-1"></i> 4. Quem não faz a prova (turma ou classe)</div>
+          <div class="card-body">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="frRegraSempre"><label class="form-check-label" for="frRegraSempre"><strong>Verificar automaticamente e sempre</strong> <span class="text-muted small">— a escola salta, sem perguntar, quem estiver nestas condições (vale também para o Escudo Anti-IA).</span></label>
+            </div>
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-3"><label class="form-label small mb-1" for="frFaltasMin">Total de faltas acumuladas (a partir do qual não se gera)</label>
+                <input id="frFaltasMin" type="number" min="1" max="999" class="form-control form-control-sm" placeholder="Defina o número"></div>
+              <div class="col-12 col-md-9 d-flex flex-wrap gap-3 small">
+                <div class="form-check"><input class="form-check-input fr-motivo" type="checkbox" value="faltas" id="frMFaltas"><label class="form-check-label" for="frMFaltas">Faltas</label></div>
+                <div class="form-check"><input class="form-check-input fr-motivo" type="checkbox" value="ppf" id="frMPpf"><label class="form-check-label" for="frMPpf">PPF</label></div>
+                <div class="form-check"><input class="form-check-input fr-motivo" type="checkbox" value="pdf" id="frMPdf"><label class="form-check-label" for="frMPdf">PDF</label></div>
+                <div class="form-check"><input class="form-check-input fr-motivo" type="checkbox" value="transferida" id="frMTransf"><label class="form-check-label" for="frMTransf">Transferida</label></div>
+                <div class="form-check"><input class="form-check-input fr-motivo" type="checkbox" value="obito" id="frMObito"><label class="form-check-label" for="frMObito">Óbito</label></div>
+                <div class="form-check"><input class="form-check-input fr-motivo" type="checkbox" value="outros" id="frMOutros"><label class="form-check-label" for="frMOutros">Outros/as</label></div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="frMTodos">Seleccionar todos</button>
+              </div>
+              <div class="col-12 d-none" id="frBlocoOutros"><label class="form-label small mb-1" for="frOutros">Outros/as: alunos a excluir (código ou nome, um por linha)</label>
+                <textarea id="frOutros" class="form-control form-control-sm" rows="2" maxlength="2000"></textarea></div>
+              <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="frGuardarRegra">Guardar como regra da escola</button>
+                <span id="frRegraMsg" class="small text-muted" role="status"></span>
+              </div>
+            </div>
+            <div class="form-text mt-2">As condições marcadas aplicam-se a esta emissão; se «Verificar automaticamente e sempre» estiver guardado, aplicam-se sempre. Recebes um ZIP com as folhas e a lista (PDF e Excel) de quem teve a folha gerada e quantos, mais os excluídos e o motivo.</div>
+          </div>
         </div>
       </div>
 

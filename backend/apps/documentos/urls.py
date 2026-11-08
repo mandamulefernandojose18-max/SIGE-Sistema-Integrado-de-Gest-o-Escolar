@@ -37,6 +37,7 @@ from .views_folha_resposta import (
     FolhaRespostaAlunosView,
     FolhaRespostaGerarView,
     FolhaRespostaVerificarView,
+    FolhaRespostaRegraView,
 )
 
 urlpatterns = [
@@ -49,6 +50,7 @@ urlpatterns = [
     path('folha-resposta/verificar/', FolhaRespostaVerificarView.as_view(), name='folha_resposta_verificar'),
     path('folha-resposta/gerar', FolhaRespostaGerarView.as_view(), name='folha_resposta_gerar_no_slash'),
     path('folha-resposta/gerar/', FolhaRespostaGerarView.as_view(), name='folha_resposta_gerar'),
+    path('folha-resposta/regra/', FolhaRespostaRegraView.as_view(), name='folha_resposta_regra'),
 
     # Lote de Impressão (Boletins, Declarações e Certificados da turma inteira)
     path('lote/turma/<uuid:turma_id>', LoteImpressaoView.as_view(), name='impressao_lote_no_slash'),

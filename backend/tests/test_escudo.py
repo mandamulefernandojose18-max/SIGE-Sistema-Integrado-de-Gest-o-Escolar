@@ -1149,9 +1149,11 @@ def test_folha_personalizada_uma_copia_por_aluno_real_da_turma(duas_escolas):
             'folha_personalizada': 'sim', 'folha_classe': '11.ª Classe', 'folha_area': 'Ciências', 'folha_turma_id': str(turma.id)}
     r = c.post(API + pid + '/gerar/', form)
     assert r.status_code == 200, r.content
-    nomes = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
-    assert len(nomes) == 3 and any('Nome0' in n for n in nomes)
     z = zipfile.ZipFile(io.BytesIO(r.content))
+    todos = z.namelist()
+    assert any(n.endswith('LISTA_ALUNOS_gerados.pdf') for n in todos) and any(n.endswith('LISTA_ALUNOS_gerados.xlsx') for n in todos)
+    nomes = [n for n in todos if 'LISTA' not in n]
+    assert len(nomes) == 3 and any('Nome0' in n for n in nomes)
     primeira = PdfReader(io.BytesIO(z.read(nomes[0]))).pages[0].extract_text()
     assert 'Nome0' in primeira or 'NOME0' in primeira.upper()
 
@@ -1186,7 +1188,7 @@ def test_folha_exclui_por_faltas_ppf_e_outros_e_regista_o_motivo(duas_escolas):
             'folha_excluir_faltas': '10', 'folha_excluir_outros': al[3].matricula}
     z = _zip(c.post(API + pid + '/gerar/', form))
     nomes = z.namelist()
-    assert len([n for n in nomes if n.endswith('.pdf')]) == 1  # só sobra o aluno 2
+    assert len([n for n in nomes if n.endswith('.pdf') and 'LISTA' not in n]) == 1  # só sobra o aluno 2
     rel = [n for n in nomes if n.endswith('.csv')]
     texto = z.read(rel[0]).decode('utf-8-sig')
     assert 'Faltas: 12' in texto and 'PPF' in texto and 'Outros' in texto
@@ -1203,7 +1205,7 @@ def test_folha_personalizada_a_partir_de_lista_importada(duas_escolas):
             'folha_fonte': 'lista', 'folha_lista': SimpleUploadedFile('alunos.csv', csv_), 'folha_excluir': 'sim',
             'folha_excluir_motivo': ['transferida']}
     z = _zip(c.post(API + pid + '/gerar/', form, format='multipart'))
-    pdfs = [n for n in z.namelist() if n.endswith('.pdf')]
+    pdfs = [n for n in z.namelist() if n.endswith('.pdf') and 'LISTA' not in n]
     assert len(pdfs) == 2 and not any('Cossa' in n for n in pdfs)
     assert 'Transferida' in z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
     assert c.post(API + pid + '/gerar/', {**form, 'folha_lista': SimpleUploadedFile('x.csv', b'Turma\nA\n')}, format='multipart').status_code == 400
@@ -1291,7 +1293,7 @@ def test_folha_regra_automatica_da_escola_salta_alunos_sem_marcar_nada(duas_esco
     base = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'sim',
             'folha_classe': '11.ª Classe'}
     # sem regra: todos
-    assert len([n for n in _zip(c.post(API + pid + '/gerar/', base)).namelist() if n.endswith('.pdf')]) == 3
+    assert len([n for n in _zip(c.post(API + pid + '/gerar/', base)).namelist() if n.endswith('.pdf') and 'LISTA' not in n]) == 3
     # regra inválida (faltas sem total) é recusada
     r = c.post(API + pid + '/folha-regra/', {'verificar_sempre': 'on', 'motivos': ['faltas'], 'faltas_minimo': '0'})
     assert r.status_code == 400
@@ -1299,7 +1301,7 @@ def test_folha_regra_automatica_da_escola_salta_alunos_sem_marcar_nada(duas_esco
                                              'faltas_minimo': '10'})
     assert r.status_code == 200 and r.json()['data']['faltas_minimo'] == 10
     z = _zip(c.post(API + pid + '/gerar/', base))
-    assert len([n for n in z.namelist() if n.endswith('.pdf')]) == 1   # só sobra o aluno sem faltas nem PDF
+    assert len([n for n in z.namelist() if n.endswith('.pdf') and 'LISTA' not in n]) == 1   # só sobra o aluno sem faltas nem PDF
     texto = z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
     assert 'Faltas: 15' in texto and 'PDF' in texto
     ctx = c.get(API + pid + '/folha-contexto/').json()['data']

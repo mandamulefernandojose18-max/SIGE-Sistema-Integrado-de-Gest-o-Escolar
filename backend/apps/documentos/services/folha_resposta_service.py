@@ -802,6 +802,10 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
     for idx, aluno in enumerate(alunos):
         versao = versao_do_aluno(config, idx)
         cod = codigo_folha(escola, aluno, config, ano)
+        if aluno:  # marcador com o nome do aluno: localiza-se a folha pelo painel de marcadores do PDF
+            nome_marc = f"{aluno.get('numero') or idx + 1:02d} {aluno.get('apelido') or ''} {aluno.get('nome') or ''}".replace('  ', ' ').strip()
+            c.bookmarkPage(f'aluno{idx}')
+            c.addOutlineEntry(nome_marc, f'aluno{idx}', 0)
         for p, (ini, fim, cols, linhas, y_ini) in enumerate(paginas):
             if p == 0:
                 _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod, p + 1, len(paginas), hoje)

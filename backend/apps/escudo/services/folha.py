@@ -138,7 +138,10 @@ def _candidatos_da_lista(ficheiro, escola):
 
 
 def _lista(form, nome):
-    return form.getlist(nome) if hasattr(form, 'getlist') else ([form[nome]] if form.get(nome) else [])
+    if hasattr(form, 'getlist'):
+        return form.getlist(nome)
+    v = form.get(nome)
+    return list(v) if isinstance(v, (list, tuple)) else ([v] if v else [])
 
 
 def regra_da_escola(escola):
@@ -241,6 +244,19 @@ def _relatorio_excluidos(excluidos):
                     d.get('classe') or '', d.get('turma') or '', motivo])
     return buf.getvalue().encode('utf-8-sig')
 
+def listas_geradas(escola, dados_alunos, excluidos, titulo, referencia=''):
+    """(pdf, xlsx) com quem teve a folha/prova gerada (e quantos) e, se houver, quem ficou de fora e porquê."""
+    from apps.documentos.services import lista_alunos_service as la
+    return (la.lista_pdf(escola, titulo, dados_alunos, excluidos, referencia),
+            la.lista_xlsx(escola, titulo, dados_alunos, excluidos, referencia))
+
+
+def excluir_alunos(escola, ano, disciplina, cands, form):
+    """Aplica as exclusões (marcadas no ecrã e/ou a regra automática da escola). `cands`: [{dados, aluno, situacao}].
+    Devolve (incluídos, excluídos). `form` usa os mesmos nomes de campo do Escudo (folha_excluir…)."""
+    return _aplicar_exclusoes(form, {'disciplina': disciplina}, escola, ano, cands)
+
+
 def _escola_da_prova(p, alternativa=None):
     """A escola da prova; se a prova não tiver (Super Admin sem escola), a escola seleccionada ou da conta."""
     escola = Escola.objects.filter(id=p.get('escola_id')).first() if p.get('escola_id') else None
@@ -275,7 +291,7 @@ def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
 
     if not personalizada:
         pdf, _ = fr.gerar_folhas_pdf(esc, [None], config, ano)
-        return {'personalizada': False, 'total': 0, 'alunos': [], 'excluidos': [], 'relatorio': b'', 'para': lambda n: pdf}
+        return {'personalizada': False, 'total': 0, 'alunos': [], 'excluidos': [], 'relatorio': b'', 'listas': None, 'para': lambda n: pdf}
 
     if (form.get('folha_fonte') or 'sistema') == 'lista':
         ficheiro = (ficheiros or {}).get('folha_lista')
@@ -317,6 +333,8 @@ def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
     nomes = [f"{d['apelido']} {d['nome']}".strip() for d in dados]
     return {'personalizada': True, 'total': len(dados), 'alunos': nomes,
             'excluidos': excluidos, 'relatorio': _relatorio_excluidos(excluidos),
+            'listas': lambda: listas_geradas(escola, dados, excluidos, 'Lista de alunos com prova gerada',
+                                             f"{p.get('titulo') or ''} · {p.get('disciplina') or ''}".strip(' ·')),
             'para': lambda n: folhas[(n - 1) % len(folhas)]}
 
 def contexto(p, escola_alt=None):
@@ -343,12 +361,15 @@ def contexto(p, escola_alt=None):
     }
 
 
-def prefixar(folha_pdf, copia_pdf):
+def prefixar(folha_pdf, copia_pdf, aluno=None):
     """PDF final: páginas da folha de resposta primeiro, depois a cópia selada da prova."""
     saida = fitz.open()
     for dados in (folha_pdf, copia_pdf):
         with fitz.open(stream=dados, filetype='pdf') as doc:
             saida.insert_pdf(doc)
+    if aluno:
+        saida.set_toc([[1, aluno, 1]])
+        saida.set_metadata({'title': f'Prova — {aluno}'})
     resultado = saida.tobytes(garbage=3, deflate=True)
     saida.close()
     return resultado

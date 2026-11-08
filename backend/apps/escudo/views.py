@@ -403,14 +403,14 @@ def gerar(request, pid):
 
     def pdf_copia(n):
         pdf = s.selar_copia(p, op, n, base)
-        return folha_mod.prefixar(folha['para'](n), pdf) if folha else pdf
+        return folha_mod.prefixar(folha['para'](n), pdf, folha['alunos'][n - 1] if folha['personalizada'] else None) if folha else pdf
 
     def sufixo(n):
         if folha and folha['personalizada']:
             return f'{n:03d}_{nome_seguro(folha["alunos"][n - 1])}'
         return f'{n:03d}'
 
-    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao and not (folha and folha['excluidos']):
+    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao and not (folha and (folha['excluidos'] or folha['personalizada'])):
         if quer_word:
             r = HttpResponse(s.selar_word(p, op, 1), content_type=TIPO_DOCX)
             r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.docx"'
@@ -425,6 +425,10 @@ def gerar(request, pid):
                 z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.pdf', pdf_copia(n))
             if quer_word:
                 z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.docx', s.selar_word(p, op, n))
+        if folha and folha.get('listas'):  # quem e quantos tiveram a prova gerada (PDF e Excel)
+            lista_pdf, lista_xlsx = folha['listas']()
+            z.writestr(f'{nome}_{pid}_LISTA_ALUNOS_gerados.pdf', lista_pdf)
+            z.writestr(f'{nome}_{pid}_LISTA_ALUNOS_gerados.xlsx', lista_xlsx)
         if folha and folha['relatorio']:  # alunos deixados de fora e porquê (só para o professor)
             z.writestr(f'{nome}_{pid}_ALUNOS_EXCLUIDOS_so_professor.csv', folha['relatorio'])
         if (p['config'] or {}).get('modelo_cifrado'):

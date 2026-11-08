@@ -95,8 +95,50 @@ def test_pdf_turma_gera_uma_folha_por_aluno(cenario):
     r = _cliente('admin.fra@sige.mz').post(URL + 'gerar/', _corpo(escopo='turma', turma_id=str(turma.id)), format='json')
     assert r.status_code == 200, r.content[:200]
     assert r['X-Total-Folhas'] == '3'
-    assert r.content[:4] == b'%PDF'
-    assert r.content.count(b'/Type /Page\n') + r.content.count(b'/Type /Page ') >= 3
+    import zipfile
+    z = zipfile.ZipFile(io.BytesIO(r.content))   # turma/classe: ZIP com as folhas + lista de quem teve folha (PDF e Excel)
+    nomes = z.namelist()
+    assert any(n.endswith('_LISTA_ALUNOS_gerados.pdf') for n in nomes) and any(n.endswith('_LISTA_ALUNOS_gerados.xlsx') for n in nomes)
+    folhas = z.read([n for n in nomes if n.endswith('.pdf') and 'LISTA' not in n][0])
+    assert folhas[:4] == b'%PDF'
+    import pymupdf as fitz
+    doc = fitz.open(stream=folhas, filetype='pdf')
+    assert doc.page_count >= 3
+    assert len(doc.get_toc()) == 3 and 'Silva' in doc.get_toc()[0][1]   # marcador com o nome de cada aluno
+    lista = fitz.open(stream=z.read([n for n in nomes if n.endswith('.pdf') and 'LISTA' in n][0]), filetype='pdf')
+    texto = ''.join(p.get_text() for p in lista)
+    assert 'Ana' in texto and 'Bruno' in texto and 'Carla' in texto and 'Total de folhas/provas geradas: 3' in texto
+    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in nomes if n.endswith('.xlsx') and 'LISTA' in n][0])))
+    assert wb.sheetnames == ['Gerados'] and wb['Gerados']['C5'].value == Aluno.objects.get(nome='Ana', turma=turma).matricula
+
+
+def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
+    a, turma, _ = cenario
+    from apps.notas.models import Nota
+    d = Disciplina.objects.get(escola=a, nome='Matemática')
+    ana = Aluno.objects.get(nome='Ana', turma=turma)
+    bruno = Aluno.objects.get(nome='Bruno', turma=turma)
+    Nota.objects.create(escola=a, aluno=ana, disciplina=d, turma=turma, periodo='1_TRIMESTRE', faltas=14)
+    Nota.objects.create(escola=a, aluno=bruno, disciplina=d, turma=turma, periodo='1_TRIMESTRE', anotacao='PPF')
+    c = _cliente('admin.fra@sige.mz')
+    r = c.post(URL + 'regra/', {'verificar_sempre': True, 'motivos': ['faltas'], 'faltas_minimo': 0}, format='json')
+    assert r.status_code == 400   # faltas sem total definido: recusado
+    r = c.post(URL + 'regra/', {'verificar_sempre': True, 'motivos': ['faltas', 'ppf', 'pdf', 'transferida', 'obito'], 'faltas_minimo': 10}, format='json')
+    assert r.status_code == 200 and r.data['faltas_minimo'] == 10
+    assert c.get(URL + 'contexto/').data['regra_exclusao']['verificar_sempre'] is True
+    r = c.post(URL + 'gerar/', _corpo(escopo='turma', turma_id=str(turma.id)), format='json')
+    assert r.status_code == 200 and r['X-Total-Folhas'] == '1'   # só sobra a Carla
+    import zipfile
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    import pymupdf as fitz
+    lista = fitz.open(stream=z.read([n for n in z.namelist() if n.endswith('.pdf') and 'LISTA' in n][0]), filetype='pdf')
+    texto = ''.join(p.get_text() for p in lista)
+    assert 'Carla' in texto and 'Faltas: 14' in texto and 'PPF' in texto   # incluída + excluídos com o motivo
+    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and 'LISTA' in n][0])))
+    assert wb.sheetnames == ['Gerados', 'Excluídos']
+    # um aluno excluído pela regra não recebe folha individual
+    r = c.post(URL + 'gerar/', _corpo(escopo='aluno', aluno_id=str(ana.id)), format='json')
+    assert r.status_code == 409
 
 
 def test_pdf_classe_100_perguntas_com_chave_e_versoes(cenario):
@@ -121,8 +163,12 @@ def test_xlsx_aluno_tem_grelha_sem_formulas(cenario):
 def test_xlsx_turma_tem_resumo(cenario):
     _, turma, _ = cenario
     r = _cliente('admin.fra@sige.mz').post(URL + 'gerar/', _corpo(escopo='turma', turma_id=str(turma.id), formato='xlsx'), format='json')
-    nomes = openpyxl.load_workbook(io.BytesIO(r.content)).sheetnames
+    import zipfile
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    principal = [n for n in z.namelist() if n.endswith('.xlsx') and 'LISTA' not in n][0]
+    nomes = openpyxl.load_workbook(io.BytesIO(z.read(principal))).sheetnames
     assert 'Resumo' in nomes and len(nomes) == 4
+    assert any('Silva' in n and 'Ana' in n for n in nomes)   # cada folha do Excel leva o nome do aluno
 
 
 def test_aluno_de_outra_escola_negado(cenario):
@@ -247,3 +293,24 @@ def test_logo_da_escola_opcional_e_nunca_no_exame():
     assert fr.normalizar_config(dict(base, tipo_avaliacao='ACS1'))['logo_escola'] is True
     assert fr.normalizar_config(dict(base, tipo_avaliacao='EXAME'))['logo_escola'] is False
     assert fr.normalizar_config({k: v for k, v in base.items() if k != 'logo_escola'})['logo_escola'] is False
+
+
+def test_folha_a_partir_de_lista_importada_com_exclusoes_e_listas(cenario):
+    import json
+    import zipfile
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    a, turma, _ = cenario
+    ana = Aluno.objects.get(nome='Ana', turma=turma)
+    csv_ = f'Nome;Apelido;Codigo;Situacao\nAna;Silva;{ana.matricula};\nZeca;Mondlane;;Transferida\nRita;Cossa;;\n'.encode('utf-8')
+    corpo = _corpo(escopo='lista', excluir=True, motivos=['transferida'])
+    c = _cliente('admin.fra@sige.mz')
+    r = c.post(URL + 'gerar/', {'dados': json.dumps(corpo), 'lista': SimpleUploadedFile('alunos.csv', csv_)}, format='multipart')
+    assert r.status_code == 200, r.content[:300]
+    assert r['X-Total-Folhas'] == '2'   # Zeca (transferida) fica de fora
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    assert any(n.endswith('_LISTA_ALUNOS_gerados.pdf') for n in z.namelist())
+    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and 'LISTA' in n][0])))
+    assert wb.sheetnames == ['Gerados', 'Excluídos']
+    # sem ficheiro: recusado
+    r = c.post(URL + 'gerar/', {'dados': json.dumps(corpo)}, format='multipart')
+    assert r.status_code == 400
