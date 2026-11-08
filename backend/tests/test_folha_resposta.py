@@ -115,7 +115,7 @@ def test_xlsx_aluno_tem_grelha_sem_formulas(cenario):
     ws = wb.worksheets[0]
     texto = ' '.join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
     assert 'Escola A' in texto and aluno.matricula in texto and 'Matemática' in texto and a.codigo_escola in texto
-    assert 'INSTRUÇÕES GERAIS' in texto and 'riscando horizontalmente' in texto
+    assert 'INSTRUÇÕES GERAIS' in texto and 'pintando o quadradinho' in texto
 
 
 def test_xlsx_turma_tem_resumo(cenario):

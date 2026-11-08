@@ -401,7 +401,7 @@ def _bolha(c, cx_mm, cy_mm, larg_mm, alt_mm, letra, preenchida=False, tam_letra=
     """
     c.setFillColor(PRETO)
     c.setFont(FONTE, tam_letra)
-    c.drawCentredString(cx_mm * mm, _y(cy_mm) - tam_letra * 0.17, letra)
+    c.drawCentredString(cx_mm * mm, _y(cy_mm) - tam_letra * 0.37, letra)
     cheio = bool(preenchida or riscada)
     c.setLineWidth(0.6)
     c.setStrokeColor(PRETO)
