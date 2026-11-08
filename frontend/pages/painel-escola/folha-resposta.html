@@ -84,19 +84,23 @@
                 <select id="frDisciplina" class="form-select form-select-sm"><option value="">-- Disciplina --</option></select>
                 <input id="frDisciplinaOutra" class="form-control form-control-sm mt-1 d-none" maxlength="80" placeholder="Nome da disciplina">
               </div>
-              <div class="col-6 col-md-4">
+              <div class="col-6 col-md-3">
                 <label class="form-label small mb-1" for="frData">Data</label>
                 <input id="frData" type="date" class="form-control form-control-sm">
               </div>
-              <div class="col-6 col-md-4">
-                <label class="form-label small mb-1" for="frHora">Hora de início</label>
+              <div class="col-6 col-md-3">
+                <label class="form-label small mb-1" for="frHora">Hora inicial</label>
                 <input id="frHora" type="time" class="form-control form-control-sm">
               </div>
-              <div class="col-6 col-md-2">
+              <div class="col-4 col-md-2">
                 <label class="form-label small mb-1" for="frDuracao">Duração (min)</label>
                 <input id="frDuracao" type="number" min="0" max="600" class="form-control form-control-sm" placeholder="90">
               </div>
-              <div class="col-6 col-md-2">
+              <div class="col-4 col-md-2">
+                <label class="form-label small mb-1" for="frHoraFim">Hora final</label>
+                <input id="frHoraFim" type="time" class="form-control form-control-sm" title="Calculada pela hora inicial + duração; pode ajustar">
+              </div>
+              <div class="col-4 col-md-2">
                 <label class="form-label small mb-1" for="frSala">Sala</label>
                 <input id="frSala" type="text" class="form-control form-control-sm" maxlength="20">
               </div>

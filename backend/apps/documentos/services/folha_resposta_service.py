@@ -126,6 +126,22 @@ def formatar_valor(v):
     return f'{v:.2f}'.rstrip('0').rstrip('.').replace('.', ',')
 
 
+def _hora_valida(valor):
+    m = re.fullmatch(r'\s*(\d{1,2}):(\d{2})\s*', str(valor or ''))
+    if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
+        return ''
+    return f'{int(m.group(1)):02d}:{m.group(2)}'
+
+
+def somar_minutos(hora, minutos):
+    """«07:30» + 90 → «09:00» (volta às 00:00 depois da meia-noite)."""
+    h = _hora_valida(hora)
+    if not h or not minutos:
+        return ''
+    total = (int(h[:2]) * 60 + int(h[3:]) + int(minutos)) % (24 * 60)
+    return f'{total // 60:02d}:{total % 60:02d}'
+
+
 def normalizar_config(dados, escola=None):
     """Valida e completa a configuração vinda do frontend. Levanta ConfigFolhaInvalida."""
     dados = dados or {}
@@ -199,7 +215,8 @@ def normalizar_config(dados, escola=None):
         'cotacao_total': total,
         'duracao_min': duracao,
         'data': _texto(dados.get('data'), 20),
-        'hora_inicio': _texto(dados.get('hora_inicio'), 8),
+        'hora_inicio': _hora_valida(dados.get('hora_inicio')),
+        'hora_fim': _hora_valida(dados.get('hora_fim')) or somar_minutos(dados.get('hora_inicio'), duracao),
         'sala': _texto(dados.get('sala'), 20),
         'professor': _texto(dados.get('professor'), 80),
         'trimestre': trimestre,
@@ -268,6 +285,11 @@ def montar_dados_aluno(aluno, numero, classe=None, turma=None):
         'numero': numero,
         'codigo': (aluno.matricula or '').strip(),
     }
+
+
+def texto_hora_sala(config):
+    intervalo = ' – '.join(x for x in (config['hora_inicio'], config['hora_fim']) if x)
+    return ' · '.join(x for x in (intervalo, config['sala']) if x)
 
 
 def versao_do_aluno(config, indice):
@@ -654,9 +676,9 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     _campo(c, xii + 3, yi + 26.6, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 9.5)
     _campo(c, xii + 37, yi + 26.6, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 9.5)
     dur = f"{config['duracao_min']} min" if config['duracao_min'] else ''
-    _campo(c, xii + 3, yi + 34.2, 20, 'DURAÇÃO', dur, 9)
-    _campo(c, xii + 25, yi + 34.2, 22, 'DATA', config['data'], 9)
-    _campo(c, xii + 49, yi + 34.2, 22, 'HORA / SALA', ' · '.join(x for x in (config['hora_inicio'], config['sala']) if x), 9)
+    _campo(c, xii + 3, yi + 34.2, 15, 'DURAÇÃO', dur, 9)
+    _campo(c, xii + 20, yi + 34.2, 19, 'DATA', config['data'], 9)
+    _campo(c, xii + 41, yi + 34.2, 31, 'HORA (INÍCIO – FIM) / SALA', texto_hora_sala(config), 9)
 
     # III — Disciplina
     yiii, hiii = 88.5, 31
@@ -991,7 +1013,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         par(ws, 11, 23, 26, 'TOTAL (val.)', formatar_valor(config['cotacao_total']), 27, 28)
         par(ws, 12, 17, 20, 'DURAÇÃO (min)', config['duracao_min'] or None, 21, 22)
         par(ws, 12, 23, 26, 'DATA', config['data'], 27, 28)
-        par(ws, 13, 17, 20, 'HORA / SALA', ' · '.join(x for x in (config['hora_inicio'], config['sala']) if x), 21, 28)
+        par(ws, 13, 17, 20, 'HORA / SALA', texto_hora_sala(config), 21, 28)
         contorno(ws, 7, 17, 13, 28)
 
         ws.row_dimensions[14].height = 6

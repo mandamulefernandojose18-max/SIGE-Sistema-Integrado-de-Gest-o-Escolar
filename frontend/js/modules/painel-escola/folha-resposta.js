@@ -52,6 +52,7 @@
       if (s.alt) $('frNAlt').value = s.alt;
       if (s.dur) $('frDuracao').value = s.dur;
       if (s.hora) $('frHora').value = s.hora;
+      calcularHoraFim();
       $('frOmr').checked = s.omr !== false;
       $('frBarras').checked = s.barras !== false;
     } catch (_) { /* ignorar */ }
@@ -235,7 +236,7 @@
     var cfg = {
       tipo_avaliacao: $('frTipo').value, disciplina: (disc || '').trim(),
       n_perguntas: parseInt($('frNPerg').value, 10), n_alternativas: parseInt($('frNAlt').value, 10),
-      duracao_min: $('frDuracao').value, data: dataBR($('frData').value), hora_inicio: $('frHora').value, sala: $('frSala').value,
+      duracao_min: $('frDuracao').value, data: dataBR($('frData').value), hora_inicio: $('frHora').value, hora_fim: $('frHoraFim').value, sala: $('frSala').value,
       professor: $('frProfessor').value, versoes: $('frVersoes').value, instrucao_extra: $('frInstrucao').value,
       marcas_omr: $('frOmr').checked, codigo_barras: $('frBarras').checked, incluir_chave: $('frIncluirChave').checked
     };
@@ -310,12 +311,28 @@
   function aoEscolherData() {
     var h = $('frHora');
     if (!$('frData').value) return;
-    if (!h.value || h.dataset.auto === '1') { h.value = horaSugerida(); h.dataset.auto = '1'; }
+    if (!h.value || h.dataset.auto === '1') { h.value = horaSugerida(); h.dataset.auto = '1'; calcularHoraFim(); }
+  }
+
+  // Hora final = hora inicial + duração (minutos); ao ajustar a hora final, a duração acompanha.
+  function minutosDe(hhmm) { var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ''); return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null; }
+  function hhmmDe(total) { total = ((total % 1440) + 1440) % 1440; return ('0' + Math.floor(total / 60)).slice(-2) + ':' + ('0' + (total % 60)).slice(-2); }
+  function calcularHoraFim() {
+    var ini = minutosDe($('frHora').value), dur = parseInt($('frDuracao').value, 10);
+    $('frHoraFim').value = (ini != null && dur > 0) ? hhmmDe(ini + dur) : '';
+  }
+  function aoEditarHoraFim() {
+    var ini = minutosDe($('frHora').value), fim = minutosDe($('frHoraFim').value);
+    if (ini != null && fim != null) $('frDuracao').value = ((fim - ini) + 1440) % 1440;
   }
 
   function ligar() {
     if (ligado) return;
     ligado = true;
+    $('frHora').addEventListener('input', calcularHoraFim);
+    $('frHora').addEventListener('change', calcularHoraFim);
+    $('frDuracao').addEventListener('input', calcularHoraFim);
+    $('frHoraFim').addEventListener('change', aoEditarHoraFim);
     $('frData').addEventListener('click', function () { try { this.showPicker(); } catch (_) { /* navegador sem showPicker */ } });
     $('frData').addEventListener('change', aoEscolherData);
     $('frTurma').addEventListener('change', aoEscolherData);
