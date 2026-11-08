@@ -387,10 +387,7 @@ def gerar(request, pid):
         raise ValueError('O Guião ainda não está pronto: gere-o primeiro (botão «Gerar Guião») ou escolha «Sem Guião».')
     from .services import folha as folha_mod
     folha = folha_mod.preparar(p, request.POST, request.FILES, _escola_activa(request, user))  # None = sem folha de resposta
-    if folha:
-        # A folha é sempre a 1.ª página da própria prova: com folha a prova sai só em PDF, num único ficheiro por cópia
-        # (a folha nunca segue à parte e a prova nunca sai sem ela).
-        quer_pdf, quer_word = True, False
+    # Com folha, a folha é sempre a 1.ª página da própria prova (PDF e/ou Word), num único ficheiro por cópia.
     if quer_word and not s.tem_word(p):
         raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
     if folha and folha['personalizada']:
@@ -410,9 +407,13 @@ def gerar(request, pid):
             return f'{n:03d}_{nome_seguro(folha["alunos"][n - 1])}'
         return f'{n:03d}'
 
+    def word_copia(n):
+        docx = s.selar_word(p, op, n)
+        return folha_mod.prefixar_word(folha['para'](n), docx) if folha else docx
+
     if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao and not (folha and (folha['excluidos'] or folha['personalizada'])):
         if quer_word:
-            r = HttpResponse(s.selar_word(p, op, 1), content_type=TIPO_DOCX)
+            r = HttpResponse(word_copia(1), content_type=TIPO_DOCX)
             r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.docx"'
         else:
             r = HttpResponse(pdf_copia(1), content_type='application/pdf')
@@ -424,7 +425,7 @@ def gerar(request, pid):
             if quer_pdf:
                 z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.pdf', pdf_copia(n))
             if quer_word:
-                z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.docx', s.selar_word(p, op, n))
+                z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.docx', word_copia(n))
         if folha and folha.get('listas'):  # quem e quantos tiveram a prova gerada (PDF e Excel)
             lista_pdf, lista_xlsx = folha['listas']()
             z.writestr(f'{nome}_{pid}_LISTA_ALUNOS_gerados.pdf', lista_pdf)

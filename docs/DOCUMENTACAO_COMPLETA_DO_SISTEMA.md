@@ -1520,7 +1520,7 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 > **Escudo Anti-IA e escola seleccionada (2026-11-09):** os pedidos do Escudo passam a enviar a escola activa (`X-Tenant-ID`, a escolhida no topo pelo Super Admin), como o resto da aplicação. Assim as provas novas ficam ligadas à escola e a folha de resposta carrega classes e turmas automaticamente.
 
 
-> **Folha e questões num só documento (2026-11-09):** com «Folha de resposta: Sim», cada cópia sai num único PDF: página 1 = folha de resposta, páginas seguintes = questões. A prova não sai sem a folha nem com a folha à parte; com folha o formato Word fica indisponível (o ecrã fixa PDF).
+> **Folha e questões num só documento (2026-11-09):** com «Folha de resposta: Sim», cada cópia sai num único PDF: página 1 = folha de resposta, páginas seguintes = questões. A prova não sai sem a folha nem com a folha à parte; o formato de saída (PDF, Word ou PDF e Word) continua à escolha: no Word, a folha entra como imagem a página inteira antes das questões (2026-11-09, v2.9.29).
 
 
 ### Escudo Anti-IA — conteúdo íntegro, exclusões automáticas e QR junto da questão (v2.9.26)

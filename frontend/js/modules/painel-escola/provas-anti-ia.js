@@ -479,7 +479,7 @@
       '<small>A IA do SIGE resolve a prova passo a passo, sem omitir cálculos, com as equações em forma matemática e a opção correcta no fim. Sai em PDF e em Word, só para o professor.</small></label>' +
       '<div id="escudoGuiaoCaixa" class="guiao-caixa" hidden></div>' +
       '<label class="campo"><span>Folha de resposta <small>(opcional)</small></span><select name="folha_resposta" id="escudoFolha"><option value="nao" selected>Não</option><option value="sim">Sim</option></select>' +
-        '<small>Se «Sim», a folha de resposta sai como a <strong>primeira página</strong> da própria prova, juntas num só PDF por cópia (a prova não sai sem a folha; com folha, o Word não está disponível).</small></label>' +
+        '<small>Se «Sim», a folha de resposta sai como a <strong>primeira página</strong> da própria prova, juntas num só PDF por cópia (a prova não sai sem a folha; no Word, a folha entra como imagem na primeira página).</small></label>' +
       '<div id="escudoFolhaCaixa" class="guiao-caixa" hidden>' +
         '<div class="duas"><label class="campo"><span>N.º de perguntas</span><input type="number" name="folha_n_perguntas" min="1" max="100" value="' + esc(pg.total || '') + '" placeholder="1 a 100"></label>' +
         '<label class="campo"><span>Alternativas por pergunta</span><select name="folha_n_alternativas"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label></div>' +
@@ -505,6 +505,7 @@
               '<label class="caixa"><input type="checkbox" data-regra-motivo="pdf"><span>PDF</span></label>' +
               '<label class="caixa"><input type="checkbox" data-regra-motivo="transferida"><span>Transferida</span></label>' +
               '<label class="caixa"><input type="checkbox" data-regra-motivo="obito"><span>Óbito</span></label>' +
+              '<label class="campo"><span>Cor dos excluídos na lista (PDF e Excel)</span><input type="color" name="folha_cor_excluidos" id="escudoRegraCor" value="#fde2e2"></label>' +
               '<button type="button" class="btn secundario pequeno" id="escudoRegraTodos">Seleccionar todos</button> ' +
               '<button type="button" class="btn pequeno" id="escudoRegraGuardar">Guardar regra</button>' +
             '</div><p class="suave pequeno" id="escudoRegraMsg" role="status"></p></fieldset>' +
@@ -679,10 +680,6 @@
       sel.addEventListener('change', function () {
         caixa.hidden = sel.value !== 'sim';
         if (sel.value === 'sim') carregar();
-        if (formato) {  // a folha é a 1.ª página da prova: com folha a prova sai sempre em PDF, num só ficheiro
-          if (sel.value === 'sim') { formatoAnt = formato.value; formato.value = 'pdf'; formato.disabled = true; }
-          else { formato.disabled = false; formato.value = formatoAnt; }
-        }
       });
       pers.addEventListener('change', function () { alvo.hidden = pers.value !== 'sim'; if (pers.value === 'sim') carregar(); });
       var bPreviaF = $('#escudoFolhaBtnPrevia'), imgPreviaF = $('#escudoFolhaPreviaImg');
@@ -717,6 +714,7 @@
         if (rSempre.checked) fd.append('verificar_sempre', 'on');
         rMotivos().forEach(function (m) { fd.append('motivos', m); });
         fd.append('faltas_minimo', rFaltas.value || '0');
+        fd.append('cor_excluidos', $('#escudoRegraCor').value);
         rMsg.textContent = 'A guardar…';
         try { await api(pid + '/folha-regra/', { method: 'POST', body: fd }); rMsg.textContent = rSempre.checked ? 'Regra guardada: o sistema verifica sempre antes de gerar.' : 'Verificação automática desactivada.'; }
         catch (e) { rMsg.textContent = (e && e.message) || 'Não foi possível guardar a regra.'; }
@@ -726,6 +724,7 @@
         rSempre.checked = !!r.verificar_sempre; rCaixa.hidden = !r.verificar_sempre;
         $$('input[data-regra-motivo]').forEach(function (c) { c.checked = (r.motivos || []).indexOf(c.getAttribute('data-regra-motivo')) >= 0; });
         rFaltas.value = r.faltas_minimo || '';
+        if (r.cor_excluidos) $('#escudoRegraCor').value = r.cor_excluidos.toLowerCase();
         if (r.verificar_sempre) rMsg.textContent = 'Verificação automática activa para esta escola.';
       };
       var carregarOrig = carregar;

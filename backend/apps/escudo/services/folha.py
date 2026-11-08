@@ -379,6 +379,38 @@ def contexto(p, escola_alt=None):
     }
 
 
+def prefixar_word(folha_pdf, docx_bytes, dpi=170):
+    """Word final: a(s) página(s) da folha de resposta (como imagem a página inteira) antes do conteúdo da prova."""
+    import io
+    from docx import Document
+    from docx.enum.text import WD_BREAK
+    from docx.shared import Emu
+    doc = Document(io.BytesIO(docx_bytes))
+    corpo = doc.element.body
+    sec = doc.sections[0]
+    larg = sec.page_width - sec.left_margin - sec.right_margin
+    alt = sec.page_height - sec.top_margin - sec.bottom_margin - Emu(91440)  # folga para o salto de página
+    novos = []
+    with fitz.open(stream=folha_pdf, filetype='pdf') as fp:
+        for pagina in fp:
+            png = pagina.get_pixmap(dpi=dpi).tobytes('png')
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = p.paragraph_format.space_after = 0
+            run = p.add_run()
+            razao = pagina.rect.width / pagina.rect.height
+            w = min(larg, int(alt * razao))
+            run.add_picture(io.BytesIO(png), width=Emu(w))
+            run.add_break(WD_BREAK.PAGE)
+            novos.append(p._p)
+    for el in novos:  # add_paragraph acrescenta no fim: mover para o início, mantendo a ordem
+        corpo.remove(el)
+    for i, el in enumerate(novos):
+        corpo.insert(i, el)
+    saida = io.BytesIO()
+    doc.save(saida)
+    return saida.getvalue()
+
+
 def prefixar(folha_pdf, copia_pdf, aluno=None):
     """PDF final: páginas da folha de resposta primeiro, depois a cópia selada da prova."""
     saida = fitz.open()
