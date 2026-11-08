@@ -424,10 +424,10 @@ def _caixa(c, x, y, w, h, titulo=None, barra=5.2):
     c.setStrokeColor(PRETO)
 
 
-def _campo(c, x, y, w, rotulo, valor, tam=10.5):
+def _campo(c, x, y, w, rotulo, valor, tam=10.5, tam_rot=5.8):
     """Campo com rótulo pequeno e valor sobre linha (preenchido automaticamente)."""
     c.setFillColor(CINZA_TEXTO)
-    c.setFont(FONTE_B, 5.8)
+    c.setFont(FONTE_B, tam_rot)
     c.drawString(x * mm, _y(y + 2.4), rotulo)
     c.setStrokeColor(CINZA_LINHA)
     c.setLineWidth(0.4)
@@ -672,23 +672,23 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     # II — Informações da avaliação
     xii, wii = MARGEM + 109, LARG_UTIL - 109
     _caixa(c, xii, yi, wii, hi, 'II   INFORMAÇÕES DA AVALIAÇÃO')
-    c.setFont(FONTE_B, 5.8)
+    c.setFont(FONTE_B, 7.2)
     c.setFillColor(CINZA_TEXTO)
     c.drawString((xii + 3) * mm, _y(yi + 8.8), 'TIPO DE AVALIAÇÃO')
     c.setFillColor(PRETO)
-    pos = [(xii + 3, yi + 10), (xii + 27, yi + 10), (xii + 51, yi + 10), (xii + 3, yi + 14.4), (xii + 27, yi + 14.4)]
+    pos = [(xii + 3, yi + 10), (xii + 27, yi + 10), (xii + 51, yi + 10), (xii + 3, yi + 14.6), (xii + 27, yi + 14.6)]
     for (cod, rot), (px, py) in zip(TIPOS_AVALIACAO, pos):
-        _check(c, px, py, rot, cod == config['tipo'], tam=7.3, larg_txt=19)
-    _campo(c, xii + 3, yi + 19, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 9.5)
-    _campo(c, xii + 37, yi + 19, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 9.5)
+        _check(c, px, py, rot, cod == config['tipo'], tam=8.8, lado=3.5, larg_txt=19)
+    _campo(c, xii + 3, yi + 19, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 9.5, 6.6)
+    _campo(c, xii + 37, yi + 19, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 9.5, 6.6)
     uniforme = len(config['seccoes']) == 1
     cot_txt = formatar_valor(config['seccoes'][0]['cotacao']) if uniforme else 'por secção'
-    _campo(c, xii + 3, yi + 26.6, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 9.5)
-    _campo(c, xii + 37, yi + 26.6, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 9.5)
+    _campo(c, xii + 3, yi + 26.6, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 9.5, 6.6)
+    _campo(c, xii + 37, yi + 26.6, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 9.5, 6.6)
     dur = f"{config['duracao_min']} min" if config['duracao_min'] else ''
-    _campo(c, xii + 3, yi + 34.2, 15, 'DURAÇÃO', dur, 9)
-    _campo(c, xii + 20, yi + 34.2, 19, 'DATA', config['data'], 9)
-    _campo(c, xii + 41, yi + 34.2, 31, 'HORA (INÍCIO – FIM) / SALA', texto_hora_sala(config), 9)
+    _campo(c, xii + 3, yi + 34.2, 15, 'DURAÇÃO', dur, 9, 6.6)
+    _campo(c, xii + 20, yi + 34.2, 19, 'DATA', config['data'], 9, 6.6)
+    _campo(c, xii + 41, yi + 34.2, 31, 'HORA (INÍCIO – FIM) / SALA', texto_hora_sala(config), 9, 6.2)
 
     # III — Disciplina
     yiii, hiii = 88.5, 31
@@ -700,23 +700,23 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     col_w = 34.0
     for k, nome in enumerate(nomes):
         cc, rr = divmod(k, 5)
-        _check(c, MARGEM + 3 + cc * col_w, yiii + 7.4 + rr * 4.5, nome, nome == config['disciplina'], tam=7.2, larg_txt=col_w - 6)
+        _check(c, MARGEM + 3 + cc * col_w, yiii + 7.2 + rr * 4.7, nome, nome == config['disciplina'], tam=8.6, lado=3.5, larg_txt=col_w - 6.5)
     if config['professor']:
-        c.setFont(FONTE_I, 6.8)
+        c.setFont(FONTE_I, 7.8)
         c.setFillColor(CINZA_TEXTO)
         c.drawString((MARGEM + 3) * mm, _y(yiii + hiii - 1.2), f"Professor(a): {config['professor']}"[:70])
         c.setFillColor(PRETO)
 
     # IV — Classificação
     _caixa(c, xii, yiii, wii, hiii, 'IV   CLASSIFICAÇÃO')
-    _campo(c, xii + 3, yiii + 6, 33, 'Acertos (n.º)', '')
-    c.setFont(FONTE, 7.5)
+    _campo(c, xii + 3, yiii + 6, 33, 'Acertos (n.º)', '', tam_rot=7.2)
+    c.setFont(FONTE_B, 9.5)
     c.drawString((xii + 37) * mm, _y(yiii + 11.6), f"/ {config['n_perguntas']}")
     rot1, rot2 = rotulos_correccao(config)
-    _campo(c, xii + 3, yiii + 13.6, 33, f'{rot1} (valores)', '')
-    _campo(c, xii + 38, yiii + 13.6, 33, f'{rot2} (valores)', '')
-    _campo(c, xii + 3, yiii + 21.2, 33, 'Ass. do Professor', '')
-    _campo(c, xii + 38, yiii + 21.2, 33, 'Ass. do Professor', '')
+    _campo(c, xii + 3, yiii + 13.6, 33, f'{rot1} (valores)', '', tam_rot=7.2)
+    _campo(c, xii + 38, yiii + 13.6, 33, f'{rot2} (valores)', '', tam_rot=7.2)
+    _campo(c, xii + 3, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=7.2)
+    _campo(c, xii + 38, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=7.2)
 
     # Instruções gerais + grelha
     _bloco_instrucoes(c, 121.5, config['instrucao_extra'])
