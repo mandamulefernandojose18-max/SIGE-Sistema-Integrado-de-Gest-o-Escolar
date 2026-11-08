@@ -206,13 +206,19 @@ def _relatorio_excluidos(excluidos):
                     d.get('classe') or '', d.get('turma') or '', motivo])
     return buf.getvalue().encode('utf-8-sig')
 
-def preparar(p, form, ficheiros=None):
+def _escola_da_prova(p, alternativa=None):
+    """A escola da prova; se a prova não tiver (Super Admin sem escola), a escola seleccionada ou da conta."""
+    escola = Escola.objects.filter(id=p.get('escola_id')).first() if p.get('escola_id') else None
+    return escola or alternativa
+
+
+def preparar(p, form, ficheiros=None, escola_alt=None):
     """None se a prova não leva folha; senão dicionário com `personalizada`, `total` e `para(n)` (bytes PDF da folha da cópia n)."""
     if not _on(form, 'folha_resposta'):
         return None
-    escola = Escola.objects.filter(id=p.get('escola_id')).first() if p.get('escola_id') else None
+    escola = _escola_da_prova(p, escola_alt)
     if not escola:
-        raise ValueError('A folha de resposta precisa de uma prova associada a uma escola.')
+        raise ValueError('Para a folha de resposta, seleccione primeiro a escola (Super Admin) ou use uma conta de escola.')
     esc = fr.montar_dados_escola(escola)
     ano = escola.ano_letivo_ativo
     personalizada = _on(form, 'folha_personalizada')
@@ -276,11 +282,11 @@ def preparar(p, form, ficheiros=None):
             'excluidos': excluidos, 'relatorio': _relatorio_excluidos(excluidos),
             'para': lambda n: folhas[(n - 1) % len(folhas)]}
 
-def contexto(p):
+def contexto(p, escola_alt=None):
     """Dados reais para os filtros em cascata: classes → turmas (com secção/área e nº de alunos activos)."""
-    escola = Escola.objects.filter(id=p.get('escola_id')).first() if p.get('escola_id') else None
+    escola = _escola_da_prova(p, escola_alt)
     if not escola:
-        return {'classes': [], 'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
+        return {'sem_escola': True, 'classes': [], 'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
                 'logo_proprio_disponivel': False}
     ano = escola.ano_letivo_ativo
     turmas = list(Turma.objects.filter(escola=escola, ano_letivo=ano).order_by('grau_ano', 'nome'))

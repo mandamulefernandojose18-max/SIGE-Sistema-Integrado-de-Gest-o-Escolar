@@ -122,6 +122,11 @@ def _ler_opcoes(form, cfg_antiga=None):
     return op
 
 
+def _escola_activa(request, user):
+    """Escola seleccionada (Super Admin) ou da conta; serve quando a prova não tem escola própria."""
+    return getattr(request, 'tenant', None) or getattr(user, 'escola', None)
+
+
 def _tratar(fn):
     """Converte os erros de validação do Escudo em respostas 400/503 em português."""
     def envoltorio(*a, **k):
@@ -383,7 +388,7 @@ def gerar(request, pid):
     if quer_word and not s.tem_word(p):
         raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
     from .services import folha as folha_mod
-    folha = folha_mod.preparar(p, request.POST, request.FILES)  # None = sem folha de resposta
+    folha = folha_mod.preparar(p, request.POST, request.FILES, _escola_activa(request, user))  # None = sem folha de resposta
     if folha and folha['personalizada']:
         op['copias'] = folha['total']  # uma cópia (com a sua folha) por aluno
     base = s.preparar_base(pid, op) if quer_pdf else None
@@ -439,7 +444,7 @@ def folha_contexto(request, pid):
     if erro:
         return erro
     from .services import folha as folha_mod
-    return _json({'success': True, 'data': folha_mod.contexto(p)})
+    return _json({'success': True, 'data': folha_mod.contexto(p, _escola_activa(request, user))})
 
 
 @csrf_exempt

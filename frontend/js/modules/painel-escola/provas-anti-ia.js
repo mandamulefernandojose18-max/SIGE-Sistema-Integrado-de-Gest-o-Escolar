@@ -644,6 +644,7 @@
           var igual = classes.filter(function (c) { return String(c.classe) === String(k.classe); })[0];
           if (igual) sClasse.value = igual.classe;
           pintarAreas();
+          if (ctx.sem_escola) resumo.textContent = 'Esta prova não tem escola associada: como Super Admin, seleccione primeiro a escola no topo e recarregue a página.';
         } catch (e) {
           ctx = null; msg.textContent = '';
           sClasse.innerHTML = '<option value="">Não foi possível carregar as classes</option>';

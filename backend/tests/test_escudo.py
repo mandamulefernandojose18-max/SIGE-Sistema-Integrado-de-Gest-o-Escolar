@@ -1219,3 +1219,15 @@ def test_folha_contexto_devolve_classes_e_turmas_reais_so_da_escola(duas_escolas
     t = d['classes'][0]['turmas'][0]
     assert t['area'] == 'Ciências' and t['alunos'] == 2 and d['tipos_avaliacao']
     assert APIClient().get(API + pid + '/folha-contexto/').status_code == 401
+
+
+def test_folha_usa_a_escola_seleccionada_quando_a_prova_nao_tem_escola(duas_escolas):
+    from apps.escudo.services import folha
+    a, _ = duas_escolas
+    _alunos_reais(a, 2)
+    sem = folha.contexto({'escola_id': None})
+    assert sem['classes'] == []
+    com = folha.contexto({'escola_id': None}, a)
+    assert com['classes'][0]['total_alunos'] == 2
+    with pytest.raises(ValueError, match='seleccione'):
+        folha.preparar({'escola_id': None, 'disciplina': 'Física'}, {'folha_resposta': 'sim'})
