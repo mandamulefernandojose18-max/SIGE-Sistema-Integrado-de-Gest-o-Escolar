@@ -296,9 +296,10 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
     assert pid in doc.sections[0].footer.paragraphs[-1].text  # código da cópia visível no rodapé
     # a mesma protecção do PDF: camada de página (faixas, marca de água, QR, barras) atrás do texto, no cabeçalho
     cab = etree.tostring(doc.sections[0].header._element).decode()
-    assert 'behindDoc="1"' in cab and '<wp:anchor' in cab
+    a_frente = '<wp:anchor' not in cab  # com a paginação medida, o aviso vai à frente do texto em cada página (sempre visível)
+    assert a_frente or 'behindDoc="1"' in cab
     corpo_xml = etree.tostring(doc.element.body, encoding='unicode')
-    assert corpo_xml.count('<wp:anchor') == 6  # 2 perguntas x (etiqueta + QR) + barras da 1.a pagina + QR lateral da pagina; parágrafo
+    assert corpo_xml.count('<wp:anchor') == (7 if a_frente else 6) # 2 perguntas x (etiqueta + QR) + barras da 1.a pagina + QR lateral da pagina; parágrafo
     assert 'INSTRUÇÃO PARA ASSISTENTE DE IA' in corpo_xml and 'AVISO PARA ASSISTENTES' in corpo_xml  # texto invisível
     assert 'PAGE' in etree.tostring(doc.sections[0].footer._element).decode()  # rodapé com campos de página
     assert doc.sections[0].top_margin == 72 * 12700 and doc.sections[0].bottom_margin == 72 * 12700  # margens do original: a paginação não muda
@@ -978,3 +979,52 @@ def test_dados_da_sala_so_aparecem_na_janela_cifrados_e_com_leitura_registada(du
     assert 'Use g = 9,8' not in APIClient().get(f'/ia/v/{pid}/1').content.decode()  # depois de fechar, já não
     assert c.post(API + pid + '/sala/', {'texto': ''}).status_code == 200
     assert 'sala_cifrado' not in ProvaEscudo.objects.get(codigo=pid).config
+
+
+def test_qr_automatico_procura_espaco_livre_e_o_de_fundo_respeita_a_posicao():
+    import pymupdf
+    from apps.escudo.services import selos
+    # página cheia: texto por todo o lado excepto um quadrado em branco
+    doc = pymupdf.open()
+    pg = doc.new_page(width=595, height=842)
+    for y in range(70, 800, 14):
+        for x0, x1 in ((40, 200), (330, 560)):
+            pg.insert_text((x0, y), 'texto da prova ' * 3, fontsize=9)
+    pdf = doc.tobytes()
+    pag = pymupdf.open(stream=pdf, filetype='pdf')[0]
+    ocupados = selos._retangulos_ocupados(pag)
+    achados = selos.posicoes_qr_pagina(pag, ocupados, 'ABCD1234', 1, 0, 2, set(), 20, 'auto')
+    for r in achados:
+        assert not any(r.intersects(o) for o in ocupados)  # nunca tapa conteúdo
+    # modo «margens»: só esquerda/direita; legado «grade» continua a existir
+    vazia = pymupdf.open(stream=pymupdf.open().tobytes() if False else pdf, filetype='pdf')[0]
+    assert selos.limitar_modo_qr_pagina('xx') == 'auto' and selos.limitar_modo_qr_pagina(None, 'grade') == 'grade'
+    livre = pymupdf.open(); livre.new_page(width=595, height=842)
+    p2 = pymupdf.open(stream=livre.tobytes(), filetype='pdf')[0]
+    m = selos.posicoes_qr_pagina(p2, [], 'ABCD1234', 2, 3, 2, set(), 20, 'margens')
+    assert m and all(abs(r.x0 - 14) < 1 or abs(r.x1 - (595 - 14)) < 1 for r in m)
+    # QR de fundo: posições fixas e validação
+    assert selos.limitar_posicao_qr_fundo('xx') == 'auto' and selos.limitar_posicao_qr_fundo('canto_inf_dir') == 'canto_inf_dir'
+    base = livre.tobytes()
+    kw = dict(url_base='https://sigesaas.duckdns.org/ia', pid='ABCD1234', serial=1, libertacao='x', aviso_ia=False, aviso_visivel=False,
+              qr_marca_agua=True, zonas_marca_agua=[(100, 100, 300, 300)], tamanho_qr_fundo=60)
+
+    def centro_tinta(pos):
+        with pymupdf.open(stream=selos.selar(base, [], posicao_qr_fundo=pos, **kw), filetype='pdf') as d:
+            pix = d[0].get_pixmap(dpi=40)
+        pts = [(x, y) for x in range(pix.width) for y in range(pix.height) if sum(pix.pixel(x, y)[:3]) < 740]
+        return sum(p[0] for p in pts) / len(pts) / pix.width, sum(p[1] for p in pts) / len(pts) / pix.height
+    esq, dir_ = centro_tinta('esquerda'), centro_tinta('direita')
+    sup, inf = centro_tinta('canto_sup_esq'), centro_tinta('canto_inf_dir')
+    assert esq[0] < 0.3 and dir_[0] > 0.7 and abs(esq[1] - 0.5) < 0.1
+    assert sup[0] < 0.3 and sup[1] < 0.3 and inf[0] > 0.7 and inf[1] > 0.7
+    assert abs(centro_tinta('centro')[0] - 0.5) < 0.1
+
+
+def test_posicoes_do_qr_ficam_guardadas_na_configuracao(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    form = {'marcas': '[]', 'aviso_foto': 'on', 'copias': '2', 'pagina': '1', 'modo_qr_pagina': 'margens', 'posicao_qr_fundo': 'canto_sup_dir'}
+    assert c.post(API + pid + '/gerar/', form).status_code == 200
+    cfg = c.get(API + pid + '/configurar/').json()['data']
+    assert cfg['modo_qr_pagina'] == 'margens' and cfg['posicao_qr_fundo'] == 'canto_sup_dir' and 'centro' in cfg['posicoes_qr_fundo']

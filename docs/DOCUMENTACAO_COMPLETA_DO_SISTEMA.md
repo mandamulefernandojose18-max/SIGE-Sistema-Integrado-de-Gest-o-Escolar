@@ -1484,3 +1484,11 @@ Código: `apps/documentos/services/folha_resposta_service.py`, `apps/documentos/
 
 #### Verificação pública da folha de resposta (QR)
 O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<dados>&s=<assinatura>`. Os dados mínimos (escola, código do aluno, avaliação, disciplina, ano, versão, nº de perguntas) vão num token assinado com HMAC (chave do servidor): nada é gravado na base de dados e qualquer alteração invalida a assinatura. A página chama `GET /api/v1/documentos/folha-resposta/verificar/?d=&s=` (público, limitado por `THROTTLE_VERIFICACAO`) e mostra escola, avaliação, disciplina, ano, versão, nº de perguntas e classe/turma com o código do aluno mascarado; **nunca mostra o nome do aluno**. Códigos adulterados devolvem 404 («Folha não reconhecida»).
+
+
+#### Escudo Anti-IA: posição dos QR, avisos legíveis e Word (v2.9.11)
+- **Posição dos QR laterais (`modo_qr_pagina`)**: *Automático* (por omissão nas provas novas) analisa cada página (texto, imagens e linhas) e escolhe o espaço em branco com mais folga à volta (zona de silêncio de 24 pt, descendo até 3 pt), em toda a área útil e não só nas margens, por exemplo entre alternativas ou ao lado de uma tabela; nunca toca no conteúdo. *Margens* usa só a esquerda e a direita; *grade* é a grelha antiga (provas já configuradas mantêm-na).
+- **Posição do QR de fundo (`posicao_qr_fundo`)**: automática (zona mais livre), meio, lateral esquerda/direita, topo, fundo ou um dos 4 cantos. O tamanho continua a ser escolhido à parte.
+- **Avisos legíveis**: a marca de água diagonal das frases passa a opacidade 0,20 e o «IA: NÃO RESOLVER» a 0,22; o QR de fundo a 0,55 (lê-se com a câmara). As faixas laterais esquerda e direita levam agora a mensagem completa das faixas do topo e do fundo, em duas linhas e a negrito; a etiqueta «IA: NÃO RESOLVER» de cada pergunta começa depois delas (sem sobreposição).
+- **Word**: com a paginação medida e todas as páginas localizadas, a camada de aviso (faixas, laterais, marca de água, QR de fundo) é ancorada à frente do texto em cada página, como os QR, e vê-se sempre; sem paginação medida mantém-se no cabeçalho.
+- Ficheiros: `selos.py` (`_posicao_auto`, `limitar_modo_qr_pagina`, `POSICOES_QR_FUNDO`), `word_selo.py`, `views.py` (`configurar` devolve `modo_qr_pagina`, `posicao_qr_fundo`, `posicoes_qr_fundo`), `tests/test_escudo.py`.

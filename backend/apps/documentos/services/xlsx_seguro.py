@@ -393,13 +393,19 @@ def embelezar_workbook(wb):
         max_r, max_c = _limites_conteudo(ws)
         if max_r == 0 or max_c == 0:
             continue
+        # Folhas com layout fixo (formulários desenhados célula a célula, ex.: folha de resposta) trazem a sua
+        # própria moldura e posicionamento de imagens: mantêm-se as regras de fonte, palavras inteiras e ocultação.
+        fixo = bool(getattr(ws, 'sige_layout_fixo', False))
         padronizar_fontes_e_cabecalhos(ws)
-        ajustar_larguras_ao_conteudo(ws, max_r, max_c)
+        if not fixo:
+            ajustar_larguras_ao_conteudo(ws, max_r, max_c)
         garantir_palavras_inteiras(ws, max_r, max_c)
-        _centrar_logo(ws, max_c)
+        if not fixo:
+            _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)
-        _melhorar_tabela(ws, max_r, max_c)
-        aplicar_moldura_tabelas(ws, max_r, max_c)
+        if not fixo:
+            _melhorar_tabela(ws, max_r, max_c)
+            aplicar_moldura_tabelas(ws, max_r, max_c)
         # Linhas: todas as do conteúdo têm altura explícita; as restantes ficam escondidas (zeroHeight)
         for r in range(1, max_r + 1):
             if ws.row_dimensions[r].height is None:

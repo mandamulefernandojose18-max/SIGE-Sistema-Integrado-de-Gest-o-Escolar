@@ -148,7 +148,7 @@ def _primeiros_por_pagina(doc, paginas_texto):
     return achados
 
 
-def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base, tamanho_qr_pagina=None):
+def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base, tamanho_qr_pagina=None, modo_qr_pagina=None):
     """[(parágrafo, [(png, largura, altura, x, y), …]), …]: as marcas de cada página e o QR lateral, nas mesmas posições do PDF.
 
     Mede-se o PDF da cópia 1 (mesma paginação do Word): o QR lateral escolhe o espaço livre de cada página e cada marca
@@ -178,19 +178,19 @@ def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base
                     if a.get("qr"):
                         ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
                 ocupados += [selos.geometria(m, W, H) + (-4, -4, 4, 4) for m in doces]
-                for rect in selos.posicoes_qr_pagina(pagina, ocupados, pid, serial, i, selos.contar_qr_pagina(qr_pagina), usadas, tamanho_qr_pagina):
+                for rect in selos.posicoes_qr_pagina(pagina, ocupados, pid, serial, i, selos.contar_qr_pagina(qr_pagina), usadas, tamanho_qr_pagina, selos.limitar_modo_qr_pagina(modo_qr_pagina, 'grade')):
                     lado = rect.width
                     png = _png(lado, lado, lambda c, lado=lado, i=i: selos._desenhar_qr(
                         c, fitz.Rect(0, 0, lado, lado), lado, f"{url_base.rstrip('/')}/v/{pid}/{serial}/p{i + 1}"))
                     itens.append((png, lado, lado, rect.x0, rect.y0))
             if itens and achados[i] is not None:
                 resultado.append((achados[i], itens))
-    return resultado
+    return resultado, achados
 
 
 def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona_agua=None, aviso_foto=True, aviso_ia=True,
                aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None,
-               qr_pagina=True, pdf_layout=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False):
+               qr_pagina=True, pdf_layout=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
     doc = Document(io.BytesIO(dados))
     codigo = selos.codigo_barras(pid, serial)
@@ -213,12 +213,15 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
                           aviso_visivel=False, aviso_ia=False, aviso_foto=aviso_foto and completa, mensagem_ia=mensagem_ia,
                           aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua and completa,
                           zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False,
-                          limite_faixa=limite if aviso_foto else None, tamanho_qr_fundo=tamanho_qr_fundo, armadilha=armadilha)
+                          limite_faixa=limite if aviso_foto else None, tamanho_qr_fundo=tamanho_qr_fundo, armadilha=armadilha, modo_qr_pagina=modo_qr_pagina, posicao_qr_fundo=posicao_qr_fundo)
         with fitz.open(stream=pdf, filetype="pdf") as d:
             return d[0].get_pixmap(dpi=170, alpha=True).tobytes("png")
 
     # com a paginação real (PDF medido da cópia 1), as marcas e o QR lateral vão página a página, à frente do texto
-    por_pagina = _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base, tamanho_qr_pagina) if pdf_layout else None
+    por_pagina, ancoras_pagina = _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base, tamanho_qr_pagina, modo_qr_pagina) if pdf_layout else (None, [])
+    # com a paginação medida e todas as páginas localizadas, o aviso (faixas, laterais, marca de água e QR de fundo) vai à
+    # frente do texto em cada página, ancorado como os QR: assim vê-se sempre, em qualquer leitor de Word
+    aviso_a_frente = bool(por_pagina) and bool(ancoras_pagina) and all(a is not None for a in ancoras_pagina)
     if por_pagina:
         todas, so_primeira = [], []
     else:
@@ -239,7 +242,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         feitos.add(id(parte._element))
         return True
 
-    camadas = bool(aviso_foto or qr_marca_agua or todas)
+    camadas = bool(aviso_foto or qr_marca_agua or todas) and not aviso_a_frente
     par_cab_rod = lambda sec: [(sec.header, sec.footer)] + (
         [(sec.first_page_header, sec.first_page_footer)] if sec.different_first_page_header_footer else []) + (
         [(sec.even_page_header, sec.even_page_footer)] if doc.settings.odd_and_even_pages_header_footer else [])
@@ -252,6 +255,9 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     # marcas «só na primeira página»: ancoradas ao primeiro parágrafo do corpo, sem activar «primeira página diferente»
     if so_primeira and doc.paragraphs:
         _imagem_ancorada(doc.paragraphs[0], camada(so_primeira, completa=False), largura, altura, 0, 0)
+    if aviso_a_frente and (aviso_foto or qr_marca_agua):
+        for paragrafo in ancoras_pagina:
+            _imagem_ancorada(paragrafo, png_geral, largura, altura, 0, 0, atras=False)
     for paragrafo, itens in (por_pagina or []):
         for png, w, h, x, y in itens:
             _imagem_ancorada(paragrafo, png, w, h, x, y, atras=False)
@@ -265,7 +271,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         n = int(m.group(1))
         if aviso_pergunta:
             etiqueta = _png(36, 16, lambda c: _desenhar_etiqueta(c))
-            _imagem_ancorada(p, etiqueta, 36, 16, 12, 0, rel_h="page", rel_v="paragraph", atras=False,
+            _imagem_ancorada(p, etiqueta, 36, 16, selos.X_ETIQUETA, 0, rel_h="page", rel_v="paragraph", atras=False,
                              alt=selos.texto_pergunta(n, mensagem))
         if qr_pergunta:
             lado = selos.TAM_QR_PERGUNTA
