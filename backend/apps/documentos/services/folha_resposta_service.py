@@ -507,7 +507,7 @@ def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
     y0 = 8.0
     if logo_reader is not None:
         try:
-            c.drawImage(logo_reader, MARGEM * mm, _y(y0 + 21), 21 * mm, 21 * mm, preserveAspectRatio=True, mask='auto')
+            c.drawImage(logo_reader, (MARGEM + 1.5) * mm, _y(y0 + 19.5), 18 * mm, 18 * mm, preserveAspectRatio=True, mask='auto')
         except Exception:
             pass
     c.setFillColor(PRETO)
