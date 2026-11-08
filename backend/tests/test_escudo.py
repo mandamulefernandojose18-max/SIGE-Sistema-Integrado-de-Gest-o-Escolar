@@ -1260,3 +1260,17 @@ def test_superadmin_com_escola_seleccionada_usa_folha_em_prova_sem_escola(duas_e
     assert sem['sem_escola'] is True
     com = s.get(API + pid + '/folha-contexto/', HTTP_X_TENANT_ID=str(a.id)).json()['data']
     assert com['classes'][0]['total_alunos'] == 2
+
+
+def test_com_folha_a_prova_sai_num_so_pdf_com_a_folha_na_pagina_1_seja_qual_for_o_formato(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    base = {'marcas': '[]', 'copias': '1'}
+    sem = len(PdfReader(io.BytesIO(c.post(API + pid + '/gerar/', base).content)).pages)
+    for formato in ('pdf', 'word', 'ambos'):
+        r = c.post(API + pid + '/gerar/', {**base, 'formato': formato, 'folha_resposta': 'sim', 'folha_n_perguntas': '20'})
+        assert r.status_code == 200 and r['Content-Type'] == 'application/pdf', formato  # um só PDF, nunca ZIP nem folha à parte
+        paginas = PdfReader(io.BytesIO(r.content)).pages
+        assert len(paginas) == sem + 1
+        assert 'FOLHA' in (paginas[0].extract_text() or '').upper()  # página 1 = folha; 2... = questões
+        assert 'FOLHA' not in (paginas[1].extract_text() or '').upper()
