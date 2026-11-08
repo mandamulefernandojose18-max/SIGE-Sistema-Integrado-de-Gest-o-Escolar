@@ -40,14 +40,13 @@
   function guardar() {
     try {
       var c = lerConfig(true);
-      localStorage.setItem(CHAVE_LS, JSON.stringify({ tipo: c.tipo_avaliacao, n: c.n_perguntas, alt: c.n_alternativas, omr: c.marcas_omr, barras: c.codigo_barras }));
+      localStorage.setItem(CHAVE_LS, JSON.stringify({ n:c.n_perguntas, alt: c.n_alternativas, omr: c.marcas_omr, barras: c.codigo_barras }));
     } catch (_) { /* conveniência apenas */ }
   }
   function restaurar() {
     try {
       var s = JSON.parse(localStorage.getItem(CHAVE_LS) || 'null');
       if (!s) return;
-      if (s.tipo && $('frTipo').querySelector('option[value="' + s.tipo + '"]')) $('frTipo').value = s.tipo;
       if (s.n) $('frNPerg').value = s.n;
       if (s.alt) $('frNAlt').value = s.alt;
       $('frOmr').checked = s.omr !== false;
@@ -245,6 +244,7 @@
     var gab = {};
     Array.prototype.forEach.call(document.querySelectorAll('#frChaves textarea'), function (t) { if (t.value.trim()) gab[t.dataset.v] = t.value; });
     if (Object.keys(gab).length) cfg.gabaritos = gab;
+    if (!semValidar && !cfg.tipo_avaliacao) throw new Error('Escolha o tipo de avaliação.');
     if (!semValidar && !cfg.disciplina) throw new Error('Escolha a disciplina.');
     return cfg;
   }
@@ -427,7 +427,7 @@
       var r = await pedir('contexto/?ano=' + encodeURIComponent(ano()));
       if (!r.ok) throw new Error(await mensagemErro(r));
       ctx = await r.json();
-      $('frTipo').innerHTML = (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
+      $('frTipo').innerHTML = '<option value="">-- Tipo de avaliação --</option>' + (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
       restaurar();
       pintarRegra(ctx.regra_exclusao);
       preencherClasses();
