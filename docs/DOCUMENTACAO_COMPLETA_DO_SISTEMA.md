@@ -1516,3 +1516,6 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 
 > **Pré-visualização da folha de resposta (2026-11-09):** botão «Pré-visualizar folha» no ecrã do Escudo mostra a 1.ª página da folha (do primeiro aluno, se for personalizada) antes de gerar: `POST /api/v1/escudo/<id>/folha-previa/`.
 
+
+> **Escudo Anti-IA e escola seleccionada (2026-11-09):** os pedidos do Escudo passam a enviar a escola activa (`X-Tenant-ID`, a escolhida no topo pelo Super Admin), como o resto da aplicação. Assim as provas novas ficam ligadas à escola e a folha de resposta carrega classes e turmas automaticamente.
+

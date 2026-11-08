@@ -1245,3 +1245,18 @@ def test_folha_previa_devolve_png_da_primeira_pagina(duas_escolas):
     assert pers.status_code == 200 and pers.content[:4] == b'\x89PNG'
     assert c.post(API + pid + '/folha-previa/', {'folha_resposta': 'nao'}).status_code == 400
     assert APIClient().post(API + pid + '/folha-previa/', base).status_code == 401
+
+
+def test_superadmin_com_escola_seleccionada_usa_folha_em_prova_sem_escola(duas_escolas):
+    from apps.accounts.models import Usuario
+    a, _ = duas_escolas
+    _alunos_reais(a, 2)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    ProvaEscudo.objects.filter(codigo=pid).update(escola=None)
+    Usuario.objects.create_user(email='super.fa@sige.mz', password='PassSu123!', role='SUPERADMIN')
+    s = _cliente_de('super.fa@sige.mz', 'PassSu123!')
+    sem = s.get(API + pid + '/folha-contexto/').json()['data']
+    assert sem['sem_escola'] is True
+    com = s.get(API + pid + '/folha-contexto/', HTTP_X_TENANT_ID=str(a.id)).json()['data']
+    assert com['classes'][0]['total_alunos'] == 2

@@ -9,7 +9,16 @@
   var estado = { vista: 'painel', pid: null, catalogo: null, timers: [], pronto: false };
 
   function token() { try { return (window.state && window.state.token) || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token') || ''; } catch (_) { return ''; } }
-  function cab() { var t = token(); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
+  // escola activa: o Super Admin escolhe-a no topo (a mesma que o resto da aplicação envia em X-Tenant-ID)
+  function tenant() {
+    try {
+      var s = (typeof state !== 'undefined' && state) || window.state || {}, sel = null;
+      try { sel = localStorage.getItem('sige_selected_tenant'); } catch (_) { /* sem storage */ }
+      var superadmin = s.user && s.user.role === 'SUPERADMIN';
+      return (superadmin || !s.user ? sel : null) || (s.tenant && s.tenant.id) || (s.user && s.user.escola_id) || '';
+    } catch (_) { return ''; }
+  }
+  function cab() { var t = token(), h = t ? { 'Authorization': 'Bearer ' + t } : {}, tn = tenant(); if (tn) h['X-Tenant-ID'] = tn; return h; }
   function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML.replace(/"/g, '&quot;'); }
   function $(sel, raiz) { return (raiz || document).querySelector(sel); }
   function $$(sel, raiz) { return Array.prototype.slice.call((raiz || document).querySelectorAll(sel)); }
