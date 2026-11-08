@@ -449,6 +449,24 @@ def folha_contexto(request, pid):
 
 @csrf_exempt
 @_tratar
+def folha_previa(request, pid):
+    """PNG da primeira página da folha de resposta (do primeiro aluno, se for personalizada)."""
+    if request.method != 'POST':
+        return _erro('Método não permitido.', 405)
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    from .services import folha as folha_mod
+    folha = folha_mod.preparar(p, request.POST, request.FILES, _escola_activa(request, user), previa=True)
+    if not folha:
+        return _erro('Escolha «Sim» em «Folha de resposta» para a pré-visualizar.')
+    r = HttpResponse(selos.renderizar_png(folha['para'](1), 0, dpi=110), content_type='image/png')
+    r['Cache-Control'] = 'no-store'
+    return r
+
+
+@csrf_exempt
+@_tratar
 def gabarito_copias(request, pid):
     user, p, erro = _prova(request, pid)
     if erro:

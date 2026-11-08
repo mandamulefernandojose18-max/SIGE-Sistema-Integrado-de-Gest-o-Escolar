@@ -212,7 +212,7 @@ def _escola_da_prova(p, alternativa=None):
     return escola or alternativa
 
 
-def preparar(p, form, ficheiros=None, escola_alt=None):
+def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
     """None se a prova não leva folha; senão dicionário com `personalizada`, `total` e `para(n)` (bytes PDF da folha da cópia n)."""
     if not _on(form, 'folha_resposta'):
         return None
@@ -263,6 +263,8 @@ def preparar(p, form, ficheiros=None, escola_alt=None):
     incluidos, excluidos = _aplicar_exclusoes(form, p, escola, ano, cands)
     if not incluidos:
         raise ValueError('Todos os alunos ficaram excluídos: não há folhas personalizadas a gerar.')
+    if previa:  # só a folha do primeiro aluno, para ser rápida
+        incluidos = incluidos[:1]
     if len(incluidos) > MAX_COPIAS:
         raise ValueError(f'Há {len(incluidos)} alunos neste âmbito; o máximo é {MAX_COPIAS} cópias por vez. '
                          'Escolha uma secção ou uma turma, ou exclua alunos.')

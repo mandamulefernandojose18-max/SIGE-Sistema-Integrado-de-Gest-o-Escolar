@@ -1231,3 +1231,17 @@ def test_folha_usa_a_escola_seleccionada_quando_a_prova_nao_tem_escola(duas_esco
     assert com['classes'][0]['total_alunos'] == 2
     with pytest.raises(ValueError, match='seleccione'):
         folha.preparar({'escola_id': None, 'disciplina': 'Física'}, {'folha_resposta': 'sim'})
+
+
+def test_folha_previa_devolve_png_da_primeira_pagina(duas_escolas):
+    a, _ = duas_escolas
+    _alunos_reais(a, 3)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    base = {'folha_resposta': 'sim', 'folha_n_perguntas': '20'}
+    em_branco = c.post(API + pid + '/folha-previa/', base)
+    assert em_branco.status_code == 200 and em_branco.content[:4] == b'\x89PNG'
+    pers = c.post(API + pid + '/folha-previa/', {**base, 'folha_personalizada': 'sim', 'folha_classe': '11.ª Classe'})
+    assert pers.status_code == 200 and pers.content[:4] == b'\x89PNG'
+    assert c.post(API + pid + '/folha-previa/', {'folha_resposta': 'nao'}).status_code == 400
+    assert APIClient().post(API + pid + '/folha-previa/', base).status_code == 401

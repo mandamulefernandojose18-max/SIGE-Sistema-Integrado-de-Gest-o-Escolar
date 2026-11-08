@@ -498,6 +498,8 @@
             '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="outros"><span>Outros/as<small>Indicas tu os alunos a excluir.</small></span></label>' +
             '<label class="campo" id="escudoFolhaOutrosCampo" hidden><span>Alunos a excluir (código ou nome, um por linha)</span><textarea name="folha_excluir_outros" rows="3" maxlength="2000"></textarea></label>' +
             '<small>Os alunos activos do SIGE já excluem automaticamente quem está transferido ou falecido. Recebes um ficheiro CSV no ZIP com os excluídos e o motivo (só para o professor).</small></fieldset></div>' +
+        '<button type="button" class="btn secundario" id="escudoFolhaBtnPrevia">' + ico('eye') + ' Pré-visualizar folha</button>' +
+        '<img id="escudoFolhaPreviaImg" alt="Pré-visualização da folha de resposta" hidden style="width:100%;height:auto;border:1px solid var(--linha,#ccc);border-radius:6px;margin-top:8px">' +
         '<p class="suave pequeno" id="escudoFolhaMsg" role="status"></p></div>' +
       '<label class="campo"><span>Cópias numeradas</span><input type="number" name="copias" min="1" max="200" value="' + esc(k.copias) + '"></label>' +
       '<input type="hidden" name="url_base" value="' + esc(k.url_base) + '"><p class="suave pequeno">Os códigos abrem <code>' + esc(k.url_base) + '/v/' + esc(pid) + '</code>.</p>' +
@@ -653,6 +655,13 @@
       };
       sel.addEventListener('change', function () { caixa.hidden = sel.value !== 'sim'; if (sel.value === 'sim') carregar(); });
       pers.addEventListener('change', function () { alvo.hidden = pers.value !== 'sim'; if (pers.value === 'sim') carregar(); });
+      var bPreviaF = $('#escudoFolhaBtnPrevia'), imgPreviaF = $('#escudoFolhaPreviaImg');
+      bPreviaF.addEventListener('click', async function () {
+        bPreviaF.disabled = true; msg.textContent = 'A gerar a pré-visualização da folha…';
+        var ok = await carregarImagem(imgPreviaF, pid + '/folha-previa/', { method: 'POST', body: dados() });
+        bPreviaF.disabled = false; msg.textContent = ok ? 'Pré-visualização da primeira página (do primeiro aluno, se for personalizada).' : '';
+        imgPreviaF.hidden = !ok;
+      });
       var fonte = $('#escudoFolhaFonte'), excl = $('#escudoFolhaExcl'), exclCaixa = $('#escudoFolhaExclCaixa');
       fonte.addEventListener('change', function () { $('#escudoFolhaSistema').hidden = fonte.value !== 'sistema'; $('#escudoFolhaLista').hidden = fonte.value !== 'lista'; });
       excl.addEventListener('change', function () { exclCaixa.hidden = excl.value !== 'sim'; });
