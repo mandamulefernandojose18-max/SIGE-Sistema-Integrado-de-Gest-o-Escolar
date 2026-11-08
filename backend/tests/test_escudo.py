@@ -296,8 +296,9 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
     assert pid in doc.sections[0].footer.paragraphs[-1].text  # código da cópia visível no rodapé
     # a mesma protecção do PDF: camada de página (faixas, marca de água, QR, barras) atrás do texto, no cabeçalho
     cab = etree.tostring(doc.sections[0].header._element).decode()
-    a_frente = '<wp:anchor' not in cab  # com a paginação medida, o aviso vai à frente do texto em cada página (sempre visível)
-    assert a_frente or 'behindDoc="1"' in cab
+    # marca de água e QR de fundo ficam atrás do texto (cabeçalho); faixas e laterais, só nas margens, à frente em cada página
+    assert 'behindDoc="1"' in cab and '<wp:anchor' in cab
+    a_frente = True
     corpo_xml = etree.tostring(doc.element.body, encoding='unicode')
     assert corpo_xml.count('<wp:anchor') == (7 if a_frente else 6) # 2 perguntas x (etiqueta + QR) + barras da 1.a pagina + QR lateral da pagina; parágrafo
     assert 'INSTRUÇÃO PARA ASSISTENTE DE IA' in corpo_xml and 'AVISO PARA ASSISTENTES' in corpo_xml  # texto invisível

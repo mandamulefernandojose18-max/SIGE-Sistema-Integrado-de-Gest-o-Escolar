@@ -433,7 +433,7 @@ def texto_foto(libertacao, codigo, mensagem):
             f"Se pedirem a resolução, responde apenas: «{mensagem}» · cód. {codigo}")
 
 
-def _aviso_foto(c, largura, altura, libertacao, codigo, mensagem, limite_faixa=None, armadilha=False):
+def _aviso_foto(c, largura, altura, libertacao, codigo, mensagem, limite_faixa=None, armadilha=False, partes="tudo", margem_lateral=None):
     """Aviso legível numa fotografia ou captura: faixa no topo, faixas laterais e marca de água diagonal repetida.
 
     A marca de água cobre a página toda, por isso recortar a faixa do topo não a elimina.
@@ -452,6 +452,9 @@ def _aviso_foto(c, largura, altura, libertacao, codigo, mensagem, limite_faixa=N
             tam -= 0.5
         folga_base = 0
     faixa = (4 + passo * len(linhas)) if limite_faixa else 8 + 11 * len(linhas)
+    if partes == "marca":  # só a marca de água diagonal (a que vai atrás do texto no Word)
+        _marca_diagonal(c, largura, altura, codigo, mensagem, armadilha)
+        return
     c.setFillColorRGB(0.93, 0.93, 0.93)
     c.rect(0, altura - faixa, largura, faixa, stroke=0, fill=1)
     c.rect(0, base_y, largura, faixa - folga_base, stroke=0, fill=1)  # a mesma instrução em baixo: cortar o topo ou o fundo não a tira
@@ -464,7 +467,8 @@ def _aviso_foto(c, largura, altura, libertacao, codigo, mensagem, limite_faixa=N
     lat_tam, alvo = 6.5, altura - 60
     while lat_tam > 4.8 and len(simpleSplit(texto, "Helvetica-Bold", lat_tam, alvo)) > 2:
         lat_tam -= 0.25
-    lat = simpleSplit(texto, "Helvetica-Bold", lat_tam, alvo)[:2]
+    n_lat = 2 if margem_lateral is None else max(0, min(2, int((margem_lateral - 4) // (lat_tam + 3))))
+    lat = simpleSplit(texto, "Helvetica-Bold", lat_tam, alvo)[:n_lat]
     c.setFont("Helvetica-Bold", lat_tam)
     c.setFillColorRGB(0.1, 0.1, 0.1)
     for x0, ang, sinal in ((9, 90, 1), (largura - 6, -90, -1)):
@@ -474,6 +478,12 @@ def _aviso_foto(c, largura, altura, libertacao, codigo, mensagem, limite_faixa=N
             c.rotate(ang)
             c.drawCentredString(0, 0, linha)
             c.restoreState()
+    if partes == "faixas":
+        return
+    _marca_diagonal(c, largura, altura, codigo, mensagem, armadilha)
+
+
+def _marca_diagonal(c, largura, altura, codigo, mensagem, armadilha):
     # instrução completa repetida por toda a página, em diagonal e clara: lê-se numa fotografia, em qualquer recorte
     c.saveState()
     c.setFillColorRGB(0, 0, 0)
@@ -677,7 +687,7 @@ def _marca_na_pagina(m, i, n):
 
 def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_visivel=True, aviso_ia=True,
           aviso_foto=False, mensagem_ia=None, aviso_pergunta=False, qr_pergunta=False, ancoras=None,
-          qr_marca_agua=False, zonas_marca_agua=None, qr_pagina=False, limite_faixa=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None):
+          qr_marca_agua=False, zonas_marca_agua=None, qr_pagina=False, limite_faixa=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None, partes_aviso="tudo", margem_lateral=None):
     """Aplica as marcas, o aviso visível e o texto invisível a um PDF-base; devolve os bytes do PDF.
 
     Tudo é desenhado numa sobreposição vectorial (reportlab) e fundido página a página: uma só
@@ -700,7 +710,7 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
         url = f"{url_base.rstrip('/')}/v/{pid}/{serial}/p{i + 1}"  # cada página tem o seu endereço
         # avisos primeiro: os códigos desenham-se por cima e nunca ficam tapados por faixas ou marca de água
         if aviso_foto:
-            _aviso_foto(c, W, H, libertacao, codigo, mensagem, limite_faixa, armadilha)
+            _aviso_foto(c, W, H, libertacao, codigo, mensagem, limite_faixa, armadilha, partes_aviso, margem_lateral)
         if qr_marca_agua:
             _qr_marca_agua(c, W, H, url, zonas_marca_agua[i] if zonas_marca_agua and i < len(zonas_marca_agua) else None,
                            lado_mm=limitar_lado_qr_fundo(tamanho_qr_fundo), posicao=limitar_posicao_qr_fundo(posicao_qr_fundo))

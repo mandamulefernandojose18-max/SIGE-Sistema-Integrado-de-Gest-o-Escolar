@@ -199,21 +199,23 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     largura, altura = sec0.page_width / EMU_PT, sec0.page_height / EMU_PT
 
     # a paginação não muda: as margens ficam como foram carregadas e as faixas de aviso adaptam-se ao espaço que elas dão
+    lateral = min(min(s.left_margin, s.right_margin) for s in doc.sections) / EMU_PT
     limite = (min(s.top_margin for s in doc.sections) / EMU_PT, min(s.bottom_margin for s in doc.sections) / EMU_PT)
     for sec in doc.sections:
         sec.header_distance = min(sec.header_distance, Pt(8))  # só aproxima o cabeçalho/rodapé do bordo; não empurra o corpo
         sec.footer_distance = min(sec.footer_distance, Pt(4))
     # camada de página: o mesmo desenho do PDF, sobre uma página em branco, convertido em PNG transparente
-    def camada(marcas_pagina, completa=True):
+    def camada(marcas_pagina, completa=True, partes="tudo", agua=True):
         em_branco = fitz.open()
         em_branco.new_page(width=largura, height=altura)
         base = em_branco.tobytes()
         em_branco.close()
         pdf = selos.selar(base, marcas_pagina, url_base=url_base, pid=pid, serial=serial, libertacao=libertacao, titulo=titulo,
                           aviso_visivel=False, aviso_ia=False, aviso_foto=aviso_foto and completa, mensagem_ia=mensagem_ia,
-                          aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua and completa,
+                          aviso_pergunta=False, qr_pergunta=False, qr_marca_agua=qr_marca_agua and completa and agua,
                           zonas_marca_agua=[zona_agua] if zona_agua else None, qr_pagina=False,
-                          limite_faixa=limite if aviso_foto else None, tamanho_qr_fundo=tamanho_qr_fundo, armadilha=armadilha, modo_qr_pagina=modo_qr_pagina, posicao_qr_fundo=posicao_qr_fundo)
+                          limite_faixa=limite if aviso_foto else None, tamanho_qr_fundo=tamanho_qr_fundo, armadilha=armadilha, modo_qr_pagina=modo_qr_pagina, posicao_qr_fundo=posicao_qr_fundo,
+                          partes_aviso=partes, margem_lateral=lateral)
         with fitz.open(stream=pdf, filetype="pdf") as d:
             return d[0].get_pixmap(dpi=170, alpha=True).tobytes("png")
 
@@ -227,7 +229,8 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     else:
         todas = [m for m in marcas if m["paginas"] == "todas"]
         so_primeira = [m for m in marcas if m["paginas"] == "primeira"]
-    png_geral = camada(todas)
+    png_geral = camada(todas, partes="marca" if aviso_a_frente else "tudo")
+    png_faixas = camada([], partes="faixas", agua=False) if aviso_a_frente and aviso_foto else None
     feitos = set()
 
     def usar(parte, primeira_seccao):
@@ -242,7 +245,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
         feitos.add(id(parte._element))
         return True
 
-    camadas = bool(aviso_foto or qr_marca_agua or todas) and not aviso_a_frente
+    camadas = bool(aviso_foto or qr_marca_agua or todas)
     par_cab_rod = lambda sec: [(sec.header, sec.footer)] + (
         [(sec.first_page_header, sec.first_page_footer)] if sec.different_first_page_header_footer else []) + (
         [(sec.even_page_header, sec.even_page_footer)] if doc.settings.odd_and_even_pages_header_footer else [])
@@ -255,9 +258,9 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
     # marcas «só na primeira página»: ancoradas ao primeiro parágrafo do corpo, sem activar «primeira página diferente»
     if so_primeira and doc.paragraphs:
         _imagem_ancorada(doc.paragraphs[0], camada(so_primeira, completa=False), largura, altura, 0, 0)
-    if aviso_a_frente and (aviso_foto or qr_marca_agua):
+    if png_faixas:  # faixas do topo e do fundo e laterais: só nas margens, nunca sobre o conteúdo da prova
         for paragrafo in ancoras_pagina:
-            _imagem_ancorada(paragrafo, png_geral, largura, altura, 0, 0, atras=False)
+            _imagem_ancorada(paragrafo, png_faixas, largura, altura, 0, 0, atras=False)
     for paragrafo, itens in (por_pagina or []):
         for png, w, h, x, y in itens:
             _imagem_ancorada(paragrafo, png, w, h, x, y, atras=False)
