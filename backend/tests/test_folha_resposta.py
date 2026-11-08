@@ -226,3 +226,10 @@ def test_hora_final_calculada_pela_duracao():
     assert fr.texto_hora_sala({**cfg, 'sala': 'S3'}) == '08:15 – 09:00 · Sala: S3'
     cfg2 = fr.normalizar_config({'disciplina': 'X', 'n_perguntas': 10, 'hora_inicio': '08:00', 'hora_fim': '10:30'})
     assert cfg2['hora_fim'] == '10:30'
+
+
+def test_rotulos_de_correccao_conforme_o_tipo():
+    normal = fr.normalizar_config({'tipo_avaliacao': 'ACS1', 'disciplina': 'X', 'n_perguntas': 10})
+    exame = fr.normalizar_config({'tipo_avaliacao': 'EXAME', 'disciplina': 'X', 'n_perguntas': 10})
+    assert fr.rotulos_correccao(normal) == ('Correcção Normal', 'Recorrecção')
+    assert fr.rotulos_correccao(exame) == ('1ª Correcção', '2ª Correcção')

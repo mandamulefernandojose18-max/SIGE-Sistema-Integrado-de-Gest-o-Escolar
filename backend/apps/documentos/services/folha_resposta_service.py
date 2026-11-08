@@ -287,6 +287,13 @@ def montar_dados_aluno(aluno, numero, classe=None, turma=None):
     }
 
 
+def rotulos_correccao(config):
+    """«Correcção Normal»/«Recorrecção»; no Exame Final: «1ª Correcção»/«2ª Correcção» (sem maiúsculas)."""
+    if config.get('tipo') == 'EXAME':
+        return '1ª Correcção', '2ª Correcção'
+    return 'Correcção Normal', 'Recorrecção'
+
+
 def texto_hora_sala(config):
     intervalo = ' – '.join(x for x in (config['hora_inicio'], config['hora_fim']) if x)
     sala = config['sala']
@@ -569,8 +576,8 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
     altura_linha = min(6.4, (altura_disp - ALTURA_CABECALHO_GRELHA - folgas) / linhas)
     passo = min(13.0, (largura_col - 11.5) / n_alt)
     larg_alt = min(9.6, passo * 0.84)
-    alt_alt = min(1.6, altura_linha * 0.34)
-    tam_letra = max(8.5, min(11.5, altura_linha * 2.1))
+    alt_alt = min(1.9, altura_linha * 0.36)
+    tam_letra = max(10.0, min(13.0, altura_linha * 2.4))
     total_q = fim - inicio
     cols_usadas = math.ceil(total_q / linhas)
     for col in range(cols_usadas):
@@ -582,11 +589,11 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
         c.rect((x0 + 0.5) * mm, _y(y_ini + ALTURA_CABECALHO_GRELHA - 0.8), (largura_col - 1) * mm,
                (ALTURA_CABECALHO_GRELHA - 1.2) * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
-        c.setFont(FONTE_B, 6.6)
-        c.drawString((x0 + 1.6) * mm, _y(y_ini + 3.9), 'Perg.')
+        c.setFont(FONTE_B, 8.2)
+        c.drawString((x0 + 1.6) * mm, _y(y_ini + 4.2), 'Perg.')
         for i, letra in enumerate(letras):
             cx = x0 + 10.2 + passo * i + passo / 2 - 0.6
-            c.drawCentredString(cx * mm, _y(y_ini + 3.9), letra)
+            c.drawCentredString(cx * mm, _y(y_ini + 4.2), letra)
         c.setFillColor(PRETO)
         for r in range(linhas):
             q = inicio + col * linhas + r
@@ -702,13 +709,14 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
 
     # IV — Classificação
     _caixa(c, xii, yiii, wii, hiii, 'IV   CLASSIFICAÇÃO')
-    _campo(c, xii + 3, yiii + 6, 33, 'ACERTOS (n.º)', '')
+    _campo(c, xii + 3, yiii + 6, 33, 'Acertos (n.º)', '')
     c.setFont(FONTE, 7.5)
     c.drawString((xii + 37) * mm, _y(yiii + 11.6), f"/ {config['n_perguntas']}")
-    _campo(c, xii + 3, yiii + 13.6, 33, 'CORRECÇÃO NORMAL (valores)', '')
-    _campo(c, xii + 38, yiii + 13.6, 33, 'RECORRECÇÃO (valores)', '')
-    _campo(c, xii + 3, yiii + 21.2, 33, 'ASS. DO PROFESSOR', '')
-    _campo(c, xii + 38, yiii + 21.2, 33, 'ASS. DO DIRECTOR DE TURMA', '')
+    rot1, rot2 = rotulos_correccao(config)
+    _campo(c, xii + 3, yiii + 13.6, 33, f'{rot1} (valores)', '')
+    _campo(c, xii + 38, yiii + 13.6, 33, f'{rot2} (valores)', '')
+    _campo(c, xii + 3, yiii + 21.2, 33, 'Ass. do Professor', '')
+    _campo(c, xii + 38, yiii + 21.2, 33, 'Ass. do Professor', '')
 
     # Instruções gerais + grelha
     _bloco_instrucoes(c, 121.5, config['instrucao_extra'])
@@ -1080,12 +1088,13 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             juntar(ws, 16 + rr, u1, u1 + 4, ('☒ ' if marcado else '☐ ') + nome,
                    Font(name='Times New Roman', size=12, bold=marcado), esq)
         contorno(ws, 15, 1, 20, 15)
-        par(ws, 16, 17, 22, 'ACERTOS (n.º)', None, 23, 25)
+        rot1, rot2 = rotulos_correccao(config)
+        par(ws, 16, 17, 22, 'Acertos (n.º)', None, 23, 25)
         juntar(ws, 16, 26, 28, f'/ {n}', f_norm, esq)
-        par(ws, 17, 17, 22, 'CORRECÇÃO NORMAL (val.)', None, 23, 28)
-        par(ws, 18, 17, 22, 'RECORRECÇÃO (val.)', None, 23, 28)
-        par(ws, 19, 17, 22, 'ASS. PROFESSOR', None, 23, 28)
-        par(ws, 20, 17, 22, 'ASS. DIR. TURMA', None, 23, 28)
+        par(ws, 17, 17, 22, f'{rot1} (valores)', None, 23, 28)
+        par(ws, 18, 17, 22, 'Ass. do Professor', None, 23, 28)
+        par(ws, 19, 17, 22, f'{rot2} (valores)', None, 23, 28)
+        par(ws, 20, 17, 22, 'Ass. do Professor', None, 23, 28)
         # etiquetas longas quebram em duas linhas: altura folgada para nenhuma ficar cortada
         for r in range(16, 21):
             ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 40)
