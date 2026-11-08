@@ -1,4 +1,4 @@
-﻿import io
+import io
 
 import openpyxl
 import pytest
@@ -231,5 +231,5 @@ def test_hora_final_calculada_pela_duracao():
 def test_rotulos_de_correccao_conforme_o_tipo():
     normal = fr.normalizar_config({'tipo_avaliacao': 'ACS1', 'disciplina': 'X', 'n_perguntas': 10})
     exame = fr.normalizar_config({'tipo_avaliacao': 'EXAME', 'disciplina': 'X', 'n_perguntas': 10})
-    assert fr.rotulos_correccao(normal) == ('Correcção Normal', 'Recorrecção')
-    assert fr.rotulos_correccao(exame) == ('1ª Correcção', '2ª Correcção')
+    assert fr.rotulos_correccao(normal) == ('CORRECÇÃO NORMAL', 'RECORRECÇÃO')
+    assert fr.rotulos_correccao(exame) == ('1ª CORRECÇÃO', '2ª CORRECÇÃO')
