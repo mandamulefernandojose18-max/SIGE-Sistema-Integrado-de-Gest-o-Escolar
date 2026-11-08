@@ -1034,14 +1034,20 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         par(ws, 11, 1, 3, 'CÓDIGO', al.get('codigo'), 4, 12)
         par(ws, 12, 1, 3, 'ÁREA/SECÇÃO', al.get('area'), 4, 12)
         juntar(ws, 13, 1, 15)
-        ws.row_dimensions[13].height = max(ws.row_dimensions[13].height or 0, 38)
+        ws.row_dimensions[13].height = max(ws.row_dimensions[13].height or 0, 62)  # linha alta só para o código de barras
         qr = XLImage(io.BytesIO(_png_qr(_payload_qr(escola, aluno, config, ano, versao))))
         qr.width = qr.height = 108
         ws.add_image(qr, f'{col_l(C1(13))}8')
         if config['codigo_barras'] and al.get('codigo'):
-            bar = XLImage(io.BytesIO(_png_codigo_barras(al['codigo'])))
-            bar.width, bar.height = 300, 38
-            ws.add_image(bar, f'{col_l(C1(3))}13')
+            from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+            from openpyxl.drawing.xdr import XDRPositiveSize2D
+            bar = XLImage(io.BytesIO(_png_codigo_barras(al['codigo'], altura_px=60)))
+            bar.width, bar.height = 330, 54
+            emu = 9525
+            # bem visível: a meio da linha, longe das molduras (zona de silêncio branca à volta das barras)
+            bar.anchor = OneCellAnchor(_from=AnchorMarker(col=C1(3) - 1, colOff=12 * emu, row=12, rowOff=12 * emu),
+                                       ext=XDRPositiveSize2D(bar.width * emu, bar.height * emu))
+            ws.add_image(bar)
         contorno(ws, 7, 1, 13, 15)
 
         juntar(ws, 8, 17, 28, 'TIPO DE AVALIAÇÃO', f_bold, esq, borda_i, fundo_cinza)
