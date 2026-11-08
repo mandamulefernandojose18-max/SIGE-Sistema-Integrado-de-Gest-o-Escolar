@@ -125,7 +125,8 @@ class FolhaRespostaRegraView(APIView):
             regra = folha_mod.guardar_regra(escola, {
                 'verificar_sempre': 'on' if dados.get('verificar_sempre') else '',
                 'motivos': [m for m in (dados.get('motivos') or []) if isinstance(m, str)],
-                'faltas_minimo': dados.get('faltas_minimo') or 0})
+                'faltas_minimo': dados.get('faltas_minimo') or 0,
+                'cor_excluidos': dados.get('cor_excluidos') or ''})
         except ValueError as e:
             return Response({'detail': str(e)}, status=400)
         return Response(regra)
@@ -218,7 +219,7 @@ class FolhaRespostaGerarView(APIView):
             return Response({'detail': 'Não existem alunos activos neste âmbito: não há folhas personalizadas a gerar.'}, status=404)
 
         # Exclusões (Faltas, PPF, PDF, Transferida, Óbito, Outros) e regra automática da escola: mesma lógica do Escudo
-        excluidos, previa = [], bool(dados.get('previa'))
+        excluidos, previa, todos_dados = [], bool(dados.get('previa')), None
         if escopo != 'branco':
             from apps.escudo.services import folha as folha_mod
             form = {'folha_excluir': 'sim' if dados.get('excluir') else 'nao',
@@ -234,6 +235,7 @@ class FolhaRespostaGerarView(APIView):
             if not incluidos:
                 motivo = f' ({excluidos[0][1]})' if escopo == 'aluno' and excluidos else ''
                 return Response({'detail': 'Não há folhas a gerar: todos os alunos deste âmbito ficaram excluídos' + motivo + '.'}, status=409)
+            todos_dados = [c['dados'] for c in cands]
             alunos = [c['dados'] for c in incluidos]
 
         cfg_in = dict(dados.get('config') or {})
@@ -266,7 +268,8 @@ class FolhaRespostaGerarView(APIView):
             import zipfile
             from apps.escudo.services import folha as folha_mod
             titulo_lista = f"Lista de alunos com folha de resposta gerada · {config['disciplina']} · {etiqueta}"
-            lista_pdf, lista_xlsx = folha_mod.listas_geradas(escola, alunos, excluidos, titulo_lista, f'{config["tipo_rotulo"]} · {ano}')
+            lista_pdf, lista_xlsx = folha_mod.listas_geradas(escola, alunos, excluidos, titulo_lista, f'{config["tipo_rotulo"]} · {ano}',
+                                                           todos_dados, dados.get('cor_excluidos'))
             base = nome.rsplit('.', 1)[0]
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:

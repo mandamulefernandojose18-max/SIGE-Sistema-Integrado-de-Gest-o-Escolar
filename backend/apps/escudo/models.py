@@ -62,6 +62,7 @@ class RegraExclusaoEscudo(models.Model):
     verificar_sempre = models.BooleanField(default=False)
     motivos = models.JSONField(default=list, blank=True)
     faltas_minimo = models.PositiveIntegerField(default=0, help_text='Total de faltas acumuladas a partir do qual o aluno é excluído (0 = não definido)')
+    cor_excluidos = models.CharField(max_length=7, default='#FDE2E2', help_text='Cor das linhas dos alunos excluídos nas listas (PDF/Excel)')
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

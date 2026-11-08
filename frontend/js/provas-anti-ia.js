@@ -505,6 +505,7 @@
               '<label class="caixa"><input type="checkbox" data-regra-motivo="pdf"><span>PDF</span></label>' +
               '<label class="caixa"><input type="checkbox" data-regra-motivo="transferida"><span>Transferida</span></label>' +
               '<label class="caixa"><input type="checkbox" data-regra-motivo="obito"><span>Óbito</span></label>' +
+              '<label class="campo"><span>Cor dos excluídos na lista (PDF e Excel)</span><input type="color" name="folha_cor_excluidos" id="escudoRegraCor" value="#fde2e2"></label>' +
               '<button type="button" class="btn secundario pequeno" id="escudoRegraTodos">Seleccionar todos</button> ' +
               '<button type="button" class="btn pequeno" id="escudoRegraGuardar">Guardar regra</button>' +
             '</div><p class="suave pequeno" id="escudoRegraMsg" role="status"></p></fieldset>' +
@@ -717,6 +718,7 @@
         if (rSempre.checked) fd.append('verificar_sempre', 'on');
         rMotivos().forEach(function (m) { fd.append('motivos', m); });
         fd.append('faltas_minimo', rFaltas.value || '0');
+        fd.append('cor_excluidos', $('#escudoRegraCor').value);
         rMsg.textContent = 'A guardar…';
         try { await api(pid + '/folha-regra/', { method: 'POST', body: fd }); rMsg.textContent = rSempre.checked ? 'Regra guardada: o sistema verifica sempre antes de gerar.' : 'Verificação automática desactivada.'; }
         catch (e) { rMsg.textContent = (e && e.message) || 'Não foi possível guardar a regra.'; }
@@ -726,6 +728,7 @@
         rSempre.checked = !!r.verificar_sempre; rCaixa.hidden = !r.verificar_sempre;
         $$('input[data-regra-motivo]').forEach(function (c) { c.checked = (r.motivos || []).indexOf(c.getAttribute('data-regra-motivo')) >= 0; });
         rFaltas.value = r.faltas_minimo || '';
+        if (r.cor_excluidos) $('#escudoRegraCor').value = r.cor_excluidos.toLowerCase();
         if (r.verificar_sempre) rMsg.textContent = 'Verificação automática activa para esta escola.';
       };
       var carregarOrig = carregar;

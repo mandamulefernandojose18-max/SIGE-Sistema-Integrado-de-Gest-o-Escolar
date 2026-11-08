@@ -302,6 +302,7 @@ def montar_dados_aluno(aluno, numero, classe=None, turma=None):
         'area': nome_area_secao(aluno),
         'numero': numero,
         'codigo': (aluno.matricula or '').strip(),
+        'genero': (getattr(aluno, 'genero', '') or '').strip(),
     }
 
 

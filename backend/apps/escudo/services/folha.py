@@ -44,6 +44,7 @@ def _alunos_do_ambito(escola, ano, classe, area, turma_id):
 
 
 # ----------------------------------------------------------------- lista importada e exclusões
+COR_EXCLUIDOS_PADRAO = '#FDE2E2'
 MOTIVOS_EXCLUSAO = ('faltas', 'ppf', 'pdf', 'transferida', 'obito', 'outros')
 MAX_LISTA_BYTES = 2 * 1024 * 1024
 MAX_LINHAS_LISTA = 2000
@@ -56,6 +57,7 @@ _ALIAS = {
     'numero': {'n', 'no', 'numero', 'nordem', 'ordem', 'nodeordem'},
     'codigo': {'codigo', 'matricula', 'processo', 'nprocesso', 'noprocesso', 'codigodoaluno', 'nmatricula'},
     'situacao': {'situacao', 'estado', 'observacao', 'observacoes', 'motivo'},
+    'genero': {'sexo', 'genero', 'hm', 'mf'},
 }
 
 
@@ -132,6 +134,7 @@ def _candidatos_da_lista(ficheiro, escola):
             'apelido': b['apelido'] or base.get('apelido', ''), 'nome': b['nome'] or base.get('nome', ''),
             'classe': b['classe'] or base.get('classe', ''), 'turma': b['turma'] or base.get('turma', ''),
             'area': b['area'] or base.get('area', ''), 'numero': numero, 'codigo': b['codigo'],
+            'genero': b['genero'] or base.get('genero', ''),
         }
         cands.append({'dados': dados, 'aluno': a, 'situacao': b['situacao']})
     return cands
@@ -150,7 +153,8 @@ def regra_da_escola(escola):
     r = RegraExclusaoEscudo.objects.filter(escola=escola).first() if escola else None
     return {'verificar_sempre': bool(r and r.verificar_sempre),
             'motivos': [m for m in (r.motivos if r else []) if m in MOTIVOS_EXCLUSAO],
-            'faltas_minimo': r.faltas_minimo if r else 0}
+            'faltas_minimo': r.faltas_minimo if r else 0,
+            'cor_excluidos': (r.cor_excluidos if r else '') or COR_EXCLUIDOS_PADRAO}
 
 
 def guardar_regra(escola, form):
@@ -168,8 +172,10 @@ def guardar_regra(escola, form):
         raise ValueError('Defina o total de faltas acumuladas (1 ou mais) a partir do qual o aluno não faz a prova.')
     if sempre and not motivos:
         raise ValueError('Marque pelo menos um motivo para a verificação automática.')
-    RegraExclusaoEscudo.objects.update_or_create(escola=escola, defaults={
-        'verificar_sempre': sempre, 'motivos': motivos, 'faltas_minimo': minimo})
+    defaults = {'verificar_sempre': sempre, 'motivos': motivos, 'faltas_minimo': minimo}
+    if form.get('cor_excluidos'):
+        defaults['cor_excluidos'] = cor_valida(form.get('cor_excluidos'))
+    RegraExclusaoEscudo.objects.update_or_create(escola=escola, defaults=defaults)
     return regra_da_escola(escola)
 
 
@@ -244,11 +250,22 @@ def _relatorio_excluidos(excluidos):
                     d.get('classe') or '', d.get('turma') or '', motivo])
     return buf.getvalue().encode('utf-8-sig')
 
-def listas_geradas(escola, dados_alunos, excluidos, titulo, referencia=''):
+def cor_valida(valor, padrao=None):
+    from apps.documentos.services.lista_alunos_service import COR_EXCLUIDOS_PADRAO as P, cor_valida as cv
+    return cv(valor, padrao or P)
+
+
+def cor_dos_excluidos(escola, pedida=None):
+    """Cor pedida neste pedido; senão a guardada na regra da escola; senão a cor por omissão."""
+    return cor_valida(pedida, regra_da_escola(escola)['cor_excluidos'])
+
+
+def listas_geradas(escola, dados_alunos, excluidos, titulo, referencia='', todos=None, cor=None):
     """(pdf, xlsx) com quem teve a folha/prova gerada (e quantos) e, se houver, quem ficou de fora e porquê."""
     from apps.documentos.services import lista_alunos_service as la
-    return (la.lista_pdf(escola, titulo, dados_alunos, excluidos, referencia),
-            la.lista_xlsx(escola, titulo, dados_alunos, excluidos, referencia))
+    cor = cor_dos_excluidos(escola, cor)
+    return (la.lista_pdf(escola, titulo, dados_alunos, excluidos, referencia, todos, cor),
+            la.lista_xlsx(escola, titulo, dados_alunos, excluidos, referencia, todos, cor))
 
 
 def excluir_alunos(escola, ano, disciplina, cands, form):
@@ -334,7 +351,8 @@ def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
     return {'personalizada': True, 'total': len(dados), 'alunos': nomes,
             'excluidos': excluidos, 'relatorio': _relatorio_excluidos(excluidos),
             'listas': lambda: listas_geradas(escola, dados, excluidos, 'Lista de alunos com prova gerada',
-                                             f"{p.get('titulo') or ''} · {p.get('disciplina') or ''}".strip(' ·')),
+                                             f"{p.get('titulo') or ''} · {p.get('disciplina') or ''}".strip(' ·'),
+                                             [c['dados'] for c in cands], form.get('folha_cor_excluidos')),
             'para': lambda n: folhas[(n - 1) % len(folhas)]}
 
 def contexto(p, escola_alt=None):

@@ -256,6 +256,7 @@
     $('frRegraSempre').checked = !!r.verificar_sempre;
     Array.prototype.forEach.call(document.querySelectorAll('.fr-motivo'), function (c) { if (c.value !== 'outros') c.checked = (r.motivos || []).indexOf(c.value) >= 0; });
     $('frFaltasMin').value = r.faltas_minimo || '';
+    if (r.cor_excluidos) $('frCor').value = String(r.cor_excluidos).toLowerCase();
     if (r.verificar_sempre) $('frRegraMsg').textContent = 'Verificação automática activa para esta escola.';
   }
   async function guardarRegra() {
@@ -263,7 +264,7 @@
     $('frRegraMsg').textContent = 'A guardar…';
     try {
       var r = await pedir('regra/', { method: 'POST', headers: cab({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ verificar_sempre: $('frRegraSempre').checked, motivos: ms, faltas_minimo: $('frFaltasMin').value || 0 }) });
+        body: JSON.stringify({ verificar_sempre: $('frRegraSempre').checked, motivos: ms, faltas_minimo: $('frFaltasMin').value || 0, cor_excluidos: $('frCor').value }) });
       if (!r.ok) throw new Error(await mensagemErro(r));
       $('frRegraMsg').textContent = $('frRegraSempre').checked ? 'Regra guardada: o sistema verifica sempre antes de gerar.' : 'Verificação automática desactivada.';
     } catch (e) { $('frRegraMsg').textContent = e.message || 'Não foi possível guardar a regra.'; }
@@ -278,6 +279,7 @@
     if (e !== 'branco') {  // quem não faz a prova (mesma regra do Escudo Anti-IA)
       var ms = motivosMarcados();
       if (ms.length) { c.excluir = true; c.motivos = ms; c.faltas_minimo = $('frFaltasMin').value; c.outros = $('frOutros').value; }
+      c.cor_excluidos = $('frCor').value;
       if (previa) c.previa = true;
     }
     if (e === 'aluno') { if (!$('frAluno').value) throw new Error('Escolha o aluno.'); c.aluno_id = $('frAluno').value; }
