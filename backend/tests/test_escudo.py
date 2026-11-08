@@ -1029,3 +1029,27 @@ def test_posicoes_do_qr_ficam_guardadas_na_configuracao(duas_escolas):
     assert c.post(API + pid + '/gerar/', form).status_code == 200
     cfg = c.get(API + pid + '/configurar/').json()['data']
     assert cfg['modo_qr_pagina'] == 'margens' and cfg['posicao_qr_fundo'] == 'canto_sup_dir' and 'centro' in cfg['posicoes_qr_fundo']
+
+
+def test_qr_automatico_fica_alinhado_igualmente_espacado_e_igual_em_todas_as_paginas():
+    import pymupdf
+    from apps.escudo.services import selos
+    d = pymupdf.open()
+    for _ in range(2):
+        pg = d.new_page(width=595, height=842)
+        y = 80
+        while y < 760:
+            pg.insert_text((50, y), 'Qual a solução da equação?', fontsize=10)
+            for i in range(4):
+                pg.insert_text((60 + i * 110, y + 16), f'{"ABCD"[i]}. {i}', fontsize=10)
+            y += 42
+    doc = pymupdf.open(stream=d.tobytes(), filetype='pdf')
+    usadas, por_pagina = set(), []
+    for pag in doc:
+        por_pagina.append(selos.posicoes_qr_pagina(pag, selos._retangulos_ocupados(pag), 'ABCD1234', 1, pag.number, 4, usadas, 18, 'auto'))
+    assert all(len(r) == 4 for r in por_pagina)
+    for rects in por_pagina:
+        assert len({round(r.x0) for r in rects}) == 1  # uma só coluna
+        passos = [round(b.y0 - a.y0) for a, b in zip(rects, rects[1:])]
+        assert max(passos) - min(passos) <= 12  # espaçamento praticamente igual
+    assert round(por_pagina[0][0].x0) == round(por_pagina[1][0].x0)  # a mesma coluna em todas as páginas

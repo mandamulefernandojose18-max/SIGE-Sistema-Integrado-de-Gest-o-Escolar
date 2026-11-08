@@ -591,6 +591,13 @@ def limitar_modo_qr_pagina(valor, padrao=MODO_QR_PAGINA_PADRAO):
 def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas, lado_mm=None, modo="grade"):
     """Até `quantos` rectângulos para os QR desta página, sem se tocarem nem tocarem no conteúdo (menos se não houver espaço)."""
     ocupados, rects = list(ocupados), []
+    if modo == "auto" and quantos:
+        # organizado: uma coluna alinhada de QR, igualmente espaçados, nos espaços livres do texto (e a mesma em todas as páginas)
+        lado = limitar_lado_qr_pagina(lado_mm) * MM
+        rects = _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas)
+        if rects:
+            usadas.update(tuple(r) for r in rects)
+            return rects
     for k in range(quantos):
         rect = posicao_qr_pagina(pagina, ocupados, pid, serial, indice + 1000 * k, usadas, lado_mm, modo)
         if not rect:
@@ -649,6 +656,75 @@ def _posicao_auto(pagina, ocupados, lado, semente, usadas):
             x, y = float(xs[k] * RES_MAPA), float(ys[k] * RES_MAPA)
             return fitz.Rect(x, y, x + lado, y + lado)
     return None
+
+
+def _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas):
+    """`quantos` QR numa só coluna vertical, igualmente espaçados, nos espaços em branco do texto (entre alternativas, fim de linhas…).
+
+    Analisa o mapa de ocupação da página e, para cada coluna possível, tenta pôr um QR perto de cada ponto de uma divisão
+    igual da altura. Escolhe a coluna que acomoda mais QR (preferindo o interior do texto à margem), com os QR mais
+    certos nos pontos da divisão, e, em empate, a mesma coluna das outras páginas (ficam todos alinhados) e a mais à direita.
+    Nunca toca em texto, imagens ou linhas, e deixa a zona de silêncio à volta de cada QR.
+    """
+    import numpy as np
+    from collections import Counter
+    W, H = pagina.rect.width, pagina.rect.height
+    gw, gh = int(W // RES_MAPA) + 2, int(H // RES_MAPA) + 2
+    mapa = np.zeros((gh, gw), dtype=np.int32)
+    for r in ocupados:
+        x0, y0 = max(0, int(r.x0 // RES_MAPA)), max(0, int(r.y0 // RES_MAPA))
+        x1, y1 = min(gw, int(r.x1 // RES_MAPA) + 1), min(gh, int(r.y1 // RES_MAPA) + 1)
+        if x1 > x0 and y1 > y0:
+            mapa[y0:y1, x0:x1] = 1
+    soma = np.zeros((gh + 1, gw + 1), dtype=np.int64)
+    soma[1:, 1:] = mapa.cumsum(0).cumsum(1)
+    c = int(np.ceil(lado / RES_MAPA))
+    xmin, xmax = int(12 // RES_MAPA), int((W - 12 - lado) // RES_MAPA)
+    ymin, ymax = int(52 // RES_MAPA), int((H - 22 - lado) // RES_MAPA)
+    if xmax < xmin or ymax < ymin:
+        return []
+    xs, ys = np.arange(xmin, xmax + 1), np.arange(ymin, ymax + 1)
+    gx, gy = np.meshgrid(xs, ys)  # linhas = y, colunas = x
+    blocos = [fitz.Rect(bl[:4]) for bl in pagina.get_text("blocks") if bl[6] == 0]
+    cx0 = min((r.x0 for r in blocos), default=12) / RES_MAPA
+    cx1 = max((r.x1 for r in blocos), default=W - 12) / RES_MAPA
+    pref = Counter(round(u[0] / RES_MAPA) for u in usadas).most_common(1)
+    pref_x = pref[0][0] if pref else None
+    alto = len(ys)
+    alvos = [(k + 0.5) * alto / quantos for k in range(quantos)]
+    tol = max(c, alto / (2 * quantos))
+    melhor = None
+    for folga in FOLGAS_QR:
+        f = int(np.ceil(folga / RES_MAPA))
+        y0 = np.clip(gy - f, 0, gh); y1 = np.clip(gy + c + f, 0, gh)
+        x0 = np.clip(gx - f, 0, gw); x1 = np.clip(gx + c + f, 0, gw)
+        livre = (soma[y1, x1] - soma[y0, x1] - soma[y1, x0] + soma[y0, x0]) == 0
+        for j, x in enumerate(xs):
+            col = np.flatnonzero(livre[:, j])
+            if not len(col):
+                continue
+            escolhidos, desvio, ultimo = [], 0.0, -10**9
+            for alvo in alvos:
+                cand = col[(col >= ultimo + c + 4) & (np.abs(col - alvo) <= tol)]
+                if not len(cand):
+                    continue
+                y = int(cand[np.argmin(np.abs(cand - alvo))])
+                escolhidos.append(y)
+                desvio += abs(y - alvo)
+                ultimo = y
+            if not escolhidos:
+                continue
+            dentro = x >= cx0 - 2 and x + c <= cx1 + 2
+            chave = (len(escolhidos) * 2 + (1 if dentro else 0), -round(desvio / RES_MAPA),
+                     0 if pref_x is None else -(abs(int(x) - pref_x) // 3), folga, int(x))
+            if melhor is None or chave > melhor[0]:
+                melhor = (chave, int(x), escolhidos)
+        if melhor and len(melhor[2]) >= quantos:
+            break  # esta folga já acomoda todos: não vale a pena baixar a zona de silêncio
+    if not melhor:
+        return []
+    _, x, escolhidos = melhor
+    return [fitz.Rect(x * RES_MAPA, (ymin + y) * RES_MAPA, x * RES_MAPA + lado, (ymin + y) * RES_MAPA + lado) for y in escolhidos]
 
 
 def posicao_qr_pagina(pagina, ocupados, pid, serial, indice, usadas=(), lado_mm=None, modo="grade"):
