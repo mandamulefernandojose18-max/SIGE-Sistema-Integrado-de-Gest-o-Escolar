@@ -496,8 +496,21 @@
           '<p class="suave pequeno" id="escudoFolhaResumo" role="status"></p></div>' +
           '<div id="escudoFolhaLista" hidden><label class="campo"><span>Lista de alunos (.xlsx ou .csv)</span><input type="file" name="folha_lista" accept=".xlsx,.csv,.txt"></label>' +
             '<small>A primeira linha é o cabeçalho. Obrigatória: <strong>Nome</strong>. Opcionais: Apelido, Classe, Turma, Secção/Área, Nº, Código (matrícula) e Situação. Com o Código, o SIGE completa os dados e verifica faltas, PPF, PDF, transferência e óbito. A lista não fica guardada. Máximo de 200 alunos.</small></div>' +
+          '<fieldset id="escudoFolhaRegra" style="border:1px solid var(--linha,#ccc);border-radius:6px;padding:8px;margin:8px 0"><legend class="suave pequeno">Verificação automática (regra da escola)</legend>' +
+            '<label class="caixa"><input type="checkbox" id="escudoRegraSempre"><span>Verificar automaticamente e sempre<small>Em todas as folhas personalizadas o sistema salta, sem perguntar, os alunos que estiverem nestas condições.</small></span></label>' +
+            '<div id="escudoRegraCaixa" hidden>' +
+              '<label class="caixa"><input type="checkbox" data-regra-motivo="faltas"><span>Faltas</span></label>' +
+              '<label class="campo"><span>Total de faltas acumuladas a partir do qual não se gera a prova</span><input type="number" id="escudoRegraFaltas" min="1" max="999" placeholder="Defina o número"></label>' +
+              '<label class="caixa"><input type="checkbox" data-regra-motivo="ppf"><span>PPF</span></label>' +
+              '<label class="caixa"><input type="checkbox" data-regra-motivo="pdf"><span>PDF</span></label>' +
+              '<label class="caixa"><input type="checkbox" data-regra-motivo="transferida"><span>Transferida</span></label>' +
+              '<label class="caixa"><input type="checkbox" data-regra-motivo="obito"><span>Óbito</span></label>' +
+              '<button type="button" class="btn secundario pequeno" id="escudoRegraTodos">Seleccionar todos</button> ' +
+              '<button type="button" class="btn pequeno" id="escudoRegraGuardar">Guardar regra</button>' +
+            '</div><p class="suave pequeno" id="escudoRegraMsg" role="status"></p></fieldset>' +
           '<label class="campo"><span>Deseja não incluir algum aluno?</span><select name="folha_excluir" id="escudoFolhaExcl"><option value="nao" selected>Não</option><option value="sim">Sim</option></select></label>' +
-          '<fieldset id="escudoFolhaExclCaixa" hidden style="border:0;padding:0;margin:0"><legend class="suave pequeno">Excluir por motivo (podes marcar vários)</legend>' +
+          '<fieldset id="escudoFolhaExclCaixa" hidden style="border:0;padding:0;margin:0"><legend class="suave pequeno">Excluir por motivo (podes marcar todos)</legend>' +
+            '<button type="button" class="btn secundario pequeno" id="escudoExclTodos">Seleccionar todos</button>' +
             '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="faltas"><span>Faltas<small>Exclui quem tem este número de faltas, ou mais, nesta disciplina no ano lectivo.</small></span></label>' +
             '<label class="campo" id="escudoFolhaFaltasCampo" hidden><span>Número mínimo de faltas</span><input type="number" name="folha_excluir_faltas" min="1" max="999" placeholder="Ex.: 10"></label>' +
             '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="ppf"><span>PPF<small>Anotação PPF (perdeu por faltas) nesta disciplina.</small></span></label>' +
@@ -686,6 +699,37 @@
         var marcado = function (v) { var el = $('input[name="folha_excluir_motivo"][value="' + v + '"]', exclCaixa); return !!(el && el.checked); };
         $('#escudoFolhaFaltasCampo').hidden = !marcado('faltas'); $('#escudoFolhaOutrosCampo').hidden = !marcado('outros');
       });
+      $('#escudoExclTodos').addEventListener('click', function () {
+        var cx = $$('input[name="folha_excluir_motivo"]', exclCaixa), todos = cx.every(function (c) { return c.checked; });
+        cx.forEach(function (c) { c.checked = !todos; });
+        exclCaixa.dispatchEvent(new Event('change'));
+      });
+      // regra da escola: verificar automaticamente e sempre (com o total de faltas definido no sistema)
+      var rSempre = $('#escudoRegraSempre'), rCaixa = $('#escudoRegraCaixa'), rMsg = $('#escudoRegraMsg'), rFaltas = $('#escudoRegraFaltas');
+      var rMotivos = function () { return $$('input[data-regra-motivo]').filter(function (c) { return c.checked; }).map(function (c) { return c.getAttribute('data-regra-motivo'); }); };
+      rSempre.addEventListener('change', function () { rCaixa.hidden = !rSempre.checked; });
+      $('#escudoRegraTodos').addEventListener('click', function () {
+        var cx = $$('input[data-regra-motivo]'), todos = cx.every(function (c) { return c.checked; });
+        cx.forEach(function (c) { c.checked = !todos; });
+      });
+      $('#escudoRegraGuardar').addEventListener('click', async function () {
+        var fd = new FormData();
+        if (rSempre.checked) fd.append('verificar_sempre', 'on');
+        rMotivos().forEach(function (m) { fd.append('motivos', m); });
+        fd.append('faltas_minimo', rFaltas.value || '0');
+        rMsg.textContent = 'A guardar…';
+        try { await api(pid + '/folha-regra/', { method: 'POST', body: fd }); rMsg.textContent = rSempre.checked ? 'Regra guardada: o sistema verifica sempre antes de gerar.' : 'Verificação automática desactivada.'; }
+        catch (e) { rMsg.textContent = (e && e.message) || 'Não foi possível guardar a regra.'; }
+      });
+      var pintarRegra = function (r) {
+        if (!r) return;
+        rSempre.checked = !!r.verificar_sempre; rCaixa.hidden = !r.verificar_sempre;
+        $$('input[data-regra-motivo]').forEach(function (c) { c.checked = (r.motivos || []).indexOf(c.getAttribute('data-regra-motivo')) >= 0; });
+        rFaltas.value = r.faltas_minimo || '';
+        if (r.verificar_sempre) rMsg.textContent = 'Verificação automática activa para esta escola.';
+      };
+      var carregarOrig = carregar;
+      carregar = async function () { await carregarOrig(); if (ctx) pintarRegra(ctx.regra_exclusao); };
       sClasse.addEventListener('change', pintarAreas);
       sArea.addEventListener('change', pintarTurmas);
       sTurma.addEventListener('change', pintarTurmas);

@@ -141,25 +141,60 @@ def _lista(form, nome):
     return form.getlist(nome) if hasattr(form, 'getlist') else ([form[nome]] if form.get(nome) else [])
 
 
+def regra_da_escola(escola):
+    """Regra guardada da escola: {verificar_sempre, motivos[], faltas_minimo}."""
+    from ..models import RegraExclusaoEscudo
+    r = RegraExclusaoEscudo.objects.filter(escola=escola).first() if escola else None
+    return {'verificar_sempre': bool(r and r.verificar_sempre),
+            'motivos': [m for m in (r.motivos if r else []) if m in MOTIVOS_EXCLUSAO],
+            'faltas_minimo': r.faltas_minimo if r else 0}
+
+
+def guardar_regra(escola, form):
+    """Guarda a regra («verificar automaticamente e sempre», motivos e total de faltas) da escola."""
+    from ..models import RegraExclusaoEscudo
+    motivos = [m for m in _lista(form, 'motivos') if m in MOTIVOS_EXCLUSAO and m != 'outros']
+    try:
+        minimo = int(form.get('faltas_minimo') or 0)
+    except (TypeError, ValueError):
+        raise ValueError('O total de faltas tem de ser um número inteiro.') from None
+    if minimo < 0 or minimo > 999:
+        raise ValueError('O total de faltas deve estar entre 1 e 999.')
+    sempre = _on(form, 'verificar_sempre')
+    if sempre and 'faltas' in motivos and minimo < 1:
+        raise ValueError('Defina o total de faltas acumuladas (1 ou mais) a partir do qual o aluno não faz a prova.')
+    if sempre and not motivos:
+        raise ValueError('Marque pelo menos um motivo para a verificação automática.')
+    RegraExclusaoEscudo.objects.update_or_create(escola=escola, defaults={
+        'verificar_sempre': sempre, 'motivos': motivos, 'faltas_minimo': minimo})
+    return regra_da_escola(escola)
+
+
 def _aplicar_exclusoes(form, p, escola, ano, cands):
-    """Devolve (incluídos, excluídos[(dados, motivo)]). Só com «Deseja não incluir algum aluno: Sim»."""
-    if not _on(form, 'folha_excluir'):
-        return cands, []
-    motivos = {m for m in _lista(form, 'folha_excluir_motivo') if m in MOTIVOS_EXCLUSAO}
-    if not motivos:
+    """Devolve (incluídos, excluídos[(dados, motivo)]). Aplica o que se marcou («Sim») e, se a escola o pediu,
+    a regra «verificar automaticamente e sempre» (com o total de faltas definido no sistema)."""
+    regra = regra_da_escola(escola)
+    manual = _on(form, 'folha_excluir')
+    motivos = {m for m in _lista(form, 'folha_excluir_motivo') if m in MOTIVOS_EXCLUSAO} if manual else set()
+    if manual and not motivos and not regra['verificar_sempre']:
         raise ValueError('Indique o motivo da exclusão (Faltas, PPF, PDF, Transferida, Óbito ou Outros).')
     minimo = 0
-    if 'faltas' in motivos:
+    if manual:
         try:
             minimo = int(form.get('folha_excluir_faltas') or 0)
         except ValueError:
             minimo = 0
-        if minimo < 1:
-            raise ValueError('Indique o número mínimo de faltas (1 ou mais) para excluir alunos.')
+    if regra['verificar_sempre']:
+        motivos |= set(regra['motivos'])
+        if 'faltas' in regra['motivos'] and regra['faltas_minimo'] >= 1:
+            minimo = min(minimo, regra['faltas_minimo']) if minimo >= 1 else regra['faltas_minimo']
+    if not motivos:
+        return cands, []
+    if 'faltas' in motivos and minimo < 1:
+        raise ValueError('Indique o número mínimo de faltas (1 ou mais) ou defina o total de faltas na verificação automática.')
     outros = {_nome_norm(l) for l in re.split(r'[\r\n;]+', form.get('folha_excluir_outros') or '') if _nome_norm(l)}
-    if 'outros' in motivos and not outros:
+    if 'outros' in motivos and not outros and len(motivos) == 1:
         raise ValueError('Em «Outros», indique os alunos a excluir (código ou nome, um por linha).')
-
     faltas, anot = {}, {}
     ids = [c['aluno'].id for c in cands if c['aluno']]
     if ids and motivos & {'faltas', 'ppf', 'pdf'}:
@@ -304,6 +339,7 @@ def contexto(p, escola_alt=None):
         'classes': [{'classe': k, 'turmas': v, 'total_alunos': sum(x['alunos'] for x in v)} for k, v in classes.items()],
         'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
         'logo_proprio_disponivel': bool(fr.logo_proprio_escola(escola)),
+        'regra_exclusao': regra_da_escola(escola),
     }
 
 

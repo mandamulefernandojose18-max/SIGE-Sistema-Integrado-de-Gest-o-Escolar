@@ -17,6 +17,7 @@ urlpatterns = [
     path('<str:pid>/gerar/', views.gerar),
     path('<str:pid>/folha-contexto/', views.folha_contexto),
     path('<str:pid>/folha-previa/', views.folha_previa),
+    path('<str:pid>/folha-regra/', views.folha_regra),
     path('<str:pid>/gabarito-copias/', views.gabarito_copias),
     path('<str:pid>/conferir/', views.conferir),
     path('<str:pid>/armadilha/', views.armadilha),

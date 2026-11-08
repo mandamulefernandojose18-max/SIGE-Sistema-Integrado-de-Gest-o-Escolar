@@ -1,9 +1,9 @@
 {
-  "version": "2.9.25",
-  "build": "20261109_0130",
+  "version": "2.9.26",
+  "build": "20261109_0230",
   "data": "2026-11-07",
-  "nome": "SIGE â€” Sistema Integrado de GestÃ£o Escolar",
-  "descricao": "Sistema Integrado de GestÃ£o Escolar (SaaS)",
+  "nome": "SIGE Ã¢â‚¬â€ Sistema Integrado de GestÃƒÂ£o Escolar",
+  "descricao": "Sistema Integrado de GestÃƒÂ£o Escolar (SaaS)",
   "novidades": "Nova Folha de Resposta Personalizada (PDF/Excel) com dados do aluno, codigo de barras, cotacao, versoes e chave de correccao."
 }
 

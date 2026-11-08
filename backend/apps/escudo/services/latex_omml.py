@@ -263,6 +263,8 @@ class _Analisador:
             return _r("−")
         if c == "*":
             return _r("∗")
+        if c in "[]{}":  # parênteses rectos soltos (intervalos ]a;b[): como texto, para o LibreOffice não desenhar «¿»
+            return _r(c, normal=True)
         return _r(c)
 
     def _nario(self, simbolo, nome):

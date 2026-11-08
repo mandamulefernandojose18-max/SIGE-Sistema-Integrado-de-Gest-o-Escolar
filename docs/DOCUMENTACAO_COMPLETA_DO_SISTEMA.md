@@ -1522,3 +1522,8 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 
 > **Folha e questões num só documento (2026-11-09):** com «Folha de resposta: Sim», cada cópia sai num único PDF: página 1 = folha de resposta, páginas seguintes = questões. A prova não sai sem a folha nem com a folha à parte; com folha o formato Word fica indisponível (o ecrã fixa PDF).
 
+
+### Escudo Anti-IA — conteúdo íntegro, exclusões automáticas e QR junto da questão (v2.9.26)
+- **Conversão sem «¿»:** antes de converter um Word com o LibreOffice, os parênteses rectos soltos das equações (intervalos como ]−13;+∞[) passam a texto normal e os delimitadores desencontrados são desfeitos. Depois da conversão o PDF é verificado: se aparecer «¿» ou «�» que não existia no Word, a prova **não é gerada** (aviso a pedir o PDF exportado do Word). O Guião passou a usar a mesma regra nas equações.
+- **Exclusões na folha personalizada:** «Seleccionar todos» marca Faltas, PPF, PDF, Transferida, Óbito e Outros de uma vez. Nova regra por escola «Verificar automaticamente e sempre» (modelo `RegraExclusaoEscudo`, endpoint `POST /api/v1/escudo/<id>/folha-regra/`): o sistema salta sozinho, antes de gerar, quem tiver o total de faltas acumuladas definido (ou mais), PPF, PDF, transferência ou óbito. Os excluídos e o motivo vão no CSV só para o professor. Sem dados fictícios: o total de faltas é o que a escola define.
+- **QR e código de barras:** o QR de cada questão procura primeiro um vazio no meio da página, encostado à questão, sem tocar em texto nem alternativas (só depois a margem). O código de barras automático procura o vazio junto ao centro da página e, se não houver onde caiba, não é desenhado (nunca por cima do conteúdo).

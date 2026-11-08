@@ -157,6 +157,28 @@ def detectar_perguntas(pdf):
             for a, seguinte in zip(achadas, achadas[1:] + [None]):
                 a["fim"] = seguinte["y0"] if seguinte else altura - 30
                 a["qr"] = None
+                # 1.º: um vazio no MEIO da página, na zona da própria pergunta e o mais junto possível dela (sem tocar em
+                # texto, alternativas, imagens ou linhas); 2.º (só se não houver): a margem direita
+                T = TAM_QR_PERGUNTA
+                melhor = None
+                y_max = min(a["fim"] - T - 2, a["y0"] + 150, altura - 18 - T)
+                y = max(a["y0"] - 6, 52.0)
+                banda = [o for o in ocupados if o.y1 >= y - 30 and o.y0 <= y_max + T + 30]
+                while y <= y_max:
+                    x = 40.0
+                    while x <= largura - 40 - T:
+                        cand = fitz.Rect(x, y, x + T, y + T)
+                        zona = cand + (-24, -24, 24, 24)   # tem de haver conteúdo encostado (perto da questão)
+                        if not any(cand.intersects(o) for o in banda) and any(zona.intersects(o) for o in banda):
+                            custo = abs(y - a["y0"]) + 0.5 * abs(x + T / 2 - largura / 2)
+                            if melhor is None or custo < melhor[0]:
+                                melhor = (custo, cand)
+                        x += 4
+                    y += 4
+                if melhor:
+                    a["qr"] = tuple(melhor[1])
+                    ocupados.append(melhor[1] + (-3, -3, 3, 3))
+                    continue
                 for desvio in (0, -8, 8, 16, -16):
                     y = a["y0"] + desvio
                     cand = fitz.Rect(largura - MARGEM_QR_PERGUNTA - TAM_QR_PERGUNTA, y, largura - MARGEM_QR_PERGUNTA, y + TAM_QR_PERGUNTA)
@@ -324,7 +346,7 @@ def resolver_marcas(pagina, ocupados, marcas_da_pagina):
     for m in marcas_da_pagina:
         rect = geometria(m, W, H)
         if m["tipo"] == "barras" and m.get("auto", True):
-            centro = (m["x"] * W, m["y"] * H)
+            centro = (W / 2, H / 2)   # procura primeiro no meio da página, num vazio junto ao conteúdo
             mm = m["tamanho_mm"]
             while True:
                 w, h = mm * MM, (max(8, mm * 0.22) + 4 + 3.5) * MM
@@ -332,7 +354,9 @@ def resolver_marcas(pagina, ocupados, marcas_da_pagina):
                 if achado or mm <= BARRAS_MIN_AUTO_MM:
                     break
                 mm = max(BARRAS_MIN_AUTO_MM, mm - 5)
-            rect = achado or rect   # sem espaço livre, mantém a posição pedida
+            if not achado:   # sem vazio onde caiba: não se desenha, nunca por cima de perguntas ou alternativas
+                continue
+            rect = achado
         ocupados.append(rect + (-4, -4, 4, 4))
         resultado.append((m, rect))
     return resultado

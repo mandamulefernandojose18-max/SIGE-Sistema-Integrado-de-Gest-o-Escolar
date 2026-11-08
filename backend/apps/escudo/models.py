@@ -54,3 +54,16 @@ class EventoEscudo(models.Model):
     class Meta:
         db_table = 'sige_escudo_eventos'
         ordering = ['-id']
+
+
+class RegraExclusaoEscudo(models.Model):
+    """Regra da escola para a folha de resposta personalizada: quem fica de fora, verificada automaticamente e sempre."""
+    escola = models.OneToOneField('tenants.Escola', on_delete=models.CASCADE, related_name='regra_exclusao_escudo')
+    verificar_sempre = models.BooleanField(default=False)
+    motivos = models.JSONField(default=list, blank=True)
+    faltas_minimo = models.PositiveIntegerField(default=0, help_text='Total de faltas acumuladas a partir do qual o aluno é excluído (0 = não definido)')
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_escudo_regra_exclusao'
+        verbose_name = 'Regra de exclusão do Escudo Anti-IA'

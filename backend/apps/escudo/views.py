@@ -451,6 +451,22 @@ def folha_contexto(request, pid):
 
 @csrf_exempt
 @_tratar
+def folha_regra(request, pid):
+    """Guarda a regra da escola «verificar automaticamente e sempre» (motivos e total de faltas acumuladas)."""
+    if request.method != 'POST':
+        return _erro('Método não permitido.', 405)
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    from .services import folha as folha_mod
+    escola = folha_mod._escola_da_prova(p, _escola_activa(request, user))
+    if not escola:
+        return _erro('Seleccione primeiro a escola (Super Admin) ou use uma conta de escola.')
+    return _json({'success': True, 'data': folha_mod.guardar_regra(escola, request.POST)})
+
+
+@csrf_exempt
+@_tratar
 def folha_previa(request, pid):
     """PNG da primeira página da folha de resposta (do primeiro aluno, se for personalizada)."""
     if request.method != 'POST':

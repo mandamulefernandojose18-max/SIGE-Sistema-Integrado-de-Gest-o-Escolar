@@ -1274,3 +1274,71 @@ def test_com_folha_a_prova_sai_num_so_pdf_com_a_folha_na_pagina_1_seja_qual_for_
         assert len(paginas) == sem + 1
         assert 'FOLHA' in (paginas[0].extract_text() or '').upper()  # página 1 = folha; 2... = questões
         assert 'FOLHA' not in (paginas[1].extract_text() or '').upper()
+
+
+def test_folha_regra_automatica_da_escola_salta_alunos_sem_marcar_nada(duas_escolas):
+    from apps.alunos.models import Aluno
+    from apps.disciplinas.models import Disciplina
+    from apps.notas.models import Nota
+    a, _ = duas_escolas
+    turma = _alunos_reais(a, 3)
+    d = Disciplina.objects.create(escola=a, nome='Física', codigo='FIS', classe='11.ª Classe', ano_letivo=a.ano_letivo_ativo)
+    al = list(Aluno.objects.filter(turma=turma).order_by('nome'))
+    Nota.objects.create(escola=a, aluno=al[0], disciplina=d, turma=turma, periodo='1_TRIMESTRE', faltas=15)
+    Nota.objects.create(escola=a, aluno=al[1], disciplina=d, turma=turma, periodo='1_TRIMESTRE', anotacao='PDF')
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    base = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'sim',
+            'folha_classe': '11.ª Classe'}
+    # sem regra: todos
+    assert len([n for n in _zip(c.post(API + pid + '/gerar/', base)).namelist() if n.endswith('.pdf')]) == 3
+    # regra inválida (faltas sem total) é recusada
+    r = c.post(API + pid + '/folha-regra/', {'verificar_sempre': 'on', 'motivos': ['faltas'], 'faltas_minimo': '0'})
+    assert r.status_code == 400
+    r = c.post(API + pid + '/folha-regra/', {'verificar_sempre': 'on', 'motivos': ['faltas', 'ppf', 'pdf', 'transferida', 'obito'],
+                                             'faltas_minimo': '10'})
+    assert r.status_code == 200 and r.json()['data']['faltas_minimo'] == 10
+    z = _zip(c.post(API + pid + '/gerar/', base))
+    assert len([n for n in z.namelist() if n.endswith('.pdf')]) == 1   # só sobra o aluno sem faltas nem PDF
+    texto = z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
+    assert 'Faltas: 15' in texto and 'PDF' in texto
+    ctx = c.get(API + pid + '/folha-contexto/').json()['data']
+    assert ctx['regra_exclusao']['verificar_sempre'] is True and ctx['regra_exclusao']['faltas_minimo'] == 10
+
+
+def test_conversao_sanea_parenteses_rectos_das_equacoes_e_recusa_conteudo_adulterado():
+    import io, zipfile
+    from apps.escudo.services import conversao
+    M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    xml = (f'<w:document xmlns:w="{W}" xmlns:m="{M}"><w:body><w:p><m:oMath>'
+           f'<m:r><m:t>]-13;+∞[</m:t></m:r>'
+           f'<m:d><m:dPr><m:begChr m:val="]"/><m:endChr m:val="["/></m:dPr><m:e><m:r><m:t>1;2</m:t></m:r></m:e></m:d>'
+           f'</m:oMath></w:p></w:body></w:document>').encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        z.writestr('word/document.xml', xml)
+    saido = conversao.sanear_docx(buf.getvalue())
+    corpo = zipfile.ZipFile(io.BytesIO(saido)).read('word/document.xml').decode()
+    assert '<m:nor/>' in corpo and 'begChr' not in corpo   # intervalos viram texto; delimitador desencontrado desfeito
+    import pymupdf as fitz
+    d = fitz.open(); pg = d.new_page(); pg.insert_text((72, 72), 'A. \u00bf-13;+8\u00bf'); pdf = d.tobytes()
+    assert conversao.conteudo_adulterado(pdf, saido) is True
+    d2 = fitz.open(); d2.new_page().insert_text((72, 72), 'A. ]-13;+8['); assert conversao.conteudo_adulterado(d2.tobytes(), saido) is False
+
+
+def test_qr_da_pergunta_fica_num_vazio_junto_da_questao_sem_tapar_alternativas():
+    import pymupdf as fitz
+    from apps.escudo.services import selos
+    d = fitz.open(); pg = d.new_page()
+    pg.insert_text((50, 100), '1. Qual e a solucao?', fontsize=11)
+    for i, t in enumerate(('A. um', 'B. dois', 'C. tres', 'D. quatro')):
+        pg.insert_text((60, 120 + i * 14), t, fontsize=11)
+    pg.insert_text((50, 260), '2. Outra questao?', fontsize=11)
+    ancoras = selos.detectar_perguntas(d.tobytes())[0]
+    texto = [fitz.Rect(b[:4]) for b in pg.get_text('blocks')]
+    for a in ancoras:
+        assert a['qr']
+        r = fitz.Rect(a['qr'])
+        assert not any(r.intersects(t) for t in texto)          # nunca tapa texto nem alternativas
+        assert abs(r.y0 - a['y0']) <= 160                       # junto da própria questão
