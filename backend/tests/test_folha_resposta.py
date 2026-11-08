@@ -233,3 +233,17 @@ def test_rotulos_de_correccao_conforme_o_tipo():
     exame = fr.normalizar_config({'tipo_avaliacao': 'EXAME', 'disciplina': 'X', 'n_perguntas': 10})
     assert fr.rotulos_correccao(normal) == ('CORRECÇÃO NORMAL', 'RECORRECÇÃO')
     assert fr.rotulos_correccao(exame) == ('1ª CORRECÇÃO', '2ª CORRECÇÃO')
+
+
+def test_logo_da_escola_opcional_e_nunca_no_exame():
+    import base64, io
+    from types import SimpleNamespace
+    from PIL import Image
+    b = io.BytesIO(); Image.new('RGB', (20, 20), (200, 30, 30)).save(b, 'PNG')
+    escola = {'obj': SimpleNamespace(logo_url='', logo_base64='data:image/png;base64,' + base64.b64encode(b.getvalue()).decode())}
+    assert fr.logo_proprio_escola(escola)
+    assert fr.logo_proprio_escola({'obj': SimpleNamespace(logo_url='', logo_base64='', logo='')}) is None
+    base = {'disciplina': 'Matemática', 'n_perguntas': 10, 'n_alternativas': 4, 'logo_escola': True}
+    assert fr.normalizar_config(dict(base, tipo_avaliacao='ACS1'))['logo_escola'] is True
+    assert fr.normalizar_config(dict(base, tipo_avaliacao='EXAME'))['logo_escola'] is False
+    assert fr.normalizar_config({k: v for k, v in base.items() if k != 'logo_escola'})['logo_escola'] is False

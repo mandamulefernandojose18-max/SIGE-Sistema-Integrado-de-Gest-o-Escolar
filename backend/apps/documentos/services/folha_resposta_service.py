@@ -227,6 +227,8 @@ def normalizar_config(dados, escola=None):
         'marcas_omr': bool(dados.get('marcas_omr', True)),
         'codigo_barras': bool(dados.get('codigo_barras', True)),
         'instrucao_extra': _texto(dados.get('instrucao_extra'), 140),
+        # logotipo próprio da escola (opcional); nunca no Exame Final
+        'logo_escola': bool(dados.get('logo_escola', False)) and tipo != 'EXAME',
     }
 
 
@@ -242,6 +244,22 @@ def montar_dados_escola(escola):
         'trimestre': escola.trimestre_ativo or '',
         'obj': escola,
     }
+
+
+def logo_proprio_escola(escola):
+    """Bytes do logotipo próprio da escola (o carregado nas Configurações), ou None se não existir."""
+    from .pdf_service import extrair_bytes_de_imagem
+    obj = escola.get('obj') if isinstance(escola, dict) else escola
+    for campo in ('logo_url', 'logo_base64', 'logo'):
+        ref = getattr(obj, campo, None) if obj is not None else None
+        if ref:
+            try:
+                dados = extrair_bytes_de_imagem(ref)
+            except Exception:
+                dados = None
+            if dados:
+                return dados
+    return None
 
 
 SECCOES_ESPECIFICAS = {
@@ -525,10 +543,18 @@ def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
     c.setStrokeColor(CINZA_LINHA)
     c.setLineWidth(0.4)
     c.line(107 * mm, _y(y0 + 1), 107 * mm, _y(y0 + 22))
-    _texto_ajustado(c, escola.get('nome') or '', 110, y0 + 5, PAG_L - MARGEM - 110, FONTE_B, 11, 6.5)
+    x_esc = 110
+    logo_esc = escola.get('_logo_proprio')
+    if logo_esc is not None:
+        try:
+            c.drawImage(logo_esc, 110 * mm, _y(y0 + 18), 15 * mm, 15 * mm, preserveAspectRatio=True, mask='auto')
+            x_esc = 127
+        except Exception:
+            pass
+    _texto_ajustado(c, escola.get('nome') or '', x_esc, y0 + 5, PAG_L - MARGEM - x_esc, FONTE_B, 11, 6.5)
     if escola.get('codigo'):
-        _texto_ajustado(c, f"Código da escola: {escola['codigo']}", 110, y0 + 11, PAG_L - MARGEM - 110, FONTE, 9.5)
-    _texto_ajustado(c, f'Ano lectivo: {ano}', 110, y0 + 16.5, PAG_L - MARGEM - 110, FONTE_B, 9.5)
+        _texto_ajustado(c, f"Código da escola: {escola['codigo']}", x_esc, y0 + 11, PAG_L - MARGEM - x_esc, FONTE, 9.5)
+    _texto_ajustado(c, f'Ano lectivo: {ano}', x_esc, y0 + 16.5, PAG_L - MARGEM - x_esc, FONTE_B, 9.5)
 
 
 def _bloco_instrucoes(c, y, extra=''):
@@ -761,6 +787,11 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
     if logo_reader is None:
         from .pdf_service import DocumentoSemLogoError
         raise DocumentoSemLogoError('A escola não tem o logótipo oficial escolhido para documentos.')
+    if config.get('logo_escola'):
+        _lb = logo_proprio_escola(escola)
+        if _lb:
+            from reportlab.lib.utils import ImageReader as _IR
+            escola = dict(escola, _logo_proprio=_IR(io.BytesIO(_lb)))
     hoje = datetime.date.today().strftime('%d/%m/%Y')
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=(PAG_L * mm, PAG_A * mm))
@@ -887,6 +918,10 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         from .pdf_service import DocumentoSemLogoError
         raise DocumentoSemLogoError('A escola não tem o logótipo oficial escolhido para documentos.')
     logo_png = normalizar_logo_png(logo_bytes)
+    logo_esc_png = None
+    if config.get('logo_escola'):
+        _lb = logo_proprio_escola(escola)
+        logo_esc_png = normalizar_logo_png(_lb) if _lb else None
     hoje = datetime.date.today().strftime('%d/%m/%Y')
 
     TNR = 'Times New Roman'
@@ -1016,8 +1051,14 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             (f'Ano lectivo: {ano}', Font(name=TNR, size=12, bold=True)),
             ('', f_norm),
         ]
+        u_dir = 16
+        if logo_esc_png:
+            im2 = XLImage(io.BytesIO(logo_esc_png))
+            im2.width = im2.height = 72
+            ws.add_image(im2, f'{col_l(C1(16))}1')
+            u_dir = 19
         for i in range(4):
-            for (txt, fnt), u1, u2 in ((esquerda[i], 5, 14), (direita[i], 16, 28)):
+            for (txt, fnt), u1, u2 in ((esquerda[i], 5, 14), (direita[i], u_dir, 28)):
                 juntar(ws, i + 1, u1, u2, txt or None, fnt, Alignment(horizontal='left', vertical='center'))
         barra(ws, 5, 1, 28, titulo, esq)
         ws.row_dimensions[5].height = max(ws.row_dimensions[5].height or 0, 26)

@@ -235,7 +235,7 @@
       n_perguntas: parseInt($('frNPerg').value, 10), n_alternativas: parseInt($('frNAlt').value, 10),
       duracao_min: $('frDuracao').value, data: dataBR($('frData').value), hora_inicio: $('frHora').value, hora_fim: $('frHoraFim').value, sala: $('frSala').value,
       professor: $('frProfessor').value, versoes: $('frVersoes').value, instrucao_extra: $('frInstrucao').value,
-      marcas_omr: $('frOmr').checked, codigo_barras: $('frBarras').checked, incluir_chave: $('frIncluirChave').checked
+      marcas_omr: $('frOmr').checked, codigo_barras: $('frBarras').checked, logo_escola: !!($('frLogoEscola') && $('frLogoEscola').checked), incluir_chave: $('frIncluirChave').checked
     };
     if ($('frModoCot').value === 'seccoes') cfg.seccoes = lerSeccoes();
     else if ($('frCotPerg').value.trim()) cfg.cotacao_pergunta = $('frCotPerg').value.trim();
@@ -315,9 +315,21 @@
     if (ini != null && fim != null) $('frDuracao').value = ((fim - ini) + 1440) % 1440;
   }
 
+  // Logotipo próprio da escola: opcional; não existe no Exame Final nem se a escola não o tiver carregado.
+  function actualizarLogoEscola() {
+    var cb = $('frLogoEscola'), dica = $('frLogoEscolaDica');
+    if (!cb) return;
+    var tem = !!(ctx && ctx.escola && ctx.escola.logo_proprio_disponivel);
+    var exame = $('frTipo').value === 'EXAME';
+    cb.disabled = exame || !tem;
+    if (cb.disabled) cb.checked = false;
+    if (dica) dica.textContent = exame ? '(indisponível no Exame Final)' : (!tem ? '(a escola não tem logotipo próprio carregado)' : '');
+  }
+
   function ligar() {
     if (ligado) return;
     ligado = true;
+    $('frTipo').addEventListener('change', actualizarLogoEscola);
     $('frHora').addEventListener('input', calcularHoraFim);
     $('frHora').addEventListener('change', calcularHoraFim);
     $('frDuracao').addEventListener('input', calcularHoraFim);
@@ -379,6 +391,7 @@
       mostrarCamposEscopo();
       actualizarTotal();
       desenharChaves();
+      actualizarLogoEscola();
       estado(ctx.escola && ctx.escola.logotipo_disponivel === false ? 'Atenção: a escola não tem o logótipo oficial escolhido para documentos.' : '');
     } catch (e) {
       estado('');

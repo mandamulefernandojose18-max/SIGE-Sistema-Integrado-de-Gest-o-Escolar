@@ -82,6 +82,7 @@ class FolhaRespostaContextoView(APIView):
                 'nome': escola.nome, 'codigo': escola.codigo_escola or '', 'provincia': escola.provincia,
                 'distrito': escola.distrito, 'ano_letivo': escola.ano_letivo_ativo,
                 'trimestre': escola.trimestre_ativo, 'logotipo_disponivel': bool(logo),
+                'logo_proprio_disponivel': bool(fr.logo_proprio_escola(escola)),
             },
             'ano_letivo': ano,
             'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
