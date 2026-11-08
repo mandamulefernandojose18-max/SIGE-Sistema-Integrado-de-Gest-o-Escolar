@@ -1106,3 +1106,59 @@ def test_codigo_de_barras_automatico_vai_para_espaco_vazio_e_qr_entre_alternativ
     esq = selos.posicoes_qr_pagina(pag, oc, 'ABCD1234', 1, 0, 3, set(), 20, 'esquerda')
     dir_ = selos.posicoes_qr_pagina(pag, oc, 'ABCD1234', 1, 0, 3, set(), 20, 'direita')
     assert not esq or not dir_ or esq[0].x0 < dir_[0].x0  # ajuste manual da coluna
+
+# ----------------------------------------------------------------- folha de resposta opcional (1.ª página)
+def _alunos_reais(escola, n=3):
+    from apps.alunos.models import Aluno
+    from apps.turmas.models import Turma
+    t = Turma.objects.create(escola=escola, nome='Turma 1', grau_ano='11.ª Classe', ano_letivo=escola.ano_letivo_ativo, area='Ciências')
+    for i in range(n):
+        Aluno.objects.create(escola=escola, turma=t, matricula=f'MAT_FOLHA_{i}', nome=f'Nome{i}', apelido='Silva',
+                             data_nascimento='2009-01-01', genero='F')
+    return t
+
+
+def test_folha_nao_e_opcional_por_omissao_e_sai_na_primeira_pagina(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    base = {'marcas': '[]', 'copias': '1'}
+    sem = c.post(API + pid + '/gerar/', base)
+    paginas_sem = len(PdfReader(io.BytesIO(sem.content)).pages)
+    com = c.post(API + pid + '/gerar/', {**base, 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'nao'})
+    assert com.status_code == 200, com.content
+    leitor = PdfReader(io.BytesIO(com.content))
+    assert len(leitor.pages) > paginas_sem
+    assert 'FOLHA' in (leitor.pages[0].extract_text() or '').upper()
+    nao = c.post(API + pid + '/gerar/', {**base, 'folha_resposta': 'nao'})
+    assert len(PdfReader(io.BytesIO(nao.content)).pages) == paginas_sem
+
+
+def test_folha_exige_numero_de_perguntas(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    r = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim'})
+    assert r.status_code == 400
+
+
+def test_folha_personalizada_uma_copia_por_aluno_real_da_turma(duas_escolas):
+    a, _ = duas_escolas
+    turma = _alunos_reais(a, 3)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    form = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20',
+            'folha_personalizada': 'sim', 'folha_classe': '11.ª Classe', 'folha_area': 'Ciências', 'folha_turma_id': str(turma.id)}
+    r = c.post(API + pid + '/gerar/', form)
+    assert r.status_code == 200, r.content
+    nomes = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+    assert len(nomes) == 3 and any('Nome0' in n for n in nomes)
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    primeira = PdfReader(io.BytesIO(z.read(nomes[0]))).pages[0].extract_text()
+    assert 'Nome0' in primeira or 'NOME0' in primeira.upper()
+
+
+def test_folha_personalizada_sem_alunos_reais_nao_inventa_folhas(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    r = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20',
+                                       'folha_personalizada': 'sim', 'folha_classe': '11.ª Classe'})
+    assert r.status_code == 400 and 'alunos' in r.json()['message']

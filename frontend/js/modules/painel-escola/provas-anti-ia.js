@@ -469,6 +469,21 @@
       '<option value="com"' + (k.usa_guiao === 'com' ? ' selected' : '') + '>Com Guião</option></select>' +
       '<small>A IA do SIGE resolve a prova passo a passo, sem omitir cálculos, com as equações em forma matemática e a opção correcta no fim. Sai em PDF e em Word, só para o professor.</small></label>' +
       '<div id="escudoGuiaoCaixa" class="guiao-caixa" hidden></div>' +
+      '<label class="campo"><span>Folha de resposta <small>(opcional)</small></span><select name="folha_resposta" id="escudoFolha"><option value="nao" selected>Não</option><option value="sim">Sim</option></select>' +
+        '<small>Se «Sim», a folha de resposta sai como a <strong>primeira página</strong> de cada cópia (no Word, segue ao lado em PDF).</small></label>' +
+      '<div id="escudoFolhaCaixa" class="guiao-caixa" hidden>' +
+        '<div class="duas"><label class="campo"><span>N.º de perguntas</span><input type="number" name="folha_n_perguntas" min="1" max="100" value="' + esc(pg.total || '') + '" placeholder="1 a 100"></label>' +
+        '<label class="campo"><span>Alternativas por pergunta</span><select name="folha_n_alternativas"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label></div>' +
+        '<label class="campo"><span>Tipo de avaliação</span><select name="folha_tipo" id="escudoFolhaTipo"><option value="ACS1">1ª ACS</option></select></label>' +
+        '<label class="campo"><span>Folha codificada</span><select name="folha_codificada"><option value="sim" selected>Sim: com código de barras e QR de verificação</option><option value="nao">Não: sem códigos</option></select></label>' +
+        '<label class="campo" id="escudoFolhaLogoCampo" hidden><span>Logótipo próprio da escola</span><select name="folha_logo"><option value="nao" selected>Não</option><option value="sim">Sim (não se aplica ao Exame Final)</option></select></label>' +
+        '<label class="campo"><span>Personalizada</span><select name="folha_personalizada" id="escudoFolhaPers"><option value="nao" selected>Não: só os dados do aluno ficam em branco</option><option value="sim">Sim: com os dados de cada aluno</option></select></label>' +
+        '<div id="escudoFolhaAlvo" hidden><p class="suave pequeno">Escolhe quem recebe a folha. Sai uma cópia da prova por aluno activo.</p>' +
+          '<label class="campo"><span>Classe</span><select name="folha_classe" id="escudoFolhaClasse"></select></label>' +
+          '<label class="campo"><span>Secção / Área</span><select name="folha_area" id="escudoFolhaArea"><option value="">Todas as secções</option></select></label>' +
+          '<label class="campo"><span>Turma da secção</span><select name="folha_turma_id" id="escudoFolhaTurma"><option value="">Todas as turmas</option></select></label>' +
+          '<p class="suave pequeno" id="escudoFolhaResumo" role="status"></p></div>' +
+        '<p class="suave pequeno" id="escudoFolhaMsg" role="status"></p></div>' +
       '<label class="campo"><span>Cópias numeradas</span><input type="number" name="copias" min="1" max="200" value="' + esc(k.copias) + '"></label>' +
       '<input type="hidden" name="url_base" value="' + esc(k.url_base) + '"><p class="suave pequeno">Os códigos abrem <code>' + esc(k.url_base) + '/v/' + esc(pid) + '</code>.</p>' +
       '<button class="btn bloco" id="escudoGerar">' + ico('file') + ' Gerar e descarregar</button></section>' +
@@ -582,6 +597,48 @@
       btn.disabled = false;
       if (ok) aviso('Cópias geradas e descarregadas.');
     });
+    // ---- Folha de resposta (opcional): Sim/Não → personalizada → Classe → Secção/Área → Turma ----
+    (function () {
+      var sel = $('#escudoFolha'), caixa = $('#escudoFolhaCaixa'), pers = $('#escudoFolhaPers'), alvo = $('#escudoFolhaAlvo');
+      var sClasse = $('#escudoFolhaClasse'), sArea = $('#escudoFolhaArea'), sTurma = $('#escudoFolhaTurma'), resumo = $('#escudoFolhaResumo'), msg = $('#escudoFolhaMsg');
+      var ctx = null, carregando = false;
+      var turmasDe = function () { var c = (ctx.classes || []).filter(function (x) { return String(x.classe) === sClasse.value; })[0]; return c ? c.turmas : []; };
+      var pintarTurmas = function () {
+        var area = sArea.value, ant = sTurma.value;
+        var lista = turmasDe().filter(function (t) { return !area || t.area === area; });
+        sTurma.innerHTML = '<option value="">Todas as turmas</option>' + lista.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.nome) + ' (' + plural(t.alunos, 'aluno', 'alunos') + ')</option>'; }).join('');
+        if (lista.some(function (t) { return t.id === ant; })) sTurma.value = ant;
+        var sel1 = sTurma.value ? lista.filter(function (t) { return t.id === sTurma.value; }) : lista;
+        var n = sel1.reduce(function (s, t) { return s + t.alunos; }, 0);
+        resumo.textContent = n ? plural(n, 'aluno activo', 'alunos activos') + ' receberão a folha (e a sua cópia da prova).' : 'Sem alunos activos neste âmbito: não há folhas personalizadas a gerar.';
+      };
+      var pintarAreas = function () {
+        var areas = []; turmasDe().forEach(function (t) { if (t.area && areas.indexOf(t.area) < 0) areas.push(t.area); });
+        sArea.innerHTML = '<option value="">Todas as secções</option>' + areas.map(function (a) { return '<option>' + esc(a) + '</option>'; }).join('');
+        pintarTurmas();
+      };
+      var carregar = async function () {
+        if (ctx || carregando) return;
+        carregando = true; msg.textContent = 'A carregar classes e turmas…';
+        try {
+          var r = await fetch('/api/v1/documentos/folha-resposta/contexto/', { headers: cab() });
+          if (!r.ok) throw new Error('Não foi possível carregar as turmas da escola.');
+          ctx = await r.json(); msg.textContent = '';
+          $('#escudoFolhaTipo').innerHTML = (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
+          $('#escudoFolhaLogoCampo').hidden = !(ctx.escola && ctx.escola.logo_proprio_disponivel);
+          var classes = ctx.classes || [];
+          sClasse.innerHTML = classes.length ? classes.map(function (c) { return '<option value="' + esc(c.classe) + '">' + esc(c.classe) + ' (' + plural(c.total_alunos, 'aluno', 'alunos') + ')</option>'; }).join('') : '<option value="">Sem turmas registadas</option>';
+          var igual = classes.filter(function (c) { return String(c.classe) === String(k.classe); })[0];
+          if (igual) sClasse.value = igual.classe;
+          pintarAreas();
+        } catch (e) { msg.textContent = e.message; } finally { carregando = false; }
+      };
+      sel.addEventListener('change', function () { caixa.hidden = sel.value !== 'sim'; if (sel.value === 'sim') carregar(); });
+      pers.addEventListener('change', function () { alvo.hidden = pers.value !== 'sim'; if (pers.value === 'sim') carregar(); });
+      sClasse.addEventListener('change', pintarAreas);
+      sArea.addEventListener('change', pintarTurmas);
+      sTurma.addEventListener('change', pintarTurmas);
+    })();
     // ---- Guião (resolução detalhada pela IA do SIGE) ----
     var guiaoSel = $('#escudoGuiaoSel'), guiaoCaixa = $('#escudoGuiaoCaixa'), guiaoTimer = null, guiaoEstado = k.guiao;
     var fmtUsd = function (v) { return v == null ? '' : 'US$ ' + v.toFixed(2).replace('.', ','); };

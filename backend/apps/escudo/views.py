@@ -321,6 +321,7 @@ def configurar(request, pid):
     modelo = s.modelo(p) if cfg.get('modelo_cifrado') else None
     return _json({'success': True, 'data': {
         'id': pid, 'titulo': p['titulo'], 'paginas': p['paginas'], 'estado': _estado(p),
+        'classe': p.get('classe') or '', 'disciplina': p.get('disciplina') or '',
         'mensagem_padrao': selos.MENSAGEM_PADRAO, 'mensagem_ia': cfg.get('mensagem_ia') or selos.MENSAGEM_PADRAO,
         'opcoes': {k: cfg.get(k, d) for k, d in (
             ('aviso_pergunta', True), ('qr_pergunta', True), ('baralhar_perguntas', False), ('baralhar_alternativas', False),
@@ -381,26 +382,42 @@ def gerar(request, pid):
         raise ValueError('O Guião ainda não está pronto: gere-o primeiro (botão «Gerar Guião») ou escolha «Sem Guião».')
     if quer_word and not s.tem_word(p):
         raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
+    from .services import folha as folha_mod
+    folha = folha_mod.preparar(p, request.POST)  # None = sem folha de resposta
+    if folha and folha['personalizada']:
+        op['copias'] = folha['total']  # uma cópia (com a sua folha) por aluno
     base = s.preparar_base(pid, op) if quer_pdf else None
     if quer_word and op['qr_marca_agua']:
         op['zona_word'] = s.zona_word(p, op)  # uma só medição para todas as cópias em Word
     nome = nome_seguro(p['titulo'])
     s.registar_geracao(pid, op)
-    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao:
+
+    def pdf_copia(n):
+        pdf = s.selar_copia(p, op, n, base)
+        return folha_mod.prefixar(folha['para'](n), pdf) if folha else pdf
+
+    def sufixo(n):
+        if folha and folha['personalizada']:
+            return f'{n:03d}_{nome_seguro(folha["alunos"][n - 1])}'
+        return f'{n:03d}'
+
+    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao and not (folha and quer_word):
         if quer_word:
             r = HttpResponse(s.selar_word(p, op, 1), content_type=TIPO_DOCX)
             r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.docx"'
         else:
-            r = HttpResponse(s.selar_copia(p, op, 1, base), content_type='application/pdf')
+            r = HttpResponse(pdf_copia(1), content_type='application/pdf')
             r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.pdf"'
         return r
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for n in range(1, op['copias'] + 1):
             if quer_pdf:
-                z.writestr(f'{nome}_{pid}_copia_{n:03d}.pdf', s.selar_copia(p, op, n, base))
+                z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.pdf', pdf_copia(n))
             if quer_word:
-                z.writestr(f'{nome}_{pid}_copia_{n:03d}.docx', s.selar_word(p, op, n))
+                z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.docx', s.selar_word(p, op, n))
+                if folha:  # o Word não recebe a folha na 1.ª página: segue ao lado, em PDF
+                    z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}_FOLHA_RESPOSTA.pdf', folha['para'](n))
         if (p['config'] or {}).get('modelo_cifrado'):
             z.writestr(f'{nome}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
         if com_guiao:  # Guião (resolução detalhada), só para o professor
