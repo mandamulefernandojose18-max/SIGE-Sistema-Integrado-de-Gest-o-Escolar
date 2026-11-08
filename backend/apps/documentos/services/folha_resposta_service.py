@@ -289,7 +289,10 @@ def montar_dados_aluno(aluno, numero, classe=None, turma=None):
 
 def texto_hora_sala(config):
     intervalo = ' – '.join(x for x in (config['hora_inicio'], config['hora_fim']) if x)
-    return ' · '.join(x for x in (intervalo, config['sala']) if x)
+    sala = config['sala']
+    if sala and not re.match(r'(?i)^\s*sala\b', sala):
+        sala = f'Sala: {sala}'
+    return ' · '.join(x for x in (intervalo, sala) if x)
 
 
 def versao_do_aluno(config, indice):

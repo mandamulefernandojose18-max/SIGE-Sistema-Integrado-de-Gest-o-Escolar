@@ -223,6 +223,6 @@ def test_hora_final_calculada_pela_duracao():
     assert fr.somar_minutos('25:00', 60) == ''
     cfg = fr.normalizar_config({'disciplina': 'X', 'n_perguntas': 10, 'hora_inicio': '8:15', 'duracao_min': 45})
     assert cfg['hora_inicio'] == '08:15' and cfg['hora_fim'] == '09:00'
-    assert fr.texto_hora_sala({**cfg, 'sala': 'S3'}) == '08:15 – 09:00 · S3'
+    assert fr.texto_hora_sala({**cfg, 'sala': 'S3'}) == '08:15 – 09:00 · Sala: S3'
     cfg2 = fr.normalizar_config({'disciplina': 'X', 'n_perguntas': 10, 'hora_inicio': '08:00', 'hora_fim': '10:30'})
     assert cfg2['hora_fim'] == '10:30'
