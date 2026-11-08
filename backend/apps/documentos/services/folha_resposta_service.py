@@ -1086,6 +1086,11 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         par(ws, 18, 17, 22, 'RECORRECÇÃO (val.)', None, 23, 28)
         par(ws, 19, 17, 22, 'ASS. PROFESSOR', None, 23, 28)
         par(ws, 20, 17, 22, 'ASS. DIR. TURMA', None, 23, 28)
+        # etiquetas longas quebram em duas linhas: altura folgada para nenhuma ficar cortada
+        for r in range(16, 21):
+            ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 40)
+        for r in (10, 11, 12):
+            ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 32)
         contorno(ws, 15, 17, 20, 28)
         ws.row_dimensions[21].height = 6
 
