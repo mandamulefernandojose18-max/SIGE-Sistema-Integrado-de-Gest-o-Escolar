@@ -233,6 +233,7 @@ def montar_dados_aluno(aluno, numero, classe=None, turma=None):
         'nome': (aluno.nome or '').strip(),
         'classe': classe or (aluno.turma.grau_ano if aluno.turma_id else (aluno.classe or '')),
         'turma': turma or (aluno.turma.nome if aluno.turma_id else ''),
+        'area': (aluno.turma.area if aluno.turma_id and aluno.turma.area else (aluno.area or '')),
         'numero': numero,
         'codigo': (aluno.matricula or '').strip(),
     }
@@ -592,9 +593,10 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     al = aluno or {}
     _campo(c, xi + 3, yi + 6.3, 72, 'APELIDO', al.get('apelido'))
     _campo(c, xi + 3, yi + 13.8, 72, 'NOME', al.get('nome'))
-    _campo(c, xi + 3, yi + 21.3, 31, 'CLASSE', al.get('classe'), 9.5)
-    _campo(c, xi + 36, yi + 21.3, 25, 'TURMA', al.get('turma'), 9.5)
-    _campo(c, xi + 63, yi + 21.3, 12, 'Nº', str(al['numero']) if al.get('numero') else '', 9.5)
+    _campo(c, xi + 3, yi + 21.3, 21, 'CLASSE', al.get('classe'), 9)
+    _campo(c, xi + 26, yi + 21.3, 24, 'ÁREA / SECÇÃO', al.get('area'), 9)
+    _campo(c, xi + 52, yi + 21.3, 14, 'TURMA', al.get('turma'), 9)
+    _campo(c, xi + 68, yi + 21.3, 7, 'Nº', str(al['numero']) if al.get('numero') else '', 9)
     _campo(c, xi + 3, yi + 28.8, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 9.5)
     if config['codigo_barras'] and al.get('codigo'):
         _desenhar_codigo_barras(c, al['codigo'], xi + 3, yi + 37.6, 72, 4.6)
@@ -924,16 +926,16 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         par(ws, 10, 7, 8, 'TURMA', al.get('turma'), 9, 10)
         par(ws, 10, 11, 11, 'Nº', al.get('numero'), 12, 12)
         par(ws, 11, 1, 3, 'CÓDIGO', al.get('codigo'), 4, 12)
-        ws.merge_cells('A12:O13')
-        for r in (12, 13):
-            ws.row_dimensions[r].height = 22
+        par(ws, 12, 1, 3, 'ÁREA/SECÇÃO', al.get('area'), 4, 12)
+        ws.merge_cells('A13:O13')
+        ws.row_dimensions[13].height = 38
         qr = XLImage(io.BytesIO(_png_qr(_payload_qr(escola, aluno, config, ano, versao))))
         qr.width = qr.height = 108
         ws.add_image(qr, 'M8')
         if config['codigo_barras'] and al.get('codigo'):
             bar = XLImage(io.BytesIO(_png_codigo_barras(al['codigo'])))
-            bar.width, bar.height = 300, 40
-            ws.add_image(bar, 'C12')
+            bar.width, bar.height = 300, 38
+            ws.add_image(bar, 'C13')
         contorno(ws, 7, 1, 13, 15)
 
         # ---- II INFORMAÇÕES DA AVALIAÇÃO ----
@@ -1034,8 +1036,8 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
     if len(reais) > 1:
         ws = wb.create_sheet('Resumo')
         ws.sheet_view.showGridLines = False
-        cab = ['Nº', 'Código', 'Apelido', 'Nome', 'Classe', 'Turma', 'Versão', 'Pontos obtidos', 'Nota (0–20)', 'Observações']
-        larg = [5, 24, 20, 30, 12, 12, 8, 14, 12, 28]
+        cab = ['Nº', 'Código', 'Apelido', 'Nome', 'Classe', 'Área/Secção', 'Turma', 'Versão', 'Pontos obtidos', 'Nota (0–20)', 'Observações']
+        larg = [5, 24, 20, 30, 12, 14, 12, 8, 14, 12, 28]
         for i, (t, w) in enumerate(zip(cab, larg), start=1):
             ws.column_dimensions[col_l(i)].width = w
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(cab))
@@ -1049,13 +1051,13 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             cel.alignment = centro
             cel.border = borda
         for r, (i, a) in enumerate(reais, start=5):
-            vals = [a.get('numero'), a.get('codigo'), a.get('apelido'), a.get('nome'), a.get('classe'), a.get('turma'),
+            vals = [a.get('numero'), a.get('codigo'), a.get('apelido'), a.get('nome'), a.get('classe'), a.get('area'), a.get('turma'),
                     versao_do_aluno(config, i) or None, None, None, None]
             for cidx, v in enumerate(vals, start=1):
                 cel = ws.cell(row=r, column=cidx, value=v)
                 cel.font = f_norm
                 cel.border = borda
-                cel.alignment = centro if cidx in (1, 5, 6, 7, 8, 9) else esq
+                cel.alignment = centro if cidx in (1, 5, 6, 7, 8, 9, 10) else esq
         ws.freeze_panes = 'A5'
         ws.page_setup.orientation = 'portrait'
         ws.page_setup.fitToWidth = 1

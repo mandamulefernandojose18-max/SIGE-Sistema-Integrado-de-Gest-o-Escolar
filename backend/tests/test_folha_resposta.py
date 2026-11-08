@@ -176,3 +176,16 @@ def test_qr_abre_pagina_oficial_e_verificacao_publica(cenario):
     q['s'] = '0' * 16
     assert APIClient().get(URL + 'verificar/', q).status_code == 404
     assert APIClient().get(URL + 'verificar/').status_code == 404
+
+
+def test_folha_inclui_area_seccao_do_aluno(cenario):
+    a, _, _ = cenario
+    tc = Turma.objects.create(escola=a, nome='Turma 2', grau_ano='10ª Classe', area='Ciências', ano_letivo=a.ano_letivo_ativo)
+    al = Aluno.objects.create(escola=a, turma=tc, matricula='MAT_FR_AREA', nome='Eva',
+                              data_nascimento='2009-01-01', genero='F')
+    d = fr.montar_dados_aluno(al, 1)
+    assert d['area'] == 'Ciências'
+    r = _cliente('admin.fra@sige.mz').post(URL + 'gerar/', _corpo(escopo='aluno', aluno_id=str(al.id), formato='xlsx'), format='json')
+    ws = openpyxl.load_workbook(io.BytesIO(r.content)).worksheets[0]
+    texto = ' '.join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
+    assert 'ÁREA/SECÇÃO' in texto and 'Ciências' in texto
