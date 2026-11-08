@@ -383,7 +383,7 @@ def gerar(request, pid):
     if quer_word and not s.tem_word(p):
         raise ValueError('Para sair em Word, carrega a prova em Word (.docx). Esta prova só existe em PDF.')
     from .services import folha as folha_mod
-    folha = folha_mod.preparar(p, request.POST)  # None = sem folha de resposta
+    folha = folha_mod.preparar(p, request.POST, request.FILES)  # None = sem folha de resposta
     if folha and folha['personalizada']:
         op['copias'] = folha['total']  # uma cópia (com a sua folha) por aluno
     base = s.preparar_base(pid, op) if quer_pdf else None
@@ -401,7 +401,7 @@ def gerar(request, pid):
             return f'{n:03d}_{nome_seguro(folha["alunos"][n - 1])}'
         return f'{n:03d}'
 
-    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao and not (folha and quer_word):
+    if op['copias'] == 1 and not (quer_pdf and quer_word) and not com_guiao and not (folha and (quer_word or folha['excluidos'])):
         if quer_word:
             r = HttpResponse(s.selar_word(p, op, 1), content_type=TIPO_DOCX)
             r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_selada.docx"'
@@ -418,6 +418,8 @@ def gerar(request, pid):
                 z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.docx', s.selar_word(p, op, n))
                 if folha:  # o Word não recebe a folha na 1.ª página: segue ao lado, em PDF
                     z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}_FOLHA_RESPOSTA.pdf', folha['para'](n))
+        if folha and folha['relatorio']:  # alunos deixados de fora e porquê (só para o professor)
+            z.writestr(f'{nome}_{pid}_ALUNOS_EXCLUIDOS_so_professor.csv', folha['relatorio'])
         if (p['config'] or {}).get('modelo_cifrado'):
             z.writestr(f'{nome}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
         if com_guiao:  # Guião (resolução detalhada), só para o professor

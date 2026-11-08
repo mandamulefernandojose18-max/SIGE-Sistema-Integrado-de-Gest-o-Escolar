@@ -478,11 +478,26 @@
         '<label class="campo"><span>Folha codificada</span><select name="folha_codificada"><option value="sim" selected>Sim: com código de barras e QR de verificação</option><option value="nao">Não: sem códigos</option></select></label>' +
         '<label class="campo" id="escudoFolhaLogoCampo" hidden><span>Logótipo próprio da escola</span><select name="folha_logo"><option value="nao" selected>Não</option><option value="sim">Sim (não se aplica ao Exame Final)</option></select></label>' +
         '<label class="campo"><span>Personalizada</span><select name="folha_personalizada" id="escudoFolhaPers"><option value="nao" selected>Não: só os dados do aluno ficam em branco</option><option value="sim">Sim: com os dados de cada aluno</option></select></label>' +
-        '<div id="escudoFolhaAlvo" hidden><p class="suave pequeno">Escolhe quem recebe a folha. Sai uma cópia da prova por aluno activo.</p>' +
+        '<div id="escudoFolhaAlvo" hidden><p class="suave pequeno">Sai uma cópia da prova por aluno, cada uma com a sua folha.</p>' +
+          '<label class="campo"><span>Origem dos alunos</span><select name="folha_fonte" id="escudoFolhaFonte"><option value="sistema" selected>Alunos activos do SIGE (Classe, Secção/Área, Turma)</option><option value="lista">Lista importada (Excel ou CSV)</option></select></label>' +
+          '<div id="escudoFolhaSistema">' +
           '<label class="campo"><span>Classe</span><select name="folha_classe" id="escudoFolhaClasse"></select></label>' +
           '<label class="campo"><span>Secção / Área</span><select name="folha_area" id="escudoFolhaArea"><option value="">Todas as secções</option></select></label>' +
           '<label class="campo"><span>Turma da secção</span><select name="folha_turma_id" id="escudoFolhaTurma"><option value="">Todas as turmas</option></select></label>' +
           '<p class="suave pequeno" id="escudoFolhaResumo" role="status"></p></div>' +
+          '<div id="escudoFolhaLista" hidden><label class="campo"><span>Lista de alunos (.xlsx ou .csv)</span><input type="file" name="folha_lista" accept=".xlsx,.csv,.txt"></label>' +
+            '<small>A primeira linha é o cabeçalho. Obrigatória: <strong>Nome</strong>. Opcionais: Apelido, Classe, Turma, Secção/Área, Nº, Código (matrícula) e Situação. Com o Código, o SIGE completa os dados e verifica faltas, PPF, PDF, transferência e óbito. A lista não fica guardada. Máximo de 200 alunos.</small></div>' +
+          '<label class="campo"><span>Deseja não incluir algum aluno?</span><select name="folha_excluir" id="escudoFolhaExcl"><option value="nao" selected>Não</option><option value="sim">Sim</option></select></label>' +
+          '<fieldset id="escudoFolhaExclCaixa" hidden style="border:0;padding:0;margin:0"><legend class="suave pequeno">Excluir por motivo (podes marcar vários)</legend>' +
+            '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="faltas"><span>Faltas<small>Exclui quem tem este número de faltas, ou mais, nesta disciplina no ano lectivo.</small></span></label>' +
+            '<label class="campo" id="escudoFolhaFaltasCampo" hidden><span>Número mínimo de faltas</span><input type="number" name="folha_excluir_faltas" min="1" max="999" placeholder="Ex.: 10"></label>' +
+            '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="ppf"><span>PPF<small>Anotação PPF (perdeu por faltas) nesta disciplina.</small></span></label>' +
+            '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="pdf"><span>PDF<small>Anotação PDF nesta disciplina.</small></span></label>' +
+            '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="transferida"><span>Transferida<small>Estado «transferido» (ou situação indicada na lista importada).</small></span></label>' +
+            '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="obito"><span>Óbito<small>Estado de falecimento (ou situação indicada na lista importada).</small></span></label>' +
+            '<label class="caixa"><input type="checkbox" name="folha_excluir_motivo" value="outros"><span>Outros/as<small>Indicas tu os alunos a excluir.</small></span></label>' +
+            '<label class="campo" id="escudoFolhaOutrosCampo" hidden><span>Alunos a excluir (código ou nome, um por linha)</span><textarea name="folha_excluir_outros" rows="3" maxlength="2000"></textarea></label>' +
+            '<small>Os alunos activos do SIGE já excluem automaticamente quem está transferido ou falecido. Recebes um ficheiro CSV no ZIP com os excluídos e o motivo (só para o professor).</small></fieldset></div>' +
         '<p class="suave pequeno" id="escudoFolhaMsg" role="status"></p></div>' +
       '<label class="campo"><span>Cópias numeradas</span><input type="number" name="copias" min="1" max="200" value="' + esc(k.copias) + '"></label>' +
       '<input type="hidden" name="url_base" value="' + esc(k.url_base) + '"><p class="suave pequeno">Os códigos abrem <code>' + esc(k.url_base) + '/v/' + esc(pid) + '</code>.</p>' +
@@ -635,6 +650,13 @@
       };
       sel.addEventListener('change', function () { caixa.hidden = sel.value !== 'sim'; if (sel.value === 'sim') carregar(); });
       pers.addEventListener('change', function () { alvo.hidden = pers.value !== 'sim'; if (pers.value === 'sim') carregar(); });
+      var fonte = $('#escudoFolhaFonte'), excl = $('#escudoFolhaExcl'), exclCaixa = $('#escudoFolhaExclCaixa');
+      fonte.addEventListener('change', function () { $('#escudoFolhaSistema').hidden = fonte.value !== 'sistema'; $('#escudoFolhaLista').hidden = fonte.value !== 'lista'; });
+      excl.addEventListener('change', function () { exclCaixa.hidden = excl.value !== 'sim'; });
+      exclCaixa.addEventListener('change', function () {
+        var marcado = function (v) { var el = $('input[name="folha_excluir_motivo"][value="' + v + '"]', exclCaixa); return !!(el && el.checked); };
+        $('#escudoFolhaFaltasCampo').hidden = !marcado('faltas'); $('#escudoFolhaOutrosCampo').hidden = !marcado('outros');
+      });
       sClasse.addEventListener('change', pintarAreas);
       sArea.addEventListener('change', pintarTurmas);
       sTurma.addEventListener('change', pintarTurmas);

@@ -6,10 +6,16 @@ A folha, quando pedida, é SEMPRE a primeira página da cópia. Duas variantes:
   · personalizada: uma folha por aluno real (classe → secção/área → turma); a cópia n leva a folha do aluno n.
 Só se usam alunos activos reais da escola da prova: sem alunos não há folhas personalizadas.
 """
+import csv
+import io
+import re
+import unicodedata
+
 import pymupdf as fitz
 
 from apps.alunos.models import Aluno  # noqa: F401  (usado via _alunos_da_turma)
 from apps.disciplinas.models import Disciplina
+from apps.notas.models import Nota
 from apps.documentos.services import folha_resposta_service as fr
 from apps.documentos.views_folha_resposta import _alunos_da_turma
 from apps.tenants.models import Escola
@@ -36,7 +42,171 @@ def _alunos_do_ambito(escola, ano, classe, area, turma_id):
     return saida
 
 
-def preparar(p, form):
+
+# ----------------------------------------------------------------- lista importada e exclusões
+MOTIVOS_EXCLUSAO = ('faltas', 'ppf', 'pdf', 'transferida', 'obito', 'outros')
+MAX_LISTA_BYTES = 2 * 1024 * 1024
+MAX_LINHAS_LISTA = 2000
+_ALIAS = {
+    'apelido': {'apelido', 'apelidos', 'sobrenome'},
+    'nome': {'nome', 'nomes', 'nomedoaluno', 'nomecompleto', 'aluno'},
+    'classe': {'classe', 'ano', 'grau'},
+    'turma': {'turma'},
+    'area': {'area', 'seccao', 'areaseccao', 'seccaoarea', 'curso'},
+    'numero': {'n', 'no', 'numero', 'nordem', 'ordem', 'nodeordem'},
+    'codigo': {'codigo', 'matricula', 'processo', 'nprocesso', 'noprocesso', 'codigodoaluno', 'nmatricula'},
+    'situacao': {'situacao', 'estado', 'observacao', 'observacoes', 'motivo'},
+}
+
+
+def _sem_acentos(t):
+    return ''.join(c for c in unicodedata.normalize('NFKD', str(t or '')) if not unicodedata.combining(c)).lower()
+
+
+def _chave(t):
+    return re.sub(r'[^a-z0-9]', '', _sem_acentos(t))
+
+
+def _nome_norm(t):
+    return re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9 ]', ' ', _sem_acentos(t))).strip()
+
+
+def _linhas_do_ficheiro(ficheiro):
+    nome = (getattr(ficheiro, 'name', '') or '').lower()
+    dados = ficheiro.read(MAX_LISTA_BYTES + 1)
+    if len(dados) > MAX_LISTA_BYTES:
+        raise ValueError('A lista é demasiado grande (máximo 2 MB).')
+    if nome.endswith('.xlsx'):
+        import openpyxl
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(dados), read_only=True, data_only=True)
+        except Exception:
+            raise ValueError('Não foi possível ler o Excel da lista.') from None
+        ws = wb.worksheets[0]
+        return [[('' if c is None else str(c).strip()) for c in linha] for linha in ws.iter_rows(values_only=True, max_row=MAX_LINHAS_LISTA)]
+    if nome.endswith(('.csv', '.txt')):
+        try:
+            texto = dados.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            texto = dados.decode('latin-1')
+        amostra = texto[:2000]
+        sep = max(';,\t', key=amostra.count) if any(s in amostra for s in ';,\t') else ';'
+        return [[c.strip() for c in linha] for linha in csv.reader(io.StringIO(texto), delimiter=sep)][:MAX_LINHAS_LISTA]
+    raise ValueError('Formato da lista não suportado: use Excel (.xlsx) ou CSV.')
+
+
+def _candidatos_da_lista(ficheiro, escola):
+    """Alunos de uma lista importada (nunca guardada). Cabeçalho obrigatório; basta a coluna Nome."""
+    linhas = [l for l in _linhas_do_ficheiro(ficheiro) if any(l)]
+    cab, mapa = None, {}
+    for idx, linha in enumerate(linhas[:10]):
+        m = {}
+        for col, cel in enumerate(linha):
+            for campo, alias in _ALIAS.items():
+                if _chave(cel) in alias and campo not in m:
+                    m[campo] = col
+        if 'nome' in m:
+            cab, mapa = idx, m
+            break
+    if cab is None:
+        raise ValueError('A lista precisa de cabeçalho com a coluna «Nome» (opcionais: Apelido, Classe, Turma, '
+                         'Secção/Área, Nº, Código, Situação).')
+    brutos = []
+    for linha in linhas[cab + 1:]:
+        def val(campo):
+            c = mapa.get(campo)
+            return re.sub(r'\s+', ' ', linha[c]).strip() if c is not None and c < len(linha) else ''
+        if val('nome') or val('apelido'):
+            brutos.append({k: val(k) for k in _ALIAS})
+    codigos = [b['codigo'] for b in brutos if b['codigo']]
+    do_sistema = {a.matricula: a for a in Aluno.objects.filter(escola=escola, matricula__in=codigos).select_related('turma')} if codigos else {}
+    cands = []
+    for b in brutos:
+        a = do_sistema.get(b['codigo']) if b['codigo'] else None
+        base = fr.montar_dados_aluno(a, None) if a else {}
+        try:
+            numero = int(re.sub(r'\D', '', b['numero'])) if b['numero'] else base.get('numero')
+        except ValueError:
+            numero = None
+        dados = {
+            'apelido': b['apelido'] or base.get('apelido', ''), 'nome': b['nome'] or base.get('nome', ''),
+            'classe': b['classe'] or base.get('classe', ''), 'turma': b['turma'] or base.get('turma', ''),
+            'area': b['area'] or base.get('area', ''), 'numero': numero, 'codigo': b['codigo'],
+        }
+        cands.append({'dados': dados, 'aluno': a, 'situacao': b['situacao']})
+    return cands
+
+
+def _lista(form, nome):
+    return form.getlist(nome) if hasattr(form, 'getlist') else ([form[nome]] if form.get(nome) else [])
+
+
+def _aplicar_exclusoes(form, p, escola, ano, cands):
+    """Devolve (incluídos, excluídos[(dados, motivo)]). Só com «Deseja não incluir algum aluno: Sim»."""
+    if not _on(form, 'folha_excluir'):
+        return cands, []
+    motivos = {m for m in _lista(form, 'folha_excluir_motivo') if m in MOTIVOS_EXCLUSAO}
+    if not motivos:
+        raise ValueError('Indique o motivo da exclusão (Faltas, PPF, PDF, Transferida, Óbito ou Outros).')
+    minimo = 0
+    if 'faltas' in motivos:
+        try:
+            minimo = int(form.get('folha_excluir_faltas') or 0)
+        except ValueError:
+            minimo = 0
+        if minimo < 1:
+            raise ValueError('Indique o número mínimo de faltas (1 ou mais) para excluir alunos.')
+    outros = {_nome_norm(l) for l in re.split(r'[\r\n;]+', form.get('folha_excluir_outros') or '') if _nome_norm(l)}
+    if 'outros' in motivos and not outros:
+        raise ValueError('Em «Outros», indique os alunos a excluir (código ou nome, um por linha).')
+
+    faltas, anot = {}, {}
+    ids = [c['aluno'].id for c in cands if c['aluno']]
+    if ids and motivos & {'faltas', 'ppf', 'pdf'}:
+        for aid, f, an in Nota.objects.filter(escola=escola, aluno_id__in=ids, turma__ano_letivo=ano,
+                                              disciplina__nome__iexact=p.get('disciplina') or '').values_list('aluno_id', 'faltas', 'anotacao'):
+            faltas[aid] = faltas.get(aid, 0) + (f or 0)
+            anot.setdefault(aid, set()).add((an or '').strip().upper())
+
+    incluidos, excluidos = [], []
+    for c in cands:
+        a, sit, d = c['aluno'], _sem_acentos(c['situacao']), c['dados']
+        aid = a.id if a else None
+        razao = []
+        if 'faltas' in motivos and aid and faltas.get(aid, 0) >= minimo:
+            razao.append(f'Faltas: {faltas[aid]} (mínimo {minimo})')
+        for cod, rot in (('ppf', 'PPF'), ('pdf', 'PDF')):
+            if cod in motivos and ((aid and rot in anot.get(aid, ())) or re.search(rf'\b{cod}\b', sit)):
+                razao.append(rot)
+        if 'transferida' in motivos and ((a and (a.status or '').upper() == 'TRANSFERIDO') or 'transfer' in sit):
+            razao.append('Transferida')
+        if 'obito' in motivos and ((a and (a.status or '').upper() in ('FALECIDO', 'OBITO', 'ÓBITO')) or re.search(r'obito|falecid', sit)):
+            razao.append('Óbito')
+        if 'outros' in motivos:
+            chaves = {_nome_norm(d['codigo']), _nome_norm(f"{d['apelido']} {d['nome']}"),
+                      _nome_norm(f"{d['nome']} {d['apelido']}"), _nome_norm(d['nome'])} - {''}
+            if chaves & outros:
+                razao.append('Outros (indicado na lista de exclusão)')
+        if razao:
+            excluidos.append((d, '; '.join(razao)))
+        else:
+            incluidos.append(c)
+    return incluidos, excluidos
+
+
+def _relatorio_excluidos(excluidos):
+    """CSV (só para o professor) com os alunos que ficaram de fora e porquê."""
+    if not excluidos:
+        return b''
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=';')
+    w.writerow(['Nº', 'Código', 'Apelido', 'Nome', 'Classe', 'Turma', 'Motivo da exclusão'])
+    for d, motivo in excluidos:
+        w.writerow([d.get('numero') or '', d.get('codigo') or '', d.get('apelido') or '', d.get('nome') or '',
+                    d.get('classe') or '', d.get('turma') or '', motivo])
+    return buf.getvalue().encode('utf-8-sig')
+
+def preparar(p, form, ficheiros=None):
     """None se a prova não leva folha; senão dicionário com `personalizada`, `total` e `para(n)` (bytes PDF da folha da cópia n)."""
     if not _on(form, 'folha_resposta'):
         return None
@@ -64,22 +234,33 @@ def preparar(p, form):
 
     if not personalizada:
         pdf, _ = fr.gerar_folhas_pdf(esc, [None], config, ano)
-        return {'personalizada': False, 'total': 0, 'alunos': [], 'para': lambda n: pdf}
+        return {'personalizada': False, 'total': 0, 'alunos': [], 'excluidos': [], 'relatorio': b'', 'para': lambda n: pdf}
 
-    if not classe:
-        raise ValueError('Escolha a classe das folhas personalizadas.')
-    area = (form.get('folha_area') or '').strip()
-    turma_id = (form.get('folha_turma_id') or '').strip()
-    try:
-        trio = _alunos_do_ambito(escola, ano, classe, area, turma_id)
-    except Exception:  # id de turma mal formado
-        raise ValueError('Turma inválida.') from None
-    if not trio:
+    if (form.get('folha_fonte') or 'sistema') == 'lista':
+        ficheiro = (ficheiros or {}).get('folha_lista')
+        if not ficheiro:
+            raise ValueError('Escolha o ficheiro da lista de alunos (Excel .xlsx ou CSV).')
+        cands = _candidatos_da_lista(ficheiro, escola)
+    else:
+        if not classe:
+            raise ValueError('Escolha a classe das folhas personalizadas.')
+        area = (form.get('folha_area') or '').strip()
+        turma_id = (form.get('folha_turma_id') or '').strip()
+        try:
+            trio = _alunos_do_ambito(escola, ano, classe, area, turma_id)
+        except Exception:  # id de turma mal formado
+            raise ValueError('Turma inválida.') from None
+        cands = [{'dados': fr.montar_dados_aluno(a, i), 'aluno': a, 'situacao': ''} for _, a, i in trio]
+    if not cands:
         raise ValueError('Não existem alunos activos neste âmbito: não há folhas personalizadas a gerar.')
-    if len(trio) > MAX_COPIAS:
-        raise ValueError(f'Há {len(trio)} alunos neste âmbito; o máximo é {MAX_COPIAS} cópias por vez. '
-                         'Escolha uma secção ou uma turma.')
-    dados = [fr.montar_dados_aluno(a, i) for _, a, i in trio]
+
+    incluidos, excluidos = _aplicar_exclusoes(form, p, escola, ano, cands)
+    if not incluidos:
+        raise ValueError('Todos os alunos ficaram excluídos: não há folhas personalizadas a gerar.')
+    if len(incluidos) > MAX_COPIAS:
+        raise ValueError(f'Há {len(incluidos)} alunos neste âmbito; o máximo é {MAX_COPIAS} cópias por vez. '
+                         'Escolha uma secção ou uma turma, ou exclua alunos.')
+    dados = [c['dados'] for c in incluidos]
     pdf, _ = fr.gerar_folhas_pdf(esc, dados, config, ano)
     por_aluno = len(fr.paginas_grelha(config['n_perguntas']))
     origem = fitz.open(stream=pdf, filetype='pdf')
@@ -92,8 +273,8 @@ def preparar(p, form):
     origem.close()
     nomes = [f"{d['apelido']} {d['nome']}".strip() for d in dados]
     return {'personalizada': True, 'total': len(dados), 'alunos': nomes,
+            'excluidos': excluidos, 'relatorio': _relatorio_excluidos(excluidos),
             'para': lambda n: folhas[(n - 1) % len(folhas)]}
-
 
 def prefixar(folha_pdf, copia_pdf):
     """PDF final: páginas da folha de resposta primeiro, depois a cópia selada da prova."""

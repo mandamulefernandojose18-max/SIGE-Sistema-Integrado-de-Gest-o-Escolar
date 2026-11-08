@@ -1162,3 +1162,48 @@ def test_folha_personalizada_sem_alunos_reais_nao_inventa_folhas(duas_escolas):
     r = c.post(API + pid + '/gerar/', {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20',
                                        'folha_personalizada': 'sim', 'folha_classe': '11.ª Classe'})
     assert r.status_code == 400 and 'alunos' in r.json()['message']
+
+
+def _zip(r):
+    assert r.status_code == 200, r.content
+    return zipfile.ZipFile(io.BytesIO(r.content))
+
+
+def test_folha_exclui_por_faltas_ppf_e_outros_e_regista_o_motivo(duas_escolas):
+    from apps.alunos.models import Aluno
+    from apps.disciplinas.models import Disciplina
+    from apps.notas.models import Nota
+    a, _ = duas_escolas
+    turma = _alunos_reais(a, 4)
+    d = Disciplina.objects.create(escola=a, nome='Física', codigo='FIS', classe='11.ª Classe', ano_letivo=a.ano_letivo_ativo)
+    al = list(Aluno.objects.filter(turma=turma).order_by('nome'))
+    Nota.objects.create(escola=a, aluno=al[0], disciplina=d, turma=turma, periodo='1_TRIMESTRE', faltas=12)
+    Nota.objects.create(escola=a, aluno=al[1], disciplina=d, turma=turma, periodo='1_TRIMESTRE', anotacao='PPF')
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    form = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'sim',
+            'folha_classe': '11.ª Classe', 'folha_excluir': 'sim', 'folha_excluir_motivo': ['faltas', 'ppf', 'outros'],
+            'folha_excluir_faltas': '10', 'folha_excluir_outros': al[3].matricula}
+    z = _zip(c.post(API + pid + '/gerar/', form))
+    nomes = z.namelist()
+    assert len([n for n in nomes if n.endswith('.pdf')]) == 1  # só sobra o aluno 2
+    rel = [n for n in nomes if n.endswith('.csv')]
+    texto = z.read(rel[0]).decode('utf-8-sig')
+    assert 'Faltas: 12' in texto and 'PPF' in texto and 'Outros' in texto
+    # exclusão sem motivo ou sem mínimo de faltas é recusada
+    assert c.post(API + pid + '/gerar/', {**form, 'folha_excluir_motivo': []}).status_code == 400
+    assert c.post(API + pid + '/gerar/', {**form, 'folha_excluir_faltas': ''}).status_code == 400
+
+
+def test_folha_personalizada_a_partir_de_lista_importada(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    csv_ = 'Nº;Apelido;Nome;Turma;Situação\n1;Matsinhe;Ana;A;\n2;Cossa;Beto;A;Transferida\n3;Nhaca;Carla;A;\n'.encode('utf-8')
+    form = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'sim',
+            'folha_fonte': 'lista', 'folha_lista': SimpleUploadedFile('alunos.csv', csv_), 'folha_excluir': 'sim',
+            'folha_excluir_motivo': ['transferida']}
+    z = _zip(c.post(API + pid + '/gerar/', form, format='multipart'))
+    pdfs = [n for n in z.namelist() if n.endswith('.pdf')]
+    assert len(pdfs) == 2 and not any('Cossa' in n for n in pdfs)
+    assert 'Transferida' in z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
+    assert c.post(API + pid + '/gerar/', {**form, 'folha_lista': SimpleUploadedFile('x.csv', b'Turma\nA\n')}, format='multipart').status_code == 400
