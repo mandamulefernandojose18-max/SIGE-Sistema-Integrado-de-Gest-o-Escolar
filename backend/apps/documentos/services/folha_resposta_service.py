@@ -227,13 +227,44 @@ def montar_dados_escola(escola):
     }
 
 
+SECCOES_ESPECIFICAS = {
+    'cg': 'Ciências com Geografia', 'cb': 'Ciências com Biologia', 'cd': 'Ciências com Desenho',
+    'lg': 'Letras com Geografia', 'lh': 'Letras com História',
+}
+_GENERICAS = {'', 'geral', 'ensino geral', 'tronco comum', 'eg', 'none', 'null', 'ciências', 'ciencias', 'letras',
+              'ciências e letras', 'ciencias e letras'}
+
+
+def nome_area_secao(aluno):
+    """
+    Nome específico da Área/Secção do aluno («Ciências com Geografia», «Letras com História»…).
+    Prioridade: área específica do aluno → da turma → sigla no código do aluno (…2026.cg.02) → valor genérico.
+    """
+    candidatos = [getattr(aluno, 'area', None) or '']
+    turma = getattr(aluno, 'turma', None) if getattr(aluno, 'turma_id', None) else None
+    if turma is not None:
+        candidatos.append(getattr(turma, 'area', None) or '')
+    for c in candidatos:
+        v = str(c).strip()
+        if v and v.lower() not in _GENERICAS:
+            return v
+    for parte in str(getattr(aluno, 'matricula', '') or '').lower().split('.'):
+        if parte in SECCOES_ESPECIFICAS:
+            return SECCOES_ESPECIFICAS[parte]
+    for c in candidatos:
+        v = str(c).strip()
+        if v and v.lower() not in ('geral', 'ensino geral', 'tronco comum', 'eg', 'none', 'null'):
+            return v
+    return 'Ensino Geral'
+
+
 def montar_dados_aluno(aluno, numero, classe=None, turma=None):
     return {
         'apelido': (aluno.apelido or '').strip(),
         'nome': (aluno.nome or '').strip(),
         'classe': classe or (aluno.turma.grau_ano if aluno.turma_id else (aluno.classe or '')),
         'turma': turma or (aluno.turma.nome if aluno.turma_id else ''),
-        'area': (aluno.turma.area if aluno.turma_id and aluno.turma.area else (aluno.area or '')),
+        'area': nome_area_secao(aluno),
         'numero': numero,
         'codigo': (aluno.matricula or '').strip(),
     }
@@ -593,10 +624,10 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     al = aluno or {}
     _campo(c, xi + 3, yi + 6.3, 72, 'APELIDO', al.get('apelido'))
     _campo(c, xi + 3, yi + 13.8, 72, 'NOME', al.get('nome'))
-    _campo(c, xi + 3, yi + 21.3, 21, 'CLASSE', al.get('classe'), 9)
-    _campo(c, xi + 26, yi + 21.3, 24, 'ÁREA / SECÇÃO', al.get('area'), 9)
-    _campo(c, xi + 52, yi + 21.3, 14, 'TURMA', al.get('turma'), 9)
-    _campo(c, xi + 68, yi + 21.3, 7, 'Nº', str(al['numero']) if al.get('numero') else '', 9)
+    _campo(c, xi + 3, yi + 21.3, 17, 'CLASSE', al.get('classe'), 9)
+    _campo(c, xi + 22, yi + 21.3, 34, 'ÁREA / SECÇÃO', al.get('area'), 9)
+    _campo(c, xi + 58, yi + 21.3, 12, 'TURMA', al.get('turma'), 9)
+    _campo(c, xi + 72, yi + 21.3, 5, 'Nº', str(al['numero']) if al.get('numero') else '', 9)
     _campo(c, xi + 3, yi + 28.8, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 9.5)
     if config['codigo_barras'] and al.get('codigo'):
         _desenhar_codigo_barras(c, al['codigo'], xi + 3, yi + 37.6, 72, 4.6)

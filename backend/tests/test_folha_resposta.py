@@ -189,3 +189,29 @@ def test_folha_inclui_area_seccao_do_aluno(cenario):
     ws = openpyxl.load_workbook(io.BytesIO(r.content)).worksheets[0]
     texto = ' '.join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
     assert 'ÁREA/SECÇÃO' in texto and 'Ciências' in texto
+
+
+def test_area_seccao_especifica(cenario):
+    a, turma, _ = cenario
+    base = dict(escola=a, nome='X', data_nascimento='2009-01-01', genero='F')
+
+    def novo(matricula, **kw):
+        obj = Aluno.objects.create(turma=turma, matricula=matricula, **base, **kw)
+        Aluno.objects.filter(pk=obj.pk).update(matricula=matricula)  # o modelo gera o código; fixa o valor oficial
+        return Aluno.objects.select_related('turma').get(pk=obj.pk)
+
+    # turma genérica «Ciências» + sigla no código → secção específica
+    turma.area = 'Ciências'
+    turma.save()
+    al = novo('0411S0001.11.02.2026.cg.02')
+    assert fr.nome_area_secao(al) == 'Ciências com Geografia'
+    al2 = novo('0411S0001.11.02.2026.lh.03')
+    assert fr.nome_area_secao(al2) == 'Letras com História'
+    # área específica no próprio aluno tem prioridade
+    al3 = novo('0411S0001.11.02.2026.cg.04', area='Ciências com Desenho')
+    assert fr.nome_area_secao(al3) == 'Ciências com Desenho'
+    # sem informação específica: valor genérico ou Ensino Geral
+    turma.area = 'Geral'
+    turma.save()
+    al4 = novo('MAT_SEM_SIGLA')
+    assert fr.nome_area_secao(al4) == 'Ensino Geral'
