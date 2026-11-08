@@ -127,7 +127,8 @@ def _retangulos_ocupados(pagina):
     for d in pagina.get_drawings():
         r = fitz.Rect(d["rect"])
         if r.width * r.height < 0.8 * area:  # ignora fundos e molduras da página inteira
-            ocupados.append(r + (-3, -3, 3, 3))
+            fino = min(r.width, r.height) < 2  # linhas de tabela: folga pequena, para o QR caber na própria linha das alternativas
+            ocupados.append(r + ((-1, -1, 1, 1) if fino else (-3, -3, 3, 3)))
     return ocupados
 
 
@@ -188,7 +189,7 @@ def validar_marcas(brutas):
         lo, hi = TAMANHO[tipo]
         if not (lo <= mm <= hi):
             raise ValueError(f"Tamanho do {tipo} deve estar entre {lo} e {hi} mm.")
-        marcas.append({"tipo": tipo, "paginas": paginas, "x": x, "y": y, "tamanho_mm": mm})
+        marcas.append({"tipo": tipo, "paginas": paginas, "x": x, "y": y, "tamanho_mm": mm, "auto": m.get("auto", True) is not False})
     return marcas
 
 
@@ -262,6 +263,82 @@ def preparar_base(dados, rasterizar=False, dpi=170):
         resultado = saida.tobytes(garbage=3, deflate=True)
         saida.close()
         return resultado
+
+
+def _janela_livre(pagina, ocupados, w, h, centro, folgas=(8, 5, 3)):
+    """Rectângulo w x h (pt) sem tocar em nada de `ocupados`, o mais perto possível de `centro`; None se não houver."""
+    import numpy as np
+    W, H = pagina.rect.width, pagina.rect.height
+    gw, gh = int(W // RES_MAPA) + 2, int(H // RES_MAPA) + 2
+    mapa = np.zeros((gh, gw), dtype=np.int32)
+    for r in ocupados:
+        x0, y0 = max(0, int(r.x0 // RES_MAPA)), max(0, int(r.y0 // RES_MAPA))
+        x1, y1 = min(gw, int(r.x1 // RES_MAPA) + 1), min(gh, int(r.y1 // RES_MAPA) + 1)
+        if x1 > x0 and y1 > y0:
+            mapa[y0:y1, x0:x1] = 1
+    soma = np.zeros((gh + 1, gw + 1), dtype=np.int64)
+    soma[1:, 1:] = mapa.cumsum(0).cumsum(1)
+    cw, ch = int(np.ceil(w / RES_MAPA)), int(np.ceil(h / RES_MAPA))
+    xmin, xmax = int(12 // RES_MAPA), int((W - 12 - w) // RES_MAPA)
+    ymin, ymax = int(24 // RES_MAPA), int((H - 24 - h) // RES_MAPA)   # fora do rodapé e da faixa do topo
+    if xmax < xmin or ymax < ymin:
+        return None
+    gx, gy = np.meshgrid(np.arange(xmin, xmax + 1), np.arange(ymin, ymax + 1))
+    for folga in folgas:
+        f = int(np.ceil(folga / RES_MAPA))
+        x0, y0 = np.clip(gx - f, 0, gw), np.clip(gy - f, 0, gh)
+        x1, y1 = np.clip(gx + cw + f, 0, gw), np.clip(gy + ch + f, 0, gh)
+        ok = (soma[y1, x1] - soma[y0, x1] - soma[y1, x0] + soma[y0, x0]) == 0
+        if ok.any():
+            d = (gx * RES_MAPA + w / 2 - centro[0]) ** 2 + (gy * RES_MAPA + h / 2 - centro[1]) ** 2
+            d = np.where(ok, d, np.inf)
+            iy, ix = np.unravel_index(np.argmin(d), d.shape)
+            cx0, cy0 = int(gx[iy, ix]), int(gy[iy, ix])
+            # cresce a janela até aos limites do vazio e centra o código no meio dele (como um bloco reservado na folha)
+            bx0, by0, bx1, by1 = cx0, cy0, cx0 + cw, cy0 + ch
+            lim = (int(12 // RES_MAPA), int(24 // RES_MAPA), int((W - 12) // RES_MAPA), int((H - 24) // RES_MAPA))
+
+            def livre(x0, y0, x1, y1):
+                if x0 < lim[0] or y0 < lim[1] or x1 > lim[2] or y1 > lim[3]:
+                    return False
+                x0, y0, x1, y1 = max(x0 - f, 0), max(y0 - f, 0), min(x1 + f, gw), min(y1 + f, gh)
+                return (soma[y1, x1] - soma[y0, x1] - soma[y1, x0] + soma[y0, x0]) == 0
+            cresceu = True
+            while cresceu:
+                cresceu = False
+                if livre(bx0 - 1, by0, bx1, by1): bx0 -= 1; cresceu = True
+                if livre(bx0, by0, bx1 + 1, by1): bx1 += 1; cresceu = True
+                if livre(bx0, by0 - 1, bx1, by1): by0 -= 1; cresceu = True
+                if livre(bx0, by0, bx1, by1 + 1): by1 += 1; cresceu = True
+            x = (bx0 + bx1) / 2 * RES_MAPA - w / 2
+            y = (by0 + by1) / 2 * RES_MAPA - h / 2
+            return fitz.Rect(x, y, x + w, y + h)
+    return None
+
+
+def resolver_marcas(pagina, ocupados, marcas_da_pagina):
+    """[(marca, rectângulo)]: os códigos de barras «automáticos» (por omissão) vão para um espaço vazio da página, o mais perto
+    possível da posição pedida, sem tapar conteúdo (encolhem até 30 mm se for preciso); os restantes ficam onde foram postos."""
+    W, H = pagina.rect.width, pagina.rect.height
+    ocupados, resultado = list(ocupados), []
+    for m in marcas_da_pagina:
+        rect = geometria(m, W, H)
+        if m["tipo"] == "barras" and m.get("auto", True):
+            centro = (m["x"] * W, m["y"] * H)
+            mm = m["tamanho_mm"]
+            while True:
+                w, h = mm * MM, (max(8, mm * 0.22) + 4 + 3.5) * MM
+                achado = _janela_livre(pagina, ocupados, w, h, centro)
+                if achado or mm <= BARRAS_MIN_AUTO_MM:
+                    break
+                mm = max(BARRAS_MIN_AUTO_MM, mm - 5)
+            rect = achado or rect   # sem espaço livre, mantém a posição pedida
+        ocupados.append(rect + (-4, -4, 4, 4))
+        resultado.append((m, rect))
+    return resultado
+
+
+BARRAS_MIN_AUTO_MM = 30
 
 
 def geometria(marca, largura, altura):
@@ -596,7 +673,7 @@ def contar_qr_pagina(valor):
         return 0
 
 
-MODOS_QR_PAGINA = ("auto", "margens", "grade")
+MODOS_QR_PAGINA = ("auto", "esquerda", "centro", "direita", "margens", "grade")
 MODO_QR_PAGINA_PADRAO = "auto"
 
 
@@ -610,13 +687,12 @@ def limitar_modo_qr_pagina(valor, padrao=MODO_QR_PAGINA_PADRAO):
 def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas, lado_mm=None, modo="grade"):
     """Até `quantos` rectângulos para os QR desta página, sem se tocarem nem tocarem no conteúdo (menos se não houver espaço)."""
     ocupados, rects = list(ocupados), []
-    if modo == "auto" and quantos:
+    if modo in ("auto", "esquerda", "centro", "direita") and quantos:
         # organizado: uma coluna alinhada de QR, igualmente espaçados, nos espaços livres do texto (e a mesma em todas as páginas)
         lado = limitar_lado_qr_pagina(lado_mm) * MM
-        rects = _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas)
-        if rects:
-            usadas.update(tuple(r) for r in rects)
-            return rects
+        rects = _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas, None if modo == "auto" else modo)
+        usadas.update(tuple(r) for r in rects)
+        return rects   # sem espaço perto das perguntas, a página fica sem QR de página (nunca solto, longe do texto)
     for k in range(quantos):
         rect = posicao_qr_pagina(pagina, ocupados, pid, serial, indice + 1000 * k, usadas, lado_mm, modo)
         if not rect:
@@ -628,7 +704,7 @@ def posicoes_qr_pagina(pagina, ocupados, pid, serial, indice, quantos, usadas, l
 
 
 RES_MAPA = 2          # pt por célula do mapa de ocupação
-FOLGAS_QR = (24, 16, 10, 6, 3)   # folga (pt) à volta do QR, da melhor para a mínima: a zona de silêncio que o torna legível
+FOLGAS_QR = (24, 16, 10, 6, 3, 2)   # folga (pt) à volta do QR, da melhor para a mínima: a zona de silêncio que o torna legível
 
 
 def _posicao_auto(pagina, ocupados, lado, semente, usadas):
@@ -677,13 +753,20 @@ def _posicao_auto(pagina, ocupados, lado, semente, usadas):
     return None
 
 
-def _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas):
-    """`quantos` QR numa só coluna vertical, igualmente espaçados, nos espaços em branco do texto (entre alternativas, fim de linhas…).
+PERTO_PT = 30   # o QR tem de ficar a esta distância (no máximo) do texto da prova: encostado às perguntas, nunca solto
+LADO_MIN_AUTO_MM = 10
+COLUNAS_MANUAIS = {"esquerda": 0, "centro": 1, "direita": 2}
 
-    Analisa o mapa de ocupação da página e, para cada coluna possível, tenta pôr um QR perto de cada ponto de uma divisão
-    igual da altura. Escolhe a coluna que acomoda mais QR (preferindo o interior do texto à margem), com os QR mais
-    certos nos pontos da divisão, e, em empate, a mesma coluna das outras páginas (ficam todos alinhados) e a mais à direita.
-    Nunca toca em texto, imagens ou linhas, e deixa a zona de silêncio à volta de cada QR.
+
+def _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas, coluna=None):
+    """`quantos` QR numa só coluna vertical, igualmente espaçados, nos vazios do texto, encostados às perguntas.
+
+    Analisa o mapa de ocupação da página. Um sítio só serve se tiver zona de silêncio livre à volta E texto a menos de
+    `PERTO_PT` (entre alternativas, fim de linhas…), por isso nunca fica longe das perguntas. Para cada coluna possível
+    tenta um QR perto de cada ponto de uma divisão igual da altura e escolhe a coluna que acomoda mais QR (interior do
+    texto antes da margem), com os QR mais certos nos pontos da divisão; em empate, a mesma coluna das outras páginas.
+    Se não couber ao tamanho pedido, encolhe o QR (até 10 mm) para caber nos vazios. `coluna` («esquerda», «centro»,
+    «direita») fixa a coluna à mão, dentro do texto; sem ela o ajuste é automático.
     """
     import numpy as np
     from collections import Counter
@@ -697,53 +780,84 @@ def _posicoes_auto_alinhadas(pagina, ocupados, lado, quantos, usadas):
             mapa[y0:y1, x0:x1] = 1
     soma = np.zeros((gh + 1, gw + 1), dtype=np.int64)
     soma[1:, 1:] = mapa.cumsum(0).cumsum(1)
-    c = int(np.ceil(lado / RES_MAPA))
-    xmin, xmax = int(12 // RES_MAPA), int((W - 12 - lado) // RES_MAPA)
-    ymin, ymax = int(52 // RES_MAPA), int((H - 22 - lado) // RES_MAPA)
-    if xmax < xmin or ymax < ymin:
-        return []
-    xs, ys = np.arange(xmin, xmax + 1), np.arange(ymin, ymax + 1)
-    gx, gy = np.meshgrid(xs, ys)  # linhas = y, colunas = x
     blocos = [fitz.Rect(bl[:4]) for bl in pagina.get_text("blocks") if bl[6] == 0]
     cx0 = min((r.x0 for r in blocos), default=12) / RES_MAPA
     cx1 = max((r.x1 for r in blocos), default=W - 12) / RES_MAPA
     pref = Counter(round(u[0] / RES_MAPA) for u in usadas).most_common(1)
     pref_x = pref[0][0] if pref else None
-    alto = len(ys)
-    alvos = [(k + 0.5) * alto / quantos for k in range(quantos)]
-    tol = max(c, alto / (2 * quantos))
-    melhor = None
-    for folga in FOLGAS_QR:
-        f = int(np.ceil(folga / RES_MAPA))
-        y0 = np.clip(gy - f, 0, gh); y1 = np.clip(gy + c + f, 0, gh)
-        x0 = np.clip(gx - f, 0, gw); x1 = np.clip(gx + c + f, 0, gw)
-        livre = (soma[y1, x1] - soma[y0, x1] - soma[y1, x0] + soma[y0, x0]) == 0
-        for j, x in enumerate(xs):
-            col = np.flatnonzero(livre[:, j])
-            if not len(col):
-                continue
-            escolhidos, desvio, ultimo = [], 0.0, -10**9
-            for alvo in alvos:
-                cand = col[(col >= ultimo + c + 4) & (np.abs(col - alvo) <= tol)]
-                if not len(cand):
+    perto = int(np.ceil(PERTO_PT / RES_MAPA))
+
+    def vazio(x0, y0, x1, y1):
+        x0, y0 = np.clip(x0, 0, gw), np.clip(y0, 0, gh)
+        x1, y1 = np.clip(x1, 0, gw), np.clip(y1, 0, gh)
+        return (soma[y1, x1] - soma[y0, x1] - soma[y1, x0] + soma[y0, x0]) == 0
+
+    def tentar(lado, entre):
+        c = int(np.ceil(lado / RES_MAPA))
+        xmin, xmax = int(12 // RES_MAPA), int((W - 12 - lado) // RES_MAPA)
+        ymin, ymax = int(52 // RES_MAPA), int((H - 22 - lado) // RES_MAPA)
+        if xmax < xmin or ymax < ymin:
+            return None
+        xs, ys = np.arange(xmin, xmax + 1), np.arange(ymin, ymax + 1)
+        gx, gy = np.meshgrid(xs, ys)
+        alto = len(ys)
+        alvos = [(k + 0.5) * alto / quantos for k in range(quantos)]
+        tol = max(c, alto / (2 * quantos))
+        junto = ~vazio(gx - perto, gy - perto, gx + c + perto, gy + c + perto)   # há texto a menos de PERTO_PT
+        if entre:  # no vazio entre alternativas: texto encostado de um dos lados, na própria linha do QR
+            junto &= ~vazio(gx - perto, gy, gx, gy + c) | ~vazio(gx + c, gy, gx + c + perto, gy + c)
+        colunas_ok = np.ones(len(xs), dtype=bool)
+        if coluna in COLUNAS_MANUAIS:  # ajuste manual: só a terça parte pedida da largura do texto
+            terco = (cx1 - cx0) / 3
+            k = COLUNAS_MANUAIS[coluna]
+            centros = xs + c / 2
+            colunas_ok = (centros >= cx0 + k * terco) & (centros <= cx0 + (k + 1) * terco + 1)
+        melhor = None
+        for folga in FOLGAS_QR:
+            f = int(np.ceil(folga / RES_MAPA))
+            livre = vazio(gx - f, gy - f, gx + c + f, gy + c + f) & junto
+            for j, x in enumerate(xs):
+                if not colunas_ok[j]:
                     continue
-                y = int(cand[np.argmin(np.abs(cand - alvo))])
-                escolhidos.append(y)
-                desvio += abs(y - alvo)
-                ultimo = y
-            if not escolhidos:
-                continue
-            dentro = x >= cx0 - 2 and x + c <= cx1 + 2
-            chave = (len(escolhidos) * 2 + (1 if dentro else 0), -round(desvio / RES_MAPA),
-                     0 if pref_x is None else -(abs(int(x) - pref_x) // 3), folga, int(x))
-            if melhor is None or chave > melhor[0]:
-                melhor = (chave, int(x), escolhidos)
-        if melhor and len(melhor[2]) >= quantos:
-            break  # esta folga já acomoda todos: não vale a pena baixar a zona de silêncio
-    if not melhor:
-        return []
-    _, x, escolhidos = melhor
-    return [fitz.Rect(x * RES_MAPA, (ymin + y) * RES_MAPA, x * RES_MAPA + lado, (ymin + y) * RES_MAPA + lado) for y in escolhidos]
+                col = np.flatnonzero(livre[:, j])
+                if not len(col):
+                    continue
+                escolhidos, desvio, ultimo = [], 0.0, -10**9
+                for alvo in alvos:
+                    cand = col[(col >= ultimo + c + 4) & (np.abs(col - alvo) <= tol)]
+                    if not len(cand):
+                        continue
+                    y = int(cand[np.argmin(np.abs(cand - alvo))])
+                    escolhidos.append(y)
+                    desvio += abs(y - alvo)
+                    ultimo = y
+                if not escolhidos:
+                    continue
+                dentro = x >= cx0 - 2 and x + c <= cx1 + 2
+                chave = (len(escolhidos) * 2 + (1 if dentro else 0), -round(desvio / RES_MAPA),
+                         0 if pref_x is None else -(abs(int(x) - pref_x) // 3), folga, int(x))
+                if melhor is None or chave > melhor[0]:
+                    melhor = (chave, int(x), escolhidos)
+            if melhor and len(melhor[2]) >= quantos:
+                break  # esta folga já acomoda todos: não vale a pena baixar a zona de silêncio
+        if not melhor:
+            return None
+        _, x, escolhidos = melhor
+        return len(escolhidos), [fitz.Rect(x * RES_MAPA, (ymin + y) * RES_MAPA, x * RES_MAPA + lado, (ymin + y) * RES_MAPA + lado)
+                                 for y in escolhidos]
+
+    for entre in (True, False):   # primeiro, mesmo entre alternativas, na linha das perguntas; só depois junto ao texto
+        melhor, lado_atual = None, lado
+        while True:
+            r = tentar(lado_atual, entre)
+            if r and (melhor is None or r[0] > melhor[0]):
+                melhor = r
+            if (melhor and melhor[0] >= quantos) or lado_atual <= LADO_MIN_AUTO_MM * MM + 0.1:
+                break
+            lado_atual = max(LADO_MIN_AUTO_MM * MM, lado_atual - 1 * MM)   # encolhe para caber nos vazios entre alternativas
+        if melhor:
+            return melhor[1]
+    return []
 
 
 def posicao_qr_pagina(pagina, ocupados, pid, serial, indice, usadas=(), lado_mm=None, modo="grade"):
@@ -815,24 +929,22 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
             for a in ancoras[i]:
                 if a.get("qr") and a["qr"][1] >= 48 and a["qr"][3] <= H - 16:  # fora da faixa do topo e do rodapé
                     _desenhar_qr(c, fitz.Rect(a["qr"]), H, f"{url_base.rstrip('/')}/v/{pid}/{serial}/q{a['n']}")
+        ocupados = _retangulos_ocupados(pagina)
+        for a in (ancoras[i] if qr_pergunta and ancoras and i < len(ancoras) else []):
+            if a.get("qr"):
+                ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
+        marcas_pagina = resolver_marcas(pagina, ocupados, [m for m in marcas if _marca_na_pagina(m, i, n)])
         if contar_qr_pagina(qr_pagina):
-            ocupados = _retangulos_ocupados(pagina)
-            for a in (ancoras[i] if qr_pergunta and ancoras and i < len(ancoras) else []):
-                if a.get("qr"):
-                    ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
-            ocupados += [geometria(m, W, H) + (-4, -4, 4, 4) for m in marcas if _marca_na_pagina(m, i, n)]
+            ocupados += [r + (-4, -4, 4, 4) for _, r in marcas_pagina]
             for rect in posicoes_qr_pagina(pagina, ocupados, pid, serial, i, contar_qr_pagina(qr_pagina), usadas, tamanho_qr_pagina, limitar_modo_qr_pagina(modo_qr_pagina, 'grade')):
                 _desenhar_qr(c, rect, H, url)
         if aviso_visivel:
             _rodape(c, W, f"PROVA PROTEGIDA CONTRA IA{_ate(libertacao)} · cód. {codigo} · pág. {i + 1}/{n}")
-        for m in marcas:
-            if not _marca_na_pagina(m, i, n):
-                continue
-            rect = geometria(m, W, H)
+        for m, rect in marcas_pagina:
             if m["tipo"] == "qr":
                 _desenhar_qr(c, rect, H, url)
             else:
-                _desenhar_barras(c, rect, H, codigo, m["tamanho_mm"])
+                _desenhar_barras(c, rect, H, codigo, rect.width / MM)
         if aviso_ia:
             _texto_invisivel(c, W, H, texto_ia(libertacao, codigo, mensagem, armadilha))
         c.showPage()

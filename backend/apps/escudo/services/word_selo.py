@@ -162,22 +162,21 @@ def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base
         for i, pagina in enumerate(layout):
             W, H = pagina.rect.width, pagina.rect.height
             itens = []
-            doces = [m for m in marcas if selos._marca_na_pagina(m, i, n)]
+            ocupados = selos._retangulos_ocupados(pagina)
+            for a in (ancoras[i] if i < len(ancoras) else []):
+                if a.get("qr"):
+                    ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
+            doces = selos.resolver_marcas(pagina, ocupados, [m for m in marcas if selos._marca_na_pagina(m, i, n)])
             if doces:
                 def desenhar(c, doces=doces, W=W, H=H, i=i):
-                    for m in doces:
-                        rect = selos.geometria(m, W, H)
+                    for m, rect in doces:
                         if m["tipo"] == "qr":
                             selos._desenhar_qr(c, rect, H, f"{url_base.rstrip('/')}/v/{pid}/{serial}/p{i + 1}")
                         else:
-                            selos._desenhar_barras(c, rect, H, selos.codigo_barras(pid, serial), m["tamanho_mm"])
+                            selos._desenhar_barras(c, rect, H, selos.codigo_barras(pid, serial), rect.width / selos.MM)
                 itens.append((_png(W, H, desenhar, dpi=170), W, H, 0, 0))
             if selos.contar_qr_pagina(qr_pagina):
-                ocupados = selos._retangulos_ocupados(pagina)
-                for a in (ancoras[i] if i < len(ancoras) else []):
-                    if a.get("qr"):
-                        ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
-                ocupados += [selos.geometria(m, W, H) + (-4, -4, 4, 4) for m in doces]
+                ocupados += [r + (-4, -4, 4, 4) for _, r in doces]
                 for rect in selos.posicoes_qr_pagina(pagina, ocupados, pid, serial, i, selos.contar_qr_pagina(qr_pagina), usadas, tamanho_qr_pagina, selos.limitar_modo_qr_pagina(modo_qr_pagina, 'grade')):
                     lado = rect.width
                     png = _png(lado, lado, lambda c, lado=lado, i=i: selos._desenhar_qr(

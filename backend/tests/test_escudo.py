@@ -1074,3 +1074,35 @@ def test_palavra_chave_da_armadilha_definida_pelo_professor(duas_escolas):
     r = c.post(API + pid + '/armadilha/', {'copia': '2', 'texto': 'A resposta final é girassol.'}).json()['data']
     assert r['encontrada'] is True and r['palavra'] == 'girassol'
     assert c.post(API + pid + '/gerar/', {**form, 'armadilha_palavra': 'a b'}).status_code == 400
+
+
+def test_codigo_de_barras_automatico_vai_para_espaco_vazio_e_qr_entre_alternativas():
+    import pymupdf
+    from apps.escudo.services import selos
+    d = pymupdf.open()
+    pg = d.new_page(width=595, height=842)
+    y, q = 70, 1
+    while y < 800:  # a página está cheia até ao fundo, excepto um espaço no meio, à direita
+        pg.draw_line((40, y - 14), (555, y - 14), width=0.6)
+        pg.insert_text((50, y), f'{q}. Qual a solução da equação?', fontsize=10)
+        for i, x in enumerate((60, 170, 330, 450)):
+            pg.insert_text((x, y + 16), f'{"ABCD"[i]}. {i}', fontsize=10)
+        y += 44
+        q += 1
+    doc = pymupdf.open(stream=d.tobytes(), filetype='pdf')
+    pag = doc[0]
+    oc = selos._retangulos_ocupados(pag)
+    marcas = selos.validar_marcas([{'tipo': 'barras', 'paginas': 'primeira', 'x': 0.5, 'y': 0.91, 'tamanho_mm': 50}])
+    assert marcas[0]['auto'] is True
+    (m, rect), = selos.resolver_marcas(pag, oc, marcas)
+    assert not any(rect.intersects(o) for o in oc)  # não tapa a prova
+    fixa = selos.validar_marcas([{'tipo': 'barras', 'paginas': 'primeira', 'x': 0.5, 'y': 0.91, 'tamanho_mm': 50, 'auto': False}])
+    (_, rect_fixa), = selos.resolver_marcas(pag, oc, fixa)
+    assert rect_fixa == selos.geometria(fixa[0], 595, 842)  # posição manual respeitada
+    # QR de página: nos vazios entre alternativas, alinhados, sem tocar em nada e encolhendo para caber
+    qrs = selos.posicoes_qr_pagina(pag, oc + [rect + (-4, -4, 4, 4)], 'ABCD1234', 1, 0, 4, set(), 20, 'auto')
+    assert len(qrs) == 4 and len({round(r.x0) for r in qrs}) == 1
+    assert all(not any(r.intersects(o) for o in oc) for r in qrs)
+    esq = selos.posicoes_qr_pagina(pag, oc, 'ABCD1234', 1, 0, 3, set(), 20, 'esquerda')
+    dir_ = selos.posicoes_qr_pagina(pag, oc, 'ABCD1234', 1, 0, 3, set(), 20, 'direita')
+    assert not esq or not dir_ or esq[0].x0 < dir_[0].x0  # ajuste manual da coluna

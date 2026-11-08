@@ -12,7 +12,7 @@ from .armazem import ALFABETO_ID, Armazem
 
 MAX_COPIAS = 200
 MARCAS_INICIAIS = [  # o QR de cada página é automático (qr_pagina); aqui só o código de barras da primeira
-    {"tipo": "barras", "paginas": "primeira", "x": 0.5, "y": 0.91, "tamanho_mm": 50},
+    {"tipo": "barras", "paginas": "primeira", "x": 0.5, "y": 0.91, "tamanho_mm": 50, "auto": True},
 ]
 FORMATOS_SAIDA = ("pdf", "word", "ambos")
 CHAVES_CONFIG = ("formato", "guiao_opcao", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
