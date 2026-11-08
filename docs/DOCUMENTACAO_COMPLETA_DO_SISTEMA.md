@@ -1494,3 +1494,5 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 - Ficheiros: `selos.py` (`_posicao_auto`, `limitar_modo_qr_pagina`, `POSICOES_QR_FUNDO`), `word_selo.py`, `views.py` (`configurar` devolve `modo_qr_pagina`, `posicao_qr_fundo`, `posicoes_qr_fundo`), `tests/test_escudo.py`.
 
 - **QR de página organizado (v2.9.12)**: no modo automático os QR deixam de ficar espalhados; formam uma coluna alinhada, igualmente espaçada pela altura da página, nos espaços em branco do texto (preferindo o interior do texto à margem), com a mesma coluna em todas as páginas e nunca sobre conteúdo. Vale para o PDF e para o Word (que usa a paginação medida).
+
+- **Palavra-chave da armadilha (v2.9.13)**: em «Selos e cópias» há o campo opcional «Palavra-chave da armadilha» (`armadilha_palavra`, 4 a 20 letras, sem espaços). Em branco mantém-se a palavra automática, diferente por cópia; se for preenchida, é essa em todas as cópias (PDF e Word, texto escondido e marca de água) e «Verificar autoria» procura-a nas respostas. Fica guardada na configuração da prova.

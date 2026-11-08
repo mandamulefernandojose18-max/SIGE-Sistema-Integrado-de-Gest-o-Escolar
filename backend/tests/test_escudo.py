@@ -1053,3 +1053,24 @@ def test_qr_automatico_fica_alinhado_igualmente_espacado_e_igual_em_todas_as_pag
         passos = [round(b.y0 - a.y0) for a, b in zip(rects, rects[1:])]
         assert max(passos) - min(passos) <= 12  # espaçamento praticamente igual
     assert round(por_pagina[0][0].x0) == round(por_pagina[1][0].x0)  # a mesma coluna em todas as páginas
+
+
+def test_palavra_chave_da_armadilha_definida_pelo_professor(duas_escolas):
+    from apps.escudo.services import selos
+    assert selos.limpar_palavra_armadilha('  ') is None and selos.limpar_palavra_armadilha('Girassol') == 'Girassol'
+    for mau in ('ab', 'duas palavras', 'abc123', 'x' * 21):
+        with pytest.raises(ValueError):
+            selos.limpar_palavra_armadilha(mau)
+    auto1, auto2 = selos.palavra_armadilha('ABCD1234-001'), selos.palavra_armadilha('ABCD1234-002')
+    assert auto1 != auto2  # automática: uma por cópia
+    assert selos.palavra_armadilha('ABCD1234-001', 'Girassol') == selos.palavra_armadilha('ABCD1234-002', 'Girassol') == 'girassol'
+    assert 'girassol' in selos.texto_ia('x', 'ABCD1234-001', 'm', 'Girassol') and selos.contem_armadilha('c', 'Resposta ... GIRASSOL', 'Girassol')
+    assert selos.armadilha_efetiva(False, 'girassol') is False and selos.armadilha_efetiva(True, None) is True
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    form = {'marcas': '[]', 'aviso_foto': 'on', 'copias': '2', 'pagina': '1', 'armadilha': '1', 'armadilha_palavra': 'Girassol'}
+    assert c.post(API + pid + '/gerar/', form).status_code == 200
+    assert c.get(API + pid + '/configurar/').json()['data']['opcoes']['armadilha_palavra'] == 'Girassol'
+    r = c.post(API + pid + '/armadilha/', {'copia': '2', 'texto': 'A resposta final é girassol.'}).json()['data']
+    assert r['encontrada'] is True and r['palavra'] == 'girassol'
+    assert c.post(API + pid + '/gerar/', {**form, 'armadilha_palavra': 'a b'}).status_code == 400

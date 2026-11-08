@@ -16,7 +16,7 @@ MARCAS_INICIAIS = [  # o QR de cada página é automático (qr_pagina); aqui só
 ]
 FORMATOS_SAIDA = ("pdf", "word", "ambos")
 CHAVES_CONFIG = ("formato", "guiao_opcao", "marcas", "url_base", "rasterizar", "aviso_visivel", "aviso_ia", "aviso_foto", "aviso_pergunta",
-                 "qr_pergunta", "qr_marca_agua", "qr_pagina", "tamanho_qr_fundo", "tamanho_qr_pagina", "modo_qr_pagina", "posicao_qr_fundo", "armadilha", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
+                 "qr_pergunta", "qr_marca_agua", "qr_pagina", "tamanho_qr_fundo", "tamanho_qr_pagina", "modo_qr_pagina", "posicao_qr_fundo", "armadilha", "armadilha_palavra", "baralhar_perguntas", "baralhar_alternativas", "mensagem_ia", "copias")
 
 
 class BaseSelagem:
@@ -128,7 +128,7 @@ class Servico:
     # ---- escrita ----
     def validar_opcoes(self, *, marcas, copias, url_base, rasterizar=False, aviso_visivel=True,
                        aviso_foto=True, aviso_ia=True, aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, qr_pagina=True, mensagem_ia=None,
-                       baralhar_perguntas=False, baralhar_alternativas=False, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=True, modo_qr_pagina=None, posicao_qr_fundo=None):
+                       baralhar_perguntas=False, baralhar_alternativas=False, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=True, modo_qr_pagina=None, posicao_qr_fundo=None, armadilha_palavra=None):
         """Valida as opções de selagem e devolve o dicionário usado por `selar_copia`."""
         marcas = selos.validar_marcas(marcas)
         if not 1 <= copias <= MAX_COPIAS:
@@ -139,7 +139,7 @@ class Servico:
         return {"marcas": marcas, "copias": copias, "url_base": url_base, "rasterizar": rasterizar,
                 "aviso_visivel": aviso_visivel, "aviso_foto": aviso_foto, "aviso_ia": aviso_ia,
                 "aviso_pergunta": aviso_pergunta, "qr_pergunta": qr_pergunta, "qr_marca_agua": qr_marca_agua, "qr_pagina": qr_pagina,
-                "armadilha": bool(armadilha), "tamanho_qr_fundo": selos.limitar_lado_qr_fundo(tamanho_qr_fundo),
+                "armadilha": bool(armadilha), "armadilha_palavra": selos.limpar_palavra_armadilha(armadilha_palavra), "tamanho_qr_fundo": selos.limitar_lado_qr_fundo(tamanho_qr_fundo),
                 "tamanho_qr_pagina": selos.limitar_lado_qr_pagina(tamanho_qr_pagina),
                 "modo_qr_pagina": selos.limitar_modo_qr_pagina(modo_qr_pagina), "posicao_qr_fundo": selos.limitar_posicao_qr_fundo(posicao_qr_fundo),
                 "baralhar_perguntas": bool(baralhar_perguntas), "baralhar_alternativas": bool(baralhar_alternativas),
@@ -434,7 +434,7 @@ class Servico:
                            mensagem_ia=op["mensagem_ia"], aviso_pergunta=op["aviso_pergunta"],
                            qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"], qr_pagina=op.get("qr_pagina", True), ancoras=base.ancoras,
                            zonas_marca_agua=base.zonas_agua, tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
-                           tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=op.get("armadilha", True),
+                           tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=selos.armadilha_efetiva(op.get("armadilha", True), op.get("armadilha_palavra")),
             modo_qr_pagina=op.get("modo_qr_pagina", "grade"), posicao_qr_fundo=op.get("posicao_qr_fundo", "auto"))
 
     def tem_word(self, p):
@@ -480,7 +480,7 @@ class Servico:
             aviso_pergunta=op["aviso_pergunta"], qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"],
             aviso_visivel=op["aviso_visivel"], mensagem_ia=op["mensagem_ia"], qr_pagina=op.get("qr_pagina", True),
             pdf_layout=op.get("pdf_layout_word"), tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
-            tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=op.get("armadilha", True),
+            tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=selos.armadilha_efetiva(op.get("armadilha", True), op.get("armadilha_palavra")),
             modo_qr_pagina=op.get("modo_qr_pagina", "grade"), posicao_qr_fundo=op.get("posicao_qr_fundo", "auto"))
 
     def resumo_perguntas(self, pid):

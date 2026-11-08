@@ -116,7 +116,7 @@ def _ler_opcoes(form, cfg_antiga=None):
         baralhar_perguntas=on('baralhar_perguntas'), baralhar_alternativas=on('baralhar_alternativas'),
         tamanho_qr_fundo=form.get('tamanho_qr_fundo'), tamanho_qr_pagina=form.get('tamanho_qr_pagina'),
         modo_qr_pagina=form.get('modo_qr_pagina'), posicao_qr_fundo=form.get('posicao_qr_fundo'),
-        armadilha=form.get('armadilha', '1') in ('on', '1', 'true'))
+        armadilha=form.get('armadilha', '1') in ('on', '1', 'true'), armadilha_palavra=form.get('armadilha_palavra'))
     op['formato'] = formato
     op['guiao_opcao'] = 'com' if (form.get('guiao') or '').strip().lower() in ('com', 'on', '1', 'true') else 'sem'
     return op
@@ -324,7 +324,7 @@ def configurar(request, pid):
         'mensagem_padrao': selos.MENSAGEM_PADRAO, 'mensagem_ia': cfg.get('mensagem_ia') or selos.MENSAGEM_PADRAO,
         'opcoes': {k: cfg.get(k, d) for k, d in (
             ('aviso_pergunta', True), ('qr_pergunta', True), ('baralhar_perguntas', False), ('baralhar_alternativas', False),
-            ('qr_marca_agua', True), ('armadilha', True), ('aviso_foto', True), ('aviso_ia', True), ('rasterizar', False),
+            ('qr_marca_agua', True), ('armadilha', True), ('armadilha_palavra', ''), ('aviso_foto', True), ('aviso_ia', True), ('rasterizar', False),
             ('aviso_visivel', True))},
         'qr_pagina': selos.contar_qr_pagina(cfg.get('qr_pagina', 1)), 'max_qr_pagina': selos.MAX_QR_PAGINA,
         'tamanho_qr_fundo': cfg.get('tamanho_qr_fundo') or 120, 'tamanho_qr_pagina': cfg.get('tamanho_qr_pagina') or selos.LADO_QR_PAGINA_MM,
@@ -479,9 +479,11 @@ def armadilha(request, pid):
     if not 1 <= n <= max(p['copias'], 1):
         return _erro(f'A cópia deve estar entre 1 e {max(p["copias"], 1)}.')
     codigo = selos.codigo_barras(pid, n)
-    achou = selos.contem_armadilha(codigo, request.POST.get('texto', '')[:20000])
+    cfg = p['config'] or {}
+    modo = selos.armadilha_efetiva(cfg.get('armadilha', True), cfg.get('armadilha_palavra'))
+    achou = selos.contem_armadilha(codigo, request.POST.get('texto', '')[:20000], modo)
     return _json({'success': True, 'data': {'copia': n, 'codigo_copia': codigo, 'encontrada': achou,
-                                           'palavra': selos.palavra_armadilha(codigo) if achou else None,
+                                           'palavra': selos.palavra_armadilha(codigo, modo) if achou else None,
                                            'ativa': bool((p['config'] or {}).get('armadilha', True))}})
 
 

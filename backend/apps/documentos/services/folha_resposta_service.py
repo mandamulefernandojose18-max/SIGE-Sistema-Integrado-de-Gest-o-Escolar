@@ -834,6 +834,31 @@ def _png_qr(dados, lado=110):
     return out.getvalue()
 
 
+def _dimensoes_excel(config):
+    """(blocos, linhas por bloco, colunas de grelha G, sub-colunas por coluna K, total de colunas NCOL).
+    Todas as colunas da folha têm a mesma largura e a grelha ocupa-as TODAS (sem colunas em branco)."""
+    n, n_alt = config['n_perguntas'], config['n_alternativas']
+    cols, _ = layout_grelha(n, 999)
+    cols = max(1, min(cols, 4))
+    linhas = math.ceil(math.ceil(n / cols) / 5) * 5
+    blocos = math.ceil(n / linhas)
+    G = blocos * (1 + n_alt)
+    K = max(2, math.ceil(56 / G))
+    return blocos, linhas, G, K, G * K
+
+
+def _contorno_xl(ws, r1, c1, r2, c2, estilo='thick', cor='1E3A8A'):
+    """Moldura exterior de um bloco (preserva as linhas interiores já definidas)."""
+    from openpyxl.styles import Border, Side
+    lado = Side(style=estilo, color=cor)
+    for r in range(r1, r2 + 1):
+        for c in range(c1, c2 + 1):
+            cel = ws.cell(row=r, column=c)
+            b = cel.border
+            cel.border = Border(left=lado if c == c1 else b.left, right=lado if c == c2 else b.right,
+                                top=lado if r == r1 else b.top, bottom=lado if r == r2 else b.bottom)
+
+
 def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
     """Excel com uma folha por aluno (réplica da grelha), mais 'Resumo' e 'Chave' quando aplicável."""
     import openpyxl
@@ -868,7 +893,14 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
     sob = Border(bottom=fino)
     centro = Alignment(horizontal='center', vertical='center', wrap_text=True)
     esq = Alignment(horizontal='left', vertical='center', wrap_text=True)
-    NCOL = 28
+    BLOCOS, LINHAS_B, G_GRELHA, K_SUB, NCOL = _dimensoes_excel(config)
+    S = NCOL / 28.0  # o desenho do cabeçalho usa 28 colunas «de projecto»
+
+    def C1(u):
+        return int(round((u - 1) * S)) + 1
+
+    def C2(u):
+        return int(round(u * S))
     ALT = 'ⒶⒷⒸⒹⒺⒻ'
     n = config['n_perguntas']
     n_alt = config['n_alternativas']
@@ -881,48 +913,69 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
     fino_i = Side(style='thin', color='B8C2D0')
     borda_i = Border(left=fino_i, right=fino_i, top=fino_i, bottom=fino_i)
 
-    def contorno(ws, r1, c1, r2, c2, estilo='thick', cor=AZUL_X):
-        """Moldura exterior de um bloco (preserva as linhas interiores já definidas)."""
-        lado = Side(style=estilo, color=cor)
-        for r in range(r1, r2 + 1):
-            for c in range(c1, c2 + 1):
-                cel = ws.cell(row=r, column=c)
-                b = cel.border
-                cel.border = Border(left=lado if c == c1 else b.left, right=lado if c == c2 else b.right,
-                                    top=lado if r == r1 else b.top, bottom=lado if r == r2 else b.bottom)
+    def contorno(ws, r1, u1, r2, u2, estilo='thick', cor=AZUL_X):
+        _contorno_xl(ws, r1, C1(u1), r2, C2(u2), estilo, cor)
 
-    def barra(ws, r, c1, c2, texto, alinh=centro):
-        ws.merge_cells(start_row=r, start_column=c1, end_row=r, end_column=c2)
-        cel = ws.cell(row=r, column=c1, value=texto)
-        for cc in range(c1, c2 + 1):
+    def garantir_altura(ws, r, texto, c1, c2, negrito=False, minimo=24):
+        """Altura da linha suficiente para o texto quebrar nos espaços sem ser cortado (Times New Roman 12)."""
+        largura = max((c2 - c1 + 1) * (140.0 / NCOL) - 2.0, 3.0)
+        fator = 1.32 if negrito else 1.18
+        linhas = 0
+        for parte in str(texto).split('\n'):
+            palavras = parte.split()
+            atual, n_lin = 0.0, 1
+            for pal in palavras:
+                w = len(pal) * fator
+                if atual and atual + 1 + w > largura:
+                    n_lin += 1
+                    atual = w
+                else:
+                    atual = atual + (1 if atual else 0) + w
+            linhas += n_lin
+        precisa = max(minimo, linhas * 17 + 8)
+        ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, precisa)
+
+    def barra(ws, r, u1, u2, texto, alinh=centro):
+        ws.merge_cells(start_row=r, start_column=C1(u1), end_row=r, end_column=C2(u2))
+        cel = ws.cell(row=r, column=C1(u1), value=texto)
+        for cc in range(C1(u1), C2(u2) + 1):
             ws.cell(row=r, column=cc).fill = fundo_azul
         cel.font = f_titulo
         cel.alignment = centro
-        ws.row_dimensions[r].height = 24
+        ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 24)
+        garantir_altura(ws, r, texto, C1(u1), C2(u2), True)
 
-    def par(ws, r, c1, c2, rotulo, valor, c_val_ini=None, c_val_fim=None):
-        """Rótulo (fundo cinza) em c1..c2 e valor (fundo branco) em c_val_ini..c_val_fim."""
-        ws.merge_cells(start_row=r, start_column=c1, end_row=r, end_column=c2)
-        a = ws.cell(row=r, column=c1, value=rotulo)
-        a.font = f_bold
-        a.alignment = esq
-        for cc in range(c1, c2 + 1):
-            ws.cell(row=r, column=cc).fill = fundo_cinza
-            ws.cell(row=r, column=cc).border = borda_i
-        v1, v2 = c_val_ini or c2 + 1, c_val_fim or c2 + 1
-        ws.merge_cells(start_row=r, start_column=v1, end_row=r, end_column=v2)
-        b = ws.cell(row=r, column=v1, value=valor if valor not in (None, '') else None)
-        b.font = f_bold
-        b.alignment = esq
-        for cc in range(v1, v2 + 1):
-            ws.cell(row=r, column=cc).border = borda_i
-            ws.cell(row=r, column=cc).fill = PatternFill('solid', start_color='FFFFFF')
-        ws.row_dimensions[r].height = 24
+    def juntar(ws, r, u1, u2, valor=None, fonte=None, alinh=None, borda_=None, fundo=None):
+        ws.merge_cells(start_row=r, start_column=C1(u1), end_row=r, end_column=C2(u2))
+        cel = ws.cell(row=r, column=C1(u1), value=valor)
+        if fonte:
+            cel.font = fonte
+        if alinh:
+            cel.alignment = alinh
+        for cc in range(C1(u1), C2(u2) + 1):
+            if borda_:
+                ws.cell(row=r, column=cc).border = borda_
+            if fundo:
+                ws.cell(row=r, column=cc).fill = fundo
+        if isinstance(valor, str) and valor:
+            if alinh is not None and not alinh.wrap_text:
+                cel.alignment = Alignment(horizontal=alinh.horizontal, vertical=alinh.vertical or 'center',
+                                          indent=alinh.indent, wrap_text=True)
+            garantir_altura(ws, r, valor, C1(u1), C2(u2), bool(fonte and fonte.bold))
+        return cel
+
+    def par(ws, r, u1, u2, rotulo, valor, v1=None, v2=None):
+        """Rótulo (fundo cinza) em u1..u2 e valor (fundo branco) em v1..v2 (colunas de projecto)."""
+        juntar(ws, r, u1, u2, rotulo, f_bold, esq, borda_i, fundo_cinza)
+        v1, v2 = v1 or u2 + 1, v2 or u2 + 1
+        juntar(ws, r, v1, v2, valor if valor not in (None, '') else None, f_bold, esq, borda_i,
+               PatternFill('solid', start_color='FFFFFF'))
+        ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 24)
 
     def preparar(ws):
         ws.sige_layout_fixo = True
         for i in range(1, NCOL + 1):
-            ws.column_dimensions[col_l(i)].width = 5.0
+            ws.column_dimensions[col_l(i)].width = 140.0 / NCOL
         ws.sheet_view.showGridLines = False
         ws.page_setup.orientation = 'portrait'
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
@@ -940,7 +993,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             img.width = img.height = 88
             ws.add_image(img, 'A1')
         for r in range(1, 5):
-            ws.row_dimensions[r].height = 24
+            ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 24)
         esquerda = [
             ('REPÚBLICA DE MOÇAMBIQUE', Font(name=TNR, size=12, bold=True)),
             (f"Província de {escola['provincia']}" if escola.get('provincia') else '', f_norm),
@@ -954,13 +1007,10 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             ('', f_norm),
         ]
         for i in range(4):
-            for (txt, fnt), c1, c2 in ((esquerda[i], 5, 14), (direita[i], 16, 28)):
-                ws.merge_cells(start_row=i + 1, start_column=c1, end_row=i + 1, end_column=c2)
-                cel = ws.cell(row=i + 1, column=c1, value=txt or None)
-                cel.font = fnt
-                cel.alignment = Alignment(horizontal='left', vertical='center')
-        barra(ws, 5, 1, NCOL, titulo, esq)
-        ws.row_dimensions[5].height = 26
+            for (txt, fnt), u1, u2 in ((esquerda[i], 5, 14), (direita[i], 16, 28)):
+                juntar(ws, i + 1, u1, u2, txt or None, fnt, Alignment(horizontal='left', vertical='center'))
+        barra(ws, 5, 1, 28, titulo, esq)
+        ws.row_dimensions[5].height = max(ws.row_dimensions[5].height or 0, 26)
         ws.row_dimensions[6].height = 6
 
     # ---------------- folhas dos alunos ----------------
@@ -973,7 +1023,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         preparar(ws)
         cabecalho(ws, _titulo_prova(config) + (f'   ·   VERSÃO {versao}' if versao else ''))
 
-        # ---- I DADOS DO ALUNO (QR no canto, código de barras por baixo do código) ----
+        # ---- I DADOS DO ALUNO / II INFORMAÇÕES DA AVALIAÇÃO ----
         barra(ws, 7, 1, 15, 'I   DADOS DO ALUNO', esq)
         barra(ws, 7, 17, 28, 'II   INFORMAÇÕES DA AVALIAÇÃO', esq)
         par(ws, 8, 1, 3, 'APELIDO', al.get('apelido'), 4, 12)
@@ -983,32 +1033,20 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         par(ws, 10, 11, 11, 'Nº', al.get('numero'), 12, 12)
         par(ws, 11, 1, 3, 'CÓDIGO', al.get('codigo'), 4, 12)
         par(ws, 12, 1, 3, 'ÁREA/SECÇÃO', al.get('area'), 4, 12)
-        ws.merge_cells('A13:O13')
-        ws.row_dimensions[13].height = 38
+        juntar(ws, 13, 1, 15)
+        ws.row_dimensions[13].height = max(ws.row_dimensions[13].height or 0, 38)
         qr = XLImage(io.BytesIO(_png_qr(_payload_qr(escola, aluno, config, ano, versao))))
         qr.width = qr.height = 108
-        ws.add_image(qr, 'M8')
+        ws.add_image(qr, f'{col_l(C1(13))}8')
         if config['codigo_barras'] and al.get('codigo'):
             bar = XLImage(io.BytesIO(_png_codigo_barras(al['codigo'])))
             bar.width, bar.height = 300, 38
-            ws.add_image(bar, 'C13')
+            ws.add_image(bar, f'{col_l(C1(3))}13')
         contorno(ws, 7, 1, 13, 15)
 
-        # ---- II INFORMAÇÕES DA AVALIAÇÃO ----
-        ws.merge_cells('Q8:AB8')
-        ws['Q8'] = 'TIPO DE AVALIAÇÃO'
-        ws['Q8'].font = f_bold
-        for cc in range(17, 29):
-            ws.cell(row=8, column=cc).fill = fundo_cinza
-            ws.cell(row=8, column=cc).border = borda_i
-        ws.merge_cells('Q9:AB9')
-        ws['Q9'] = '   '.join(('☒' if cod == config['tipo'] else '☐') + ' ' + rot for cod, rot in TIPOS_AVALIACAO)
-        ws['Q9'].font = Font(name='Times New Roman', size=12, bold=True)
-        ws['Q9'].alignment = esq
-        for cc in range(17, 29):
-            ws.cell(row=9, column=cc).border = borda_i
-        ws.row_dimensions[8].height = 24
-        ws.row_dimensions[9].height = 24
+        juntar(ws, 8, 17, 28, 'TIPO DE AVALIAÇÃO', f_bold, esq, borda_i, fundo_cinza)
+        juntar(ws, 9, 17, 28, '   '.join(('☒' if cod == config['tipo'] else '☐') + ' ' + rot for cod, rot in TIPOS_AVALIACAO),
+               Font(name='Times New Roman', size=12, bold=True), esq, borda_i)
         uniforme = len(config['seccoes']) == 1
         par(ws, 10, 17, 20, 'Nº PERGUNTAS', n, 21, 22)
         par(ws, 10, 23, 26, 'ALTERNATIVAS', n_alt, 27, 28)
@@ -1028,20 +1066,16 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             nomes.insert(0, config['disciplina'])
         nomes = nomes[:15]
         for r in range(16, 21):
-            ws.row_dimensions[r].height = 24
-            for cc in range(1, 16):
-                ws.cell(row=r, column=cc).fill = PatternFill('solid', start_color='FFFFFF')
+            ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 24)
         for k, nome in enumerate(nomes):
             cc, rr = divmod(k, 5)
-            c1 = 1 + cc * 5
-            ws.merge_cells(start_row=16 + rr, start_column=c1, end_row=16 + rr, end_column=c1 + 4)
+            u1 = 1 + cc * 5
             marcado = nome == config['disciplina']
-            cel = ws.cell(row=16 + rr, column=c1, value=('☒ ' if marcado else '☐ ') + nome)
-            cel.font = Font(name='Times New Roman', size=12, bold=marcado)
-            cel.alignment = esq
+            juntar(ws, 16 + rr, u1, u1 + 4, ('☒ ' if marcado else '☐ ') + nome,
+                   Font(name='Times New Roman', size=12, bold=marcado), esq)
         contorno(ws, 15, 1, 20, 15)
         par(ws, 16, 17, 22, 'ACERTOS (n.º)', None, 23, 25)
-        ws.cell(row=16, column=26, value=f'/ {n}').font = f_norm
+        juntar(ws, 16, 26, 28, f'/ {n}', f_norm, esq)
         par(ws, 17, 17, 22, 'CORRECÇÃO NORMAL (val.)', None, 23, 28)
         par(ws, 18, 17, 22, 'RECORRECÇÃO (val.)', None, 23, 28)
         par(ws, 19, 17, 22, 'ASS. PROFESSOR', None, 23, 28)
@@ -1050,7 +1084,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         ws.row_dimensions[21].height = 6
 
         # ---- INSTRUÇÕES GERAIS ----
-        barra(ws, 22, 1, NCOL, 'INSTRUÇÕES GERAIS', centro)
+        barra(ws, 22, 1, 28, 'INSTRUÇÕES GERAIS', centro)
         instrucoes = [
             '1. Não dobre nem rasure esta folha de respostas.',
             '2. Todas as questões devem ser respondidas com caneta azul ou preta.',
@@ -1058,33 +1092,24 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             '4. Marque apenas uma resposta por pergunta, pintando o quadradinho da alternativa escolhida, conforme o modelo abaixo.',
         ]
         for k, txt in enumerate(instrucoes):
-            r_i = 23 + k
-            ws.merge_cells(start_row=r_i, start_column=1, end_row=r_i, end_column=NCOL)
-            cel = ws.cell(row=r_i, column=1, value=txt)
-            cel.font = f_bold if k == 3 else f_norm
-            cel.alignment = Alignment(horizontal='left', vertical='center', indent=1)
-            ws.row_dimensions[r_i].height = 22
-        ws.merge_cells(start_row=27, start_column=1, end_row=27, end_column=4)
-        ws.cell(row=27, column=1, value='Exemplo:').font = f_bold
-        ws.cell(row=27, column=1).alignment = Alignment(horizontal='left', vertical='center', indent=1)
+            juntar(ws, 23 + k, 1, 28, txt, f_bold if k == 3 else f_norm, Alignment(horizontal='left', vertical='center', indent=1))
+            ws.row_dimensions[23 + k].height = max(ws.row_dimensions[23 + k].height or 0, 22)
+        juntar(ws, 27, 1, 4, 'Exemplo:', f_bold, Alignment(horizontal='left', vertical='center', indent=1))
         for k, letra in enumerate('ABCD'):
-            c_ini = 6 + k * 4
-            cel = ws.cell(row=27, column=c_ini, value=letra)
-            cel.font = Font(name='Times New Roman', size=12, bold=True, color='000000')
-            cel.alignment = centro
-            ws.merge_cells(start_row=27, start_column=c_ini + 1, end_row=27, end_column=c_ini + 2)
-            for cc in (c_ini + 1, c_ini + 2):
-                ws.cell(row=27, column=cc).border = borda
-                ws.cell(row=27, column=cc).fill = PatternFill('solid', start_color='000000' if letra == 'D' else 'FFFFFF')
-        ws.merge_cells(start_row=27, start_column=23, end_row=27, end_column=NCOL)
-        ws.cell(row=27, column=23, value=config['instrucao_extra'] or None).alignment = esq
-        ws.row_dimensions[27].height = 26
-        contorno(ws, 22, 1, 27, NCOL)
+            u1 = 6 + k * 4
+            marcada = letra == 'D'
+            juntar(ws, 27, u1, u1 + 2, letra,
+                   Font(name='Times New Roman', size=12, bold=True, color='FFFFFF' if marcada else '000000'), centro, borda,
+                   PatternFill('solid', start_color='000000' if marcada else 'FFFFFF'))
+        if config['instrucao_extra']:
+            juntar(ws, 27, 23, 28, config['instrucao_extra'], f_norm, esq)
+        ws.row_dimensions[27].height = max(ws.row_dimensions[27].height or 0, 26)
+        contorno(ws, 22, 1, 27, 28)
         ws.row_dimensions[28].height = 6
 
         # ---- GRELHA ----
-        barra(ws, 29, 1, NCOL, 'GRELHA DE RESPOSTAS   —   Cotação: ' + _descricao_cotacao(config), centro)
-        _grelha_excel(ws, config, 30, None, NCOL, f_norm, f_bold, f_bolha, f_bolha_cheia, fundo_azul, fundo_cinza, borda, centro, ALT)
+        barra(ws, 29, 1, 28, 'GRELHA DE RESPOSTAS   —   Cotação: ' + _descricao_cotacao(config), centro)
+        _grelha_excel(ws, config, 30, None)
         ws.print_area = f'A1:{col_l(NCOL)}{ws.max_row + 1}'
 
     # ---------------- Resumo (sem fórmulas) ----------------
@@ -1127,105 +1152,67 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
             preparar(ws)
             cabecalho(ws, 'CHAVE DE CORRECÇÃO — USO EXCLUSIVO DO PROFESSOR   ·   ' + config['disciplina']
                       + (f'   ·   VERSÃO {v}' if v != '-' else ''))
-            barra(ws, 7, 1, NCOL, 'Cotação: ' + _descricao_cotacao(config), esq)
-            _grelha_excel(ws, config, 9, g, NCOL, f_norm, f_bold, f_bolha, f_bolha_cheia, fundo_azul, fundo_cinza, borda, centro, ALT)
+            barra(ws, 7, 1, 28, 'Cotação: ' + _descricao_cotacao(config), esq)
+            _grelha_excel(ws, config, 9, g)
             ws.print_area = f'A1:{col_l(NCOL)}{ws.max_row + 1}'
 
     return guardar_xlsx_seguro(wb), len(alunos)
 
 
-def _grelha_excel(ws, config, linha_ini, gabarito, ncol, f_norm, f_bold, f_bolha, f_bolha_cheia,
-                  fundo_azul, fundo_cinza, borda, centro, ALT):
-    """Grelha: cabeçalho azul com as letras, números em caixa, alternativas em células rectangulares,
-    cada grupo de 5 perguntas emoldurado (média, azul) e fundo alternado."""
-    from openpyxl.styles import Border, Font, PatternFill, Side
-    n = config['n_perguntas']
-    n_alt = config['n_alternativas']
-    cols, linhas = layout_grelha(n, 999)
-    cols = max(1, min(cols, 4))
-    linhas = math.ceil(n / cols)
-    linhas = math.ceil(linhas / 5) * 5
-    bw = ncol // cols
-    passo = max(1, (bw - 1) // n_alt)
-    cols_usadas = math.ceil(n / linhas)
-    lado_i = Side(style='thin', color='8A94A3')
-    borda_i = Border(left=lado_i, right=lado_i, top=lado_i, bottom=lado_i)
-    lado_m = Side(style='medium', color='1E3A8A')
+def _grelha_excel(ws, config, linha_ini, gabarito):
+    """
+    Grelha no estilo das tabelas do SIGE: cabeçalho azul («Perg.» | «Alternativas»), uma letra por célula,
+    todas as colunas com a mesma largura e SEM colunas em branco; moldura grossa azul, linha dupla dourada
+    sob o cabeçalho, linhas ponteadas entre perguntas. Cada célula da letra é o quadradinho a pintar.
+    """
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    n, n_alt = config['n_perguntas'], config['n_alternativas']
+    blocos, linhas, G, K, NCOL = _dimensoes_excel(config)
+    azul, ouro = '1E3A8A', 'C9A227'
+    vert = Side(style='thin', color='CBD5E1')
+    pont = Side(style='dotted', color='94A3B8')
+    dupla = Side(style='double', color=ouro)
+    centro_c = Alignment(horizontal='centerContinuous', vertical='center')
     branco = PatternFill('solid', start_color='FFFFFF')
-    zebra = PatternFill('solid', start_color='EEF2F8')
+    zebra = PatternFill('solid', start_color='F1F5F9')
+    fundo_azul = PatternFill('solid', start_color=azul)
     preto = PatternFill('solid', start_color='000000')
 
-    def moldura(r1, c1, r2, c2):
-        for r in range(r1, r2 + 1):
-            for c in range(c1, c2 + 1):
-                cel = ws.cell(row=r, column=c)
-                b = cel.border
-                cel.border = Border(left=lado_m if c == c1 else b.left, right=lado_m if c == c2 else b.right,
-                                    top=lado_m if r == r1 else b.top, bottom=lado_m if r == r2 else b.bottom)
+    def celula(r, c0, ncols, valor, fonte, fundo, topo, base):
+        """Preenche ncols sub-colunas a partir de c0 (valor centrado ao longo de todas) com bordas verticais finas."""
+        for k in range(ncols):
+            cel = ws.cell(row=r, column=c0 + k)
+            if k == 0:
+                cel.value = valor
+            cel.font = fonte
+            cel.fill = fundo
+            cel.alignment = centro_c
+            cel.border = Border(left=vert if k == 0 else None, right=vert if k == ncols - 1 else None, top=topo, bottom=base)
 
-    # cabeçalho (centrado, fundo azul, letra branca): «Perg.» e as letras das alternativas
-    for b in range(cols_usadas):
-        c0 = 1 + b * bw
-        cab = ws.cell(row=linha_ini, column=c0, value='Perg.')
-        cab.font = Font(name='Times New Roman', size=12, bold=True, color='FFFFFF')
-        cab.fill = fundo_azul
-        cab.alignment = centro
-        for cc in range(c0 + 1, c0 + bw):
-            ws.cell(row=linha_ini, column=cc).fill = fundo_azul
-        for i in range(n_alt):
-            cc = c0 + 1 + i * passo
-            if passo > 1:
-                ws.merge_cells(start_row=linha_ini, start_column=cc, end_row=linha_ini, end_column=cc + passo - 1)
-            h = ws.cell(row=linha_ini, column=cc, value=LETRAS[i])
-            h.font = Font(name='Times New Roman', size=12, bold=True, color='FFFFFF')
-            h.alignment = centro
-        moldura(linha_ini, c0, linha_ini, c0 + bw - 1)
+    f_cab = Font(name='Times New Roman', size=12, bold=True, color='FFFFFF')
+    for b in range(blocos):
+        c0 = 1 + b * (1 + n_alt) * K
+        celula(linha_ini, c0, K, 'Perg.', f_cab, fundo_azul, None, dupla)
+        celula(linha_ini, c0 + K, n_alt * K, 'Alternativas', f_cab, fundo_azul, None, dupla)
     ws.row_dimensions[linha_ini].height = 24
+    usadas = [0] * blocos
     for r in range(linhas):
-        pos = linha_ini + 1 + r + r // 5
-        if r % 5 == 0 and r > 0:
-            ws.row_dimensions[pos - 1].height = 6
+        pos = linha_ini + 1 + r
         ws.row_dimensions[pos].height = 25
-        for b in range(cols_usadas):
+        fundo = zebra if r % 2 == 1 else branco
+        for b in range(blocos):
             q = b * linhas + r
-            c0 = 1 + b * bw
-            fundo = zebra if (r // 5) % 2 == 0 else branco
-            for cc in range(c0, c0 + bw):
-                ws.cell(row=pos, column=cc).fill = fundo
             if q >= n:
                 continue
-            num = ws.cell(row=pos, column=c0, value=q + 1)
-            num.font = f_bold
-            num.alignment = centro
-            num.border = borda_i
-            num.fill = PatternFill('solid', start_color='FFFFFF')
+            usadas[b] = r + 1
+            c0 = 1 + b * (1 + n_alt) * K
+            topo = dupla if r == 0 else pont
+            celula(pos, c0, K, q + 1, Font(name='Times New Roman', size=12, bold=True), fundo, topo, pont)
             for i in range(n_alt):
-                cc = c0 + 1 + i * passo
                 marcada = bool(gabarito and gabarito[q] == LETRAS[i])
-                if passo >= 2:
-                    # letra + «quadradinho» ao lado (é o quadradinho que se pinta)
-                    cel = ws.cell(row=pos, column=cc, value=LETRAS[i])
-                    cel.font = Font(name='Times New Roman', size=12, bold=True, color='000000')
-                    cel.alignment = centro
-                    ini_q, fim_q = cc + 1, cc + passo - 1
-                    if fim_q > ini_q:
-                        ws.merge_cells(start_row=pos, start_column=ini_q, end_row=pos, end_column=fim_q)
-                    for c_b in range(ini_q, fim_q + 1):
-                        ws.cell(row=pos, column=c_b).border = borda_i
-                        ws.cell(row=pos, column=c_b).fill = preto if marcada else PatternFill('solid', start_color='FFFFFF')
-                else:
-                    # sem largura para duas células: a própria célula da letra é o quadradinho
-                    cel = ws.cell(row=pos, column=cc, value=LETRAS[i])
-                    cel.font = Font(name='Times New Roman', size=12, bold=True, color='FFFFFF' if marcada else '000000')
-                    cel.alignment = centro
-                    cel.border = borda_i
-                    cel.fill = preto if marcada else PatternFill('solid', start_color='FFFFFF')
-    # moldura média azul em cada grupo de 5 perguntas, por bloco de colunas
-    for b in range(cols_usadas):
-        c0 = 1 + b * bw
-        for g in range(linhas // 5):
-            r1 = linha_ini + 1 + g * 6
-            r2 = r1 + 4
-            if b * linhas + g * 5 >= n:
-                break
-            moldura(r1, c0, r2, c0 + bw - 1)
+                celula(pos, c0 + (1 + i) * K, K, LETRAS[i],
+                       Font(name='Times New Roman', size=12, bold=True, color='FFFFFF' if marcada else '000000'),
+                       preto if marcada else fundo, topo, pont)
+    for b in range(blocos):
+        c0 = 1 + b * (1 + n_alt) * K
+        _contorno_xl(ws, linha_ini, c0, linha_ini + usadas[b], c0 + (1 + n_alt) * K - 1)
