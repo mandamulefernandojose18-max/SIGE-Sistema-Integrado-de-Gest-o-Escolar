@@ -377,7 +377,7 @@ def padronizar_fontes_e_cabecalhos(ws):
             cel.font = Font(name='Times New Roman', size=12, bold=f.bold, italic=f.italic, color=f.color,
                             underline=f.underline, strike=f.strike)
             fundo = _cor_fundo(cel)
-            if fundo and _fonte_clara(cel):
+            if fundo and _fonte_clara(cel) and cel.alignment.horizontal != 'centerContinuous':
                 cel.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
 def embelezar_workbook(wb):
@@ -399,7 +399,8 @@ def embelezar_workbook(wb):
         padronizar_fontes_e_cabecalhos(ws)
         if not fixo:
             ajustar_larguras_ao_conteudo(ws, max_r, max_c)
-        garantir_palavras_inteiras(ws, max_r, max_c)
+        if not fixo:  # nas folhas de layout fixo as colunas são uniformes e o texto quebra com altura própria
+            garantir_palavras_inteiras(ws, max_r, max_c)
         if not fixo:
             _centrar_logo(ws, max_c)
         _ajustar_alturas(ws, max_r, max_c)

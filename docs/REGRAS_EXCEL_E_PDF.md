@@ -33,6 +33,9 @@ Só são aceites exceções com `guardar_xlsx_seguro(wb, embelezar=False)` para 
 
 Sugestões adoptadas (a mais): fundo branco sólido em todas as tabelas (nunca transparente), zebra `F1F5F9`, cabeçalho azul `1E3A8A` com letra branca, notas negativas a vermelho, números alinhados à direita e texto à esquerda, e uma só moldura por tabela. Para formulários (ex.: folha de resposta) cada alternativa é uma célula rectangular com moldura.
 
+### 1.2 Folhas de layout fixo (formulários)
+Formulários desenhados célula a célula (ex.: folha de resposta) marcam a folha com `ws.sige_layout_fixo = True`. Mantêm-se as regras 1, 2, 3 e 6 (fontes, cabeçalhos centrados, ocultação de linhas/colunas vazias, sem fórmulas) e as alturas ajustadas ao texto, mas o próprio gerador define as larguras e as molduras (mesmos estilos de linha da secção 1.1), sem células a mais nem colunas em branco: **todas as colunas têm a mesma largura e a grelha ocupa-as todas** (cada coluna lógica é um grupo de sub-colunas com `centerContinuous`). Texto que quebra deve ter a altura da linha calculada para nunca ficar cortado.
+
 ## 2. PDF — regras obrigatórias
 
 Ponto único de aplicação: `backend/apps/documentos/services/pdf_service.py` (estilos globais Times New Roman 12 pt, entrelinha 18 pt = espaçamento 1,5; `TableStyle` e `Paragraph` do SIGE forçam 12/18 pt).
