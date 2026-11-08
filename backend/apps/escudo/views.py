@@ -433,6 +433,17 @@ def gerar(request, pid):
 
 @csrf_exempt
 @_tratar
+def folha_contexto(request, pid):
+    """Classes, secções/áreas e turmas reais da escola da prova (para a folha de resposta personalizada)."""
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    from .services import folha as folha_mod
+    return _json({'success': True, 'data': folha_mod.contexto(p)})
+
+
+@csrf_exempt
+@_tratar
 def gabarito_copias(request, pid):
     user, p, erro = _prova(request, pid)
     if erro:

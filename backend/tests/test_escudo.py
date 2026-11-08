@@ -1207,3 +1207,15 @@ def test_folha_personalizada_a_partir_de_lista_importada(duas_escolas):
     assert len(pdfs) == 2 and not any('Cossa' in n for n in pdfs)
     assert 'Transferida' in z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
     assert c.post(API + pid + '/gerar/', {**form, 'folha_lista': SimpleUploadedFile('x.csv', b'Turma\nA\n')}, format='multipart').status_code == 400
+
+
+def test_folha_contexto_devolve_classes_e_turmas_reais_so_da_escola(duas_escolas):
+    a, b = duas_escolas
+    _alunos_reais(a, 2)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    d = c.get(API + pid + '/folha-contexto/').json()['data']
+    assert [x['classe'] for x in d['classes']] == ['11.ª Classe']
+    t = d['classes'][0]['turmas'][0]
+    assert t['area'] == 'Ciências' and t['alunos'] == 2 and d['tipos_avaliacao']
+    assert APIClient().get(API + pid + '/folha-contexto/').status_code == 401

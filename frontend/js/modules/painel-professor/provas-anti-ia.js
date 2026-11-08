@@ -636,9 +636,7 @@
         if (ctx || carregando) return;
         carregando = true; msg.textContent = 'A carregar classes e turmas…';
         try {
-          var r = await fetch('/api/v1/documentos/folha-resposta/contexto/', { headers: cab() });
-          if (!r.ok) throw new Error('Não foi possível carregar as turmas da escola.');
-          ctx = await r.json(); msg.textContent = '';
+          ctx = (await api(pid + '/folha-contexto/')).data; msg.textContent = '';
           $('#escudoFolhaTipo').innerHTML = (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
           $('#escudoFolhaLogoCampo').hidden = !(ctx.escola && ctx.escola.logo_proprio_disponivel);
           var classes = ctx.classes || [];
@@ -646,7 +644,11 @@
           var igual = classes.filter(function (c) { return String(c.classe) === String(k.classe); })[0];
           if (igual) sClasse.value = igual.classe;
           pintarAreas();
-        } catch (e) { msg.textContent = e.message; } finally { carregando = false; }
+        } catch (e) {
+          ctx = null; msg.textContent = '';
+          sClasse.innerHTML = '<option value="">Não foi possível carregar as classes</option>';
+          resumo.textContent = (e && e.message ? e.message : 'Erro ao carregar as turmas da escola.') + ' Muda «Personalizada» para recarregar.';
+        } finally { carregando = false; }
       };
       sel.addEventListener('change', function () { caixa.hidden = sel.value !== 'sim'; if (sel.value === 'sim') carregar(); });
       pers.addEventListener('change', function () { alvo.hidden = pers.value !== 'sim'; if (pers.value === 'sim') carregar(); });

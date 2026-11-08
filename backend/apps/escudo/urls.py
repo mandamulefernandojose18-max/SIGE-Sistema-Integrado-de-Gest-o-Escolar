@@ -15,6 +15,7 @@ urlpatterns = [
     path('<str:pid>/pagina/<int:n>.png', views.pagina_png),
     path('<str:pid>/previa/', views.previa),
     path('<str:pid>/gerar/', views.gerar),
+    path('<str:pid>/folha-contexto/', views.folha_contexto),
     path('<str:pid>/gabarito-copias/', views.gabarito_copias),
     path('<str:pid>/conferir/', views.conferir),
     path('<str:pid>/armadilha/', views.armadilha),

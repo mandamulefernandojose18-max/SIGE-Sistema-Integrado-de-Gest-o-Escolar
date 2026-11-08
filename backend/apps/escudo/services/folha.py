@@ -13,7 +13,7 @@ import unicodedata
 
 import pymupdf as fitz
 
-from apps.alunos.models import Aluno  # noqa: F401  (usado via _alunos_da_turma)
+from apps.alunos.models import Aluno
 from apps.disciplinas.models import Disciplina
 from apps.notas.models import Nota
 from apps.documentos.services import folha_resposta_service as fr
@@ -275,6 +275,29 @@ def preparar(p, form, ficheiros=None):
     return {'personalizada': True, 'total': len(dados), 'alunos': nomes,
             'excluidos': excluidos, 'relatorio': _relatorio_excluidos(excluidos),
             'para': lambda n: folhas[(n - 1) % len(folhas)]}
+
+def contexto(p):
+    """Dados reais para os filtros em cascata: classes → turmas (com secção/área e nº de alunos activos)."""
+    escola = Escola.objects.filter(id=p.get('escola_id')).first() if p.get('escola_id') else None
+    if not escola:
+        return {'classes': [], 'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
+                'logo_proprio_disponivel': False}
+    ano = escola.ano_letivo_ativo
+    turmas = list(Turma.objects.filter(escola=escola, ano_letivo=ano).order_by('grau_ano', 'nome'))
+    contagem = {}
+    for t_id in Aluno.objects.filter(escola=escola, status='ATIVO', turma__in=turmas).values_list('turma_id', flat=True):
+        contagem[t_id] = contagem.get(t_id, 0) + 1
+    classes = {}
+    for t in turmas:
+        classes.setdefault(t.grau_ano, []).append({'id': str(t.id), 'nome': t.nome, 'area': t.area or '',
+                                                   'alunos': contagem.get(t.id, 0)})
+    return {
+        'ano_letivo': ano,
+        'classes': [{'classe': k, 'turmas': v, 'total_alunos': sum(x['alunos'] for x in v)} for k, v in classes.items()],
+        'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
+        'logo_proprio_disponivel': bool(fr.logo_proprio_escola(escola)),
+    }
+
 
 def prefixar(folha_pdf, copia_pdf):
     """PDF final: páginas da folha de resposta primeiro, depois a cópia selada da prova."""
