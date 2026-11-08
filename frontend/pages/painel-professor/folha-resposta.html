@@ -1,6 +1,6 @@
-<!-- ===================================================================== -->
-<!-- SIGE - FOLHA DE RESPOSTA PERSONALIZADA (grelha de escolha múltipla)   -->
-<!-- Lógica em js/folha-resposta.js · API /api/v1/documentos/folha-resposta -->
+﻿<!-- ===================================================================== -->
+<!-- SIGE - FOLHA DE RESPOSTA PERSONALIZADA (grelha de escolha mÃºltipla)   -->
+<!-- LÃ³gica em js/folha-resposta.js Â· API /api/v1/documentos/folha-resposta -->
 <!-- ===================================================================== -->
 <section id="view-folha-resposta" class="modulo-view" style="display: none;">
   <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
@@ -21,18 +21,18 @@
       <div class="col-12">
         <div class="d-flex flex-wrap align-items-center gap-2">
           <h5 class="mb-0"><i class="bi bi-ui-radios-grid text-primary me-2"></i>Folha de Resposta Personalizada</h5>
-          <span class="text-muted small">Os dados da escola, do aluno e da avaliação são preenchidos automaticamente a partir do sistema.</span>
+          <span class="text-muted small">Os dados da escola, do aluno e da avaliaÃ§Ã£o sÃ£o preenchidos automaticamente a partir do sistema.</span>
         </div>
       </div>
 
-      <!-- 1. Âmbito (filtros em cascata) -->
+      <!-- 1. Ã‚mbito (filtros em cascata) -->
       <div class="col-12 col-xl-6">
         <div class="card h-100 shadow-sm">
           <div class="card-header fw-semibold"><i class="bi bi-funnel me-1"></i> 1. Para quem?</div>
           <div class="card-body">
             <div class="row g-2">
               <div class="col-12">
-                <label class="form-label small mb-1" for="frEscopo">Âmbito da exportação</label>
+                <label class="form-label small mb-1" for="frEscopo">Ã‚mbito da exportaÃ§Ã£o</label>
                 <select id="frEscopo" class="form-select form-select-sm">
                   <option value="aluno">Um aluno</option>
                   <option value="turma" selected>Todos os alunos de uma turma</option>
@@ -45,7 +45,7 @@
                 <select id="frClasse" class="form-select form-select-sm"><option value="">-- Classe --</option></select>
               </div>
               <div class="col-12 col-md-4" id="frBlocoArea">
-                <label class="form-label small mb-1" for="frArea">Secção / Área</label>
+                <label class="form-label small mb-1" for="frArea">SecÃ§Ã£o / Ãrea</label>
                 <select id="frArea" class="form-select form-select-sm"><option value="">-- Todas --</option></select>
               </div>
               <div class="col-12 col-md-4" id="frBlocoTurma">
@@ -53,12 +53,12 @@
                 <select id="frTurma" class="form-select form-select-sm"><option value="">-- Turma --</option></select>
               </div>
               <div class="col-12 col-md-4 d-none" id="frBlocoCopias">
-                <label class="form-label small mb-1" for="frCopias">Nº de folhas em branco</label>
+                <label class="form-label small mb-1" for="frCopias">NÂº de folhas em branco</label>
                 <input id="frCopias" type="number" min="1" max="500" value="30" class="form-control form-control-sm">
               </div>
               <div class="col-12 d-none" id="frBlocoAluno">
                 <label class="form-label small mb-1" for="frAlunoBusca">Aluno</label>
-                <input id="frAlunoBusca" type="search" class="form-control form-control-sm mb-1" placeholder="Filtrar por nome, apelido ou código…" autocomplete="off">
+                <input id="frAlunoBusca" type="search" class="form-control form-control-sm mb-1" placeholder="Filtrar por nome, apelido ou cÃ³digoâ€¦" autocomplete="off">
                 <select id="frAluno" class="form-select form-select-sm"><option value="">-- Aluno --</option></select>
               </div>
             </div>
@@ -69,14 +69,14 @@
         </div>
       </div>
 
-      <!-- 2. Avaliação -->
+      <!-- 2. AvaliaÃ§Ã£o -->
       <div class="col-12 col-xl-6">
         <div class="card h-100 shadow-sm">
-          <div class="card-header fw-semibold"><i class="bi bi-clipboard-check me-1"></i> 2. Avaliação</div>
+          <div class="card-header fw-semibold"><i class="bi bi-clipboard-check me-1"></i> 2. AvaliaÃ§Ã£o</div>
           <div class="card-body">
             <div class="row g-2">
               <div class="col-6 col-md-4">
-                <label class="form-label small mb-1" for="frTipo">Tipo de avaliação</label>
+                <label class="form-label small mb-1" for="frTipo">Tipo de avaliaÃ§Ã£o</label>
                 <select id="frTipo" class="form-select form-select-sm"></select>
               </div>
               <div class="col-6 col-md-8">
@@ -93,12 +93,12 @@
                 <input id="frHora" type="time" style="min-width:7.5rem;padding-right:.25rem" class="form-control form-control-sm">
               </div>
               <div class="col-4 col-md-2">
-                <label class="form-label small mb-1" for="frDuracao">Duração (min)</label>
-                <input id="frDuracao" type="number" min="0" max="600" class="form-control form-control-sm" placeholder="90">
+                <label class="form-label small mb-1" for="frDuracao">DuraÃ§Ã£o (min)</label>
+                <input id="frDuracao" type="number" min="0" max="600" class="form-control form-control-sm" placeholder="Minutos">
               </div>
               <div class="col-4 col-md-2">
                 <label class="form-label small mb-1" for="frHoraFim">Hora final</label>
-                <input id="frHoraFim" type="time" style="min-width:7.5rem;padding-right:.25rem" class="form-control form-control-sm" title="Calculada pela hora inicial + duração; pode ajustar">
+                <input id="frHoraFim" type="time" style="min-width:7.5rem;padding-right:.25rem" class="form-control form-control-sm" title="Calculada pela hora inicial + duraÃ§Ã£o; pode ajustar">
               </div>
               <div class="col-4 col-md-2">
                 <label class="form-label small mb-1" for="frSala">Sala</label>
@@ -113,90 +113,90 @@
         </div>
       </div>
 
-      <!-- 3. Grelha, cotação e chave -->
+      <!-- 3. Grelha, cotaÃ§Ã£o e chave -->
       <div class="col-12">
         <div class="card shadow-sm">
-          <div class="card-header fw-semibold"><i class="bi bi-grid-3x3-gap me-1"></i> 3. Grelha, cotação e chave de correcção</div>
+          <div class="card-header fw-semibold"><i class="bi bi-grid-3x3-gap me-1"></i> 3. Grelha, cotaÃ§Ã£o e chave de correcÃ§Ã£o</div>
           <div class="card-body">
             <div class="row g-3">
               <div class="col-6 col-md-2">
-                <label class="form-label small mb-1" for="frNPerg">Nº de perguntas (máx. 100)</label>
+                <label class="form-label small mb-1" for="frNPerg">NÂº de perguntas (mÃ¡x. 100)</label>
                 <input id="frNPerg" type="number" min="1" max="100" value="40" class="form-control form-control-sm">
               </div>
               <div class="col-6 col-md-2">
                 <label class="form-label small mb-1" for="frNAlt">Alternativas</label>
                 <select id="frNAlt" class="form-select form-select-sm">
-                  <option value="2">2 (A–B)</option><option value="3">3 (A–C)</option>
-                  <option value="4" selected>4 (A–D)</option><option value="5">5 (A–E)</option><option value="6">6 (A–F)</option>
+                  <option value="2">2 (Aâ€“B)</option><option value="3">3 (Aâ€“C)</option>
+                  <option value="4" selected>4 (Aâ€“D)</option><option value="5">5 (Aâ€“E)</option><option value="6">6 (Aâ€“F)</option>
                 </select>
               </div>
               <div class="col-12 col-md-4">
-                <label class="form-label small mb-1" for="frModoCot">Cotação</label>
+                <label class="form-label small mb-1" for="frModoCot">CotaÃ§Ã£o</label>
                 <select id="frModoCot" class="form-select form-select-sm">
                   <option value="uniforme">Uniforme (igual em todas as perguntas)</option>
-                  <option value="seccoes">Por secções (valores diferentes por bloco)</option>
+                  <option value="seccoes">Por secÃ§Ãµes (valores diferentes por bloco)</option>
                 </select>
               </div>
               <div class="col-6 col-md-2" id="frBlocoCotUnif">
-                <label class="form-label small mb-1" for="frCotPerg">Cotação/pergunta</label>
-                <input id="frCotPerg" type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="auto (20 ÷ n)">
+                <label class="form-label small mb-1" for="frCotPerg">CotaÃ§Ã£o/pergunta</label>
+                <input id="frCotPerg" type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="auto (20 Ã· n)">
               </div>
               <div class="col-6 col-md-2">
-                <label class="form-label small mb-1">Cotação total</label>
-                <div id="frCotTotal" class="form-control form-control-sm bg-light fw-bold">—</div>
+                <label class="form-label small mb-1">CotaÃ§Ã£o total</label>
+                <div id="frCotTotal" class="form-control form-control-sm bg-light fw-bold">â€”</div>
               </div>
 
               <div class="col-12 d-none" id="frBlocoSeccoes">
                 <div class="border rounded p-2 bg-light">
-                  <div class="small fw-semibold mb-2">Secções de cotação (cada linha vale até à pergunta indicada)</div>
+                  <div class="small fw-semibold mb-2">SecÃ§Ãµes de cotaÃ§Ã£o (cada linha vale atÃ© Ã  pergunta indicada)</div>
                   <div id="frSeccoesLista" class="d-flex flex-column gap-1"></div>
-                  <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="frAddSeccao"><i class="bi bi-plus-lg"></i> Adicionar secção</button>
+                  <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="frAddSeccao"><i class="bi bi-plus-lg"></i> Adicionar secÃ§Ã£o</button>
                 </div>
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label small mb-1" for="frVersoes">Versões (anti-cópia) <i class="bi bi-info-circle" title="Ex.: A,B,C. Cada aluno recebe uma versão por rotação, para colegas ao lado terem folhas diferentes."></i></label>
-                <input id="frVersoes" type="text" class="form-control form-control-sm" maxlength="20" placeholder="vazio = sem versões; ex.: A,B">
+                <label class="form-label small mb-1" for="frVersoes">VersÃµes (anti-cÃ³pia) <i class="bi bi-info-circle" title="Ex.: A,B,C. Cada aluno recebe uma versÃ£o por rotaÃ§Ã£o, para colegas ao lado terem folhas diferentes."></i></label>
+                <input id="frVersoes" type="text" class="form-control form-control-sm" maxlength="20" placeholder="vazio = sem versÃµes; ex.: A,B">
               </div>
               <div class="col-12 col-md-8">
-                <label class="form-label small mb-1" for="frInstrucao">Instrução adicional impressa (opcional)</label>
-                <input id="frInstrucao" type="text" class="form-control form-control-sm" maxlength="140" placeholder="Ex.: Cada pergunta tem uma única resposta correcta.">
+                <label class="form-label small mb-1" for="frInstrucao">InstruÃ§Ã£o adicional impressa (opcional)</label>
+                <input id="frInstrucao" type="text" class="form-control form-control-sm" maxlength="140" placeholder="Ex.: Cada pergunta tem uma Ãºnica resposta correcta.">
               </div>
 
               <div class="col-12">
-                <label class="form-label small mb-1">Chave de correcção (opcional — imprime uma página «uso exclusivo do professor»)</label>
+                <label class="form-label small mb-1">Chave de correcÃ§Ã£o (opcional â€” imprime uma pÃ¡gina Â«uso exclusivo do professorÂ»)</label>
                 <div id="frChaves" class="row g-2"></div>
-                <div class="form-text">Escreva as letras seguidas ou separadas por vírgulas, por exemplo: <code>A B C D A…</code></div>
+                <div class="form-text">Escreva as letras seguidas ou separadas por vÃ­rgulas, por exemplo: <code>A B C D Aâ€¦</code></div>
               </div>
 
               <div class="col-12 d-flex flex-wrap gap-3 small">
                 <div class="form-check"><input class="form-check-input" type="checkbox" id="frOmr" checked><label class="form-check-label" for="frOmr">Marcas de registo (OMR) nos cantos</label></div>
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="frBarras" checked><label class="form-check-label" for="frBarras">Código de barras do aluno</label></div>
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="frIncluirChave" checked><label class="form-check-label" for="frIncluirChave">Anexar chave de correcção ao PDF</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="frBarras" checked><label class="form-check-label" for="frBarras">CÃ³digo de barras do aluno</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="frIncluirChave" checked><label class="form-check-label" for="frIncluirChave">Anexar chave de correcÃ§Ã£o ao PDF</label></div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Prévia da grelha: formada a partir do nº de perguntas e de alternativas definidos acima -->
+      <!-- PrÃ©via da grelha: formada a partir do nÂº de perguntas e de alternativas definidos acima -->
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
-            <span class="fw-semibold"><i class="bi bi-eye me-1"></i> Prévia da grelha de respostas</span>
+            <span class="fw-semibold"><i class="bi bi-eye me-1"></i> PrÃ©via da grelha de respostas</span>
             <span id="frGrelhaInfo" class="small text-muted"></span>
           </div>
-          <div class="card-body"><div id="frGrelhaPrevia" class="d-flex gap-3 flex-wrap" aria-label="Prévia das perguntas"></div></div>
+          <div class="card-body"><div id="frGrelhaPrevia" class="d-flex gap-3 flex-wrap" aria-label="PrÃ©via das perguntas"></div></div>
         </div>
       </div>
 
-      <!-- Acções -->
+      <!-- AcÃ§Ãµes -->
       <div class="col-12">
         <div class="card shadow-sm border-primary">
           <div class="card-body d-flex flex-wrap align-items-center gap-2">
             <button type="button" class="btn btn-primary" id="frBtnPdf"><i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF</button>
             <button type="button" class="btn btn-success" id="frBtnXlsx"><i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel</button>
-            <button type="button" class="btn btn-outline-secondary" id="frBtnPrevia"><i class="bi bi-eye me-1"></i> Pré-visualizar</button>
+            <button type="button" class="btn btn-outline-secondary" id="frBtnPrevia"><i class="bi bi-eye me-1"></i> PrÃ©-visualizar</button>
             <span id="frEstado" class="small text-muted ms-2" role="status" aria-live="polite"></span>
           </div>
         </div>
@@ -205,10 +205,10 @@
       <div class="col-12 d-none" id="frBlocoPrevia">
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">Pré-visualização (1ª folha do âmbito escolhido)</span>
+            <span class="fw-semibold">PrÃ©-visualizaÃ§Ã£o (1Âª folha do Ã¢mbito escolhido)</span>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="frFecharPrevia">Fechar</button>
           </div>
-          <div class="card-body p-0"><iframe id="frPreviaFrame" title="Pré-visualização da folha de resposta" style="width:100%;height:80vh;border:0"></iframe></div>
+          <div class="card-body p-0"><iframe id="frPreviaFrame" title="PrÃ©-visualizaÃ§Ã£o da folha de resposta" style="width:100%;height:80vh;border:0"></iframe></div>
         </div>
       </div>
     </div>

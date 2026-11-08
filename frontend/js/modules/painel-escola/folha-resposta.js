@@ -40,7 +40,7 @@
   function guardar() {
     try {
       var c = lerConfig(true);
-      localStorage.setItem(CHAVE_LS, JSON.stringify({ tipo: c.tipo_avaliacao, n: c.n_perguntas, alt: c.n_alternativas, dur: c.duracao_min, hora: c.hora_inicio, omr: c.marcas_omr, barras: c.codigo_barras }));
+      localStorage.setItem(CHAVE_LS, JSON.stringify({ tipo: c.tipo_avaliacao, n: c.n_perguntas, alt: c.n_alternativas, omr: c.marcas_omr, barras: c.codigo_barras }));
     } catch (_) { /* conveniência apenas */ }
   }
   function restaurar() {
@@ -50,9 +50,6 @@
       if (s.tipo && $('frTipo').querySelector('option[value="' + s.tipo + '"]')) $('frTipo').value = s.tipo;
       if (s.n) $('frNPerg').value = s.n;
       if (s.alt) $('frNAlt').value = s.alt;
-      if (s.dur) $('frDuracao').value = s.dur;
-      if (s.hora) $('frHora').value = s.hora;
-      calcularHoraFim();
       $('frOmr').checked = s.omr !== false;
       $('frBarras').checked = s.barras !== false;
     } catch (_) { /* ignorar */ }
@@ -302,17 +299,9 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
     return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
   }
-  // Hora de início sugerida pelo turno da turma escolhida (editável); manhã por omissão.
-  function horaSugerida() {
-    var t = turmasDaClasse().find(function (x) { return x.id === $('frTurma').value; });
-    var turno = t ? String(t.turno || '').toUpperCase() : 'MANHA';
-    return turno === 'TARDE' ? '13:00' : turno === 'NOITE' ? '18:00' : '07:30';
-  }
-  function aoEscolherData() {
-    var h = $('frHora');
-    if (!$('frData').value) return;
-    if (!h.value || h.dataset.auto === '1') { h.value = horaSugerida(); h.dataset.auto = '1'; calcularHoraFim(); }
-  }
+  // Sem valores inventados: data, hora inicial e duração só existem se o utilizador os indicar;
+  // a hora final é calculada a partir deles.
+  function aoEscolherData() { calcularHoraFim(); }
 
   // Hora final = hora inicial + duração (minutos); ao ajustar a hora final, a duração acompanha.
   function minutosDe(hhmm) { var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ''); return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null; }
