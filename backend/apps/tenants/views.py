@@ -421,6 +421,21 @@ class EscolaViewSet(viewsets.ModelViewSet):
                 'message': f'Já existe uma instituição cadastrada com o E-mail {email}.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # Código manual (opcional, definido pelo Super Admin): valida formato e unicidade
+        codigo_manual = (data.get('codigo_escola') or '').strip().upper()
+        if codigo_manual:
+            import re
+            if not re.match(r'^\d{4}[PBS]\d{4,5}$', codigo_manual):
+                return Response({
+                    'success': False,
+                    'message': 'Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if Escola.objects.filter(codigo_escola__iexact=codigo_manual).exists():
+                return Response({
+                    'success': False,
+                    'message': f'Já existe uma escola com o código {codigo_manual}.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         # Obter plano
         plano = None
         plano_id = data.get('plano_id') or data.get('plano')

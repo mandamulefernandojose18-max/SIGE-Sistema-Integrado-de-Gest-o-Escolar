@@ -785,6 +785,24 @@ async function modalCadastrarEscolaSuperAdmin() {
             <input type="text" id="cadEscolaTelefone" class="form-control" value="+258 " required>
           </div>
 
+          <div class="col-12">
+            <div class="border rounded p-2 bg-light">
+              <label class="form-label small fw-bold text-primary mb-1"><i class="bi bi-upc-scan me-1"></i> Definição do Código da Escola</label>
+              <div class="d-flex flex-wrap gap-3 align-items-center">
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="radio" name="cadCodModo" id="cadCodModoAuto" value="auto" checked onchange="alternarModoCodigoEscola()">
+                  <label class="form-check-label small" for="cadCodModoAuto">Automático (gerado pelo sistema)</label>
+                </div>
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="radio" name="cadCodModo" id="cadCodModoManual" value="manual" onchange="alternarModoCodigoEscola()">
+                  <label class="form-check-label small" for="cadCodModoManual">Definir manualmente</label>
+                </div>
+                <input type="text" id="cadEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="9" placeholder="Ex: 0101S0001" oninput="atualizarPreviewModalCadastroEscola()">
+              </div>
+              <small class="text-muted d-none" id="cadCodManualAjuda" style="font-size: 0.72rem;">Formato: 4 dígitos (província+distrito) + letra P/B/S + 4 ou 5 dígitos. Tem de ser único.</small>
+            </div>
+          </div>
+
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Província</label>
             <select id="cadEscolaProvincia" class="form-select" onchange="atualizarDistritosCadastroEscola(this.value); atualizarPreviewModalCadastroEscola();" required>
@@ -901,7 +919,11 @@ function atualizarPreviewModalCadastroEscola() {
   };
   if (mapaProv[prov]) codProv = mapaProv[prov];
 
-  const codFinal = `${codProv}${codDist}${tipo}0001`;
+  let codFinal = `${codProv}${codDist}${tipo}0001`;
+  if (document.getElementById('cadCodModoManual')?.checked) {
+    const man = (document.getElementById('cadEscolaCodigoManual')?.value || '').trim().toUpperCase();
+    if (man) codFinal = man;
+  }
 
   const elCod = document.getElementById('cadPreviewCodEscola');
   if (elCod) elCod.textContent = codFinal;
@@ -913,9 +935,25 @@ function atualizarPreviewModalCadastroEscola() {
   if (elSECR) elSECR.textContent = `SECR${codFinal}`;
 }
 
+function alternarModoCodigoEscola() {
+  const manual = document.getElementById('cadCodModoManual')?.checked;
+  document.getElementById('cadEscolaCodigoManual')?.classList.toggle('d-none', !manual);
+  document.getElementById('cadCodManualAjuda')?.classList.toggle('d-none', !manual);
+  atualizarPreviewModalCadastroEscola();
+}
+window.alternarModoCodigoEscola = alternarModoCodigoEscola;
+
 async function submeterCadastroEscolaSuperAdmin(e) {
   e.preventDefault();
   try {
+    let codigoManual;
+    if (document.getElementById('cadCodModoManual')?.checked) {
+      codigoManual = (document.getElementById('cadEscolaCodigoManual')?.value || '').trim().toUpperCase();
+      if (!/^\d{4}[PBS]\d{4,5}$/.test(codigoManual)) {
+        alert('Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).');
+        return;
+      }
+    }
     const nome = document.getElementById('cadEscolaNome')?.value?.trim();
     const tipo = document.getElementById('cadEscolaTipo')?.value || 'S';
     const nuit = document.getElementById('cadEscolaNUIT')?.value?.trim();
@@ -941,6 +979,7 @@ async function submeterCadastroEscolaSuperAdmin(e) {
     const payload = {
       nome,
       tipo_escola: tipo,
+      codigo_escola: codigoManual || undefined,
       nif_cnpj: nuit,
       email,
       telefone,
