@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIGE - PAINEL-SUPERADMIN | Gestão de Escolas & Planos SaaS
  * Ficheiro de código independente do menu: saas.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -797,9 +797,9 @@ async function modalCadastrarEscolaSuperAdmin() {
                   <input class="form-check-input" type="radio" name="cadCodModo" id="cadCodModoManual" value="manual" onchange="alternarModoCodigoEscola()">
                   <label class="form-check-label small" for="cadCodModoManual">Definir manualmente</label>
                 </div>
-                <input type="text" id="cadEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="9" placeholder="Ex: 0101S0001" oninput="atualizarPreviewModalCadastroEscola()">
+                <input type="text" id="cadEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="8" inputmode="numeric" pattern="\d{8}" placeholder="Ex: 12345678" oninput="atualizarPreviewModalCadastroEscola()">
               </div>
-              <small class="text-muted d-none" id="cadCodManualAjuda" style="font-size: 0.72rem;">Formato oficial (0101S0001) ou código numérico de até 8 dígitos. Tem de ser único.</small>
+              <small class="text-muted d-none" id="cadCodManualAjuda" style="font-size: 0.72rem;">Exactamente 8 dígitos numéricos. Tem de ser único.</small>
             </div>
           </div>
 
@@ -949,8 +949,8 @@ async function submeterCadastroEscolaSuperAdmin(e) {
     let codigoManual;
     if (document.getElementById('cadCodModoManual')?.checked) {
       codigoManual = (document.getElementById('cadEscolaCodigoManual')?.value || '').trim().toUpperCase();
-      if (!/^(\d{4}[PBS]\d{4,5}|\d{1,8})$/.test(codigoManual)) {
-        alert('Código da escola inválido. Use o formato 0101S0001 ou um código numérico de até 8 dígitos.');
+      if (!/^\d{8}$/.test(codigoManual)) {
+        alert('Código da escola inválido. O código manual deve ter exactamente 8 dígitos numéricos.');
         return;
       }
     }
@@ -1142,9 +1142,9 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
                       <input class="form-check-input" type="radio" name="editCodModo" id="editCodModoManual" value="manual" onchange="alternarModoCodigoEdicaoEscola()">
                       <label class="form-check-label small" for="editCodModoManual">Definir manualmente</label>
                     </div>
-                    <input type="text" id="editEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="9" value="${escapeHtml(escola.codigo_escola || '')}" placeholder="Ex: 0101S0001">
+                    <input type="text" id="editEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="8" inputmode="numeric" value="${/^\d{8}$/.test(escola.codigo_escola || '') ? escapeHtml(escola.codigo_escola) : ''}" placeholder="Ex: 12345678">
                   </div>
-                  <small class="text-muted d-none" id="editCodManualAjuda" style="font-size: 0.72rem;">Formato oficial (0101S0001) ou código numérico de até 8 dígitos. Tem de ser único.</small>
+                  <small class="text-muted d-none" id="editCodManualAjuda" style="font-size: 0.72rem;">Exactamente 8 dígitos numéricos. Tem de ser único.</small>
                   <small class="text-warning-emphasis d-none" id="editCodAviso" style="font-size: 0.72rem;"><i class="bi bi-exclamation-triangle me-1"></i>Ao mudar o código, os códigos de acesso GD, DP e SECR da escola são actualizados.</small>
                 </div>
               </div>
@@ -1258,8 +1258,8 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
         let codigoManualEd;
         if (modoCod === 'manual') {
           codigoManualEd = (document.getElementById('editEscolaCodigoManual')?.value || '').trim().toUpperCase();
-          if (!/^(\d{4}[PBS]\d{4,5}|\d{1,8})$/.test(codigoManualEd)) {
-            return mostrarErro('Código da escola inválido. Use o formato 0101S0001 ou um código numérico de até 8 dígitos.');
+          if (!/^\d{8}$/.test(codigoManualEd)) {
+            return mostrarErro('Código da escola inválido. O código manual deve ter exactamente 8 dígitos numéricos.');
           }
         }
         const body = {

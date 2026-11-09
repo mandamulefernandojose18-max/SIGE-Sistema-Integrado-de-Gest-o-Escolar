@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
@@ -271,8 +271,8 @@ class Escola(models.Model):
         )
         self.tipo_escola = obter_letra_tipo_escola(self.tipo_escola, self.nome)
         cod_atual = (self.codigo_escola or '').strip().upper()
-        # Aceita o formato oficial (0101S0001) ou um código numérico manual de até 8 dígitos
-        if not cod_atual or not re.match(r'^(\d{4}[PBS]\d{4,5}|\d{1,8})$', cod_atual):
+        # Aceita o formato oficial (0101S0001) ou um código numérico manual de exactamente 8 dígitos
+        if not cod_atual or not re.match(r'^(\d{4}[PBS]\d{4,5}|\d{8})$', cod_atual):
             self.codigo_escola = gerar_codigo_unico_escola(
                 provincia=self.provincia,
                 distrito=self.distrito,
