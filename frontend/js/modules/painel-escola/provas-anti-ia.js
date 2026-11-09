@@ -410,7 +410,7 @@
   async function descarregar(metodo, caminho, corpo, nomeOmissao) {
     try {
       var r = await fetch(API + caminho, { method: metodo, headers: cab(), body: corpo });
-      if (!r.ok) { var j = await r.json().catch(function () { return {}; }); throw new Error(j.message || 'Não foi possível gerar o ficheiro.'); }
+      if (!r.ok) { var j = await r.json().catch(function () { return {}; }); throw new Error(j.message || (r.status === 504 || r.status === 502 || r.status === 503 ? 'A geração demorou demasiado ou o servidor está ocupado. Tenta com menos cópias ou outra vez daqui a pouco.' : 'Não foi possível gerar o ficheiro (erro ' + r.status + ').')); }
       var nome = (/filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || '') || [])[1] || nomeOmissao;
       var url = URL.createObjectURL(await r.blob()), a = document.createElement('a');
       a.href = url; a.download = nome; document.body.appendChild(a); a.click(); document.body.removeChild(a);
