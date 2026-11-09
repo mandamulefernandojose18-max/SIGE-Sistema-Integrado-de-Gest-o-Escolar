@@ -1127,6 +1127,28 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
                 <select id="editEscolaDistrito" class="form-select"></select>
               </div>
               <div class="col-12">
+                <div class="border rounded p-2 bg-light">
+                  <label class="form-label small fw-bold text-primary mb-1"><i class="bi bi-upc-scan me-1"></i> Código da Escola</label>
+                  <div class="d-flex flex-wrap gap-3 align-items-center">
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="radio" name="editCodModo" id="editCodModoManter" value="manter" checked onchange="alternarModoCodigoEdicaoEscola()">
+                      <label class="form-check-label small" for="editCodModoManter">Manter actual (<code>${escapeHtml(codEscola)}</code>)</label>
+                    </div>
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="radio" name="editCodModo" id="editCodModoAuto" value="auto" onchange="alternarModoCodigoEdicaoEscola()">
+                      <label class="form-check-label small" for="editCodModoAuto">Automático (gerado pelo sistema)</label>
+                    </div>
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="radio" name="editCodModo" id="editCodModoManual" value="manual" onchange="alternarModoCodigoEdicaoEscola()">
+                      <label class="form-check-label small" for="editCodModoManual">Definir manualmente</label>
+                    </div>
+                    <input type="text" id="editEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="9" value="${escapeHtml(escola.codigo_escola || '')}" placeholder="Ex: 0101S0001">
+                  </div>
+                  <small class="text-muted d-none" id="editCodManualAjuda" style="font-size: 0.72rem;">Formato: 4 dígitos (província+distrito) + letra P/B/S + 4 ou 5 dígitos. Tem de ser único.</small>
+                  <small class="text-warning-emphasis d-none" id="editCodAviso" style="font-size: 0.72rem;"><i class="bi bi-exclamation-triangle me-1"></i>Ao mudar o código, os códigos de acesso GD, DP e SECR da escola são actualizados.</small>
+                </div>
+              </div>
+              <div class="col-12">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="editEscolaEmblema" ${escola.usar_emblema_nacional ? 'checked' : ''}>
                   <label class="form-check-label small fw-semibold" for="editEscolaEmblema">Utilizar Emblema Oficial nos documentos</label>
@@ -1232,7 +1254,17 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
           if (!rAd || !rAd.success) return mostrarErro((rAd && rAd.message) || 'Não foi possível registar a excepção.');
         }
         const pacoteSel = document.getElementById('editEscolaPacote')?.value || null;
+        const modoCod = document.querySelector('input[name="editCodModo"]:checked')?.value || 'manter';
+        let codigoManualEd;
+        if (modoCod === 'manual') {
+          codigoManualEd = (document.getElementById('editEscolaCodigoManual')?.value || '').trim().toUpperCase();
+          if (!/^\d{4}[PBS]\d{4,5}$/.test(codigoManualEd)) {
+            return mostrarErro('Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).');
+          }
+        }
         const body = {
+          codigo_modo: modoCod,
+          codigo_escola: codigoManualEd,
           nome: document.getElementById('editEscolaNome').value,
           tipo_escola: document.getElementById('editEscolaTipo')?.value || 'S',
           nif_cnpj: document.getElementById('editEscolaNUIT').value,
@@ -1268,6 +1300,14 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
     alert('Erro ao carregar dados da escola para edição: ' + err.message);
   }
 }
+
+function alternarModoCodigoEdicaoEscola() {
+  const modo = document.querySelector('input[name="editCodModo"]:checked')?.value || 'manter';
+  document.getElementById('editEscolaCodigoManual')?.classList.toggle('d-none', modo !== 'manual');
+  document.getElementById('editCodManualAjuda')?.classList.toggle('d-none', modo !== 'manual');
+  document.getElementById('editCodAviso')?.classList.toggle('d-none', modo === 'manter');
+}
+window.alternarModoCodigoEdicaoEscola = alternarModoCodigoEdicaoEscola;
 
 function atualizarDistritosEdicaoEscola(provincia, distritoSelecionado = '') {
   const distritos = state.geografia?.distritos?.[provincia] || [];

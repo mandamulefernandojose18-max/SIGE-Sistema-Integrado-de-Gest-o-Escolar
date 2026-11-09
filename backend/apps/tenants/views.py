@@ -556,7 +556,29 @@ class EscolaViewSet(viewsets.ModelViewSet):
         prov_nova = data.get('provincia', escola.provincia)
         dist_novo = data.get('distrito', escola.distrito)
         tipo_novo = data.get('tipo_escola', escola.tipo_escola)
-        if (prov_nova != escola.provincia or dist_novo != escola.distrito or tipo_novo != escola.tipo_escola):
+        # Escolha do Super Admin: 'manter' | 'auto' (gerado pelo sistema) | 'manual' (definido por ele).
+        # Sem 'codigo_modo' (clientes antigos) mantém-se o comportamento legado.
+        modo_codigo = (data.get('codigo_modo') or '').strip().lower()
+        data.pop('codigo_modo', None)
+        geo_mudou = (prov_nova != escola.provincia or dist_novo != escola.distrito or tipo_novo != escola.tipo_escola)
+
+        if modo_codigo == 'manual':
+            import re
+            codigo_manual = (data.get('codigo_escola') or '').strip().upper()
+            if not re.match(r'^\d{4}[PBS]\d{4,5}$', codigo_manual):
+                return Response({
+                    'success': False,
+                    'message': 'Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if Escola.objects.filter(codigo_escola__iexact=codigo_manual).exclude(id=escola.id).exists():
+                return Response({
+                    'success': False,
+                    'message': f'Já existe uma escola com o código {codigo_manual}.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            data['codigo_escola'] = codigo_manual
+        elif modo_codigo == 'manter':
+            data.pop('codigo_escola', None)
+        elif modo_codigo == 'auto' or geo_mudou:
             from common.utils.geografia_mocambique import gerar_codigo_unico_escola
             data['codigo_escola'] = gerar_codigo_unico_escola(
                 provincia=prov_nova,
