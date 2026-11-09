@@ -153,8 +153,16 @@
     else if (e === 'classe') txt = c ? 'Serão geradas ' + c.total_alunos + ' folhas (todos os alunos activos da ' + c.classe + ').' : 'Escolha a classe.';
     else if (e === 'turma') txt = t ? 'Serão geradas ' + t.alunos + ' folhas (alunos activos da turma ' + t.nome + ').' : 'Escolha a classe e a turma.';
     else txt = $('frAluno').value ? 'Será gerada 1 folha para o aluno escolhido.' : 'Escolha a classe, a turma e o aluno.';
-    if (ctx && (!ctx.classes || !ctx.classes.length) && e !== 'branco') txt = 'Não há turmas registadas neste ano lectivo. Crie turmas e matricule alunos primeiro.';
+    var semTurmas = !!(ctx && (!ctx.classes || !ctx.classes.length) && e !== 'branco' && e !== 'lista');
+    if (semTurmas) txt = 'Não há turmas registadas neste ano lectivo. Crie turmas e matricule alunos primeiro — ou gere a folha a partir de um ficheiro importado.';
     el.textContent = txt;
+    if (semTurmas) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn btn-sm btn-outline-primary ms-2';
+      b.innerHTML = '<i class="bi bi-upload me-1"></i>Importar ficheiro (Excel/CSV)';
+      b.addEventListener('click', function () { $('frEscopo').value = 'lista'; mostrarCamposEscopo(); });
+      el.appendChild(b);
+    }
   }
 
   // ---------- Cotação ----------
