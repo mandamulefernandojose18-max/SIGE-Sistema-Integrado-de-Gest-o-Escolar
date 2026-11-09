@@ -589,7 +589,7 @@ def sincronizar_todos_codigos_oficiais() -> dict:
         'alunos': 0,
     }
 
-    padrao_escola = re.compile(r'^\d{4}[PBS]\d{4,5}$')
+    padrao_escola = re.compile(r'^(\d{4}[PBS]\d{4,5}|\d{1,8})$')
     for esc in Escola.objects.all().order_by('created_at'):
         mudou = False
         if not esc.tipo_escola:

@@ -799,7 +799,7 @@ async function modalCadastrarEscolaSuperAdmin() {
                 </div>
                 <input type="text" id="cadEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="9" placeholder="Ex: 0101S0001" oninput="atualizarPreviewModalCadastroEscola()">
               </div>
-              <small class="text-muted d-none" id="cadCodManualAjuda" style="font-size: 0.72rem;">Formato: 4 dígitos (província+distrito) + letra P/B/S + 4 ou 5 dígitos. Tem de ser único.</small>
+              <small class="text-muted d-none" id="cadCodManualAjuda" style="font-size: 0.72rem;">Formato oficial (0101S0001) ou código numérico de até 8 dígitos. Tem de ser único.</small>
             </div>
           </div>
 
@@ -949,8 +949,8 @@ async function submeterCadastroEscolaSuperAdmin(e) {
     let codigoManual;
     if (document.getElementById('cadCodModoManual')?.checked) {
       codigoManual = (document.getElementById('cadEscolaCodigoManual')?.value || '').trim().toUpperCase();
-      if (!/^\d{4}[PBS]\d{4,5}$/.test(codigoManual)) {
-        alert('Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).');
+      if (!/^(\d{4}[PBS]\d{4,5}|\d{1,8})$/.test(codigoManual)) {
+        alert('Código da escola inválido. Use o formato 0101S0001 ou um código numérico de até 8 dígitos.');
         return;
       }
     }
@@ -1144,7 +1144,7 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
                     </div>
                     <input type="text" id="editEscolaCodigoManual" class="form-control form-control-sm font-monospace text-uppercase d-none" style="max-width: 200px;" maxlength="9" value="${escapeHtml(escola.codigo_escola || '')}" placeholder="Ex: 0101S0001">
                   </div>
-                  <small class="text-muted d-none" id="editCodManualAjuda" style="font-size: 0.72rem;">Formato: 4 dígitos (província+distrito) + letra P/B/S + 4 ou 5 dígitos. Tem de ser único.</small>
+                  <small class="text-muted d-none" id="editCodManualAjuda" style="font-size: 0.72rem;">Formato oficial (0101S0001) ou código numérico de até 8 dígitos. Tem de ser único.</small>
                   <small class="text-warning-emphasis d-none" id="editCodAviso" style="font-size: 0.72rem;"><i class="bi bi-exclamation-triangle me-1"></i>Ao mudar o código, os códigos de acesso GD, DP e SECR da escola são actualizados.</small>
                 </div>
               </div>
@@ -1258,8 +1258,8 @@ async function modalEditarEscolaSuperAdmin(escolaId, aba) {
         let codigoManualEd;
         if (modoCod === 'manual') {
           codigoManualEd = (document.getElementById('editEscolaCodigoManual')?.value || '').trim().toUpperCase();
-          if (!/^\d{4}[PBS]\d{4,5}$/.test(codigoManualEd)) {
-            return mostrarErro('Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).');
+          if (!/^(\d{4}[PBS]\d{4,5}|\d{1,8})$/.test(codigoManualEd)) {
+            return mostrarErro('Código da escola inválido. Use o formato 0101S0001 ou um código numérico de até 8 dígitos.');
           }
         }
         const body = {

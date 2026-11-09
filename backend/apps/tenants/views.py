@@ -425,10 +425,10 @@ class EscolaViewSet(viewsets.ModelViewSet):
         codigo_manual = (data.get('codigo_escola') or '').strip().upper()
         if codigo_manual:
             import re
-            if not re.match(r'^\d{4}[PBS]\d{4,5}$', codigo_manual):
+            if not re.match(r'^(\d{4}[PBS]\d{4,5}|\d{1,8})$', codigo_manual):
                 return Response({
                     'success': False,
-                    'message': 'Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).'
+                    'message': 'Código da escola inválido. Use o formato 0101S0001 ou um código numérico de até 8 dígitos.'
                 }, status=status.HTTP_400_BAD_REQUEST)
             if Escola.objects.filter(codigo_escola__iexact=codigo_manual).exists():
                 return Response({
@@ -565,10 +565,10 @@ class EscolaViewSet(viewsets.ModelViewSet):
         if modo_codigo == 'manual':
             import re
             codigo_manual = (data.get('codigo_escola') or '').strip().upper()
-            if not re.match(r'^\d{4}[PBS]\d{4,5}$', codigo_manual):
+            if not re.match(r'^(\d{4}[PBS]\d{4,5}|\d{1,8})$', codigo_manual):
                 return Response({
                     'success': False,
-                    'message': 'Código da escola inválido. Use o formato 0101S0001 (4 dígitos + P/B/S + 4 ou 5 dígitos).'
+                    'message': 'Código da escola inválido. Use o formato 0101S0001 ou um código numérico de até 8 dígitos.'
                 }, status=status.HTTP_400_BAD_REQUEST)
             if Escola.objects.filter(codigo_escola__iexact=codigo_manual).exclude(id=escola.id).exists():
                 return Response({
