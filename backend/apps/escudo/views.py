@@ -1,6 +1,7 @@
 """API do Escudo Anti-IA (JSON) e páginas públicas dos códigos. Respeita o isolamento por escola."""
 import io
 import json
+import logging
 import re
 import secrets
 import zipfile
@@ -136,6 +137,9 @@ def _tratar(fn):
             return _erro(str(e) or 'Pedido inválido.')
         except ArmazemIndisponivel as e:
             return _erro(str(e), 503)
+        except Exception as e:  # erro inesperado: regista a causa e devolve JSON (em vez da página HTML 500)
+            logging.getLogger(__name__).exception('Escudo: erro inesperado em %s', fn.__name__)
+            return _erro(f'Não foi possível gerar o ficheiro ({type(e).__name__}: {str(e)[:200]}).', 500)
     envoltorio.__name__ = fn.__name__
     return envoltorio
 
