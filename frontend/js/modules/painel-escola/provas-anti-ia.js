@@ -26,8 +26,17 @@
   function raiz() { return document.getElementById('escudoConteudo'); }
   function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b); }
 
+  // Pedido autenticado: se o token expirou (401), renova-o com o refresh da aplicação e repete o pedido uma vez.
+  async function pedir(caminho, opcoes) {
+    var r = await fetch(API + caminho, Object.assign({}, opcoes || {}, { headers: cab() }));
+    if (r.status === 401 && typeof window.renovarTokenAcesso === 'function') {
+      try { var novo = await window.renovarTokenAcesso(); } catch (_) { novo = null; }
+      if (novo) r = await fetch(API + caminho, Object.assign({}, opcoes || {}, { headers: cab() }));
+    }
+    return r;
+  }
   async function api(caminho, opcoes) {
-    var r = await fetch(API + caminho, Object.assign({ headers: cab() }, opcoes || {}));
+    var r = await pedir(caminho, opcoes);
     var tipo = r.headers.get('Content-Type') || '';
     if (tipo.indexOf('application/json') >= 0) {
       var j = await r.json();
@@ -409,7 +418,7 @@
 
   async function descarregar(metodo, caminho, corpo, nomeOmissao) {
     try {
-      var r = await fetch(API + caminho, { method: metodo, headers: cab(), body: corpo });
+      var r = await pedir(caminho, { method: metodo, body: corpo });
       if (!r.ok) { var j = await r.json().catch(function () { return {}; }); throw new Error(j.message || (r.status === 504 || r.status === 502 || r.status === 503 ? 'A geração demorou demasiado ou o servidor está ocupado. Tenta com menos cópias ou outra vez daqui a pouco.' : 'Não foi possível gerar o ficheiro (erro ' + r.status + ').')); }
       var nome = (/filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || '') || [])[1] || nomeOmissao;
       var url = URL.createObjectURL(await r.blob()), a = document.createElement('a');
@@ -550,7 +559,7 @@
     var limites = { qr: [15, 60, 22], barras: [30, 90, 50] };
     var carregarImagem = async function (alvo, caminho, opcoesFetch) {
       try {
-        var r = await fetch(API + caminho, Object.assign({ headers: cab() }, opcoesFetch || {}));
+        var r = await pedir(caminho, opcoesFetch);
         if (!r.ok) { var j = await r.json().catch(function () { return {}; }); throw new Error(j.message || 'Não foi possível carregar a imagem.'); }
         alvo.src = URL.createObjectURL(await r.blob());
         return true;
