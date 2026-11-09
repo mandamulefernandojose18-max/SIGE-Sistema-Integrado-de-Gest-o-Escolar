@@ -22,7 +22,7 @@ def eh_docx(dados):
 
 _M = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 _PARES = {("(", ")"), ("[", "]"), ("{", "}"), ("|", "|"), ("‖", "‖"), ("⟨", "⟩"), ("⌊", "⌋"), ("⌈", "⌉"), ("", ""), ("(", ""), ("", ")")}
-_PROIBIDOS = ("¿", "�")  # «¿» e o carácter de substituição: sinais de equação/fonte mal convertida
+_PROIBIDOS = ("¿", "�", "\\{", "\\}", "\\left", "\\right", "\\(", "\\)")  # símbolos/códigos que a conversão nunca pode introduzir
 
 
 def _texto_nor(texto):
@@ -55,7 +55,8 @@ def sanear_docx(dados):
                     end = pr.find(f"{{{_M}}}endChr") if pr is not None else None
                     b = beg.get(f"{{{_M}}}val", "(") if beg is not None else "("
                     e = end.get(f"{{{_M}}}val", ")") if end is not None else ")"
-                    if (b, e) in _PARES or not (set(b + e) & set("[]{}()")):
+                    # só mexe em pares desencontrados com parênteses rectos (]a;b[): chavetas e parênteses ficam como vieram
+                    if (b, e) in _PARES or not (set(b + e) & set("[]")) or (set(b + e) & set("{}")):
                         continue
                     pai = d.getparent()
                     pos = pai.index(d)
@@ -72,9 +73,9 @@ def sanear_docx(dados):
                     for k, no in enumerate(novos_nos):
                         pai.insert(pos + k, no)
                     mudou = True
-                for r in raiz.iter(f"{{{_M}}}r"):  # parênteses rectos/chavetas soltos dentro de equações
-                    t = r.find(f"{{{_M}}}t")
-                    if t is None or not t.text or not (set(t.text) & set("[]{}")):
+                for r in raiz.iter(f"{{{_M}}}r"):  # parênteses rectos soltos dentro de equações (as chavetas não se tocam:
+                    t = r.find(f"{{{_M}}}t")       # em texto normal o LibreOffice escreveria «\{» no PDF)
+                    if t is None or not t.text or not (set(t.text) & set("[]")) or (set(t.text) & set("{}")):
                         continue
                     pr = r.find(f"{{{_M}}}rPr")
                     if pr is None:
@@ -147,14 +148,15 @@ def docx_para_pdf(dados):
     defeito = False
     with tempfile.TemporaryDirectory() as pasta:
         entrada, saida = Path(pasta) / "prova.docx", Path(pasta) / "prova.pdf"
-        for metodo in ("word", "docx2pdf", "libreoffice"):
-            # o Word converte o original; os outros motores recebem o DOCX saneado (sem «¿» nas equações)
-            entrada.write_bytes(dados if metodo == "word" else sanear_docx(dados))
+        for metodo in ("word", "docx2pdf", "libreoffice", "libreoffice_original"):
+            # o Word converte o original; os outros motores recebem o DOCX saneado (sem «¿» nas equações);
+            # o último recurso converte o original sem qualquer retoque
+            entrada.write_bytes(dados if metodo in ("word", "libreoffice_original") else sanear_docx(dados))
             saida.unlink(missing_ok=True)
             try:
                 if metodo == "word":
                     _com_word(entrada, saida)
-                elif metodo == "libreoffice":
+                elif metodo.startswith("libreoffice"):
                     _com_libreoffice(entrada, saida)
                 else:
                     from docx2pdf import convert

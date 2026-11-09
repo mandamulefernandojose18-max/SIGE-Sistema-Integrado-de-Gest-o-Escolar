@@ -1331,6 +1331,25 @@ def test_conversao_sanea_parenteses_rectos_das_equacoes_e_recusa_conteudo_adulte
     d2 = fitz.open(); d2.new_page().insert_text((72, 72), 'A. ]-13;+8['); assert conversao.conteudo_adulterado(d2.tobytes(), saido) is False
 
 
+def test_conversao_nao_mexe_em_chavetas_nem_aceita_barras_introduzidas():
+    import io, zipfile
+    from apps.escudo.services import conversao
+    M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    xml = (f'<w:document xmlns:w="{W}" xmlns:m="{M}"><w:body><w:p><m:oMath>'
+           f'<m:r><m:t>{{-1;-3;1;3}}</m:t></m:r>'
+           f'<m:d><m:dPr><m:begChr m:val="{{"/><m:endChr m:val=""/></m:dPr><m:e><m:r><m:t>x+y=3</m:t></m:r></m:e></m:d>'
+           f'</m:oMath></w:p></w:body></w:document>').encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        z.writestr('word/document.xml', xml)
+    original = buf.getvalue()
+    assert conversao.sanear_docx(original) == original   # chavetas: o ficheiro segue exactamente como veio
+    import pymupdf as fitz
+    d = fitz.open(); d.new_page().insert_text((72, 72), 'A. \\{-1;-3;1;3\\}')
+    assert conversao.conteudo_adulterado(d.tobytes(), original) is True   # «\{» que não existia no Word
+
+
 def test_qr_da_pergunta_fica_num_vazio_junto_da_questao_sem_tapar_alternativas():
     import pymupdf as fitz
     from apps.escudo.services import selos
