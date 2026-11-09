@@ -1,4 +1,4 @@
-# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
+﻿# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
 ### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
@@ -1529,7 +1529,7 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 - **QR e código de barras:** o QR de cada questão procura primeiro um vazio no meio da página, encostado à questão, sem tocar em texto nem alternativas (só depois a margem). O código de barras automático procura o vazio junto ao centro da página e, se não houver onde caiba, não é desenhado (nunca por cima do conteúdo).
 
 ### Folha personalizada e Escudo — lista dos alunos gerados, nome do aluno e lista importada (v2.9.27)
-- **Lista de quem teve a prova/folha gerada (quem e quantos):** o ZIP do Escudo (folha personalizada) e o ZIP da página «Folha de Resposta Personalizada» (âmbitos turma, classe e lista importada) trazem `LISTA_ALUNOS_gerados.pdf` e `LISTA_ALUNOS_gerados.xlsx` (serviço `lista_alunos_service`, regras de `docs/REGRAS_EXCEL_E_PDF.md`: Times New Roman, cabeçalho azul centrado, palavras inteiras, Excel por `guardar_xlsx_seguro`), com o total e, se houver, os alunos excluídos e o motivo.
+- **Lista de quem teve a prova/folha gerada (quem e quantos):** o ZIP do Escudo (folha personalizada) e o ZIP da página «Folha de Resposta Personalizada» (âmbitos turma, classe e lista importada) trazem `Lista_<identificação da prova/folha>.pdf` e `.xlsx` (o nome começa por «Lista_» e leva a identificação da prova/folha; no Escudo, cada folha personalizada sai como `<Aluno>_<Prova>_<código>_<nnn>`, com o nome do aluno em primeiro, para as diferenciar) (serviço `lista_alunos_service`, regras de `docs/REGRAS_EXCEL_E_PDF.md`: Times New Roman, cabeçalho azul centrado, palavras inteiras, Excel por `guardar_xlsx_seguro`), com o total e, se houver, os alunos excluídos e o motivo.
 - **Mesma regra de exclusões na «Folha de Resposta Personalizada»:** Faltas (total acumulado), PPF, PDF, Transferida, Óbito e Outros, com «Seleccionar todos» e a regra da escola «Verificar automaticamente e sempre» (partilhada com o Escudo; `POST /api/v1/documentos/folha-resposta/regra/`). Um aluno individual excluído pela regra não recebe folha (HTTP 409 com o motivo).
 - **Nome do aluno para localizar:** o PDF multi-aluno tem um marcador (painel de marcadores) por aluno; as provas individuais do Escudo levam o nome no marcador e no título; cada folha do Excel tem o nome do aluno no separador.
 - **Gerar a partir de ficheiro importado:** novo âmbito «Alunos de uma lista importada (Excel/CSV)» (cabeçalho com Nome obrigatório; Apelido, Classe, Turma, Secção/Área, Nº, Código e Situação opcionais); a lista não fica guardada.
