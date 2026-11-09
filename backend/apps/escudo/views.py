@@ -402,10 +402,11 @@ def gerar(request, pid):
         pdf = s.selar_copia(p, op, n, base)
         return folha_mod.prefixar(folha['para'](n), pdf, folha['alunos'][n - 1] if folha['personalizada'] else None) if folha else pdf
 
-    def sufixo(n):
+    def ficheiro(n, ext):
+        """Folha personalizada: «Aluno_Prova_código_nnn» (o aluno em 1.º lugar); senão «Prova_código_copia_nnn»."""
         if folha and folha['personalizada']:
-            return f'{n:03d}_{nome_seguro(folha["alunos"][n - 1])}'
-        return f'{n:03d}'
+            return f'{nome_seguro(folha["alunos"][n - 1])}_{nome}_{pid}_{n:03d}.{ext}'
+        return f'{nome}_{pid}_copia_{n:03d}.{ext}'
 
     def word_copia(n):
         docx = s.selar_word(p, op, n)
@@ -423,15 +424,15 @@ def gerar(request, pid):
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for n in range(1, op['copias'] + 1):
             if quer_pdf:
-                z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.pdf', pdf_copia(n))
+                z.writestr(ficheiro(n, 'pdf'), pdf_copia(n))
             if quer_word:
-                z.writestr(f'{nome}_{pid}_copia_{sufixo(n)}.docx', word_copia(n))
-        if folha and folha.get('listas'):  # quem e quantos tiveram a prova gerada (PDF e Excel)
+                z.writestr(ficheiro(n, 'docx'), word_copia(n))
+        if folha and folha.get('listas'):  # quem e quantos tiveram a prova gerada (PDF e Excel): «Lista_Prova_código»
             lista_pdf, lista_xlsx = folha['listas']()
-            z.writestr(f'{nome}_{pid}_LISTA_ALUNOS_gerados.pdf', lista_pdf)
-            z.writestr(f'{nome}_{pid}_LISTA_ALUNOS_gerados.xlsx', lista_xlsx)
+            z.writestr(f'Lista_{nome}_{pid}.pdf', lista_pdf)
+            z.writestr(f'Lista_{nome}_{pid}.xlsx', lista_xlsx)
         if folha and folha['relatorio']:  # alunos deixados de fora e porquê (só para o professor)
-            z.writestr(f'{nome}_{pid}_ALUNOS_EXCLUIDOS_so_professor.csv', folha['relatorio'])
+            z.writestr(f'Lista_{nome}_{pid}_EXCLUIDOS_so_professor.csv', folha['relatorio'])
         if (p['config'] or {}).get('modelo_cifrado'):
             z.writestr(f'{nome}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
         if com_guiao:  # Guião (resolução detalhada), só para o professor

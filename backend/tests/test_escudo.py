@@ -1151,8 +1151,8 @@ def test_folha_personalizada_uma_copia_por_aluno_real_da_turma(duas_escolas):
     assert r.status_code == 200, r.content
     z = zipfile.ZipFile(io.BytesIO(r.content))
     todos = z.namelist()
-    assert any(n.endswith('LISTA_ALUNOS_gerados.pdf') for n in todos) and any(n.endswith('LISTA_ALUNOS_gerados.xlsx') for n in todos)
-    nomes = [n for n in todos if 'LISTA' not in n]
+    assert any(n.startswith('Lista_') and n.endswith('.pdf') for n in todos) and any(n.startswith('Lista_') and n.endswith('.xlsx') for n in todos)
+    nomes = [n for n in todos if not n.startswith('Lista_')]
     assert len(nomes) == 3 and any('Nome0' in n for n in nomes)
     primeira = PdfReader(io.BytesIO(z.read(nomes[0]))).pages[0].extract_text()
     assert 'Nome0' in primeira or 'NOME0' in primeira.upper()
@@ -1188,7 +1188,7 @@ def test_folha_exclui_por_faltas_ppf_e_outros_e_regista_o_motivo(duas_escolas):
             'folha_excluir_faltas': '10', 'folha_excluir_outros': al[3].matricula}
     z = _zip(c.post(API + pid + '/gerar/', form))
     nomes = z.namelist()
-    assert len([n for n in nomes if n.endswith('.pdf') and 'LISTA' not in n]) == 1  # só sobra o aluno 2
+    assert len([n for n in nomes if n.endswith('.pdf') and not n.startswith('Lista_')]) == 1  # só sobra o aluno 2
     rel = [n for n in nomes if n.endswith('.csv')]
     texto = z.read(rel[0]).decode('utf-8-sig')
     assert 'Faltas: 12' in texto and 'PPF' in texto and 'Outros' in texto
@@ -1205,7 +1205,7 @@ def test_folha_personalizada_a_partir_de_lista_importada(duas_escolas):
             'folha_fonte': 'lista', 'folha_lista': SimpleUploadedFile('alunos.csv', csv_), 'folha_excluir': 'sim',
             'folha_excluir_motivo': ['transferida']}
     z = _zip(c.post(API + pid + '/gerar/', form, format='multipart'))
-    pdfs = [n for n in z.namelist() if n.endswith('.pdf') and 'LISTA' not in n]
+    pdfs = [n for n in z.namelist() if n.endswith('.pdf') and not n.startswith('Lista_')]
     assert len(pdfs) == 2 and not any('Cossa' in n for n in pdfs)
     assert 'Transferida' in z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
     assert c.post(API + pid + '/gerar/', {**form, 'folha_lista': SimpleUploadedFile('x.csv', b'Turma\nA\n')}, format='multipart').status_code == 400
@@ -1264,12 +1264,14 @@ def test_superadmin_com_escola_seleccionada_usa_folha_em_prova_sem_escola(duas_e
     assert com['classes'][0]['total_alunos'] == 2
 
 
-def test_com_folha_a_prova_sai_num_so_pdf_com_a_folha_na_pagina_1_seja_qual_for_o_formato(duas_escolas):
+def test_com_folha_a_prova_sai_num_so_pdf_com_a_folha_na_pagina_1_e_word_so_se_a_prova_for_docx(duas_escolas):
     c = _cliente(duas_escolas)
     pid = _pid(_criar(c))
     base = {'marcas': '[]', 'copias': '1'}
     sem = len(PdfReader(io.BytesIO(c.post(API + pid + '/gerar/', base).content)).pages)
-    for formato in ('pdf', 'word', 'ambos'):
+    for formato in ('word', 'ambos'):
+        assert c.post(API + pid + '/gerar/', {**base, 'formato': formato, 'folha_resposta': 'sim', 'folha_n_perguntas': '20'}).status_code == 400, formato
+    for formato in ('pdf',):
         r = c.post(API + pid + '/gerar/', {**base, 'formato': formato, 'folha_resposta': 'sim', 'folha_n_perguntas': '20'})
         assert r.status_code == 200 and r['Content-Type'] == 'application/pdf', formato  # um só PDF, nunca ZIP nem folha à parte
         paginas = PdfReader(io.BytesIO(r.content)).pages
@@ -1293,7 +1295,7 @@ def test_folha_regra_automatica_da_escola_salta_alunos_sem_marcar_nada(duas_esco
     base = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'sim',
             'folha_classe': '11.ª Classe'}
     # sem regra: todos
-    assert len([n for n in _zip(c.post(API + pid + '/gerar/', base)).namelist() if n.endswith('.pdf') and 'LISTA' not in n]) == 3
+    assert len([n for n in _zip(c.post(API + pid + '/gerar/', base)).namelist() if n.endswith('.pdf') and not n.startswith('Lista_')]) == 3
     # regra inválida (faltas sem total) é recusada
     r = c.post(API + pid + '/folha-regra/', {'verificar_sempre': 'on', 'motivos': ['faltas'], 'faltas_minimo': '0'})
     assert r.status_code == 400
@@ -1301,7 +1303,7 @@ def test_folha_regra_automatica_da_escola_salta_alunos_sem_marcar_nada(duas_esco
                                              'faltas_minimo': '10'})
     assert r.status_code == 200 and r.json()['data']['faltas_minimo'] == 10
     z = _zip(c.post(API + pid + '/gerar/', base))
-    assert len([n for n in z.namelist() if n.endswith('.pdf') and 'LISTA' not in n]) == 1   # só sobra o aluno sem faltas nem PDF
+    assert len([n for n in z.namelist() if n.endswith('.pdf') and not n.startswith('Lista_')]) == 1   # só sobra o aluno sem faltas nem PDF
     texto = z.read([n for n in z.namelist() if n.endswith('.csv')][0]).decode('utf-8-sig')
     assert 'Faltas: 15' in texto and 'PDF' in texto
     ctx = c.get(API + pid + '/folha-contexto/').json()['data']
@@ -1344,3 +1346,17 @@ def test_qr_da_pergunta_fica_num_vazio_junto_da_questao_sem_tapar_alternativas()
         r = fitz.Rect(a['qr'])
         assert not any(r.intersects(t) for t in texto)          # nunca tapa texto nem alternativas
         assert abs(r.y0 - a['y0']) <= 160                       # junto da própria questão
+
+
+def test_folha_no_escudo_leva_data_hora_duracao_sala_e_professor_indicados(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    base = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20'}
+    r = c.post(API + pid + '/gerar/', {**base, 'folha_data': '2031-03-17', 'folha_hora_inicio': '08:00', 'folha_hora_fim': '09:30',
+                                       'folha_duracao': '90', 'folha_sala': '5', 'folha_professor': 'Prof. Teste Real'})
+    assert r.status_code == 200, r.content[:200]
+    texto = PdfReader(io.BytesIO(r.content)).pages[0].extract_text() or ''
+    assert '17/03/2031' in texto and '08:00' in texto and '09:30' in texto and '90' in texto and 'Prof. Teste Real' in texto
+    # sem indicar nada, nada é inventado
+    vazio = PdfReader(io.BytesIO(c.post(API + pid + '/gerar/', base).content)).pages[0].extract_text() or ''
+    assert '17/03/2031' not in vazio and 'Prof. Teste Real' not in vazio

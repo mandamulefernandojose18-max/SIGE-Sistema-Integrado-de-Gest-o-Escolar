@@ -274,8 +274,8 @@ class FolhaRespostaGerarView(APIView):
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
                 z.writestr(nome, conteudo)
-                z.writestr(f'{base}_LISTA_ALUNOS_gerados.pdf', lista_pdf)
-                z.writestr(f'{base}_LISTA_ALUNOS_gerados.xlsx', lista_xlsx)
+                z.writestr(f'Lista_{base}.pdf', lista_pdf)  # «Lista» + a identificação das folhas
+                z.writestr(f'Lista_{base}.xlsx', lista_xlsx)
             conteudo, nome, mime = buf.getvalue(), base + '.zip', 'application/zip'
         else:
             mime = 'application/pdf' if formato == 'pdf' else XLSX_MIME

@@ -479,11 +479,20 @@
       '<small>A IA do SIGE resolve a prova passo a passo, sem omitir cálculos, com as equações em forma matemática e a opção correcta no fim. Sai em PDF e em Word, só para o professor.</small></label>' +
       '<div id="escudoGuiaoCaixa" class="guiao-caixa" hidden></div>' +
       '<label class="campo"><span>Folha de resposta <small>(opcional)</small></span><select name="folha_resposta" id="escudoFolha"><option value="nao" selected>Não</option><option value="sim">Sim</option></select>' +
-        '<small>Se «Sim», a folha de resposta sai como a <strong>primeira página</strong> da própria prova, juntas num só PDF por cópia (a prova não sai sem a folha; no Word, a folha entra como imagem na primeira página).</small></label>' +
+        '<small>Se «Sim», a folha de resposta sai como a <strong>primeira página</strong> da própria prova, juntas num só PDF por cópia (a prova não sai sem a folha e a folha nunca vai à parte).</small></label>' +
       '<div id="escudoFolhaCaixa" class="guiao-caixa" hidden>' +
         '<div class="duas"><label class="campo"><span>N.º de perguntas</span><input type="number" name="folha_n_perguntas" min="1" max="100" value="' + esc(pg.total || '') + '" placeholder="1 a 100"></label>' +
         '<label class="campo"><span>Alternativas por pergunta</span><select name="folha_n_alternativas"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label></div>' +
         '<label class="campo"><span>Tipo de avaliação</span><select name="folha_tipo" id="escudoFolhaTipo"><option value="ACS1">1ª ACS</option></select></label>' +
+        '<fieldset style="border:0;padding:0;margin:0"><legend class="suave pequeno">Dados da avaliação impressos na folha (opcionais: sem preencher, ficam em branco)</legend>' +
+          '<div class="duas"><label class="campo"><span>Data</span><input type="date" name="folha_data" id="escudoFolhaData"></label>' +
+          '<label class="campo"><span>Sala</span><input type="text" name="folha_sala" maxlength="20" placeholder="Ex.: 3"></label></div>' +
+          '<div class="duas"><label class="campo"><span>Hora inicial</span><input type="time" name="folha_hora_inicio" id="escudoFolhaHora"></label>' +
+          '<label class="campo"><span>Duração (minutos)</span><input type="number" name="folha_duracao" id="escudoFolhaDur" min="0" max="600" placeholder="Minutos"></label></div>' +
+          '<label class="campo"><span>Hora final <small>(calculada: hora inicial + duração; podes ajustar)</small></span><input type="time" name="folha_hora_fim" id="escudoFolhaHoraFim"></label>' +
+          '<label class="campo"><span>Professor(a)</span><input type="text" name="folha_professor" maxlength="80"></label>' +
+          '<div class="duas"><label class="campo"><span>Versões (anti-cópia)</span><input type="text" name="folha_versoes" maxlength="20" placeholder="Vazio = sem versões; ex.: A,B"></label>' +
+          '<label class="campo"><span>Instrução adicional impressa</span><input type="text" name="folha_instrucao" maxlength="140"></label></div></fieldset>' +
         '<label class="campo"><span>Folha codificada</span><select name="folha_codificada"><option value="sim" selected>Sim: com código de barras e QR de verificação</option><option value="nao">Não: sem códigos</option></select></label>' +
         '<label class="campo" id="escudoFolhaLogoCampo" hidden><span>Logótipo próprio da escola</span><select name="folha_logo"><option value="nao" selected>Não</option><option value="sim">Sim (não se aplica ao Exame Final)</option></select></label>' +
         '<label class="campo"><span>Personalizada</span><select name="folha_personalizada" id="escudoFolhaPers"><option value="nao" selected>Não: só os dados do aluno ficam em branco</option><option value="sim">Sim: com os dados de cada aluno</option></select></label>' +
@@ -681,6 +690,15 @@
         caixa.hidden = sel.value !== 'sim';
         if (sel.value === 'sim') carregar();
       });
+      // hora final = hora inicial + duração (minutos); se ajustares a hora final, a duração acompanha
+      var hIni = $('#escudoFolhaHora'), hFim = $('#escudoFolhaHoraFim'), hDur = $('#escudoFolhaDur');
+      var minutos = function (v) { var m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null; };
+      var calcFim = function () {
+        var i = minutos(hIni.value), d = parseInt(hDur.value, 10);
+        if (i != null && d > 0) { var t = (i + d) % 1440; hFim.value = ('0' + Math.floor(t / 60)).slice(-2) + ':' + ('0' + (t % 60)).slice(-2); }
+      };
+      hIni.addEventListener('input', calcFim); hDur.addEventListener('input', calcFim);
+      hFim.addEventListener('change', function () { var i = minutos(hIni.value), f = minutos(hFim.value); if (i != null && f != null) hDur.value = ((f - i) + 1440) % 1440; });
       pers.addEventListener('change', function () { alvo.hidden = pers.value !== 'sim'; if (pers.value === 'sim') carregar(); });
       var bPreviaF = $('#escudoFolhaBtnPrevia'), imgPreviaF = $('#escudoFolhaPreviaImg');
       bPreviaF.addEventListener('click', async function () {

@@ -24,6 +24,12 @@ from apps.turmas.models import Turma
 from .servico import MAX_COPIAS
 
 
+def _data_br(iso):
+    """«2026-11-09» -> «09/11/2026»; vazio ou inválido fica em branco."""
+    m = re.fullmatch(r'(\d{4})-(\d{2})-(\d{2})', (iso or '').strip())
+    return f'{m.group(3)}/{m.group(2)}/{m.group(1)}' if m else ''
+
+
 def _on(form, nome, padrao=False):
     v = form.get(nome)
     return padrao if v is None else str(v).lower() in ('on', '1', 'true', 'sim')
@@ -300,6 +306,15 @@ def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
         'codigo_barras': _on(form, 'folha_codificada', True),  # «codificada»: leva código e QR de verificação
         'logo_escola': _on(form, 'folha_logo'),
         'incluir_chave': False,
+        # dados da avaliação impressos na folha: só o que o utilizador indicar (nada é inventado)
+        'duracao_min': form.get('folha_duracao') or 0,
+        'data': _data_br(form.get('folha_data')),
+        'hora_inicio': (form.get('folha_hora_inicio') or '').strip(),
+        'hora_fim': (form.get('folha_hora_fim') or '').strip(),
+        'sala': (form.get('folha_sala') or '').strip(),
+        'professor': (form.get('folha_professor') or '').strip(),
+        'versoes': (form.get('folha_versoes') or '').strip(),
+        'instrucao_extra': (form.get('folha_instrucao') or '').strip(),
     }
     if classe:
         discs = Disciplina.objects.filter(escola=escola, ano_letivo=ano, classe=classe)

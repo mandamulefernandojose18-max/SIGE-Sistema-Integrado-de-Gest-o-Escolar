@@ -1,4 +1,4 @@
-import io
+﻿import io
 
 import openpyxl
 import pytest
@@ -98,17 +98,17 @@ def test_pdf_turma_gera_uma_folha_por_aluno(cenario):
     import zipfile
     z = zipfile.ZipFile(io.BytesIO(r.content))   # turma/classe: ZIP com as folhas + lista de quem teve folha (PDF e Excel)
     nomes = z.namelist()
-    assert any(n.endswith('_LISTA_ALUNOS_gerados.pdf') for n in nomes) and any(n.endswith('_LISTA_ALUNOS_gerados.xlsx') for n in nomes)
-    folhas = z.read([n for n in nomes if n.endswith('.pdf') and 'LISTA' not in n][0])
+    assert any(n.startswith('Lista_') and n.endswith('.pdf') for n in nomes) and any(n.startswith('Lista_') and n.endswith('.xlsx') for n in nomes)
+    folhas = z.read([n for n in nomes if n.endswith('.pdf') and not n.startswith('Lista_')][0])
     assert folhas[:4] == b'%PDF'
     import pymupdf as fitz
     doc = fitz.open(stream=folhas, filetype='pdf')
     assert doc.page_count >= 3
     assert len(doc.get_toc()) == 3 and 'Silva' in doc.get_toc()[0][1]   # marcador com o nome de cada aluno
-    lista = fitz.open(stream=z.read([n for n in nomes if n.endswith('.pdf') and 'LISTA' in n][0]), filetype='pdf')
+    lista = fitz.open(stream=z.read([n for n in nomes if n.endswith('.pdf') and n.startswith('Lista_')][0]), filetype='pdf')
     texto = ''.join(p.get_text() for p in lista)
     assert 'Ana' in texto and 'Bruno' in texto and 'Carla' in texto and 'Total de folhas/provas geradas: 3' in texto
-    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in nomes if n.endswith('.xlsx') and 'LISTA' in n][0])))
+    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in nomes if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
     assert wb.sheetnames == ['Alunos'] and wb['Alunos']['C10'].value == Aluno.objects.get(nome='Ana', turma=turma).matricula
 
 
@@ -131,10 +131,10 @@ def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
     import zipfile
     z = zipfile.ZipFile(io.BytesIO(r.content))
     import pymupdf as fitz
-    lista = fitz.open(stream=z.read([n for n in z.namelist() if n.endswith('.pdf') and 'LISTA' in n][0]), filetype='pdf')
+    lista = fitz.open(stream=z.read([n for n in z.namelist() if n.endswith('.pdf') and n.startswith('Lista_')][0]), filetype='pdf')
     texto = ''.join(p.get_text() for p in lista)
     assert 'Carla' in texto and 'Faltas: 14' in texto and 'PPF' in texto   # incluída + excluídos com o motivo
-    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and 'LISTA' in n][0])))
+    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
     assert wb.sheetnames == ['Alunos']
     ws = wb['Alunos']   # estatística H/M/HM dos dois grupos na mesma lista (as 3 alunas são do sexo feminino)
     assert [ws.cell(row=5, column=k).value for k in (3, 4, 5, 6)] == ['Folha gerada', 0, 1, 1]
@@ -173,7 +173,7 @@ def test_xlsx_turma_tem_resumo(cenario):
     r = _cliente('admin.fra@sige.mz').post(URL + 'gerar/', _corpo(escopo='turma', turma_id=str(turma.id), formato='xlsx'), format='json')
     import zipfile
     z = zipfile.ZipFile(io.BytesIO(r.content))
-    principal = [n for n in z.namelist() if n.endswith('.xlsx') and 'LISTA' not in n][0]
+    principal = [n for n in z.namelist() if n.endswith('.xlsx') and not n.startswith('Lista_')][0]
     nomes = openpyxl.load_workbook(io.BytesIO(z.read(principal))).sheetnames
     assert 'Resumo' in nomes and len(nomes) == 4
     assert any('Silva' in n and 'Ana' in n for n in nomes)   # cada folha do Excel leva o nome do aluno
@@ -316,8 +316,8 @@ def test_folha_a_partir_de_lista_importada_com_exclusoes_e_listas(cenario):
     assert r.status_code == 200, r.content[:300]
     assert r['X-Total-Folhas'] == '2'   # Zeca (transferida) fica de fora
     z = zipfile.ZipFile(io.BytesIO(r.content))
-    assert any(n.endswith('_LISTA_ALUNOS_gerados.pdf') for n in z.namelist())
-    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and 'LISTA' in n][0])))
+    assert any(n.startswith('Lista_') and n.endswith('.pdf') for n in z.namelist())
+    wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
     assert wb.sheetnames == ['Alunos']
     # sem ficheiro: recusado
     r = c.post(URL + 'gerar/', {'dados': json.dumps(corpo)}, format='multipart')
