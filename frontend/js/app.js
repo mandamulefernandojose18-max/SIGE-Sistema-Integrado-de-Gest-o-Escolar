@@ -11508,8 +11508,7 @@ async function carregarDisciplinas() {
   }
 
   // 2. Preencher Dropdown com as Classes/Níveis Oficiais para Escolher e Adicionar
-  const dropdownLista = document.getElementById('listaDropdownClassesDisponiveis');
-  if (dropdownLista) {
+  document.querySelectorAll('[id="listaDropdownClassesDisponiveis"]').forEach(dropdownLista => {
     const listaOficial = regime === 'NIVEIS' ? window.LISTA_NIVEIS_OFICIAIS : window.LISTA_CLASSES_OFICIAIS;
     const ativas = window.obterClassesInstituicao();
 
@@ -11524,7 +11523,7 @@ async function carregarDisciplinas() {
         </li>
       `;
     }).join('');
-  }
+  });
 
   try {
     let resD = null;
@@ -11566,8 +11565,7 @@ async function carregarDisciplinas() {
   }
 
   // 4. Renderizar Barra de Abas das Classes
-  const navTabs = document.getElementById('navAbasClassesInstituicao');
-  if (navTabs) {
+  document.querySelectorAll('[id="navAbasClassesInstituicao"]').forEach(navTabs => {
     const classeAtiva = state.filtroDisciplinaClasse || '';
     const labelTexto = regime === 'NIVEIS' ? 'Níveis:' : 'Classes:';
     let tabsHtml = `
@@ -11591,16 +11589,28 @@ async function carregarDisciplinas() {
       });
     }
     navTabs.innerHTML = tabsHtml;
-  }
+  });
 
   // 5. Renderizar a Sub-página da Classe Ativa (com secções/áreas e tabela de disciplinas)
   window.renderizarSubpaginaClasseAtiva();
 }
 
+// A página Disciplinas existe em dois modelos (Área Pedagógica e página própria): o id pode estar duplicado no DOM.
+// Desenhar em TODOS os contentores garante que o que está visível nunca fica preso em "A carregar...".
 window.renderizarSubpaginaClasseAtiva = function() {
-  const container = document.getElementById('containerSubpaginaClasse');
-  if (!container) return;
+  const contentores = Array.from(document.querySelectorAll('[id="containerSubpaginaClasse"]'));
+  if (contentores.length === 0) return;
+  let html = '';
+  try {
+    html = window.montarHtmlSubpaginaClasseAtiva();
+  } catch (err) {
+    console.error('Erro ao desenhar o plano curricular:', err);
+    html = `<div class="alert alert-danger my-2"><i class="bi bi-exclamation-triangle me-1"></i>Não foi possível desenhar o plano curricular (${(err && err.message) || 'erro'}). <button class="btn btn-sm btn-outline-danger ms-2" onclick="carregarDisciplinas()">Tentar de novo</button></div>`;
+  }
+  contentores.forEach(c => { c.innerHTML = html; });
+};
 
+window.montarHtmlSubpaginaClasseAtiva = function() {
   const regime = window.obterRegimeInstituicao();
   const classesAtivas = window.obterClassesInstituicao();
   const classeAtiva = (state.filtroDisciplinaClasse || '').trim();
@@ -11617,7 +11627,7 @@ window.renderizarSubpaginaClasseAtiva = function() {
       </li>
     `).join('');
 
-    container.innerHTML = `
+    return `
       <div class="card border-dashed p-5 text-center bg-light my-2 shadow-none">
         <div class="text-muted">
           <i class="bi bi-mortarboard fs-1 text-primary d-block mb-3"></i>
@@ -11636,7 +11646,6 @@ window.renderizarSubpaginaClasseAtiva = function() {
         </div>
       </div>
     `;
-    return;
   }
 
   // Caso 2: Sub-página da Classe Ativa
@@ -11778,7 +11787,7 @@ window.renderizarSubpaginaClasseAtiva = function() {
     `;
   }).join('');
 
-  container.innerHTML = `
+  return `
     <!-- Cabeçalho da Sub-página da Classe -->
     <div class="card bg-light border p-3 mb-3 shadow-none">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
