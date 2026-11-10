@@ -2479,6 +2479,7 @@ function renderizarSidebarPorNivel(role) {
   if (!navContainer) return;
 
   const ITENS_SUBNAV_PEDAGOGICO = [
+    'atribuicoes-cargos',
     'plano-curricular',
     'desbloqueio',
     'caderneta',
@@ -2534,6 +2535,9 @@ function renderizarSidebarPorNivel(role) {
             <i class="bi bi-chevron-down small" id="seta-area-pedagogica" style="transition: transform 0.2s;"></i>
           </a>
           <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('atribuicoes-cargos')" id="subnav-atribuicoes-cargos">
+              <i class="bi bi-clipboard-check text-primary me-1"></i> <span>Actividades dos Cargos</span>
+            </a>
             <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('plano-curricular')" id="subnav-plano-curricular">
               <i class="bi bi-diagram-3-fill text-success me-1"></i> <span>Plano Curricular</span>
             </a>
@@ -2954,7 +2958,7 @@ function navegarPara(viewId) {
       // Se for subitem da Área Pedagógica, manter o acordeão aberto
       const subnav = document.getElementById('subnav-area-pedagogica');
       const seta = document.getElementById('seta-area-pedagogica');
-      const ITENS_SUBNAV_PEDAGOGICO = ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
+      const ITENS_SUBNAV_PEDAGOGICO = ['atribuicoes-cargos', 'plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
       if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId) && subnav) {
         subnav.style.display = 'block';
         if (seta) seta.style.transform = 'rotate(180deg)';
@@ -3198,6 +3202,7 @@ async function navegarPara(viewId) {
 
   // Marcar link como ativo na sidebar e sincronizar submenu da Área Pedagógica
   const ITENS_SUBNAV_PEDAGOGICO = [
+    'atribuicoes-cargos',
     'plano-curricular',
     'desbloqueio',
     'caderneta',
