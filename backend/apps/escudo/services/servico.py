@@ -22,8 +22,8 @@ CHAVES_CONFIG = ("formato", "guiao_opcao", "marcas", "url_base", "rasterizar", "
 class BaseSelagem:
     """PDF pronto a selar (já rasterizado, se for caso) e posição das perguntas, detectada no original."""
 
-    def __init__(self, pdf, ancoras, zonas_agua=None):
-        self.pdf, self.ancoras, self.zonas_agua = pdf, ancoras, zonas_agua
+    def __init__(self, pdf, ancoras, zonas_agua=None, ocupados=None):
+        self.pdf, self.ancoras, self.zonas_agua, self.ocupados = pdf, ancoras, zonas_agua, ocupados
 
     def para(self, serial):
         return self
@@ -54,7 +54,7 @@ class BaseVariantesWord:
             pdf = selos.reservar_margens(pdf)
         return BaseSelagem(selos.preparar_base(pdf, self.op["rasterizar"]),
                            selos.detectar_perguntas(pdf) if self.detetar else None,
-                           selos.espaco_marca_agua(pdf) if self.agua else None)
+                           selos.espaco_marca_agua(pdf) if self.agua else None, selos.mapa_ocupacao(pdf))
 
     def para(self, serial):
         if serial not in self._bases:
@@ -81,7 +81,7 @@ class BaseVariantes:
             pdf = variantes.pdf_copia(self.modelo, self.pid, serial)
             ancoras = selos.detectar_perguntas(pdf) if self.detetar else None
             zonas = selos.espaco_marca_agua(pdf) if self.agua else None
-            self._ultima = (serial, BaseSelagem(selos.preparar_base(pdf, self.rasterizar), ancoras, zonas))
+            self._ultima = (serial, BaseSelagem(selos.preparar_base(pdf, self.rasterizar), ancoras, zonas, selos.mapa_ocupacao(pdf)))
         return self._ultima[1]
 
 
@@ -424,7 +424,7 @@ class Servico:
             original = selos.reservar_margens(original)  # as faixas de aviso não podem tapar o conteúdo
         ancoras = selos.detectar_perguntas(original) if detetar else None
         zonas = selos.espaco_marca_agua(original) if agua else None
-        return BaseSelagem(selos.preparar_base(original, op["rasterizar"]), ancoras, zonas)
+        return BaseSelagem(selos.preparar_base(original, op["rasterizar"]), ancoras, zonas, selos.mapa_ocupacao(original))
 
     def selar_copia(self, p, op, serial, base=None):
         base = (base or self.preparar_base(p["id"], op)).para(serial)
@@ -435,7 +435,8 @@ class Servico:
                            qr_pergunta=op["qr_pergunta"], qr_marca_agua=op["qr_marca_agua"], qr_pagina=op.get("qr_pagina", True), ancoras=base.ancoras,
                            zonas_marca_agua=base.zonas_agua, tamanho_qr_fundo=op.get("tamanho_qr_fundo"),
                            tamanho_qr_pagina=op.get("tamanho_qr_pagina"), armadilha=selos.armadilha_efetiva(op.get("armadilha", True), op.get("armadilha_palavra")),
-            modo_qr_pagina=op.get("modo_qr_pagina", "grade"), posicao_qr_fundo=op.get("posicao_qr_fundo", "auto"))
+            modo_qr_pagina=op.get("modo_qr_pagina", "grade"), posicao_qr_fundo=op.get("posicao_qr_fundo", "auto"),
+            ocupados_paginas=base.ocupados)
 
     def tem_word(self, p):
         """O .docx original está guardado (cifrado): só então a prova pode sair também em Word."""

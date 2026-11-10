@@ -3,7 +3,7 @@
 TIPOS_AVALIACAO = ("1.ª ACS", "2.ª ACS", "3.ª ACS", "Avaliação Trimestral")
 TRIMESTRES = ("I Trimestre", "II Trimestre", "III Trimestre")
 DISCIPLINAS = (
-    "Português", "Inglês", "Francês", "Matemática", "Física", "Química", "Biologia", "Geografia", "História",
+    "Português", "Inglês", "Francês", "Matemática", "Matemática Ciências", "Matemática Letras", "Física", "Química", "Biologia", "Geografia", "História",
     "Filosofia", "Educação Física", "Educação Visual", "Desenho e Geometria Descritiva", "Agro-pecuária",
     "Tecnologias de Informação e Comunicação", "Empreendedorismo", "Educação Moral e Cívica", "Ciências Naturais",
     "Ciências Sociais", "Educação Musical", "Ofícios", "Línguas Moçambicanas",

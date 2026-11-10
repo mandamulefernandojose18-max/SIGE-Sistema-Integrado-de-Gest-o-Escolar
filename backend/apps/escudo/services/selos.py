@@ -179,15 +179,47 @@ def detectar_perguntas(pdf):
                     a["qr"] = tuple(melhor[1])
                     ocupados.append(melhor[1] + (-3, -3, 3, 3))
                     continue
-                for desvio in (0, -8, 8, 16, -16):
-                    y = a["y0"] + desvio
-                    cand = fitz.Rect(largura - MARGEM_QR_PERGUNTA - TAM_QR_PERGUNTA, y, largura - MARGEM_QR_PERGUNTA, y + TAM_QR_PERGUNTA)
-                    if y >= 0 and cand.y1 <= altura - 18 and not any(cand.intersects(o) for o in ocupados):
-                        a["qr"] = tuple(cand)
-                        ocupados.append(cand + (-3, -3, 3, 3))
+                # 2.º/3.º: margem direita e depois esquerda, ao longo de toda a pergunta, e com o QR mais pequeno se for preciso
+                for lado in (TAM_QR_PERGUNTA, QR_PERGUNTA_MIN):
+                    for esq in (False, True):
+                        x = 14.0 if esq else largura - MARGEM_QR_PERGUNTA - lado
+                        for desvio in (0, -8, 8, 16, -16, 28, 40, 56, 72, 90):
+                            y = a["y0"] + desvio
+                            cand = fitz.Rect(x, y, x + lado, y + lado)
+                            if (y >= 48 and cand.y1 <= altura - 58 and (desvio <= 0 or y + lado <= a["fim"])
+                                    and not any(cand.intersects(o) for o in ocupados)):
+                                a["qr"] = tuple(cand)
+                                ocupados.append(cand + (-3, -3, 3, 3))
+                                break
+                        if a["qr"]:
+                            break
+                    if a["qr"]:
                         break
+            _limitar_qr_pagina(achadas)
             resultado.append(achadas)
     return resultado
+
+
+MAX_QR_PERGUNTA_PAGINA = 8        # tecto de QR de pergunta por página (nunca enche a folha, mesmo com muitas perguntas)
+QR_PERGUNTA_MIN = 10 * MM
+
+
+def _limitar_qr_pagina(achadas):
+    """Deixa no máximo MAX_QR_PERGUNTA_PAGINA QR por página, repartidos pelas perguntas (espaçamento regular)."""
+    com_qr = [a for a in achadas if a.get("qr")]
+    if len(com_qr) <= MAX_QR_PERGUNTA_PAGINA:
+        return
+    manter = {id(com_qr[round(k * (len(com_qr) - 1) / (MAX_QR_PERGUNTA_PAGINA - 1))]) for k in range(MAX_QR_PERGUNTA_PAGINA)}
+    for a in com_qr:
+        if id(a) not in manter:
+            a["qr"] = None
+
+
+def mapa_ocupacao(pdf):
+    """Retângulos ocupados (texto, imagens, linhas) de cada página do PDF ORIGINAL: depois de rasterizado a página
+    inteira é uma imagem e já não se sabe onde há espaço livre para o código de barras e os QR."""
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        return [_retangulos_ocupados(p) for p in doc]
 
 
 def validar_marcas(brutas):
@@ -362,7 +394,7 @@ def resolver_marcas(pagina, ocupados, marcas_da_pagina):
     return resultado
 
 
-BARRAS_MIN_AUTO_MM = 30
+BARRAS_MIN_AUTO_MM = 24
 
 
 def geometria(marca, largura, altura):
@@ -920,7 +952,7 @@ def _marca_na_pagina(m, i, n):
 
 def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_visivel=True, aviso_ia=True,
           aviso_foto=False, mensagem_ia=None, aviso_pergunta=False, qr_pergunta=False, ancoras=None,
-          qr_marca_agua=False, zonas_marca_agua=None, qr_pagina=False, limite_faixa=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None, partes_aviso="tudo", margem_lateral=None):
+          qr_marca_agua=False, zonas_marca_agua=None, qr_pagina=False, limite_faixa=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None, partes_aviso="tudo", margem_lateral=None, ocupados_paginas=None):
     """Aplica as marcas, o aviso visível e o texto invisível a um PDF-base; devolve os bytes do PDF.
 
     Tudo é desenhado numa sobreposição vectorial (reportlab) e fundido página a página: uma só
@@ -953,7 +985,8 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
             for a in ancoras[i]:
                 if a.get("qr") and a["qr"][1] >= 48 and a["qr"][3] <= H - 16:  # fora da faixa do topo e do rodapé
                     _desenhar_qr(c, fitz.Rect(a["qr"]), H, f"{url_base.rstrip('/')}/v/{pid}/{serial}/q{a['n']}")
-        ocupados = _retangulos_ocupados(pagina)
+        # o código de barras e os QR usam o espaço livre medido no original (a base rasterizada é uma só imagem)
+        ocupados = list(ocupados_paginas[i]) if ocupados_paginas and i < len(ocupados_paginas) else _retangulos_ocupados(pagina)
         for a in (ancoras[i] if qr_pergunta and ancoras and i < len(ancoras) else []):
             if a.get("qr"):
                 ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
