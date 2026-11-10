@@ -65,6 +65,11 @@ if [ -f "frontend/service-worker.js" ]; then
     log_info "frontend/service-worker.js CACHE_NAME sincronizado com o commit ${COMMIT_HASH}."
 fi
 
+# Build do frontend: minifica o JS proprio para frontend/dist (servido pelo Nginx). Corre num contentor Node efemero.
+log_info "Gerando build minificado do frontend (frontend/dist)..."
+docker run --rm -v "${PROJECT_DIR}/frontend":/app -w /app node:20-alpine sh -c "npm ci --no-audit --no-fund && node scripts/build.js" \
+    || log_error "Falha no build do frontend (npm run build)."
+
 # ------------------------------------------------------------------------------
 # 2. DEPLOY ISOLADO DA API (Backend + Banco de Dados)
 # ------------------------------------------------------------------------------
@@ -130,7 +135,7 @@ mkdir -p "${PROJECT_DIR}/certs"
 if [ ! -f "${PROJECT_DIR}/certs/fullchain.pem" ] || [ ! -f "${PROJECT_DIR}/certs/privkey.pem" ]; then
     log_info "Gerando certificado SSL para ${SSL_DOMAIN}..."
     if [ -f "/root/.acme.sh/acme.sh" ]; then
-        /root/.acme.sh/acme.sh --issue --server letsencrypt -d "${SSL_DOMAIN}" -w "${PROJECT_DIR}/frontend" || true
+        /root/.acme.sh/acme.sh --issue --server letsencrypt -d "${SSL_DOMAIN}" -w "${PROJECT_DIR}/frontend/dist" || true
         /root/.acme.sh/acme.sh --install-cert -d "${SSL_DOMAIN}" \
             --key-file "${PROJECT_DIR}/certs/privkey.pem" \
             --fullchain-file "${PROJECT_DIR}/certs/fullchain.pem" || true

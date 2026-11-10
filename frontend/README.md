@@ -15,6 +15,18 @@ Aplicação Web Single-Page Application (SPA / PWA) oficial para gestão escolar
 
 ---
 
+## Build de Produção (JS minificado)
+
+```bash
+cd frontend
+npm ci
+npm run build   # gera frontend/dist (JS minificado, sem templates.js legado)
+```
+
+O Nginx de produção serve apenas `frontend/dist`. Para desenvolvimento use `npm run dev` (código legível em `js/`).
+
+---
+
 ## Documentação Técnica Completa
 
 A documentação detalhada da interface está organizada no diretório `docs/`:

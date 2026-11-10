@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node --test tests/prompt-gateway.test.js",
-    "docs": "node scripts/update_docs.js"
+    "docs": "node scripts/update_docs.js",
+    "build": "node scripts/build.js"
   },
   "keywords": [
     "sige",
@@ -17,5 +18,8 @@
     "mocambique"
   ],
   "author": "SIGE Core Engineering Team",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
 }
