@@ -57,11 +57,13 @@ ROTULO_TIPO_COMPLETO = {
     'EXAME': 'Exame Final',
 }
 
-AZUL = colors.HexColor('#14325c')
-CINZA_FUNDO = colors.HexColor('#f1f4f8')
-CINZA_LINHA = colors.HexColor('#8a94a3')
-CINZA_TEXTO = colors.HexColor('#4a5361')
-PRETO = colors.HexColor('#111111')
+# Cores de alto contraste para impressão (letras bem visíveis e carregadas,
+# mesmo em impressoras laser/jato de tinta em modo económico ou monocromático).
+AZUL = colors.HexColor('#0a1f40')
+CINZA_FUNDO = colors.HexColor('#e6e9ee')
+CINZA_LINHA = colors.HexColor('#3a4250')
+CINZA_TEXTO = colors.HexColor('#000000')
+PRETO = colors.HexColor('#000000')
 
 FONTE = 'Times-Roman'
 FONTE_B = 'Times-Bold'
@@ -418,12 +420,25 @@ def _texto_ajustado(c, txt, x_mm, y_mm, larg_mm, fonte=FONTE, tam=9.0, tam_min=5
     while len(txt) > 1 and stringWidth(txt, fonte, t) > larg_mm * mm:
         txt = txt[:-1]
     c.setFont(fonte, t)
-    if alinh == 'c':
-        c.drawCentredString((x_mm + larg_mm / 2) * mm, _y(y_mm), txt)
-    elif alinh == 'r':
-        c.drawRightString((x_mm + larg_mm) * mm, _y(y_mm), txt)
-    else:
-        c.drawString(x_mm * mm, _y(y_mm), txt)
+    # Letras "carregadas": contorno fino da mesma cor do preenchimento (impressão bem visível)
+    c.saveState()
+    try:
+        c.setStrokeColor(c._fillColorObj)
+        c.setLineWidth(0.22)
+        txo = c.beginText()
+        txo.setTextRenderMode(2)
+        txo.setFont(fonte, t)
+        if alinh == 'c':
+            xx = (x_mm + larg_mm / 2) * mm - stringWidth(txt, fonte, t) / 2
+        elif alinh == 'r':
+            xx = (x_mm + larg_mm) * mm - stringWidth(txt, fonte, t)
+        else:
+            xx = x_mm * mm
+        txo.setTextOrigin(xx, _y(y_mm))
+        txo.textOut(txt)
+        c.drawText(txo)
+    finally:
+        c.restoreState()
 
 
 def _barra_titulo(c, x, y, w, h, titulo, alinh='l', tam=8.5):
