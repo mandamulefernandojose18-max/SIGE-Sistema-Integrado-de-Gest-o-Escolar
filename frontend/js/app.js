@@ -3050,6 +3050,9 @@ async function carregarPaginaModulo(painel, viewId) {
 async function carregarScriptModulo(painel, viewId) {
   const idScript = `script-modulo-${viewId}`;
   if (document.getElementById(idScript)) return;
+  // Disciplinas: a lógica actual (classes, secções/áreas) vive no app.js. O ficheiro modular antigo
+  // redefinia carregarDisciplinas() e deixava a página presa em "A carregar...", por isso não é carregado.
+  if (viewId === 'disciplinas') return;
   const buildParam = (typeof sigeCurrentBuild === 'function' && sigeCurrentBuild()) || Date.now();
 
   const SCRIPTS_PROPRIOS = {
