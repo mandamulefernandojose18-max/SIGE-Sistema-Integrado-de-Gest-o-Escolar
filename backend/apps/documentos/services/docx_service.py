@@ -682,7 +682,8 @@ def inserir_conteudo_certificado_docx(doc, aluno, escola, ano_letivo, notas_disc
 
     p_cod = doc.add_paragraph()
     p_cod.paragraph_format.space_after = Pt(16)
-    cod_str = codigo_autenticidade or f"CERT-{aluno.matricula}-2026"
+    from apps.certificados.services import codigo_certificado_conclusao
+    cod_str = codigo_autenticidade or codigo_certificado_conclusao(aluno.escola, aluno)
     r_cod = p_cod.add_run(f"Código de Autenticação Digital: {cod_str}")
     aplicar_fonte_times(r_cod, pt_size=10, italic=True)
 

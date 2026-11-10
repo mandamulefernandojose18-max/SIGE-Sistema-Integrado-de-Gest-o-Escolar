@@ -39,7 +39,7 @@ class LoginView(APIView):
         LogAcesso.objects.create(
             escola=user.escola,
             usuario=user,
-            ip=request.META.get('REMOTE_ADDR', '127.0.0.1'),
+            ip=request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR', '127.0.0.1'),
             user_agent=request.META.get('HTTP_USER_AGENT', ''),
             tipo='LOGIN_SUCESSO'
         )

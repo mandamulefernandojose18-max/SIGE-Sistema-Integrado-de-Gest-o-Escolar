@@ -754,8 +754,8 @@ class CertificadoPDFView(APIView):
         media_pdf = media_global if media_global != '-' else None
         orientacao = request.query_params.get('orientacao', 'portrait')
 
-        cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
-        cod = cert.codigo_autenticidade if cert else f"CERT-{aluno.matricula}-2026"
+        from apps.certificados.services import codigo_certificado_conclusao
+        cod = codigo_certificado_conclusao(escola, aluno, getattr(request.user, 'nome', None) or 'Secretaria')
 
         pdf_bytes = gerar_certificado_pdf(
             aluno=aluno,
@@ -787,8 +787,8 @@ class CertificadoDOCXView(APIView):
         media_val = media_global if media_global != '-' else None
         orientacao = request.query_params.get('orientacao', 'portrait')
 
-        cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
-        cod = cert.codigo_autenticidade if cert else f"CERT-{aluno.matricula}-2026"
+        from apps.certificados.services import codigo_certificado_conclusao
+        cod = codigo_certificado_conclusao(escola, aluno, getattr(request.user, 'nome', None) or 'Secretaria')
 
         docx_bytes = gerar_certificado_docx(
             aluno=aluno,
@@ -818,8 +818,8 @@ class CertificadoXLSXView(APIView):
         media_val = media_global if media_global != '-' else None
         orientacao = request.query_params.get('orientacao', 'portrait')
 
-        cert = Certificado.objects.filter(escola=escola, aluno=aluno, tipo='CONCLUSAO').first()
-        cod = cert.codigo_autenticidade if cert else f"CERT-{aluno.matricula}-2026"
+        from apps.certificados.services import codigo_certificado_conclusao
+        cod = codigo_certificado_conclusao(escola, aluno, getattr(request.user, 'nome', None) or 'Secretaria')
 
         xlsx_bytes = gerar_certificado_xlsx(
             aluno=aluno,

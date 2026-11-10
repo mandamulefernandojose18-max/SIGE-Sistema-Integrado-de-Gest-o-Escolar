@@ -16,6 +16,13 @@ import base64
 import qrcode
 from PIL import Image
 
+
+def _codigo_cert_registado(escola, aluno):
+    """Código de autenticidade aleatório e registado (a verificação pública só aceita códigos registados)."""
+    from apps.certificados.services import codigo_certificado_conclusao
+    return codigo_certificado_conclusao(escola or aluno.escola, aluno)
+
+
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -3406,7 +3413,7 @@ def gerar_documento_individual_pdf(tipo, doc_item, escola, ano_doc, orientacao='
             ano_letivo=ano_doc,
             notas_disciplinas=notas_disc,
             media_global=media_pdf,
-            codigo_autenticidade=doc_item.get('codigoAutenticidade') or f"CERT-{aluno_obj.matricula}-2026",
+            codigo_autenticidade=doc_item.get('codigoAutenticidade') or _codigo_cert_registado(escola, aluno_obj),
             orientacao=orientacao
         )
     elif tipo == 'FICHA':
@@ -3488,7 +3495,7 @@ def gerar_lote_pdf(turma, escola, tipo_documento, alunos_documentos, orientacao=
                 ano_letivo=ano_doc,
                 notas_disciplinas=notas_disc,
                 media_global=media_pdf,
-                codigo_autenticidade=doc_item.get('codigoAutenticidade') or f"CERT-{aluno_obj.matricula}-2026",
+                codigo_autenticidade=doc_item.get('codigoAutenticidade') or _codigo_cert_registado(escola, aluno_obj),
                 orientacao=orientacao
             )
         elif tipo_documento == 'FICHA':

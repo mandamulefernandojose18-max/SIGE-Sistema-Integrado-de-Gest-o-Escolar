@@ -163,6 +163,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.ScopedRateThrottle',
     ),
+    # Atrás do Nginx (1 proxy): o IP do cliente é o último valor de X-Forwarded-For, que o Nginx
+    # sobrescreve com $remote_addr. Sem isto, os limites de login/verificação seriam contornáveis.
+    'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', '1')),
     'DEFAULT_THROTTLE_RATES': {
         'login': os.environ.get('THROTTLE_LOGIN', '10/min'),
         'verificacao': os.environ.get('THROTTLE_VERIFICACAO', '30/min'),

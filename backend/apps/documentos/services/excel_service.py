@@ -1094,7 +1094,8 @@ def gerar_certificado_xlsx(aluno, escola, ano_letivo, notas_disciplinas, media_g
     ws['B7'] = grau_classe
     ws['B7'].font = FONT_REGULAR
 
-    cod_str = codigo_autenticidade or f"CERT-{aluno.matricula}-2026"
+    from apps.certificados.services import codigo_certificado_conclusao
+    cod_str = codigo_autenticidade or codigo_certificado_conclusao(aluno.escola, aluno)
     ws['A8'] = "Código de Autenticidade:"
     ws['A8'].font = FONT_REGULAR_BOLD
     ws['B8'] = cod_str
