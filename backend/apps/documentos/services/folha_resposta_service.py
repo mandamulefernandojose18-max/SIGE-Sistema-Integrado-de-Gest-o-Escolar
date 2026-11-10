@@ -721,8 +721,11 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     c.drawString((xii + 3) * mm, _y(yi + 8.8), 'TIPO DE AVALIAÇÃO')
     c.setFillColor(PRETO)
     pos = [(xii + 3, yi + 10), (xii + 27, yi + 10), (xii + 51, yi + 10), (xii + 3, yi + 14.6), (xii + 27, yi + 14.6)]
-    for (cod, rot), (px, py) in zip(TIPOS_AVALIACAO, pos):
-        _check(c, px, py, rot, cod == config['tipo'], tam=10.5, lado=3.5, larg_txt=19)
+    # Só aparece o tipo de avaliação seleccionado; os restantes ficam ocultos.
+    for cod, rot in TIPOS_AVALIACAO:
+        if cod == config['tipo']:
+            _check(c, pos[0][0], pos[0][1] + 1.5, rot, True, tam=12, lado=3.8, larg_txt=60)
+            break
     _campo(c, xii + 3, yi + 19, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 12, 8.2)
     _campo(c, xii + 37, yi + 19, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 12, 8.2)
     uniforme = len(config['seccoes']) == 1
