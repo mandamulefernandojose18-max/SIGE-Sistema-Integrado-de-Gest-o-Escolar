@@ -441,7 +441,7 @@ def _texto_ajustado(c, txt, x_mm, y_mm, larg_mm, fonte=FONTE, tam=9.0, tam_min=5
         c.restoreState()
 
 
-def _barra_titulo(c, x, y, w, h, titulo, alinh='l', tam=8.5):
+def _barra_titulo(c, x, y, w, h, titulo, alinh='l', tam=10.5):
     c.setFillColor(AZUL)
     c.rect(x * mm, _y(y + h), w * mm, h * mm, stroke=0, fill=1)
     c.setFillColor(colors.white)
@@ -458,11 +458,11 @@ def _caixa(c, x, y, w, h, titulo=None, barra=5.2):
     c.setStrokeColor(PRETO)
 
 
-def _campo(c, x, y, w, rotulo, valor, tam=10.5, tam_rot=7.0):
+def _campo(c, x, y, w, rotulo, valor, tam=13.0, tam_rot=8.2):
     """Campo com rótulo pequeno e valor sobre linha (preenchido automaticamente)."""
     c.setFillColor(CINZA_TEXTO)
     t_r = tam_rot
-    while t_r > 5.2 and c.stringWidth(rotulo, FONTE_B, t_r) > (w + 1.5) * mm:
+    while t_r > 6.0 and c.stringWidth(rotulo, FONTE_B, t_r) > (w + 1.5) * mm:
         t_r -= 0.2
     c.setFont(FONTE_B, t_r)
     c.drawString(x * mm, _y(y + 2.4), rotulo)
@@ -471,7 +471,7 @@ def _campo(c, x, y, w, rotulo, valor, tam=10.5, tam_rot=7.0):
     c.line(x * mm, _y(y + 7.4), (x + w) * mm, _y(y + 7.4))
     c.setFillColor(PRETO)
     if valor:
-        _texto_ajustado(c, valor, x + 0.6, y + 6.4, w - 1.2, FONTE_B, tam, 6)
+        _texto_ajustado(c, valor, x + 0.6, y + 6.4, w - 1.2, FONTE_B, tam, 7.5)
 
 
 def _check(c, x, y, rotulo, marcado, tam=7.5, lado=3.0, larg_txt=None):
@@ -549,12 +549,12 @@ def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
             pass
     c.setFillColor(PRETO)
     # Esquerda: República / Província / Distrito
-    _texto_ajustado(c, 'REPÚBLICA DE MOÇAMBIQUE', 36, y0 + 5, 68, FONTE_B, 10.5)
+    _texto_ajustado(c, 'REPÚBLICA DE MOÇAMBIQUE', 36, y0 + 5, 68, FONTE_B, 12)
     if escola.get('provincia'):
-        _texto_ajustado(c, f"Província de {escola['provincia']}", 36, y0 + 10.5, 68, FONTE, 9.5)
+        _texto_ajustado(c, f"Província de {escola['provincia']}", 36, y0 + 10.5, 68, FONTE, 11)
     if escola.get('distrito'):
-        _texto_ajustado(c, f"Distrito de {escola['distrito']}", 36, y0 + 15.5, 68, FONTE, 9.5)
-    _texto_ajustado(c, 'Sector Pedagógico', 36, y0 + 20.5, 68, FONTE_I, 9)
+        _texto_ajustado(c, f"Distrito de {escola['distrito']}", 36, y0 + 15.5, 68, FONTE, 11)
+    _texto_ajustado(c, 'Sector Pedagógico', 36, y0 + 20.5, 68, FONTE_I, 11)
     # Direita: escola
     c.setStrokeColor(CINZA_LINHA)
     c.setLineWidth(0.4)
@@ -567,10 +567,10 @@ def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
             x_esc = 127
         except Exception:
             pass
-    _texto_ajustado(c, escola.get('nome') or '', x_esc, y0 + 5, PAG_L - MARGEM - x_esc, FONTE_B, 11, 6.5)
+    _texto_ajustado(c, escola.get('nome') or '', x_esc, y0 + 5, PAG_L - MARGEM - x_esc, FONTE_B, 13, 8)
     if escola.get('codigo'):
-        _texto_ajustado(c, f"Código da escola: {escola['codigo']}", x_esc, y0 + 11, PAG_L - MARGEM - x_esc, FONTE, 9.5)
-    _texto_ajustado(c, f'Ano lectivo: {ano}', x_esc, y0 + 16.5, PAG_L - MARGEM - x_esc, FONTE_B, 9.5)
+        _texto_ajustado(c, f"Código da escola: {escola['codigo']}", x_esc, y0 + 11, PAG_L - MARGEM - x_esc, FONTE, 11)
+    _texto_ajustado(c, f'Ano lectivo: {ano}', x_esc, y0 + 16.5, PAG_L - MARGEM - x_esc, FONTE_B, 11)
 
 
 def _bloco_instrucoes(c, y, extra=''):
@@ -590,7 +590,7 @@ def _bloco_instrucoes(c, y, extra=''):
         '4. Marque apenas uma resposta por pergunta, pintando o quadradinho da alternativa escolhida, conforme o modelo abaixo.',
     ]
     for i, txt in enumerate(itens):
-        _texto_ajustado(c, txt, MARGEM + 3, y + 8.3 + i * 3.45, LARG_UTIL - 6, FONTE_B if i == 3 else FONTE, 9.8, 6)
+        _texto_ajustado(c, txt, MARGEM + 3, y + 8.3 + i * 3.45, LARG_UTIL - 6, FONTE_B if i == 3 else FONTE, 10.2, 6)
     # exemplo: marcação da letra D na questão número 1
     ex_y = y + 21.0
     c.setFont(FONTE_B, 9)
@@ -633,7 +633,7 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
         c.rect((x0 + 0.5) * mm, _y(y_ini + ALTURA_CABECALHO_GRELHA - 0.8), (largura_col - 1) * mm,
                (ALTURA_CABECALHO_GRELHA - 1.2) * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
-        c.setFont(FONTE_B, 9.6)
+        c.setFont(FONTE_B, 11)
         c.drawString((x0 + 1.6) * mm, _y(y_ini + 4.2), 'Perg.')
         for i, letra in enumerate(letras):
             cx = x0 + 10.2 + passo * i + passo / 2 - 0.6
@@ -655,7 +655,7 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
             c.roundRect((x0 + 1.4) * mm, _y(y_lin + altura_linha - 0.55), 7 * mm, (altura_linha - 1.1) * mm, 0.8 * mm,
                         stroke=1, fill=1)
             c.setFillColor(PRETO)
-            c.setFont(FONTE_B, 7.6)
+            c.setFont(FONTE_B, 10)
             c.drawCentredString((x0 + 4.9) * mm, _y(y_lin + altura_linha / 2 + 1.0), str(q + 1))
             cy = y_lin + altura_linha / 2
             for i, letra in enumerate(letras):
@@ -667,7 +667,7 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
 
 def _rodape(c, cod_folha, pagina, total_paginas, hoje):
     c.setFillColor(CINZA_TEXTO)
-    c.setFont(FONTE, 6.8)
+    c.setFont(FONTE, 8.2)
     c.drawString(MARGEM * mm, _y(288.8), f'SIGE · Folha de Respostas Personalizada · Cód. {cod_folha}')
     c.drawCentredString((PAG_L / 2) * mm, _y(288.8), f'Pág. {pagina}/{total_paginas}')
     c.drawRightString((PAG_L - MARGEM) * mm, _y(288.8), f'Emitida em {hoje}')
@@ -687,7 +687,7 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
         _desenhar_marcas_omr(c)
     _cabecalho_institucional(c, escola, logo_reader, ano)
     # barra de título
-    _barra_titulo(c, MARGEM, 31, LARG_UTIL, 7, _titulo_prova(config), 'l', 10)
+    _barra_titulo(c, MARGEM, 31, LARG_UTIL, 7, _titulo_prova(config), 'l', 12)
     if versao:
         c.setFillColor(colors.white)
         c.setFont(FONTE_B, 10)
@@ -700,15 +700,15 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     al = aluno or {}
     _campo(c, xi + 3, yi + 6.3, 72, 'APELIDO', al.get('apelido'))
     _campo(c, xi + 3, yi + 13.8, 72, 'NOME', al.get('nome'))
-    _campo(c, xi + 3, yi + 21.3, 17, 'CLASSE', al.get('classe'), 9)
-    _campo(c, xi + 22, yi + 21.3, 34, 'ÁREA / SECÇÃO', al.get('area'), 9)
-    _campo(c, xi + 58, yi + 21.3, 12, 'TURMA', al.get('turma'), 9)
-    _campo(c, xi + 72, yi + 21.3, 5, 'Nº', str(al['numero']) if al.get('numero') else '', 9)
-    _campo(c, xi + 3, yi + 28.8, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 9.5)
+    _campo(c, xi + 3, yi + 21.3, 17, 'CLASSE', al.get('classe'), 12)
+    _campo(c, xi + 22, yi + 21.3, 34, 'ÁREA / SECÇÃO', al.get('area'), 12)
+    _campo(c, xi + 58, yi + 21.3, 12, 'TURMA', al.get('turma'), 12)
+    _campo(c, xi + 72, yi + 21.3, 5, 'Nº', str(al['numero']) if al.get('numero') else '', 12)
+    _campo(c, xi + 3, yi + 28.8, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 13)
     if config['codigo_barras'] and al.get('codigo'):
         _desenhar_codigo_barras(c, al['codigo'], xi + 3, yi + 37.6, 72, 4.6)
     _desenhar_qr(c, _payload_qr(escola, aluno, config, ano, versao), xi + wi - 27, yi + 8, 22)
-    c.setFont(FONTE, 7.2)
+    c.setFont(FONTE, 8.6)
     c.setFillColor(CINZA_TEXTO)
     c.drawCentredString((xi + wi - 16) * mm, _y(yi + 33), 'Leitura óptica / QR')
     c.setFillColor(PRETO)
@@ -716,23 +716,23 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     # II — Informações da avaliação
     xii, wii = MARGEM + 109, LARG_UTIL - 109
     _caixa(c, xii, yi, wii, hi, 'II   INFORMAÇÕES DA AVALIAÇÃO')
-    c.setFont(FONTE_B, 7.6)
+    c.setFont(FONTE_B, 9)
     c.setFillColor(CINZA_TEXTO)
     c.drawString((xii + 3) * mm, _y(yi + 8.8), 'TIPO DE AVALIAÇÃO')
     c.setFillColor(PRETO)
     pos = [(xii + 3, yi + 10), (xii + 27, yi + 10), (xii + 51, yi + 10), (xii + 3, yi + 14.6), (xii + 27, yi + 14.6)]
     for (cod, rot), (px, py) in zip(TIPOS_AVALIACAO, pos):
-        _check(c, px, py, rot, cod == config['tipo'], tam=8.8, lado=3.5, larg_txt=19)
-    _campo(c, xii + 3, yi + 19, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 9.5, 7.2)
-    _campo(c, xii + 37, yi + 19, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 9.5, 7.2)
+        _check(c, px, py, rot, cod == config['tipo'], tam=10.5, lado=3.5, larg_txt=19)
+    _campo(c, xii + 3, yi + 19, 31, 'Nº DE PERGUNTAS', str(config['n_perguntas']), 12, 8.2)
+    _campo(c, xii + 37, yi + 19, 34, 'Nº DE ALTERNATIVAS', f"{config['n_alternativas']} ({LETRAS[0]}–{LETRAS[config['n_alternativas'] - 1]})", 12, 8.2)
     uniforme = len(config['seccoes']) == 1
     cot_txt = formatar_valor(config['seccoes'][0]['cotacao']) if uniforme else 'por secção'
-    _campo(c, xii + 3, yi + 26.6, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 9.5, 7.2)
-    _campo(c, xii + 37, yi + 26.6, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 9.5, 7.2)
+    _campo(c, xii + 3, yi + 26.6, 31, 'COTAÇÃO / PERGUNTA', cot_txt, 12, 8.2)
+    _campo(c, xii + 37, yi + 26.6, 34, 'COTAÇÃO TOTAL', f"{formatar_valor(config['cotacao_total'])} valores", 12, 8.2)
     dur = f"{config['duracao_min']} min" if config['duracao_min'] else ''
-    _campo(c, xii + 3, yi + 34.2, 15, 'DURAÇÃO', dur, 9, 7.2)
-    _campo(c, xii + 20, yi + 34.2, 19, 'DATA', config['data'], 9, 7.2)
-    _campo(c, xii + 41, yi + 34.2, 31, 'HORA (INÍCIO – FIM) / SALA', texto_hora_sala(config), 9, 6.6)
+    _campo(c, xii + 3, yi + 34.2, 15, 'DURAÇÃO', dur, 12, 8.2)
+    _campo(c, xii + 20, yi + 34.2, 19, 'DATA', config['data'], 12, 8.2)
+    _campo(c, xii + 41, yi + 34.2, 31, 'HORA (INÍCIO – FIM) / SALA', texto_hora_sala(config), 12, 7.4)
 
     # III — Disciplina
     yiii, hiii = 88.5, 31
@@ -744,29 +744,29 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     col_w = 34.0
     for k, nome in enumerate(nomes):
         cc, rr = divmod(k, 5)
-        _check(c, MARGEM + 3 + cc * col_w, yiii + 7.2 + rr * 4.7, nome, nome == config['disciplina'], tam=8.6, lado=3.5, larg_txt=col_w - 6.5)
+        _check(c, MARGEM + 3 + cc * col_w, yiii + 6.6 + rr * 4.3, nome, nome == config['disciplina'], tam=10.5, lado=3.5, larg_txt=col_w - 6.5)
     if config['professor']:
-        c.setFont(FONTE_I, 8.6)
+        c.setFont(FONTE_I, 10.5)
         c.setFillColor(CINZA_TEXTO)
-        c.drawString((MARGEM + 3) * mm, _y(yiii + hiii - 1.2), f"Professor(a): {config['professor']}"[:70])
+        c.drawString((MARGEM + 3) * mm, _y(yiii + hiii - 0.9), f"Professor(a): {config['professor']}"[:70])
         c.setFillColor(PRETO)
 
     # IV — Classificação
     _caixa(c, xii, yiii, wii, hiii, 'IV   CLASSIFICAÇÃO')
-    _campo(c, xii + 3, yiii + 6, 33, 'Acertos (n.º)', '', tam_rot=7.6)
-    c.setFont(FONTE_B, 9.5)
+    _campo(c, xii + 3, yiii + 6, 33, 'Acertos (n.º)', '', tam_rot=9)
+    c.setFont(FONTE_B, 12)
     c.drawString((xii + 37) * mm, _y(yiii + 11.6), f"/ {config['n_perguntas']}")
     rot1, rot2 = rotulos_correccao(config)
-    _campo(c, xii + 3, yiii + 13.6, 33, f'{rot1} (valores)', '', tam_rot=6.2)
-    _campo(c, xii + 38, yiii + 13.6, 33, f'{rot2} (valores)', '', tam_rot=6.2)
-    _campo(c, xii + 3, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=7.6)
-    _campo(c, xii + 38, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=7.6)
+    _campo(c, xii + 3, yiii + 13.6, 33, f'{rot1} (valores)', '', tam_rot=7.4)
+    _campo(c, xii + 38, yiii + 13.6, 33, f'{rot2} (valores)', '', tam_rot=7.4)
+    _campo(c, xii + 3, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=9)
+    _campo(c, xii + 38, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=9)
 
     # Instruções gerais + grelha
     _bloco_instrucoes(c, 121.5, config['instrucao_extra'])
-    _barra_titulo(c, MARGEM, 146.2, LARG_UTIL, 6, 'GRELHA DE RESPOSTAS', 'l', 8.5)
+    _barra_titulo(c, MARGEM, 146.2, LARG_UTIL, 6, 'GRELHA DE RESPOSTAS', 'l', 10.5)
     c.setFillColor(colors.white)
-    c.setFont(FONTE, 8.2)
+    c.setFont(FONTE, 9.6)
     c.drawRightString((PAG_L - MARGEM - 2) * mm, _y(150.5), 'Cotação: ' + _descricao_cotacao(config))
     c.setFillColor(PRETO)
 
