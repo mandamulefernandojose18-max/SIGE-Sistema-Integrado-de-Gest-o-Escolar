@@ -1,4 +1,4 @@
-# ⚙️ Manual Operacional dos Módulos do Sistema — SIGE (v2.5.0)
+﻿# ⚙️ Manual Operacional dos Módulos do Sistema — SIGE (v2.5.0)
 
 > **Guia Passo a Passo de Utilização dos 19 Módulos Funcionais**  
 > **Público:** SuperAdmins, Administradores da Escola, Diretores, DAPs, Chefes de Secretaria, Financeiro, Professores e Alunos
@@ -83,66 +83,34 @@
 ### 🎓 Área Pedagógica no Menu Lateral (Acordeão / Submenu Toggle)
 - **Quem usa:** `DAP`, `DIRECTOR_ESCOLA`, `ADMIN_ESCOLA` e `PROFESSOR`.
 - **Como aceder e funcionar:** No menu lateral, clique em **"Área Pedagógica"**:
-  - **1º Clique:** Expande o menu lateral e revela as 7 páginas pedagógicas.
+  - **1º Clique:** Expande o menu lateral e revela as páginas pedagógicas.
   - **2º Clique:** Recolhe o menu lateral e oculta as páginas, mantendo a barra lateral limpa e compacta.
   - **Exibição Limpa:** As páginas abrem diretamente como telas completas e limpas, sem poluição de abas internas no topo do conteúdo.
-- **As 7 Páginas da Área Pedagógica:**
-  1. **Classes / Níveis & Exames:** Gestão de classes e estatuto de exame.
-  2. **Disciplinas:** Plano curricular e matriz de disciplinas por área/secção.
-  3. **Desbloqueio de Trimestre:** Abertura e encerramento de prazos de lançamento de notas.
-  4. **Caderneta Pedagógica:** Caderneta do professor, avaliações ACS/ACP e faltas.
-  5. **Pautas & Actas Oficiais:** Pauta geral da turma e actas de conselho de notas.
-  6. **Exames:** Pautas oficiais de exame e fórmulas ponderadas.
-  7. **Estatística de Aproveitamento:** Gráficos e taxas oficiais de aproveitamento escolar.
+- **As páginas da Área Pedagógica:**
+  1. **Plano Curricular:** Classe/Nível (com exame Sim/Não) → Disciplinas → Áreas/Secções → disciplinas de cada área. Condiciona matrículas, turmas, pautas e exames.
+  2. **Desbloqueio de Trimestre:** Abertura e encerramento de prazos de lançamento de notas.
+  3. **Caderneta Pedagógica:** Caderneta do professor, avaliações ACS/ACP e faltas.
+  4. **Pautas & Actas Oficiais:** Pauta geral da turma e actas de conselho de notas.
+  5. **Exames:** Pautas oficiais de exame e fórmulas ponderadas.
+  6. **Estatística de Aproveitamento:** Gráficos e taxas oficiais de aproveitamento escolar.
 
 ---
 
-### Módulo: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
-- **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
-- **Como aceder:** Clique na aba **"Classes / Níveis & Exames"** dentro da **Área Pedagógica** ou pelo submenu lateral que se expande ao clicar em Área Pedagógica.
-- **Página Dedicada, Limpa e Despoluída:**
-  - O SIGE disponibiliza uma interface minimalista e profissional (`classes-exames.html` / `classes-exames.js`), sem excesso de botões ou cartões poluídos, permitindo gerir directamente as classes ativas da instituição.
-- **Zero Classes Fictícias:**
-  - Apenas as classes efectivamente existentes e ministradas na instituição são listadas. Não há injeção de classes artificiais nem dados fictícios. Em caso de nova instituição, apresenta um estado limpo para início imediato.
-- **Edição e Eliminação Completa:**
-  - **Editar:** Cada linha dispõe de ação de edição para renomear a classe ou atualizar o estatuto de exame de forma instantânea.
-  - **Eliminar:** Botão de eliminação direta para remover com segurança classes ou níveis não mais lecionados na instituição.
-- **Seleção Obrigatória: A Classe tem Exame: Sim ou Não:**
-  - Pílula de alternância direta em 1 clique (*inline toggle*) na própria tabela e no modal rápido:
-    - **Sim — Com Exame:** Classe com exame final ou exame nacional obrigatório (ex: 10ª e 12ª Classes no SNE Moçambique).
-    - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
-- **Interligação Automática com Todo o Sistema:**
-  - Todas as classes cadastradas ficam instantaneamente disponíveis de forma sincronizada e automática em:
-    - **Matrícula de Alunos (`modalNovoAluno`):** O seletor de classe carrega as classes ativas da instituição.
-    - **Edição de Alunos (`modalEditarAluno`):** As opções de classe refletem a matriz curricular da escola.
-    - **Filtros de Alunos e Turmas:** Listam as classes ativas cadastradas.
-    - **Criação de Turmas (Individual, Lote e Formação Automática):** Seletores de classe carregam as classes da instituição.
-    - **Matriz de Disciplinas e Caderneta:** Sincronização automática para inclusão curricular.
-
----
-
-### Módulo Curricular: Gestão de Disciplinas, Classes/Níveis e Regime de Exame (`#view-disciplinas`)
-- **Quem usa:** `DAP`, `DIRECTOR_ESCOLA` e `ADMIN_ESCOLA`.
-- **Como aceder:** Clique em **"Disciplinas"** na barra lateral de navegação (categoria *Gestão Escolar*).
-- **Sub-páginas das Classes dentro da Página "Disciplinas":**
-  - O SIGE disponibiliza uma navegação fluida por abas horizontais representando as páginas de cada **Classe** ou **Nível** ativo da instituição (ex: `10ª Classe`, `11ª Classe`, `12ª Classe` ou `Nível 1`, `Nível 2`...).
-  - Ao clicar numa aba de classe, o utilizador entra directamente na sub-página curricular daquela classe específica.
-- **Disciplinas Organizadas em Função da Área / Secção do Plano Curricular:**
-  - Na sub-página de cada classe, as disciplinas são apresentadas em blocos dedicados por **Área / Secção de Estudo** correspondentes ao plano curricular daquela classe:
-    - *Exemplo 11ª / 12ª Classe:* Blocos de **Ciências com Biologia**, **Ciências com Desenho**, **Letras com Geografia**, **Letras com História**, e **Ensino Geral (Tronco Comum)**.
-    - *Exemplo 1ª à 10ª Classe:* Bloco de **Ensino Geral (Tronco Comum)** e eventuais secções complementares.
-    - *Exemplo Ensino Técnico/Níveis:* Blocos de **Formação Vocacional** e **Formação Geral**.
-  - Cada secção possui o seu cabeçalho com contagem de disciplinas, indicadores de exame e botão rápido `+ Disciplina`.
-  - Permite adicionar novas secções ou áreas personalizadas para a classe através do botão **"+ Nova Secção / Área"**.
-- **Modelo Estrutural da Instituição (Classes vs Níveis):**
-  - **Regime por Classes:** Destinado ao Ensino Geral (ESG e Primário). Restringe as opções estritamente de **1ª à 12ª Classe**.
-  - **Regime por Níveis:** Destinado a Institutos Médios e Formação Profissional. Restringe as opções estritamente a **Nível 1 à Nível 8**.
-- **Adição Dinâmica e Zero Classes Fictícias:**
-  - O sistema não pré-carrega classes fictícias. A instituição ativa as classes ou níveis que leciona através do menu dropdown **"+ Adicionar Classe ▾"** (ou *"+ Adicionar Nível ▾"*). Ao escolher uma classe da lista oficial, a sua sub-página é criada instantaneamente.
-- **Critério Obrigatório por Disciplina: "A Disciplina tem Exame: Sim ou Não":**
-  - Cada disciplina possui a definição granular e independente de realização de exame final (ex: Matemática e Língua Portuguesa com exame nacional vs Educação Física e TIC's sem exame).
-  - **Alternância com 1 Clique:** Na tabela de cada secção, os botões ergonómicos `[ Sim ]` `[ Não ]` atualizam em tempo real via API (`/api/v1/disciplinas/<id>/toggle-exame/`) com resposta instantânea e sem recarregar a tela.
-  - **Cadastro e Edição Integrados:** Formulários com selecção obrigatória *(•) Sim (Com Exame) / ( ) Não (Sem Exame)*.
+### Módulo: Plano Curricular (`#view-plano-curricular`)
+- **Quem usa:** edita `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP` e `CHEFE_SECRETARIA`; os restantes perfis só consultam (a API devolve 403 a quem tenta alterar).
+- **Como aceder:** menu lateral → **Área Pedagógica → Plano Curricular**. Escolha o **Ano Lectivo** e clique em **Buscar**. Esta única página **substitui** as antigas "Classes / Níveis & Exames" e "Disciplinas" (os atalhos antigos redireccionam para aqui).
+- **Regime:** seletor no cabeçalho — *Classes (1ª à 12ª)* ou *Níveis (Nível 1, 2...)*.
+- **Ordem lógica em 4 passos fixos** (a altura da página não cresce com o número de classes, áreas ou disciplinas — apenas filtros em cascata e listas, nunca enxames de botões):
+  1. **Classe / Nível:** cadastrar a classe e indicar **"A classe tem exame? Sim / Não"**. O estatuto pode ser alterado na própria lista. Remover uma classe só é possível se não tiver disciplinas, áreas nem turmas.
+  2. **Disciplinas da Classe:** filtro *Classe / Nível* → cadastrar todas as disciplinas da classe (nome, código, carga horária) com pesquisa por nome/código, edição e eliminação.
+  3. **Áreas / Secções:** cadastrar as áreas ou secções da classe (renomear / eliminar; uma área em uso por turmas não pode ser eliminada).
+  4. **Disciplinas por Área:** filtro *Classe / Nível* → *Área / Secção* → lista de **todas as disciplinas cadastradas na classe** com caixa de marcação "pertence a esta área". **Se a classe tem exame**, cada disciplina marcada mostra o seletor **Tem exame? Sim / Não**; se a classe **não** tem exame, a coluna fica desactivada e a API recusa marcar exame.
+- **Regras de integridade (servidor):** a disciplina só existe numa classe do plano; uma disciplina de uma área tem de ser da mesma classe; colocar a classe em "Não" retira automaticamente o exame às suas disciplinas.
+- **Este plano condiciona o resto do sistema:**
+  - **Turmas** (criar, criar em lote, editar e **Formação Automática**): a classe e a Secção/Área são listas fechadas vindas do plano; a API recusa turmas fora dele (e exige uma área do plano quando a classe tem áreas).
+  - **Matrículas:** o seletor de classe só mostra as classes do plano; sem turma, a API recusa classes fora do plano; com turma, o aluno herda classe e área da turma.
+  - **Pautas, notas e exames:** `Disciplina.area` e `Disciplina.tem_exame` são sincronizados a partir da área e do exame definidos no passo 4.
+- **Sem dados fictícios:** uma escola nova começa com o estado vazio explicativo; nada é pré-carregado.
 
 ---
 
@@ -163,11 +131,8 @@
 
 ---
 
-### Módulo 7: Disciplinas e Matriz Curricular (`#view-disciplinas`)
-- **Quem usa:** `DAP` e `ADMIN_ESCOLA`.
-- **Auto-Seed Nacional:** Sincronização do plano curricular oficial da 7ª à 12ª Classe com um clique (`/seed-curriculo`).
-- **Identificação de Regime de Exame:** Badges visuais em tempo real informando se a classe correspondente é `Com Exame` ou `Sem Exame`, com atalho rápido para o modal de gestão de classes.
-- **Ranking de Reprovação:** Gráfico dinâmico que destaca as disciplinas com maiores índices de insucesso pedagógico na escola.
+### Módulo 7: Disciplinas e Matriz Curricular
+- Passou a fazer parte da página única **Plano Curricular** (ver módulo acima). O **Ranking de Reprovação** continua disponível na Estatística de Aproveitamento.
 
 ---
 

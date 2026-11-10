@@ -81,6 +81,26 @@ class TurmaSerializer(serializers.ModelSerializer):
         if not escola and self.instance:
             escola = self.instance.escola
 
+        # Plano Curricular: a turma só pode existir numa Classe/Nível cadastrada e numa das suas Áreas/Secções.
+        if escola:
+            from apps.disciplinas import plano
+            if plano.classes_configuradas(escola):
+                antigo_grau = self.instance.grau_ano if self.instance else None
+                antiga_area = self.instance.area if self.instance else None
+                area = attrs.get('area', antiga_area if self.instance else 'Geral')
+                if grau_ano and (self.instance is None or grau_ano != antigo_grau):
+                    oficial = plano.nome_classe_oficial(escola, grau_ano)
+                    if not oficial:
+                        raise serializers.ValidationError({
+                            'grau_ano': f"A classe/nível '{grau_ano}' não está cadastrada no Plano Curricular da escola."
+                        })
+                    grau_ano = oficial
+                    attrs['grau_ano'] = oficial
+                if grau_ano and (self.instance is None or grau_ano != antigo_grau or area != antiga_area):
+                    ok, mensagem = plano.area_valida_para_classe(escola, grau_ano, area)
+                    if not ok:
+                        raise serializers.ValidationError({'area': mensagem})
+
         if escola and grau_ano and nome:
             from .utils import validar_unicidade_turma_na_classe
             from django.core.exceptions import ValidationError as DjangoValidationError

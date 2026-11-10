@@ -36,3 +36,45 @@ class Disciplina(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.codigo})"
+
+
+class AreaSeccao(models.Model):
+    """Área / Secção de uma Classe ou Nível (Plano Curricular). Ex.: Ciências com Biologia na 11ª Classe."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='areas_seccoes')
+    classe = models.CharField(max_length=50)
+    nome = models.CharField(max_length=80)
+    ordem = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_areas_seccoes'
+        verbose_name = 'Área / Secção'
+        verbose_name_plural = 'Áreas / Secções'
+        ordering = ['classe', 'ordem', 'nome']
+        indexes = [models.Index(fields=['escola', 'classe'])]
+        constraints = [
+            models.UniqueConstraint(fields=['escola', 'classe', 'nome'], name='unique_area_seccao_escola_classe_nome'),
+        ]
+
+    def __str__(self):
+        return f"{self.classe} — {self.nome}"
+
+
+class AreaSeccaoDisciplina(models.Model):
+    """Disciplina pertencente a uma Área/Secção, com indicação se tem exame nessa área."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='areas_seccoes_disciplinas')
+    area = models.ForeignKey(AreaSeccao, on_delete=models.CASCADE, related_name='vinculos')
+    disciplina = models.ForeignKey(Disciplina, on_delete=models.CASCADE, related_name='vinculos_area')
+    tem_exame = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'sige_areas_seccoes_disciplinas'
+        constraints = [
+            models.UniqueConstraint(fields=['area', 'disciplina'], name='unique_area_seccao_disciplina'),
+        ]
+
+    def __str__(self):
+        return f"{self.area} / {self.disciplina}"

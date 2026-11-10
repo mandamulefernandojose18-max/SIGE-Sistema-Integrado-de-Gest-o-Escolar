@@ -1,4 +1,4 @@
-﻿# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
+# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
 ### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
@@ -439,33 +439,6 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 
 ### Módulo 4: Gestão de Turmas, Capacidade Máxima e Homologação de Cargos (`#view-turmas`)
 
-### Módulo Curricular: Cadastro de Classes / Níveis & Regime de Exame (`#view-classes-exames`)
-- **Página Dedicada, Limpa e Autônoma de Gestão de Classes e Níveis:**
-  - Acessível diretamente pelo menu lateral (**"Classes / Níveis & Exames"**) ou via botão de atalho no painel de Turmas.
-  - Interface minimalista e elegante (sem excesso de botões), com seletor de regime no cabeçalho (*Ensino Geral — Classes* ou *Ensino Técnico — Níveis*).
-  - **Zero Classes Fictícias:** O sistema não pré-popula nem injeta classes artificiais não existentes na instituição. Apenas as classes reais ativas da escola são exibidas, com estado vazio (*empty state*) elegante para novas instituições.
-- **Edição e Eliminação Completa de Classes:**
-  - **Edição Direta:** Permite renomear classes/níveis existentes e atualizar o respetivo estatuto de exame via modal rápido.
-  - **Eliminação Segura:** Botão de eliminação dedicado que remove a classe das configurações e do cache da instituição com confirmação prévia.
-  - **Alternância Instantânea (Inline Toggle):** Pílula interativa de 1 clique para comutar entre *Com Exame (Sim)* e *Sem Exame (Não)* sem sobrecarga visual.
-- **Configuração do Regime de Exame por Classe / Nível:**
-  - Ao cadastrar ou editar qualquer classe ou nível, o utilizador define:
-    - **Sim — Com Exame:** Classe com realização de exame final/nacional (por regulamento do MEC: 10ª Classe e 12ª Classe).
-    - **Não — Sem Exame:** Classe avaliada por Avaliação Contínua e Sistemática (ACS).
-- **Interligação Universal em Todo o Sistema:**
-  - As classes cadastradas alimentam dinamicamente e em tempo real:
-    - O formulário de Matrícula de Novos Alunos (`modalNovoAluno`);
-    - O formulário de Edição de Dados do Aluno (`modalEditarAluno`);
-    - Os seletores de criação e geração de Turmas em Lote (`modalCriarTurmasEmLote`, `modalCriarTurma`);
-    - Os filtros hierárquicos de Turmas e Alunos;
-    - A matriz de disciplinas e pautas oficiais da instituição.
-
-### Módulo Curricular: Gestão de Disciplinas e Matriz por Secção (`#view-disciplinas`)
-- **Gestão de Disciplinas por Sub-páginas de Classe e Secção:**
-  - O sistema organiza o plano de estudos em abas horizontais de classes ativas.
-  - Dentro de cada classe, as disciplinas são agrupadas por área de estudo/secção (ex: Ciências com Biologia, Letras com Geografia, Tronco Comum).
-    - Como na realidade pedagógica uma classe possui disciplinas com exame (ex: Língua Portuguesa, Matemática) e disciplinas sem exame (ex: TIC's, Educação Física), a definição é atribuída directamente por disciplina.
-    - Cada linha da tabela de disciplinas possui botões toggle ergonómicos `[ Sim ]` `[ Não ]` que sincronizam em tempo real via API (`/api/v1/disciplinas/<id>/toggle-exame/`), além da escolha obrigatória no formulário de cadastro/edição.
 - **Controlo de Lotação em Tempo Real:**
   - Cada turma possui `capacidade_maxima` configurável (padrão: **50 alunos**, validado até 200).
   - O sistema calcula em tempo real `ocupacao_atual`, `vagas_livres`, `percentual_ocupacao` e exibe barras visuais de progresso (**Verde** $< 80\%$, **Amarelo** $\ge 80\%$, **Vermelho** $100\%$ Lotada).
@@ -478,6 +451,23 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
 - **Atribuição e Homologação de Director de Turma (`DT`) e Director de Classe (`DC`):**
   - O DAP/Admin propõe o professor para `director_turma` ou `director_classe` (estado inicial `PENDENTE`).
   - O **Director da Escola** executa a **Homologação Oficial** (`/turmas/<id>/homologar-cargo`), o que gera imediatamente os códigos de acesso `DT{cod_escola}.{classe}.{turma}` e `DC{cod_escola}.{classe}` no Cofre de Senhas.
+
+
+### Módulo: Plano Curricular (`#view-plano-curricular`)
+- **Quem usa:** edita `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP` e `CHEFE_SECRETARIA`; os restantes perfis só consultam (a API devolve 403 a quem tenta alterar).
+- **Como aceder:** menu lateral → **Área Pedagógica → Plano Curricular**. Escolha o **Ano Lectivo** e clique em **Buscar**. Esta única página **substitui** as antigas "Classes / Níveis & Exames" e "Disciplinas" (os atalhos antigos redireccionam para aqui).
+- **Regime:** seletor no cabeçalho — *Classes (1ª à 12ª)* ou *Níveis (Nível 1, 2...)*.
+- **Ordem lógica em 4 passos fixos** (a altura da página não cresce com o número de classes, áreas ou disciplinas — apenas filtros em cascata e listas, nunca enxames de botões):
+  1. **Classe / Nível:** cadastrar a classe e indicar **"A classe tem exame? Sim / Não"**. O estatuto pode ser alterado na própria lista. Remover uma classe só é possível se não tiver disciplinas, áreas nem turmas.
+  2. **Disciplinas da Classe:** filtro *Classe / Nível* → cadastrar todas as disciplinas da classe (nome, código, carga horária) com pesquisa por nome/código, edição e eliminação.
+  3. **Áreas / Secções:** cadastrar as áreas ou secções da classe (renomear / eliminar; uma área em uso por turmas não pode ser eliminada).
+  4. **Disciplinas por Área:** filtro *Classe / Nível* → *Área / Secção* → lista de **todas as disciplinas cadastradas na classe** com caixa de marcação "pertence a esta área". **Se a classe tem exame**, cada disciplina marcada mostra o seletor **Tem exame? Sim / Não**; se a classe **não** tem exame, a coluna fica desactivada e a API recusa marcar exame.
+- **Regras de integridade (servidor):** a disciplina só existe numa classe do plano; uma disciplina de uma área tem de ser da mesma classe; colocar a classe em "Não" retira automaticamente o exame às suas disciplinas.
+- **Este plano condiciona o resto do sistema:**
+  - **Turmas** (criar, criar em lote, editar e **Formação Automática**): a classe e a Secção/Área são listas fechadas vindas do plano; a API recusa turmas fora dele (e exige uma área do plano quando a classe tem áreas).
+  - **Matrículas:** o seletor de classe só mostra as classes do plano; sem turma, a API recusa classes fora do plano; com turma, o aluno herda classe e área da turma.
+  - **Pautas, notas e exames:** `Disciplina.area` e `Disciplina.tem_exame` são sincronizados a partir da área e do exame definidos no passo 4.
+- **Sem dados fictícios:** uma escola nova começa com o estado vazio explicativo; nada é pré-carregado.
 
 ### Módulo 5: Gestão de Alunos e Matrículas (`#view-alunos`)
 - **Cadastro e Ficha Biográfica Completa:** Registo demográfico completo, documento de identificação, NUIT, filiação, contactos de emergência e vinculação à classe, secção/área e turma.
@@ -497,13 +487,8 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
   - Vincula `Professor + Disciplina + Turma`.
   - Ao alocar o professor, o sistema **inicializa automaticamente as Pautas/Cadernetas dos 3 Trimestres** para aquela turma, deixando-as prontas para o lançamento de notas.
 
-### Módulo 7: Disciplinas e Plano Curricular (`#view-disciplinas`)
-- **Navegação em Sub-páginas por Classe:** O módulo "Disciplinas" estrutura o currículo em sub-páginas/abas limpas para cada **Classe** ou **Nível** ativo da instituição (1ª à 12ª Classe ou Níveis Técnicos).
-- **Disciplinas Organizadas por Área / Secção:** Na página de cada classe, as disciplinas são apresentadas agrupadas em função da área ou secção correspondente ao seu plano curricular (ex.: *Ciências com Biologia*, *Ciências com Desenho*, *Letras com Geografia*, *Letras com História*, *Ensino Geral / Tronco Comum*).
-- **Critério Obrigatório por Disciplina "Tem Exame: Sim ou Não":** Cada disciplina exibe botões inline ergonómicos `[ Sim ]` `[ Não ]` para alternância imediata em tempo real no servidor (`/api/v1/disciplinas/<id>/toggle-exame/`), além da obrigatoriedade nos formulários de cadastro e edição.
-- **Zero Classes Fictícias e Adição por Filtro:** Apenas classes ativas são exibidas; novas classes oficiais são adicionadas com um clique através do menu dropdown "+ Adicionar Classe ▾" (estritamente 1ª-12ª) ou "+ Adicionar Nível ▾" (Nível 1-8).
-- **Gestão de Secções Curriculares:** Botão "+ Nova Secção / Área" permite criar áreas complementares para a classe selecionada.
-- **Gráfico de Ranking de Reprovação (`/disciplinas/ranking-reprovacao`):** Calcula e exibe em gráfico Chart.js as disciplinas com maior índice percentual de notas negativas na escola.
+### Módulo 7: Disciplinas e Plano Curricular
+- Integrado na página única **Plano Curricular** (`#view-plano-curricular`), descrita no módulo curricular acima. O **Ranking de Reprovação** (`/disciplinas/ranking-reprovacao`) calcula as disciplinas com maior índice percentual de negativas.
 
 > **Nota (aluno):** a lista de disciplinas do Material Escolar do aluno (`/material-escolar/disciplinas-aluno`) é filtrada pela classe e pela área/secção reais da turma do ano escolhido; a área é comparada por ramo/sub-área (ex.: "Ciências", "Ciências e Letras", "CB"), e as disciplinas gerais/tronco comum entram sempre. Nunca há disciplinas repetidas: registos com o mesmo nome são fundidos numa só entrada (prevalece a da área própria) e o material de todos eles (incluindo o ligado à mesma disciplina de outro ano lectivo, na mesma classe e área) aparece sob essa entrada. Ao escolher a disciplina, o painel lista automaticamente todos os materiais dela (filtros de tipo/pesquisa são repostos), cada um com o botão **Descarregar**.
 

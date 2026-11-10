@@ -20,6 +20,7 @@ api_v1_patterns = [
     re_path(r'^turmas/?', include('apps.turmas.urls')),
     re_path(r'^alunos/?', include('apps.alunos.urls')),
     re_path(r'^professores/?', include('apps.professores.urls')),
+    re_path(r'^plano-curricular/', include('apps.disciplinas.plano_urls')),
     re_path(r'^disciplinas/?', include('apps.disciplinas.urls')),
     re_path(r'^notas/?', include('apps.notas.urls')),
     re_path(r'^pautas/?', include('apps.pautas.urls')),

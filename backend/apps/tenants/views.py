@@ -1250,6 +1250,14 @@ class ClassesExamesConfigView(APIView):
         # Remover item específico (eliminação)
         if data.get('remover_nome'):
             nome_rem = str(data.get('remover_nome')).strip()
+            from apps.disciplinas import plano as plano_curricular
+            uso = plano_curricular.uso_da_classe(escola, nome_rem)
+            if any(uso.values()):
+                return Response({
+                    'success': False,
+                    'message': (f"Não é possível remover '{nome_rem}': tem {uso['disciplinas']} disciplina(s), "
+                                f"{uso['areas']} área(s)/secção(ões) e {uso['turmas']} turma(s). Elimine-as primeiro.")
+                }, status=status.HTTP_409_CONFLICT)
             chaves_para_remover = [k for k in salvos if k.strip().lower() == nome_rem.lower()]
             for k in chaves_para_remover:
                 salvos.pop(k, None)
@@ -1300,6 +1308,8 @@ class ClassesExamesConfigView(APIView):
         if hasattr(escola, 'regime_curricular'):
             update_fields.append('regime_curricular')
         escola.save(update_fields=update_fields)
+        from apps.disciplinas import plano as plano_curricular
+        plano_curricular.normalizar_exames(escola)
 
         resultado = []
         def sort_key(item_nome):

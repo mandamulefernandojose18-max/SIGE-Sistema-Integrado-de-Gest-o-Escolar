@@ -2212,6 +2212,7 @@ async function carregarDadosGlobaisEscola() {
   if (isSuperAdminNoEscola) return;
 
   try {
+    if (typeof window.carregarEstruturaPlano === 'function') window.carregarEstruturaPlano();
     const [resTurmas, resDisc, resProfs, resAlunos] = await Promise.all([
       apiFetch('/api/v1/escola-admin/turmas', { ignoreAuthRedirect: true }),
       apiFetch('/api/v1/disciplinas', { ignoreAuthRedirect: true }),
@@ -2339,8 +2340,7 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
     { id: 'professores', titulo: 'Atribuição & Docentes', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
-    { id: 'classes-exames', titulo: 'Classes / Níveis & Exames', icone: 'bi-layers-fill text-success', categoria: 'Área Pedagógica' },
-    { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Área Pedagógica' },
+    { id: 'plano-curricular', titulo: 'Plano Curricular', icone: 'bi-diagram-3-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
@@ -2366,8 +2366,7 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Distribuição', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
     { id: 'professores', titulo: 'Atribuição de Disciplinas', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
-    { id: 'classes-exames', titulo: 'Classes & Exames', icone: 'bi-layers-fill text-success', categoria: 'Área Pedagógica' },
-    { id: 'disciplinas', titulo: 'Disciplinas Curriculares', icone: 'bi-book-fill', categoria: 'Área Pedagógica' },
+    { id: 'plano-curricular', titulo: 'Plano Curricular', icone: 'bi-diagram-3-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas, Actas & Conselhos', icone: 'bi-table', categoria: 'Área Pedagógica' },
@@ -2444,8 +2443,7 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
     { id: 'professores', titulo: 'Atribuição & Docentes', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
-    { id: 'classes-exames', titulo: 'Classes / Níveis & Exames', icone: 'bi-layers-fill text-success', categoria: 'Área Pedagógica' },
-    { id: 'disciplinas', titulo: 'Disciplinas', icone: 'bi-book-fill', categoria: 'Área Pedagógica' },
+    { id: 'plano-curricular', titulo: 'Plano Curricular', icone: 'bi-diagram-3-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
@@ -2477,8 +2475,7 @@ function renderizarSidebarPorNivel(role) {
   if (!navContainer) return;
 
   const ITENS_SUBNAV_PEDAGOGICO = [
-    'classes-exames',
-    'disciplinas',
+    'plano-curricular',
     'desbloqueio',
     'caderneta',
     'pautas',
@@ -2533,11 +2530,8 @@ function renderizarSidebarPorNivel(role) {
             <i class="bi bi-chevron-down small" id="seta-area-pedagogica" style="transition: transform 0.2s;"></i>
           </a>
           <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('classes-exames')" id="subnav-classes-exames">
-              <i class="bi bi-layers-fill text-success me-1"></i> <span>Classes / Níveis & Exames</span>
-            </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('disciplinas')" id="subnav-disciplinas">
-              <i class="bi bi-book-fill text-primary me-1"></i> <span>Disciplinas</span>
+            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('plano-curricular')" id="subnav-plano-curricular">
+              <i class="bi bi-diagram-3-fill text-success me-1"></i> <span>Plano Curricular</span>
             </a>
             <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('desbloqueio')" id="subnav-desbloqueio">
               <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio de Trimestre</span>
@@ -2594,7 +2588,6 @@ function renderizarSidebarPorNivel(role) {
 
 // Funcionalidade (pacote) que protege cada entrada do menu; o núcleo MEC não aparece aqui (sempre visível).
 const FUNCIONALIDADE_POR_MENU = {
-  'classes-exames': 'exames',
   'exames': 'exames',
   'estatisticas-aproveitamento': 'estatisticas',
   'horarios': 'rotina',
@@ -2898,7 +2891,7 @@ function navegarPara(viewId) {
 
   // Se o painel usar acordeão pedagógico, incluir os subitens
   if (['painel-direcao', 'painel-pedagogico', 'painel-escola'].includes(painel)) {
-    ['classes-exames', 'disciplinas', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'].forEach(id => {
+    ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'].forEach(id => {
       if (!menusPermitidos.includes(id)) menusPermitidos.push(id);
     });
   }
@@ -2957,7 +2950,7 @@ function navegarPara(viewId) {
       // Se for subitem da Área Pedagógica, manter o acordeão aberto
       const subnav = document.getElementById('subnav-area-pedagogica');
       const seta = document.getElementById('seta-area-pedagogica');
-      const ITENS_SUBNAV_PEDAGOGICO = ['classes-exames', 'disciplinas', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
+      const ITENS_SUBNAV_PEDAGOGICO = ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
       if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId) && subnav) {
         subnav.style.display = 'block';
         if (seta) seta.style.transform = 'rotate(180deg)';
@@ -3121,6 +3114,7 @@ function tratarAcessoRestritoOuSuspenso(codigo, mensagem) {
 }
 
 async function navegarPara(viewId) {
+  if (viewId === 'classes-exames' || viewId === 'disciplinas') viewId = 'plano-curricular';
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
@@ -3200,8 +3194,7 @@ async function navegarPara(viewId) {
 
   // Marcar link como ativo na sidebar e sincronizar submenu da Área Pedagógica
   const ITENS_SUBNAV_PEDAGOGICO = [
-    'classes-exames',
-    'disciplinas',
+    'plano-curricular',
     'desbloqueio',
     'caderneta',
     'pautas',
@@ -3279,10 +3272,9 @@ async function navegarPara(viewId) {
   }
   if (viewId === 'escola') carregarEscolaETurmas();
   if (viewId === 'turmas') carregarTurmas();
-  if (viewId === 'classes-exames') { carregarPaginaClassesExames(); return; }
+  if (viewId === 'plano-curricular') { if (typeof window.carregarPlanoCurricular === 'function') window.carregarPlanoCurricular(); return; }
   if (viewId === 'alunos') carregarAlunos();
   if (viewId === 'professores') carregarProfessores();
-  if (viewId === 'disciplinas') carregarDisciplinas();
   if (viewId === 'caderneta') inicializarNavegacaoCaderneta();
   if (viewId === 'pautas') carregarPautas(null, false);
   if (viewId === 'exames') carregarExames();
@@ -8007,7 +7999,132 @@ function renderizarTabelaAlunos(alunos) {
 }
 
 // ==================== UTILITÁRIOS PARA ÁREAS/SECÇÕES VINCULADAS ÀS TURMAS ====================
+// ==================== PLANO CURRICULAR: FONTE ÚNICA DE CLASSES, ÁREAS E EXAMES ====================
+// Turmas, matrículas, formação automática, pautas e exames consultam a estrutura definida na página Plano Curricular.
+window.carregarEstruturaPlano = async function() {
+  try {
+    const res = await apiFetch('/api/v1/plano-curricular/estrutura/', { ignoreAuthRedirect: true });
+    if (res && res.success) {
+      state.planoEstrutura = res.data || { classes: [] };
+      try { localStorage.setItem('sige_cache_plano_estrutura', JSON.stringify(state.planoEstrutura)); } catch (_) {}
+    }
+  } catch (e) {
+    try {
+      const cache = localStorage.getItem('sige_cache_plano_estrutura');
+      if (cache && !state.planoEstrutura) state.planoEstrutura = JSON.parse(cache);
+    } catch (_) {}
+  }
+  return state.planoEstrutura || { classes: [] };
+};
+
+window.planoClasses = function() {
+  const p = state.planoEstrutura;
+  return (p && Array.isArray(p.classes)) ? p.classes : [];
+};
+
+window.planoClasse = function(nome) {
+  const chave = (s) => {
+    const t = String(s || '').toLowerCase();
+    const m = t.match(/\d+/);
+    return m ? ((/n[ií]vel/.test(t) ? 'N' : 'C') + parseInt(m[0], 10)) : t.trim();
+  };
+  const alvo = chave(nome);
+  return window.planoClasses().find(c => chave(c.nome) === alvo) || null;
+};
+
+// Liga os selects de Classe/Nível e Secção/Área dos formulários (turma, lote, formação automática, edição)
+// à estrutura do Plano Curricular. Sem plano cadastrado não altera nada.
+window.ligarSelectsAoPlano = function(raiz) {
+  const classes = window.planoClasses();
+  if (!classes.length || !raiz) return;
+  const q = (id) => raiz.querySelector('#' + id);
+  const opts = (lista, atual) => lista.map(v => `<option value="${v}" ${v === atual ? 'selected' : ''}>${v}</option>`).join('');
+  const areasDe = (classe) => { const c = window.planoClasse(classe); return c ? c.areas.map(a => a.nome) : []; };
+
+  const esconderRegime = (...ids) => ids.forEach(id => { const el = q(id); const box = el && (el.closest('.col-md-12') || el.closest('.col-12')); if (box) box.style.display = 'none'; });
+  const esconderBotoes = (...ids) => ids.forEach(id => { const el = q(id); if (el) el.style.display = 'none'; });
+
+  const ligarPar = (idGrau, idArea, { todas = false, depois = null, manterForaDoPlano = false } = {}) => {
+    const selG = q(idGrau);
+    let elA = q(idArea);
+    if (!selG || !elA) return;
+    const nomes = classes.map(c => c.nome);
+    const grauOriginal = selG.value;
+    const areaOriginal = elA.value;
+
+    // Classe: só as do Plano Curricular (na edição, a classe antiga fora do plano fica visível para ser corrigida).
+    const grauAtual = nomes.includes(grauOriginal) ? grauOriginal : ((todas && grauOriginal === 'TODAS') ? 'TODAS' : (manterForaDoPlano && grauOriginal ? grauOriginal : nomes[0]));
+    selG.innerHTML = (todas ? `<option value="TODAS" ${grauAtual === 'TODAS' ? 'selected' : ''}>Todas as Classes / Níveis da Escola</option>` : '')
+      + ((manterForaDoPlano && grauOriginal && !nomes.includes(grauOriginal)) ? `<option value="${grauOriginal}" selected>${grauOriginal} (fora do Plano Curricular)</option>` : '')
+      + opts(nomes, grauAtual);
+
+    // O campo de texto livre passa a lista fechada (só áreas do Plano Curricular).
+    if (elA.tagName !== 'SELECT') {
+      const novo = document.createElement('select');
+      novo.id = elA.id; novo.className = 'form-select';
+      const aoMudar = elA.getAttribute('oninput');
+      if (aoMudar) novo.setAttribute('onchange', aoMudar);
+      elA.replaceWith(novo);
+      elA = novo;
+    }
+    const preencher = (manter, primeira) => {
+      const g = selG.value;
+      const lista = g === 'TODAS' ? window.obterTodasAreasOficiais('TODAS') : areasDe(g);
+      const foraDoPlano = (manterForaDoPlano && primeira && manter && manter !== 'TODAS' && !lista.includes(manter)
+        && !(manter.toLowerCase() === 'geral' && !lista.length))
+        ? `<option value="${manter}" selected>${manter} (fora do Plano Curricular)</option>` : '';
+      let html;
+      if (todas) {
+        html = `<option value="TODAS">Todas as Áreas / Secções</option>` + opts(lista, manter);
+      } else if (!lista.length) {
+        html = foraDoPlano + '<option value="Geral">Geral (esta classe não tem Áreas / Secções)</option>';
+      } else {
+        html = foraDoPlano + opts(lista, lista.includes(manter) ? manter : (foraDoPlano ? '' : lista[0]));
+      }
+      elA.innerHTML = html;
+      if (manter && (lista.includes(manter) || foraDoPlano)) elA.value = manter;
+    };
+    preencher(areaOriginal === 'Geral' && !manterForaDoPlano ? '' : areaOriginal, true);
+    if (!selG.dataset.ligadoPlano) {
+      selG.dataset.ligadoPlano = '1';
+      selG.addEventListener('change', () => { preencher('', false); if (typeof depois === 'function') depois(); });
+    }
+  };
+
+  // Criar turma (manual)
+  if (q('mtGrau')) {
+    esconderRegime('regimeTurmaClasse'); esconderBotoes('btnAdicionarNivelTurma');
+    ligarPar('mtGrau', 'mtArea', { depois: () => { if (typeof atualizarAssistenteCriarTurma === 'function') atualizarAssistenteCriarTurma(); } });
+  }
+  // Criar turmas em lote
+  if (q('mlGrau')) {
+    esconderRegime('loteRegimeClasse'); esconderBotoes('btnAdicionarNivelLote');
+    ligarPar('mlGrau', 'mlArea');
+  }
+  // Editar turma
+  if (q('mtEditGrau')) {
+    esconderRegime('editRegimeClasse'); esconderBotoes('btnAdicionarNivelEditTurma');
+    ligarPar('mtEditGrau', 'mtEditArea', { manterForaDoPlano: true });
+  }
+  // Formação automática de turmas
+  if (q('mfaClasse')) {
+    ligarPar('mfaClasse', 'mfaArea', { todas: true });
+  }
+};
+
 window.obterTodasAreasOficiais = function(classeFiltro = null) {
+  // Com Plano Curricular definido, as áreas vêm exclusivamente dele (sem listas inventadas).
+  if (window.planoClasses().length > 0) {
+    if (classeFiltro && classeFiltro !== 'TODAS') {
+      const c = window.planoClasse(classeFiltro);
+      return c ? c.areas.map(a => a.nome) : [];
+    }
+    const todas = [];
+    window.planoClasses().forEach(c => c.areas.forEach(a => {
+      if (!todas.some(x => x.toLowerCase() === a.nome.toLowerCase())) todas.push(a.nome);
+    }));
+    return todas;
+  }
   // Lista oficial do currículo (exatamente como visível na Secção/Área de Estudo e Turmas)
   const areasPadrao = [
     'Ensino Geral',
@@ -8682,7 +8799,9 @@ async function modalNovoAluno() {
         '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe'
       ];
   const classesSet = new Set(classesAtivas);
-  turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
+  // Com Plano Curricular definido, a matrícula só aceita as classes/níveis do plano (e as suas turmas).
+  const planoManda = typeof window.planoClasses === 'function' && window.planoClasses().length > 0;
+  if (!planoManda) turmas.forEach(t => { if (t.grau_ano) classesSet.add(t.grau_ano.trim()); });
   const classesOrdenadas = Array.from(classesSet).sort((x, y) => {
     const numX = parseInt(x.replace(/\D/g, '')) || 0;
     const numY = parseInt(y.replace(/\D/g, '')) || 0;
@@ -11188,6 +11307,9 @@ window.selecionarRegimeInstituicao = function(novoRegime) {
 
 // ==================== INTERLIGAÇÃO CENTRALIZADA DE CLASSES / NÍVEIS ATIVOS ====================
 window.obterClassesCurricularesAtivas = function() {
+  if (typeof window.planoClasses === 'function' && window.planoClasses().length > 0) {
+    return window.planoClasses().map(c => c.nome);
+  }
   const escolaId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
     || state.tenant?.id || state.user?.escola_id || 'padrao';
   const regime = typeof window.obterRegimeCurricularInstituicao === 'function' ? window.obterRegimeCurricularInstituicao() : 'CLASSES';
@@ -16875,6 +16997,10 @@ function abrirModal(titulo, htmlCorpo) {
     corpo.innerHTML = htmlCorpo;
     aplicarResponsividadeUniversalTabelas(corpo);
     aplicarMascaraCamposNumericos(corpo);
+    // Plano Curricular manda: classes e áreas dos formulários vêm sempre dele.
+    if (typeof window.ligarSelectsAoPlano === 'function') {
+      try { window.ligarSelectsAoPlano(corpo); } catch (e) { console.warn('Ligação ao Plano Curricular:', e); }
+    }
   }
   const el = document.getElementById('modalGenerico');
   if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -21708,8 +21834,8 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarAlunos === 'function') await carregarAlunos(ano);
   } else if (viewId === 'professores') {
     if (typeof carregarProfessores === 'function') await carregarProfessores();
-  } else if (viewId === 'disciplinas') {
-    if (typeof carregarDisciplinas === 'function') await carregarDisciplinas();
+  } else if (viewId === 'plano-curricular') {
+    if (typeof window.carregarPlanoCurricular === 'function') await window.carregarPlanoCurricular();
   } else if (viewId === 'caderneta') {
     if (typeof inicializarNavegacaoCaderneta === 'function') {
       await inicializarNavegacaoCaderneta(true);
@@ -21719,9 +21845,6 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     }
   } else if (viewId === 'pautas') {
     if (typeof carregarPautas === 'function') await carregarPautas(ano, true);
-  } else if (viewId === 'classes-exames') {
-    if (typeof carregarPaginaClassesExames === 'function') await carregarPaginaClassesExames();
-    else if (typeof carregarClassesENiveis === 'function') await carregarClassesENiveis();
   } else if (viewId === 'exames') {
     if (typeof carregarExames === 'function') await carregarExames(ano, true);
   } else if (viewId === 'director-turma') {

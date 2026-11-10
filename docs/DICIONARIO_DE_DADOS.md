@@ -243,6 +243,30 @@ Grelha curricular nacional.
 | `tem_exame` | `BOOLEAN` | Não | Critério oficial de exame por disciplina (`True` = Sim / `False` = Não). Padrão: `False`. |
 | *Unique Constraint* | SQL | — | `UNIQUE (escola_id, codigo, ano_letivo)`. |
 
+### 2.10.1. `sige_areas_seccoes` (`apps.disciplinas.models.AreaSeccao`)
+Área / Secção de uma Classe ou Nível (Plano Curricular).
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador da área. |
+| `escola_id` | `UUID` (FK) | Não | Escola proprietária. |
+| `classe` | `VARCHAR(50)` | Não | Nome oficial da classe/nível no plano (ex.: *11ª Classe*). |
+| `nome` | `VARCHAR(80)` | Não | Nome da área/secção. |
+| `ordem` | `INTEGER` | Não | Ordem de apresentação. |
+| *Unique Constraint* | SQL | — | `UNIQUE (escola_id, classe, nome)`. |
+
+### 2.10.2. `sige_areas_seccoes_disciplinas` (`apps.disciplinas.models.AreaSeccaoDisciplina`)
+Disciplina pertencente a uma área, com o exame definido nessa área.
+
+| Campo | Tipo SQL | Nulo? | Descrição / Restrição |
+| :--- | :--- | :---: | :--- |
+| `id` | `UUID` (PK) | Não | Identificador do vínculo. |
+| `escola_id` | `UUID` (FK) | Não | Escola proprietária. |
+| `area_id` | `UUID` (FK) | Não | Área/Secção (`ON DELETE CASCADE`). |
+| `disciplina_id` | `UUID` (FK) | Não | Disciplina da mesma classe (`ON DELETE CASCADE`). |
+| `tem_exame` | `BOOLEAN` | Não | Só pode ser `True` se a classe tem exame. |
+| *Unique Constraint* | SQL | — | `UNIQUE (area_id, disciplina_id)`. |
+
 ---
 
 ### 2.11. `sige_notas` (`apps.notas.models.Nota`)

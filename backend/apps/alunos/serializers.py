@@ -51,6 +51,28 @@ class AlunoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("O contacto do encarregado não pode aceitar letras. Insira apenas números.")
         return value
 
+    def validate(self, attrs):
+        """Matrícula: sem turma, a classe de ingresso tem de existir no Plano Curricular da escola."""
+        classe = attrs.get('classe')
+        if attrs.get('turma') is not None or not classe or not str(classe).strip():
+            return attrs
+        if self.instance is not None and str(classe).strip() == str(self.instance.classe or '').strip():
+            return attrs
+        from common.utils.tenant import get_tenant_escola
+        from apps.disciplinas import plano
+        escola = get_tenant_escola(self.context.get('request'))
+        if escola and plano.classes_configuradas(escola):
+            oficial = plano.nome_classe_oficial(escola, classe)
+            if not oficial:
+                raise serializers.ValidationError({
+                    'classe': f"A classe/nível '{classe}' não está cadastrada no Plano Curricular da escola."
+                })
+            attrs['classe'] = oficial
+            ok, mensagem = plano.area_valida_para_classe(escola, oficial, attrs.get('area'))
+            if not ok and attrs.get('area') not in (None, '', 'Geral'):
+                raise serializers.ValidationError({'area': mensagem})
+        return attrs
+
     def create(self, validated_data):
         ano_ingresso = validated_data.get('ano_ingresso')
         turma = validated_data.get('turma')
