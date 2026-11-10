@@ -1531,3 +1531,14 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 
 ### Escudo: dados da avaliação na folha de resposta (v2.9.29)
 - Em «Gerar → Folha de resposta» há agora os mesmos campos da página «Folha de Resposta Personalizada» para o bloco **Duração / Data / Hora (início – fim) / Sala**: Data, Hora inicial, Duração (min), Hora final (calculada pela hora inicial + duração, ajustável), Sala, Professor(a), Versões (anti-cópia) e Instrução adicional. São opcionais: o que não for indicado fica em branco na folha (nada é inventado).
+
+
+### Actividades dos Cargos Pedagógicos — Director de Turma, Director de Classe e Delegado da Disciplina (v2.9.35)
+- **Quem atribui:** a Direcção Pedagógica (DAP), a Direcção da Escola e o administrador, em *Área Pedagógica → Actividades dos Cargos* (`#view-atribuicoes-cargos`). Escolhe-se o ano lectivo e carrega-se em Buscar.
+- **Filtros em cascata (altura constante):** Cargo → Classe → Turma (Director de Turma) ou Disciplina (Delegado) → Professor responsável. O Director de Classe não precisa de turma.
+- **Sugestões:** cada cargo tem um catálogo de actividades sugeridas (`apps/atribuicoes/sugestoes.py`). Marcam-se as pretendidas e atribuem-se de uma só vez.
+- **Outras actividades:** o botão *Adicionar outra actividade* permite escrever título, descrição, prazo e prioridade; com *Guardar nas sugestões da escola* a actividade fica disponível para os próximos casos (modelo da escola, `AtividadeModelo`). O botão **+** numa linha da lista pré-preenche cargo, local e responsável para atribuir mais actividades à mesma pessoa.
+- **Lista paginada** (10 por página) com filtros por cargo, classe, estado e pesquisa; edição, remoção e indicação de prazos em atraso.
+- **Professor:** *As Minhas Actividades de Cargo* (`#view-minhas-atividades`) mostra apenas as suas actividades; pode mudar o estado (Pendente / Em curso / Concluída) e deixar uma nota. Sem atribuições mostra o estado vazio.
+- **API** (`/api/v1/atribuicoes/`): `GET /` (filtros `ano`, `cargo`, `classe`, `estado`, `search`, `page`), `POST /` (vários `atividades` de uma vez), `PATCH|DELETE /<id>/`, `GET /sugestoes/?cargo=`, `DELETE /modelos/<id>/`. Isolamento por escola; só a gestão atribui, o professor só vê e actualiza as suas.
+- **Dados:** tabelas `sige_atribuicoes_cargos` e `sige_atividades_modelo` (migração `atribuicoes.0001`); sem dados fictícios — o catálogo contém apenas modelos de trabalho.

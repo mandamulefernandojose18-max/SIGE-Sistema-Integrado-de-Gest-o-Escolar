@@ -1,0 +1,27 @@
+<!-- SIGE | As Minhas Actividades (Director de Turma, Director de Classe, Delegado da Disciplina) -->
+<section id="view-minhas-atividades" class="modulo-view" style="display: none;">
+  <div class="card p-4 bg-white">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <h5 class="fw-bold mb-1"><i class="bi bi-clipboard-check text-primary me-2"></i>As Minhas Actividades de Cargo</h5>
+        <p class="text-muted small mb-0">Actividades atribuídas pela Direcção Pedagógica como Director de Turma, Director de Classe ou Delegado da Disciplina.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <select id="maCargo" class="form-select form-select-sm" style="width: auto;" onchange="carregarMinhasAtividades(1)">
+          <option value="">Todos os cargos</option>
+          <option value="DIRECTOR_TURMA">Director de Turma</option>
+          <option value="DIRECTOR_CLASSE">Director de Classe</option>
+          <option value="DELEGADO_DISCIPLINA">Delegado da Disciplina</option>
+        </select>
+        <select id="maEstado" class="form-select form-select-sm" style="width: auto;" onchange="carregarMinhasAtividades(1)">
+          <option value="">Todos os estados</option>
+          <option value="PENDENTE">Pendente</option>
+          <option value="EM_CURSO">Em curso</option>
+          <option value="CONCLUIDA">Concluída</option>
+        </select>
+      </div>
+    </div>
+    <div id="maLista"></div>
+    <div id="maPaginacao" class="d-flex justify-content-between align-items-center mt-3 small"></div>
+  </div>
+</section>

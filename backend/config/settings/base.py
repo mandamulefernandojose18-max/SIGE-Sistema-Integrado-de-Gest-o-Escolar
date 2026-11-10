@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'apps.dashboard',
     'apps.ferramentas',
     'apps.escudo',
+    'apps.atribuicoes',
 ]
 
 MIDDLEWARE = [

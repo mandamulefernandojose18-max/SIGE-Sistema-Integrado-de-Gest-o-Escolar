@@ -1,0 +1,126 @@
+<!-- ===================================================================== -->
+<!-- SIGE - PAINEL-ESCOLA | Atribuição de Actividades aos Cargos Pedagógicos -->
+<!-- Director de Turma, Director de Classe e Delegado da Disciplina -->
+<!-- Gerida pela Direcção Pedagógica (DAP); filtros em cascata, lista paginada -->
+<!-- ===================================================================== -->
+<section id="view-atribuicoes-cargos" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="atribuicoesCargosAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('atribuicoes-cargos')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="atribuicoesCargosConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+
+    <!-- Nova atribuição -->
+    <div class="card p-4 mb-4 no-print" id="atrCardNova">
+      <h5 class="fw-bold mb-1"><i class="bi bi-clipboard-check text-primary me-2"></i>Atribuir Actividades aos Cargos Pedagógicos</h5>
+      <p class="text-muted small mb-3">Escolha o cargo, o local e o responsável; depois seleccione as actividades sugeridas ou acrescente outras. Pode voltar a atribuir mais actividades ao mesmo responsável quando for necessário.</p>
+
+      <div class="row g-2 mb-3">
+        <div class="col-md-3">
+          <label class="form-label small fw-bold mb-1">1. Cargo</label>
+          <select id="atrCargo" class="form-select form-select-sm" onchange="atrAoMudarCargo()">
+            <option value="">-- Cargo --</option>
+            <option value="DIRECTOR_TURMA">Director de Turma</option>
+            <option value="DIRECTOR_CLASSE">Director de Classe</option>
+            <option value="DELEGADO_DISCIPLINA">Delegado da Disciplina</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold mb-1">2. Classe</label>
+          <select id="atrClasse" class="form-select form-select-sm" onchange="atrAoMudarClasse()" disabled></select>
+        </div>
+        <div class="col-md-3" id="atrColLocal">
+          <label class="form-label small fw-bold mb-1" id="atrLocalRotulo">3. Turma</label>
+          <select id="atrLocal" class="form-select form-select-sm" disabled></select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold mb-1">4. Professor responsável</label>
+          <select id="atrProfessor" class="form-select form-select-sm" disabled></select>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <!-- Sugestões -->
+        <div class="col-lg-6">
+          <div class="fw-bold small mb-1"><i class="bi bi-lightbulb text-warning me-1"></i>Actividades sugeridas</div>
+          <div id="atrSugestoes" class="border rounded p-2 bg-white" style="height: 230px; overflow-y: auto;">
+            <div class="text-muted small p-2">Escolha o cargo para ver as sugestões.</div>
+          </div>
+        </div>
+        <!-- Outra actividade -->
+        <div class="col-lg-6">
+          <div class="fw-bold small mb-1"><i class="bi bi-plus-circle text-success me-1"></i>Adicionar outra actividade</div>
+          <div class="border rounded p-2 bg-white" style="min-height: 230px;">
+            <input type="text" id="atrNovoTitulo" class="form-control form-control-sm mb-2" placeholder="Título da actividade" maxlength="255">
+            <textarea id="atrNovoDescricao" class="form-control form-control-sm mb-2" rows="2" placeholder="Descrição / instruções (opcional)"></textarea>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label very-small text-muted mb-0">Prazo</label>
+                <input type="date" id="atrNovoPrazo" class="form-control form-control-sm">
+              </div>
+              <div class="col-6">
+                <label class="form-label very-small text-muted mb-0">Prioridade</label>
+                <select id="atrNovoPrioridade" class="form-select form-select-sm">
+                  <option value="NORMAL">Normal</option>
+                  <option value="ALTA">Alta</option>
+                  <option value="BAIXA">Baixa</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-check small mb-2">
+              <input class="form-check-input" type="checkbox" id="atrGuardarModelo">
+              <label class="form-check-label" for="atrGuardarModelo">Guardar nas sugestões da escola</label>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="atrAdicionarPropria()">
+              <i class="bi bi-plus-lg me-1"></i> Juntar à lista
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista a atribuir -->
+      <div class="mt-3">
+        <div class="fw-bold small mb-1"><i class="bi bi-list-check me-1"></i>Actividades a atribuir (<span id="atrContaFila">0</span>)</div>
+        <div id="atrFila" class="border rounded p-2 bg-white small" style="height: 120px; overflow-y: auto;"></div>
+      </div>
+      <div class="text-end mt-3">
+        <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="atrLimparFormulario()"><i class="bi bi-eraser me-1"></i> Limpar</button>
+        <button type="button" class="btn btn-sm btn-primary" id="atrBtnAtribuir" onclick="atrAtribuir()"><i class="bi bi-send-check me-1"></i> Atribuir actividades</button>
+      </div>
+    </div>
+
+    <!-- Lista de atribuições -->
+    <div class="card p-4 bg-white">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
+        <h6 class="fw-bold mb-0"><i class="bi bi-card-checklist text-primary me-2"></i>Actividades atribuídas</h6>
+        <div class="d-flex gap-2 flex-wrap">
+          <select id="atrFCargo" class="form-select form-select-sm" style="width: auto;" onchange="atrListar(1)">
+            <option value="">Todos os cargos</option>
+            <option value="DIRECTOR_TURMA">Director de Turma</option>
+            <option value="DIRECTOR_CLASSE">Director de Classe</option>
+            <option value="DELEGADO_DISCIPLINA">Delegado da Disciplina</option>
+          </select>
+          <select id="atrFClasse" class="form-select form-select-sm" style="width: auto;" onchange="atrListar(1)"></select>
+          <select id="atrFEstado" class="form-select form-select-sm" style="width: auto;" onchange="atrListar(1)">
+            <option value="">Todos os estados</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="EM_CURSO">Em curso</option>
+            <option value="CONCLUIDA">Concluída</option>
+          </select>
+          <input type="search" id="atrFPesquisa" class="form-control form-control-sm" style="width: 190px;" placeholder="Pesquisar..." oninput="atrPesquisarDebounce()">
+        </div>
+      </div>
+      <div id="atrLista"></div>
+      <div id="atrPaginacao" class="d-flex justify-content-between align-items-center mt-3 small no-print"></div>
+    </div>
+  </div>
+</section>

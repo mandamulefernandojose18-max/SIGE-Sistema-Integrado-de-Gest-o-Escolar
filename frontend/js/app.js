@@ -2340,6 +2340,7 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
     { id: 'professores', titulo: 'Atribuição & Docentes', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
+    { id: 'atribuicoes-cargos', titulo: 'Actividades dos Cargos (DT, DC, Delegado)', icone: 'bi-clipboard-check text-primary', categoria: 'Área Pedagógica' },
     { id: 'plano-curricular', titulo: 'Plano Curricular', icone: 'bi-diagram-3-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
@@ -2366,6 +2367,7 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Distribuição', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
     { id: 'professores', titulo: 'Atribuição de Disciplinas', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
+    { id: 'atribuicoes-cargos', titulo: 'Actividades dos Cargos (DT, DC, Delegado)', icone: 'bi-clipboard-check text-primary', categoria: 'Área Pedagógica' },
     { id: 'plano-curricular', titulo: 'Plano Curricular', icone: 'bi-diagram-3-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
@@ -2410,6 +2412,7 @@ const MENUS_POR_PAINEL = {
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística das Minhas Turmas', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Espaço do Docente' },
     { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Espaço do Docente' },
     { id: 'comunicados', titulo: 'Comunicados Oficiais', icone: 'bi-megaphone-fill text-primary', categoria: 'Espaço do Docente' },
+    { id: 'minhas-atividades', titulo: 'As Minhas Actividades de Cargo', icone: 'bi-clipboard-check text-primary', categoria: 'Espaço do Docente' },
     { id: 'professor-perfil', titulo: 'Meu Perfil Docente', icone: 'bi-person-lines-fill text-primary', categoria: 'Espaço do Docente' }
   ],
   'painel-aluno': [
@@ -2443,6 +2446,7 @@ const MENUS_POR_PAINEL = {
     { id: 'turmas', titulo: 'Turmas & Capacidade', icone: 'bi-diagram-3-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'horarios', titulo: 'Horários Lectivos', icone: 'bi-clock-history text-info', categoria: 'Área Pedagógica' },
     { id: 'professores', titulo: 'Atribuição & Docentes', icone: 'bi-person-badge-fill', categoria: 'Área Pedagógica' },
+    { id: 'atribuicoes-cargos', titulo: 'Actividades dos Cargos (DT, DC, Delegado)', icone: 'bi-clipboard-check text-primary', categoria: 'Área Pedagógica' },
     { id: 'plano-curricular', titulo: 'Plano Curricular', icone: 'bi-diagram-3-fill text-success', categoria: 'Área Pedagógica' },
     { id: 'desbloqueio', titulo: 'Desbloqueio de Trimestre', icone: 'bi-unlock-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
@@ -3249,7 +3253,7 @@ async function navegarPara(viewId) {
   // cada página/módulo funciona de forma 100% INDEPENDENTE.
   // A escolha do ano lectivo numa página NÃO influencia as outras páginas.
   // Cada página só carrega e exibe dados após a escolha do ano lectivo NA PRÓPRIA PÁGINA.
-  if (painel !== 'painel-superadmin') {
+  if (painel !== 'painel-superadmin' && viewId !== 'minhas-atividades') {
     const anoDestaView = state.anosPorView ? state.anosPorView[viewId] : null;
     if (!anoDestaView) {
       aplicarBloqueioVisualAnoNaoSelecionado(viewEl, viewId);
@@ -3279,6 +3283,8 @@ async function navegarPara(viewId) {
   if (viewId === 'pautas') carregarPautas(null, false);
   if (viewId === 'exames') carregarExames();
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
+  if (viewId === 'atribuicoes-cargos' && typeof carregarAtribuicoesCargos === 'function') carregarAtribuicoesCargos(state.anosPorView[viewId]);
+  if (viewId === 'minhas-atividades' && typeof carregarMinhasAtividades === 'function') carregarMinhasAtividades(1);
   if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento(false);
   if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
   if (viewId === 'presencas' && typeof carregarPresencasAno === 'function') carregarPresencasAno(state.anosPorView[viewId]);
@@ -21849,6 +21855,10 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarExames === 'function') await carregarExames(ano, true);
   } else if (viewId === 'director-turma') {
     if (typeof carregarPainelDirectorTurma === 'function') await carregarPainelDirectorTurma();
+  } else if (viewId === 'atribuicoes-cargos') {
+    if (typeof carregarAtribuicoesCargos === 'function') await carregarAtribuicoesCargos(ano);
+  } else if (viewId === 'minhas-atividades') {
+    if (typeof carregarMinhasAtividades === 'function') await carregarMinhasAtividades(1);
   } else if (viewId === 'estatisticas-aproveitamento') {
     if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento(true);
   } else if (viewId === 'presencas') {
