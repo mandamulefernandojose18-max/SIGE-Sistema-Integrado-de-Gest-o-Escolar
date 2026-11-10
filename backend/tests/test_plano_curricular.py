@@ -157,6 +157,49 @@ class TestPlanoCurricular:
         dentro = self.client.post('/api/v1/alunos/', {**base, 'classe': '11a classe'}, format='json')
         assert dentro.status_code in (200, 201), dentro.data
 
+    def test_catalogo_cadastra_em_massa_e_recusa_repetidas(self):
+        r = self.client.post('/api/v1/plano-curricular/catalogo/', {'nomes': ['Matemática', 'matemática', 'Física', '']}, format='json')
+        assert r.status_code == 201
+        assert [d['nome'] for d in r.data['data']] == ['Matemática', 'Física']
+        assert r.data['repetidas'] == ['matemática']
+        igual = self.client.post('/api/v1/plano-curricular/catalogo/', {'nome': 'FÍSICA'}, format='json')
+        assert igual.status_code == 409
+        lista = self.client.get('/api/v1/plano-curricular/catalogo/')
+        assert sorted(d['nome'] for d in lista.data['data']) == ['Física', 'Matemática']
+
+    def test_disciplina_da_classe_escolhida_do_catalogo(self):
+        cat = self.client.post('/api/v1/plano-curricular/catalogo/', {'nome': 'Biologia'}, format='json').data['data'][0]
+        r = self.client.post('/api/v1/disciplinas/', {'catalogo': cat['id'], 'codigo': 'BIO11', 'classe': '11ª Classe', 'carga_horaria': 3}, format='json')
+        assert r.status_code == 201, r.data
+        assert r.data['data']['nome'] == 'Biologia' and str(r.data['data']['catalogo']) == cat['id']
+        usos = self.client.get('/api/v1/plano-curricular/catalogo/').data['data'][0]['usos']
+        assert usos == 1
+        # em uso: não pode ser eliminada do catálogo
+        assert self.client.delete(f"/api/v1/plano-curricular/catalogo/{cat['id']}/").status_code == 409
+
+    def test_disciplina_com_nome_novo_entra_no_catalogo(self):
+        r = self.client.post('/api/v1/disciplinas/', {'nome': 'Química', 'codigo': 'QUI11', 'classe': '11ª Classe'}, format='json')
+        assert r.status_code == 201
+        nomes = [d['nome'] for d in self.client.get('/api/v1/plano-curricular/catalogo/').data['data']]
+        assert 'Química' in nomes
+
+    def test_renomear_no_catalogo_actualiza_as_classes(self):
+        cat = self.client.post('/api/v1/plano-curricular/catalogo/', {'nome': 'Geo'}, format='json').data['data'][0]
+        self.client.post('/api/v1/disciplinas/', {'catalogo': cat['id'], 'codigo': 'GEO11', 'classe': '11ª Classe'}, format='json')
+        r = self.client.patch(f"/api/v1/plano-curricular/catalogo/{cat['id']}/", {'nome': 'Geografia'}, format='json')
+        assert r.status_code == 200
+        assert Disciplina.objects.get(codigo='GEO11').nome == 'Geografia'
+
+    def test_catalogo_isolado_e_so_leitura_para_professor(self):
+        from apps.disciplinas.models import DisciplinaCatalogo
+        alheia = DisciplinaCatalogo.objects.create(escola=self.outra, nome='Alheia')
+        nomes = [d['nome'] for d in self.client.get('/api/v1/plano-curricular/catalogo/').data['data']]
+        assert 'Alheia' not in nomes
+        assert self.client.patch(f'/api/v1/plano-curricular/catalogo/{alheia.id}/', {'nome': 'X'}, format='json').status_code == 404
+        prof = self._login('prof.pc@sige.mz')
+        assert prof.get('/api/v1/plano-curricular/catalogo/').status_code == 200
+        assert prof.post('/api/v1/plano-curricular/catalogo/', {'nome': 'Nova'}, format='json').status_code == 403
+
     def test_nao_elimina_area_em_uso_por_turma(self):
         area = self._area('11ª Classe', 'Letras')
         self.client.post('/api/v1/turmas/', {'nome': 'B', 'ano_letivo': '2026', 'grau_ano': '11ª Classe', 'area': 'Letras'}, format='json')

@@ -38,6 +38,7 @@
 
       <!-- Passos fixos (4): a altura da interface não cresce com o número de classes, áreas ou disciplinas -->
       <ul class="nav nav-pills nav-fill flex-column flex-md-row gap-1 mb-3" id="pcPassos">
+        <li class="nav-item"><button type="button" class="nav-link" data-passo="0" onclick="PlanoCurricular.irPasso(0)"><i class="bi bi-collection-fill me-1"></i>Todas Disciplinas de Ensino</button></li>
         <li class="nav-item"><button type="button" class="nav-link active" data-passo="1" onclick="PlanoCurricular.irPasso(1)"><span class="badge bg-white text-primary me-1">1</span>Classe / Nível</button></li>
         <li class="nav-item"><button type="button" class="nav-link" data-passo="2" onclick="PlanoCurricular.irPasso(2)"><span class="badge bg-white text-primary me-1">2</span>Disciplinas da Classe</button></li>
         <li class="nav-item"><button type="button" class="nav-link" data-passo="3" onclick="PlanoCurricular.irPasso(3)"><span class="badge bg-white text-primary me-1">3</span>Áreas / Secções</button></li>
@@ -57,6 +58,42 @@
       </div>
 
       <div id="pcAviso" class="alert alert-warning small d-none mb-3"></div>
+
+      <!-- TODAS DISCIPLINAS DE ENSINO: catálogo de qualquer disciplina; o passo 2 escolhe daqui -->
+      <div id="pcPasso0" class="d-none">
+        <p class="text-muted small mb-3">Cadastre aqui <strong>qualquer disciplina</strong> de ensino, uma só vez. No passo <strong>Disciplinas da Classe</strong> escolhe-se a disciplina desta lista para cada classe.</p>
+        <form class="row g-2 align-items-end mb-2" onsubmit="PlanoCurricular.guardarCatalogo(event)">
+          <input type="hidden" id="pcCatId">
+          <div class="col-md-8">
+            <label class="form-label small fw-semibold mb-1" for="pcCatNome">Disciplina</label>
+            <input type="text" id="pcCatNome" class="form-control form-control-sm" maxlength="100" required placeholder="Nome da disciplina">
+          </div>
+          <div class="col-md-4 d-flex gap-1">
+            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" id="pcCatBtn"><i class="bi bi-plus-lg me-1"></i>Cadastrar</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="pcCatCancelar" onclick="PlanoCurricular.cancelarEdicaoCatalogo()">Cancelar</button>
+          </div>
+        </form>
+        <details class="mb-3" id="pcCatMassa">
+          <summary class="small text-primary" style="cursor:pointer;">Cadastrar várias de uma vez (uma por linha)</summary>
+          <div class="mt-2">
+            <textarea id="pcCatVarias" class="form-control form-control-sm mb-2" rows="4" placeholder="Uma disciplina por linha"></textarea>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="PlanoCurricular.guardarCatalogoVarias()"><i class="bi bi-list-ul me-1"></i>Cadastrar a lista</button>
+          </div>
+        </details>
+        <div class="input-group input-group-sm mb-2" style="max-width: 420px;">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+          <input type="search" id="pcCatBusca" class="form-control" placeholder="Pesquisar disciplina..." oninput="PlanoCurricular.desenharCatalogo()">
+        </div>
+        <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-secondary" style="position: sticky; top: 0;">
+              <tr><th>Disciplina</th><th class="text-center" style="width:160px;">Usada em (classes)</th><th class="text-end" style="width:110px;">Ações</th></tr>
+            </thead>
+            <tbody id="pcTabelaCatalogo"></tbody>
+          </table>
+        </div>
+        <div class="small text-muted mt-2" id="pcCatResumo"></div>
+      </div>
 
       <!-- PASSO 1: Classe / Nível e regime de exame -->
       <div id="pcPasso1">
@@ -91,8 +128,9 @@
         <form class="row g-2 align-items-end mb-3" onsubmit="PlanoCurricular.guardarDisciplina(event)">
           <input type="hidden" id="pcDiscId">
           <div class="col-md-5">
-            <label class="form-label small fw-semibold mb-1" for="pcDiscNome">Disciplina</label>
-            <input type="text" id="pcDiscNome" class="form-control form-control-sm" maxlength="100" required oninput="PlanoCurricular.sugerirCodigo()">
+            <label class="form-label small fw-semibold mb-1" for="pcDiscNome">Disciplina <span class="text-muted fw-normal">(escolha da lista "Todas Disciplinas de Ensino")</span></label>
+            <input type="text" id="pcDiscNome" class="form-control form-control-sm" maxlength="100" required autocomplete="off" list="pcDiscLista" placeholder="Escreva para filtrar e escolha..." oninput="PlanoCurricular.sugerirCodigo()">
+            <datalist id="pcDiscLista"></datalist>
           </div>
           <div class="col-md-2">
             <label class="form-label small fw-semibold mb-1" for="pcDiscCodigo">Código</label>

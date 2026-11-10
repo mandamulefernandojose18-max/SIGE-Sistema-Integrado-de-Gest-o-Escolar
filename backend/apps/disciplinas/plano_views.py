@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils.tenant import get_tenant_escola
-from .models import AreaSeccao, AreaSeccaoDisciplina, Disciplina
+from .models import AreaSeccao, AreaSeccaoDisciplina, Disciplina, DisciplinaCatalogo
 from . import plano
 
 PAPEIS_QUE_EDITAM = {'SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA'}
@@ -28,6 +28,92 @@ class _PlanoBase(APIView):
 
     def erro(self, mensagem, codigo=status.HTTP_400_BAD_REQUEST):
         return Response({'success': False, 'message': mensagem}, status=codigo)
+
+
+def _dados_catalogo(c, usos=None):
+    return {'id': str(c.id), 'nome': c.nome, 'usos': c.disciplinas_classe.count() if usos is None else usos}
+
+
+class PlanoCatalogoView(_PlanoBase):
+    """'Todas Disciplinas de Ensino': catálogo de qualquer disciplina, de onde se escolhem as disciplinas de cada classe."""
+
+    def get(self, request):
+        escola = self.escola(request)
+        if not escola:
+            return self.sem_escola()
+        from django.db.models import Count
+        itens = DisciplinaCatalogo.objects.filter(escola=escola).annotate(n=Count('disciplinas_classe')).order_by('nome')
+        return Response({'success': True, 'data': [_dados_catalogo(c, c.n) for c in itens]})
+
+    def post(self, request):
+        if not self.pode_editar(request):
+            return self.negado()
+        escola = self.escola(request)
+        if not escola:
+            return self.sem_escola()
+        brutos = request.data.get('nomes')
+        if not isinstance(brutos, list):
+            brutos = [request.data.get('nome')]
+        criadas, repetidas, invalidas = [], [], []
+        vistos = set()
+        for bruto in brutos:
+            nome = ' '.join(str(bruto or '').split())
+            if not nome:
+                continue
+            if len(nome) < 2 or len(nome) > 100:
+                invalidas.append(nome[:30])
+                continue
+            if nome.casefold() in vistos or plano.achar_no_catalogo(escola, nome):
+                repetidas.append(nome)
+                continue
+            vistos.add(nome.casefold())
+            criadas.append(DisciplinaCatalogo.objects.create(escola=escola, nome=nome))
+        if not criadas and (repetidas or invalidas or not brutos):
+            if repetidas and not invalidas:
+                return self.erro('Esta disciplina já existe em "Todas Disciplinas de Ensino".' if len(repetidas) == 1
+                                 else 'Todas essas disciplinas já existem no catálogo.', status.HTTP_409_CONFLICT)
+            return self.erro('Indique o nome da disciplina (2 a 100 letras).')
+        return Response({'success': True, 'data': [_dados_catalogo(c, 0) for c in criadas],
+                         'repetidas': repetidas, 'invalidas': invalidas}, status=status.HTTP_201_CREATED)
+
+
+class PlanoCatalogoDetalheView(_PlanoBase):
+    def _item(self, request, pk):
+        escola = self.escola(request)
+        return escola, (DisciplinaCatalogo.objects.filter(escola=escola, pk=pk).first() if escola else None)
+
+    def patch(self, request, pk):
+        if not self.pode_editar(request):
+            return self.negado()
+        escola, item = self._item(request, pk)
+        if not escola:
+            return self.sem_escola()
+        if not item:
+            return self.erro('Disciplina não encontrada no catálogo.', status.HTTP_404_NOT_FOUND)
+        nome = ' '.join(str(request.data.get('nome') or '').split())
+        if len(nome) < 2 or len(nome) > 100:
+            return self.erro('Indique um nome válido (2 a 100 letras).')
+        if plano.achar_no_catalogo(escola, nome, excluir_pk=item.pk):
+            return self.erro(f'Já existe "{nome}" no catálogo.', status.HTTP_409_CONFLICT)
+        with transaction.atomic():
+            item.nome = nome
+            item.save(update_fields=['nome', 'updated_at'])
+            Disciplina.objects.filter(catalogo=item).update(nome=nome)
+        return Response({'success': True, 'data': _dados_catalogo(item)})
+
+    def delete(self, request, pk):
+        if not self.pode_editar(request):
+            return self.negado()
+        escola, item = self._item(request, pk)
+        if not escola:
+            return self.sem_escola()
+        if not item:
+            return self.erro('Disciplina não encontrada no catálogo.', status.HTTP_404_NOT_FOUND)
+        usos = item.disciplinas_classe.count()
+        if usos:
+            return self.erro(f'Não é possível eliminar: "{item.nome}" está em {usos} classe(s). Retire-a primeiro das classes.', status.HTTP_409_CONFLICT)
+        item.delete()
+        return Response({'success': True, 'message': 'Disciplina eliminada do catálogo.'})
 
 
 class PlanoEstruturaView(_PlanoBase):
@@ -76,7 +162,8 @@ class PlanoClasseView(_PlanoBase):
             'classe': oficial,
             'tem_exame': plano.classe_tem_exame(escola, oficial),
             'disciplinas': [
-                {'id': str(d.id), 'codigo': d.codigo, 'nome': d.nome, 'carga_horaria': d.carga_horaria,
+                {'id': str(d.id), 'catalogo': str(d.catalogo_id) if d.catalogo_id else None,
+                 'codigo': d.codigo, 'nome': d.nome, 'carga_horaria': d.carga_horaria,
                  'areas': por_disc.get(str(d.id), [])}
                 for d in discs
             ],

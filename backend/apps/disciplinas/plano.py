@@ -44,6 +44,16 @@ def classe_tem_exame(escola, classe):
     return False
 
 
+def achar_no_catalogo(escola, nome, excluir_pk=None):
+    """Procura no catálogo ignorando maiúsculas/minúsculas e acentos de caixa (igual em SQLite e PostgreSQL)."""
+    from .models import DisciplinaCatalogo
+    alvo = ' '.join(str(nome or '').split()).casefold()
+    for c in DisciplinaCatalogo.objects.filter(escola=escola):
+        if c.pk != excluir_pk and c.nome.casefold() == alvo:
+            return c
+    return None
+
+
 def disciplinas_da_classe(escola, classe):
     from .models import Disciplina
     return [d for d in Disciplina.objects.filter(escola=escola).order_by('nome') if mesma_classe(d.classe, classe)]

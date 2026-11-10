@@ -207,6 +207,9 @@ Fonte única da estrutura curricular: Classe/Nível (com exame Sim/Não, guardad
 
 | Método | Endpoint | Descrição |
 | :--- | :--- | :--- |
+| `GET` | `/plano-curricular/catalogo/` | Catálogo **Todas Disciplinas de Ensino**: `[{id, nome, usos}]` (`usos` = nº de classes onde é usada). |
+| `POST` | `/plano-curricular/catalogo/` | Cadastra `{nome}` ou várias `{nomes:[...]}`; devolve `repetidas`/`invalidas`. 409 se for só repetição. |
+| `PATCH` / `DELETE` | `/plano-curricular/catalogo/<uuid>/` | Renomeia (actualiza as disciplinas das classes) / elimina (409 se estiver em alguma classe). |
 | `GET` | `/plano-curricular/estrutura/` | Árvore para filtros em cascata: `regime` e `classes[]` com `nome`, `tem_exame`, `areas[]` e `total_disciplinas`. |
 | `GET` | `/plano-curricular/classe/?classe=` | Plano completo de uma classe: `disciplinas[]` (com as áreas a que pertencem) e `areas[]` (com `disciplinas[{disciplina, tem_exame}]`). 404 se a classe não está no plano. |
 | `POST` | `/plano-curricular/areas/` | Cria Área/Secção `{classe, nome}`. 400 se a classe não existe no plano ou o nome já existe na classe. |
@@ -214,7 +217,7 @@ Fonte única da estrutura curricular: Classe/Nível (com exame Sim/Não, guardad
 | `DELETE` | `/plano-curricular/areas/<uuid>/` | Elimina a área; 409 se houver turmas a usá-la. |
 | `PUT` | `/plano-curricular/areas/<uuid>/disciplinas/` | Define, de uma vez, as disciplinas da área: `{disciplinas:[{disciplina, tem_exame}]}`. 400 se a disciplina é de outra classe ou se `tem_exame=true` numa classe sem exame. Sincroniza `Disciplina.area` e `Disciplina.tem_exame`. |
 
-Validações ligadas ao plano nas rotas existentes: `POST/PUT /disciplinas/` (classe tem de existir no plano), `POST/PUT /turmas/` (classe e área do plano), `POST/PUT /alunos/` sem turma (classe do plano) e `PUT /escola-admin/classes-exames/` (`remover_nome` devolve 409 se a classe tem disciplinas, áreas ou turmas; passar a classe para sem exame retira o exame das suas disciplinas).
+Validações ligadas ao plano nas rotas existentes: `POST/PUT /disciplinas/` (classe tem de existir no plano; aceita `catalogo` (uuid) em vez de `nome` e liga sempre a disciplina ao catálogo, criando a entrada se o nome for novo), `POST/PUT /turmas/` (classe e área do plano), `POST/PUT /alunos/` sem turma (classe do plano) e `PUT /escola-admin/classes-exames/` (`remover_nome` devolve 409 se a classe tem disciplinas, áreas ou turmas; passar a classe para sem exame retira o exame das suas disciplinas).
 
 ---
 

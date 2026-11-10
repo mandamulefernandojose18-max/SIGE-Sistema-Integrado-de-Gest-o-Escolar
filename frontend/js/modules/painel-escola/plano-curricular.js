@@ -19,6 +19,7 @@
     regime: 'CLASSES',
     classes: [],          // [{nome, tem_exame}] do regime activo
     estrutura: { classes: [] },
+    catalogo: [],         // [{id, nome, usos}] "Todas Disciplinas de Ensino"
     classe: '',           // classe seleccionada
     dados: null,          // plano da classe seleccionada
     areaId: '',
@@ -74,8 +75,14 @@
     if (P.dados && !P.dados.areas.some((a) => a.id === P.areaId)) P.areaId = P.dados.areas.length ? P.dados.areas[0].id : '';
   }
 
+  async function carregarCatalogo() {
+    const r = await pedir(API_PLANO + '/catalogo/');
+    P.catalogo = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+  }
+
   async function recarregar(manterPasso) {
     try {
+      await carregarCatalogo();
       await carregarClasses();
       await carregarClasseActual();
       await sincronizarGlobais();
@@ -87,8 +94,10 @@
   function desenhar() {
     desenharPassos();
     desenharFiltroClasse();
+    desenharCatalogo();
     desenharClasses();
     desenharDisciplinas();
+    desenharListaCatalogo();
     desenharAreas();
     desenharSelectAreas();
     desenharVinculos();
@@ -101,16 +110,17 @@
       const badge = b.querySelector('.badge');
       if (badge) badge.className = 'badge me-1 ' + (ativo ? 'bg-white text-primary' : 'bg-primary text-white');
     });
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 0; i <= 4; i++) {
       const el = $('pcPasso' + i);
       if (el) el.classList.toggle('d-none', i !== P.passo);
     }
     const filtro = $('pcFiltroClasse');
-    if (filtro) filtro.classList.toggle('d-none', P.passo === 1 || !P.classes.length);
+    if (filtro) filtro.classList.toggle('d-none', P.passo <= 1 || !P.classes.length);
     const av = $('pcAviso');
     if (av) {
       let msg = '';
       if (P.passo > 1 && !P.classes.length) msg = 'Cadastre primeiro, no passo 1, a Classe / Nível.';
+      else if (P.passo === 2 && !P.catalogo.length) msg = 'Ainda não há disciplinas em "Todas Disciplinas de Ensino": cadastre-as primeiro nesse separador.';
       else if (P.passo === 4 && P.dados && !P.dados.areas.length) msg = 'Esta classe ainda não tem Áreas / Secções: cadastre-as no passo 3.';
       else if (P.passo === 4 && P.dados && !P.dados.disciplinas.length) msg = 'Esta classe ainda não tem disciplinas: cadastre-as no passo 2.';
       av.textContent = msg;
@@ -133,6 +143,35 @@
   function infoClasse(nome) {
     const e = (P.estrutura.classes || []).find((c) => c.nome === nome);
     return e || { total_disciplinas: 0, areas: [] };
+  }
+
+  function desenharCatalogo() {
+    const tb = $('pcTabelaCatalogo');
+    if (!tb) return;
+    const q = normTxt(($('pcCatBusca') || {}).value);
+    const vis = P.catalogo.filter((c) => !q || normTxt(c.nome).includes(q));
+    const r = $('pcCatResumo');
+    if (r) r.textContent = P.catalogo.length ? (vis.length + ' de ' + P.catalogo.length + ' disciplina(s)') : '';
+    if (!P.catalogo.length) {
+      tb.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4"><i class="bi bi-collection fs-3 text-primary d-block mb-1"></i>Ainda não há disciplinas. Cadastre a primeira acima (ou várias de uma vez).</td></tr>';
+      return;
+    }
+    if (!vis.length) {
+      tb.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Nenhuma disciplina corresponde à pesquisa.</td></tr>';
+      return;
+    }
+    tb.innerHTML = vis.map((c) => '<tr><td class="fw-semibold">' + esc(c.nome) + '</td>' +
+      '<td class="text-center"><span class="badge bg-light text-dark border">' + (c.usos || 0) + '</span></td>' +
+      '<td class="text-end"><button class="btn btn-outline-primary btn-sm py-0 px-2 me-1" title="Renomear" onclick="PlanoCurricular.editarCatalogo(\'' + esc(c.id) + '\')"><i class="bi bi-pencil-square"></i></button>' +
+      '<button class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar" onclick="PlanoCurricular.eliminarCatalogo(\'' + esc(c.id) + '\')"><i class="bi bi-trash"></i></button></td></tr>').join('');
+  }
+
+  // Lista (datalist) do passo 2: só disciplinas do catálogo que ainda não estão nesta classe.
+  function desenharListaCatalogo() {
+    const dl = $('pcDiscLista');
+    if (!dl) return;
+    const jaNaClasse = new Set(((P.dados && P.dados.disciplinas) || []).map((d) => d.catalogo));
+    dl.innerHTML = P.catalogo.filter((c) => !jaNaClasse.has(c.id)).map((c) => '<option value="' + esc(c.nome) + '"></option>').join('');
   }
 
   function desenharClasses() {
@@ -349,17 +388,31 @@
       if (!P.classe) return aviso('Escolha primeiro a Classe / Nível.', 'warning');
       const id = ($('pcDiscId') || {}).value;
       const corpo = {
-        nome: $('pcDiscNome').value.trim(),
         codigo: $('pcDiscCodigo').value.trim().toUpperCase(),
-        carga_horaria: parseInt($('pcDiscCarga').value, 10) || 1,
-        classe: P.classe,
-        ano_letivo: String(anoActivo())
+        carga_horaria: parseInt($('pcDiscCarga').value, 10) || 1
       };
+      if (!id) {
+        // Nova disciplina da classe: tem de ser escolhida do catálogo "Todas Disciplinas de Ensino".
+        const nome = $('pcDiscNome').value.trim().toLocaleLowerCase();
+        const item = P.catalogo.find((c) => c.nome.toLocaleLowerCase() === nome);
+        if (!item) {
+          aviso('Escolha uma disciplina da lista. Se ainda não existe, cadastre-a primeiro em "Todas Disciplinas de Ensino".', 'warning');
+          return;
+        }
+        if (((P.dados && P.dados.disciplinas) || []).some((d) => d.catalogo === item.id)) {
+          aviso('"' + item.nome + '" já está nesta classe.', 'warning');
+          return;
+        }
+        corpo.catalogo = item.id;
+        corpo.classe = P.classe;
+        corpo.ano_letivo = String(anoActivo());
+      }
       try {
         if (id) await pedir('/api/v1/disciplinas/' + id + '/', json('PATCH', corpo));
         else await pedir('/api/v1/disciplinas/', json('POST', corpo));
         aviso(id ? 'Disciplina actualizada.' : 'Disciplina cadastrada.', 'success');
         API.cancelarEdicaoDisciplina();
+        await carregarCatalogo();
         await carregarClasseActual();
         await sincronizarGlobais();
         desenhar();
@@ -371,6 +424,7 @@
       const d = ((P.dados && P.dados.disciplinas) || []).find((x) => x.id === id);
       if (!d) return;
       $('pcDiscId').value = d.id; $('pcDiscNome').value = d.nome; $('pcDiscCodigo').value = d.codigo; $('pcDiscCarga').value = d.carga_horaria;
+      $('pcDiscNome').readOnly = true; // o nome altera-se em "Todas Disciplinas de Ensino"
       $('pcDiscBtn').innerHTML = '<i class="bi bi-check2 me-1"></i>Guardar';
       $('pcDiscCancelar').classList.remove('d-none');
       $('pcDiscNome').focus();
@@ -379,6 +433,7 @@
     cancelarEdicaoDisciplina() {
       ['pcDiscId', 'pcDiscNome', 'pcDiscCodigo'].forEach((i) => { const el = $(i); if (el) el.value = ''; });
       const c = $('pcDiscCarga'); if (c) c.value = 4;
+      const nm = $('pcDiscNome'); if (nm) nm.readOnly = false;
       P.codigoManual = false;
       const b = $('pcDiscBtn'); if (b) b.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Cadastrar';
       const x = $('pcDiscCancelar'); if (x) x.classList.add('d-none');
@@ -396,7 +451,65 @@
       } catch (e) { erro(e); }
     },
 
-    desenharDisciplinas, desenharVinculos,
+    desenharDisciplinas, desenharVinculos, desenharCatalogo,
+
+    // ---- Todas Disciplinas de Ensino (catálogo)
+    async guardarCatalogo(ev) {
+      ev.preventDefault();
+      const id = ($('pcCatId') || {}).value;
+      const nome = $('pcCatNome').value.trim();
+      try {
+        if (id) await pedir(API_PLANO + '/catalogo/' + id + '/', json('PATCH', { nome }));
+        else await pedir(API_PLANO + '/catalogo/', json('POST', { nome }));
+        aviso(id ? 'Disciplina actualizada.' : 'Disciplina cadastrada.', 'success');
+        API.cancelarEdicaoCatalogo();
+        await carregarCatalogo();
+        await carregarClasseActual();
+        await sincronizarGlobais();
+        desenhar();
+        const n = $('pcCatNome'); if (n) n.focus();
+      } catch (e) { erro(e); }
+    },
+
+    async guardarCatalogoVarias() {
+      const nomes = ($('pcCatVarias').value || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      if (!nomes.length) return aviso('Escreva uma disciplina por linha.', 'warning');
+      try {
+        const r = await pedir(API_PLANO + '/catalogo/', json('POST', { nomes }));
+        const rep = (r.repetidas || []).length;
+        aviso((r.data || []).length + ' disciplina(s) cadastrada(s)' + (rep ? '; ' + rep + ' já existia(m).' : '.'), 'success');
+        $('pcCatVarias').value = '';
+        await carregarCatalogo();
+        desenhar();
+      } catch (e) { erro(e); }
+    },
+
+    editarCatalogo(id) {
+      const c = P.catalogo.find((x) => x.id === id);
+      if (!c) return;
+      $('pcCatId').value = c.id; $('pcCatNome').value = c.nome;
+      $('pcCatBtn').innerHTML = '<i class="bi bi-check2 me-1"></i>Guardar';
+      $('pcCatCancelar').classList.remove('d-none');
+      $('pcCatNome').focus();
+    },
+
+    cancelarEdicaoCatalogo() {
+      const i = $('pcCatId'); if (i) i.value = '';
+      const n = $('pcCatNome'); if (n) n.value = '';
+      const b = $('pcCatBtn'); if (b) b.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Cadastrar';
+      const x = $('pcCatCancelar'); if (x) x.classList.add('d-none');
+    },
+
+    async eliminarCatalogo(id) {
+      const c = P.catalogo.find((x) => x.id === id);
+      if (!c || !confirm('Eliminar "' + c.nome + '" de Todas Disciplinas de Ensino?')) return;
+      try {
+        await pedir(API_PLANO + '/catalogo/' + id + '/', { method: 'DELETE' });
+        aviso('Disciplina eliminada.', 'success');
+        await carregarCatalogo();
+        desenhar();
+      } catch (e) { erro(e); }
+    },
 
     // ---- áreas / secções
     async guardarArea(ev) {

@@ -2,9 +2,31 @@ import uuid
 from django.db import models
 from django.core.validators import MinValueValidator
 
+class DisciplinaCatalogo(models.Model):
+    """Catálogo 'Todas Disciplinas de Ensino' da escola: qualquer disciplina que possa vir a ser usada nas classes."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='disciplinas_catalogo')
+    nome = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_disciplinas_catalogo'
+        verbose_name = 'Disciplina do Catálogo'
+        verbose_name_plural = 'Catálogo de Disciplinas'
+        ordering = ['nome']
+        constraints = [
+            models.UniqueConstraint(models.functions.Lower('nome'), 'escola', name='unique_catalogo_escola_nome_ci'),
+        ]
+
+    def __str__(self):
+        return self.nome
+
+
 class Disciplina(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='disciplinas')
+    catalogo = models.ForeignKey(DisciplinaCatalogo, on_delete=models.SET_NULL, null=True, blank=True, related_name='disciplinas_classe')
     nome = models.CharField(max_length=100)
     codigo = models.CharField(max_length=50)
     classe = models.CharField(max_length=50, default='10ª Classe')

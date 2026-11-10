@@ -243,6 +243,9 @@ Grelha curricular nacional.
 | `tem_exame` | `BOOLEAN` | Não | Critério oficial de exame por disciplina (`True` = Sim / `False` = Não). Padrão: `False`. |
 | *Unique Constraint* | SQL | — | `UNIQUE (escola_id, codigo, ano_letivo)`. |
 
+### 2.10.0. `sige_disciplinas_catalogo` (`apps.disciplinas.models.DisciplinaCatalogo`)
+Catálogo *Todas Disciplinas de Ensino* da escola. Campos: `id` (UUID, PK), `escola_id` (FK), `nome` (VARCHAR 100), `created_at`, `updated_at`. Unicidade: `UNIQUE (escola_id, lower(nome))`. `sige_disciplinas.catalogo_id` (FK, nulo) liga cada disciplina de classe ao catálogo.
+
 ### 2.10.1. `sige_areas_seccoes` (`apps.disciplinas.models.AreaSeccao`)
 Área / Secção de uma Classe ou Nível (Plano Curricular).
 
