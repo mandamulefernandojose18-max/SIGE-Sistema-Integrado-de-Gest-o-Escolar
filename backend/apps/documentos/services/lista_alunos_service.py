@@ -24,9 +24,9 @@ CINZA = colors.HexColor('#94A3B8')
 COR_EXCLUIDOS_PADRAO = '#FDE2E2'   # já não pinta a tabela (os excluídos levam letra vermelha); mantida por compatibilidade
 VERMELHO = colors.HexColor('#C00000')
 
-COLUNAS = [('Ordem', 1.0), ('Nº', 1.0), ('Código', 2.3), ('Apelido', 2.5), ('Nome', 3.3), ('Classe', 1.4), ('Turma', 1.4),
+COLUNAS = [('Nº', 1.0), ('Código', 2.3), ('Apelido', 2.5), ('Nome', 4.3), ('Classe', 1.4), ('Turma', 1.4),
            ('Sexo', 1.0), ('Situação / motivo', 3.1)]
-CENTRADAS = ('Ordem', 'Nº', 'Classe', 'Turma', 'Sexo')
+CENTRADAS = ('Nº', 'Classe', 'Turma', 'Sexo')
 
 
 def cor_valida(valor, padrao=COR_EXCLUIDOS_PADRAO):
@@ -95,7 +95,7 @@ def _linhas(todos, incluidos, excluidos):
     saida = []
     for k, d in enumerate(ordem, start=1):
         m = motivo.get(id(d))
-        saida.append(([k, d.get('numero') or '', d.get('codigo') or '', d.get('apelido') or '', d.get('nome') or '',
+        saida.append(([d.get('numero') or '',d.get('codigo') or '', d.get('apelido') or '', d.get('nome') or '',
                        d.get('classe') or '', d.get('turma') or '', sexo_hm(d), f'Excluído: {m}' if m else 'Folha gerada'], m))
     return saida
 
@@ -233,7 +233,7 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
     t2.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     ws.row_dimensions[1].height = 36
     ws.row_dimensions[2].height = 36
-    larguras = [9, 8, 22, 24, 30, 11, 11, 9, 44]
+    larguras = [8, 22, 24, 34, 11, 11, 9, 44]
     escura = _escura(cor)
     ini = 4
     for i, ((nome_col, _), w) in enumerate(zip(COLUNAS, larguras), start=1):

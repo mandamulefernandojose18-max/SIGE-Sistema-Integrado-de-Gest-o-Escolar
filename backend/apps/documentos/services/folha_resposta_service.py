@@ -697,10 +697,11 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
     c.setStrokeColor(PRETO)
 
 
-def _rodape(c, cod_folha, pagina, total_paginas, hoje):
+def _rodape(c, cod_folha, pagina, total_paginas, hoje, ident=''):
     c.setFillColor(CINZA_TEXTO)
     c.setFont(FONTE, 8.2)
-    c.drawString(MARGEM * mm, _y(288.8), f'SIGE · Folha de Respostas Personalizada · Cód. {cod_folha}')
+    # «Folha» + natureza da emissão (Turma X / Toda a Classe X · Disciplina · Ano)
+    _texto_ajustado(c, f'SIGE · Folha de Respostas{" · " + ident if ident else ""} · Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE, 8.2, 5.5)
     c.drawCentredString((PAG_L / 2) * mm, _y(288.8), f'Pág. {pagina}/{total_paginas}')
     c.drawRightString((PAG_L - MARGEM) * mm, _y(288.8), f'Emitida em {hoje}')
     c.setFillColor(PRETO)
@@ -848,7 +849,7 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
     hoje = _agora_texto()
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=(PAG_L * mm, PAG_A * mm))
-    c.setTitle(f"Folha de Respostas — {config['disciplina']} — {ROTULO_TIPO[config['tipo']]}")
+    c.setTitle(f"Folha de Respostas — {config.get('identificacao') or config['disciplina']} — {ROTULO_TIPO[config['tipo']]}")
     c.setAuthor('SIGE')
     c.setSubject('Folha de respostas personalizada')
     paginas = paginas_grelha(config['n_perguntas'], DESLOC_VIGILANTES if config['tipo'] == 'EXAME' else 0.0)
@@ -865,7 +866,7 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
             else:
                 _cabecalho_continuacao(c, escola, aluno, config, versao, fim, ini)
             _desenhar_grelha(c, config, ini, fim, cols, linhas, y_ini)
-            _rodape(c, cod, p + 1, len(paginas), hoje)
+            _rodape(c, cod, p + 1, len(paginas), hoje, config.get('identificacao', ''))
             c.showPage()
     if config['incluir_chave']:
         for v, g in config['gabaritos'].items():

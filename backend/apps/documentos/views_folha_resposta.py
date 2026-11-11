@@ -176,7 +176,7 @@ class FolhaRespostaGerarView(APIView):
                 numero = next((i for i, a in enumerate(ordem, start=1) if a.id == aluno.id), None)
             alunos = [fr.montar_dados_aluno(aluno, numero)]
             pares = [aluno]
-            etiqueta = f'{aluno.apelido or ""} {aluno.nome}'.strip()
+            etiqueta = ('Aluno ' + f'{aluno.apelido or ""} {aluno.nome}'.strip())
             classe_ref = alunos[0]['classe']
             area_ref = aluno.turma.area if aluno.turma_id else (aluno.area or '')
         elif escopo == 'turma':
@@ -185,7 +185,7 @@ class FolhaRespostaGerarView(APIView):
             lista_t = _alunos_da_turma(turma)
             alunos = [fr.montar_dados_aluno(a, i) for i, a in enumerate(lista_t, start=1)]
             pares = list(lista_t)
-            etiqueta = f'{turma.grau_ano} {turma.nome}'
+            etiqueta = f'Turma {turma.nome} ({turma.grau_ano})'
             classe_ref, area_ref = turma.grau_ano, turma.area
         elif escopo == 'classe':
             classe_ref = str(dados.get('classe') or '').strip()
@@ -199,7 +199,7 @@ class FolhaRespostaGerarView(APIView):
                 lista_t = _alunos_da_turma(turma)
                 alunos += [fr.montar_dados_aluno(a, i) for i, a in enumerate(lista_t, start=1)]
                 pares += lista_t
-            etiqueta = f'{classe_ref} {area_ref}'.strip()
+            etiqueta = f'Toda a {classe_ref}' + (f' · {area_ref}' if area_ref else '')
         elif escopo == 'lista':
             ficheiro = request.FILES.get('lista')
             if not ficheiro:
@@ -212,7 +212,7 @@ class FolhaRespostaGerarView(APIView):
             alunos = [c['dados'] for c in cands_lista]
             pares = [c['aluno'] for c in cands_lista]
             classe_ref = str(dados.get('classe') or '').strip()
-            etiqueta = 'lista importada'
+            etiqueta = f'Lista importada ({classe_ref})' if classe_ref else 'Lista importada'
         else:
             classe_ref = str(dados.get('classe') or '').strip()
             try:
@@ -222,7 +222,7 @@ class FolhaRespostaGerarView(APIView):
             if copias < 1 or copias > fr.MAX_FOLHAS_BRANCO:
                 return Response({'detail': f'Indique entre 1 e {fr.MAX_FOLHAS_BRANCO} folhas em branco.'}, status=400)
             alunos = [None] * copias
-            etiqueta = 'em branco'
+            etiqueta = 'Folhas em branco'
 
         if not alunos:
             return Response({'detail': 'Não existem alunos activos neste âmbito: não há folhas personalizadas a gerar.'}, status=404)
@@ -255,6 +255,8 @@ class FolhaRespostaGerarView(APIView):
             cfg_in['disciplinas_classe'] = list(discs.order_by('nome').values_list('nome', flat=True).distinct())
         try:
             config = fr.normalizar_config(cfg_in, esc)
+            # identificação pela natureza da emissão: Turma X / Toda a Classe X + Disciplina + Ano
+            config['identificacao'] = f"{etiqueta} · {config['disciplina']} · {ano}"
             if formato == 'pdf':
                 conteudo, total = fr.gerar_folhas_pdf(esc, alunos, config, ano)
             else:
@@ -270,23 +272,25 @@ class FolhaRespostaGerarView(APIView):
             escola, request, 'FOLHA_RESPOSTA',
             f"Folha de resposta ({formato.upper()}) · {config['tipo_rotulo']} · {config['disciplina']} · {etiqueta} · {total} folha(s)",
         )
-        nome = _safe_ascii_filename(f"Folha_Resposta_{config['disciplina']}_{config['tipo_rotulo']}_{etiqueta}_{ano}") + f'.{formato}'
+        # Identificação do ficheiro: «Folha» (ou «Lista») + natureza da emissão + disciplina + ano + tipo de avaliação
+        nome = _safe_ascii_filename(f"Folha_{etiqueta}_{config['disciplina']}_{ano}_{config['tipo_rotulo']}") + f'.{formato}'
         if escopo in ('turma', 'classe', 'lista') and not previa:
             # ZIP: as folhas + a lista (PDF e Excel) de quem teve a folha gerada e quantos, e os excluídos e porquê
             import io
             import zipfile
             from apps.escudo.services import folha as folha_mod
-            titulo_lista = f"Lista de alunos com folha de resposta gerada · {config['disciplina']}"
-            if escopo != 'lista':  # na lista importada, «lista importada» não se repete no cabeçalho
-                titulo_lista += f' · {etiqueta}'
-            lista_pdf, lista_xlsx = folha_mod.listas_geradas(escola, alunos, excluidos, titulo_lista, f'{config["tipo_rotulo"]} · {ano}',
+            ident = config['identificacao'] if escopo != 'lista' else (
+                f"{classe_ref} · {config['disciplina']} · {ano}" if classe_ref else f"{config['disciplina']} · {ano}")
+            titulo_lista = f'Lista de alunos com folha de resposta gerada · {ident}'
+            lista_pdf, lista_xlsx = folha_mod.listas_geradas(escola, alunos, excluidos, titulo_lista, config['tipo_rotulo'],
                                                            todos_dados, dados.get('cor_excluidos'))
             base = nome.rsplit('.', 1)[0]
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
                 z.writestr(nome, conteudo)
-                z.writestr(f'Lista_{base}.pdf', lista_pdf)  # «Lista» + a identificação das folhas
-                z.writestr(f'Lista_{base}.xlsx', lista_xlsx)
+                base_lista = 'Lista_' + base[len('Folha_'):]   # «Lista» + a mesma identificação das folhas
+                z.writestr(f'{base_lista}.pdf', lista_pdf)
+                z.writestr(f'{base_lista}.xlsx', lista_xlsx)
             conteudo, nome, mime = buf.getvalue(), base + '.zip', 'application/zip'
         else:
             mime = 'application/pdf' if formato == 'pdf' else XLSX_MIME

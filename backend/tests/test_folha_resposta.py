@@ -109,7 +109,7 @@ def test_pdf_turma_gera_uma_folha_por_aluno(cenario):
     texto = ''.join(p.get_text() for p in lista)
     assert 'Ana' in texto and 'Bruno' in texto and 'Carla' in texto and 'Total de folhas/provas geradas: 3' in texto
     wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in nomes if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
-    assert wb.sheetnames == ['Alunos', 'Estatística'] and wb['Alunos']['C5'].value == Aluno.objects.get(nome='Ana', turma=turma).matricula
+    assert wb.sheetnames == ['Alunos', 'Estatística'] and wb['Alunos']['B5'].value == Aluno.objects.get(nome='Ana', turma=turma).matricula
 
 
 def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
@@ -142,7 +142,7 @@ def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
     assert [we.cell(row=6, column=k).value for k in (1, 2, 3, 4)] == ['Total do âmbito', 0, 3, 3]
     ws = wb['Alunos']
     assert str(ws.cell(row=5, column=1).font.color.rgb).upper().endswith('C00000') and ws.cell(row=5, column=1).fill.fill_type is None   # excluído (Ana): letra vermelha, sem fundo
-    assert 'Excluído: Faltas: 14' in str(ws.cell(row=5, column=9).value)
+    assert 'Excluído: Faltas: 14' in str(ws.cell(row=5, column=8).value)
     assert not str(ws.cell(row=7, column=1).font.color.rgb).upper().endswith('C00000')   # Carla gerada: letra normal
     assert 'Estatística' in texto and 'Excluídos' in texto
     import re as _re
