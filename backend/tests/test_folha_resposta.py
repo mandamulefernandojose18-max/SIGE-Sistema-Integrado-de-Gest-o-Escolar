@@ -338,3 +338,8 @@ def test_abertas_somam_ao_total_e_exame_com_100_perguntas_cabe():
     assert cfg['cotacao_total'] == 20 and cfg['abertas'][0]['total'] == 10
     p = fr.paginas_grelha(100, fr.DESLOC_VIGILANTES)[0]
     assert p[2] * p[3] >= 100
+
+def test_seccoes_a_mais_sao_ignoradas():
+    cfg = fr.normalizar_config({'tipo_avaliacao': 'ACS1', 'disciplina': 'Matematica', 'n_perguntas': 19,
+                                'seccoes': [{'ate': 19, 'cotacao': 1}, {'ate': 40, 'cotacao': 1}]}, None)
+    assert len(cfg['seccoes']) == 1 and cfg['cotacao_total'] == 19

@@ -167,7 +167,9 @@ def normalizar_config(dados, escola=None):
             raise ConfigFolhaInvalida('Secções de cotação inválidas (máximo 12).')
         inicio = 1
         for s in seccoes_in:
-            ate = _num((s or {}).get('ate'), 'o limite da secção', inicio, n_perg, inteiro=True)
+            if inicio > n_perg:  # secção a mais (sobrou de um nº de perguntas maior): já está tudo coberto, ignora-se
+                break
+            ate =_num((s or {}).get('ate'), 'o limite da secção', inicio, n_perg, inteiro=True)
             cot = _num((s or {}).get('cotacao'), 'a cotação da secção', 0, 100)
             seccoes.append({'de': inicio, 'ate': ate, 'cotacao': cot})
             cotacoes.extend([cot] * (ate - inicio + 1))
