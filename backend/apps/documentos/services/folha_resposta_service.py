@@ -76,7 +76,8 @@ LARG_UTIL = PAG_L - 2 * MARGEM
 Y_GRELHA_1 = 152.8          # início da grelha (página única)
 Y_GRELHA_CONT = 30.0        # início da grelha nas páginas de continuação
 Y_FIM_GRELHA = 283.0
-ALTURA_LINHA_MIN = 4.4
+ALTURA_LINHA_MIN = 4.2
+DESLOC_VIGILANTES = 10.0    # altura extra (mm) para os Professores Vigilantes, só no Exame Final
 FOLGA_GRUPO = 1.4
 ALTURA_CABECALHO_GRELHA = 6.0
 
@@ -178,7 +179,22 @@ def normalizar_config(dados, escola=None):
         cot = 20 / n_perg if cot in (None, '') else _num(cot, 'a cotação por pergunta', 0, 100)
         cotacoes = [cot] * n_perg
         seccoes = [{'de': 1, 'ate': n_perg, 'cotacao': cot}]
-    total = round(sum(cotacoes), 2)
+    cotacao_mc = round(sum(cotacoes), 2)
+
+    # Partes de resolução livre (perguntas abertas / demonstração): não têm alternativas na grelha,
+    # mas a sua cotação conta no total e aparece na folha. [{"rotulo": "Parte B", "n": 2, "cotacao": 3}]
+    abertas = []
+    ab_in = dados.get('abertas') or []
+    if ab_in:
+        if not isinstance(ab_in, list) or len(ab_in) > 6:
+            raise ConfigFolhaInvalida('Partes de perguntas abertas inválidas (máximo 6).')
+        for k, a in enumerate(ab_in, start=1):
+            a = a or {}
+            n_ab = _num(a.get('n'), 'o número de perguntas abertas', 1, 50, inteiro=True)
+            cot_ab = _num(a.get('cotacao'), 'a cotação das perguntas abertas', 0, 100)
+            abertas.append({'rotulo': _texto(a.get('rotulo'), 40) or f'Parte {k} (perguntas abertas)',
+                            'n': n_ab, 'cotacao': cot_ab, 'total': round(n_ab * cot_ab, 2)})
+    total = round(cotacao_mc + sum(a['total'] for a in abertas), 2)
 
     duracao = _num(dados.get('duracao_min'), 'a duração', 0, 600, padrao=0, inteiro=True)
 
@@ -215,6 +231,8 @@ def normalizar_config(dados, escola=None):
         'cotacoes': cotacoes,
         'seccoes': seccoes,
         'cotacao_total': total,
+        'cotacao_mc': cotacao_mc,
+        'abertas': abertas,
         'duracao_min': duracao,
         'data': _texto(dados.get('data'), 20),
         'hora_inicio': _hora_valida(dados.get('hora_inicio')),
@@ -398,11 +416,17 @@ def layout_grelha(n, capacidade):
     return cols, linhas
 
 
-def paginas_grelha(n):
+def paginas_grelha(n, desloc=0.0):
     """A folha cabe SEMPRE numa só página: [(inicio0, fim0_exclusivo, colunas, linhas, y_inicio_mm)]."""
-    cap = capacidade_linhas(Y_FIM_GRELHA - Y_GRELHA_1)
+    cap = capacidade_linhas(Y_FIM_GRELHA - Y_GRELHA_1 - desloc)
     cols, linhas = layout_grelha(n, cap)
-    return [(0, n, cols, linhas, Y_GRELHA_1)]
+    return [(0, n, cols, linhas, Y_GRELHA_1 + desloc)]
+
+
+def _agora_texto():
+    """Data e hora da emissão: dd/mm/aaaa HH:MM:SS (hora local configurada)."""
+    from django.utils import timezone
+    return timezone.localtime().strftime('%d/%m/%Y %H:%M:%S')
 
 
 # --------------------------------------------------------------------------------------
@@ -540,7 +564,7 @@ def _desenhar_qr(c, dados, x, y, lado):
     renderPDF.draw(d, c, x * mm, _y(y + lado))
 
 
-def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
+def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False, qr=None):
     y0 = 8.0
     if logo_reader is not None:
         try:
@@ -567,10 +591,13 @@ def _cabecalho_institucional(c, escola, logo_reader, ano, compacto=False):
             x_esc = 127
         except Exception:
             pass
-    _texto_ajustado(c, escola.get('nome') or '', x_esc, y0 + 5, PAG_L - MARGEM - x_esc, FONTE_B, 13, 8)
+    larg_esc = PAG_L - MARGEM - x_esc - (23 if qr else 0)   # com QR: o texto da escola pára antes dele
+    _texto_ajustado(c, escola.get('nome') or '', x_esc, y0 + 5, larg_esc, FONTE_B, 13, 8)
     if escola.get('codigo'):
-        _texto_ajustado(c, f"Código da escola: {escola['codigo']}", x_esc, y0 + 11, PAG_L - MARGEM - x_esc, FONTE, 11)
-    _texto_ajustado(c, f'Ano lectivo: {ano}', x_esc, y0 + 16.5, PAG_L - MARGEM - x_esc, FONTE_B, 11)
+        _texto_ajustado(c, f"Código da escola: {escola['codigo']}", x_esc, y0 + 11, larg_esc, FONTE, 11)
+    _texto_ajustado(c, f'Ano lectivo: {ano}', x_esc, y0 + 16.5, larg_esc, FONTE_B, 11)
+    if qr:
+        _desenhar_qr(c, qr, PAG_L - MARGEM - 21, y0 + 1, 20)
 
 
 def _bloco_instrucoes(c, y, extra=''):
@@ -607,7 +634,10 @@ def _descricao_cotacao(config):
     for s in config['seccoes']:
         intervalo = f"{s['de']}" if s['de'] == s['ate'] else f"{s['de']}–{s['ate']}"
         partes.append(f"{intervalo} × {formatar_valor(s['cotacao'])}")
-    return '  |  '.join(partes[:6]) + f"   ·   Total: {formatar_valor(config['cotacao_total'])} val."
+    partes = partes[:6]
+    for a in config.get('abertas') or []:
+        partes.append(f"{a['rotulo']}: {a['n']} × {formatar_valor(a['cotacao'])}")
+    return '  |  '.join(partes) + f"   ·   Total: {formatar_valor(config['cotacao_total'])} val."
 
 
 def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None):
@@ -685,7 +715,9 @@ def _titulo_prova(config):
 def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_folha, pag, total, hoje):
     if config['marcas_omr']:
         _desenhar_marcas_omr(c)
-    _cabecalho_institucional(c, escola, logo_reader, ano)
+    _cabecalho_institucional(c, escola, logo_reader, ano, qr=_payload_qr(escola, aluno, config, ano, versao))
+    vig = config['tipo'] == 'EXAME'
+    d = DESLOC_VIGILANTES if vig else 0.0
     # barra de título
     _barra_titulo(c, MARGEM, 31, LARG_UTIL, 7, _titulo_prova(config), 'l', 12)
     if versao:
@@ -707,11 +739,6 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     _campo(c, xi + 3, yi + 28.8, 72, 'CÓDIGO DO ALUNO', al.get('codigo'), 13)
     if config['codigo_barras'] and al.get('codigo'):
         _desenhar_codigo_barras(c, al['codigo'], xi + 3, yi + 37.6, 72, 4.6)
-    _desenhar_qr(c, _payload_qr(escola, aluno, config, ano, versao), xi + wi - 27, yi + 8, 22)
-    c.setFont(FONTE, 8.6)
-    c.setFillColor(CINZA_TEXTO)
-    c.drawCentredString((xi + wi - 16) * mm, _y(yi + 33), 'Leitura óptica / QR')
-    c.setFillColor(PRETO)
 
     # II — Informações da avaliação
     xii, wii = MARGEM + 109, LARG_UTIL - 109
@@ -738,7 +765,7 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     _campo(c, xii + 41, yi + 34.2, 31, 'HORA (INÍCIO – FIM) / SALA', texto_hora_sala(config), 12, 7.4)
 
     # III — Disciplina
-    yiii, hiii = 88.5, 31
+    yiii, hiii = 88.5, 31 + d
     _caixa(c, MARGEM, yiii, 106, hiii, 'III   DISCIPLINA')
     nomes = list(config['disciplinas_classe'])
     if config['disciplina'] not in nomes:
@@ -751,8 +778,19 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     if config['professor']:
         c.setFont(FONTE_I, 10.5)
         c.setFillColor(CINZA_TEXTO)
-        c.drawString((MARGEM + 3) * mm, _y(yiii + hiii - 0.9), f"Professor(a): {config['professor']}"[:70])
+        c.drawString((MARGEM + 3) * mm, _y(yiii + 30.1), f"Professor(a): {config['professor']}"[:70])
         c.setFillColor(PRETO)
+    if vig:  # só no Exame Final: espaço para a assinatura de cada vigilante
+        c.setFillColor(PRETO)
+        c.setFont(FONTE_B, 10.5)
+        c.drawString((MARGEM + 3) * mm, _y(yiii + 35.0), 'Professores Vigilantes:')
+        c.setLineWidth(0.5)
+        c.setStrokeColor(PRETO)
+        for k, rot in enumerate(('1º Vigilante:', '2º Vigilante:')):
+            x0 = MARGEM + 3 + k * 51
+            c.setFont(FONTE, 10)
+            c.drawString(x0 * mm, _y(yiii + 39.6), rot)
+            c.line((x0 + 21) * mm, _y(yiii + 39.8), (x0 + 48) * mm, _y(yiii + 39.8))
 
     # IV — Classificação
     _caixa(c, xii, yiii, wii, hiii, 'IV   CLASSIFICAÇÃO')
@@ -766,11 +804,11 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     _campo(c, xii + 38, yiii + 21.2, 33, 'Ass. do Professor', '', tam_rot=9)
 
     # Instruções gerais + grelha
-    _bloco_instrucoes(c, 121.5, config['instrucao_extra'])
-    _barra_titulo(c, MARGEM, 146.2, LARG_UTIL, 6, 'GRELHA DE RESPOSTAS', 'l', 10.5)
+    _bloco_instrucoes(c, 121.5 + d, config['instrucao_extra'])
+    _barra_titulo(c, MARGEM, 146.2 + d, LARG_UTIL, 6, 'GRELHA DE RESPOSTAS', 'l', 10.5)
     c.setFillColor(colors.white)
     c.setFont(FONTE, 9.6)
-    c.drawRightString((PAG_L - MARGEM - 2) * mm, _y(150.5), 'Cotação: ' + _descricao_cotacao(config))
+    _texto_ajustado(c, 'Cotação: ' + _descricao_cotacao(config), MARGEM + 52, 150.5 + d, LARG_UTIL - 54, FONTE, 9.6, 6.0, 'r')
     c.setFillColor(PRETO)
 
 
@@ -811,13 +849,13 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
         if _lb:
             from reportlab.lib.utils import ImageReader as _IR
             escola = dict(escola, _logo_proprio=_IR(io.BytesIO(_lb)))
-    hoje = datetime.date.today().strftime('%d/%m/%Y')
+    hoje = _agora_texto()
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=(PAG_L * mm, PAG_A * mm))
     c.setTitle(f"Folha de Respostas — {config['disciplina']} — {ROTULO_TIPO[config['tipo']]}")
     c.setAuthor('SIGE')
     c.setSubject('Folha de respostas personalizada')
-    paginas = paginas_grelha(config['n_perguntas'])
+    paginas = paginas_grelha(config['n_perguntas'], DESLOC_VIGILANTES if config['tipo'] == 'EXAME' else 0.0)
     for idx, aluno in enumerate(alunos):
         versao = versao_do_aluno(config, idx)
         cod = codigo_folha(escola, aluno, config, ano)
@@ -945,7 +983,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
     if config.get('logo_escola'):
         _lb = logo_proprio_escola(escola)
         logo_esc_png = normalizar_logo_png(_lb) if _lb else None
-    hoje = datetime.date.today().strftime('%d/%m/%Y')
+    hoje = _agora_texto()
 
     TNR = 'Times New Roman'
     f_norm = Font(name=TNR, size=12)

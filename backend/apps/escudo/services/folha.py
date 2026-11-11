@@ -12,6 +12,7 @@ import re
 import unicodedata
 
 import pymupdf as fitz
+from django.db.models import Count
 
 from apps.alunos.models import Aluno
 from apps.disciplinas.models import Disciplina
@@ -217,6 +218,15 @@ def _aplicar_exclusoes(form, p, escola, ano, cands):
                                               disciplina__nome__iexact=p.get('disciplina') or '').values_list('aluno_id', 'faltas', 'anotacao'):
             faltas[aid] = faltas.get(aid, 0) + (f or 0)
             anot.setdefault(aid, set()).add((an or '').strip().upper())
+        if 'faltas' in motivos:
+            # faltas reais registadas nas presenças (justificadas + injustificadas) neste ano e disciplina;
+            # vale o maior entre o lançado na caderneta e o contado nas presenças
+            from apps.alunos.models import PresencaAluno
+            reais = PresencaAluno.objects.filter(
+                escola=escola, aluno_id__in=ids, turma__ano_letivo=ano, disciplina__nome__iexact=p.get('disciplina') or '',
+                status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')).values('aluno_id').annotate(n=Count('id'))
+            for r in reais:
+                faltas[r['aluno_id']] = max(faltas.get(r['aluno_id'], 0), r['n'])
 
     incluidos, excluidos = [], []
     for c in cands:

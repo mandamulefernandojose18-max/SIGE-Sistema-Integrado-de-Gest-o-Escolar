@@ -1507,6 +1507,10 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 > **Folha de resposta e provas sem escola (2026-11-09):** se a prova não tiver escola própria (Super Admin), a folha usa a escola seleccionada ou da conta; sem nenhuma, o ecrã pede para seleccionar a escola.
 
 
+> **Folha de resposta e Lista de nominalização (2026-11-11):**
+> - **Lista:** a regra de faltas passa a contar também as faltas reais registadas nas presenças (justificadas + injustificadas) na disciplina e ano, usando o maior entre a caderneta e as presenças; o sexo deixa de contar mulheres como homens (numa lista com H/M, «M» = Mulher; no sistema M/F, «M» = Masculino).
+> - **Folha:** QR no topo, em frente do cabeçalho (Escola, Código, Ano lectivo); no **Exame Final** surge sob a DISCIPLINA o campo «Professores Vigilantes» (1.º e 2.º, com linha de assinatura) e a grelha desce 10 mm; rodapé «Emitida em dd/mm/aaaa hh:mm:ss».
+> - **Perguntas abertas / demonstração:** novo campo `abertas` na configuração (`rotulo`, `n`, `cotacao` por pergunta). A cotação aparece na linha de cotação da folha e soma ao total.
 > **Pré-visualização da folha de resposta (2026-11-09):** botão «Pré-visualizar folha» no ecrã do Escudo mostra a 1.ª página da folha (do primeiro aluno, se for personalizada) antes de gerar: `POST /api/v1/escudo/<id>/folha-previa/`.
 
 

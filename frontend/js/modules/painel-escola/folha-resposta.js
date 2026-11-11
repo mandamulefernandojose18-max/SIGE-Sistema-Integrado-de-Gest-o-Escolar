@@ -181,7 +181,15 @@
       return { ate: parseInt(d.querySelector('.fr-sec-ate').value, 10), cotacao: num(d.querySelector('.fr-sec-cot').value) };
     });
   }
+  function lerAbertas() {
+    var n = parseInt($('frAbN').value, 10) || 0, c = num($('frAbCot').value);
+    return n > 0 ? [{ rotulo: $('frAbRotulo').value.trim(), n: n, cotacao: c == null ? 0 : c }] : [];
+  }
   function totalCotacao() {
+    var t = totalMultipla(), ab = lerAbertas();
+    return t == null ? null : t + (ab.length ? ab[0].n * ab[0].cotacao : 0);
+  }
+  function totalMultipla() {
     var n = parseInt($('frNPerg').value, 10) || 0;
     if (!n) return null;
     if ($('frModoCot').value === 'seccoes') {
@@ -251,6 +259,8 @@
     };
     if ($('frModoCot').value === 'seccoes') cfg.seccoes = lerSeccoes();
     else if ($('frCotPerg').value.trim()) cfg.cotacao_pergunta = $('frCotPerg').value.trim();
+    var ab = lerAbertas();
+    if (ab.length) cfg.abertas = ab;
     var gab = {};
     Array.prototype.forEach.call(document.querySelectorAll('#frChaves textarea'), function (t) { if (t.value.trim()) gab[t.dataset.v] = t.value; });
     if (Object.keys(gab).length) cfg.gabaritos = gab;
@@ -413,7 +423,7 @@
     });
     $('frSeccoesLista').addEventListener('input', actualizarTotal);
     $('frNAlt').addEventListener('change', desenharGrelhaPrevia);
-    ['frNPerg', 'frCotPerg'].forEach(function (id) { $(id).addEventListener('input', actualizarTotal); });
+    ['frNPerg', 'frCotPerg', 'frAbN', 'frAbCot'].forEach(function (id) { $(id).addEventListener('input', actualizarTotal); });
     $('frVersoes').addEventListener('input', desenharChaves);
     $('frMOutros').addEventListener('change', function () { $('frBlocoOutros').classList.toggle('d-none', !this.checked); });
     $('frMTodos').addEventListener('click', function () {

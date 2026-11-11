@@ -34,14 +34,32 @@ def cor_valida(valor, padrao=COR_EXCLUIDOS_PADRAO):
     return '#' + v.upper() if re.fullmatch(r'[0-9A-Fa-f]{6}', v) else padrao
 
 
-def sexo_hm(d):
-    """«H» (masculino), «M» (feminino) ou '' (não indicado), a partir do campo genero do aluno ou da lista importada."""
-    v = str((d or {}).get('genero') or '').strip().lower()
-    if v[:1] in ('h',) or v.startswith('masc') or v == 'm':
+def _sexo_bruto(v, m_feminino=False):
+    v = str(v or '').strip().lower()
+    if v == 'm':
+        return 'M' if m_feminino else 'H'
+    if v[:1] == 'h' or v.startswith('masc'):
         return 'H'
     if v[:1] == 'f' or v.startswith('mulher') or v.startswith('fem'):
         return 'M'
     return ''
+
+
+def preparar_sexo(*grupos):
+    """Fixa em cada aluno (d['_sexo']) «H» (homem) ou «M» (mulher). A letra «M» sozinha é ambígua: no sistema é
+    Masculino (M/F), mas numa lista com H/M significa Mulher; decide-se pela convenção usada nos dados."""
+    todos = [d for g in grupos for d in (g or []) if isinstance(d, dict)]
+    valores = {str(d.get('genero') or '').strip().lower() for d in todos}
+    m_feminino = any(v[:1] == 'h' for v in valores) and not any(v[:1] == 'f' for v in valores)
+    for d in todos:
+        d['_sexo'] = _sexo_bruto(d.get('genero'), m_feminino)
+
+
+def sexo_hm(d):
+    """«H» (homem), «M» (mulher) ou '' (não indicado)."""
+    if isinstance(d, dict) and '_sexo' in d:
+        return d['_sexo']
+    return _sexo_bruto((d or {}).get('genero'))
 
 
 def estatistica(incluidos, excluidos):
@@ -126,6 +144,8 @@ def _tabela_estatistica(incluidos, excluidos, estilos, cor):
 def lista_pdf(escola, titulo, dados_incluidos, excluidos=(), referencia='', todos=None, cor=None):
     """PDF A4: cabeçalho oficial, totais e UMA tabela com todos os alunos; os excluídos levam outra cor e o motivo."""
     cor = cor_valida(cor)
+    excluidos = list(excluidos)
+    preparar_sexo(dados_incluidos, [d for d, _ in excluidos], todos)
     estilos = getSampleStyleSheet()
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.6 * cm, bottomMargin=1.6 * cm,
@@ -152,6 +172,8 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
     """Excel (gravado por guardar_xlsx_seguro), folha «Alunos»: estatística H/M/HM e lista com os excluídos a outra cor e o motivo."""
     import openpyxl
     from openpyxl.styles import Alignment, Font, PatternFill
+    excluidos = list(excluidos)
+    preparar_sexo(dados_incluidos, [d for d, _ in excluidos], todos)
 
     from .xlsx_seguro import guardar_xlsx_seguro
 

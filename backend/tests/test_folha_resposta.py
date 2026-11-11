@@ -322,3 +322,19 @@ def test_folha_a_partir_de_lista_importada_com_exclusoes_e_listas(cenario):
     # sem ficheiro: recusado
     r = c.post(URL + 'gerar/', {'dados': json.dumps(corpo)}, format='multipart')
     assert r.status_code == 400
+def test_sexo_convencao_hm_e_mf():
+    from apps.documentos.services.lista_alunos_service import preparar_sexo, sexo_hm
+    a = [{'genero': 'H'}, {'genero': 'M'}]       # lista H/M: M = mulher
+    preparar_sexo(a)
+    assert [sexo_hm(d) for d in a] == ['H', 'M']
+    b = [{'genero': 'M'}, {'genero': 'F'}]       # sistema M/F: M = masculino
+    preparar_sexo(b)
+    assert [sexo_hm(d) for d in b] == ['H', 'M']
+
+
+def test_abertas_somam_ao_total_e_exame_com_100_perguntas_cabe():
+    cfg = fr.normalizar_config({'tipo_avaliacao': 'EXAME', 'disciplina': 'Matematica', 'n_perguntas': 100,
+                                'cotacao_pergunta': 0.1, 'abertas': [{'rotulo': 'Parte B', 'n': 2, 'cotacao': 5}]}, None)
+    assert cfg['cotacao_total'] == 20 and cfg['abertas'][0]['total'] == 10
+    p = fr.paginas_grelha(100, fr.DESLOC_VIGILANTES)[0]
+    assert p[2] * p[3] >= 100
