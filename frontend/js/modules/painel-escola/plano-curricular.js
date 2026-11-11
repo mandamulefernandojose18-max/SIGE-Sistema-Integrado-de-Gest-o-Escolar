@@ -62,7 +62,6 @@
     const todas = Array.isArray(r.data) ? r.data : [];
     P.classes = todas.filter((c) => (P.regime === 'NIVEIS') === ehNivel(c.nome));
     if (P.classe && !P.classes.some((c) => c.nome === P.classe)) P.classe = '';
-    if (!P.classe && P.classes.length) P.classe = P.classes[0].nome;
     const reg = $('pcRegime');
     if (reg) reg.value = P.regime;
   }
@@ -72,7 +71,7 @@
     if (!P.classe) return;
     const r = await pedir(API_PLANO + '/classe/?classe=' + encodeURIComponent(P.classe));
     if (r && r.success) P.dados = r.data;
-    if (P.dados && !P.dados.areas.some((a) => a.id === P.areaId)) P.areaId = P.dados.areas.length ? P.dados.areas[0].id : '';
+    if (P.dados && !P.dados.areas.some((a) => a.id === P.areaId)) P.areaId = '';
   }
 
   async function carregarCatalogo() {
@@ -131,7 +130,8 @@
   function desenharFiltroClasse() {
     const sel = $('pcClasseSelect');
     if (!sel) return;
-    sel.innerHTML = P.classes.map((c) => '<option value="' + esc(c.nome) + '"' + (c.nome === P.classe ? ' selected' : '') + '>' + esc(c.nome) + '</option>').join('');
+    sel.innerHTML = '<option value="">' + (P.regime === 'NIVEIS' ? '-- Nível --' : '-- Classe --') + '</option>' +
+      P.classes.map((c) => '<option value="' + esc(c.nome) + '"' + (c.nome === P.classe ? ' selected' : '') + '>' + esc(c.nome) + '</option>').join('');
     const cls = P.classes.find((c) => c.nome === P.classe);
     const b = $('pcBadgeExame');
     if (b) {
@@ -179,11 +179,13 @@
     const livres = oficiais.filter((n) => !P.classes.some((c) => c.nome === n));
     const sel = $('pcNovaClasse');
     if (sel) {
-      sel.innerHTML = livres.length
-        ? livres.map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('')
-        : '<option value="">Todas já cadastradas</option>';
+      sel.innerHTML = '<option value="" selected>' + (P.regime === 'NIVEIS' ? '-- Nível --' : '-- Classe --') + '</option>' +
+        livres.map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
       sel.disabled = !livres.length;
+      if (!livres.length) sel.innerHTML = '<option value="">Todas já cadastradas</option>';
     }
+    const exm = $('pcNovaClasseExame');
+    if (exm) exm.value = '';
     const rot = $('pcRotuloNovaClasse');
     if (rot) rot.textContent = P.regime === 'NIVEIS' ? 'Nível a cadastrar' : 'Classe a cadastrar';
 
@@ -254,9 +256,8 @@
     const sel = $('pcAreaSelect');
     if (!sel) return;
     const areas = (P.dados && P.dados.areas) || [];
-    sel.innerHTML = areas.length
-      ? areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === P.areaId ? ' selected' : '') + '>' + esc(a.nome) + '</option>').join('')
-      : '<option value="">Sem áreas nesta classe</option>';
+    sel.innerHTML = '<option value="">-- Área / Secção --</option>' +
+      areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === P.areaId ? ' selected' : '') + '>' + esc(a.nome) + '</option>').join('');
     sel.disabled = !areas.length;
     carregarMarcas();
   }
@@ -332,8 +333,10 @@
     async adicionarClasse(ev) {
       ev.preventDefault();
       const nome = ($('pcNovaClasse') || {}).value;
-      if (!nome) return;
-      const tem = ($('pcNovaClasseExame') || {}).value === 'sim';
+      if (!nome) return aviso('Escolha a Classe / Nível a cadastrar.', 'warning');
+      const exVal = ($('pcNovaClasseExame') || {}).value;
+      if (!exVal) return aviso('Indique se a classe tem exame.', 'warning');
+      const tem = exVal === 'sim';
       try {
         await pedir(API_CLASSES, json('PUT', { nome, tem_exame: tem }));
         P.classe = nome;
