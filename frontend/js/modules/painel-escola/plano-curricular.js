@@ -377,18 +377,22 @@
     // ---- disciplinas
     sugerirCodigo() {
       if (P.codigoManual || ($('pcDiscId') || {}).value) return;
-      const letras = normTxt(($('pcDiscNome') || {}).value).replace(/[^a-z]/g, '').slice(0, 3).toUpperCase();
       const num = (String(P.classe).match(/\d+/) || [''])[0];
       const cod = $('pcDiscCodigo');
       if (!cod) return;
-      if (!letras) { cod.value = ''; return; }
-      // Código único na escola: se já existir, usa mais letras do nome e, em último caso, um sufixo numérico.
-      const base = normTxt(($('pcDiscNome') || {}).value).replace(/[^a-z]/g, '').toUpperCase();
-      const usados = new Set([...(P.dados && P.dados.disciplinas || []), ...(P.catalogo || [])]
+      // Disciplinas diferentes têm códigos diferentes: 1.ª palavra (3 letras) + iniciais das restantes
+      // (Matemática Letras → MATL11; Matemática Ciências → MATC11; Matemática → MAT11).
+      const palavras = normTxt(($('pcDiscNome') || {}).value).split(/[^a-z]+/)
+        .filter((p) => p && !['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o'].includes(p));
+      if (!palavras.length) { cod.value = ''; return; }
+      const iniciais = palavras.slice(1).map((p) => p[0]).join('');
+      const usados = new Set([...(P.dados && P.dados.disciplinas || []), ...(state.todasDisciplinas || [])]
         .map((d) => String(d.codigo || '').toUpperCase()).filter(Boolean));
-      let sug = letras + num;
-      for (let n = 4; usados.has(sug) && n <= base.length; n++) sug = base.slice(0, n) + num;
-      for (let k = 2; usados.has(sug); k++) sug = letras + num + '-' + k;
+      const montar = (n) => (palavras[0].slice(0, n) + iniciais).toUpperCase() + num;
+      let sug = montar(3);
+      // Se já existir, usa mais letras da 1.ª palavra e, em último caso, um sufixo numérico.
+      for (let n = 4; usados.has(sug) && n <= palavras[0].length; n++) sug = montar(n);
+      for (let k = 2; usados.has(sug); k++) sug = montar(3) + '-' + k;
       cod.value = sug;
     },
 
