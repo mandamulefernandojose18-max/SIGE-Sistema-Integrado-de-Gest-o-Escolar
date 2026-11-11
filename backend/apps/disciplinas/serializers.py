@@ -21,7 +21,25 @@ class DisciplinaSerializer(serializers.ModelSerializer):
             if escola and cat.escola_id != escola.id:
                 raise serializers.ValidationError({'catalogo': 'Disciplina do catálogo não encontrada nesta escola.'})
             attrs['nome'] = cat.nome
+        self._validar_codigo_unico(attrs)
         return attrs
+
+    def _validar_codigo_unico(self, attrs):
+        """O código é único por escola e ano lectivo: devolve 400 claro em vez de erro 500."""
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(self.context.get('request')) or (self.instance.escola if self.instance else None)
+        codigo = attrs.get('codigo', self.instance.codigo if self.instance else None)
+        if not escola or not codigo:
+            return
+        ano = attrs.get('ano_letivo', self.instance.ano_letivo if self.instance else Disciplina._meta.get_field('ano_letivo').default)
+        qs = Disciplina.objects.filter(escola=escola, codigo=codigo, ano_letivo=ano)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        outra = qs.first()
+        if outra:
+            raise serializers.ValidationError({
+                'codigo': f"O código '{codigo}' já está a ser usado por '{outra.nome}' ({outra.classe}). Escolha outro código."
+            })
 
     @staticmethod
     def _catalogo_para(escola, nome):

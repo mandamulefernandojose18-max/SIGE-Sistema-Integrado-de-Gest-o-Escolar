@@ -380,7 +380,16 @@
       const letras = normTxt(($('pcDiscNome') || {}).value).replace(/[^a-z]/g, '').slice(0, 3).toUpperCase();
       const num = (String(P.classe).match(/\d+/) || [''])[0];
       const cod = $('pcDiscCodigo');
-      if (cod) cod.value = letras ? letras + num : '';
+      if (!cod) return;
+      if (!letras) { cod.value = ''; return; }
+      // Código único na escola: se já existir, usa mais letras do nome e, em último caso, um sufixo numérico.
+      const base = normTxt(($('pcDiscNome') || {}).value).replace(/[^a-z]/g, '').toUpperCase();
+      const usados = new Set([...(P.dados && P.dados.disciplinas || []), ...(P.catalogo || [])]
+        .map((d) => String(d.codigo || '').toUpperCase()).filter(Boolean));
+      let sug = letras + num;
+      for (let n = 4; usados.has(sug) && n <= base.length; n++) sug = base.slice(0, n) + num;
+      for (let k = 2; usados.has(sug); k++) sug = letras + num + '-' + k;
+      cod.value = sug;
     },
 
     async guardarDisciplina(ev) {

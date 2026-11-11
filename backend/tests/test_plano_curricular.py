@@ -183,6 +183,13 @@ class TestPlanoCurricular:
         nomes = [d['nome'] for d in self.client.get('/api/v1/plano-curricular/catalogo/').data['data']]
         assert 'Química' in nomes
 
+    def test_codigo_repetido_devolve_400_claro_e_nao_500(self):
+        ok = self.client.post('/api/v1/disciplinas/', {'nome': 'Matemática Ciências', 'codigo': 'MAT11', 'classe': '11ª Classe'}, format='json')
+        assert ok.status_code == 201
+        r = self.client.post('/api/v1/disciplinas/', {'nome': 'Matemática Letras', 'codigo': 'MAT11', 'classe': '11ª Classe'}, format='json')
+        assert r.status_code == 400
+        assert 'MAT11' in str(r.data)
+
     def test_renomear_no_catalogo_actualiza_as_classes(self):
         cat = self.client.post('/api/v1/plano-curricular/catalogo/', {'nome': 'Geo'}, format='json').data['data'][0]
         self.client.post('/api/v1/disciplinas/', {'catalogo': cat['id'], 'codigo': 'GEO11', 'classe': '11ª Classe'}, format='json')
