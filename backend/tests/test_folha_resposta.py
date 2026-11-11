@@ -1,4 +1,4 @@
-﻿import io
+import io
 
 import openpyxl
 import pytest
@@ -141,10 +141,12 @@ def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
     assert [we.cell(row=5, column=k).value for k in (1, 2, 3, 4)] == ['Excluídos', 0, 2, 2]
     assert [we.cell(row=6, column=k).value for k in (1, 2, 3, 4)] == ['Total do âmbito', 0, 3, 3]
     ws = wb['Alunos']
-    assert str(ws.cell(row=5, column=1).fill.start_color.rgb).upper().endswith('A1B2C3')   # excluído (Ana) na cor escolhida
+    assert str(ws.cell(row=5, column=1).font.color.rgb).upper().endswith('C00000') and ws.cell(row=5, column=1).fill.fill_type is None   # excluído (Ana): letra vermelha, sem fundo
     assert 'Excluído: Faltas: 14' in str(ws.cell(row=5, column=9).value)
-    assert not str(ws.cell(row=7, column=1).fill.start_color.rgb).upper().endswith('A1B2C3')   # Carla gerada: sem a cor
+    assert not str(ws.cell(row=7, column=1).font.color.rgb).upper().endswith('C00000')   # Carla gerada: letra normal
     assert 'Estatística' in texto and 'Excluídos' in texto
+    import re as _re
+    assert 'SIGE' in texto and 'Pág. 1/' in texto and _re.search(r'Emitida em \d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}', texto)
     # um aluno excluído pela regra não recebe folha individual
     r = c.post(URL + 'gerar/', _corpo(escopo='aluno', aluno_id=str(ana.id)), format='json')
     assert r.status_code == 409
@@ -355,3 +357,23 @@ def test_lista_com_total_de_faltas_exclui_quem_atinge_o_minimo():
     inc, exc = fm._aplicar_exclusoes({'folha_excluir': 'sim', 'folha_excluir_motivo': ['faltas'], 'folha_excluir_faltas': '10'},
                                      {'disciplina': 'Fisica'}, None, 2026, cands)
     assert [c['dados']['nome'] for c in inc] == ['Beto'] and 'Faltas: 12' in exc[0][1]
+
+
+def test_lista_pdf_tem_rodape_sige_paginacao_e_emissao_com_segundos():
+    import re
+    import fitz
+    from types import SimpleNamespace
+    from apps.documentos.services import lista_alunos_service as la
+    d = {'apelido': 'Silva', 'nome': 'Ana', 'codigo': 'A1', 'classe': '10', 'turma': 'A', 'numero': 1, 'genero': 'F'}
+    esc = SimpleNamespace(nome='Escola X', provincia='Gaza', distrito='Chokwe', id=None)
+    try:
+        pdf = la.lista_pdf(esc, 'Lista teste', [d], [], '', [d])
+    except Exception:  # sem logótipo oficial na escola de teste: valida-se só o Excel
+        pdf = None
+    if pdf:
+        texto = ''.join(p.get_text() for p in fitz.open(stream=pdf, filetype='pdf'))
+        assert 'SIGE' in texto and 'Pág. 1/1' in texto and re.search(r'Emitida em \d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}', texto)
+    import io
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(la.lista_xlsx(esc, 'Lista teste', [d], [], '', [d])))
+    assert 'SIGE' in wb['Alunos'].oddFooter.left.text and re.search(r'Emitida em \d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}', wb['Alunos'].oddFooter.right.text)

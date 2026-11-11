@@ -21,7 +21,8 @@ AZUL = colors.HexColor('#1E3A8A')
 DOURADO = colors.HexColor('#C9A227')
 ZEBRA = colors.HexColor('#F1F5F9')
 CINZA = colors.HexColor('#94A3B8')
-COR_EXCLUIDOS_PADRAO = '#FDE2E2'   # rosa claro: legível com texto preto
+COR_EXCLUIDOS_PADRAO = '#FDE2E2'   # já não pinta a tabela (os excluídos levam letra vermelha); mantida por compatibilidade
+VERMELHO = colors.HexColor('#C00000')
 
 COLUNAS = [('Ordem', 1.0), ('Nº', 1.0), ('Código', 2.3), ('Apelido', 2.5), ('Nome', 3.3), ('Classe', 1.4), ('Turma', 1.4),
            ('Sexo', 1.0), ('Situação / motivo', 3.1)]
@@ -72,6 +73,12 @@ def estatistica(incluidos, excluidos):
     return [('Folha gerada', *g), ('Excluídos', *e), ('Total do âmbito', g[0] + e[0], g[1] + e[1], g[2] + e[2])]
 
 
+def _agora_texto():
+    """«dd/mm/aaaa hh:mm:ss» na hora local (ex.: 11/11/2026 22:50:41)."""
+    from django.utils import timezone
+    return timezone.localtime().strftime('%d/%m/%Y %H:%M:%S')
+
+
 def _escura(hex_cor):
     h = hex_cor.lstrip('#')
     r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
@@ -99,12 +106,11 @@ def _tabela(linhas, estilos, cor):
                          leading=15, textColor=colors.white)
     cel = ParagraphStyle('LAcel', parent=estilos['Normal'], alignment=TA_LEFT, fontName='Times-Roman', fontSize=12, leading=15)
     cen = ParagraphStyle('LAcen', parent=cel, alignment=TA_CENTER)
-    claro = ParagraphStyle('LAclaro', parent=cel, textColor=colors.white)
-    claro_c = ParagraphStyle('LAclaroc', parent=cen, textColor=colors.white)
-    escura = _escura(cor)
+    claro = ParagraphStyle('LAclaro', parent=cel, textColor=VERMELHO)   # excluídos: letra vermelha, sem pintar a tabela
+    claro_c = ParagraphStyle('LAclaroc', parent=cen, textColor=VERMELHO)
     dados = [[Paragraph(nome, cab) for nome, _ in COLUNAS]]
     for linha, motivo in linhas:
-        dados.append([Paragraph(str(v), (claro_c if COLUNAS[i][0] in CENTRADAS else claro) if (motivo and escura)
+        dados.append([Paragraph(str(v), (claro_c if COLUNAS[i][0] in CENTRADAS else claro) if motivo
                                 else (cen if COLUNAS[i][0] in CENTRADAS else cel)) for i, v in enumerate(linha)])
     t = Table(dados, colWidths=[w * cm for _, w in COLUNAS], repeatRows=1)
     est = [
@@ -114,9 +120,7 @@ def _tabela(linhas, estilos, cor):
         ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]
     for r, (_, motivo) in enumerate(linhas, start=1):
-        if motivo:
-            est.append(('BACKGROUND', (0, r), (-1, r), colors.HexColor(cor)))
-        elif r % 2 == 0:
+        if r % 2 == 0:
             est.append(('BACKGROUND', (0, r), (-1, r), ZEBRA))
     t.setStyle(TableStyle(est))
     return t
@@ -127,22 +131,21 @@ def _tabela_estatistica(incluidos, excluidos, estilos, cor):
     cab = ParagraphStyle('LAecab', parent=estilos['Normal'], alignment=TA_CENTER, fontName='Times-Bold', fontSize=12, leading=15, textColor=colors.white)
     cel = ParagraphStyle('LAecel', parent=estilos['Normal'], alignment=TA_LEFT, fontName='Times-Roman', fontSize=12, leading=15)
     cen = ParagraphStyle('LAecen', parent=cel, alignment=TA_CENTER)
-    escura = _escura(cor)
     dados = [[Paragraph(t, cab) for t in ('Estatística', 'H', 'M', 'HM')]]
     for k, (g, h, m, hm) in enumerate(estatistica(incluidos, excluidos), start=1):
-        sc, sn = (ParagraphStyle('LAeW1', parent=cel, textColor=colors.white), ParagraphStyle('LAeW2', parent=cen, textColor=colors.white)) \
-            if (k == 2 and escura) else (cel, cen)
+        sc, sn = (ParagraphStyle('LAeW1', parent=cel, textColor=VERMELHO), ParagraphStyle('LAeW2', parent=cen, textColor=VERMELHO)) \
+            if k == 2 else (cel, cen)
         dados.append([Paragraph(g if g != 'Total do âmbito' else f'<b>{g}</b>', sc)] + [Paragraph(str(v), sn) for v in (h, m, hm)])
     t = Table(dados, colWidths=[5 * cm, 2.2 * cm, 2.2 * cm, 2.2 * cm], hAlign='LEFT')
     est = [('BACKGROUND', (0, 0), (-1, 0), AZUL), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('BOX', (0, 0), (-1, -1), 1.2, AZUL),
            ('LINEBELOW', (0, 0), (-1, 0), 2.2, DOURADO), ('INNERGRID', (0, 1), (-1, -1), 0.4, CINZA),
-           ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3), ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor(cor))]
+           ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3)]
     t.setStyle(TableStyle(est))
     return t
 
 
 def lista_pdf(escola, titulo, dados_incluidos, excluidos=(), referencia='', todos=None, cor=None):
-    """PDF A4: cabeçalho oficial, totais e UMA tabela com todos os alunos; os excluídos levam outra cor e o motivo."""
+    """PDF A4: cabeçalho oficial, totais e UMA tabela com todos os alunos; os excluídos levam letra vermelha e o motivo."""
     cor = cor_valida(cor)
     excluidos = list(excluidos)
     preparar_sexo(dados_incluidos, [d for d, _ in excluidos], todos)
@@ -158,18 +161,49 @@ def lista_pdf(escola, titulo, dados_incluidos, excluidos=(), referencia='', todo
         el.append(Paragraph(referencia, ParagraphStyle('LAref', parent=norm, alignment=TA_CENTER)))
     el.append(Spacer(1, 0.3 * cm))
     el.append(Paragraph(f'<b>Total de folhas/provas geradas: {len(dados_incluidos)}</b>'
-                        + (f' · <b>Excluídos: {len(excluidos)}</b> (linhas coloridas, com o motivo)' if excluidos else '')
-                        + f' · Emitido em {datetime.date.today().strftime("%d/%m/%Y")}', norm))
+                        + (f' · <b>Excluídos: {len(excluidos)}</b> (a vermelho, com o motivo)' if excluidos else '')
+                        , norm))
     el.append(Spacer(1, 0.2 * cm))
     el.append(_tabela_estatistica(dados_incluidos, excluidos, estilos, cor))
     el.append(Spacer(1, 0.3 * cm))
     el.append(_tabela(_linhas(todos, dados_incluidos, excluidos), estilos, cor))
-    doc.build(el)
+    emitida = _agora_texto()
+
+    from reportlab.pdfgen import canvas as rl_canvas
+
+    class _CanvasPaginado(rl_canvas.Canvas):
+        """Rodapé em todas as páginas: «SIGE · …», «Pág. n/N» e «Emitida em dd/mm/aaaa hh:mm:ss»."""
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self._paginas = []
+
+        def showPage(self):
+            self._paginas.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._paginas)
+            for estado in self._paginas:
+                self.__dict__.update(estado)
+                self._rodape(total)
+                super().showPage()
+            super().save()
+
+        def _rodape(self, total):
+            larg, _ = A4
+            self.setFont('Times-Roman', 9)
+            self.setFillColor(CINZA)
+            y = 0.9 * cm
+            self.drawString(2 * cm, y, 'SIGE · Lista de alunos')
+            self.drawCentredString(larg / 2, y, f'Pág. {self._pageNumber}/{total}')
+            self.drawRightString(larg - 2 * cm, y, f'Emitida em {emitida}')
+
+    doc.build(el, canvasmaker=_CanvasPaginado)
     return buf.getvalue()
 
 
 def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', todos=None, cor=None):
-    """Excel (gravado por guardar_xlsx_seguro), folha «Alunos»: estatística H/M/HM e lista com os excluídos a outra cor e o motivo."""
+    """Excel (gravado por guardar_xlsx_seguro), folha «Alunos»: estatística H/M/HM e lista com os excluídos a vermelho e o motivo."""
     import openpyxl
     from openpyxl.styles import Alignment, Font, PatternFill
     excluidos = list(excluidos)
@@ -183,12 +217,11 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
     ws = wb.active
     ws.title = 'Alunos'
     ws.sheet_view.showGridLines = False
-    from django.utils import timezone
-    hoje = timezone.localtime().strftime('%d/%m/%Y %H:%M:%S')
-    resumo = f'Total de folhas/provas geradas: {len(dados_incluidos)}'
+    hoje = _agora_texto()
+    resumo =f'Total de folhas/provas geradas: {len(dados_incluidos)}'
     if excluidos:
-        resumo += f' · Excluídos: {len(excluidos)} (linhas coloridas, com o motivo)'
-    resumo += f' · Emitido em {hoje}' + (f' · {referencia}' if referencia else '')
+        resumo += f' · Excluídos: {len(excluidos)} (a vermelho, com o motivo)'
+    resumo += (f' · {referencia}' if referencia else '')
     n_col = len(COLUNAS)
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_col)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_col)
@@ -212,10 +245,8 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
     for r, (linha, motivo) in enumerate(_linhas(todos, dados_incluidos, excluidos), start=ini + 1):
         for i, v in enumerate(linha, start=1):
             c = ws.cell(row=r, column=i, value=v)
-            c.font = Font(name=TNR, size=12, color='FFFFFF' if (motivo and escura) else '000000')
+            c.font = Font(name=TNR, size=12, color='C00000' if motivo else '000000')   # excluídos: letra vermelha, sem fundo
             c.alignment = Alignment(horizontal='center' if COLUNAS[i - 1][0] in CENTRADAS else 'left', vertical='center', wrap_text=True)
-            if motivo:
-                c.fill = PatternFill('solid', start_color=cor.lstrip('#'))
     ws.freeze_panes = ws.cell(row=ini + 1, column=1)
     # Estatística H / M / HM numa folha própria (uma só tabela por folha: moldura e larguras certas)
     we = wb.create_sheet('Estatística')
@@ -235,10 +266,17 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
     for k, (g, h, m, hm) in enumerate(estatistica(dados_incluidos, excluidos), start=4):
         for i, v in enumerate((g, h, m, hm), start=1):
             c = we.cell(row=k, column=i, value=v)
-            c.font = Font(name=TNR, size=12, bold=(g == 'Total do âmbito'), color='FFFFFF' if (k == 5 and escura) else '000000')
+            c.font = Font(name=TNR, size=12, bold=(g == 'Total do âmbito'), color='C00000' if k == 5 else '000000')
             c.alignment = Alignment(horizontal='left' if i == 1 else 'center', vertical='center', wrap_text=True)
-            if k == 5:
-                c.fill = PatternFill('solid', start_color=cor.lstrip('#'))
+    # rodapé de impressão: SIGE · Pág. n/N · Emitida em dd/mm/aaaa hh:mm:ss
+    for folha in (ws, we):
+        folha.oddFooter.left.text = 'SIGE · Lista de alunos'
+        folha.oddFooter.center.text = 'Pág. &P/&N'
+        folha.oddFooter.right.text = f'Emitida em {hoje}'
+        for lado in (folha.oddFooter.left, folha.oddFooter.center, folha.oddFooter.right):
+            lado.size = 9
+            lado.font = 'Times New Roman'
+    ws.print_title_rows = f'{ini}:{ini}'
     ws.page_setup.orientation = 'portrait'
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
