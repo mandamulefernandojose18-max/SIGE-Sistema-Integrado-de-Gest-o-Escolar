@@ -85,6 +85,8 @@
   function aoMudarClasse() {
     var areas = [];
     turmasDaClasseTodas().forEach(function (t) { if (t.area && areas.indexOf(t.area) < 0) areas.push(t.area); });
+    var cl = (ctx.classes || []).find(function (x) { return x.classe === classeActual(); });
+    ((cl && cl.areas) || []).forEach(function (a) { if (areas.indexOf(a) < 0) areas.push(a); });
     $('frArea').innerHTML = '<option value="">-- Todas as áreas/secções --</option>' + areas.map(function (a) { return '<option value="' + esc(a) + '">' + esc(a) + '</option>'; }).join('');
     aoMudarArea();
   }
@@ -153,7 +155,7 @@
     else if (e === 'classe') txt = c ? 'Serão geradas ' + c.total_alunos + ' folhas (todos os alunos activos da ' + c.classe + ').' : 'Escolha a classe.';
     else if (e === 'turma') txt = t ? 'Serão geradas ' + t.alunos + ' folhas (alunos activos da turma ' + t.nome + ').' : 'Escolha a classe e a turma.';
     else txt = $('frAluno').value ? 'Será gerada 1 folha para o aluno escolhido.' : 'Escolha a classe, a turma e o aluno.';
-    var semTurmas = !!(ctx && (!ctx.classes || !ctx.classes.length) && e !== 'branco' && e !== 'lista');
+    var semTurmas = !!(ctx && !(ctx.classes || []).some(function (x) { return (x.turmas || []).length; }) && e !== 'branco' && e !== 'lista');
     if (semTurmas) txt = 'Não há turmas registadas neste ano lectivo. Crie turmas e matricule alunos primeiro — ou gere a folha a partir de um ficheiro importado.';
     el.textContent = txt;
     if (semTurmas) {

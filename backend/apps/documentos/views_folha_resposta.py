@@ -72,10 +72,18 @@ class FolhaRespostaContextoView(APIView):
                 'alunos': contagem.get(t.id, 0),
             })
         disciplinas = {}
+        areas_plano = {}
         for d in Disciplina.objects.filter(escola=escola, ano_letivo=ano).order_by('nome'):
             lista = disciplinas.setdefault(d.classe, [])
             if not any(x['nome'] == d.nome and x['area'] == d.area for x in lista):
                 lista.append({'nome': d.nome, 'area': d.area})
+            if d.area and d.area != 'Geral':
+                areas_plano.setdefault(d.classe, [])
+                if d.area not in areas_plano[d.classe]:
+                    areas_plano[d.classe].append(d.area)
+        # Classes do Plano Curricular entram mesmo sem turmas (permite escolher disciplina e gerar folhas em branco/lista).
+        for k in disciplinas:
+            classes.setdefault(k, [])
         logo = fr.resolver_logo_documento_escola(escola)[0]
         return Response({
             'escola': {
@@ -86,7 +94,8 @@ class FolhaRespostaContextoView(APIView):
             },
             'ano_letivo': ano,
             'tipos_avaliacao': [{'codigo': c, 'rotulo': r} for c, r in fr.TIPOS_AVALIACAO],
-            'classes': [{'classe': k, 'turmas': v, 'total_alunos': sum(x['alunos'] for x in v)} for k, v in classes.items()],
+            'classes': [{'classe': k, 'turmas': v, 'total_alunos': sum(x['alunos'] for x in v),
+                         'areas': areas_plano.get(k, [])} for k, v in sorted(classes.items())],
             'disciplinas_por_classe': disciplinas,
             'regra_exclusao': _regra_da_escola(escola),
             'limites': {'max_perguntas': fr.MAX_PERGUNTAS, 'max_folhas': fr.MAX_FOLHAS,
