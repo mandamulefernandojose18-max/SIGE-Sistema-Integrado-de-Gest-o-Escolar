@@ -109,7 +109,7 @@ def test_pdf_turma_gera_uma_folha_por_aluno(cenario):
     texto = ''.join(p.get_text() for p in lista)
     assert 'Ana' in texto and 'Bruno' in texto and 'Carla' in texto and 'Total de folhas/provas geradas: 3' in texto
     wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in nomes if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
-    assert wb.sheetnames == ['Alunos'] and wb['Alunos']['C10'].value == Aluno.objects.get(nome='Ana', turma=turma).matricula
+    assert wb.sheetnames == ['Alunos', 'Estatística'] and wb['Alunos']['C5'].value == Aluno.objects.get(nome='Ana', turma=turma).matricula
 
 
 def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
@@ -135,14 +135,15 @@ def test_regra_automatica_e_exclusoes_na_folha_personalizada(cenario):
     texto = ''.join(p.get_text() for p in lista)
     assert 'Carla' in texto and 'Faltas: 14' in texto and 'PPF' in texto   # incluída + excluídos com o motivo
     wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
-    assert wb.sheetnames == ['Alunos']
-    ws = wb['Alunos']   # estatística H/M/HM dos dois grupos na mesma lista (as 3 alunas são do sexo feminino)
-    assert [ws.cell(row=5, column=k).value for k in (3, 4, 5, 6)] == ['Folha gerada', 0, 1, 1]
-    assert [ws.cell(row=6, column=k).value for k in (3, 4, 5, 6)] == ['Excluídos', 0, 2, 2]
-    assert [ws.cell(row=7, column=k).value for k in (3, 4, 5, 6)] == ['Total do âmbito', 0, 3, 3]
-    assert str(ws.cell(row=10, column=1).fill.start_color.rgb).upper().endswith('A1B2C3')   # excluído (Ana) na cor escolhida
-    assert 'Excluído: Faltas: 14' in str(ws.cell(row=10, column=9).value)
-    assert not str(ws.cell(row=12, column=1).fill.start_color.rgb).upper().endswith('A1B2C3')   # Carla gerada: sem a cor
+    assert wb.sheetnames == ['Alunos', 'Estatística']
+    we = wb['Estatística']   # estatística H/M/HM dos dois grupos (as 3 alunas são do sexo feminino)
+    assert [we.cell(row=4, column=k).value for k in (1, 2, 3, 4)] == ['Folha gerada', 0, 1, 1]
+    assert [we.cell(row=5, column=k).value for k in (1, 2, 3, 4)] == ['Excluídos', 0, 2, 2]
+    assert [we.cell(row=6, column=k).value for k in (1, 2, 3, 4)] == ['Total do âmbito', 0, 3, 3]
+    ws = wb['Alunos']
+    assert str(ws.cell(row=5, column=1).fill.start_color.rgb).upper().endswith('A1B2C3')   # excluído (Ana) na cor escolhida
+    assert 'Excluído: Faltas: 14' in str(ws.cell(row=5, column=9).value)
+    assert not str(ws.cell(row=7, column=1).fill.start_color.rgb).upper().endswith('A1B2C3')   # Carla gerada: sem a cor
     assert 'Estatística' in texto and 'Excluídos' in texto
     # um aluno excluído pela regra não recebe folha individual
     r = c.post(URL + 'gerar/', _corpo(escopo='aluno', aluno_id=str(ana.id)), format='json')
@@ -318,7 +319,7 @@ def test_folha_a_partir_de_lista_importada_com_exclusoes_e_listas(cenario):
     z = zipfile.ZipFile(io.BytesIO(r.content))
     assert any(n.startswith('Lista_') and n.endswith('.pdf') for n in z.namelist())
     wb = openpyxl.load_workbook(io.BytesIO(z.read([n for n in z.namelist() if n.endswith('.xlsx') and n.startswith('Lista_')][0])))
-    assert wb.sheetnames == ['Alunos']
+    assert wb.sheetnames == ['Alunos', 'Estatística']
     # sem ficheiro: recusado
     r = c.post(URL + 'gerar/', {'dados': json.dumps(corpo)}, format='multipart')
     assert r.status_code == 400

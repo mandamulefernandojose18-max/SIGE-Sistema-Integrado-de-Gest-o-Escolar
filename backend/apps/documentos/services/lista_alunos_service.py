@@ -183,28 +183,26 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
     ws = wb.active
     ws.title = 'Alunos'
     ws.sheet_view.showGridLines = False
-    hoje = datetime.date.today().strftime('%d/%m/%Y')
-    ws.cell(row=1, column=1, value=f'{titulo} · {escola.nome}').font = Font(name=TNR, size=12, bold=True)
+    from django.utils import timezone
+    hoje = timezone.localtime().strftime('%d/%m/%Y %H:%M:%S')
     resumo = f'Total de folhas/provas geradas: {len(dados_incluidos)}'
     if excluidos:
         resumo += f' · Excluídos: {len(excluidos)} (linhas coloridas, com o motivo)'
-    ws.cell(row=2, column=1, value=resumo + f' · Emitido em {hoje}' + (f' · {referencia}' if referencia else '')).font = Font(name=TNR, size=12)
-    larguras = [8, 8, 24, 22, 28, 12, 12, 8, 40]
+    resumo += f' · Emitido em {hoje}' + (f' · {referencia}' if referencia else '')
+    n_col = len(COLUNAS)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_col)
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_col)
+    t1 = ws.cell(row=1, column=1, value=f'{titulo} · {escola.nome}')
+    t1.font = Font(name=TNR, size=12, bold=True)
+    t1.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    t2 = ws.cell(row=2, column=1, value=resumo)
+    t2.font = Font(name=TNR, size=12)
+    t2.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    ws.row_dimensions[1].height = 36
+    ws.row_dimensions[2].height = 36
+    larguras = [9, 8, 22, 24, 30, 11, 11, 9, 44]
     escura = _escura(cor)
-    # estatística H / M / HM dos dois grupos (gerados e excluídos) na mesma lista
-    for i, t in enumerate(('Estatística', 'H', 'M', 'HM'), start=1):
-        c = ws.cell(row=4, column=i + 2, value=t)
-        c.font = Font(name=TNR, size=12, bold=True, color='FFFFFF')
-        c.fill = PatternFill('solid', start_color='1E3A8A')
-        c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    for k, (g, h, m, hm) in enumerate(estatistica(dados_incluidos, excluidos), start=5):
-        for i, v in enumerate((g, h, m, hm), start=1):
-            c = ws.cell(row=k, column=i + 2, value=v)
-            c.font = Font(name=TNR, size=12, bold=(g == 'Total do âmbito'), color='FFFFFF' if (k == 6 and escura) else '000000')
-            c.alignment = Alignment(horizontal='left' if i == 1 else 'center', vertical='center', wrap_text=True)
-            if k == 6:
-                c.fill = PatternFill('solid', start_color=cor.lstrip('#'))
-    ini = 9
+    ini = 4
     for i, ((nome_col, _), w) in enumerate(zip(COLUNAS, larguras), start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
         c = ws.cell(row=ini, column=i, value=nome_col)
@@ -217,6 +215,29 @@ def lista_xlsx(escola, titulo, dados_incluidos, excluidos=(), referencia='', tod
             c.font = Font(name=TNR, size=12, color='FFFFFF' if (motivo and escura) else '000000')
             c.alignment = Alignment(horizontal='center' if COLUNAS[i - 1][0] in CENTRADAS else 'left', vertical='center', wrap_text=True)
             if motivo:
+                c.fill = PatternFill('solid', start_color=cor.lstrip('#'))
+    ws.freeze_panes = ws.cell(row=ini + 1, column=1)
+    # Estatística H / M / HM numa folha própria (uma só tabela por folha: moldura e larguras certas)
+    we = wb.create_sheet('Estatística')
+    we.sheet_view.showGridLines = False
+    we.merge_cells('A1:D1')
+    te = we.cell(row=1, column=1, value='Estatística por sexo (H = homens · M = mulheres · HM = total)')
+    te.font = Font(name=TNR, size=12, bold=True)
+    te.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    we.row_dimensions[1].height = 36
+    for i, w in enumerate((26, 12, 12, 12), start=1):
+        we.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    for i, t in enumerate(('Estatística', 'H', 'M', 'HM'), start=1):
+        c = we.cell(row=3, column=i, value=t)
+        c.font = Font(name=TNR, size=12, bold=True, color='FFFFFF')
+        c.fill = PatternFill('solid', start_color='1E3A8A')
+        c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    for k, (g, h, m, hm) in enumerate(estatistica(dados_incluidos, excluidos), start=4):
+        for i, v in enumerate((g, h, m, hm), start=1):
+            c = we.cell(row=k, column=i, value=v)
+            c.font = Font(name=TNR, size=12, bold=(g == 'Total do âmbito'), color='FFFFFF' if (k == 5 and escura) else '000000')
+            c.alignment = Alignment(horizontal='left' if i == 1 else 'center', vertical='center', wrap_text=True)
+            if k == 5:
                 c.fill = PatternFill('solid', start_color=cor.lstrip('#'))
     ws.page_setup.orientation = 'portrait'
     ws.page_setup.fitToWidth = 1
