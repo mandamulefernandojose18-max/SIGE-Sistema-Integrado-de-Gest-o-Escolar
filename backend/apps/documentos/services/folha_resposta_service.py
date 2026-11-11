@@ -769,14 +769,8 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     # III — Disciplina
     yiii, hiii = 88.5, 31 + d
     _caixa(c, MARGEM, yiii, 106, hiii, 'III   DISCIPLINA')
-    nomes = list(config['disciplinas_classe'])
-    if config['disciplina'] not in nomes:
-        nomes.insert(0, config['disciplina'])
-    nomes = nomes[:15]
-    col_w = 34.0
-    for k, nome in enumerate(nomes):
-        cc, rr = divmod(k, 5)
-        _check(c, MARGEM + 3 + cc * col_w, yiii + 6.6 + rr * 4.3, nome, nome == config['disciplina'], tam=10.5, lado=3.5, larg_txt=col_w - 6.5)
+    # Só aparece a disciplina seleccionada; as restantes ficam ocultas.
+    _check(c, MARGEM + 3, yiii + 6.6, config['disciplina'], True, tam=12, lado=3.8, larg_txt=96)
     if config['professor']:
         c.setFont(FONTE_I, 10.5)
         c.setFillColor(CINZA_TEXTO)
@@ -1181,10 +1175,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         # ---- III DISCIPLINA / IV CLASSIFICAÇÃO ----
         barra(ws, 15, 1, 15, 'III   DISCIPLINA', esq)
         barra(ws, 15, 17, 28, 'IV   CLASSIFICAÇÃO', esq)
-        nomes = list(config['disciplinas_classe'])
-        if config['disciplina'] not in nomes:
-            nomes.insert(0, config['disciplina'])
-        nomes = nomes[:15]
+        nomes = [config['disciplina']]   # só a disciplina seleccionada
         for r in range(16, 21):
             ws.row_dimensions[r].height = max(ws.row_dimensions[r].height or 0, 24)
         for k, nome in enumerate(nomes):

@@ -65,7 +65,15 @@ _ALIAS = {
     'codigo': {'codigo', 'matricula', 'processo', 'nprocesso', 'noprocesso', 'codigodoaluno', 'nmatricula'},
     'situacao': {'situacao', 'estado', 'observacao', 'observacoes', 'motivo'},
     'genero': {'sexo', 'genero', 'hm', 'mf'},
+    'faltas': {'faltas', 'totaldefaltas', 'totalfaltas', 'nfaltas', 'nodefaltas', 'numerodefaltas', 'faltasacumuladas',
+               'totaldefaltasacumuladas', 'tfaltas', 'totfaltas'},
 }
+
+
+def _num_faltas(v):
+    """Faltas indicadas na lista importada («12», «12 faltas», «12,0»); 0 se vazio ou ilegível."""
+    m = re.search(r'\d+', str(v or '').replace(',', '.'))
+    return int(m.group()) if m else 0
 
 
 def _sem_acentos(t):
@@ -142,6 +150,7 @@ def _candidatos_da_lista(ficheiro, escola):
             'classe': b['classe'] or base.get('classe', ''), 'turma': b['turma'] or base.get('turma', ''),
             'area': b['area'] or base.get('area', ''), 'numero': numero, 'codigo': b['codigo'],
             'genero': b['genero'] or base.get('genero', ''),
+            'faltas_lista': _num_faltas(b['faltas']),   # coluna «Total de Faltas» do ficheiro (conta para a exclusão)
         }
         cands.append({'dados': dados, 'aluno': a, 'situacao': b['situacao']})
     return cands
@@ -233,8 +242,11 @@ def _aplicar_exclusoes(form, p, escola, ano, cands):
         a, sit, d = c['aluno'], _sem_acentos(c['situacao']), c['dados']
         aid = a.id if a else None
         razao = []
-        if 'faltas' in motivos and aid and faltas.get(aid, 0) >= minimo:
-            razao.append(f'Faltas: {faltas[aid]} (mínimo {minimo})')
+        if 'faltas' in motivos:
+            # vale o maior entre as faltas do sistema e o «Total de Faltas» da lista importada
+            total_f = max(faltas.get(aid, 0) if aid else 0, d.get('faltas_lista') or 0)
+            if total_f >= minimo:
+                razao.append(f'Faltas: {total_f} (mínimo {minimo})')
         for cod, rot in (('ppf', 'PPF'), ('pdf', 'PDF')):
             if cod in motivos and ((aid and rot in anot.get(aid, ())) or re.search(rf'\b{cod}\b', sit)):
                 razao.append(rot)

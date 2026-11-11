@@ -343,3 +343,14 @@ def test_seccoes_a_mais_sao_ignoradas():
     cfg = fr.normalizar_config({'tipo_avaliacao': 'ACS1', 'disciplina': 'Matematica', 'n_perguntas': 19,
                                 'seccoes': [{'ate': 19, 'cotacao': 1}, {'ate': 40, 'cotacao': 1}]}, None)
     assert len(cfg['seccoes']) == 1 and cfg['cotacao_total'] == 19
+
+def test_lista_com_total_de_faltas_exclui_quem_atinge_o_minimo():
+    import io
+    from apps.escudo.services import folha as fm
+    csv = 'Nome;Código;Total de Faltas\nAna;;12\nBeto;;3\n'.encode('utf-8')
+    f = io.BytesIO(csv); f.name = 'l.csv'
+    cands = fm._candidatos_da_lista(f, None)
+    assert [c['dados']['faltas_lista'] for c in cands] == [12, 3]
+    inc, exc = fm._aplicar_exclusoes({'folha_excluir': 'sim', 'folha_excluir_motivo': ['faltas'], 'folha_excluir_faltas': '10'},
+                                     {'disciplina': 'Fisica'}, None, 2026, cands)
+    assert [c['dados']['nome'] for c in inc] == ['Beto'] and 'Faltas: 12' in exc[0][1]
