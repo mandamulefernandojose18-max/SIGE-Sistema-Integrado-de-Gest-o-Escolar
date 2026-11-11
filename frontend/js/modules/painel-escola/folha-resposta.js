@@ -136,12 +136,11 @@
   }
   function mostrarCamposEscopo() {
     var e = $('frEscopo').value;
-    $('frBlocoClasse').classList.toggle('d-none', e === 'lista');
+    $('frBlocoClasse').classList.remove('d-none');  // também na lista importada: a classe carrega as disciplinas do Plano Curricular
     $('frBlocoArea').classList.toggle('d-none', e === 'branco' || e === 'lista');
     $('frBlocoTurma').classList.toggle('d-none', e === 'classe' || e === 'branco' || e === 'lista');
     $('frBlocoAluno').classList.toggle('d-none', e !== 'aluno');
     $('frBlocoLista').classList.toggle('d-none', e !== 'lista');
-    if (e === 'lista') { $('frBlocoClasse').classList.add('d-none'); $('frBlocoArea').classList.add('d-none'); $('frBlocoTurma').classList.add('d-none'); }
     $('frBlocoCopias').classList.toggle('d-none', e !== 'branco');
     if (e === 'aluno') aoMudarTurma(); else resumo();
   }
@@ -182,6 +181,7 @@
     });
   }
   function lerAbertas() {
+    if (!$('frAbN')) return [];
     var n = parseInt($('frAbN').value, 10) || 0, c = num($('frAbCot').value);
     return n > 0 ? [{ rotulo: $('frAbRotulo').value.trim(), n: n, cotacao: c == null ? 0 : c }] : [];
   }
@@ -304,7 +304,7 @@
     }
     if (e === 'aluno') { if (!$('frAluno').value) throw new Error('Escolha o aluno.'); c.aluno_id = $('frAluno').value; }
     else if (e === 'turma') { if (!$('frTurma').value) throw new Error('Escolha a turma.'); c.turma_id = $('frTurma').value; }
-    else if (e === 'lista') { if (!$('frLista').files.length) throw new Error('Escolha o ficheiro da lista de alunos (.xlsx ou .csv).'); }
+    else if (e === 'lista') { if (!$('frLista').files.length) throw new Error('Escolha o ficheiro da lista de alunos (.xlsx ou .csv).'); c.classe = classeActual(); }
     else if (e === 'classe') { if (!classeActual()) throw new Error('Escolha a classe.'); c.classe = classeActual(); c.area = areaActual(); }
     else { c.copias = parseInt($('frCopias').value, 10) || 0; c.classe = classeActual(); }
     return c;
@@ -423,7 +423,7 @@
     });
     $('frSeccoesLista').addEventListener('input', actualizarTotal);
     $('frNAlt').addEventListener('change', desenharGrelhaPrevia);
-    ['frNPerg', 'frCotPerg', 'frAbN', 'frAbCot'].forEach(function (id) { $(id).addEventListener('input', actualizarTotal); });
+    ['frNPerg', 'frCotPerg', 'frAbN', 'frAbCot'].forEach(function (id) { if ($(id)) $(id).addEventListener('input', actualizarTotal); });
     $('frVersoes').addEventListener('input', desenharChaves);
     $('frMOutros').addEventListener('change', function () { $('frBlocoOutros').classList.toggle('d-none', !this.checked); });
     $('frMTodos').addEventListener('click', function () {

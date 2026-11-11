@@ -326,6 +326,10 @@ def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
         'versoes': (form.get('folha_versoes') or '').strip(),
         'instrucao_extra': (form.get('folha_instrucao') or '').strip(),
     }
+    ab_n = re.sub(r'\D', '', str(form.get('folha_abertas_n') or ''))
+    if ab_n and int(ab_n) > 0:  # parte de perguntas abertas / demonstração: a cotação entra no total e é impressa
+        cfg_in['abertas'] = [{'rotulo': (form.get('folha_abertas_rotulo') or '').strip(), 'n': int(ab_n),
+                              'cotacao': str(form.get('folha_abertas_cot') or '0').replace(',', '.')}]
     if classe:
         discs = Disciplina.objects.filter(escola=escola, ano_letivo=ano, classe=classe)
         cfg_in['disciplinas_classe'] = list(discs.order_by('nome').values_list('nome', flat=True).distinct())
