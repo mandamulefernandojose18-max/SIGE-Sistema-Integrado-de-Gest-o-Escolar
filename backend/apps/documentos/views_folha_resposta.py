@@ -276,7 +276,9 @@ class FolhaRespostaGerarView(APIView):
             import io
             import zipfile
             from apps.escudo.services import folha as folha_mod
-            titulo_lista = f"Lista de alunos com folha de resposta gerada · {config['disciplina']} · {etiqueta}"
+            titulo_lista = f"Lista de alunos com folha de resposta gerada · {config['disciplina']}"
+            if escopo != 'lista':  # na lista importada, «lista importada» não se repete no cabeçalho
+                titulo_lista += f' · {etiqueta}'
             lista_pdf, lista_xlsx = folha_mod.listas_geradas(escola, alunos, excluidos, titulo_lista, f'{config["tipo_rotulo"]} · {ano}',
                                                            todos_dados, dados.get('cor_excluidos'))
             base = nome.rsplit('.', 1)[0]
