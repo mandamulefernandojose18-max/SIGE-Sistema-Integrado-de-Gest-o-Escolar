@@ -251,7 +251,7 @@
   function lerConfig(semValidar) {
     var disc = $('frDisciplina').value === '__outra__' ? $('frDisciplinaOutra').value : $('frDisciplina').value;
     var cfg = {
-      tipo_avaliacao: $('frTipo').value, disciplina: (disc || '').trim(),
+      tipo_avaliacao: $('frTipo').value, trimestre: $('frTrimestre') ? $('frTrimestre').value : '', disciplina: (disc || '').trim(),
       n_perguntas: parseInt($('frNPerg').value, 10), n_alternativas: parseInt($('frNAlt').value, 10),
       duracao_min: $('frDuracao').value, data: dataBR($('frData').value), hora_inicio: $('frHora').value, hora_fim: $('frHoraFim').value, sala: $('frSala').value,
       professor: $('frProfessor').value, versoes: $('frVersoes').value, instrucao_extra: $('frInstrucao').value,
@@ -378,6 +378,7 @@
     if (!cb) return;
     var tem = !!(ctx && ctx.escola && ctx.escola.logo_proprio_disponivel);
     var exame = $('frTipo').value === 'EXAME';
+    if ($('frTrimestreBox')) $('frTrimestreBox').style.display = exame ? 'none' : '';   // o Exame Final não tem trimestre
     cb.disabled = exame || !tem;
     if (cb.disabled) cb.checked = false;
     if (dica) dica.textContent = exame ? '(indisponível no Exame Final)' : (!tem ? '(a escola não tem logotipo próprio carregado)' : '');
@@ -451,6 +452,9 @@
       ctx = await r.json();
       $('frTipo').innerHTML = '<option value="">-- Tipo de avaliação --</option>' + (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
       restaurar();
+      // Trimestre da folha: por omissão o activo da escola; o utilizador pode escolher o 1.º, 2.º ou 3.º
+      if ($('frTrimestre') && ctx.escola && ctx.escola.trimestre && !$('frTrimestre').dataset.tocado) $('frTrimestre').value = ctx.escola.trimestre;
+      $('frTrimestre').addEventListener('change', function () { this.dataset.tocado = '1'; });
       pintarRegra(ctx.regra_exclusao);
       preencherClasses();
       mostrarCamposEscopo();

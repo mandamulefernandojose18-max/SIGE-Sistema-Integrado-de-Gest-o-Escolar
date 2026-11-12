@@ -218,11 +218,11 @@ def normalizar_config(dados, escola=None):
         if g:
             gabaritos[chave_v] = g
 
-    trimestre = _texto(dados.get('trimestre'), 12)
+    _rotulos_trim = {'1_TRIMESTRE': '1.º Trimestre', '2_TRIMESTRE': '2.º Trimestre', '3_TRIMESTRE': '3.º Trimestre'}
+    pedido = str(dados.get('trimestre') or '').strip()
+    trimestre = _rotulos_trim.get(pedido) or _texto(pedido, 12)   # o que o utilizador escolheu
     if not trimestre and escola and tipo != 'EXAME':
-        t = str(escola.get('trimestre') or '')
-        trimestre = {'1_TRIMESTRE': '1.º Trimestre', '2_TRIMESTRE': '2.º Trimestre',
-                     '3_TRIMESTRE': '3.º Trimestre'}.get(t, '')
+        trimestre = _rotulos_trim.get(str(escola.get('trimestre') or ''), '')
 
     return {
         'tipo': tipo,

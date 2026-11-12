@@ -52,6 +52,14 @@ def test_config_cotacao_por_defeito_soma_20():
     assert fr.formatar_valor(0.5) == '0,5'
 
 
+def test_config_trimestre_escolhido_prevalece_sobre_o_activo_da_escola():
+    base = {'disciplina': 'X', 'n_perguntas': 10, 'n_alternativas': 4}
+    escola = {'trimestre': '1_TRIMESTRE'}
+    assert fr.normalizar_config({**base, 'trimestre': '3_TRIMESTRE'}, escola)['trimestre'] == '3.º Trimestre'
+    assert fr.normalizar_config({**base, 'trimestre': '2_TRIMESTRE'}, escola)['trimestre'] == '2.º Trimestre'
+    assert fr.normalizar_config(base, escola)['trimestre'] == '1.º Trimestre'
+
+
 def test_config_seccoes_e_gabarito():
     cfg = fr.normalizar_config({
         'disciplina': 'X', 'n_perguntas': 4, 'n_alternativas': 4,
