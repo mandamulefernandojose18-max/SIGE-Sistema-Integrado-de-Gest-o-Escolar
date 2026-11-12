@@ -707,11 +707,25 @@ def _rodape(c, cod_folha, pagina, total_paginas, hoje, ident=''):
     c.setFillColor(PRETO)
 
 
-def _titulo_prova(config):
+def _classe_turma(aluno):
+    """«10ª Classe · Turma A» do aluno (só o que existir)."""
+    al = aluno or {}
+    p = []
+    if al.get('classe'):
+        p.append(str(al['classe']))
+    if al.get('turma'):
+        p.append(f"Turma {al['turma']}")
+    return ' · '.join(p)
+
+
+def _titulo_prova(config, aluno=None):
     partes = ['FOLHA DE RESPOSTAS', config['tipo_rotulo']]
     if config['trimestre'] and config['tipo'] != 'EXAME':
         partes.append(config['trimestre'])
     partes.append(config['disciplina'])
+    ct = _classe_turma(aluno)
+    if ct:
+        partes.append(ct)
     return '  ·  '.join(partes)
 
 
@@ -722,7 +736,7 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
     vig = config['tipo'] == 'EXAME'
     d = DESLOC_VIGILANTES if vig else 0.0
     # barra de título
-    _barra_titulo(c, MARGEM, 31, LARG_UTIL, 7, _titulo_prova(config), 'l', 12)
+    _barra_titulo(c, MARGEM, 31, LARG_UTIL, 7, _titulo_prova(config, aluno), 'l', 12)
     if versao:
         c.setFillColor(colors.white)
         c.setFont(FONTE_B, 10)
@@ -812,7 +826,7 @@ def _pagina_principal(c, escola, logo_reader, ano, aluno, config, versao, cod_fo
 def _cabecalho_continuacao(c, escola, aluno, config, versao, ate_pergunta, inicio):
     if config['marcas_omr']:
         _desenhar_marcas_omr(c)
-    _barra_titulo(c, MARGEM, 11, LARG_UTIL, 7, _titulo_prova(config) + '  (continuação)', 'l', 9)
+    _barra_titulo(c, MARGEM, 11, LARG_UTIL, 7, _titulo_prova(config, aluno) + '  (continuação)', 'l', 9)
     al = aluno or {}
     c.setFont(FONTE_B, 8.5)
     c.setFillColor(PRETO)
@@ -866,7 +880,9 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
             else:
                 _cabecalho_continuacao(c, escola, aluno, config, versao, fim, ini)
             _desenhar_grelha(c, config, ini, fim, cols, linhas, y_ini)
-            _rodape(c, cod, p + 1, len(paginas), hoje, config.get('identificacao', ''))
+            ct = _classe_turma(aluno)   # a identificação de cada folha leva a classe e a turma do próprio aluno
+            ident_folha = f"{ct} · {config['disciplina']} · {ano}" if ct else config.get('identificacao', '')
+            _rodape(c, cod, p + 1, len(paginas), hoje, ident_folha)
             c.showPage()
     if config['incluir_chave']:
         for v, g in config['gabaritos'].items():
@@ -1130,7 +1146,7 @@ def gerar_folhas_xlsx(escola, alunos, config, ano_letivo=None):
         ws = wb.create_sheet(nome_folha(rotulo_folha, padrao=f'Folha {idx + 1}', existentes=existentes))
         existentes.append(ws.title)
         preparar(ws)
-        cabecalho(ws, _titulo_prova(config) + (f'   ·   VERSÃO {versao}' if versao else ''))
+        cabecalho(ws, _titulo_prova(config, aluno) + (f'   ·   VERSÃO {versao}' if versao else ''))
 
         # ---- I DADOS DO ALUNO / II INFORMAÇÕES DA AVALIAÇÃO ----
         barra(ws, 7, 1, 15, 'I   DADOS DO ALUNO', esq)
