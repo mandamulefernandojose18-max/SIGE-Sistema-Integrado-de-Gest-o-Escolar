@@ -496,6 +496,7 @@ def selar(base, marcas, *, codigo, url="", url_questao=None, libertacao, titulo=
     if not url:
         marcas = [m for m in marcas if m["tipo"] != "qr"]
         qr_marca_agua = qr_pergunta = False
+    qr_pergunta = False   # nunca um QR por pergunta: só o número de QR por página escolhido
     doc = fitz.open(stream=base, filetype="pdf")
     n = doc.page_count
     for pagina in doc:

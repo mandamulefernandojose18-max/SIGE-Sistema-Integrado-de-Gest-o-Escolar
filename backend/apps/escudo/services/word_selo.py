@@ -163,9 +163,6 @@ def _marcas_por_pagina(doc, pdf_layout, marcas, qr_pagina, pid, serial, url_base
             W, H = pagina.rect.width, pagina.rect.height
             itens = []
             ocupados = selos._retangulos_ocupados(pagina)
-            for a in (ancoras[i] if i < len(ancoras) else []):
-                if a.get("qr"):
-                    ocupados.append(fitz.Rect(a["qr"]) + (-4, -4, 4, 4))
             doces = selos.resolver_marcas(pagina, ocupados, [m for m in marcas if selos._marca_na_pagina(m, i, n)])
             if doces:
                 def desenhar(c, doces=doces, W=W, H=H, i=i):
@@ -191,6 +188,7 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
                aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None,
                qr_pagina=True, pdf_layout=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
+    qr_pergunta = False   # nunca um QR por pergunta: só o número de QR por página escolhido (qr_pagina)
     doc = Document(io.BytesIO(dados))
     codigo = selos.codigo_barras(pid, serial)
     mensagem = selos.mensagem_final(mensagem_ia, libertacao)

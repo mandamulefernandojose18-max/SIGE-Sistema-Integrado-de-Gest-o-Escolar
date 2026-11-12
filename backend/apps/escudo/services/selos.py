@@ -958,6 +958,7 @@ def selar(base, marcas, *, url_base, pid, serial, libertacao, titulo="", aviso_v
     Tudo é desenhado numa sobreposição vectorial (reportlab) e fundido página a página: uma só
     alteração do conteúdo por página, em vez de uma por elemento.
     """
+    qr_pergunta = False   # nunca um QR por pergunta: só o número de QR por página escolhido (qr_pagina)
     url = f"{url_base.rstrip('/')}/v/{pid}/{serial}"
     codigo = codigo_barras(pid, serial)
     mensagem = mensagem_final(mensagem_ia, libertacao)

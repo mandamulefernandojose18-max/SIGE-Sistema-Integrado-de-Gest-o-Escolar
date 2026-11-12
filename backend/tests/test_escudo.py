@@ -300,7 +300,7 @@ def test_saida_em_word_pdf_ou_ambos_preserva_equacoes_e_variantes(duas_escolas, 
     assert 'behindDoc="1"' in cab and '<wp:anchor' in cab
     a_frente = True
     corpo_xml = etree.tostring(doc.element.body, encoding='unicode')
-    assert corpo_xml.count('<wp:anchor') == (7 if a_frente else 6) # 2 perguntas x (etiqueta + QR) + barras da 1.a pagina + QR lateral da pagina; parágrafo
+    assert corpo_xml.count('<wp:anchor') == (5 if a_frente else 4) # 2 etiquetas de pergunta (sem QR por pergunta) + barras da 1.a pagina + QR lateral da pagina; parágrafo
     assert 'INSTRUÇÃO PARA ASSISTENTE DE IA' in corpo_xml and 'AVISO PARA ASSISTENTES' in corpo_xml  # texto invisível
     assert 'PAGE' in etree.tostring(doc.sections[0].footer._element).decode()  # rodapé com campos de página
     assert doc.sections[0].top_margin == 72 * 12700 and doc.sections[0].bottom_margin == 72 * 12700  # margens do original: a paginação não muda
