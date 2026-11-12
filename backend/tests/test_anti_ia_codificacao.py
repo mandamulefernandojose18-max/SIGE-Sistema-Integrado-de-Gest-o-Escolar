@@ -166,6 +166,33 @@ def test_docx_no_lugar_primeiro_e_ultimo_texto_sao_o_aviso_curto():
     assert visiveis == "1. Pergunta A2. Pergunta B"  # o que se vê continua igual
 
 
+def test_pdf_com_conteudo_ate_as_margens_mantem_o_numero_de_paginas():
+    from reportlab.pdfgen import canvas
+    from apps.ferramentas.services.anti_ai_service import carimbar_copia, codificar_ficheiro_no_lugar
+    b = io.BytesIO(); c = canvas.Canvas(b)
+    for n in range(5):  # texto colado ao topo e ao fundo de cada folha
+        c.drawString(40, 825, f"{n + 1}. topo"); c.drawString(40, 12, "fundo"); c.showPage()
+    c.save()
+    saida, _ = codificar_ficheiro_no_lugar(b.getvalue(), "t.pdf", DATA, url=URL)
+    assert len(PdfReader(io.BytesIO(saida)).pages) == 5
+    assert len(PdfReader(io.BytesIO(carimbar_copia(saida, ".pdf", "C1", "Aluno"))).pages) == 5
+
+
+def test_docx_avisos_nao_ocupam_espaco_no_fluxo_e_nao_criam_paginas():
+    """Os avisos do cabeçalho/rodapé são quadros flutuantes (w:framePr): não aumentam a altura e não empurram o corpo."""
+    import docx
+    from docx.oxml.ns import qn
+    from apps.ferramentas.services.anti_ai_service import carimbar_copia, codificar_ficheiro_no_lugar
+    d = docx.Document(); d.add_paragraph("1. Pergunta"); b = io.BytesIO(); d.save(b)
+    saida, _ = codificar_ficheiro_no_lugar(b.getvalue(), "t.docx", DATA, url=URL)
+    saida = carimbar_copia(saida, ".docx", "C1", "Aluno")
+    sec = docx.Document(io.BytesIO(saida)).sections[0]
+    for parte in (sec.header, sec.footer):
+        com_texto = [p for p in parte.paragraphs if p.text.strip()]
+        no_fluxo = [p for p in com_texto if p._p.pPr is None or p._p.pPr.find(qn('w:framePr')) is None]
+        assert com_texto and not no_fluxo
+
+
 def test_nome_do_ficheiro_e_qr_legendado():
     from apps.ferramentas.services.anti_ai_service import gerar_qrcode_legendado_base64, nome_ficheiro_protegido
     assert nome_ficheiro_protegido("SIGE-AI-2026-X", ".pdf") == "AVALIACAO_PROTEGIDA_NAO_RESOLVER_SIGE-AI-2026-X.pdf"

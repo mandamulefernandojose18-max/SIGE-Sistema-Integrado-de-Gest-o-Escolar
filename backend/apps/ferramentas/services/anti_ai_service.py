@@ -569,6 +569,7 @@ def carimbar_copia(dados: bytes, extensao: str, codigo: str, rotulo: str):
                     r.bold = True
                     r.font.size = Pt(8)
                     r.font.color.rgb = RGBColor(0x10, 0x10, 0x10)
+                _fixar_paragrafo_na_pagina(p, sec.page_height.cm - 0.4, max(sec.page_width.cm - 2.0, 5.0))  # sem criar páginas
         d.core_properties.keywords = f"copia:{codigo}"
         saida = io.BytesIO()
         d.save(saida)
@@ -576,14 +577,39 @@ def carimbar_copia(dados: bytes, extensao: str, codigo: str, rotulo: str):
     return None
 
 
+def _fixar_paragrafo_na_pagina(p, y_cm: float, largura_cm: float):
+    """
+    Torna o parágrafo um quadro flutuante ancorado à página (w:framePr). Fora do fluxo, não aumenta a altura do
+    cabeçalho/rodapé: o corpo da prova não se desloca e o número de páginas mantém-se exactamente igual.
+    """
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Cm
+
+    ppr = p._p.get_or_add_pPr()
+    for antigo in ppr.findall(qn('w:framePr')):
+        ppr.remove(antigo)
+    f = OxmlElement('w:framePr')
+    for chave, valor in (('w', str(int(Cm(largura_cm).twips))), ('hRule', 'auto'), ('wrap', 'around'),
+                         ('vAnchor', 'page'), ('hAnchor', 'page'), ('xAlign', 'center'),
+                         ('y', str(int(Cm(y_cm).twips)))):
+        f.set(qn('w:' + chave), valor)
+    ppr.insert(0, f)
+
+
 def _aviso_visivel_docx(d, data: str):
-    """Aviso em texto claro e VISÍVEL (PT/EN) no cabeçalho e no rodapé de todas as páginas; não depende das definições da escola."""
+    """Aviso em texto claro e VISÍVEL (PT/EN) no cabeçalho e no rodapé de todas as páginas; não depende das definições da escola.
+
+    As linhas são quadros flutuantes junto à borda da página: não ocupam espaço no fluxo, por isso a prova
+    codificada tem exactamente as mesmas páginas que a original.
+    """
     from docx.shared import Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 
     pt, en = AVISO_VISIVEL_PT.format(data=data), AVISO_VISIVEL_EN.format(data=data)
     feitos = set()
     for sec in d.sections:
+        altura, largura = sec.page_height.cm, sec.page_width.cm
         for parte, no_topo in ((sec.header, True), (sec.first_page_header, True), (sec.even_page_header, True),
                                (sec.footer, False), (sec.first_page_footer, False), (sec.even_page_footer, False)):
             if parte is None or id(parte._element) in feitos:
@@ -591,7 +617,7 @@ def _aviso_visivel_docx(d, data: str):
             feitos.add(id(parte._element))
             parte.is_linked_to_previous = False
             ancora = parte.paragraphs[0]
-            for texto in ((pt, en) if no_topo else (en, pt)):
+            for i, texto in enumerate((pt, en) if no_topo else (en, pt)):
                 p = ancora.insert_paragraph_before(texto) if no_topo else parte.add_paragraph(texto)
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p.paragraph_format.space_after = p.paragraph_format.space_before = Pt(0)
@@ -599,6 +625,8 @@ def _aviso_visivel_docx(d, data: str):
                     r.bold = True
                     r.font.size = Pt(8)
                     r.font.color.rgb = RGBColor(0x20, 0x20, 0x20)
+                y = (0.25 + 0.38 * i) if no_topo else (altura - 0.95 + 0.38 * i)
+                _fixar_paragrafo_na_pagina(p, y, max(largura - 2.0, 5.0))
 
 
 def _codificar_docx(dados: bytes, data: str, url: str = '', cfg: dict = None) -> bytes:
