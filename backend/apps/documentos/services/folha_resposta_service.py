@@ -697,11 +697,13 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
     c.setStrokeColor(PRETO)
 
 
-def _rodape(c, cod_folha, pagina, total_paginas, hoje, ident=''):
+def _rodape(c, cod_folha, pagina, total_paginas, hoje):
+    # A identificação (turma/classe/disciplina/ano) vai só no nome do ficheiro;
+    # na folha fica apenas o código, bem visível.
+    c.setFillColor(PRETO)
+    _texto_ajustado(c, f'Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE_B, 11, 7)
     c.setFillColor(CINZA_TEXTO)
     c.setFont(FONTE, 8.2)
-    # «Folha» + natureza da emissão (Turma X / Toda a Classe X · Disciplina · Ano)
-    _texto_ajustado(c, f'SIGE · Folha de Respostas{" · " + ident if ident else ""} · Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE, 8.2, 5.5)
     c.drawCentredString((PAG_L / 2) * mm, _y(288.8), f'Pág. {pagina}/{total_paginas}')
     c.drawRightString((PAG_L - MARGEM) * mm, _y(288.8), f'Emitida em {hoje}')
     c.setFillColor(PRETO)
@@ -880,9 +882,7 @@ def gerar_folhas_pdf(escola, alunos, config, ano_letivo=None):
             else:
                 _cabecalho_continuacao(c, escola, aluno, config, versao, fim, ini)
             _desenhar_grelha(c, config, ini, fim, cols, linhas, y_ini)
-            ct = _classe_turma(aluno)   # a identificação de cada folha leva a classe e a turma do próprio aluno
-            ident_folha = f"{ct} · {config['disciplina']} · {ano}" if ct else config.get('identificacao', '')
-            _rodape(c, cod, p + 1, len(paginas), hoje, ident_folha)
+            _rodape(c, cod, p + 1, len(paginas), hoje)
             c.showPage()
     if config['incluir_chave']:
         for v, g in config['gabaritos'].items():
