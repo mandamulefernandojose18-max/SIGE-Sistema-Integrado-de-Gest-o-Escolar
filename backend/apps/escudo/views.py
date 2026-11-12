@@ -400,6 +400,9 @@ def gerar(request, pid):
     if quer_word and op['qr_marca_agua']:
         op['zona_word'] = s.zona_word(p, op)  # uma só medição para todas as cópias em Word
     nome = nome_seguro(p['titulo'])
+    # Dentro do .zip os nomes têm de ser curtos: o Windows recusa abrir a pasta comprimida («Acesso recusado»)
+    # quando «caminho temporário + zip + ficheiro» passa dos 260 caracteres.
+    nome_z = nome[:30].strip('_') or 'prova'
     s.registar_geracao(pid, op)
 
     def pdf_copia(n):
@@ -409,8 +412,8 @@ def gerar(request, pid):
     def ficheiro(n, ext):
         """Folha personalizada: «Aluno_Prova_código_nnn» (o aluno em 1.º lugar); senão «Prova_código_copia_nnn»."""
         if folha and folha['personalizada']:
-            return f'{nome_seguro(folha["alunos"][n - 1])}_{nome}_{pid}_{n:03d}.{ext}'
-        return f'{nome}_{pid}_copia_{n:03d}.{ext}'
+            return f'{nome_seguro(folha["alunos"][n - 1])[:28].strip("_")}_{nome_z}_{pid}_{n:03d}.{ext}'
+        return f'{nome_z}_{pid}_copia_{n:03d}.{ext}'
 
     def word_copia(n):
         docx = s.selar_word(p, op, n)
@@ -433,18 +436,18 @@ def gerar(request, pid):
                 z.writestr(ficheiro(n, 'docx'), word_copia(n))
         if folha and folha.get('listas'):  # quem e quantos tiveram a prova gerada (PDF e Excel): «Lista_Prova_código»
             lista_pdf, lista_xlsx = folha['listas']()
-            z.writestr(f'Lista_{nome}_{pid}.pdf', lista_pdf)
-            z.writestr(f'Lista_{nome}_{pid}.xlsx', lista_xlsx)
+            z.writestr(f'Lista_{nome_z}_{pid}.pdf', lista_pdf)
+            z.writestr(f'Lista_{nome_z}_{pid}.xlsx', lista_xlsx)
         if folha and folha['relatorio']:  # alunos deixados de fora e porquê (só para o professor)
-            z.writestr(f'Lista_{nome}_{pid}_EXCLUIDOS_so_professor.csv', folha['relatorio'])
+            z.writestr(f'Lista_{nome_z}_{pid}_EXCLUIDOS_so_professor.csv', folha['relatorio'])
         if (p['config'] or {}).get('modelo_cifrado'):
-            z.writestr(f'{nome}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
+            z.writestr(f'{nome_z}_{pid}_GABARITO_copias_so_professor.pdf', s.gabarito_copias(pid, op['copias']))
         if com_guiao:  # Guião (resolução detalhada), só para o professor
             docx_g = _docx_do_guiao(p)
-            z.writestr(f'{nome}_{pid}_GUIAO_so_professor.docx', docx_g)  # o Guião sai sempre em Word e em PDF
-            z.writestr(f'{nome}_{pid}_GUIAO_so_professor.pdf', guiao.construir_pdf(docx_g))
+            z.writestr(f'{nome_z}_{pid}_GUIAO_so_professor.docx', docx_g)  # o Guião sai sempre em Word e em PDF
+            z.writestr(f'{nome_z}_{pid}_GUIAO_so_professor.pdf', guiao.construir_pdf(docx_g))
     r = HttpResponse(buf.getvalue(), content_type='application/zip')
-    r['Content-Disposition'] = f'attachment; filename="{nome}_{pid}_copias.zip"'
+    r['Content-Disposition'] = f'attachment; filename="{nome_z}_{pid}_copias.zip"'
     return r
 
 
