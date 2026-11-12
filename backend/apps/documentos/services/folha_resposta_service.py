@@ -700,10 +700,9 @@ def _desenhar_grelha(c, config, inicio, fim, cols, linhas, y_ini, gabarito=None)
 def _rodape(c, cod_folha, pagina, total_paginas, hoje):
     # A identificação (turma/classe/disciplina/ano) vai só no nome do ficheiro;
     # na folha fica apenas o código, bem visível.
-    c.setFillColor(PRETO)
-    _texto_ajustado(c, f'Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE_B, 11, 7)
     c.setFillColor(CINZA_TEXTO)
     c.setFont(FONTE, 8.2)
+    _texto_ajustado(c, f'SIGE · Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE, 8.2, 5.5)
     c.drawCentredString((PAG_L / 2) * mm, _y(288.8), f'Pág. {pagina}/{total_paginas}')
     c.drawRightString((PAG_L - MARGEM) * mm, _y(288.8), f'Emitida em {hoje}')
     c.setFillColor(PRETO)
