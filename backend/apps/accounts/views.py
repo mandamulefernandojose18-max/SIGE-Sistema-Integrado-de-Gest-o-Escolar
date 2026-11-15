@@ -3,7 +3,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenRefreshView
+import hashlib
+
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Count
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
@@ -11,6 +14,37 @@ from rest_framework_simplejwt.exceptions import TokenError
 from .models import Usuario, LogAcesso
 from .serializers import UsuarioSerializer, LoginSerializer, RedefinirSenhaSerializer
 from common.permissions.rbac import IsEscolaAdmin
+
+# Bloqueio temporário por tentativas falhadas (por identificador+IP e global por identificador).
+# Usa a cache do Django (por processo; com 2 workers o limite efectivo pode chegar ao dobro).
+LOGIN_MAX_FALHAS = 5            # por (identificador, IP)
+LOGIN_MAX_FALHAS_GLOBAL = 30    # por identificador, de qualquer IP
+LOGIN_JANELA_SEGUNDOS = 15 * 60
+
+
+def _incrementar_falhas(chave):
+    if cache.add(chave, 1, LOGIN_JANELA_SEGUNDOS):
+        return 1
+    try:
+        return cache.incr(chave)
+    except ValueError:
+        cache.set(chave, 1, LOGIN_JANELA_SEGUNDOS)
+        return 1
+
+
+def _ip_cliente(request):
+    return request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR', '127.0.0.1')
+
+
+def _chaves_login(request):
+    ident = (request.data.get('email') or request.data.get('usuario') or request.data.get('username')
+             or request.data.get('codigo') or '')
+    ident = str(ident).strip().lower()
+    if not ident:
+        return None, None
+    h = hashlib.sha256(ident.encode('utf-8')).hexdigest()[:32]
+    return f'login_falhas:{h}:{_ip_cliente(request)}', f'login_falhas_global:{h}'
+
 
 class LogoutView(APIView):
     """Termina a sessão: coloca o refresh token na blacklist (deixa de poder gerar novos acessos).
@@ -34,6 +68,12 @@ class LoginView(APIView):
     throttle_scope = 'login'
 
     def post(self, request):
+        chave_ip, chave_global = _chaves_login(request)
+        if chave_ip and (cache.get(chave_ip, 0) >= LOGIN_MAX_FALHAS or cache.get(chave_global, 0) >= LOGIN_MAX_FALHAS_GLOBAL):
+            msg = 'Demasiadas tentativas falhadas. Tente novamente dentro de 15 minutos.'
+            return Response({'success': False, 'message': msg, 'detail': msg},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS)
+
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
             errors = serializer.errors
@@ -46,6 +86,18 @@ class LoginView(APIView):
                     msg = first_val
             elif isinstance(errors, list) and len(errors) > 0:
                 msg = str(errors[0])
+            if chave_ip and msg.lower().startswith('credenciais'):
+                n_ip = _incrementar_falhas(chave_ip)
+                _incrementar_falhas(chave_global)
+                if n_ip == LOGIN_MAX_FALHAS:
+                    try:
+                        LogAcesso.objects.create(
+                            ip=_ip_cliente(request),
+                            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                            tipo='LOGIN_BLOQUEADO'
+                        )
+                    except Exception:
+                        pass
             return Response({
                 'success': False,
                 'message': msg,
@@ -54,6 +106,8 @@ class LoginView(APIView):
 
         data = serializer.validated_data
         user = data['user']
+        if chave_ip:
+            cache.delete(chave_ip)
 
         # Registrar Log de Acesso
         LogAcesso.objects.create(
@@ -209,13 +263,29 @@ class AlterarMinhaSenhaView(APIView):
                 'message': f'A nova palavra-passe deve ter pelo menos {settings.MIN_SENHA_UTILIZADOR} caracteres.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if senha_atual:
-            from .serializers import _validar_senha_ou_codigo_inicial
-            if not _validar_senha_ou_codigo_inicial(user, senha_atual):
-                return Response({
-                    'success': False,
-                    'message': 'A senha actual informada está incorrecta (se ainda não redefiniu, introduza o seu código de acesso).'
-                }, status=status.HTTP_400_BAD_REQUEST)
+        # A senha actual é SEMPRE exigida: um token roubado não basta para tomar a conta.
+        # No 1.º acesso (senha_redefinida=False) a senha actual é a repetição do código oficial.
+        if not senha_atual:
+            return Response({
+                'success': False,
+                'message': 'Informe a senha actual (no 1.º acesso é a repetição do seu código de acesso).'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        chave_falhas = f'troca_senha_falhas:{user.pk}'
+        if cache.get(chave_falhas, 0) >= LOGIN_MAX_FALHAS:
+            return Response({
+                'success': False,
+                'message': 'Demasiadas tentativas falhadas. Tente novamente dentro de alguns minutos.'
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        from .serializers import _validar_senha_ou_codigo_inicial
+        if not _validar_senha_ou_codigo_inicial(user, senha_atual):
+            _incrementar_falhas(chave_falhas)
+            return Response({
+                'success': False,
+                'message': 'A senha actual informada está incorrecta (se ainda não redefiniu, introduza o seu código de acesso).'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        cache.delete(chave_falhas)
 
         user.set_password(nova_senha)
         user.senha_redefinida = (nova_senha.lower() != (user.codigo_acesso or '').strip().lower())

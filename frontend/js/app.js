@@ -1855,11 +1855,11 @@ function modalRedefinirMinhaSenha() {
       <div class="row g-2 mb-3">
         <div class="col-md-6">
           <label class="form-label small fw-bold text-primary">Nova Palavra-passe</label>
-          <input type="password" id="rmsNovaSenha" class="form-control" required minlength="4" placeholder="Mínimo 4 caracteres">
+          <input type="password" id="rmsNovaSenha" class="form-control" required minlength="8" placeholder="Mínimo 8 caracteres">
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-bold text-primary">Confirmar Nova Senha</label>
-          <input type="password" id="rmsConfirmarSenha" class="form-control" required minlength="4" placeholder="Repita a nova senha">
+          <input type="password" id="rmsConfirmarSenha" class="form-control" required minlength="8" placeholder="Repita a nova senha">
         </div>
       </div>
       <div class="d-flex justify-content-end gap-2">
@@ -17613,7 +17613,7 @@ function modalRedefinirSenhaUsuario(userId, userNome, codigoAcesso = '') {
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Definir Nova Palavra-passe Personalizada</label>
-        <input type="password" id="novaSenhaUsuarioInput" class="form-control" placeholder="Mínimo 4 caracteres (ou use o botão abaixo para repor o código)" required minlength="4">
+        <input type="password" id="novaSenhaUsuarioInput" class="form-control" placeholder="Mínimo 8 caracteres (ou use o botão abaixo para repor o código)" required minlength="8">
       </div>
       <button type="submit" class="btn btn-warning fw-semibold w-100 mb-2">
         <i class="bi bi-check-lg me-1"></i> Gravar Nova Senha

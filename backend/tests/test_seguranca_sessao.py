@@ -1,4 +1,5 @@
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Usuario
@@ -63,3 +64,64 @@ def test_schema_openapi_exige_superadmin(utilizadores):
     access, _ = _tokens(data)
     c.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
     assert c.get('/api/schema/').status_code == 403  # ADMIN_ESCOLA não é SUPERADMIN
+
+
+@pytest.fixture(autouse=True)
+def _limpar_cache():
+    cache.clear()
+    yield
+    cache.clear()
+
+
+def test_troca_de_senha_exige_senha_actual(utilizadores):
+    c, data = _login()
+    access, _ = _tokens(data)
+    c.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+    # Sem senha actual (token roubado): recusa
+    r = c.post('/api/v1/auth/minha-senha/', {'nova_senha': 'NovaSenha123'}, format='json')
+    assert r.status_code == 400
+    # Senha actual errada: recusa
+    r = c.post('/api/v1/auth/minha-senha/', {'senha_atual': 'errada', 'nova_senha': 'NovaSenha123'}, format='json')
+    assert r.status_code == 400
+    # Senha actual correcta: aceita
+    r = c.post('/api/v1/auth/minha-senha/', {'senha_atual': 'SenhaForte123', 'nova_senha': 'NovaSenha123'}, format='json')
+    assert r.status_code == 200
+
+
+def test_troca_de_senha_bloqueia_apos_varias_falhas(utilizadores):
+    c, data = _login()
+    access, _ = _tokens(data)
+    c.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+    for _i in range(5):
+        assert c.post('/api/v1/auth/minha-senha/', {'senha_atual': 'x', 'nova_senha': 'NovaSenha123'}, format='json').status_code == 400
+    r = c.post('/api/v1/auth/minha-senha/', {'senha_atual': 'SenhaForte123', 'nova_senha': 'NovaSenha123'}, format='json')
+    assert r.status_code == 429
+
+
+def test_login_bloqueia_apos_5_falhas_mesmo_com_senha_certa(utilizadores):
+    c = APIClient()
+    for _i in range(5):
+        r = c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'errada'}, format='json')
+        assert r.status_code == 401
+    r = c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'SenhaForte123'}, format='json')
+    assert r.status_code == 429
+
+
+def test_login_sucesso_zera_contador(utilizadores):
+    c = APIClient()
+    for _i in range(3):
+        assert c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'errada'}, format='json').status_code == 401
+    assert c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'SenhaForte123'}, format='json').status_code == 200
+    for _i in range(4):
+        assert c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'errada'}, format='json').status_code == 401
+    assert c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'SenhaForte123'}, format='json').status_code == 200
+
+
+def test_bloqueio_nao_afecta_outro_utilizador(utilizadores):
+    escola, _ = utilizadores
+    Usuario.objects.create_user(email='outro.s@sige.mz', password='OutraSenha123', role='ADMIN_ESCOLA', escola=escola)
+    c = APIClient()
+    for _i in range(5):
+        c.post('/api/v1/auth/login/', {'email': 'admin.s@sige.mz', 'password': 'errada'}, format='json')
+    r = c.post('/api/v1/auth/login/', {'email': 'outro.s@sige.mz', 'password': 'OutraSenha123'}, format='json')
+    assert r.status_code == 200
