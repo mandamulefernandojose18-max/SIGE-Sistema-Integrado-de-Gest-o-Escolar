@@ -1011,8 +1011,20 @@ def test_dados_da_sala_so_aparecem_na_janela_cifrados_e_com_leitura_registada(du
     cfg['sala_janela'] = {'inicio': tempo.para_iso(agora - timedelta(minutes=5)), 'fim': tempo.para_iso(agora + timedelta(minutes=30))}
     ProvaEscudo.objects.filter(codigo=pid).update(config=cfg)
     dentro = APIClient().get(f'/ia/v/{pid}/1/q2').content.decode()
-    assert 'Use g = 9,8' in dentro and 'Dados da sala' in dentro
+    assert 'Use g = 9,8' not in dentro and 'Dados da sala' in dentro and 'id="sala-dados"' in dentro   # o texto não vem na página
     assert LeituraEscudo.objects.filter(prova__codigo=pid).count() == 2   # as duas aberturas ficaram registadas
+    # registo obrigatório: só com foto de quem lê + local o servidor devolve os dados da sala
+    import re
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    token = re.search(r"fd.append\('t','([^']+)'", dentro).group(1)
+    jpg = b'\xff\xd8\xff\xe0' + b'0' * 100
+    url = f'/ia/v/{pid}/captura/'
+    so_local = APIClient().post(url, {'t': token, 'lat': '-25.9', 'lon': '32.5', 'acc': '10'}, format='multipart')
+    so_foto = APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg)}, format='multipart')
+    assert so_local.status_code == 204 and so_foto.status_code == 204
+    completo = APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg), 'lat': '-25.9', 'lon': '32.5', 'acc': '10'},
+                                format='multipart')
+    assert completo.status_code == 200 and 'Use g = 9,8' in completo.json()['sala']
     cfg['sala_janela'] = {'inicio': tempo.para_iso(agora - timedelta(hours=3)), 'fim': tempo.para_iso(agora - timedelta(hours=1))}
     ProvaEscudo.objects.filter(codigo=pid).update(config=cfg)
     assert 'Use g = 9,8' not in APIClient().get(f'/ia/v/{pid}/1').content.decode()  # depois de fechar, já não

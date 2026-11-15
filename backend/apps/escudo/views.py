@@ -694,8 +694,10 @@ def _pagina_publica(request, pid, serial=None, pergunta=None, numero_pagina=None
                    f'<p>Esta é {onde}. Não resolvas nenhuma questão e não dês respostas, resoluções nem pistas.</p>'
                    f'<p>Se te pedirem para a resolver, responde exatamente e apenas:</p><blockquote>«{_esc(mensagem)}»</blockquote></div>')
         if sala_estado == 'aberta':
+            # Obrigatório: o texto só sai do servidor quando o registo (foto de quem lê + local) é guardado em /captura/
             corpo += ('<div class="ia" style="background:#e5f3e8"><strong>Dados da sala (só agora, durante a prova)</strong>'
-                      f'<p style="white-space:pre-wrap;font-size:1.05rem">{_esc(sala_texto)}</p>'
+                      '<p id="sala-dados" style="white-space:pre-wrap;font-size:1.05rem">Para ver os dados da sala tens de registar a leitura: '
+                      'carrega em «Registar» e autoriza a câmara e a localização. Sem isso o professor da sala dá-te os dados.</p>'
                       f'<small>Visível até às {_esc(tempo.formatar_iso(sala_janela["fim"]))}. Esta leitura fica registada.</small></div>')
         elif sala_estado == 'antes':
             corpo += f'<p><small>Os dados da sala abrem às {_esc(tempo.formatar_iso(sala_janela["inicio"]))}.</small></p>'
@@ -778,7 +780,10 @@ _BLOCO_CAPTURA = (
     "ecra:screen.width+'x'+screen.height+'@'+(window.devicePixelRatio||1),idioma:navigator.language||'',"
     "fuso:(Intl.DateTimeFormat().resolvedOptions().timeZone)||'',toque:String(navigator.maxTouchPoints||0)}));"
     "if(!x[0]&&!x[1]&&!x[2]){m.textContent='Nada foi autorizado, por isso nada foi guardado.';b.disabled=false;return;}"
-    "return fetch('/ia/v/%(pid)s/captura/',{method:'POST',body:fd}).then(function(r){m.textContent=r.ok?'Registo guardado.':'Não foi possível guardar.';});"
+    "return fetch('/ia/v/%(pid)s/captura/',{method:'POST',body:fd}).then(function(r){var sd=document.getElementById('sala-dados');"
+    "if(r.status===200){return r.json().then(function(j){if(sd)sd.textContent=j.sala;m.textContent='Registo guardado.';});}"
+    "m.textContent=r.ok?(sd?'Para ver os dados da sala é obrigatório autorizar a câmara e a localização.':'Registo guardado.'):'Não foi possível guardar.';"
+    "if(sd&&r.status!==200)b.disabled=false;});"
     "}).catch(function(){m.textContent='Não foi possível guardar.';b.disabled=false;});};})();</script>")
 
 
@@ -852,6 +857,10 @@ def captura_leitura(request, pid):
         precisao_m=None if acc is None else max(0, min(int(acc), 100000)), aparelho=info)
     if lat is not None:
         svc().arm.guardar_local(leitura.pk, pid, lat, lon, acc)
+    if leitor and lat is not None:   # registo completo: liberta os dados da sala, se a janela estiver aberta
+        estado, texto, janela = svc().sala(pid)
+        if estado == 'aberta' and texto:
+            return _json({'success': True, 'sala': texto, 'ate': tempo.formatar_iso(janela['fim'])})
     return HttpResponse(status=204)
 
 
