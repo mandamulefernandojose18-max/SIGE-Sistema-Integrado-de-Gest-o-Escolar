@@ -306,6 +306,11 @@ Validações ligadas ao plano nas rotas existentes: `POST/PUT /disciplinas/` (cl
 | `GET` | `/api/v1/certificados/` | Secretaria / Admin | Lista certificados emitidos pela escola com código `CERT-...`. |
 | `POST`| `/api/v1/certificados/` | Secretaria / Diretor | Emite novo certificado oficial (`CONCLUSAO`, `TRANSFERENCIA`, `DECLARACAO`). |
 | `GET` | `/api/v1/certificados/<uuid:pk>/` | Autenticado | Consulta detalhada do certificado e chave pública do QR Code. |
+| `GET` | `/api/v1/certificados/carimbo/` | Director / Administrador | Configuração do carimbo da escola (`nivel`, `origem`, `tem_imagem`); com `?previa=1&nivel=IMAGEM\|SELO\|ASSINATURA` devolve `previa` (PNG em data URI, não grava nada). |
+| `PUT` | `/api/v1/certificados/carimbo/` | Director / Administrador | Grava `nivel` (`IMAGEM`\|`SELO`\|`ASSINATURA`), `origem` (`GERADO`\|`CARREGADO`), `imagem_base64` (data URI PNG/JPEG ≤ 1,5 MB) ou `remover_imagem`. |
+| `GET` | `/api/v1/certificados/verificar/<codigo>/` | Público | Verifica certificados `CERT-...` **e selos de carimbo `SEL-...`** (níveis B/C). Selo: devolve `selo: true`, `descricao`, `nivel`, `assinatura_digital {presente, valida, impressao_digital_chave}`; **409** se a assinatura não confere. |
+
+> **Carimbo nos documentos:** os endpoints individuais de boletim, declaração, certificado, ficha e recibo (`pdf` e `docx`) exigem `?carimbo=sim` ou `?carimbo=nao`; sem o parâmetro respondem **409** `{"success": false, "requer_decisao_carimbo": true}`. Aluno/encarregado ficam sempre sem carimbo.
 
 ---
 

@@ -573,8 +573,8 @@ class BoletimPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -599,8 +599,8 @@ class BoletimDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -664,8 +664,8 @@ class DeclaracaoPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='DECLARACAO'
@@ -696,8 +696,8 @@ class DeclaracaoDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='DECLARACAO'
@@ -823,8 +823,8 @@ class CertificadoPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         _exigir_certificado_aluno(aluno, escola)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
@@ -859,8 +859,8 @@ class CertificadoDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         _exigir_certificado_aluno(aluno, escola)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
@@ -1285,8 +1285,8 @@ class ReciboPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
-        com_carimbo = decidir_carimbo(request)
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_recibo_pdf(pagamento, escola, orientacao=orientacao)
@@ -1302,8 +1302,8 @@ class ReciboDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
-        com_carimbo = decidir_carimbo(request)
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_recibo_docx(pagamento, escola, orientacao=orientacao)
@@ -1373,8 +1373,8 @@ class FichaPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_ficha_pdf(aluno, escola, orientacao=orientacao)
@@ -1389,8 +1389,8 @@ class FichaDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
-        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_ficha_docx(aluno, escola, orientacao=orientacao)

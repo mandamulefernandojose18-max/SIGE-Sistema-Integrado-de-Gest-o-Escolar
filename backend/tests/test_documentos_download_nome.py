@@ -118,13 +118,13 @@ class TestDocumentosDownloadNome:
     def test_download_boletim_nome_padronizado(self):
         """Testa endpoint de download do Boletim em PDF, DOCX e XLSX"""
         # PDF
-        res_pdf = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/pdf')
+        res_pdf = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/pdf?carimbo=nao')
         assert res_pdf.status_code == 200
         disposition_pdf = res_pdf['Content-Disposition']
         assert 'filename="Boletim - Joao Manuel Silva - 2026.pdf"' in disposition_pdf
 
         # DOCX
-        res_docx = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/docx')
+        res_docx = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/docx?carimbo=nao')
         assert res_docx.status_code == 200
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Boletim - Joao Manuel Silva - 2026.docx"' in disposition_docx
@@ -137,12 +137,12 @@ class TestDocumentosDownloadNome:
 
     def test_download_declaracao_nome_padronizado(self):
         """Testa endpoint de download da Declaração"""
-        res_pdf = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/pdf')
+        res_pdf = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/pdf?carimbo=nao')
         assert res_pdf.status_code == 200
         disposition_pdf = res_pdf['Content-Disposition']
         assert 'filename="Declaracao - Joao Manuel Silva - 2026.pdf"' in disposition_pdf
 
-        res_docx = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/docx')
+        res_docx = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/docx?carimbo=nao')
         assert res_docx.status_code == 200
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Declaracao - Joao Manuel Silva - 2026.docx"' in disposition_docx
@@ -154,12 +154,12 @@ class TestDocumentosDownloadNome:
 
     def test_download_certificado_nome_padronizado(self):
         """Testa endpoint de download do Certificado"""
-        res_pdf = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/pdf')
+        res_pdf = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/pdf?carimbo=nao')
         assert res_pdf.status_code == 200
         disposition_pdf = res_pdf['Content-Disposition']
         assert 'filename="Certificado - Joao Manuel Silva - 2026.pdf"' in disposition_pdf
 
-        res_docx = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/docx')
+        res_docx = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/docx?carimbo=nao')
         assert res_docx.status_code == 200
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Certificado - Joao Manuel Silva - 2026.docx"' in disposition_docx
@@ -171,24 +171,24 @@ class TestDocumentosDownloadNome:
 
     def test_download_recibo_nome_padronizado(self):
         """Testa endpoint de download do Recibo de pagamento"""
-        res_pdf = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento.id}/pdf')
+        res_pdf = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento.id}/pdf?carimbo=nao')
         assert res_pdf.status_code == 200
         disposition_pdf = res_pdf['Content-Disposition']
         assert 'filename="Recibo - Joao Manuel Silva - 2026.pdf"' in disposition_pdf
 
-        res_docx = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento.id}/docx')
+        res_docx = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento.id}/docx?carimbo=nao')
         assert res_docx.status_code == 200
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Recibo - Joao Manuel Silva - 2026.docx"' in disposition_docx
 
     def test_download_ficha_aluno_nome_padronizado(self):
         """Testa endpoint de download da Ficha Biográfica do Aluno"""
-        res_pdf = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/pdf')
+        res_pdf = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/pdf?carimbo=nao')
         assert res_pdf.status_code == 200
         disposition_pdf = res_pdf['Content-Disposition']
         assert 'filename="Ficha - Joao Manuel Silva - 2026.pdf"' in disposition_pdf
 
-        res_docx = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/docx')
+        res_docx = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/docx?carimbo=nao')
         assert res_docx.status_code == 200
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Ficha - Joao Manuel Silva - 2026.docx"' in disposition_docx

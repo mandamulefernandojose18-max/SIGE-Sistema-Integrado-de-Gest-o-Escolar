@@ -428,6 +428,23 @@ Emissão de certificados digitais e validação pública.
 | `qrcode_data` | `TEXT` | Não | URL do validador público incorporada no QR Code. |
 | `data_emissao` | `DATE` | Não | Data oficial de emissão. |
 
+### 2.16.1. Carimbo digital (`apps.certificados` e `apps.tenants`)
+Campos novos em `sige_escolas`: `carimbo_nivel` (`IMAGEM`\|`SELO`\|`ASSINATURA`, predefinição `SELO`), `carimbo_origem` (`GERADO`\|`CARREGADO`) e `carimbo_imagem_base64` (TEXT, nulo).
+
+| Tabela | Campo | Tipo SQL | Descrição / Restrição |
+| :--- | :--- | :--- | :--- |
+| `sige_chaves_assinatura_escolas` | `escola_id` | `UUID` (FK, único) | Uma chave por escola (nunca apagada). |
+| | `chave_publica_pem` | `TEXT` | Chave pública Ed25519. |
+| | `chave_privada_cifrada` | `TEXT` | Chave privada cifrada (Fernet, `SIGE_CARIMBO_KEY`). |
+| | `impressao_digital` | `VARCHAR(64)` | SHA-256 da chave pública. |
+| `sige_documentos_carimbados` | `escola_id` | `UUID` (FK) | Escola emissora. |
+| | `tipo`, `referencia` | `VARCHAR` | Único com `escola_id` (`aluno:<id>:<ano>` ou `pagamento:<id>:<ano>`). |
+| | `descricao` | `VARCHAR(255)` | Texto público (nome abreviado). |
+| | `codigo` | `VARCHAR(40)` único | `SEL-XXXXXXXXXXXX`. |
+| | `nivel` | `VARCHAR(20)` | `SELO` ou `ASSINATURA` (nunca desce). |
+| | `assinatura`, `impressao_digital_chave` | `TEXT`, `VARCHAR(64)` | Assinatura Ed25519 (nível C) e chave usada. |
+| | `emitido_por`, `emitido_em` | `VARCHAR`, `TIMESTAMP` | Auditoria. Registos não apagáveis. |
+
 ---
 
 ### 2.17. `sige_documentos_salvos` (`DocumentoSalvo`) & `sige_logs_impressao`

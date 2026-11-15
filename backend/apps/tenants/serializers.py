@@ -176,12 +176,6 @@ class EscolaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at',
                             'carimbo_nivel', 'carimbo_origem', 'carimbo_imagem_base64']
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['tem_carimbo_imagem'] = bool(instance.carimbo_imagem_base64)
-        data.pop('carimbo_imagem_base64', None)  # imagem pesada: não viaja em todas as respostas da escola
-        return data
-
     def get_funcionalidades(self, obj):
         """Funcionalidades efectivas: sem pacote = acesso total."""
         if not obj.pacote_id:
@@ -295,7 +289,9 @@ class EscolaSerializer(serializers.ModelSerializer):
         data['config_classes_exames'] = instance.config_classes_exames if isinstance(instance.config_classes_exames, dict) else {}
         data['marca_dagua_url'] = instance.marca_dagua_url or instance.marca_dagua_base64 or None
         data['marca_dagua_modo'] = instance.marca_dagua_modo or 'EMBLEMA_NACIONAL'
-        data['modo_uso_logo'] = instance.modo_uso_logo or 'DOCUMENTOS' 
+        data['modo_uso_logo'] = instance.modo_uso_logo or 'DOCUMENTOS'
+        data['tem_carimbo_imagem'] = bool(instance.carimbo_imagem_base64)
+        data.pop('carimbo_imagem_base64', None)  # imagem pesada: não viaja em todas as respostas da escola
         data['codigo_gabinete_director'] = instance.codigo_gabinete_director
         data['codigo_direccao_pedagogica'] = instance.codigo_direccao_pedagogica
         data['codigo_secretaria'] = instance.codigo_secretaria

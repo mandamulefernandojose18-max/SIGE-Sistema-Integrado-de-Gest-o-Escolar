@@ -190,3 +190,12 @@ class TestCarimbo:
         assert not self.escola.carimbo_imagem_base64
         info = self.dir.get('/api/v1/escola-admin/info')
         assert 'carimbo_imagem_base64' not in info.data['data']
+
+
+def test_aluno_e_encarregado_nunca_obtem_carimbo_nem_sao_perguntados():
+    from types import SimpleNamespace as NS
+    from apps.certificados.carimbo import decidir_carimbo
+    for papel in ('ALUNO', 'ENCARREGADO'):
+        for valor in ('sim', 'nao', ''):
+            req = NS(user=NS(role=papel), query_params={'carimbo': valor} if valor else {})
+            assert decidir_carimbo(req) is False

@@ -221,6 +221,7 @@ Para mitigar falsificações de certificados e declarações escolares:
 3. O QR Code aponta para o validador público oficial:  
    `https://sigesaas.duckdns.org/verificar-certificado.html?codigo=CERT-XXXXXXXXXX`
 4. A rota da API `/api/v1/public/verificar-certificado/<codigo>` é pública e imune a bloqueios de assinatura, permitindo que ministérios, embaixadas, universidades e empresas comprovem a veracidade das notas emitidas a qualquer momento.
+5. **Selos de carimbo (`SEL-...`):** os documentos emitidos com carimbo de nível B ou C seguem o mesmo fluxo na mesma página; o QR abre `.../verificar-certificado.html?codigo=SEL-XXXXXXXXXXXX`. No nível C a resposta inclui o estado da assinatura digital Ed25519 da escola e devolve **HTTP 409** se o registo tiver sido adulterado. Ver secção 3.5 da `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`.
 
 ---
 

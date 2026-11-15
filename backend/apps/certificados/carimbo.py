@@ -49,7 +49,12 @@ class DecisaoCarimboPendente(APIException):
 
 
 def decidir_carimbo(request):
-    """True = com carimbo, False = sem carimbo. Sem resposta explícita levanta 409 (nunca assume)."""
+    """True = com carimbo, False = sem carimbo. Sem resposta explícita levanta 409 (nunca assume).
+
+    Aluno e encarregado só obtêm cópias de consulta: nunca saem com carimbo (nem pedindo `carimbo=sim`)
+    e não são perguntados. O carimbo é um acto da escola."""
+    if str(getattr(request.user, 'role', '') or '').upper() in ('ALUNO', 'ENCARREGADO'):
+        return False
     valor = (request.query_params.get('carimbo') or '').strip().lower()
     if valor in ('sim', 's', 'true', '1'):
         return True

@@ -211,6 +211,29 @@ O sistema impõe como diretriz institucional estrita e inquebrável que **nenhum
   1. **Na API REST:** O backend levanta `DocumentoSemLogoError` tratado centralmente no handler do DRF com retorno **HTTP 400 Bad Request** (`{"success": false, "error": "Nenhum documento pode ser descarregado sem o logótipo que a instituição escolheu para usar em documentos..."}`);
   2. **No Frontend SPA:** A rotina unificada `downloadFicheiroBinario` e os módulos de impressão executam pré-validação com `validarLogoInstituicaoParaDownload()`, alertando o usuário via notificação imediata e orientando para a tela de Identidade Visual.
 
+
+### 3.5 Carimbo Digital/Electrónico da Escola (níveis A, B e C)
+Cada escola tem o seu próprio carimbo, que o sistema aplica nos documentos oficiais **só quando quem emite responde «Com carimbo»**.
+
+- **Pergunta obrigatória em cada emissão:** antes de visualizar, imprimir ou descarregar boletim, declaração, certificado, ficha do aluno ou recibo (PDF ou Word) o sistema pergunta sempre *«Sai com carimbo ou sem carimbo?»* (Com carimbo / Sem carimbo / Cancelar). Nunca há resposta por omissão nem «lembrar a escolha». Em «Cancelar» nada é emitido. A pergunta é feita centralmente em `downloadFicheiroBinario` e `obterBlobPdfServidor` (frontend); a API **exige** o parâmetro `?carimbo=sim|nao` e, sem ele, responde **HTTP 409** com `requer_decisao_carimbo: true`. A decisão só é pedida depois das verificações de permissão/escola.
+- **Aluno e encarregado:** recebem cópias de consulta, que saem sempre sem carimbo e sem pergunta; o servidor ignora `carimbo=sim` para estes perfis (o carimbo é um acto da escola).
+- **Três níveis (escolhidos em *Escola → Carimbo digital*, só director/administrador):**
+
+| Nível | Código | O que leva o documento | Valor |
+| :---: | :--- | :--- | :--- |
+| **A** | `IMAGEM` | Carimbo (imagem carregada pela escola ou carimbo gerado) | Visual |
+| **B** | `SELO` (predefinição) | Carimbo + código único `SEL-XXXXXXXXXXXX` + QR que abre a verificação pública | Prova que o documento foi emitido pela escola |
+| **C** | `ASSINATURA` | Selo (B) + assinatura digital Ed25519 com a chave própria da escola | Idem + deteta adulteração do registo |
+
+- **Aspecto:** `GERADO` (círculo com nome da escola, distrito · província, emblema nacional e código da escola) ou `CARREGADO` (foto/digitalização do carimbo físico; PNG ou JPEG até 1,5 MB, de preferência PNG transparente).
+- **Aplicação nos ficheiros:** PDF — sobreposto na última página junto à assinatura do director (à direita; ao centro na declaração); Word — imagem inserida no fim do documento. Tipografia e restante layout não mudam.
+- **Registo e verificação (B/C):** cada emissão fica em `sige_documentos_carimbados` (escola + tipo + referência únicos: reemitir o mesmo documento mantém o **mesmo código**). A página pública `https://sigesaas.duckdns.org/verificar-certificado.html?codigo=SEL-...` mostra apenas dados mínimos (escola, tipo, descrição com nome abreviado, data, emissor, estado da assinatura); nunca notas nem identificação completa.
+- **Assinatura digital (C):** cada escola tem um par de chaves Ed25519 (`sige_chaves_assinatura_escolas`) criado na primeira emissão. A chave privada fica cifrada (Fernet) com `SIGE_CARIMBO_KEY` (se ausente, deriva de `SECRET_KEY`: **definir `SIGE_CARIMBO_KEY` em produção e não a perder**, senão as chaves não se decifram). Assina-se `escola|tipo|referência|código|nível|data`; a verificação recalcula e valida com a chave pública. Se o registo for adulterado a página responde **HTTP 409** «assinatura digital inválida».
+- **Limites (honestos):** a assinatura do nível C é do próprio SIGE sobre o registo do documento; **não é um certificado digital qualificado** de uma entidade certificadora acreditada e não protege os bytes do PDF, só o registo. Esse valor legal exigiria uma entidade certificadora reconhecida em Moçambique.
+- **Ainda sem carimbo (próxima fase):** pautas, actas, cadernetas, listas, lotes de turma e Excel (`xlsx`). Os endpoints de lote e `xlsx` não perguntam nem aplicam carimbo.
+- **Segurança:** a configuração só se altera em `/api/v1/certificados/carimbo/` (campos só de leitura em `escola-admin/info`); a imagem do carimbo não viaja nas respostas da escola (`tem_carimbo_imagem`).
+- **Código:** `backend/apps/certificados/carimbo.py`; testes em `backend/tests/test_carimbo.py`.
+
 ---
 
 ## 4. Autenticação Inteligente, Perfis de Acesso (RBAC), Tarefas e Matriz de Permissões
