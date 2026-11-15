@@ -42,6 +42,9 @@ O sistema de navegação baseia-se na troca dinâmica de visibilidade de secçõ
    - Dispara a função controladora associada (ex: `carregarTurmas()`, `carregarAlunos()`, etc.).
    - Atualiza a barra de navegação ativa e o título do documento.
 
+   - **Router por hash:** cada vista tem um endereço próprio, por exemplo `https://sigesaas.duckdns.org/#/alunos`. `navegarPara()` actualiza o hash (`sincronizarRota`), pelo que o botão Voltar/Avançar, o F5 e os separadores novos mantêm a vista. Um listener `hashchange` volta a chamar `navegarPara()` quando o hash muda.
+   - **Segurança do hash:** contém apenas o identificador da vista, validado por `^#/[a-z0-9-]{1,50}$` e pela lista de menus conhecidos (`viewDaRota`). Nunca leva dados, IDs de registos, filtros nem tokens. O RBAC continua em `navegarPara()` (vista fora do painel do perfil é redireccionada) e no backend (JWT, tenant, permissões). No logout o hash é apagado (`limparRota`).
+
 2. **Gestão de Sessão e Tokens:**
    - O **Access Token JWT** e os dados do usuário autenticado são armazenados no `localStorage`.
    - Toda requisição via `apiFetch` anexa automaticamente o cabeçalho:

@@ -2030,6 +2030,7 @@ async function realizarLogin(e) {
 
 function fazerLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
+  limparRota();
   const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario');
 
   // Revoga o refresh token no servidor (blacklist); falha silenciosa: o logout local prossegue sempre.
@@ -2182,10 +2183,10 @@ async function iniciarApp() {
       if (elNome) elNome.textContent = `A Inspecionar: ${nomeEscola}`;
       const elStatus = document.getElementById('superAdminInspecaoStatus');
       if (elStatus) elStatus.textContent = state.tenant?.status || 'ATIVA';
-      navegarPara('dashboard');
+      navegarPara(viewDaRota() || 'dashboard');
     } else {
       document.body.classList.remove('inspecionando-escola');
-      navegarPara('saas');
+      navegarPara(viewDaRota() || 'saas');
     }
   } else {
     // Utilizador Comum (Escolar, Docente, Aluno, Financeiro):
@@ -2201,7 +2202,7 @@ async function iniciarApp() {
       document.getElementById('btnComprovativoEscola')?.classList.add('d-none');
     }
     const viewInicial = VIEW_INICIAL_POR_ROLE[roleUser] || 'dashboard';
-    navegarPara(viewInicial);
+    navegarPara(viewDaRota() || viewInicial);
   }
 
   if (state.tenant) {
@@ -2942,6 +2943,7 @@ function navegarPara(viewId) {
   }
 
   state.currentView = viewId;
+  sincronizarRota(viewId);
 
   if (viewId === 'saas' && !isSuperAdminInspecionando) {
     if (typeof restaurarPadraoTemaEFundo === 'function') {
@@ -3134,6 +3136,34 @@ function tratarAcessoRestritoOuSuspenso(codigo, mensagem) {
   }
 }
 
+// ===== Router por hash (#/vista) =====
+// O hash contém apenas o identificador da vista (nunca dados, IDs de registos nem tokens).
+// A autorização continua a ser aplicada em navegarPara() e no backend (JWT + tenant + RBAC).
+function idsDeVistasConhecidas() {
+  return new Set(Object.values(MENUS_POR_PAINEL).flatMap(lista => lista.map(m => m.id)));
+}
+
+function viewDaRota() {
+  const m = /^#\/([a-z0-9-]{1,50})$/.exec(location.hash || '');
+  return (m && idsDeVistasConhecidas().has(m[1])) ? m[1] : null;
+}
+
+function sincronizarRota(viewId) {
+  if (!idsDeVistasConhecidas().has(viewId)) return;
+  const alvo = `#/${viewId}`;
+  if (location.hash !== alvo) location.hash = alvo; // cria entrada no histórico (botão Voltar)
+}
+
+function limparRota() {
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+}
+
+window.addEventListener('hashchange', () => {
+  if (!state.user || !state.token) return;
+  const view = viewDaRota();
+  if (view && view !== state.currentView) navegarPara(view);
+});
+
 async function navegarPara(viewId) {
   if (viewId === 'classes-exames' || viewId === 'disciplinas') viewId = 'plano-curricular';
   fecharSidebarMobile();
@@ -3195,6 +3225,7 @@ async function navegarPara(viewId) {
   }
 
   state.currentView = viewId;
+  sincronizarRota(viewId);
 
   if (viewId === 'saas' && !isSuperAdminInspecionando) {
     if (typeof restaurarPadraoTemaEFundo === 'function') {
