@@ -308,7 +308,7 @@
     h += '<section class="cartao"><h2>Verificar autoria (armadilha anti-IA)</h2><p class="sub">Cola a resposta de um aluno e a cópia dele. Se contiver a palavra secreta dessa cópia, a resposta seguiu a instrução lida pela IA: forte sinal de uso de IA. Não ter a palavra não prova o contrário.</p>' +
       '<form class="grelha-form" id="escudoFormArmadilha"><label class="campo"><span>Cópia n.º</span><input type="number" name="copia" min="1" max="' + n + '" required></label><label class="campo"><span>Resposta do aluno</span><input name="texto" required placeholder="Cola o texto aqui"></label><button class="btn">Verificar</button></form><div id="escudoArmadilhaRes"></div></section>';
     var cont = p.contagem;
-    h += '<div class="abas" role="tablist" id="escudoAbas"><button class="aba" role="tab" aria-selected="true" data-alvo="aba-leituras">Leituras (' + p.leituras_lista.length + ')</button>' +
+    h += '<div class="abas" role="tablist" id="escudoAbas"><button class="aba" role="tab" aria-selected="true" data-alvo="aba-leituras">Leituras (' + p.leituras_lista.length + ')</button><button class="aba" role="tab" aria-selected="false" data-alvo="aba-capturas">Capturas</button>' +
       '<button class="aba" role="tab" aria-selected="false" data-alvo="aba-registo">Registo</button><button class="aba" role="tab" aria-selected="false" data-alvo="aba-gerir">Gerir</button></div>' +
       '<section id="aba-leituras" data-painel-aba><div class="contagens"><span class="pilula embargo">' + cont.embargo + ' durante o embargo</span><span class="pilula livre">' + cont.libertada + ' depois da libertação</span>' +
       '<span class="pilula ' + (cont.invalida ? 'perigo' : '') + '">' + plural(cont.invalida, 'código não reconhecido', 'códigos não reconhecidos') + '</span></div>';
@@ -322,7 +322,7 @@
     } else {
       h += '<div class="vazio">' + ico('eye') + '<strong>Ainda ninguém leu os códigos</strong><span>Quando alguém ler um QR ou código de barras, aparece aqui com a cópia e a hora.</span></div>';
     }
-    h += '</section><section id="aba-registo" data-painel-aba hidden><div class="cartao"><ol class="linha-tempo">' +
+    h += '</section><section id="aba-capturas" data-painel-aba hidden><div class="cartao" id="escudoCapturas"><p class="sub">A carregarâ€¦</p></div></section><section id="aba-registo" data-painel-aba hidden><div class="cartao"><ol class="linha-tempo">' +
       p.eventos.map(function (ev) { return '<li><time>' + esc(ev.quando_texto) + '</time>' + esc(ev.texto) + '</li>'; }).join('') + '</ol></div></section>' +
       '<section id="aba-gerir" data-painel-aba hidden><div class="grelha dois"><div class="cartao"><h2>Mudar a data</h2><p class="sub">Os selos já impressos continuam válidos; o aviso impresso mostra a data antiga.</p>' +
       '<form id="escudoFormData"><label class="campo"><span>Nova data e hora (Maputo)</span><input type="datetime-local" name="libertacao" value="' + esc(p.campo_data) + '" required></label>' +
@@ -348,11 +348,32 @@
     c.innerHTML = h;
     $$('[data-pct]', c).forEach(function (el) { requestAnimationFrame(function () { el.style.width = el.dataset.pct + '%'; }); });
     iniciarRelogios();
+    var capturasCarregadas = false;
+    var carregarCapturas = async function () {
+      if (capturasCarregadas) return;
+      capturasCarregadas = true;
+      var alvo = $('#escudoCapturas', c);
+      try {
+        var lista = (await api(pid + '/capturas/')).data.capturas;
+        if (!lista.length) { alvo.innerHTML = '<div class="vazio"><strong>Sem capturas</strong><span>Aparecem aqui quando alguÃ©m, ao ler o cÃ³digo, autoriza no telemÃ³vel o registo da foto, do local e do aparelho.</span></div>'; return; }
+        alvo.innerHTML = '<p class="sub">SÃ³ existem registos de quem autorizou no navegador. As imagens ficam cifradas e sÃ³ tu as vÃªs.</p><div class="tabela-rolar"><table><thead><tr><th>Quando (Maputo)</th><th>CÃ³pia</th><th>Aparelho</th><th>Local</th><th>Fotos</th></tr></thead><tbody>' +
+          lista.map(function (x) {
+            var ap = x.aparelho || {}, desc = [ap.modelo, ap.sistema, ap.navegador, ap.ecra, ap.idioma, ap.fuso].filter(Boolean).join(' Â· ');
+            return '<tr><td>' + esc(x.quando_texto) + '</td><td>' + (x.serial ? '<span class="mono">' + esc(pid + '-' + String(x.serial).padStart(3, '0')) + '</span>' : '<span class="suave">cÃ³digo geral</span>') + '</td><td>' + esc(desc || 'â€”') + '</td><td>' +
+              (x.latitude != null ? '<a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=' + x.latitude + '&mlon=' + x.longitude + '#map=17/' + x.latitude + '/' + x.longitude + '">Ver no mapa</a><small> (Â±' + esc(x.precisao_m || '?') + ' m)</small>' : '<span class="suave">nÃ£o autorizado</span>') + '</td><td>' +
+              (x.foto_leitor ? '<img alt="Quem leu o cÃ³digo" width="72" data-img="' + x.id + '/leitor.jpg"> ' : '') + (x.foto_prova ? '<img alt="Fotografia da prova" width="72" data-img="' + x.id + '/prova.jpg">' : '') + (x.foto_leitor || x.foto_prova ? '' : '<span class="suave">sem fotos</span>') + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+        $$('img[data-img]', alvo).forEach(async function (im) {
+          try { var r = await pedir(pid + '/capturas/' + im.dataset.img); if (r.ok) im.src = URL.createObjectURL(await r.blob()); } catch (_) { /* sem imagem */ }
+        });
+      } catch (err) { capturasCarregadas = false; alvo.innerHTML = '<p class="aviso atencao">' + esc(err.message) + '</p>'; }
+    };
     var abas = $$('#escudoAbas .aba');
     abas.forEach(function (b) {
       b.addEventListener('click', function () {
         abas.forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); });
         $$('[data-painel-aba]', c).forEach(function (s) { s.hidden = s.id !== b.dataset.alvo; });
+        if (b.dataset.alvo === 'aba-capturas') carregarCapturas();
       });
     });
     var g = $('[data-gabarito]', c);

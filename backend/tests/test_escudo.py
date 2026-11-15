@@ -865,6 +865,44 @@ def test_leitura_no_embargo_pede_local_guarda_so_com_token_e_avisa_o_dono_por_em
     assert d['leituras_lista'][-1]['latitude'] is not None
 
 
+def test_captura_com_consentimento_guarda_fotos_cifradas_local_e_aparelho_so_para_o_dono(duas_escolas, monkeypatch):
+    import re
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from apps.escudo.models import CapturaEscudo
+    from apps.escudo.services import alertas
+    monkeypatch.setattr(alertas, 'agendar', lambda *a, **k: None)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    html = APIClient().get(f'/ia/v/{pid}/1/q2').content.decode()
+    assert 'id="cap-btn"' in html and 'autorizas' in html   # botão e texto de consentimento visíveis
+    token = re.search(r"fd.append\('t','([^']+)'", html).group(1)
+    jpg = b'\xff\xd8\xff\xe0' + b'0' * 100
+    url = f'/ia/v/{pid}/captura/'
+
+    def enviar(**extra):
+        dados = {'t': token, 'aparelho': '{"modelo":"SM-A546B","ip":"nao-guardar"}', **extra}
+        return APIClient().post(url, dados, format='multipart')
+    assert enviar(t='falso').status_code == 400
+    assert enviar(foto_leitor=SimpleUploadedFile('l.jpg', b'nao-e-imagem')).status_code == 400   # não é JPEG
+    assert enviar().status_code == 400                                                             # nada autorizado
+    r = enviar(foto_leitor=SimpleUploadedFile('l.jpg', jpg), foto_prova=SimpleUploadedFile('p.jpg', jpg),
+               lat='-25.9653', lon='32.5892', acc='20')
+    assert r.status_code == 204
+    cap = CapturaEscudo.objects.get(prova__codigo=pid)
+    assert bytes(cap.foto_leitor_cifrada) != jpg and cap.aparelho['modelo'] == 'SM-A546B' and 'ip' not in cap.aparelho
+    assert cap.leitura.latitude is not None
+    # o professor dono vê e descarrega; outra escola recebe 404; sem login 401
+    lista = c.get(API + pid + '/capturas/').json()['data']['capturas']
+    assert len(lista) == 1 and lista[0]['foto_leitor'] and lista[0]['foto_prova']
+    assert c.get(f'{API}{pid}/capturas/{cap.id}/leitor.jpg').content == jpg
+    from apps.accounts.models import Usuario
+    Usuario.objects.create_user(email='admin.cap@sige.mz', password='PassCap123!', role='ADMIN_ESCOLA', escola=duas_escolas[1])
+    estranho = _cliente_de('admin.cap@sige.mz', 'PassCap123!')
+    assert estranho.get(API + pid + '/capturas/').status_code == 404
+    assert estranho.get(f'{API}{pid}/capturas/{cap.id}/leitor.jpg').status_code == 404
+    assert APIClient().get(API + pid + '/capturas/').status_code == 401
+
+
 def test_sem_email_configurado_nao_avisa_e_depois_da_libertacao_nao_pede_local(duas_escolas, monkeypatch):
     from apps.escudo.services import alertas
     monkeypatch.delenv('EMAIL_HOST', raising=False)

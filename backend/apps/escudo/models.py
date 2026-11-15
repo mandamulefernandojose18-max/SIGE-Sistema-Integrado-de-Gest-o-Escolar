@@ -46,6 +46,24 @@ class LeituraEscudo(models.Model):
         ordering = ['-id']
 
 
+class CapturaEscudo(models.Model):
+    """Foto de quem leu o código (selfie) e/ou da prova, com o local e o aparelho. Só existe se a pessoa autorizou
+    a câmara e a localização no navegador e carregou em «Registar». As imagens ficam cifradas (AES-256-GCM)."""
+    leitura = models.ForeignKey(LeituraEscudo, on_delete=models.CASCADE, related_name='capturas')
+    prova = models.ForeignKey(ProvaEscudo, on_delete=models.CASCADE, related_name='capturas')
+    foto_leitor_cifrada = models.BinaryField(null=True, blank=True, editable=False)
+    foto_prova_cifrada = models.BinaryField(null=True, blank=True, editable=False)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    precisao_m = models.PositiveIntegerField(null=True, blank=True)
+    aparelho = models.JSONField(default=dict, blank=True, help_text='Modelo, sistema, ecrã, idioma e fuso (nunca o IP)')
+    criada_em = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'sige_escudo_capturas'
+        ordering = ['-id']
+
+
 class EventoEscudo(models.Model):
     prova = models.ForeignKey(ProvaEscudo, on_delete=models.CASCADE, related_name='eventos')
     texto = models.CharField(max_length=300)

@@ -744,7 +744,42 @@ def _aviso_local(pid, p):
     token = dumps({'l': p.get('leitura_id'), 'p': pid}, salt='escudo-local')
     return ('<p><small>Esta leitura foi registada (hora e tipo de aparelho) e o professor responsável pode ser avisado. '
             'O teu navegador vai perguntar se queres partilhar a localização; é opcional.</small></p>'
-            + _SCRIPT_LOCAL % {'pid': pid, 'token': token})
+            + _SCRIPT_LOCAL % {'pid': pid, 'token': token}
+            + _BLOCO_CAPTURA % {'pid': pid, 'token': token})
+
+
+# Registo com consentimento: só depois de carregar no botão; o navegador pede ainda a câmara e a localização.
+_BLOCO_CAPTURA = (
+    '<div class="ia" id="cap" style="background:#eef2ff"><strong>Registar esta leitura</strong>'
+    '<p>Ao carregar em «Registar», autorizas o SIGE a guardar, para o professor responsável: uma foto tua (câmara frontal), '
+    'a fotografia da prova (opcional), a localização e o tipo de aparelho. Se recusares no navegador, nada é guardado.</p>'
+    '<p><label>Foto da prova (opcional): <input type="file" id="cap-prova" accept="image/*" capture="environment"></label></p>'
+    '<button class="btn" id="cap-btn" type="button" style="border:0;cursor:pointer">Registar</button> <small id="cap-msg"></small></div>'
+    "<script>(function(){var b=document.getElementById('cap-btn'),m=document.getElementById('cap-msg');if(!b)return;"
+    "function jpg(c){return new Promise(function(r){c.toBlob(r,'image/jpeg',0.8);});}"
+    "function selfie(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return Promise.resolve(null);"
+    "return navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640}},audio:false}).then(function(s){"
+    "var v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=s;return v.play().then(function(){"
+    "return new Promise(function(ok){setTimeout(ok,700);});}).then(function(){var c=document.createElement('canvas');"
+    "c.width=v.videoWidth||640;c.height=v.videoHeight||480;c.getContext('2d').drawImage(v,0,0,c.width,c.height);"
+    "s.getTracks().forEach(function(t){t.stop();});return jpg(c);});}).catch(function(){return null;});}"
+    "function local(){return new Promise(function(r){if(!navigator.geolocation)return r(null);"
+    "navigator.geolocation.getCurrentPosition(function(g){r(g.coords);},function(){r(null);},{timeout:20000,maximumAge:0});});}"
+    "function reduzir(f){return new Promise(function(r){if(!f)return r(null);var i=new Image(),u=URL.createObjectURL(f);"
+    "i.onload=function(){var k=Math.min(1,1600/Math.max(i.width,i.height)),c=document.createElement('canvas');"
+    "c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);"
+    "URL.revokeObjectURL(u);jpg(c).then(r);};i.onerror=function(){r(null);};i.src=u;});}"
+    "b.onclick=function(){b.disabled=true;m.textContent='A registar…';var pf=document.getElementById('cap-prova').files[0];"
+    "Promise.all([selfie(),local(),reduzir(pf)]).then(function(x){var fd=new FormData(),u=navigator.userAgent||'';"
+    "fd.append('t','%(token)s');if(x[0])fd.append('foto_leitor',x[0],'l.jpg');if(x[2])fd.append('foto_prova',x[2],'p.jpg');"
+    "if(x[1]){fd.append('lat',x[1].latitude);fd.append('lon',x[1].longitude);fd.append('acc',x[1].accuracy);}"
+    "var md=(navigator.userAgentData&&navigator.userAgentData.mobile)?'telemóvel':'';"
+    "fd.append('aparelho',JSON.stringify({modelo:((u.match(/;\\s*([^;)]+)\\s+Build/)||[])[1]||md),sistema:navigator.platform||'',"
+    "ecra:screen.width+'x'+screen.height+'@'+(window.devicePixelRatio||1),idioma:navigator.language||'',"
+    "fuso:(Intl.DateTimeFormat().resolvedOptions().timeZone)||'',toque:String(navigator.maxTouchPoints||0)}));"
+    "if(!x[0]&&!x[1]&&!x[2]){m.textContent='Nada foi autorizado, por isso nada foi guardado.';b.disabled=false;return;}"
+    "return fetch('/ia/v/%(pid)s/captura/',{method:'POST',body:fd}).then(function(r){m.textContent=r.ok?'Registo guardado.':'Não foi possível guardar.';});"
+    "}).catch(function(){m.textContent='Não foi possível guardar.';b.disabled=false;});};})();</script>")
 
 
 @csrf_exempt
@@ -763,6 +798,97 @@ def local_leitura(request, pid):
         return HttpResponse(status=400)
     svc().arm.guardar_local(t.get('l'), pid, lat, lon, acc)
     return HttpResponse(status=204)
+
+
+MAX_FOTO_BYTES = 3 * 1024 * 1024
+MAX_CAPTURAS_POR_LEITURA = 3
+_CAMPOS_APARELHO = ('modelo', 'sistema', 'navegador', 'ecra', 'idioma', 'fuso', 'toque')
+
+
+def _jpeg_valido(ficheiro):
+    """Lê o ficheiro enviado e confirma que é JPEG e não passa o limite; devolve os bytes ou None."""
+    if not ficheiro or ficheiro.size > MAX_FOTO_BYTES:
+        return None
+    dados = ficheiro.read()
+    return dados if dados[:3] == b'\xff\xd8\xff' else None
+
+
+@csrf_exempt
+def captura_leitura(request, pid):
+    """Recebe a foto de quem leu o código, o local e o aparelho. Só chega se a pessoa carregou em «Registar» e o navegador
+    deixou usar a câmara e a localização. Token assinado (1 hora, uma leitura, no máximo 3 capturas)."""
+    from django.core.signing import BadSignature, loads
+    from .models import CapturaEscudo, LeituraEscudo
+    from .services import cofre
+    if request.method != 'POST' or not re.fullmatch(r'[A-Z0-9]{8}', pid):
+        return HttpResponse(status=405)
+    try:
+        t = loads(request.POST.get('t', ''), salt='escudo-local', max_age=3600)
+    except BadSignature:
+        return HttpResponse(status=400)
+    if t.get('p') != pid:
+        return HttpResponse(status=400)
+    leitura = LeituraEscudo.objects.filter(pk=t.get('l'), prova__codigo=pid).select_related('prova').first()
+    if not leitura or leitura.capturas.count() >= MAX_CAPTURAS_POR_LEITURA:
+        return HttpResponse(status=400)
+    leitor, prova = _jpeg_valido(request.FILES.get('foto_leitor')), _jpeg_valido(request.FILES.get('foto_prova'))
+    lat = lon = acc = None
+    try:
+        if request.POST.get('lat') not in (None, ''):
+            lat, lon, acc = float(request.POST['lat']), float(request.POST['lon']), float(request.POST.get('acc') or 0)
+            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                return HttpResponse(status=400)
+        info = json.loads(request.POST.get('aparelho') or '{}')
+    except (ValueError, TypeError):
+        return HttpResponse(status=400)
+    if not (leitor or prova or lat is not None):
+        return HttpResponse(status=400)
+    info = {k: str(info.get(k, ''))[:80] for k in _CAMPOS_APARELHO} if isinstance(info, dict) else {}
+    CapturaEscudo.objects.create(
+        leitura=leitura, prova=leitura.prova,
+        foto_leitor_cifrada=cofre.cifrar(pid, 'captura-leitor', leitor) if leitor else None,
+        foto_prova_cifrada=cofre.cifrar(pid, 'captura-prova', prova) if prova else None,
+        latitude=None if lat is None else round(lat, 5), longitude=None if lon is None else round(lon, 5),
+        precisao_m=None if acc is None else max(0, min(int(acc), 100000)), aparelho=info)
+    if lat is not None:
+        svc().arm.guardar_local(leitura.pk, pid, lat, lon, acc)
+    return HttpResponse(status=204)
+
+
+@csrf_exempt
+@_tratar
+def capturas_lista(request, pid):
+    """Capturas de uma prova (só quem pode ver a prova): quando, local, aparelho e se há fotografias."""
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    from .models import CapturaEscudo
+    itens = [{
+        'id': c.id, 'quando_texto': tempo.formatar(c.criada_em), 'serial': c.leitura.serial,
+        'latitude': c.latitude, 'longitude': c.longitude, 'precisao_m': c.precisao_m, 'aparelho': c.aparelho,
+        'foto_leitor': bool(c.foto_leitor_cifrada), 'foto_prova': bool(c.foto_prova_cifrada),
+    } for c in CapturaEscudo.objects.filter(prova__codigo=pid).select_related('leitura')[:100]]
+    return _json({'success': True, 'data': {'capturas': itens}})
+
+
+@csrf_exempt
+@_tratar
+def captura_imagem(request, pid, cid, tipo):
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    from .models import CapturaEscudo
+    from .services import cofre
+    if tipo not in ('leitor', 'prova'):
+        return _erro('Imagem não encontrada.', 404)
+    c = CapturaEscudo.objects.filter(pk=cid, prova__codigo=pid).first()
+    bruto = c and (c.foto_leitor_cifrada if tipo == 'leitor' else c.foto_prova_cifrada)
+    if not bruto:
+        return _erro('Imagem não encontrada.', 404)
+    r = HttpResponse(cofre.decifrar(pid, f'captura-{tipo}', bruto), content_type='image/jpeg')
+    r['Cache-Control'] = 'no-store'
+    r['X-Content-Type-Options'] = 'nosniff'
+    return r
 
 
 def verificar(request, pid, serial=None):

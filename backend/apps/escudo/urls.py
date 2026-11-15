@@ -26,9 +26,12 @@ urlpatterns = [
     path('<str:pid>/guiao/gerar/', views.guiao_gerar),
     path('<str:pid>/guiao/corrigir/', views.guiao_corrigir),
     path('<str:pid>/guiao/descarregar/', views.guiao_descarregar),
+    path('<str:pid>/capturas/', views.capturas_lista),
+    path('<str:pid>/capturas/<int:cid>/<str:tipo>.jpg', views.captura_imagem),
 ]
 publico = [
     re_path(r'^ia/v/(?P<pid>[A-Z0-9]{8})/local/?$', views.local_leitura),
+    re_path(r'^ia/v/(?P<pid>[A-Z0-9]{8})/captura/?$', views.captura_leitura),
     re_path(r'^ia/v/(?P<pid>[A-Z0-9]{8})/?$', views.verificar),
     re_path(r'^ia/v/(?P<pid>[A-Z0-9]{8})/(?P<serial>\d+)/?$', views.verificar),
     re_path(r'^ia/v/(?P<pid>[A-Z0-9]{8})/(?P<serial>\d+)/p(?P<n>\d+)/?$', views.verificar_pagina),
