@@ -868,40 +868,40 @@
     <nav class="nav flex-column pb-4" id="sidebarNavItems">
       <!-- Secção Geral -->
       <div class="nav-category">Geral</div>
-      <a class="nav-link active" href="#" onclick="navegarPara('dashboard')" id="nav-dashboard">
+      <a class="nav-link active" href="#/dashboard" onclick="navegarPara('dashboard'); return false;" id="nav-dashboard">
         <i class="bi bi-grid-1x2-fill"></i> <span>Painel Principal</span>
       </a>
 
       <!-- Secção Exclusiva SuperAdmin -->
       <div class="nav-category saas-only" style="display: none;">Administração Geral</div>
-      <a id="linkSaaSSuper" class="nav-link saas-only" href="#" onclick="navegarPara('saas')" style="display: none;">
+      <a id="linkSaaSSuper" class="nav-link saas-only" href="#/saas" onclick="navegarPara('saas'); return false;" style="display: none;">
         <i class="bi bi-buildings-fill text-warning"></i> <span>Gestão de Escolas & Planos</span>
       </a>
-      <a id="linkSaaSPagamentos" class="nav-link saas-only" href="#" onclick="navegarPara('pagamentos-saas')" style="display: none;">
+      <a id="linkSaaSPagamentos" class="nav-link saas-only" href="#/pagamentos-saas" onclick="navegarPara('pagamentos-saas'); return false;" style="display: none;">
         <i class="bi bi-credit-card-2-front-fill text-warning"></i> <span>Assinaturas & Pagamentos SaaS</span>
       </a>
 
       <!-- Secção Administrativa da Escola -->
       <div class="nav-category escola-admin-only">Gestão Escolar</div>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('escola')" id="nav-escola">
+      <a class="nav-link escola-admin-only" href="#/escola" onclick="navegarPara('escola'); return false;" id="nav-escola">
         <i class="bi bi-building-gear"></i> <span>Definições & Logótipo da Escola</span>
       </a>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('assinatura-escola')" id="nav-assinatura-escola">
+      <a class="nav-link escola-admin-only" href="#/assinatura-escola" onclick="navegarPara('assinatura-escola'); return false;" id="nav-assinatura-escola">
         <i class="bi bi-shield-lock-fill text-warning"></i> <span>Assinatura do Sistema</span>
       </a>
-      <a class="nav-link escola-admin-only ped-only" href="#" onclick="navegarPara('turmas')" id="nav-turmas">
+      <a class="nav-link escola-admin-only ped-only" href="#/turmas" onclick="navegarPara('turmas'); return false;" id="nav-turmas">
         <i class="bi bi-diagram-3-fill text-warning"></i> <span>Turmas & Capacidade</span>
       </a>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('alunos')" id="nav-alunos">
+      <a class="nav-link escola-admin-only" href="#/alunos" onclick="navegarPara('alunos'); return false;" id="nav-alunos">
         <i class="bi bi-people-fill"></i> <span>Alunos & Matrículas</span>
       </a>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('professores')" id="nav-professores">
+      <a class="nav-link escola-admin-only" href="#/professores" onclick="navegarPara('professores'); return false;" id="nav-professores">
         <i class="bi bi-person-badge-fill"></i> <span>Corpo Docente</span>
       </a>
 
       <!-- Secção Pedagógica & Avaliações -->
       <div class="nav-category ped-only">Área Pedagógica</div>
-      <a class="nav-link professor-only" href="#" onclick="navegarPara('professor-perfil')" id="nav-professor-perfil" style="display: none;">
+      <a class="nav-link professor-only" href="#/professor-perfil" onclick="navegarPara('professor-perfil'); return false;" id="nav-professor-perfil" style="display: none;">
         <i class="bi bi-person-lines-fill text-primary"></i> <span>Meu Perfil Docente</span>
       </a>
       <a class="nav-link escola-admin-only ped-only d-flex align-items-center justify-content-between" href="javascript:void(0)" onclick="toggleSubmenuAreaPedagogica(event)" id="nav-area-pedagogica">
@@ -911,80 +911,80 @@
         <i class="bi bi-chevron-down small" id="seta-area-pedagogica" style="transition: transform 0.2s;"></i>
       </a>
       <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('atribuicoes-cargos')" id="subnav-atribuicoes-cargos">
+        <a class="nav-link py-1 small" href="#/atribuicoes-cargos" onclick="navegarPara('atribuicoes-cargos'); return false;" id="subnav-atribuicoes-cargos">
           <i class="bi bi-clipboard-check text-primary me-1"></i> <span>Actividades dos Cargos</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('plano-curricular')" id="subnav-plano-curricular">
+        <a class="nav-link py-1 small" href="#/plano-curricular" onclick="navegarPara('plano-curricular'); return false;" id="subnav-plano-curricular">
           <i class="bi bi-diagram-3-fill text-success me-1"></i> <span>Plano Curricular</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('desbloqueio')" id="subnav-desbloqueio">
+        <a class="nav-link py-1 small" href="#/desbloqueio" onclick="navegarPara('desbloqueio'); return false;" id="subnav-desbloqueio">
           <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio de Trimestre</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('caderneta')" id="subnav-caderneta">
+        <a class="nav-link py-1 small" href="#/caderneta" onclick="navegarPara('caderneta'); return false;" id="subnav-caderneta">
           <i class="bi bi-journal-bookmark-fill text-info me-1"></i> <span>Caderneta Pedagógica</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('pautas')" id="subnav-pautas">
+        <a class="nav-link py-1 small" href="#/pautas" onclick="navegarPara('pautas'); return false;" id="subnav-pautas">
           <i class="bi bi-table text-primary me-1"></i> <span>Pautas & Actas Oficiais</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('exames')" id="subnav-exames">
+        <a class="nav-link py-1 small" href="#/exames" onclick="navegarPara('exames'); return false;" id="subnav-exames">
           <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('provas-anti-ia')" id="subnav-provas-anti-ia">
+        <a class="nav-link py-1 small" href="#/provas-anti-ia" onclick="navegarPara('provas-anti-ia'); return false;" id="subnav-provas-anti-ia">
           <i class="bi bi-qr-code-scan text-danger me-1"></i> <span>Blindagem Anti-IA de Provas</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('folha-resposta')" id="subnav-folha-resposta">
+        <a class="nav-link py-1 small" href="#/folha-resposta" onclick="navegarPara('folha-resposta'); return false;" id="subnav-folha-resposta">
           <i class="bi bi-ui-radios-grid text-primary me-1"></i> <span>Folha de Resposta Personalizada</span>
         </a>
-        <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('estatisticas-aproveitamento')" id="subnav-estatisticas-aproveitamento">
+        <a class="nav-link py-1 small" href="#/estatisticas-aproveitamento" onclick="navegarPara('estatisticas-aproveitamento'); return false;" id="subnav-estatisticas-aproveitamento">
           <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
         </a>
       </div>
-      <a class="nav-link ped-only professor-only escola-admin-only" href="#" onclick="navegarPara('director-turma')" id="nav-director-turma">
+      <a class="nav-link ped-only professor-only escola-admin-only" href="#/director-turma" onclick="navegarPara('director-turma'); return false;" id="nav-director-turma">
         <i class="bi bi-person-workspace text-warning"></i> <span>Painel Director de Turma</span>
       </a>
-      <a class="nav-link ped-only escola-admin-only professor-only" href="#" onclick="navegarPara('material-escolar')" id="nav-material-escolar">
+      <a class="nav-link ped-only escola-admin-only professor-only" href="#/material-escolar" onclick="navegarPara('material-escolar'); return false;" id="nav-material-escolar">
         <i class="bi bi-book-half text-primary"></i> <span>Material Escolar</span>
       </a>
 
       <!-- Secção Financeira & Serviços -->
       <div class="nav-category fin-only">Financeiro & Secretaria</div>
-      <a class="nav-link escola-admin-only" href="#" onclick="navegarPara('certificados')" id="nav-certificados">
+      <a class="nav-link escola-admin-only" href="#/certificados" onclick="navegarPara('certificados'); return false;" id="nav-certificados">
         <i class="bi bi-award-fill"></i> <span>Certificados (QR Code)</span>
       </a>
-      <a class="nav-link fin-only" href="#" onclick="navegarPara('pagamentos')" id="nav-pagamentos">
+      <a class="nav-link fin-only" href="#/pagamentos" onclick="navegarPara('pagamentos'); return false;" id="nav-pagamentos">
         <i class="bi bi-cash-coin"></i> <span>Mensalidades & Propinas</span>
       </a>
-      <a class="nav-link" href="#" onclick="navegarPara('impressao')" id="nav-impressao">
+      <a class="nav-link" href="#/impressao" onclick="navegarPara('impressao'); return false;" id="nav-impressao">
         <i class="bi bi-printer-fill"></i> <span>Central de Impressão</span>
       </a>
 
       <!-- Secção Privada do Aluno -->
       <div class="nav-category aluno-only" style="display: none;">Espaço do Aluno</div>
-      <a class="nav-link aluno-only" href="#" onclick="navegarPara('aluno-perfil')" id="nav-aluno-perfil" style="display: none;">
+      <a class="nav-link aluno-only" href="#/aluno-perfil" onclick="navegarPara('aluno-perfil'); return false;" id="nav-aluno-perfil" style="display: none;">
         <i class="bi bi-person-vcard-fill text-primary"></i> <span>O Meu Perfil & Filiação</span>
       </a>
-      <a class="nav-link aluno-only" href="#" onclick="navegarPara('aluno-notas')" id="nav-aluno-notas" style="display: none;">
+      <a class="nav-link aluno-only" href="#/aluno-notas" onclick="navegarPara('aluno-notas'); return false;" id="nav-aluno-notas" style="display: none;">
         <i class="bi bi-card-checklist text-success"></i> <span>As Minhas Notas</span>
       </a>
-      <a class="nav-link aluno-only" href="#" onclick="navegarPara('aluno-pagamentos')" id="nav-aluno-pagamentos" style="display: none;">
+      <a class="nav-link aluno-only" href="#/aluno-pagamentos" onclick="navegarPara('aluno-pagamentos'); return false;" id="nav-aluno-pagamentos" style="display: none;">
         <i class="bi bi-wallet2 text-warning"></i> <span>As Minhas Propinas & Mensalidades</span>
       </a>
-      <a class="nav-link aluno-only" href="#" onclick="navegarPara('material-escolar')" id="nav-aluno-material-escolar" style="display: none;">
+      <a class="nav-link aluno-only" href="#/material-escolar" onclick="navegarPara('material-escolar'); return false;" id="nav-aluno-material-escolar" style="display: none;">
         <i class="bi bi-book-half text-info"></i> <span>Material Escolar da Classe</span>
       </a>
 
       <!-- Ferramentas & Integrações -->
       <div class="nav-category saas-only escola-admin-only fin-only">Ferramentas & Gateway</div>
-      <a class="nav-link saas-only escola-admin-only fin-only" href="#" onclick="navegarPara('prompt-gateway')" id="nav-prompt-gateway">
+      <a class="nav-link saas-only escola-admin-only fin-only" href="#/prompt-gateway" onclick="navegarPara('prompt-gateway'); return false;" id="nav-prompt-gateway">
         <i class="bi bi-broadcast-pin text-warning"></i> <span>Gateway SMS & Pagamentos</span>
       </a>
 
       <!-- Auditoria & Credenciais -->
       <div class="nav-category saas-only escola-admin-only">Segurança & Cofre</div>
-      <a class="nav-link saas-only escola-admin-only" href="#" onclick="navegarPara('usuarios-senhas')" id="nav-usuarios-senhas">
+      <a class="nav-link saas-only escola-admin-only" href="#/usuarios-senhas" onclick="navegarPara('usuarios-senhas'); return false;" id="nav-usuarios-senhas">
         <i class="bi bi-key-fill text-warning"></i> <span>Cofre de Credenciais</span>
       </a>
-      <a class="nav-link saas-only escola-admin-only" href="#" onclick="navegarPara('acessos')" id="nav-acessos">
+      <a class="nav-link saas-only escola-admin-only" href="#/acessos" onclick="navegarPara('acessos'); return false;" id="nav-acessos">
         <i class="bi bi-shield-check"></i> <span>Auditoria & Acessos</span>
       </a>
       <!-- Perfil & Alteração de Senha do Utilizador e Botão de Sair -->
@@ -1238,6 +1238,6 @@
 <script src="/js/config.js?v=20261025_1835"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
 <script src="/js/provas-anti-ia.js?v=20261108_1900"></script>
-<script src="/js/app.js?v=20261115_1700"></script>
+<script src="/js/app.js?v=20261115_1900"></script>
 </body>
 </html>

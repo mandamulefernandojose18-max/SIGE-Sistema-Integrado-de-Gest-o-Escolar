@@ -43,6 +43,7 @@ O sistema de navegação baseia-se na troca dinâmica de visibilidade de secçõ
    - Atualiza a barra de navegação ativa e o título do documento.
 
    - **Router por hash:** cada vista tem um endereço próprio, por exemplo `https://sigesaas.duckdns.org/#/alunos`. `navegarPara()` actualiza o hash (`sincronizarRota`), pelo que o botão Voltar/Avançar, o F5 e os separadores novos mantêm a vista. Um listener `hashchange` volta a chamar `navegarPara()` quando o hash muda.
+   - **Links de menu:** todos os menus são `<a href="#/vista" onclick="navegarPara('vista'); return false;">`, o que permite abrir em novo separador. Nunca usar `href="#"` em menus: o navegador repõe o hash vazio e apaga a rota. Uma salvaguarda global bloqueia o comportamento por omissão de qualquer `<a href="#">`, e o listener `hashchange` repõe o hash da vista actual se ele for apagado.
    - **Segurança do hash:** contém apenas o identificador da vista, validado por `^#/[a-z0-9-]{1,50}$` e pela lista de menus conhecidos (`viewDaRota`). Nunca leva dados, IDs de registos, filtros nem tokens. O RBAC continua em `navegarPara()` (vista fora do painel do perfil é redireccionada) e no backend (JWT, tenant, permissões). No logout o hash é apagado (`limparRota`).
 
 2. **Gestão de Sessão e Tokens:**

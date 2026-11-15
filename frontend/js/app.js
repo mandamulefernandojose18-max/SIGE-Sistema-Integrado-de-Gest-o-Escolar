@@ -2549,31 +2549,31 @@ function renderizarSidebarPorNivel(role) {
             <i class="bi bi-chevron-down small" id="seta-area-pedagogica" style="transition: transform 0.2s;"></i>
           </a>
           <div id="subnav-area-pedagogica" class="ps-3 border-start ms-3 my-1" style="display: none;">
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('atribuicoes-cargos')" id="subnav-atribuicoes-cargos">
+            <a class="nav-link py-1 small" href="#/atribuicoes-cargos" onclick="navegarPara('atribuicoes-cargos'); return false;" id="subnav-atribuicoes-cargos">
               <i class="bi bi-clipboard-check text-primary me-1"></i> <span>Actividades dos Cargos</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('plano-curricular')" id="subnav-plano-curricular">
+            <a class="nav-link py-1 small" href="#/plano-curricular" onclick="navegarPara('plano-curricular'); return false;" id="subnav-plano-curricular">
               <i class="bi bi-diagram-3-fill text-success me-1"></i> <span>Plano Curricular</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('desbloqueio')" id="subnav-desbloqueio">
+            <a class="nav-link py-1 small" href="#/desbloqueio" onclick="navegarPara('desbloqueio'); return false;" id="subnav-desbloqueio">
               <i class="bi bi-unlock-fill text-warning me-1"></i> <span>Desbloqueio de Trimestre</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('caderneta')" id="subnav-caderneta">
+            <a class="nav-link py-1 small" href="#/caderneta" onclick="navegarPara('caderneta'); return false;" id="subnav-caderneta">
               <i class="bi bi-journal-bookmark-fill text-info me-1"></i> <span>Caderneta Pedagógica</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('pautas')" id="subnav-pautas">
+            <a class="nav-link py-1 small" href="#/pautas" onclick="navegarPara('pautas'); return false;" id="subnav-pautas">
               <i class="bi bi-table text-primary me-1"></i> <span>Pautas & Actas Oficiais</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('exames')" id="subnav-exames">
+            <a class="nav-link py-1 small" href="#/exames" onclick="navegarPara('exames'); return false;" id="subnav-exames">
               <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('provas-anti-ia')" id="subnav-provas-anti-ia">
+            <a class="nav-link py-1 small" href="#/provas-anti-ia" onclick="navegarPara('provas-anti-ia'); return false;" id="subnav-provas-anti-ia">
               <i class="bi bi-qr-code-scan text-danger me-1"></i> <span>Blindagem Anti-IA de Provas</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('folha-resposta')" id="subnav-folha-resposta">
+            <a class="nav-link py-1 small" href="#/folha-resposta" onclick="navegarPara('folha-resposta'); return false;" id="subnav-folha-resposta">
               <i class="bi bi-ui-radios-grid text-primary me-1"></i> <span>Folha de Resposta Personalizada</span>
             </a>
-            <a class="nav-link py-1 small" href="javascript:void(0)" onclick="navegarPara('estatisticas-aproveitamento')" id="subnav-estatisticas-aproveitamento">
+            <a class="nav-link py-1 small" href="#/estatisticas-aproveitamento" onclick="navegarPara('estatisticas-aproveitamento'); return false;" id="subnav-estatisticas-aproveitamento">
               <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
             </a>
           </div>
@@ -2587,7 +2587,7 @@ function renderizarSidebarPorNivel(role) {
     }
 
     html += `
-      <a class="nav-link" href="#" onclick="navegarPara('${menu.id}')" id="nav-${menu.id}">
+      <a class="nav-link" href="#/${menu.id}" onclick="navegarPara('${menu.id}'); return false;" id="nav-${menu.id}">
         <i class="bi ${menu.icone}"></i> <span>${menu.titulo}</span>
       </a>
     `;
@@ -3158,10 +3158,21 @@ function limparRota() {
   try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
 }
 
+// Salvaguarda: um <a href="#"> (placeholder) não deve repor o hash vazio e apagar a rota da vista.
+document.addEventListener('click', (ev) => {
+  const a = ev.target && ev.target.closest ? ev.target.closest('a') : null;
+  if (a && a.getAttribute('href') === '#') ev.preventDefault();
+});
+
 window.addEventListener('hashchange', () => {
   if (!state.user || !state.token) return;
   const view = viewDaRota();
-  if (view && view !== state.currentView) navegarPara(view);
+  if (view && view !== state.currentView) {
+    navegarPara(view);
+  } else if (!view && state.currentView && !location.hash) {
+    // Hash apagado por outro código: repõe o da vista actual sem criar nova entrada no histórico.
+    try { history.replaceState(null, '', `${location.pathname}${location.search}#/${state.currentView}`); } catch (_) {}
+  }
 });
 
 async function navegarPara(viewId) {
