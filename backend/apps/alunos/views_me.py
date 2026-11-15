@@ -273,12 +273,18 @@ class AlunoMeCalendarioExamesPdfView(APIView):
     def get(self, request):
         from apps.documentos.services.pdf_service import DocumentoSemLogoError
         from apps.notas.exames_pdf import pdf_exames_aluno
+        from apps.notas.exames_xlsx import xlsx_exames_aluno
         resp = AlunoMeCalendarioExamesView().get(request)
         if resp.status_code != 200:
             return resp
         d = resp.data['data']
         aluno = _aluno_do_pedido(request)
         try:
+            if str(request.query_params.get('formato') or '').lower() == 'xlsx':
+                x = HttpResponse(xlsx_exames_aluno(aluno.escola, aluno.nome, d['ano'], d.get('classe', ''), d['itens']),
+                                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                x['Content-Disposition'] = f'attachment; filename="meus_exames_{d["ano"]}.xlsx"'
+                return x
             pdf = pdf_exames_aluno(aluno.escola, aluno.nome, d['ano'], d.get('classe', ''), d['itens'])
         except DocumentoSemLogoError as e:
             return Response({'detail': str(e), 'message': str(e)}, status=409)

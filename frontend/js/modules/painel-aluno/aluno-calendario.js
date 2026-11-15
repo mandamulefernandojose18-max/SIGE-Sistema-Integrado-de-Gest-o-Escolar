@@ -37,9 +37,9 @@ async function carregarAlunoExames(ano) {
   }
 }
 
-async function descarregarAlunoExamesPdf() {
+async function descarregarAlunoExamesPdf(formato) {
   const ano = (state.anosPorView && state.anosPorView['aluno-calendario']) || '';
-  await downloadFicheiroBinario(`/api/v1/alunos/me/calendario-exames/pdf/?ano=${encodeURIComponent(ano)}`, 'meus_exames.pdf');
+  await downloadFicheiroBinario(`/api/v1/alunos/me/calendario-exames/pdf/?ano=${encodeURIComponent(ano)}${formato ? '&formato=' + formato : ''}`, 'meus_exames.' + (formato || 'pdf'));
 }
 
 async function carregarAlunoCalendario(ano) {

@@ -174,3 +174,25 @@ class TestCalendarioJurisExames:
         r = ca.get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
         assert ca.get('/api/v1/notas/calendario-exames/pdf/?ano=2026').status_code == 403
+
+    def test_excel_calendario_juris_excluidos_e_aluno(self):
+        import io
+        from openpyxl import load_workbook
+        self._calendario(hora_inicio='10:30')
+        self.c.post('/api/v1/notas/juris-exame/formar/', {'epoca': 1, 'max_alunos': 4, 'num_salas': 3}, format='json')
+        for url in ('/api/v1/notas/calendario-exames/pdf/?ano=2026&formato=xlsx',
+                    '/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&formato=xlsx',
+                    '/api/v1/notas/juris-exame/excluidos/pdf/?ano=2026&classe=10ª Classe&formato=xlsx'):
+            r = self.c.get(url)
+            assert r.status_code == 200 and r.content[:2] == b'PK', url
+            assert 'xlsx' in r['Content-Disposition']
+        wb = load_workbook(io.BytesIO(self.c.get('/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&formato=xlsx').content))
+        textos = [str(c.value) for row in wb.active.iter_rows() for c in row if c.value is not None]
+        assert any(t.startswith('Júri 1') for t in textos) and 12.0 in [c.value for row in wb.active.iter_rows() for c in row]
+        assert all(not t.startswith('=') for t in textos)
+        Usuario.objects.create_user(email='a0x@ex.mz', password=SENHA, role='ALUNO', escola=self.escola,
+                                    aluno_id=self.alunos[0].id)
+        r = _login('a0x@ex.mz').get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026&formato=xlsx')
+        assert r.status_code == 200 and r.content[:2] == b'PK'
+        textos = ' '.join(str(c.value) for row in load_workbook(io.BytesIO(r.content)).active.iter_rows() for c in row if c.value)
+        assert 'Aluno01' not in textos  # nada de colegas

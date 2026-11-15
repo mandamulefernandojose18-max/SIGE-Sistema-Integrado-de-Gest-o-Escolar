@@ -144,10 +144,10 @@
     finally { btn.disabled = false; }
   };
 
-  window.calExPdfCalendario = async function (todas) {
+  window.calExPdfCalendario = async function (todas, formato) {
     var c = classe();
-    if (!todas && !c) { toast('Escolha a classe ou use "PDF de todas as classes".', 'warning'); return; }
-    await downloadFicheiroBinario('/api/v1/notas/calendario-exames/pdf/?' + q({ ano: ctx.ano, classe: todas ? '' : c }), 'calendario_exames.pdf');
+    if (!todas && !c) { toast('Escolha a classe ou use a opção de todas as classes.', 'warning'); return; }
+    await downloadFicheiroBinario('/api/v1/notas/calendario-exames/pdf/?' + q({ ano: ctx.ano, classe: todas ? '' : c, formato: formato }), 'calendario_exames.' + (formato || 'pdf'));
   };
 
   // ------------------------------------------------------------------ Júris
@@ -228,12 +228,12 @@
     finally { btn.disabled = false; }
   };
 
-  window.calExPdfJuris = async function (todos) {
+  window.calExPdfJuris = async function (todos, formato) {
     var c = classe();
     if (!c) { toast('Escolha a classe.', 'warning'); return; }
     var disc = todos ? '' : $('calExDisc').value;
-    if (!todos && !disc) { toast('Escolha a disciplina ou use "PDF de todos os júris".', 'warning'); return; }
-    await downloadFicheiroBinario('/api/v1/notas/juris-exame/pdf/?' + q({ ano: ctx.ano, epoca: $('calExEpoca').value, classe: c, disciplina: disc }), 'juris_exame.pdf');
+    if (!todos && !disc) { toast('Escolha a disciplina ou use a opção de todos os júris.', 'warning'); return; }
+    await downloadFicheiroBinario('/api/v1/notas/juris-exame/pdf/?' + q({ ano: ctx.ano, epoca: $('calExEpoca').value, classe: c, disciplina: disc, formato: formato }), 'juris_exame.' + (formato || 'pdf'));
   };
 
   // -------------------------------------------------------------- Excluídos
@@ -253,9 +253,9 @@
     } catch (e) { corpo.innerHTML = '<span class="text-danger">' + esc(e.message) + '</span>'; }
   };
 
-  window.calExPdfExcluidos = async function () {
+  window.calExPdfExcluidos = async function (formato) {
     var c = classe();
     if (!c) { toast('Escolha a classe.', 'warning'); return; }
-    await downloadFicheiroBinario('/api/v1/notas/juris-exame/excluidos/pdf/?' + q({ ano: ctx.ano, classe: c }), 'excluidos_exame.pdf');
+    await downloadFicheiroBinario('/api/v1/notas/juris-exame/excluidos/pdf/?' + q({ ano: ctx.ano, classe: c, formato: formato }), 'excluidos_exame.' + (formato || 'pdf'));
   };
 })();

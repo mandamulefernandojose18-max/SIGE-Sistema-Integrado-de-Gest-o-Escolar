@@ -206,8 +206,15 @@ class FormarJurisView(APIView):
         return Response({'success': True, 'data': res})
 
 
-def _pdf_resposta(conteudo, nome):
-    r = HttpResponse(conteudo, content_type='application/pdf')
+XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+
+def _quer_xlsx(request):
+    return str(request.query_params.get('formato') or '').lower() == 'xlsx'
+
+
+def _pdf_resposta(conteudo, nome, xlsx=False):
+    r = HttpResponse(conteudo, content_type=XLSX_MIME if xlsx else 'application/pdf')
     r['Content-Disposition'] = f'attachment; filename="{nome}"'
     return r
 
@@ -218,6 +225,7 @@ class JurisExamePdfView(APIView):
     def get(self, request):
         from apps.documentos.services.pdf_service import DocumentoSemLogoError
         from .exames_pdf import pdf_juris
+        from .exames_xlsx import xlsx_juris
         escola = _escola(request)
         ano = _ano(request, escola)
         try:
@@ -227,6 +235,8 @@ class JurisExamePdfView(APIView):
         juris = svc.listar_juris(escola, ano, epoca, request.query_params.get('classe') or None,
                                  request.query_params.get('disciplina') or None)
         try:
+            if _quer_xlsx(request):
+                return _pdf_resposta(xlsx_juris(escola, ano, epoca, juris), f'juris_exame_{epoca}a_epoca_{ano}.xlsx', True)
             pdf = pdf_juris(escola, ano, epoca, juris)
         except DocumentoSemLogoError as e:
             return Response({'detail': str(e), 'message': str(e)}, status=409)
@@ -259,13 +269,17 @@ class ExcluidosExamePdfView(APIView):
     def get(self, request):
         from apps.documentos.services.pdf_service import DocumentoSemLogoError
         from .exames_pdf import pdf_excluidos
+        from .exames_xlsx import xlsx_excluidos
         escola = _escola(request)
         classe = request.query_params.get('classe')
         if not classe:
             return _erro('Escolha a classe.')
         ano = _ano(request, escola)
         try:
-            pdf = pdf_excluidos(escola, ano, classe, _grupos_excluidos(escola, ano, classe))
+            grupos = _grupos_excluidos(escola, ano, classe)
+            if _quer_xlsx(request):
+                return _pdf_resposta(xlsx_excluidos(escola, ano, classe, grupos), f'excluidos_exame_{ano}.xlsx', True)
+            pdf = pdf_excluidos(escola, ano, classe, grupos)
         except DocumentoSemLogoError as e:
             return Response({'detail': str(e), 'message': str(e)}, status=409)
         return _pdf_resposta(pdf, f'excluidos_exame_{ano}.pdf')
@@ -277,6 +291,7 @@ class CalendarioExamesPdfView(APIView):
     def get(self, request):
         from apps.documentos.services.pdf_service import DocumentoSemLogoError
         from .exames_pdf import pdf_calendario
+        from .exames_xlsx import xlsx_calendario
         escola = _escola(request)
         ano = _ano(request, escola)
         qs = CalendarioExame.objects.filter(escola=escola, ano_letivo=ano)
@@ -284,6 +299,8 @@ class CalendarioExamesPdfView(APIView):
         classes = [classe] if classe else svc.classes_da_escola(escola, ano)
         grupos = [(c, list(qs.filter(classe=c).order_by('data', 'hora_inicio', 'disciplina', 'epoca'))) for c in classes]
         try:
+            if _quer_xlsx(request):
+                return _pdf_resposta(xlsx_calendario(escola, ano, grupos), f'calendario_exames_{ano}.xlsx', True)
             pdf = pdf_calendario(escola, ano, grupos)
         except DocumentoSemLogoError as e:
             return Response({'detail': str(e), 'message': str(e)}, status=409)
