@@ -3534,6 +3534,9 @@ async function resolverPdfServidorCentral(tipo) {
 }
 
 async function obterBlobPdfServidor(url) {
+  // Carimbo: pergunta sempre se o documento sai com ou sem carimbo (a ficha individual admite carimbo)
+  url = await resolverUrlComCarimbo(url);
+  if (url === null) throw new Error('Emissão cancelada: não foi indicado se o documento sai com ou sem carimbo.');
   const fullUrl = formatarUrlApi(url);
   const montarHeaders = () => {
     const h = {};

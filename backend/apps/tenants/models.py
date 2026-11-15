@@ -125,6 +125,29 @@ class Escola(models.Model):
             ('NENHUM', 'Sem Marca de Água')
         ]
     )
+    # Carimbo digital/electrónico da escola. Só é aplicado quando quem emite o documento responde
+    # «Sim» à pergunta feita em CADA emissão (nunca há resposta por omissão).
+    #   IMAGEM     (A) carimbo visual
+    #   SELO       (B) carimbo + código único + QR de verificação pública
+    #   ASSINATURA (C) selo + assinatura digital criptográfica (chave própria da escola)
+    carimbo_nivel = models.CharField(
+        max_length=20,
+        default='SELO',
+        choices=[
+            ('IMAGEM', 'A — Carimbo (imagem)'),
+            ('SELO', 'B — Carimbo com selo de autenticidade (código + QR)'),
+            ('ASSINATURA', 'C — Carimbo com assinatura digital'),
+        ]
+    )
+    carimbo_origem = models.CharField(
+        max_length=10,
+        default='GERADO',
+        choices=[
+            ('GERADO', 'Gerado pelo sistema'),
+            ('CARREGADO', 'Imagem carregada pela escola'),
+        ]
+    )
+    carimbo_imagem_base64 = models.TextField(blank=True, null=True)
     config_classes_exames = models.JSONField(default=dict, blank=True)
     config_parametros_exames = models.JSONField(
         default=dict,

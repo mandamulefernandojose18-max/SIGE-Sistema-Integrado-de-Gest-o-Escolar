@@ -1,11 +1,16 @@
+﻿import base64
+import io
+import os
 import uuid
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from .models import Certificado
+from common.permissions.rbac import IsDirectorEscola
+from .models import Certificado, DocumentoCarimbado
 from .serializers import CertificadoSerializer
+from .carimbo import NIVEIS, gerar_previa_base64, nome_abreviado, verificar_assinatura
 
 class CertificadoViewSet(viewsets.ModelViewSet):
     serializer_class = CertificadoSerializer
@@ -26,9 +31,15 @@ class CertificadoViewSet(viewsets.ModelViewSet):
         aluno = serializer.validated_data.get('aluno')
         escola = get_tenant_escola(self.request) or (getattr(aluno, 'escola', None) if aluno else None)
         if not escola:
-            raise drf_serializers.ValidationError({'escola': 'Nenhuma instituição identificada para emissão do certificado.'})
+            raise drf_serializers.ValidationError({'escola': 'Nenhuma instituiÃ§Ã£o identificada para emissÃ£o do certificado.'})
         if aluno and aluno.escola_id != escola.id:
             raise drf_serializers.ValidationError({'aluno': 'O aluno selecionado pertence a uma escola diferente da ativa.'})
+
+        if aluno:
+            from apps.documentos.views import classe_permite_certificado
+            classe = aluno.turma.grau_ano if aluno.turma else None
+            if not classe_permite_certificado(escola, classe):
+                raise drf_serializers.ValidationError({'aluno': 'O certificado só está disponível para classes com exame.'})
 
         codigo = f"CERT-{uuid.uuid4().hex[:10].upper()}"
         domain_base = os.environ.get('SIGE_PUBLIC_URL', 'https://sigesaas.duckdns.org').rstrip('/')
@@ -58,29 +69,56 @@ class CertificadoViewSet(viewsets.ModelViewSet):
 
 
 
-def _nome_abreviado(aluno):
-    """Primeiro nome por extenso e iniciais dos restantes (a página pública não expõe o nome completo)."""
-    partes = f"{aluno.nome} {getattr(aluno, 'apelido', '') or ''}".split()
-    if not partes:
-        return ''
-    return partes[0] + ''.join(f' {p[0].upper()}.' for p in partes[1:])
+_nome_abreviado = nome_abreviado  # primeiro nome por extenso e iniciais dos restantes
 
 
 def _matricula_mascarada(matricula):
     m = (matricula or '').strip()
-    return ('••••' + m[-3:]) if len(m) > 3 else '••••'
+    return ('â€¢â€¢â€¢â€¢' + m[-3:]) if len(m) > 3 else 'â€¢â€¢â€¢â€¢'
 
 
 class VerificarCertificadoView(APIView):
-    """Verificação pública (QR do certificado).
+    """VerificaÃ§Ã£o pÃºblica (QR do certificado).
 
-    Só aceita um código EXISTENTE em `Certificado` (correspondência exacta) e devolve dados mínimos:
-    escola, tipo, data, nome abreviado e matrícula mascarada. Nunca devolve BI/documento nem notas,
-    nunca "adivinha" o aluno a partir do código e nunca inventa valores em falta.
+    SÃ³ aceita um cÃ³digo EXISTENTE em `Certificado` (correspondÃªncia exacta) e devolve dados mÃ­nimos:
+    escola, tipo, data, nome abreviado e matrÃ­cula mascarada. Nunca devolve BI/documento nem notas,
+    nunca "adivinha" o aluno a partir do cÃ³digo e nunca inventa valores em falta.
     """
     permission_classes = [AllowAny]
     authentication_classes = []
     throttle_scope = 'verificacao'
+
+    @staticmethod
+    def _responder_selo(selo):
+        """Documento emitido com carimbo de nÃ­vel B/C: sÃ³ dados mÃ­nimos, nunca notas nem identificaÃ§Ã£o completa."""
+        escola = selo.escola
+        valida = verificar_assinatura(selo)
+        payload = {
+            'autentico': valida is not False,
+            'selo': True,
+            'codigo': selo.codigo,
+            'tipo': selo.tipo,
+            'descricao': selo.descricao,
+            'nivel': selo.nivel,
+            'emitido_em': selo.emitido_em,
+            'emitido_por': selo.emitido_por,
+            'assinatura_digital': {
+                'presente': valida is not None,
+                'valida': valida,
+                'impressao_digital_chave': (selo.impressao_digital_chave or '')[:16].upper(),
+            },
+            'escola': {
+                'nome': escola.nome,
+                'nif_cnpj': escola.nif_cnpj or '',
+                'provincia': escola.provincia or '',
+                'distrito': escola.distrito or '',
+            },
+        }
+        if valida is False:
+            return Response({'success': False, 'autentico': False, 'data': {
+                **payload, 'mensagem': 'A assinatura digital deste documento nÃ£o confere com o registo.'},
+                'message': 'Assinatura digital invÃ¡lida.'}, status=status.HTTP_409_CONFLICT)
+        return Response({'success': True, 'autentico': True, 'data': {**payload, 'certificado': payload}})
 
     def get(self, request, codigo):
         codigo_limpo = (codigo or '').strip()
@@ -89,15 +127,20 @@ class VerificarCertificadoView(APIView):
             cert = (Certificado.objects.filter(codigo_autenticidade__iexact=codigo_limpo)
                     .select_related('aluno', 'aluno__turma', 'escola').first())
 
+        if not cert and codigo_limpo:
+            selo = DocumentoCarimbado.objects.filter(codigo__iexact=codigo_limpo).select_related('escola').first()
+            if selo:
+                return self._responder_selo(selo)
+
         if not cert or not cert.aluno:
             return Response({
                 'success': False,
                 'autentico': False,
                 'data': {
                     'autentico': False,
-                    'mensagem': 'O código informado não corresponde a nenhum certificado emitido no sistema.'
+                    'mensagem': 'O cÃ³digo informado nÃ£o corresponde a nenhum certificado emitido no sistema.'
                 },
-                'message': 'Documento não encontrado ou código de autenticidade inválido.'
+                'message': 'Documento nÃ£o encontrado ou cÃ³digo de autenticidade invÃ¡lido.'
             }, status=status.HTTP_404_NOT_FOUND)
 
         aluno, escola = cert.aluno, cert.escola
@@ -126,3 +169,75 @@ class VerificarCertificadoView(APIView):
             },
         }
         return Response({'success': True, 'autentico': True, 'data': {**payload, 'certificado': payload}})
+
+
+class CarimboConfigView(APIView):
+    """ConfiguraÃ§Ã£o do carimbo da escola (sÃ³ administraÃ§Ã£o da escola)."""
+    permission_classes = [IsAuthenticated, IsDirectorEscola]
+    TAMANHO_MAX_IMAGEM = 1_500_000  # bytes
+
+    @staticmethod
+    def _escola(request):
+        from common.utils.tenant import get_tenant_escola
+        return get_tenant_escola(request)
+
+    @staticmethod
+    def _estado(escola):
+        return {
+            'nivel': escola.carimbo_nivel,
+            'origem': escola.carimbo_origem,
+            'tem_imagem': bool(escola.carimbo_imagem_base64),
+            'niveis': [{'codigo': c, 'rotulo': r} for c, r in escola._meta.get_field('carimbo_nivel').choices],
+        }
+
+    def get(self, request):
+        escola = self._escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
+        dados = self._estado(escola)
+        if request.query_params.get('previa'):
+            nivel = request.query_params.get('nivel') or escola.carimbo_nivel
+            if nivel not in NIVEIS:
+                return Response({'success': False, 'message': 'NÃ­vel de carimbo invÃ¡lido.'}, status=status.HTTP_400_BAD_REQUEST)
+            dados['previa'] = gerar_previa_base64(escola, nivel)
+        return Response({'success': True, 'data': dados})
+
+    def put(self, request):
+        escola = self._escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_404_NOT_FOUND)
+        d = request.data
+        nivel = d.get('nivel', escola.carimbo_nivel)
+        origem = d.get('origem', escola.carimbo_origem)
+        if nivel not in NIVEIS:
+            return Response({'success': False, 'message': 'NÃ­vel de carimbo invÃ¡lido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if origem not in ('GERADO', 'CARREGADO'):
+            return Response({'success': False, 'message': 'Origem do carimbo invÃ¡lida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        imagem = d.get('imagem_base64')
+        if d.get('remover_imagem'):
+            escola.carimbo_imagem_base64 = None
+        elif imagem:
+            if not isinstance(imagem, str) or not imagem.startswith('data:image/') or ',' not in imagem:
+                return Response({'success': False, 'message': 'Envie a imagem do carimbo em PNG ou JPEG.'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                bruto = base64.b64decode(imagem.split(',', 1)[1], validate=False)
+                from PIL import Image
+                im = Image.open(io.BytesIO(bruto))
+                formato = (im.format or '').upper()
+                im.verify()
+            except Exception:
+                return Response({'success': False, 'message': 'A imagem do carimbo nÃ£o Ã© vÃ¡lida.'}, status=status.HTTP_400_BAD_REQUEST)
+            if formato not in ('PNG', 'JPEG'):
+                return Response({'success': False, 'message': 'A imagem do carimbo tem de ser PNG ou JPEG.'}, status=status.HTTP_400_BAD_REQUEST)
+            if len(bruto) > self.TAMANHO_MAX_IMAGEM:
+                return Response({'success': False, 'message': 'A imagem do carimbo excede 1,5 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+            escola.carimbo_imagem_base64 = imagem
+        if origem == 'CARREGADO' and not escola.carimbo_imagem_base64:
+            return Response({'success': False, 'message': 'Carregue a imagem do carimbo antes de escolher Â«Imagem carregada pela escolaÂ».'}, status=status.HTTP_400_BAD_REQUEST)
+
+        escola.carimbo_nivel = nivel
+        escola.carimbo_origem = origem
+        escola.save(update_fields=['carimbo_nivel', 'carimbo_origem', 'carimbo_imagem_base64', 'updated_at'])
+        return Response({'success': True, 'data': self._estado(escola)})
+

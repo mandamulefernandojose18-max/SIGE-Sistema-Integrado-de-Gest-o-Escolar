@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from rest_framework.test import APIClient
 from django.utils import timezone
 from apps.accounts.models import Usuario
@@ -148,12 +148,12 @@ class TestRecibosPagamentoStatus:
         assert data['pagamento']['metodo_pagamento'] == 'MPESA'
 
     def test_recibo_pdf_endpoint(self):
-        resp_nao_pago = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento_nao_pago.id}/pdf')
+        resp_nao_pago = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento_nao_pago.id}/pdf?carimbo=nao')
         assert resp_nao_pago.status_code == 200
         assert resp_nao_pago['Content-Type'] == 'application/pdf'
         assert resp_nao_pago.content.startswith(b'%PDF')
 
-        resp_pago = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento_pago.id}/pdf')
+        resp_pago = self.client.get(f'/api/v1/impressao/recibo/{self.pagamento_pago.id}/pdf?carimbo=nao')
         assert resp_pago.status_code == 200
         assert resp_pago['Content-Type'] == 'application/pdf'
         assert resp_pago.content.startswith(b'%PDF')

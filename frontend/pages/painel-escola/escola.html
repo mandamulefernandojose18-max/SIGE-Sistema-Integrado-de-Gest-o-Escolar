@@ -865,6 +865,44 @@
                   <i class="bi bi-check-circle-fill me-1"></i> Salvar Definições, Tema & Fundo
                 </button>
               </form>
+
+              <!-- Carimbo digital/electrónico da escola (só director/administrador) -->
+              <div id="cardCarimbo" class="border rounded-3 p-3 mt-4" style="display:none;">
+                <h6 class="fw-bold mb-1"><i class="bi bi-patch-check-fill me-2 text-primary"></i>Carimbo digital da escola</h6>
+                <p class="small text-muted mb-3">Em cada emissão de boletim, declaração, certificado, ficha ou recibo, o sistema pergunta sempre se o documento sai <strong>com</strong> ou <strong>sem</strong> carimbo. Aqui define-se como é o carimbo quando a resposta é «com».</p>
+
+                <label class="form-label small fw-semibold mb-1" for="carimboNivel">Nível do carimbo</label>
+                <select id="carimboNivel" class="form-select form-select-sm mb-2" onchange="previaCarimbo()">
+                  <option value="IMAGEM">A — Carimbo (imagem), valor visual</option>
+                  <option value="SELO">B — Carimbo com selo de autenticidade (código + QR de verificação)</option>
+                  <option value="ASSINATURA">C — Carimbo com assinatura digital (selo + assinatura criptográfica)</option>
+                </select>
+                <p id="carimboNivelAjuda" class="small text-muted mb-3"></p>
+
+                <label class="form-label small fw-semibold mb-1" for="carimboOrigem">Aspecto do carimbo</label>
+                <select id="carimboOrigem" class="form-select form-select-sm mb-2" onchange="previaCarimbo()">
+                  <option value="GERADO">Gerado pelo sistema (nome, distrito, província e emblema)</option>
+                  <option value="CARREGADO">Imagem carregada pela escola (foto/digitalização do carimbo)</option>
+                </select>
+
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                  <input type="file" id="carimboFicheiro" accept="image/png,image/jpeg" class="form-control form-control-sm" style="max-width: 260px;" onchange="carregarImagemCarimbo(this)">
+                  <button type="button" id="btnRemoverImagemCarimbo" class="btn btn-outline-danger btn-sm" style="display:none;" onclick="removerImagemCarimbo()">
+                    <i class="bi bi-trash me-1"></i>Remover imagem
+                  </button>
+                  <span class="small text-muted">PNG ou JPEG, até 1,5 MB (de preferência PNG com fundo transparente).</span>
+                </div>
+
+                <div class="text-center bg-light rounded-3 p-3 mb-3">
+                  <img id="carimboPrevia" alt="Pré-visualização do carimbo" style="max-width: 100%; max-height: 210px; display:none;">
+                  <div id="carimboPreviaVazio" class="small text-muted">A carregar pré-visualização...</div>
+                  <div class="small text-muted mt-2">Pré-visualização do aspecto; o código do selo real é atribuído em cada emissão.</div>
+                </div>
+
+                <button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="guardarCarimbo()">
+                  <i class="bi bi-check-circle-fill me-1"></i> Guardar carimbo
+                </button>
+              </div>
             </div>
           </div>
           <div class="col-lg-7">

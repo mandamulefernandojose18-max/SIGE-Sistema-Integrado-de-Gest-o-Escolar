@@ -92,6 +92,7 @@ async function carregarEscolaETurmas() {
         `<option value="${p}" ${p === e.provincia ? 'selected' : ''}>${p}</option>`
       ).join('');
       atualizarDistritosEscola(e.provincia || 'Maputo Cidade', e.distrito);
+      carregarCarimbo();
     }
 
     // Carregar turmas no painel integrado e dedicado
@@ -462,3 +463,111 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
 });
 
 
+
+// ==================== CARIMBO DIGITAL DA ESCOLA ====================
+// Configuração (nível A/B/C, aspecto, imagem). A pergunta «com ou sem carimbo» é feita em cada emissão (app.js).
+const CARIMBO_AJUDA = {
+  IMAGEM: 'Nível A: o carimbo aparece no documento. Não tem código nem verificação.',
+  SELO: 'Nível B: carimbo + código único + QR. Quem ler o QR confirma em sigesaas.duckdns.org que o documento foi emitido pela escola.',
+  ASSINATURA: 'Nível C: como o B, mais uma assinatura digital com a chave própria da escola; a página de verificação deteta qualquer adulteração do registo. Não substitui um certificado digital de entidade certificadora acreditada.'
+};
+let carimboImagemPendente = null; // data URI escolhido e ainda não guardado
+let carimboTemImagemGuardada = false;
+
+function atualizarAjudaCarimbo() {
+  const nivel = document.getElementById('carimboNivel')?.value;
+  const el = document.getElementById('carimboNivelAjuda');
+  if (el) el.textContent = CARIMBO_AJUDA[nivel] || '';
+  const btn = document.getElementById('btnRemoverImagemCarimbo');
+  if (btn) btn.style.display = (carimboImagemPendente || carimboTemImagemGuardada) ? '' : 'none';
+}
+
+async function carregarCarimbo() {
+  const card = document.getElementById('cardCarimbo');
+  if (!card) return;
+  try {
+    const res = await apiFetch('/api/v1/certificados/carimbo/?previa=1');
+    if (!res || !res.success) { card.style.display = 'none'; return; }
+    const d = res.data;
+    card.style.display = '';
+    document.getElementById('carimboNivel').value = d.nivel;
+    document.getElementById('carimboOrigem').value = d.origem;
+    carimboTemImagemGuardada = !!d.tem_imagem;
+    carimboImagemPendente = null;
+    mostrarPreviaCarimbo(d.previa);
+    atualizarAjudaCarimbo();
+  } catch (_) {
+    card.style.display = 'none'; // sem permissão (só director/administrador) ou indisponível
+  }
+}
+
+function mostrarPreviaCarimbo(dataUri) {
+  const img = document.getElementById('carimboPrevia');
+  const vazio = document.getElementById('carimboPreviaVazio');
+  if (!img || !vazio) return;
+  if (dataUri) { img.src = dataUri; img.style.display = 'inline-block'; vazio.style.display = 'none'; }
+  else { img.style.display = 'none'; vazio.style.display = ''; vazio.textContent = 'Sem pré-visualização.'; }
+}
+
+// Pré-visualização com o que está seleccionado (a imagem nova só entra depois de guardada)
+window.previaCarimbo = async function() {
+  atualizarAjudaCarimbo();
+  const nivel = document.getElementById('carimboNivel')?.value;
+  const origem = document.getElementById('carimboOrigem')?.value;
+  if (carimboImagemPendente && origem === 'CARREGADO') { mostrarPreviaCarimbo(carimboImagemPendente); return; }
+  if (origem === 'CARREGADO' && !carimboTemImagemGuardada) {
+    mostrarPreviaCarimbo(null);
+    document.getElementById('carimboPreviaVazio').textContent = 'Carregue primeiro a imagem do carimbo.';
+    return;
+  }
+  try {
+    const res = await apiFetch(`/api/v1/certificados/carimbo/?previa=1&nivel=${encodeURIComponent(nivel)}`);
+    mostrarPreviaCarimbo(res?.data?.previa);
+  } catch (_) { mostrarPreviaCarimbo(null); }
+};
+
+window.carregarImagemCarimbo = function(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  if (!/^image\/(png|jpeg)$/.test(f.type)) { alert('A imagem do carimbo tem de ser PNG ou JPEG.'); input.value = ''; return; }
+  if (f.size > 1500000) { alert('A imagem do carimbo excede 1,5 MB.'); input.value = ''; return; }
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    carimboImagemPendente = leitor.result;
+    document.getElementById('carimboOrigem').value = 'CARREGADO';
+    mostrarPreviaCarimbo(carimboImagemPendente);
+    atualizarAjudaCarimbo();
+  };
+  leitor.readAsDataURL(f);
+};
+
+window.removerImagemCarimbo = async function() {
+  if (!confirm('Remover a imagem do carimbo? O sistema passa a usar o carimbo gerado.')) return;
+  try {
+    const res = await apiFetch('/api/v1/certificados/carimbo/', {
+      method: 'PUT', body: JSON.stringify({ remover_imagem: true, origem: 'GERADO' })
+    });
+    if (res.success) { document.getElementById('carimboFicheiro').value = ''; await carregarCarimbo(); }
+  } catch (err) { alert('Não foi possível remover a imagem do carimbo.'); }
+};
+
+window.guardarCarimbo = async function() {
+  const body = {
+    nivel: document.getElementById('carimboNivel').value,
+    origem: document.getElementById('carimboOrigem').value
+  };
+  if (carimboImagemPendente) body.imagem_base64 = carimboImagemPendente;
+  try {
+    const res = await apiFetch('/api/v1/certificados/carimbo/', { method: 'PUT', body: JSON.stringify(body) });
+    if (res.success) {
+      if (state.escolaAtual) { state.escolaAtual.carimbo_nivel = res.data.nivel; state.escolaAtual.carimbo_origem = res.data.origem; }
+      document.getElementById('carimboFicheiro').value = '';
+      await carregarCarimbo();
+      alert('Carimbo da escola guardado. Em cada emissão será perguntado se o documento sai com ou sem carimbo.');
+    } else {
+      alert(res.message || 'Não foi possível guardar o carimbo.');
+    }
+  } catch (err) {
+    alert((err && err.message) || 'Não foi possível guardar o carimbo.');
+  }
+};

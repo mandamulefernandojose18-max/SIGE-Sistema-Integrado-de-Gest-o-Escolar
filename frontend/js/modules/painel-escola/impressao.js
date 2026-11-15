@@ -14,27 +14,24 @@ async function prepararCentralImpressao() {
 
   try {
 
-    const resTurmas = await apiFetch('/api/v1/escola-admin/turmas');
+    const [resTurmas, resClasses] = await Promise.all([
+      apiFetch('/api/v1/escola-admin/turmas'),
+      apiFetch('/api/v1/impressao/classes').catch(() => ({ data: [] }))
+    ]);
 
-    const selectTurma = document.getElementById('printSelectTurma');
+    window.__impTurmas = resTurmas.data || [];
+    window.__impClasses = (resClasses && resClasses.data) || [];
 
-    if (selectTurma) {
-
-      selectTurma.innerHTML = '<option value="">Selecione uma turma...</option>' + 
-
-        (resTurmas.data || []).map(t => `<option value="${t.id}">${t.nome} (${t.grau_ano})</option>`).join('');
-
-      
-
-      if (resTurmas.data && resTurmas.data.length > 0) {
-
-        selectTurma.value = resTurmas.data[0].id;
-
-        await aoSelecionarTurmaImpressao();
-
-      }
-
+    // Filtro obrigatório: Classe (ou Geral) → Turma → Destinatário. Nada é pré-seleccionado.
+    const selClasse = document.getElementById('printSelectClasse');
+    if (selClasse) {
+      selClasse.innerHTML = '<option value="">-- Seleccione a classe ou Geral --</option>' +
+        '<option value="GERAL">Geral (todas as classes)</option>' +
+        window.__impClasses.map(c => `<option value="${escapeHtml(c.classe)}">${escapeHtml(c.classe)}${c.tem_exame ? ' (com exame)' : ''}</option>`).join('');
     }
+    atualizarOpcaoCertificadoImpressao();
+    popularTurmasImpressao();
+    await aoSelecionarTurmaImpressao();
 
   } catch (err) {}
 
@@ -3534,6 +3531,9 @@ async function resolverPdfServidorCentral(tipo) {
 }
 
 async function obterBlobPdfServidor(url) {
+  // Carimbo: pergunta sempre se o documento sai com ou sem carimbo (a ficha individual admite carimbo)
+  url = await resolverUrlComCarimbo(url);
+  if (url === null) throw new Error('Emissão cancelada: não foi indicado se o documento sai com ou sem carimbo.');
   const fullUrl = formatarUrlApi(url);
   const montarHeaders = () => {
     const h = {};
@@ -3634,6 +3634,58 @@ async function carregarAlocacoesCadernetaImpressao(turmaId) {
   }
 }
 
+// ---- Filtro Classe/Geral e regra do certificado (só classes com exame) ----
+function classeImpressaoTemExame(classe) {
+  const c = (window.__impClasses || []).find(x => x.classe === classe);
+  return !!(c && c.tem_exame);
+}
+
+function popularTurmasImpressao() {
+  const selTurma = document.getElementById('printSelectTurma');
+  if (!selTurma) return;
+  const classe = document.getElementById('printSelectClasse')?.value || '';
+  const tipo = document.getElementById('printTipoDoc')?.value;
+  if (!classe) {
+    selTurma.innerHTML = '<option value="">Seleccione primeiro a classe ou Geral...</option>';
+    return;
+  }
+  let turmas = window.__impTurmas || [];
+  if (classe !== 'GERAL') turmas = turmas.filter(t => (t.grau_ano || '').trim() === classe);
+  // Certificado: só turmas de classes com exame
+  if (tipo === 'CERTIFICADO') turmas = turmas.filter(t => classeImpressaoTemExame((t.grau_ano || '').trim()));
+  selTurma.innerHTML = '<option value="">Selecione uma turma...</option>' +
+    turmas.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nome)} (${escapeHtml(t.grau_ano || '')})</option>`).join('');
+  if (turmas.length === 1) selTurma.value = turmas[0].id;
+}
+
+function atualizarOpcaoCertificadoImpressao() {
+  const selTipo = document.getElementById('printTipoDoc');
+  const classe = document.getElementById('printSelectClasse')?.value || '';
+  const opt = selTipo && selTipo.querySelector('option[value="CERTIFICADO"]');
+  if (!opt) return;
+  // Classe concreta sem exame → certificado indisponível; os restantes documentos mantêm-se
+  const indisponivel = !!classe && classe !== 'GERAL' && !classeImpressaoTemExame(classe);
+  opt.disabled = indisponivel;
+  opt.hidden = indisponivel;
+  if (indisponivel && selTipo.value === 'CERTIFICADO') {
+    selTipo.value = 'BOLETIM';
+    alternarCamposImpressao('BOLETIM');
+  }
+}
+
+async function aoMudarClasseImpressao() {
+  limparPreviewImpressaoCentral();
+  atualizarOpcaoCertificadoImpressao();
+  popularTurmasImpressao();
+  await aoSelecionarTurmaImpressao();
+}
+
+function exigirClasseImpressao() {
+  if (document.getElementById('printSelectClasse')?.value) return true;
+  avisoCentralImpressao('Seleccione a classe ou "Geral" antes de visualizar, imprimir ou descarregar o documento.');
+  return false;
+}
+
 async function aoSelecionarTurmaImpressao() {
   const tipo = document.getElementById('printTipoDoc')?.value;
   if (tipo === 'CADERNETA') {
@@ -3645,6 +3697,7 @@ async function aoSelecionarTurmaImpressao() {
 
 function alternarCamposImpressao(tipo) {
   limparPreviewImpressaoCentral();
+  popularTurmasImpressao();
   if (tipo === 'CADERNETA') {
     const selOrientacao = document.getElementById('printOrientacaoSelect');
     if (selOrientacao && selOrientacao.value === 'auto') definirOrientacaoDocumentoCentral('landscape');
@@ -3656,6 +3709,7 @@ function alternarCamposImpressao(tipo) {
 }
 
 async function carregarVisualizacaoImpressao() {
+  if (!exigirClasseImpressao()) return;
   const tipo = document.getElementById('printTipoDoc')?.value;
   if (usaPdfServidorCentral(tipo)) {
     await visualizarPdfServidorCentral(tipo);
@@ -3670,6 +3724,7 @@ async function carregarVisualizacaoImpressao() {
 }
 
 function imprimirDocumentoCentral() {
+  if (!exigirClasseImpressao()) return;
   const tipo = document.getElementById('printTipoDoc')?.value || '';
   if (!usaPdfServidorCentral(tipo)) return imprimirDocumentoCentralBase();
   visualizarPdfServidorCentral(tipo).then(frame => {
@@ -3685,6 +3740,7 @@ function imprimirDocumentoCentral() {
 }
 
 async function descarregarPdfCentral() {
+  if (!exigirClasseImpressao()) return;
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
   if (!usaPdfServidorCentral(tipo)) return descarregarPdfCentralBase();
   const sel = await resolverPdfServidorCentral(tipo);
@@ -3692,6 +3748,7 @@ async function descarregarPdfCentral() {
 }
 
 async function descarregarXlsxCentral() {
+  if (!exigirClasseImpressao()) return;
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
   if (tipo === 'CADERNETA') {
     const sel = await resolverPdfServidorCentral(tipo);
@@ -3707,6 +3764,7 @@ async function descarregarXlsxCentral() {
 }
 
 async function descarregarZipCentral() {
+  if (!exigirClasseImpressao()) return;
   const tipo = document.getElementById('printTipoDoc')?.value || 'BOLETIM';
   if (tipo === 'CADERNETA' || tipo === 'ESTATISTICAS') {
     avisoCentralImpressao('O pacote ZIP não está disponível para este documento. Use PDF ou Excel.');

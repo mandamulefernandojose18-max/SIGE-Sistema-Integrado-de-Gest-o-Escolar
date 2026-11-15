@@ -15,6 +15,7 @@ from .views import (
     DeclaracaoPDFView,
     DeclaracaoDOCXView,
     DeclaracaoXLSXView,
+    ClassesImpressaoView,
     CertificadoImpressaoView,
     CertificadoPDFView,
     CertificadoDOCXView,
@@ -41,6 +42,9 @@ from .views_folha_resposta import (
 )
 
 urlpatterns = [
+    # Classes da escola (com marca de exame) para o filtro Classe/Geral da Central de Impressão
+    path('classes', ClassesImpressaoView.as_view(), name='impressao_classes_no_slash'),
+    path('classes/', ClassesImpressaoView.as_view(), name='impressao_classes'),
     # Folha de Resposta Personalizada (PDF/Excel: aluno, turma, classe ou em branco)
     path('folha-resposta/contexto', FolhaRespostaContextoView.as_view(), name='folha_resposta_contexto_no_slash'),
     path('folha-resposta/contexto/', FolhaRespostaContextoView.as_view(), name='folha_resposta_contexto'),

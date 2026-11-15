@@ -1565,6 +1565,73 @@ function validarLogoInstituicaoParaDownload(escola = null) {
 }
 window.validarLogoInstituicaoParaDownload = validarLogoInstituicaoParaDownload;
 
+// Carimbo digital: documentos oficiais individuais (boletim, declaração, certificado, ficha, recibo) em PDF/Word.
+// Regra: em CADA emissão pergunta-se se o documento sai com ou sem carimbo; nunca há resposta por omissão.
+const REGEX_DOCUMENTO_COM_CARIMBO = /\/api\/v1\/(?:impressao|documentos)\/(?:boletim|declaracao|certificado|ficha|recibo)\/[^/?#]+\/(?:pdf|docx)\/?(?:\?|$)/i;
+function documentoAdmiteCarimbo(url) {
+  return REGEX_DOCUMENTO_COM_CARIMBO.test(String(url || '')) && !/[?&]carimbo=/i.test(String(url || ''));
+}
+window.documentoAdmiteCarimbo = documentoAdmiteCarimbo;
+
+function perguntarCarimboDocumento() {
+  return new Promise((resolve) => {
+    const rotulos = {
+      IMAGEM: 'Nível A — carimbo (imagem)',
+      SELO: 'Nível B — carimbo com selo de autenticidade (código + QR)',
+      ASSINATURA: 'Nível C — carimbo com assinatura digital'
+    };
+    const nivel = (state.escolaAtual || state.tenant || {}).carimbo_nivel;
+    const wrap = document.createElement('div');
+    wrap.className = 'modal fade';
+    wrap.tabIndex = -1;
+    wrap.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-patch-check me-2"></i>Carimbo do documento</h5>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Este documento sai <strong>com carimbo</strong> da escola ou <strong>sem carimbo</strong>?</p>
+            ${nivel && rotulos[nivel] ? `<p class="small text-muted mb-0">Se escolher «Com carimbo» será aplicado: ${rotulos[nivel]}.</p>` : ''}
+          </div>
+          <div class="modal-footer d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-outline-secondary" data-carimbo="cancelar">Cancelar</button>
+            <button type="button" class="btn btn-outline-primary" data-carimbo="nao">Sem carimbo</button>
+            <button type="button" class="btn btn-primary" data-carimbo="sim"><i class="bi bi-patch-check me-1"></i>Com carimbo</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    const modal = new bootstrap.Modal(wrap, { backdrop: 'static', keyboard: false });
+    let escolha = null;
+    wrap.querySelectorAll('[data-carimbo]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const v = btn.getAttribute('data-carimbo');
+        escolha = (v === 'sim' || v === 'nao') ? v : null;
+        modal.hide();
+      });
+    });
+    wrap.addEventListener('hidden.bs.modal', () => {
+      wrap.remove();
+      resolve(escolha);
+    });
+    modal.show();
+  });
+}
+window.perguntarCarimboDocumento = perguntarCarimboDocumento;
+
+// Devolve o URL com `carimbo=sim|nao` acrescentado (pergunta ao utilizador), o mesmo URL se o documento não
+// admite carimbo, ou null se o utilizador cancelar.
+async function resolverUrlComCarimbo(url) {
+  if (!documentoAdmiteCarimbo(url)) return url;
+  // Cópias de consulta do próprio aluno/encarregado não são emissões da escola: saem sempre sem carimbo.
+  const papel = String(state.user?.role || '').toUpperCase();
+  const escolha = (papel === 'ALUNO' || papel === 'ENCARREGADO') ? 'nao' : await perguntarCarimboDocumento();
+  if (!escolha) return null;
+  return url + (String(url).includes('?') ? '&' : '?') + 'carimbo=' + escolha;
+}
+window.resolverUrlComCarimbo = resolverUrlComCarimbo;
+
 async function downloadFicheiroBinario(url, defaultFilename) {
   // Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para documentos
   const checagemLogo = validarLogoInstituicaoParaDownload();
@@ -1573,6 +1640,8 @@ async function downloadFicheiroBinario(url, defaultFilename) {
     if (typeof mostrarToast === 'function') mostrarToast(checagemLogo.mensagem, 'danger');
     return false;
   }
+  url = await resolverUrlComCarimbo(url);
+  if (url === null) return false; // Cancelar: não emite nada
   const fullUrl = formatarUrlApi(url);
   const montarHeaders = () => {
     const h = {};

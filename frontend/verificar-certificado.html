@@ -59,10 +59,23 @@
               <th class="bg-light">Emitido Por</th>
               <td id="dEmissor"></td>
             </tr>
+            <tr id="linhaDescricao" style="display: none;">
+              <th class="bg-light">Documento</th>
+              <td id="dDescricao"></td>
+            </tr>
+            <tr id="linhaSelo" style="display: none;">
+              <th class="bg-light">Carimbo</th>
+              <td id="dSelo"></td>
+            </tr>
+            <tr id="linhaAssinatura" style="display: none;">
+              <th class="bg-light">Assinatura digital</th>
+              <td id="dAssinatura"></td>
+            </tr>
           </tbody>
         </table>
       </div>
 
+      <div id="blocoAlunoVerificacao">
       <h6 class="text-uppercase text-muted fw-bold small mb-3">Dados do Aluno</h6>
       <div class="table-responsive">
         <table class="table table-bordered table-sm mb-4">
@@ -85,6 +98,7 @@
             </tr>
           </tbody>
         </table>
+      </div>
       </div>
 
       <div id="blocoDisciplinasVerificacao" style="display: none;" class="mb-4">
@@ -162,9 +176,31 @@
           'CONCLUSAO': 'Certificado de Habilitações / Conclusão de Estudos',
           'DECLARACAO': 'Declaração Oficial com Notas',
           'TRANSFERENCIA': 'Guia de Transferência Oficial',
-          'MATRICULA': 'Declaração de Matrícula e Frequência'
+          'MATRICULA': 'Declaração de Matrícula e Frequência',
+          'BOLETIM': 'Boletim de Notas',
+          'CERTIFICADO': 'Certificado de Habilitações',
+          'FICHA': 'Ficha do Aluno',
+          'RECIBO': 'Recibo de Pagamento'
         };
         document.getElementById('dTipo').textContent = mapaTipos[tipoRaw] || tipoRaw;
+
+        // Documento emitido com carimbo de nível B/C: mostra a descrição e o estado da assinatura digital
+        const blocoAluno = document.getElementById('blocoAlunoVerificacao');
+        if (d.selo) {
+          blocoAluno.style.display = 'none';
+          const rotuloNivel = { IMAGEM: 'A — carimbo', SELO: 'B — carimbo com selo de autenticidade', ASSINATURA: 'C — carimbo com assinatura digital' };
+          document.getElementById('linhaDescricao').style.display = '';
+          document.getElementById('dDescricao').textContent = d.descricao || '---';
+          document.getElementById('linhaSelo').style.display = '';
+          document.getElementById('dSelo').textContent = rotuloNivel[d.nivel] || d.nivel || '---';
+          const ass = d.assinatura_digital || {};
+          document.getElementById('linhaAssinatura').style.display = '';
+          document.getElementById('dAssinatura').textContent = ass.presente
+            ? `Válida (chave ${ass.impressao_digital_chave || '---'})`
+            : 'Este documento não tem assinatura digital (carimbo de nível B).';
+        } else {
+          blocoAluno.style.display = '';
+        }
 
         const dtVal = d.emitido_em || d.emitidoEm;
         document.getElementById('dData').textContent = dtVal ? new Date(dtVal).toLocaleDateString('pt-PT') : new Date().toLocaleDateString('pt-PT');

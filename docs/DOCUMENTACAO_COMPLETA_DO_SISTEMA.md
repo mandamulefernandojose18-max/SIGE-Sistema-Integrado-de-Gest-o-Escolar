@@ -729,6 +729,8 @@ Todos os botões de descarregamento de documentos (Excel `.xlsx`, PDF `.pdf` e I
 
 ### Módulo 15: Central de Impressão Individual e em Lote (`#view-impressao`)
 Centro unificado para emissão, pré-visualização em folha A4 e descarregamento de todos os documentos escolares:
+- **Filtro obrigatório Classe ou Geral:** antes de visualizar, imprimir ou descarregar (PDF, Excel, ZIP) é sempre necessário escolher uma **Classe** ou **Geral** (cascata Classe → Turma → Destinatário individual/lote). Nada vem pré-seleccionado. Lista de classes: `GET /api/v1/impressao/classes` (devolve `classe` e `tem_exame`).
+- **Certificado só em classes com exame:** para classes sem exame o tipo *Certificado* fica indisponível na Central (nos restantes documentos nada muda). O backend também recusa (HTTP 403) o certificado individual (JSON/PDF/DOCX/XLSX) e em lote dessas classes, e a emissão de registo em `/api/v1/certificados/`. Em *Geral*, o certificado só lista turmas de classes com exame.
 - **10 Tipologias Documentais na Central (Disponíveis em PDF, Word `.docx`, Excel `.xlsx` e ZIP):**
   1. **Boletim Individual de Aproveitamento (`BOLETIM`)**
   2. **Declaração de Matrícula / Frequência / Notas (`DECLARACAO`)**

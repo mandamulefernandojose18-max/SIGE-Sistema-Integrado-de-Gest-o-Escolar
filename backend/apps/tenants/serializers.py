@@ -172,7 +172,15 @@ class EscolaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Escola
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        # O carimbo só se altera em /certificados/carimbo/ (exclusivo do director/administrador).
+        read_only_fields = ['id', 'created_at', 'updated_at',
+                            'carimbo_nivel', 'carimbo_origem', 'carimbo_imagem_base64']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['tem_carimbo_imagem'] = bool(instance.carimbo_imagem_base64)
+        data.pop('carimbo_imagem_base64', None)  # imagem pesada: não viaja em todas as respostas da escola
+        return data
 
     def get_funcionalidades(self, obj):
         """Funcionalidades efectivas: sem pacote = acesso total."""

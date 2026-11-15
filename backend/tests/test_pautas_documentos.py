@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 import base64
 from rest_framework.test import APIClient
 from apps.accounts.models import Usuario
@@ -119,17 +119,17 @@ class TestPautasEDocumentos:
         assert res_lote.data['documentos'][0]['aluno']['matricula'] in ['2026999', self.aluno.matricula]
 
         # 5. Testar PDFs de Boletim, Declaração e Certificado
-        res_b_pdf = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/pdf/')
+        res_b_pdf = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/pdf/?carimbo=nao')
         assert res_b_pdf.status_code == 200
         assert res_b_pdf['Content-Type'] == 'application/pdf'
         assert len(res_b_pdf.content) > 500
 
-        res_d_pdf = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/pdf/')
+        res_d_pdf = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/pdf/?carimbo=nao')
         assert res_d_pdf.status_code == 200
         assert res_d_pdf['Content-Type'] == 'application/pdf'
         assert len(res_d_pdf.content) > 500
 
-        res_c_pdf = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/pdf/')
+        res_c_pdf = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/pdf/?carimbo=nao')
         assert res_c_pdf.status_code == 200
         assert res_c_pdf['Content-Type'] == 'application/pdf'
         assert len(res_c_pdf.content) > 500
@@ -450,7 +450,7 @@ class TestPautasEDocumentos:
 
     def test_ficha_biografica_cabe_numa_unica_pagina(self):
         import re
-        res = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/pdf')
+        res = self.client.get(f'/api/v1/impressao/ficha/{self.aluno.id}/pdf?carimbo=nao')
         assert res.status_code == 200
         paginas = len(re.findall(rb'/Type\s*/Page[^s]', res.content))
         assert paginas == 1, f'A ficha biográfica deve caber numa só página (tem {paginas})'

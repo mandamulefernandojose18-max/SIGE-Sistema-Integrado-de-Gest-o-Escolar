@@ -34,6 +34,27 @@ from .services.excel_service import (
 )
 
 from apps.pautas.services import obter_disciplinas_pauta_turma
+
+from apps.certificados.carimbo import decidir_carimbo, carimbar_documento, nome_abreviado as _nome_abrev_carimbo
+
+_ROTULOS_CARIMBO = {
+    'BOLETIM': 'Boletim de Notas', 'DECLARACAO': 'Declaração com Notas', 'CERTIFICADO': 'Certificado de Habilitações',
+    'FICHA': 'Ficha do Aluno', 'RECIBO': 'Recibo de Pagamento',
+}
+
+
+def _carimbar(request, com_carimbo, conteudo, formato, escola, tipo, aluno=None, pagamento=None):
+    """Aplica o carimbo da escola se (e só se) o utilizador respondeu «sim» à pergunta desta emissão."""
+    if not com_carimbo:
+        return conteudo
+    ano = _obter_ano_letivo_documento(aluno, escola, pagamento)
+    ref_id = f"pagamento:{pagamento.id}" if pagamento is not None else f"aluno:{aluno.id}"
+    desc = _ROTULOS_CARIMBO[tipo] + (f" — {_nome_abrev_carimbo(aluno)}" if aluno is not None else '')
+    return carimbar_documento(
+        True, conteudo, formato, escola, tipo, f"{ref_id}:{ano}", f"{desc} — {ano}",
+        getattr(request.user, 'nome', None) or 'Secretaria', 'centro' if tipo == 'DECLARACAO' else 'direita')
+
+
 import datetime
 
 
@@ -552,6 +573,7 @@ class BoletimPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
@@ -568,6 +590,7 @@ class BoletimPDFView(APIView):
 
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Boletim", aluno, ano_doc, "pdf")
+        pdf_bytes = _carimbar(request, com_carimbo, pdf_bytes, 'pdf', escola, 'BOLETIM', aluno=aluno)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         _definir_content_disposition(response, fname)
         return response
@@ -576,6 +599,7 @@ class BoletimDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         orientacao = request.query_params.get('orientacao', 'portrait')
@@ -590,6 +614,7 @@ class BoletimDOCXView(APIView):
 
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Boletim", aluno, ano_doc, "docx")
+        docx_bytes = _carimbar(request, com_carimbo, docx_bytes, 'docx', escola, 'BOLETIM', aluno=aluno)
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         _definir_content_disposition(response, fname)
         return response
@@ -639,6 +664,7 @@ class DeclaracaoPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
@@ -661,6 +687,7 @@ class DeclaracaoPDFView(APIView):
 
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Declaracao", aluno, ano_doc, "pdf")
+        pdf_bytes = _carimbar(request, com_carimbo, pdf_bytes, 'pdf', escola, 'DECLARACAO', aluno=aluno)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         _definir_content_disposition(response, fname)
         return response
@@ -669,6 +696,7 @@ class DeclaracaoDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
@@ -689,6 +717,7 @@ class DeclaracaoDOCXView(APIView):
 
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Declaracao", aluno, ano_doc, "docx")
+        docx_bytes = _carimbar(request, com_carimbo, docx_bytes, 'docx', escola, 'DECLARACAO', aluno=aluno)
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         _definir_content_disposition(response, fname)
         return response
@@ -721,11 +750,59 @@ class DeclaracaoXLSXView(APIView):
         _definir_content_disposition(response, fname)
         return response
 
+def classe_permite_certificado(escola, classe):
+    """Certificado de conclusão só existe para classes/níveis com exame."""
+    from apps.disciplinas.plano import mesma_classe
+    from apps.pautas.services import obter_classes_com_exame_escola
+    if not classe:
+        return False
+    return any(mesma_classe(c, classe) for c in obter_classes_com_exame_escola(escola))
+
+
+def _exigir_classe_com_exame(escola, classe):
+    from rest_framework.exceptions import PermissionDenied
+    if not classe_permite_certificado(escola, classe):
+        raise PermissionDenied(
+            f"O certificado não está disponível para a classe '{classe or 'sem classe'}': "
+            "só as classes com exame emitem certificado."
+        )
+
+
+def _exigir_certificado_aluno(aluno, escola):
+    _exigir_classe_com_exame(escola, aluno.turma.grau_ano if aluno.turma else None)
+
+
+class ClassesImpressaoView(APIView):
+    """Classes da escola (das turmas reais) com a marca de exame: base do filtro Classe/Geral da Central de Impressão."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from common.utils.tenant import get_tenant_escola
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': True, 'data': []})
+        vistas = {}
+        for g in Turma.objects.filter(escola=escola).exclude(grau_ano__isnull=True).exclude(grau_ano='').values_list('grau_ano', flat=True):
+            nome = str(g).strip()
+            vistas.setdefault(nome, None)
+
+        def ordem(c):
+            m = re.search(r'\d+', c)
+            return (int(m.group(0)) if m else 999, c)
+
+        data = [
+            {'classe': c, 'tem_exame': classe_permite_certificado(escola, c)}
+            for c in sorted(vistas, key=ordem)
+        ]
+        return Response({'success': True, 'data': data})
+
+
 class CertificadoImpressaoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        _exigir_certificado_aluno(aluno, escola)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, avaliacao = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -746,7 +823,9 @@ class CertificadoPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        _exigir_certificado_aluno(aluno, escola)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -771,6 +850,7 @@ class CertificadoPDFView(APIView):
 
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Certificado", aluno, ano_doc, "pdf")
+        pdf_bytes = _carimbar(request, com_carimbo, pdf_bytes, 'pdf', escola, 'CERTIFICADO', aluno=aluno)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         _definir_content_disposition(response, fname)
         return response
@@ -779,7 +859,9 @@ class CertificadoDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        _exigir_certificado_aluno(aluno, escola)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -802,6 +884,7 @@ class CertificadoDOCXView(APIView):
 
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Certificado", aluno, ano_doc, "docx")
+        docx_bytes = _carimbar(request, com_carimbo, docx_bytes, 'docx', escola, 'CERTIFICADO', aluno=aluno)
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         _definir_content_disposition(response, fname)
         return response
@@ -811,6 +894,7 @@ class CertificadoXLSXView(APIView):
 
     def get(self, request, aluno_id):
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
+        _exigir_certificado_aluno(aluno, escola)
         dados_disc = obter_dados_boletim_aluno(aluno, escola)
         media_global, _ = calcular_desempenho_documento(
             dados_disc, aluno.turma.grau_ano if aluno.turma else None, tipo='CERTIFICADO'
@@ -838,6 +922,8 @@ class CertificadoXLSXView(APIView):
         return response
 
 def _compilar_documentos_lote(request, turma, escola, tipo):
+    if tipo == 'CERTIFICADO':
+        _exigir_classe_com_exame(escola, turma.grau_ano)
     alunos = list(Aluno.objects.filter(turma=turma, status='ATIVO').select_related('turma').order_by('nome'))
     disciplinas_turma = obter_disciplinas_pauta_turma(turma)
     todas_notas = list(Nota.objects.filter(aluno__in=alunos).select_related('disciplina'))
@@ -1199,6 +1285,7 @@ class ReciboPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
+        com_carimbo = decidir_carimbo(request)
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -1206,6 +1293,7 @@ class ReciboPDFView(APIView):
         aluno = getattr(pagamento, 'aluno', None)
         ano_doc = _obter_ano_letivo_documento(aluno, escola, pagamento)
         fname = _gerar_nome_documento_aluno("Recibo", aluno, ano_doc, "pdf")
+        pdf_bytes = _carimbar(request, com_carimbo, pdf_bytes, 'pdf', escola, 'RECIBO', aluno=getattr(pagamento, "aluno", None), pagamento=pagamento)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         _definir_content_disposition(response, fname)
         return response
@@ -1214,6 +1302,7 @@ class ReciboDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pagamento_id):
+        com_carimbo = decidir_carimbo(request)
         pagamento, escola = _obter_pagamento_e_escola(request, pagamento_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
@@ -1221,6 +1310,7 @@ class ReciboDOCXView(APIView):
         aluno = getattr(pagamento, 'aluno', None)
         ano_doc = _obter_ano_letivo_documento(aluno, escola, pagamento)
         fname = _gerar_nome_documento_aluno("Recibo", aluno, ano_doc, "docx")
+        docx_bytes = _carimbar(request, com_carimbo, docx_bytes, 'docx', escola, 'RECIBO', aluno=getattr(pagamento, "aluno", None), pagamento=pagamento)
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         _definir_content_disposition(response, fname)
         return response
@@ -1283,12 +1373,14 @@ class FichaPDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         pdf_bytes = gerar_ficha_pdf(aluno, escola, orientacao=orientacao)
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Ficha", aluno, ano_doc, "pdf")
+        pdf_bytes = _carimbar(request, com_carimbo, pdf_bytes, 'pdf', escola, 'FICHA', aluno=aluno)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         _definir_content_disposition(response, fname)
         return response
@@ -1297,12 +1389,14 @@ class FichaDOCXView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, aluno_id):
+        com_carimbo = decidir_carimbo(request)
         aluno, escola = _obter_aluno_e_escola(request, aluno_id)
         orientacao = request.query_params.get('orientacao', 'portrait')
 
         docx_bytes = gerar_ficha_docx(aluno, escola, orientacao=orientacao)
         ano_doc = _obter_ano_letivo_documento(aluno, escola)
         fname = _gerar_nome_documento_aluno("Ficha", aluno, ano_doc, "docx")
+        docx_bytes = _carimbar(request, com_carimbo, docx_bytes, 'docx', escola, 'FICHA', aluno=aluno)
         response = HttpResponse(docx_bytes, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         _definir_content_disposition(response, fname)
         return response
