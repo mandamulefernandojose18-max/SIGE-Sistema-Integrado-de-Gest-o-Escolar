@@ -1,4 +1,4 @@
-﻿"""Carimbo digital/electrónico da escola (SIGE).
+"""Carimbo digital/electrónico da escola (SIGE).
 
 Três níveis, escolhidos pela escola em Configurações:
   A  IMAGEM      carimbo visual (imagem carregada pela escola ou carimbo gerado pelo sistema)
@@ -246,8 +246,16 @@ def _desenhar_circulo(c, x, y, escola):
     c.restoreState()
 
 
-def desenhar_carimbo(c, x, y, escola, nivel, doc=None, previa=False):
-    """Desenha o bloco do carimbo no canvas ReportLab com canto inferior esquerdo em (x, y)."""
+def desenhar_carimbo(c, x, y, escola, nivel, doc=None, previa=False, escala=1.0):
+    """Desenha o bloco do carimbo (tamanho nominal x `escala`) com canto inferior esquerdo em (x, y)."""
+    c.saveState()
+    c.translate(x, y)
+    c.scale(escala, escala)
+    _desenhar_bloco(c, 0, 0, escola, nivel, doc, previa)
+    c.restoreState()
+
+
+def _desenhar_bloco(c, x, y, escola, nivel, doc=None, previa=False):
     from reportlab.lib import colors
     from reportlab.lib.utils import ImageReader
     d = DIAMETRO_CM * CM
@@ -315,23 +323,128 @@ def gerar_previa_base64(escola, nivel):
 # ----------------------------------------------------------------------------------------------
 # Aplicação nos documentos já gerados
 # ----------------------------------------------------------------------------------------------
+ESCALAS_CARIMBO = (0.85, 0.7, 0.6)   # tamanho em relação ao nominal; reduz-se se não houver espaço livre
+MARGEM_CARIMBO = 1.2 * CM            # o carimbo fica dentro da moldura da página
+PALAVRAS_ASSINATURA = ('Director', 'Directora', 'Carimbo', 'Chefe')
+
+
+def _posicao_livre(pdf_bytes, indice, bw, bh, w, h):
+    """Procura na página o sítio livre (sem texto nem imagens pequenas por baixo) mais próximo da assinatura do
+    director. Devolve (x, y, escala) em coordenadas PDF (origem em baixo) ou None se não conseguir analisar.
+    Usa uma grelha de ocupação + imagem integral (numpy) para avaliar todas as posições de uma só vez."""
+    try:
+        import numpy as np
+        try:
+            import pymupdf as fitz
+        except ImportError:
+            import fitz
+        pagina = fitz.open(stream=pdf_bytes, filetype='pdf')[indice]
+        g = 2.0  # pontos por célula da grelha
+        nx, ny = int(math.ceil(w / g)) + 1, int(math.ceil(h / g)) + 1
+        ocupado = np.zeros((ny, nx), dtype=np.int32)
+
+        def marcar(x0, y0, x1, y1):
+            ocupado[max(int(y0 // g), 0):min(int(math.ceil(y1 / g)), ny), max(int(x0 // g), 0):min(int(math.ceil(x1 / g)), nx)] = 1
+
+        palavras = pagina.get_text('words')
+        for p in palavras:
+            if set(p[4]) <= set('_.-'):  # linhas de assinatura/preenchimento: o carimbo pode sobrepô-las
+                continue
+            marcar(p[0] - 2, p[1] - 2, p[2] + 2, p[3] + 2)
+        area_pagina = pagina.rect.get_area()
+        for info in pagina.get_image_info():
+            r = fitz.Rect(info['bbox'])
+            if 0 < r.get_area() < 0.25 * area_pagina:  # as marcas de água grandes não contam
+                marcar(r.x0, r.y0, r.x1, r.y1)
+        for desenho in pagina.get_drawings():  # linhas e quadros (grelhas de tabelas); a moldura da página não conta
+            r = desenho['rect']
+            if r.get_area() > 0.25 * area_pagina or (r.width > 0.9 * w and r.height > 0.9 * h):
+                continue
+            marcar(r.x0 - 1, r.y0 - 1, r.x1 + 1, r.y1 + 1)
+        integral = np.zeros((ny + 1, nx + 1), dtype=np.int64)
+        integral[1:, 1:] = ocupado.cumsum(axis=0).cumsum(axis=1)
+
+        # Âncora: a palavra de assinatura mais abaixo na página; por omissão, o canto inferior direito
+        ancora = (w - MARGEM_CARIMBO - bw / 2, h - MARGEM_CARIMBO - bh / 2)
+        achadas = [p for p in palavras if p[4].strip('.,:/') in PALAVRAS_ASSINATURA]
+        if achadas:
+            a = max(achadas, key=lambda p: p[3])
+            ancora = ((a[0] + a[2]) / 2, a[1] - bh / 2)
+
+        melhor = None
+        for escala in ESCALAS_CARIMBO:
+            cw, ch = int(math.ceil(bw * escala / g)), int(math.ceil(bh * escala / g))
+            x_min, x_max = int(MARGEM_CARIMBO // g), int((w - MARGEM_CARIMBO) // g) - cw
+            y_min, y_max = int(h * 0.4 // g), int((h - MARGEM_CARIMBO) // g) - ch
+            if x_max < x_min or y_max < y_min:
+                continue
+            xs = np.arange(x_min, x_max + 1)
+            ys = np.arange(y_min, y_max + 1)
+            soma = (integral[np.ix_(ys + ch, xs + cw)] - integral[np.ix_(ys, xs + cw)]
+                    - integral[np.ix_(ys + ch, xs)] + integral[np.ix_(ys, xs)])
+            cx = (xs + cw / 2.0) * g
+            cy = (ys + ch / 2.0)[:, None] * g
+            dist = np.hypot(cx[None, :] - ancora[0], cy - ancora[1])
+            pontuacao = soma * 1000.0 + dist
+            iy, ix = np.unravel_index(int(np.argmin(pontuacao)), pontuacao.shape)
+            candidato = (int(soma[iy, ix]), float(xs[ix] * g), float(ys[iy] * g), escala)
+            if melhor is None or candidato[0] < melhor[0]:
+                melhor = candidato
+            if candidato[0] == 0:
+                melhor = candidato
+                break
+        if melhor is None:
+            return None
+        _, x, y_topo, escala = melhor
+        return x, h - y_topo - bh * escala, escala
+    except Exception:
+        return None
+
+
+def _pagina_da_assinatura(pdf_bytes):
+    """Índice da última página que tem a assinatura do director (uma página final com só o nome não conta);
+    None se não for possível determinar (usa-se então a última página)."""
+    try:
+        try:
+            import pymupdf as fitz
+        except ImportError:
+            import fitz
+        encontrada = None
+        for i, pagina in enumerate(fitz.open(stream=pdf_bytes, filetype='pdf')):
+            if any(p[4].strip('.,:/') in PALAVRAS_ASSINATURA for p in pagina.get_text('words')):
+                encontrada = i
+        return encontrada
+    except Exception:
+        return None
+
+
 def aplicar_carimbo_pdf(pdf_bytes, escola, nivel, doc=None, posicao='direita'):
+    """Sobrepõe o carimbo na última página, no sítio livre mais próximo da assinatura do director
+    (se a análise falhar, usa o canto inferior direito, ou o centro na declaração)."""
     from pypdf import PdfReader, PdfWriter
     from reportlab.pdfgen import canvas
     leitor = PdfReader(io.BytesIO(pdf_bytes))
     escritor = PdfWriter()
-    ultimo = len(leitor.pages) - 1
+    alvo = _pagina_da_assinatura(pdf_bytes)
+    ultimo = alvo if alvo is not None else len(leitor.pages) - 1
+    bw, bh = dimensoes_carimbo_pt(nivel if doc is not None else 'IMAGEM')
     for i, pagina in enumerate(leitor.pages):
-        if i == ultimo:
-            w, h = float(pagina.mediabox.width), float(pagina.mediabox.height)
-            bw, _ = dimensoes_carimbo_pt(nivel if doc is not None else 'IMAGEM')
-            x = (w - bw) / 2 if posicao == 'centro' else w - 1.5 * CM - bw - 0.6 * CM
-            buf = io.BytesIO()
-            c = canvas.Canvas(buf, pagesize=(w, h))
-            desenhar_carimbo(c, x, 1.3 * CM, escola, nivel, doc)
-            c.save()
-            pagina.merge_page(PdfReader(io.BytesIO(buf.getvalue())).pages[0])
-        escritor.add_page(pagina)
+        nova = escritor.add_page(pagina)
+        if i != ultimo:
+            continue
+        w, h = float(nova.mediabox.width), float(nova.mediabox.height)
+        livre = _posicao_livre(pdf_bytes, i, bw, bh, w, h)
+        if livre:
+            x, y, escala = livre
+        else:
+            escala = 0.85
+            x = (w - bw * escala) / 2 if posicao == 'centro' else w - MARGEM_CARIMBO - bw * escala
+            y = 1.3 * CM
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf, pagesize=(w, h))
+        desenhar_carimbo(c, x, y, escola, nivel, doc, escala=escala)
+        c.save()
+        nova.merge_page(PdfReader(io.BytesIO(buf.getvalue())).pages[0])
     saida = io.BytesIO()
     escritor.write(saida)
     return saida.getvalue()

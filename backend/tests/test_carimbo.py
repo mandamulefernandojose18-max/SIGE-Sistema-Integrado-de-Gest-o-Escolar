@@ -1,4 +1,4 @@
-"""Carimbo digital da escola: pergunta obrigatória em cada emissão, níveis A/B/C e verificação pública."""
+﻿"""Carimbo digital da escola: pergunta obrigatória em cada emissão, níveis A/B/C e verificação pública."""
 import base64
 import io
 
@@ -199,3 +199,22 @@ def test_aluno_e_encarregado_nunca_obtem_carimbo_nem_sao_perguntados():
         for valor in ('sim', 'nao', ''):
             req = NS(user=NS(role=papel), query_params={'carimbo': valor} if valor else {})
             assert decidir_carimbo(req) is False
+
+
+@pytest.mark.django_db
+class TestCarimboPdfIntegro:
+    setup_method = TestCarimbo.setup_method
+    _url = TestCarimbo._url
+    _nivel = TestCarimbo._nivel
+
+    @pytest.mark.parametrize('doc', ['boletim', 'declaracao', 'certificado'])
+    def test_carimbo_nao_remove_texto_nem_muda_paginas(self, doc):
+        import pymupdf
+        self._nivel('ASSINATURA')
+        sem = pymupdf.open(stream=self.dir.get(self._url(doc, extra='?carimbo=nao')).content, filetype='pdf')
+        com = pymupdf.open(stream=self.dir.get(self._url(doc, extra='?carimbo=sim')).content, filetype='pdf')
+        assert len(sem) == len(com)
+        palavras_sem = {p[4] for pg in sem for p in pg.get_text('words')}
+        palavras_com = {p[4] for pg in com for p in pg.get_text('words')}
+        assert palavras_sem <= palavras_com
+        assert any(p.startswith('SEL-') for p in palavras_com)
