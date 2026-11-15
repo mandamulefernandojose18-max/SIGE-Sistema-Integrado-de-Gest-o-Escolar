@@ -36,102 +36,10 @@ def _texto_nor(texto):
     return r
 
 
-_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-_XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
-# estruturas e caracteres em que o LibreOffice costuma falhar ao importar equações do Word
-_ARRISCADAS = {"d", "eqArr", "m", "groupChr", "borderBox", "box", "phant", "limLow", "limUpp", "nary", "acc", "bar", "sPre", "rad"}
-_CARS_ARRISCADOS = set("[]{}|‖⟨⟩⌊⌋⌈⌉")
-
-
-def _loc(el):
-    return el.tag.rsplit("}", 1)[-1] if isinstance(el.tag, str) else ""
-
-
-def _val(el, nome, padrao=""):
-    if el is None:
-        return padrao
-    return el.get(f"{{{_M}}}val", padrao)
-
-
-def _linear(el):
-    """Texto linear (Unicode) de um elemento de equação do Word: «(a)/(b)», «x^(2)», «√(x)», «∑_(i=1)^(n) …»."""
-    def filhos(nome):
-        e = el.find(f"{{{_M}}}{nome}")
-        return _linear(e) if e is not None else ""
-
-    t = _loc(el)
-    if t == "t":
-        return el.text or ""
-    if t == "f":
-        return f"({filhos('num')})/({filhos('den')})"
-    if t == "rad":
-        g = filhos("deg")
-        return (f"({g})" if g else "") + f"√({filhos('e')})"
-    if t in ("sSup", "sSub", "sSubSup", "sPre"):
-        base, sub, sup = filhos("e"), filhos("sub"), filhos("sup")
-        pre = f"_({sub})^({sup})" if t == "sPre" else ""
-        return pre + base + (f"_({sub})" if sub and t != "sPre" else "") + (f"^({sup})" if sup and t != "sPre" else "")
-    if t == "nary":
-        pr = el.find(f"{{{_M}}}naryPr")
-        chr_ = _val(pr.find(f"{{{_M}}}chr") if pr is not None else None, "val", "") or "∫"
-        sub, sup = filhos("sub"), filhos("sup")
-        return chr_ + (f"_({sub})" if sub else "") + (f"^({sup})" if sup else "") + " " + filhos("e")
-    if t == "d":
-        pr = el.find(f"{{{_M}}}dPr")
-        beg = pr.find(f"{{{_M}}}begChr") if pr is not None else None
-        end = pr.find(f"{{{_M}}}endChr") if pr is not None else None
-        sepe = pr.find(f"{{{_M}}}sepChr") if pr is not None else None
-        b = "(" if beg is None else _val(beg, "val", "")
-        e = ")" if end is None else _val(end, "val", "")
-        sep = "|" if sepe is None else (_val(sepe, "val", "") or "|")
-        return b + sep.join(_linear(x) for x in el.findall(f"{{{_M}}}e")) + e
-    if t == "func":
-        return filhos("fName") + " " + filhos("e")
-    if t == "eqArr":
-        return "; ".join(_linear(x) for x in el.findall(f"{{{_M}}}e"))
-    if t == "m":
-        return "; ".join(", ".join(_linear(c) for c in r.findall(f"{{{_M}}}e")) for r in el.findall(f"{{{_M}}}mr"))
-    if t == "limLow":
-        return filhos("e") + f"_({filhos('lim')})"
-    if t == "limUpp":
-        return filhos("e") + f"^({filhos('lim')})"
-    if t == "bar":
-        return filhos("e") + "̅"
-    return "".join(_linear(c) for c in el if _loc(c) and not _loc(c).endswith("Pr"))
-
-
-def _linearizar(raiz, tudo):
-    """Troca as equações (todas, ou só as de risco) por texto linear normal do Word: nunca mais «¿» nem «\\{»."""
-    from lxml import etree
-    mudou = False
-    for eq in list(raiz.iter(f"{{{_M}}}oMathPara", f"{{{_M}}}oMath")):
-        pai = eq.getparent()
-        if pai is None or _loc(pai) == "oMathPara":
-            continue
-        if not tudo:
-            textos = "".join(x.text or "" for x in eq.iter(f"{{{_M}}}t"))
-            tags = {_loc(x) for x in eq.iter() if isinstance(x.tag, str)}
-            if not (tags & _ARRISCADAS or set(textos) & _CARS_ARRISCADOS):
-                continue
-        texto = _linear(eq).replace("​", "")
-        r = etree.Element(f"{{{_W}}}r")
-        t = etree.SubElement(r, f"{{{_W}}}t")
-        t.text = texto
-        t.set(_XML_SPACE, "preserve")
-        pos = pai.index(eq)
-        cauda = eq.tail
-        pai.remove(eq)
-        r.tail = cauda
-        pai.insert(pos, r)
-        mudou = True
-    return mudou
-
-
-def sanear_docx(dados, nivel=1):
+def sanear_docx(dados):
     """Prepara o DOCX para o LibreOffice: parênteses rectos soltos das equações (intervalos como ]-13; +∞[) viram texto
     normal e delimitadores desencontrados são desfeitos; sem isto o LibreOffice desenha «¿» no lugar deles.
-    nivel 2: as equações de risco (delimitadores, sistemas, matrizes, somatórios…) passam a texto linear;
-    nivel 3: todas as equações passam a texto linear. Se nada houver a corrigir devolve o ficheiro tal como veio."""
+    Se nada houver a corrigir devolve o ficheiro tal como veio."""
     from lxml import etree
     try:
         with zipfile.ZipFile(io.BytesIO(dados)) as z:
@@ -140,7 +48,7 @@ def sanear_docx(dados, nivel=1):
             novos = {}
             for nome in nomes:
                 raiz = etree.fromstring(z.read(nome))
-                mudou = _linearizar(raiz, nivel >= 3) if nivel >= 2 else False
+                mudou = False
                 for d in list(raiz.iter(f"{{{_M}}}d")):  # delimitadores com par desencontrado: ]a;b[  [a;b[
                     pr = d.find(f"{{{_M}}}dPr")
                     beg = pr.find(f"{{{_M}}}begChr") if pr is not None else None
@@ -240,12 +148,10 @@ def docx_para_pdf(dados):
     defeito = False
     with tempfile.TemporaryDirectory() as pasta:
         entrada, saida = Path(pasta) / "prova.docx", Path(pasta) / "prova.pdf"
-        # o Word converte o original; os outros motores recebem o DOCX saneado (sem «¿» nas equações); se ainda assim
-        # sair símbolo trocado, tenta com as equações de risco e depois todas em texto linear (nunca sai adulterado);
-        # o último recurso converte o original sem qualquer retoque
-        for metodo, nivel in (("word", 0), ("docx2pdf", 1), ("libreoffice", 1), ("libreoffice", 2),
-                              ("libreoffice", 3), ("libreoffice_original", 0)):
-            entrada.write_bytes(dados if nivel == 0 else sanear_docx(dados, nivel))
+        for metodo in ("word", "docx2pdf", "libreoffice", "libreoffice_original"):
+            # o Word converte o original; os outros motores recebem o DOCX saneado (sem «¿» nas equações);
+            # o último recurso converte o original sem qualquer retoque
+            entrada.write_bytes(dados if metodo in ("word", "libreoffice_original") else sanear_docx(dados))
             saida.unlink(missing_ok=True)
             try:
                 if metodo == "word":
