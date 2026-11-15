@@ -264,3 +264,24 @@ class AlunoMeCalendarioExamesView(APIView):
                     })
             itens.append(item)
         return Response({'success': True, 'data': {'ano': ano, 'classe': turma.grau_ano, 'turma': turma.nome, 'itens': itens}})
+
+
+class AlunoMeCalendarioExamesPdfView(APIView):
+    """PDF dos exames do próprio aluno (mesmos dados privados da vista JSON)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.documentos.services.pdf_service import DocumentoSemLogoError
+        from apps.notas.exames_pdf import pdf_exames_aluno
+        resp = AlunoMeCalendarioExamesView().get(request)
+        if resp.status_code != 200:
+            return resp
+        d = resp.data['data']
+        aluno = _aluno_do_pedido(request)
+        try:
+            pdf = pdf_exames_aluno(aluno.escola, aluno.nome, d['ano'], d.get('classe', ''), d['itens'])
+        except DocumentoSemLogoError as e:
+            return Response({'detail': str(e), 'message': str(e)}, status=409)
+        r = HttpResponse(pdf, content_type='application/pdf')
+        r['Content-Disposition'] = f'attachment; filename="meus_exames_{d["ano"]}.pdf"'
+        return r

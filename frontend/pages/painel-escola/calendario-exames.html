@@ -44,9 +44,17 @@
         <div class="card-body">
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <h6 class="fw-bold mb-0"><i class="bi bi-calendar-week text-warning me-2"></i>Datas e horários por disciplina</h6>
-            <button type="button" class="btn btn-primary btn-sm fw-bold" id="calExBtnGuardar" onclick="calExGuardar()">
-              <i class="bi bi-floppy-fill me-1"></i> Guardar calendário
-            </button>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-danger btn-sm fw-bold" onclick="calExPdfCalendario(false)">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF da classe
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm fw-bold" onclick="calExPdfCalendario(true)">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF de todas as classes
+              </button>
+              <button type="button" class="btn btn-primary btn-sm fw-bold" id="calExBtnGuardar" onclick="calExGuardar()">
+                <i class="bi bi-floppy-fill me-1"></i> Guardar calendário
+              </button>
+            </div>
           </div>
           <div class="small text-muted mb-2">Período obrigatório (Manhã, Tarde ou Noturno). A hora final calcula-se sozinha (hora inicial + duração). Deixe a data vazia para remover a chamada.</div>
           <div class="table-responsive">

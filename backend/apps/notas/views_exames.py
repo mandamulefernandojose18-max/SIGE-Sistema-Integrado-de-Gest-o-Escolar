@@ -269,3 +269,22 @@ class ExcluidosExamePdfView(APIView):
         except DocumentoSemLogoError as e:
             return Response({'detail': str(e), 'message': str(e)}, status=409)
         return _pdf_resposta(pdf, f'excluidos_exame_{ano}.pdf')
+
+
+class CalendarioExamesPdfView(APIView):
+    permission_classes = [IsAuthenticated, PodeVerExames]
+
+    def get(self, request):
+        from apps.documentos.services.pdf_service import DocumentoSemLogoError
+        from .exames_pdf import pdf_calendario
+        escola = _escola(request)
+        ano = _ano(request, escola)
+        qs = CalendarioExame.objects.filter(escola=escola, ano_letivo=ano)
+        classe = request.query_params.get('classe')
+        classes = [classe] if classe else svc.classes_da_escola(escola, ano)
+        grupos = [(c, list(qs.filter(classe=c).order_by('data', 'hora_inicio', 'disciplina', 'epoca'))) for c in classes]
+        try:
+            pdf = pdf_calendario(escola, ano, grupos)
+        except DocumentoSemLogoError as e:
+            return Response({'detail': str(e), 'message': str(e)}, status=409)
+        return _pdf_resposta(pdf, f'calendario_exames_{ano}.pdf')

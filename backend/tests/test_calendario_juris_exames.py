@@ -160,3 +160,17 @@ class TestCalendarioJurisExames:
         r8 = _login('a8@ex.mz').get('/api/v1/alunos/me/calendario-exames/?ano=2026')
         m8 = {i['disciplina']: i for i in r8.data['data']['itens']}['Matemática']
         assert m8['estado'] == 'EXCLUIDO' and m8['chamadas'] == []
+
+    def test_pdf_calendario_escola_e_pdf_do_aluno(self):
+        self._calendario(hora_inicio='10:30')
+        self.c.post('/api/v1/notas/juris-exame/formar/', {'epoca': 1, 'max_alunos': 4, 'num_salas': 3}, format='json')
+        r = self.c.get('/api/v1/notas/calendario-exames/pdf/?ano=2026')
+        assert r.status_code == 200 and r.content[:4] == b'%PDF'
+        r = self.c.get('/api/v1/notas/calendario-exames/pdf/?ano=2026&classe=10ª Classe')
+        assert r.status_code == 200 and r.content[:4] == b'%PDF'
+        Usuario.objects.create_user(email='a0p@ex.mz', password=SENHA, role='ALUNO', escola=self.escola,
+                                    aluno_id=self.alunos[0].id)
+        ca = _login('a0p@ex.mz')
+        r = ca.get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026')
+        assert r.status_code == 200 and r.content[:4] == b'%PDF'
+        assert ca.get('/api/v1/notas/calendario-exames/pdf/?ano=2026').status_code == 403

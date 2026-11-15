@@ -8,13 +8,15 @@ router.register(r'ocorrencias', OcorrenciaDisciplinarViewSet, basename='notas-oc
 router.register(r'', NotaViewSet, basename='notas')
 
 from .views_exames import (
-    CalendarioExameDetalheView, CalendarioExamesView, ExcluidosExamePdfView, ExcluidosExameView,
+    CalendarioExameDetalheView, CalendarioExamesPdfView, CalendarioExamesView, ExcluidosExamePdfView, ExcluidosExameView,
     FormarJurisView, JurisExamePdfView, JurisExameView,
 )
 
 urlpatterns = [
     path('calendario-exames', CalendarioExamesView.as_view(), name='calendario_exames_no_slash'),
     path('calendario-exames/', CalendarioExamesView.as_view(), name='calendario_exames'),
+    path('calendario-exames/pdf', CalendarioExamesPdfView.as_view(), name='calendario_exames_pdf_no_slash'),
+    path('calendario-exames/pdf/', CalendarioExamesPdfView.as_view(), name='calendario_exames_pdf'),
     path('calendario-exames/<uuid:pk>', CalendarioExameDetalheView.as_view(), name='calendario_exame_det_no_slash'),
     path('calendario-exames/<uuid:pk>/', CalendarioExameDetalheView.as_view(), name='calendario_exame_det'),
     path('juris-exame', JurisExameView.as_view(), name='juris_exame_no_slash'),

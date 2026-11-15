@@ -144,6 +144,12 @@
     finally { btn.disabled = false; }
   };
 
+  window.calExPdfCalendario = async function (todas) {
+    var c = classe();
+    if (!todas && !c) { toast('Escolha a classe ou use "PDF de todas as classes".', 'warning'); return; }
+    await downloadFicheiroBinario('/api/v1/notas/calendario-exames/pdf/?' + q({ ano: ctx.ano, classe: todas ? '' : c }), 'calendario_exames.pdf');
+  };
+
   // ------------------------------------------------------------------ Júris
   function preencherDisciplinas(selId) {
     var sel = $(selId); if (!sel) return;

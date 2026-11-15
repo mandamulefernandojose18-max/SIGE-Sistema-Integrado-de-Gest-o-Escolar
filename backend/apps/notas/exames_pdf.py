@@ -35,14 +35,14 @@ def _data_pt(iso):
     return f'{d:02d}/{m:02d}/{y}'
 
 
-def _tabela(cabecalho, linhas, larguras):
+def _tabela(cabecalho, linhas, larguras, esq=1):
     st_h = ParagraphStyle('ExH', fontName='Times-Bold', alignment=1, textColor=colors.white)
     st_c = ParagraphStyle('ExC', fontName='Times-Roman')
     st_cc = ParagraphStyle('ExCC', fontName='Times-Roman', alignment=1)
     dados = [[Paragraph(_esc(h), st_h) for h in cabecalho]]
     for ln in linhas:
         dados.append([Paragraph(c if isinstance(c, str) and c.startswith('<font') else _esc(c),
-                                st_cc if i != 1 else st_c) for i, c in enumerate(ln)])
+                                st_cc if i != esq else st_c) for i, c in enumerate(ln)])
     t = Table(dados, colWidths=larguras, repeatRows=1)
     cmds = [
         ('BACKGROUND', (0, 0), (-1, 0), AZUL),
@@ -127,5 +127,51 @@ def pdf_excluidos(escola, ano, classe, grupos):
     if vazio:
         el.append(Paragraph('Não há alunos excluídos nesta classe.', ParagraphStyle('ExV', fontName='Times-Roman')))
     el.append(Paragraph(f'Emitido em {date.today():%d/%m/%Y}.', ParagraphStyle('ExE', fontName='Times-Italic')))
+    _doc(buf).build(el)
+    return buf.getvalue()
+
+
+def pdf_calendario(escola, ano, grupos):
+    """grupos: [(classe, [CalendarioExame ordenados])] — calendário oficial de exames da escola."""
+    buf = io.BytesIO()
+    el = _cabecalho(escola, 'CALENDÁRIO DOS EXAMES', f'Ano lectivo {ano}')
+    larg = [4.6 * cm, 2.0 * cm, 2.6 * cm, 2.4 * cm, 2.0 * cm, 2.0 * cm, 1.4 * cm]  # 17,0 cm
+    vazio = True
+    for classe, entradas in grupos:
+        if not entradas:
+            continue
+        vazio = False
+        el.append(Paragraph(f'<b>{_esc(classe)}</b>', ParagraphStyle('ExCl', fontName='Times-Bold')))
+        linhas = [[c.disciplina, f'{c.epoca}ª', c.data.strftime('%d/%m/%Y'), PERIODOS.get(c.periodo, ''),
+                   c.hora_inicio.strftime('%H:%M'), f'{c.duracao_minutos} min', c.hora_fim.strftime('%H:%M')]
+                  for c in entradas]
+        el += [_tabela(['Disciplina', 'Chamada', 'Data', 'Período', 'Início', 'Duração', 'Fim'], linhas, larg, esq=0),
+               Spacer(1, 0.4 * cm)]
+    if vazio:
+        el.append(Paragraph('Ainda não há datas definidas no calendário de exames.', ParagraphStyle('ExV', fontName='Times-Roman')))
+    el.append(Paragraph(f'Emitido em {date.today():%d/%m/%Y}.', ParagraphStyle('ExE', fontName='Times-Italic')))
+    _doc(buf).build(el)
+    return buf.getvalue()
+
+
+def pdf_exames_aluno(escola, nome, ano, classe, itens):
+    """Os meus exames: só as disciplinas, horários, júri e sala do próprio aluno."""
+    buf = io.BytesIO()
+    el = _cabecalho(escola, 'OS MEUS EXAMES', f'{nome} · {classe} · Ano lectivo {ano}')
+    larg = [3.8 * cm, 1.6 * cm, 2.4 * cm, 2.0 * cm, 2.8 * cm, 1.6 * cm, 2.8 * cm]  # 17,0 cm
+    linhas = []
+    for it in itens:
+        if it['estado'] == 'EXCLUIDO':
+            linhas.append([it['disciplina'], '—', f'Excluído(a): frequência {_fmt_nota(it["nota_frequencia"])}', '', '', '', ''])
+            continue
+        for c in it['chamadas']:
+            linhas.append([it['disciplina'], f'{c["epoca"]}ª', _data_pt(c['data']), PERIODOS.get(c['periodo'], '—'),
+                           f'{c["hora_inicio"]} – {c["hora_fim"]}' if c['hora_inicio'] else 'Por definir',
+                           f'Júri {c["juri"]}' if c['juri'] else '—', c['sala'] or ('Por atribuir' if c['juri'] else '—')])
+    if linhas:
+        el.append(_tabela(['Disciplina', 'Chamada', 'Data', 'Período', 'Horário', 'Júri', 'Sala'], linhas, larg, esq=0))
+    else:
+        el.append(Paragraph('Não há exames para si neste ano lectivo.', ParagraphStyle('ExV', fontName='Times-Roman')))
+    el += [Spacer(1, 0.3 * cm), Paragraph(f'Emitido em {date.today():%d/%m/%Y}.', ParagraphStyle('ExE', fontName='Times-Italic'))]
     _doc(buf).build(el)
     return buf.getvalue()
