@@ -1448,6 +1448,30 @@ def test_conversao_nao_mexe_em_chavetas_nem_aceita_barras_introduzidas():
     assert conversao.conteudo_adulterado(d.tobytes(), original) is True   # «\{» que não existia no Word
 
 
+def test_conversao_linearizacao_das_equacoes_de_risco_e_de_todas():
+    import io, zipfile
+    from apps.escudo.services import conversao
+    M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    xml = (f'<w:document xmlns:w="{W}" xmlns:m="{M}"><w:body><w:p><w:r><w:t>A </w:t></w:r><m:oMath>'
+           f'<m:f><m:num><m:r><m:t>a</m:t></m:r></m:num><m:den><m:r><m:t>b</m:t></m:r></m:den></m:f></m:oMath>'
+           f'<m:oMath><m:d><m:dPr><m:begChr m:val="{{"/><m:endChr m:val=""/></m:dPr><m:e><m:r><m:t>x+y=3</m:t></m:r></m:e></m:d>'
+           f'<m:nary><m:naryPr><m:chr m:val="∑"/></m:naryPr><m:sub><m:r><m:t>i=1</m:t></m:r></m:sub><m:sup><m:r><m:t>n</m:t></m:r></m:sup>'
+           f'<m:e><m:r><m:t>i</m:t></m:r></m:e></m:nary></m:oMath>'
+           f'<m:oMathPara><m:oMath><m:rad><m:radPr/><m:deg/><m:e><m:r><m:t>x</m:t></m:r></m:e></m:rad></m:oMath></m:oMathPara>'
+           f'</w:p></w:body></w:document>').encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        z.writestr('word/document.xml', xml)
+
+    def corpo(n):
+        return zipfile.ZipFile(io.BytesIO(conversao.sanear_docx(buf.getvalue(), n))).read('word/document.xml').decode()
+    c2 = corpo(2)   # só as de risco: a fracção simples fica como equação, a do «{» e do somatório passa a texto
+    assert '<m:f>' in c2 and 'x+y=3' in c2 and '<m:d>' not in c2 and '∑_(i=1)^(n) i' in c2
+    c3 = corpo(3)   # todas
+    assert '<m:f>' not in c3 and '(a)/(b)' in c3 and '√(x)' in c3 and 'oMath' not in c3
+
+
 def test_qr_da_pergunta_fica_num_vazio_junto_da_questao_sem_tapar_alternativas():
     import pymupdf as fitz
     from apps.escudo.services import selos

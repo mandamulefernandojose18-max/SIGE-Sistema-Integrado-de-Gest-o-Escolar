@@ -1513,6 +1513,8 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 
 > **Blindagem Anti-IA, trimestre da folha (2026-11-15):** ao anexar a folha de resposta à prova selada, o trimestre passa a ser **escolhido** num campo próprio (`folha_trimestre`: 1.º, 2.º ou 3.º; escondido no Exame Final). Já não é preenchido automaticamente com o trimestre activo da escola; o ecrã exige a escolha antes de gerar.
 >
+> **Conversão de provas Word com equações, escada de segurança (2026-11-15):** o DOCX é convertido por níveis até sair sem símbolos trocados («¿», «�», «\{»): 1) Word / LibreOffice com o ficheiro saneado; 2) as equações de risco (delimitadores, sistemas, matrizes, somatórios/integrais, raízes, acentos) passam a texto linear Unicode normal («(a)/(b)», «x^(2)», «∑_(i=1)^(n) i», «√(x)»); 3) todas as equações em texto linear. A verificação de conteúdo adulterado mantém-se em todos os níveis: nunca sai uma prova com símbolos trocados. Texto linear não é a equação desenhada: para fidelidade total continua a recomendar-se carregar o PDF exportado do Word.
+>
 > **Folha de resposta, rodapé (2026-11-15):** o rodapé passa a dizer «SIGE · Folha de Respostas · Cód. …», para a folha se identificar mesmo separada da prova.
 >
 > **Folha de resposta e provas sem escola (2026-11-09):** se a prova não tiver escola própria (Super Admin), a folha usa a escola seleccionada ou da conta; sem nenhuma, o ecrã pede para seleccionar a escola.
