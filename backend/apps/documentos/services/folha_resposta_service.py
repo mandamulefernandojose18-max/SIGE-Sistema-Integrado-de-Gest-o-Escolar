@@ -702,7 +702,7 @@ def _rodape(c, cod_folha, pagina, total_paginas, hoje):
     # na folha fica apenas o código, bem visível.
     c.setFillColor(CINZA_TEXTO)
     c.setFont(FONTE, 8.2)
-    _texto_ajustado(c, f'SIGE · Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE, 8.2, 5.5)
+    _texto_ajustado(c, f'SIGE · Folha de Respostas · Cód. {cod_folha}', MARGEM, 288.8, 112, FONTE, 8.2, 5.5)
     c.drawCentredString((PAG_L / 2) * mm, _y(288.8), f'Pág. {pagina}/{total_paginas}')
     c.drawRightString((PAG_L - MARGEM) * mm, _y(288.8), f'Emitida em {hoje}')
     c.setFillColor(PRETO)
