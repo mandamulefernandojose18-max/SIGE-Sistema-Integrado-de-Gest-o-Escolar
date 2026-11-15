@@ -224,19 +224,18 @@ def _desenhar_circulo(c, x, y, escola):
     c.circle(cx, cy, r - 1, stroke=1, fill=0)
     c.setLineWidth(0.6)
     r2, r3, r4 = r - 0.16 * CM, r - 0.72 * CM, r - 1.28 * CM
-    for raio in (r2, r3, r4):   # limites das duas faixas de texto
-        c.circle(cx, cy, raio, stroke=1, fill=0)
+    c.circle(cx, cy, r2, stroke=1, fill=0)   # só os dois círculos exteriores; sem linhas interiores
     provincia = (getattr(escola, 'provincia', '') or '').upper()
     distrito = (getattr(escola, 'distrito', '') or '').upper()
     nome = (getattr(escola, 'nome', '') or '').upper()
     # Faixa exterior: República e Província. Faixa interior: Governo do Distrito e nome da escola.
     # Em cima as letras crescem para fora (linha de base no interior da faixa); em baixo crescem para dentro.
     _texto_em_arco(c, 'REPÚBLICA DE MOÇAMBIQUE', cx, cy, r3 + 3.4, 90, 'Times-Bold', 6.2, em_cima=True)
-    _texto_em_arco(c, f'PROVÍNCIA DE {provincia}' if provincia else '', cx, cy, r2 - 3.4, 270,
-                   'Times-Bold', 6.2, em_cima=False)
-    _texto_em_arco(c, f'GOVERNO DO DISTRITO DE {distrito}' if distrito else '', cx, cy, r4 + 5.6, 90,
+    _texto_em_arco(c, nome, cx, cy, r2 - 3.4, 270, 'Times-Bold', 6.2, em_cima=False)
+    _texto_em_arco(c, f'PROVÍNCIA DE {provincia}' if provincia else '', cx, cy, r4 + 5.6, 90,
                    'Times-Bold', 5.4, em_cima=True, limite_graus=168)
-    _texto_em_arco(c, nome, cx, cy, r3 - 5.4, 270, 'Times-Bold', 5.4, em_cima=False, limite_graus=168)
+    _texto_em_arco(c, f'GOVERNO DO DISTRITO DE {distrito}' if distrito else '', cx, cy, r3 - 5.4, 270,
+                   'Times-Bold', 5.4, em_cima=False, limite_graus=168)
     # Centro: emblema nacional
     try:
         from apps.documentos.services.pdf_service import EMBLEMA_PATH
