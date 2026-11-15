@@ -1,4 +1,4 @@
-"""Carimbo digital/electrónico da escola (SIGE).
+﻿"""Carimbo digital/electrónico da escola (SIGE).
 
 Três níveis, escolhidos pela escola em Configurações:
   A  IMAGEM      carimbo visual (imagem carregada pela escola ou carimbo gerado pelo sistema)
@@ -28,7 +28,7 @@ NIVEIS = ('IMAGEM', 'SELO', 'ASSINATURA')
 _RANK = {n: i for i, n in enumerate(NIVEIS)}
 AZUL_CARIMBO = '#1e3a8a'
 CM = 28.3464567  # pontos por centímetro
-DIAMETRO_CM = 3.2
+DIAMETRO_CM = 4.4
 
 
 # ----------------------------------------------------------------------------------------------
@@ -166,13 +166,13 @@ def dimensoes_carimbo_pt(nivel):
     return d + 1.7 * CM, d + 1.45 * CM
 
 
-def _texto_em_arco(c, texto, cx, cy, raio, centro_graus, fonte, tamanho, em_cima=True):
+def _texto_em_arco(c, texto, cx, cy, raio, centro_graus, fonte, tamanho, em_cima=True, limite_graus=200):
     from reportlab.pdfbase.pdfmetrics import stringWidth
     texto = (texto or '').strip()
     if not texto:
         return
-    limite = math.radians(200)
-    while stringWidth(texto, fonte, tamanho) / raio > limite and tamanho > 5:
+    limite = math.radians(limite_graus)
+    while stringWidth(texto, fonte, tamanho) / raio > limite and tamanho > 4.0:
         tamanho -= 0.3
     while len(texto) > 3 and stringWidth(texto, fonte, tamanho) / raio > limite:
         texto = texto[:-2].rstrip() + '…'
@@ -223,26 +223,30 @@ def _desenhar_circulo(c, x, y, escola):
     c.setLineWidth(1.5)
     c.circle(cx, cy, r - 1, stroke=1, fill=0)
     c.setLineWidth(0.6)
-    c.circle(cx, cy, r - 0.16 * CM, stroke=1, fill=0)   # limite exterior da faixa de texto
-    c.circle(cx, cy, r - 0.75 * CM, stroke=1, fill=0)   # limite interior da faixa de texto
+    r2, r3, r4 = r - 0.16 * CM, r - 0.72 * CM, r - 1.28 * CM
+    for raio in (r2, r3, r4):   # limites das duas faixas de texto
+        c.circle(cx, cy, raio, stroke=1, fill=0)
+    provincia = (getattr(escola, 'provincia', '') or '').upper()
+    distrito = (getattr(escola, 'distrito', '') or '').upper()
     nome = (getattr(escola, 'nome', '') or '').upper()
-    local = ' · '.join(p for p in [(getattr(escola, 'distrito', '') or '').upper(),
-                                   (getattr(escola, 'provincia', '') or '').upper()] if p)
-    # Em cima as letras crescem para fora (linha de base no interior da faixa); em baixo crescem para dentro
-    _texto_em_arco(c, nome, cx, cy, r - 0.75 * CM + 3.5, 90, 'Times-Bold', 6.5, em_cima=True)
-    _texto_em_arco(c, local, cx, cy, r - 0.16 * CM - 3.5, 270, 'Times-Bold', 6, em_cima=False)
-    # Centro: emblema nacional e código da escola
+    # Faixa exterior: República e Província. Faixa interior: Governo do Distrito e nome da escola.
+    # Em cima as letras crescem para fora (linha de base no interior da faixa); em baixo crescem para dentro.
+    _texto_em_arco(c, 'REPÚBLICA DE MOÇAMBIQUE', cx, cy, r3 + 3.4, 90, 'Times-Bold', 6.2, em_cima=True)
+    _texto_em_arco(c, f'PROVÍNCIA DE {provincia}' if provincia else '', cx, cy, r2 - 3.4, 270,
+                   'Times-Bold', 6.2, em_cima=False)
+    _texto_em_arco(c, f'GOVERNO DO DISTRITO DE {distrito}' if distrito else '', cx, cy, r4 + 5.6, 90,
+                   'Times-Bold', 5.4, em_cima=True, limite_graus=168)
+    _texto_em_arco(c, nome, cx, cy, r3 - 5.4, 270, 'Times-Bold', 5.4, em_cima=False, limite_graus=168)
+    # Centro: emblema nacional
     try:
         from apps.documentos.services.pdf_service import EMBLEMA_PATH
         from reportlab.lib.utils import ImageReader
         if os.path.exists(EMBLEMA_PATH):
-            lado = 0.72 * CM
-            c.drawImage(ImageReader(EMBLEMA_PATH), cx - lado / 2, cy - lado / 2 + 3,
+            lado = 1.0 * CM
+            c.drawImage(ImageReader(EMBLEMA_PATH), cx - lado / 2, cy - lado / 2,
                         width=lado, height=lado, mask='auto', preserveAspectRatio=True)
     except Exception:
         pass
-    c.setFont('Times-Bold', 5.5)
-    c.drawCentredString(cx, cy - 15, getattr(escola, 'codigo_escola', '') or '')
     c.restoreState()
 
 

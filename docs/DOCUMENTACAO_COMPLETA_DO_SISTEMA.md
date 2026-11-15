@@ -225,7 +225,7 @@ Cada escola tem o seu próprio carimbo, que o sistema aplica nos documentos ofic
 | **B** | `SELO` (predefinição) | Carimbo + código único `SEL-XXXXXXXXXXXX` + QR que abre a verificação pública | Prova que o documento foi emitido pela escola |
 | **C** | `ASSINATURA` | Selo (B) + assinatura digital Ed25519 com a chave própria da escola | Idem + deteta adulteração do registo |
 
-- **Aspecto:** `GERADO` (círculo com nome da escola, distrito · província, emblema nacional e código da escola) ou `CARREGADO` (foto/digitalização do carimbo físico; PNG ou JPEG até 1,5 MB, de preferência PNG transparente).
+- **Aspecto:** `GERADO` (círculo com duas faixas de texto — «República de Moçambique» e «Província de …» na exterior, «Governo do Distrito de …» e o nome da escola na interior — e o emblema nacional ao centro) ou `CARREGADO` (foto/digitalização do carimbo físico; PNG ou JPEG até 1,5 MB, de preferência PNG transparente).
 - **Aplicação nos ficheiros:** PDF — o sistema analisa a página onde está a assinatura do director e coloca o carimbo no **sítio livre mais próximo**, sem tapar texto, imagens nem linhas de tabelas (pode sobrepor as linhas de assinatura); se não houver espaço, o carimbo reduz-se (85 % → 70 % → 60 %). Em documentos muito densos (boletim) fica pequeno junto à assinatura; o QR continua a ser lido. Word — imagem inserida no fim do documento. Tipografia e restante layout não mudam.
 - **Registo e verificação (B/C):** cada emissão fica em `sige_documentos_carimbados` (escola + tipo + referência únicos: reemitir o mesmo documento mantém o **mesmo código**). A página pública `https://sigesaas.duckdns.org/verificar-certificado.html?codigo=SEL-...` mostra apenas dados mínimos (escola, tipo, descrição com nome abreviado, data, emissor, estado da assinatura); nunca notas nem identificação completa.
 - **Assinatura digital (C):** cada escola tem um par de chaves Ed25519 (`sige_chaves_assinatura_escolas`) criado na primeira emissão. A chave privada fica cifrada (Fernet) com `SIGE_CARIMBO_KEY` (se ausente, deriva de `SECRET_KEY`: **definir `SIGE_CARIMBO_KEY` em produção e não a perder**, senão as chaves não se decifram). Assina-se `escola|tipo|referência|código|nível|data`; a verificação recalcula e valida com a chave pública. Se o registo for adulterado a página responde **HTTP 409** «assinatura digital inválida».
@@ -1077,6 +1077,13 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET` | `/api/v1/notas/caderneta` | Pedagógico | Devolve a Caderneta Oficial dos 3 trimestres + `MFD` + estatísticas por coluna (`H`, `M`, `HM`, `%`). |
 | `GET/POST` | `/api/v1/notas/prazos-trimestrais` | Autenticado / `DAP` | Consulta ou define as datas de início e fim de lançamento de notas dos 3 trimestres. |
 | `GET/POST/DELETE` | `/api/v1/notas/permissoes-edicao` e `/autorizar-edicao` | `DAP` / Direção | Lista, concede ou revoga autorizações temporárias de desbloqueio de notas. |
+| `GET/POST` | `/api/v1/notas/calendario-exames/?ano=&classe=` | Leitura: pessoal da escola (não alunos) · Gravação: Direção, Administração, `DAP` | Calendário de Exames: por disciplina com exame, data, período (obrigatório: Manhã/Tarde/Noturno), hora inicial, duração e hora final automática, para a 1ª e 2ª chamada. Valida conflitos de horário na mesma classe e a 2ª época depois da 1ª. |
+| `DELETE` | `/api/v1/notas/calendario-exames/<id>/` | Direção, Administração, `DAP` | Remove uma chamada do calendário. |
+| `POST` | `/api/v1/notas/juris-exame/formar/` | Direção, Administração, `DAP` | Forma os júris: `{epoca, max_alunos, num_salas?, classe?}`. Distribuição equilibrada por ordem alfabética; sala opcional atribuída sem choques de data/hora; devolve avisos. |
+| `GET` | `/api/v1/notas/juris-exame/?ano=&epoca=&classe=&disciplina=` | Pessoal da escola | Júris formados com alunos, matrícula, turma e **nota de frequência da disciplina**. |
+| `GET` | `/api/v1/notas/juris-exame/pdf/` | Pessoal da escola | PDF dos júris (uma página por júri: disciplina, data, período, horário, sala e lista com a nota de frequência). |
+| `GET` | `/api/v1/notas/juris-exame/excluidos/` e `/excluidos/pdf/` | Pessoal da escola | Lista (JSON e PDF) dos alunos excluídos do exame (frequência ≤ 9,4) por disciplina. |
+| `GET` | `/api/v1/alunos/me/calendario-exames/?ano=` | `ALUNO` | Apenas os exames do próprio aluno: data, período, horário, número do júri e sala; nunca a lista de colegas. |
 | `GET/POST` | `/api/v1/pautas` | Autenticado / Pedagógico | Lista pautas ou cria/consolida pauta de uma turma e período. |
 | `GET` | `/api/v1/pautas/geral` | Pedagógico | Devolve a Pauta Geral da Turma e todos os cálculos demográficos da Acta do Conselho de Avaliação. |
 | `POST/PATCH` | `/api/v1/pautas/<pk>/fechar` e `/reabrir` | Direção / `DAP` | Homologa/fecha uma pauta (congelando notas) ou reabre para retificação. |
@@ -1375,6 +1382,13 @@ umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para 
 
 ---
 
+### 15.2 Calendário dos Exames, Júris e Excluídos (submenu de Exames)
+Página calendario-exames (Área Pedagógica › Exames › Calendário dos Exames), com filtros em cascata **Classe → Disciplina → Júri** (altura constante, sem listas abertas) e três separadores:
+- **Calendário:** disciplinas com exame (vindas do Plano Curricular) com data, **período obrigatório** (Manhã, Tarde ou Noturno), hora inicial, duração e **hora final automática**, para a 1ª e a 2ª chamada/época. Bloqueia choques de horário na mesma classe e exige a 2ª época depois da 1ª.
+- **Júris de Exames:** formação automática por disciplina para os alunos **admitidos** (frequência > 9,4). A escola define o **máximo de alunos por júri** (obrigatório) e, opcionalmente, o **número de salas**; os júris saem equilibrados (sem júri quase vazio), por ordem alfabética, com a sala atribuída sem choques de data/hora. As listas mostram a **nota de frequência da disciplina**. PDF por disciplina ou de todos os júris. Na 2ª época entram os admitidos com nota de 1ª época abaixo da nota mínima.
+- **Excluídos:** lista específica por disciplina (frequência ≤ 9,4) com exportação em PDF.
+- **Painel do aluno** (Calendário Académico › Os Meus Exames): data, período, horário, júri e sala **apenas do próprio aluno**; nunca a lista dos colegas.
+Modelos: CalendarioExame, JuriExame, JuriExameAluno (pps.notas, todos com escola). Lógica em pps/notas/exames_servico.py; PDFs em pps/notas/exames_pdf.py (Times New Roman, tabelas conforme REGRAS_EXCEL_E_PDF.md). Protegido pela funcionalidade de pacote exames (e portal_aluno no lado do aluno). Testes: 	ests/test_calendario_juris_exames.py.
 ## 20. Governança e Operação com Agentes de IA (Claude e Gemini)
 
 O SIGE dispõe de infraestrutura nativa e padronizada para operação por agentes de Inteligência Artificial:
