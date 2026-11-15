@@ -1,4 +1,4 @@
-﻿"""Carimbo digital/electrónico da escola (SIGE).
+"""Carimbo digital/electrónico da escola (SIGE).
 
 Três níveis, escolhidos pela escola em Configurações:
   A  IMAGEM      carimbo visual (imagem carregada pela escola ou carimbo gerado pelo sistema)
@@ -29,6 +29,8 @@ _RANK = {n: i for i, n in enumerate(NIVEIS)}
 AZUL_CARIMBO = '#1e3a8a'
 CM = 28.3464567  # pontos por centímetro
 DIAMETRO_CM = 4.4
+COLUNA_ALTURA_CM = 2.4
+COLUNA_CM = 2.2   # coluna do QR e do código, à esquerda do círculo (níveis B/C)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -163,7 +165,7 @@ def dimensoes_carimbo_pt(nivel):
     d = DIAMETRO_CM * CM
     if nivel == 'IMAGEM':
         return d, d
-    return d + 1.7 * CM, d + 1.45 * CM
+    return d + COLUNA_CM * CM, d
 
 
 def _texto_em_arco(c, texto, cx, cy, raio, centro_graus, fonte, tamanho, em_cima=True, limite_graus=200):
@@ -218,8 +220,8 @@ def _desenhar_circulo(c, x, y, escola):
     cor = colors.HexColor(AZUL_CARIMBO)
     c.setStrokeColor(cor)
     c.setFillColor(cor)
-    c.setFillAlpha(0.9)
-    c.setStrokeAlpha(0.9)
+    c.setFillAlpha(0.78)
+    c.setStrokeAlpha(0.78)
     c.setLineWidth(1.5)
     c.circle(cx, cy, r - 1, stroke=1, fill=0)
     c.setLineWidth(0.6)
@@ -265,28 +267,37 @@ def _desenhar_bloco(c, x, y, escola, nivel, doc=None, previa=False):
     if nivel == 'IMAGEM' or doc is None:
         _desenhar_circulo(c, x, y, escola)
         return
-    # B/C: QR à esquerda, carimbo à direita, linhas de texto por baixo
-    topo_y = y + 1.45 * CM
-    qr_lado = 1.5 * CM
+    # B/C: coluna à esquerda (QR e, por baixo, código e endereço) e o carimbo à direita
+    _desenhar_coluna(c, x, y, nivel, doc, previa)
+    _desenhar_circulo(c, x + COLUNA_CM * CM, y, escola)
+
+
+def _desenhar_coluna(c, x, y, nivel, doc, previa=False):
+    """QR de verificação, código do selo e (nível C) «Assinado digitalmente»; (x, y) = canto inferior esquerdo."""
+    from reportlab.lib import colors
+    from reportlab.lib.utils import ImageReader
     from apps.documentos.services.pdf_service import gerar_qr_code_image
+    qr_lado = 1.5 * CM
     alvo = _url_base() if previa else f"{_url_base()}/verificar-certificado.html?codigo={doc.codigo}"
-    c.drawImage(ImageReader(gerar_qr_code_image(alvo)), x, topo_y + (d - qr_lado) / 2,
+    meio = x + (COLUNA_CM * CM - 0.1 * CM) / 2
+    c.drawImage(ImageReader(gerar_qr_code_image(alvo)), meio - qr_lado / 2, y + 0.85 * CM,
                 width=qr_lado, height=qr_lado)
-    _desenhar_circulo(c, x + 1.7 * CM, topo_y, escola)
     c.saveState()
     c.setFillColor(colors.HexColor('#111111'))
-    larg = d + 1.7 * CM
-    meio = x + larg / 2
-    c.setFont('Times-Bold', 6.5)
-    c.drawCentredString(meio, y + 1.15 * CM, f"Selo {doc.codigo}")
-    c.setFont('Times-Roman', 6)
-    data = doc.emitido_em.strftime('%d/%m/%Y') if getattr(doc, 'emitido_em', None) else ''
-    c.drawCentredString(meio, y + 0.85 * CM, f"Emitido em {data}")
-    c.drawCentredString(meio, y + 0.55 * CM, f"Verifique: {_url_base().split('://')[-1]}")
+    c.setFont('Times-Bold', 5.5)
+    c.drawCentredString(meio, y + 0.62 * CM, doc.codigo)
+    c.setFont('Times-Roman', 5)
+    c.drawCentredString(meio, y + 0.38 * CM, _url_base().split('://')[-1])
     if nivel == 'ASSINATURA':
-        fp = (getattr(doc, 'impressao_digital_chave', '') or '')[:8].upper()
-        c.drawCentredString(meio, y + 0.25 * CM,
-                            'Assinado digitalmente' + (f' · chave {fp}' if fp else ''))
+        c.drawCentredString(meio, y + 0.14 * CM, 'Assinado digitalmente')
+    c.restoreState()
+
+
+def _com_escala(c, x, y, escala, desenhar):
+    c.saveState()
+    c.translate(x, y)
+    c.scale(escala, escala)
+    desenhar()
     c.restoreState()
 
 
@@ -331,7 +342,7 @@ MARGEM_CARIMBO = 1.2 * CM            # o carimbo fica dentro da moldura da pági
 PALAVRAS_ASSINATURA = ('Director', 'Directora', 'Carimbo', 'Chefe')
 
 
-def _posicao_livre(pdf_bytes, indice, bw, bh, w, h):
+def _posicao_livre(pdf_bytes, indice, bw, bh, w, h, ancora=None, bloqueio=None, escalas=None):
     """Procura na página o sítio livre (sem texto nem imagens pequenas por baixo) mais próximo da assinatura do
     director. Devolve (x, y, escala) em coordenadas PDF (origem em baixo) ou None se não conseguir analisar.
     Usa uma grelha de ocupação + imagem integral (numpy) para avaliar todas as posições de uma só vez."""
@@ -364,18 +375,23 @@ def _posicao_livre(pdf_bytes, indice, bw, bh, w, h):
             if r.get_area() > 0.25 * area_pagina or (r.width > 0.9 * w and r.height > 0.9 * h):
                 continue
             marcar(r.x0 - 1, r.y0 - 1, r.x1 + 1, r.y1 + 1)
+        if bloqueio:  # área já ocupada (ex.: o círculo do carimbo)
+            marcar(*bloqueio)
         integral = np.zeros((ny + 1, nx + 1), dtype=np.int64)
         integral[1:, 1:] = ocupado.cumsum(axis=0).cumsum(axis=1)
 
         # Âncora: a palavra de assinatura mais abaixo na página; por omissão, o canto inferior direito
+        ancora_dada = ancora
         ancora = (w - MARGEM_CARIMBO - bw / 2, h - MARGEM_CARIMBO - bh / 2)
         achadas = [p for p in palavras if p[4].strip('.,:/') in PALAVRAS_ASSINATURA]
-        if achadas:
+        if ancora_dada:
+            ancora = ancora_dada
+        elif achadas:
             a = max(achadas, key=lambda p: p[3])
             ancora = ((a[0] + a[2]) / 2, a[1] - bh / 2)
 
         melhor = None
-        for escala in ESCALAS_CARIMBO:
+        for escala in (escalas or ESCALAS_CARIMBO):
             cw, ch = int(math.ceil(bw * escala / g)), int(math.ceil(bh * escala / g))
             x_min, x_max = int(MARGEM_CARIMBO // g), int((w - MARGEM_CARIMBO) // g) - cw
             y_min, y_max = int(h * 0.4 // g), int((h - MARGEM_CARIMBO) // g) - ch
@@ -400,6 +416,53 @@ def _posicao_livre(pdf_bytes, indice, bw, bh, w, h):
             return None
         _, x, y_topo, escala = melhor
         return x, h - y_topo - bh * escala, escala
+    except Exception:
+        return None
+
+
+def _posicao_assinatura(pdf_bytes, indice, bw, bh, w, h, escala):
+    """Carimbo sobre a assinatura do director: o círculo fica centrado na linha de assinatura e apoiado
+    acima do que for mais alto entre a linha e o rótulo «O Director da Escola» (nunca tapa o rótulo).
+    Devolve (x, y, escala) em coordenadas PDF ou None se não encontrar a assinatura."""
+    try:
+        try:
+            import pymupdf as fitz
+        except ImportError:
+            import fitz
+        pagina = fitz.open(stream=pdf_bytes, filetype='pdf')[indice]
+        palavras = pagina.get_text('words')
+        rotulos = []
+        for e in palavras:  # «Director/Directora» … «da» … «Escola» na mesma linha, junto um do outro
+            if e[4] != 'Escola':
+                continue
+            antes = [q for q in palavras if q[4] in ('Director', 'Directora') and abs(q[1] - e[1]) < 2
+                     and 0 < e[0] - q[2] < 80]
+            if antes:
+                q = max(antes, key=lambda z: z[2])
+                rotulos.append(fitz.Rect(q[0], min(q[1], e[1]), e[2], max(q[3], e[3])))
+        if not rotulos:
+            return None
+        rotulo = max(rotulos, key=lambda r: r.y1)
+        x0, x1, topo = rotulo.x0, rotulo.x1, rotulo.y0
+        linhas = [p for p in palavras
+                  if len(p[4]) > 5 and set(p[4]) <= set('_')
+                  and p[0] < rotulo.x1 and p[2] > rotulo.x0 and abs(p[3] - rotulo.y0) < 3 * CM]
+        if linhas:
+            linha = min(linhas, key=lambda p: abs(p[3] - rotulo.y0))
+            x0, x1, topo = linha[0], linha[2], min(topo, linha[1])
+        # Bloco da assinatura: rótulo, linha e nome do director (o carimbo fica exactamente por cima de tudo isto)
+        base = rotulo.y1
+        for q in palavras:
+            centro_x = (q[0] + q[2]) / 2
+            if x0 - 10 <= centro_x <= x1 + 10 and topo - 1 <= q[1] <= topo + 3.2 * CM and not (set(q[4]) <= set('_.-')):
+                base = max(base, q[3])
+        cx, cy = (x0 + x1) / 2, (topo + base) / 2
+        d = DIAMETRO_CM * CM * escala
+        x = cx - d / 2 - COLUNA_CM * CM * escala
+        x = max(MARGEM_CARIMBO, min(x, w - MARGEM_CARIMBO - bw * escala))
+        y = h - (cy + d / 2)                      # base do círculo (coordenadas PDF)
+        y = max(MARGEM_CARIMBO / 2, min(y, h - MARGEM_CARIMBO - bh * escala))
+        return x, y, escala
     except Exception:
         return None
 
@@ -431,21 +494,37 @@ def aplicar_carimbo_pdf(pdf_bytes, escola, nivel, doc=None, posicao='direita'):
     alvo = _pagina_da_assinatura(pdf_bytes)
     ultimo = alvo if alvo is not None else len(leitor.pages) - 1
     bw, bh = dimensoes_carimbo_pt(nivel if doc is not None else 'IMAGEM')
+    tem_coluna = doc is not None and nivel != 'IMAGEM'
     for i, pagina in enumerate(leitor.pages):
         nova = escritor.add_page(pagina)
         if i != ultimo:
             continue
         w, h = float(nova.mediabox.width), float(nova.mediabox.height)
-        livre = _posicao_livre(pdf_bytes, i, bw, bh, w, h)
-        if livre:
-            x, y, escala = livre
-        else:
-            escala = 0.85
-            x = (w - bw * escala) / 2 if posicao == 'centro' else w - MARGEM_CARIMBO - bw * escala
-            y = 1.3 * CM
         buf = io.BytesIO()
         c = canvas.Canvas(buf, pagesize=(w, h))
-        desenhar_carimbo(c, x, y, escola, nivel, doc, escala=escala)
+        fixo = _posicao_assinatura(pdf_bytes, i, bw, bh, w, h, 0.8)
+        if fixo:
+            # Círculo apoiado na assinatura do director; o QR procura a zona livre mais próxima do círculo
+            x, y, escala = fixo
+            d = DIAMETRO_CM * CM * escala
+            cx_circ = x + (COLUNA_CM * CM * escala if tem_coluna else 0)
+            _com_escala(c, cx_circ, y, escala, lambda: _desenhar_circulo(c, 0, 0, escola))
+            if tem_coluna:
+                cw, ch = COLUNA_CM * CM, COLUNA_ALTURA_CM * CM
+                coluna = _posicao_livre(
+                    pdf_bytes, i, cw, ch, w, h, ancora=(cx_circ - cw * escala / 2, h - y - d / 2),
+                    bloqueio=(cx_circ, h - (y + d), cx_circ + d, h - y), escalas=(escala,))
+                xc, yc, ec = coluna if coluna else (x, y, escala)
+                _com_escala(c, xc, yc, ec, lambda: _desenhar_coluna(c, 0, 0, nivel, doc))
+        else:
+            livre = _posicao_livre(pdf_bytes, i, bw, bh, w, h)
+            if livre:
+                x, y, escala = livre
+            else:
+                escala = 0.85
+                x = (w - bw * escala) / 2 if posicao == 'centro' else w - MARGEM_CARIMBO - bw * escala
+                y = 1.3 * CM
+            desenhar_carimbo(c, x, y, escola, nivel, doc, escala=escala)
         c.save()
         nova.merge_page(PdfReader(io.BytesIO(buf.getvalue())).pages[0])
     saida = io.BytesIO()
