@@ -93,7 +93,7 @@ def campos_docx(dados):
     """Textos dos parágrafos que têm campos {…} (também dentro de equações)."""
     from docx import Document
     doc = Document(io.BytesIO(dados))
-    return [t for t in (_texto_campos(p) for p in _paragrafos(doc)) if variantes.RE_CAMPO.search(t)]
+    return [t for t in (sem_ocultos(_texto_campos(p)) for p in _paragrafos(doc)) if variantes.RE_CAMPO.search(t)]
 
 
 def preencher_docx(dados, valores):
@@ -132,6 +132,60 @@ def preencher_docx(dados, valores):
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+RE_OCULTO = re.compile(r"\{\*([^{}]+)\}")
+MAX_OCULTOS = 60
+
+
+def sem_ocultos(texto):
+    """Texto sem os marcadores {*valor}: o que sobra é o que o motor de campos {…} tem de validar."""
+    return RE_OCULTO.sub("", texto)
+
+
+def ocultar_docx(dados):
+    """Valores ocultos: troca cada {*valor} do Word por «[V1]», «[V2]»… (por ordem) e devolve (docx, [valores]).
+
+    O valor sai da folha impressa e fica só no servidor; é entregue a quem ler o QR e registar a leitura.
+    Sem marcadores devolve o mesmo ficheiro e lista vazia.
+    """
+    from docx import Document
+    doc = Document(io.BytesIO(dados))
+    valores = []
+    for p in _paragrafos(doc):
+        nos = _nos_texto(p)
+        texto = "".join(t.text or "" for t in nos)
+        achados = list(RE_OCULTO.finditer(texto))
+        if not achados:
+            continue
+        limites, ini = [], 0
+        for t in nos:
+            limites.append((ini, ini + len(t.text or "")))
+            ini = limites[-1][1]
+        novos = [t.text or "" for t in nos]
+        base = len(valores)
+        valores.extend(m.group(1).strip() for m in achados)
+        for k_marc in range(len(achados) - 1, -1, -1):
+            m = achados[k_marc]
+            etiqueta = f"[V{base + k_marc + 1}]"
+            primeiro = True
+            for k, (a, b) in enumerate(limites):
+                de, ate = max(a, m.start()), min(b, m.end())
+                if de >= ate:
+                    continue
+                novos[k] = novos[k][:de - a] + (etiqueta if primeiro else "") + novos[k][ate - a:]
+                primeiro = False
+        for t, novo in zip(nos, novos):
+            if t.text != novo:
+                t.text = novo
+                t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    if not valores:
+        return dados, []
+    if len(valores) > MAX_OCULTOS:
+        raise ErroModelo(f"No máximo {MAX_OCULTOS} valores ocultos {{*…}} por prova.")
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue(), valores
 
 
 def modelo_word(dados_docx, variaveis_txt, condicoes_txt="", respostas_txt="", titulo="Prova"):

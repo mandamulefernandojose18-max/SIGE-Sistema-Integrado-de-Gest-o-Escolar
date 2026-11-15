@@ -903,6 +903,39 @@ def test_captura_com_consentimento_guarda_fotos_cifradas_local_e_aparelho_so_par
     assert APIClient().get(API + pid + '/capturas/').status_code == 401
 
 
+def test_valores_ocultos_saem_da_folha_e_so_chegam_apos_registo_completo(duas_escolas, conversor_falso, monkeypatch):
+    import re
+    import docx
+    from apps.escudo.services import alertas, variantes_word
+    monkeypatch.setattr(alertas, 'agendar', lambda *a, **k: None)
+    d = docx.Document()
+    d.add_paragraph('9. Uma bola de {*0,4 kg} recebe velocidade de {*10 m/s}. Calcule o impulso.')
+    d.add_paragraph('A. 2 N·s')
+    b = io.BytesIO()
+    d.save(b)
+    novo, valores = variantes_word.ocultar_docx(b.getvalue())
+    assert valores == ['0,4 kg', '10 m/s']
+    texto = ' '.join(p.text for p in docx.Document(io.BytesIO(novo)).paragraphs)
+    assert '[V1]' in texto and '[V2]' in texto and '0,4' not in texto and '10 m/s' not in texto
+    c = _cliente(duas_escolas)
+    res = c.post(API + 'criar/', {**CAMPOS, 'libertacao': _futuro(), 'prova': SimpleUploadedFile('p.docx', b.getvalue())}, format='multipart')
+    assert res.status_code == 200, res.content
+    pid = _pid(res)
+    cfg = ProvaEscudo.objects.get(codigo=pid).config
+    assert cfg['ocultos_n'] == 2 and '0,4 kg' not in json.dumps(cfg)   # nunca em claro
+    html = APIClient().get(f'/ia/v/{pid}/1/q1').content.decode()
+    assert 'id="ocultos-dados"' in html and '0,4 kg' not in html     # a página também não traz os valores
+    token = re.search(r"fd.append\('t','([^']+)'", html).group(1)
+    jpg = b'\xff\xd8\xff\xe0' + b'0' * 100
+    url = f'/ia/v/{pid}/captura/'
+    assert APIClient().post(url, {'t': token, 'lat': '-25.9', 'lon': '32.5', 'acc': '10'}, format='multipart').status_code == 204
+    assert APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg)}, format='multipart').status_code == 204
+    ok = APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg), 'lat': '-25.9', 'lon': '32.5', 'acc': '10'},
+                          format='multipart')
+    assert ok.status_code == 200
+    assert ok.json()['ocultos'] == [{'rotulo': 'V1', 'valor': '0,4 kg'}, {'rotulo': 'V2', 'valor': '10 m/s'}]
+
+
 def test_sem_email_configurado_nao_avisa_e_depois_da_libertacao_nao_pede_local(duas_escolas, monkeypatch):
     from apps.escudo.services import alertas
     monkeypatch.delenv('EMAIL_HOST', raising=False)

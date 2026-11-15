@@ -699,6 +699,10 @@ def _pagina_publica(request, pid, serial=None, pergunta=None, numero_pagina=None
                       '<p id="sala-dados" style="white-space:pre-wrap;font-size:1.05rem">Para ver os dados da sala tens de registar a leitura: '
                       'carrega em «Registar» e autoriza a câmara e a localização. Sem isso o professor da sala dá-te os dados.</p>'
                       f'<small>Visível até às {_esc(tempo.formatar_iso(sala_janela["fim"]))}. Esta leitura fica registada.</small></div>')
+        if p.get('ocultos_n'):   # valores {*…} retirados da folha: só saem depois do registo (foto + local)
+            corpo += ('<div class="ia" style="background:#e5f3e8"><strong>Valores desta folha</strong>'
+                      '<p id="ocultos-dados" style="white-space:pre-wrap;font-size:1.05rem">Esta folha tem valores que não estão impressos '
+                      '([V1], [V2]…). Para os ver, carrega em «Registar» e autoriza a câmara e a localização.</p></div>')
         elif sala_estado == 'antes':
             corpo += f'<p><small>Os dados da sala abrem às {_esc(tempo.formatar_iso(sala_janela["inicio"]))}.</small></p>'
         titulo = 'Prova sob embargo'
@@ -781,9 +785,11 @@ _BLOCO_CAPTURA = (
     "fuso:(Intl.DateTimeFormat().resolvedOptions().timeZone)||'',toque:String(navigator.maxTouchPoints||0)}));"
     "if(!x[0]&&!x[1]&&!x[2]){m.textContent='Nada foi autorizado, por isso nada foi guardado.';b.disabled=false;return;}"
     "return fetch('/ia/v/%(pid)s/captura/',{method:'POST',body:fd}).then(function(r){var sd=document.getElementById('sala-dados');"
-    "if(r.status===200){return r.json().then(function(j){if(sd)sd.textContent=j.sala;m.textContent='Registo guardado.';});}"
-    "m.textContent=r.ok?(sd?'Para ver os dados da sala é obrigatório autorizar a câmara e a localização.':'Registo guardado.'):'Não foi possível guardar.';"
-    "if(sd&&r.status!==200)b.disabled=false;});"
+    "if(r.status===200){return r.json().then(function(j){var od=document.getElementById('ocultos-dados');if(sd&&j.sala)sd.textContent=j.sala;"
+    "if(od&&j.ocultos)od.textContent=j.ocultos.map(function(x){return '['+x.rotulo+'] = '+x.valor;}).join('\\n');m.textContent='Registo guardado.';});}"
+    "var od2=document.getElementById('ocultos-dados');"
+    "m.textContent=r.ok?((sd||od2)?'Para ver os dados é obrigatório autorizar a câmara e a localização.':'Registo guardado.'):'Não foi possível guardar.';"
+    "if((sd||od2)&&r.status!==200)b.disabled=false;});"
     "}).catch(function(){m.textContent='Não foi possível guardar.';b.disabled=false;});};})();</script>")
 
 
@@ -857,10 +863,18 @@ def captura_leitura(request, pid):
         precisao_m=None if acc is None else max(0, min(int(acc), 100000)), aparelho=info)
     if lat is not None:
         svc().arm.guardar_local(leitura.pk, pid, lat, lon, acc)
-    if leitor and lat is not None:   # registo completo: liberta os dados da sala, se a janela estiver aberta
+    if leitor and lat is not None:   # registo completo: liberta os dados da sala (janela aberta) e os valores ocultos da folha
+        saida = {}
         estado, texto, janela = svc().sala(pid)
         if estado == 'aberta' and texto:
-            return _json({'success': True, 'sala': texto, 'ate': tempo.formatar_iso(janela['fim'])})
+            saida.update(sala=texto, ate=tempo.formatar_iso(janela['fim']))
+        p = svc().prova(pid)
+        if p and leitura.estado != 'libertada' and (leitura.serial is None or leitura.estado != 'invalida'):
+            ocultos = svc().ocultos(p)
+            if ocultos:
+                saida['ocultos'] = ocultos
+        if saida:
+            return _json({'success': True, **saida})
     return HttpResponse(status=204)
 
 

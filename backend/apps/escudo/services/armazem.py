@@ -126,7 +126,7 @@ class Armazem:
         leitura = LeituraEscudo.objects.create(prova=p, serial=serial, estado=estado, aparelho=(aparelho or "")[:120], rede=impressao,
                                                vista=estado == "libertada")
         return {"id": pid, "leitura_id": leitura.id, "estado": estado,"titulo": p.titulo, "libertacao": tempo.para_iso(p.libertacao), "liberada": liberada,
-                "valido": valido, "publicar_apos": p.publicar_apos, "tem_gabarito": bool(p.gabarito_cifrado),
+                "valido": valido, "ocultos_n": (p.config or {}).get("ocultos_n", 0), "publicar_apos": p.publicar_apos, "tem_gabarito": bool(p.gabarito_cifrado),
                 "mensagem_ia": (p.config or {}).get("mensagem_ia")}
 
     def arquivo_publico(self, pid, tipo, agora):

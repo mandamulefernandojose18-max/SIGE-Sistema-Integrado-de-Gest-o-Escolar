@@ -42,6 +42,8 @@ class BaseVariantesWord:
 
     def docx_copia(self, docx, serial):
         """O .docx da cópia: valores da cópia (se houver variáveis) e ordem das perguntas/alternativas (se pedido)."""
+        if (self.p.get("config") or {}).get("ocultos_n"):
+            docx = variantes_word.ocultar_docx(docx)[0]
         if self.modelo and self.modelo.get("variaveis"):
             docx = variantes_word.preencher_docx(docx, variantes.escolher_valores(self.modelo, self.p["id"], serial))
         if self.op.get("baralhar_perguntas") or self.op.get("baralhar_alternativas"):
@@ -174,6 +176,11 @@ class Servico:
             if not conversao.eh_docx(pdf):
                 raise ValueError("As variantes precisam da prova em Word (.docx) com campos como {R1}.")
             raise ValueError(f"Com variantes, o Word pode ter no máximo {self.max_bytes // (2 * 1024 * 1024)} MB.")
+        if not dados_modelo and conversao.eh_docx(pdf):
+            # valores ocultos {*valor}: saem da folha («[V1]»); o .docx original (cifrado, acima) guarda-os para a leitura registada
+            pdf, ocultos = variantes_word.ocultar_docx(pdf)
+            if ocultos:
+                config["ocultos_n"] = len(ocultos)
         if not dados_modelo and (com_variaveis or (respostas_word or "").strip()) and "docx_cifrado" in config:
             # Word com campos {R1}… e/ou chave de respostas: o modelo dá os valores e o gabarito de cada cópia
             dados_modelo = variantes_word.modelo_word(pdf, variaveis_word, condicoes_word, respostas_word, titulo)
@@ -243,6 +250,11 @@ class Servico:
                 config.pop("docx_cifrado", None)
                 if config.get("formato") in ("word", "ambos"):
                     config["formato"] = "pdf"
+            config.pop("ocultos_n", None)
+            if conversao.eh_docx(pdf):
+                pdf, ocultos = variantes_word.ocultar_docx(pdf)
+                if ocultos:
+                    config["ocultos_n"] = len(ocultos)
             pdf = conversao.garantir_pdf(pdf)
             paginas, _, _ = selos.info_pdf(pdf)
             for k in ("guiao", "guiao_cifrado"):
@@ -340,6 +352,12 @@ class Servico:
         if not cifrado:
             return None
         return json.loads(self.arm.cofre.decifrar(p["id"], "modelo", base64.b64decode(cifrado)))
+
+    def ocultos(self, p):
+        """Valores ocultos {*valor} da prova, na ordem das etiquetas [V1], [V2]… (vazio se não há ou o Word não está guardado)."""
+        if not (p.get("config") or {}).get("ocultos_n") or not self.tem_word(p):
+            return []
+        return [{"rotulo": f"V{i}", "valor": v} for i, v in enumerate(variantes_word.ocultar_docx(self.docx(p))[1], 1)]
 
     def docx(self, p):
         """O .docx original (com os campos {…}) de uma prova com variantes do Word."""
@@ -445,6 +463,8 @@ class Servico:
     def docx_da_copia(self, p, op, serial):
         """O .docx da cópia (valores e ordem), ainda sem protecção."""
         pid, docx = p["id"], self.docx(p)
+        if (p.get("config") or {}).get("ocultos_n"):
+            docx = variantes_word.ocultar_docx(docx)[0]
         modelo = self.modelo(p)
         if modelo and modelo.get("variaveis"):
             docx = variantes_word.preencher_docx(docx, variantes.escolher_valores(modelo, pid, serial))
