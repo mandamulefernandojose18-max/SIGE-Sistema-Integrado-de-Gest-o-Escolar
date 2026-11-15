@@ -2032,6 +2032,19 @@ function fazerLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
   const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario');
 
+  // Revoga o refresh token no servidor (blacklist); falha silenciosa: o logout local prossegue sempre.
+  try {
+    const refreshParaRevogar = state.refreshToken || sessionStorage.getItem('sige_refresh_token') || localStorage.getItem('sige_refresh_token');
+    if (refreshParaRevogar) {
+      fetch(formatarUrlApi('/api/v1/auth/logout'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: refreshParaRevogar }),
+        keepalive: true
+      }).catch(() => {});
+    }
+  } catch (_) {}
+
   // Limpar especificamente as chaves de sessão do SIGE em sessionStorage
   try {
     for (let i = sessionStorage.length - 1; i >= 0; i--) {

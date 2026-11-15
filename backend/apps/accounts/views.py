@@ -3,11 +3,31 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenRefreshView
+from django.conf import settings
 from django.db.models import Count
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import Usuario, LogAcesso
 from .serializers import UsuarioSerializer, LoginSerializer, RedefinirSenhaSerializer
 from common.permissions.rbac import IsEscolaAdmin
+
+class LogoutView(APIView):
+    """Termina a sessão: coloca o refresh token na blacklist (deixa de poder gerar novos acessos).
+
+    Aceita o refresh token no corpo; responde sempre 200 (idempotente, sem revelar se o token era válido)."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        refresh = (request.data.get('refresh') or request.data.get('refreshToken') or '').strip()
+        if refresh:
+            try:
+                RefreshToken(refresh).blacklist()
+            except TokenError:
+                pass
+        return Response({'success': True, 'message': 'Sessão terminada.'})
+
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -153,8 +173,8 @@ class RedefinirSenhaView(APIView):
                 'message': f'Senha de {user.nome} reposta para o código oficial ({cod_padrao}) com sucesso!'
             })
 
-        if not nova_senha or len(nova_senha) < 4:
-            return Response({'success': False, 'message': 'Informe uma nova palavra-passe (mínimo 4 caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
+        if not nova_senha or len(nova_senha) < settings.MIN_SENHA_UTILIZADOR:
+            return Response({'success': False, 'message': f'Informe uma nova palavra-passe (mínimo {settings.MIN_SENHA_UTILIZADOR} caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
 
         user.set_password(nova_senha)
         user.senha_redefinida = (nova_senha.lower() != (user.codigo_acesso or '').strip().lower())
@@ -183,10 +203,10 @@ class AlterarMinhaSenhaView(APIView):
             or ''
         ).strip()
 
-        if not nova_senha or len(nova_senha) < 4:
+        if not nova_senha or len(nova_senha) < settings.MIN_SENHA_UTILIZADOR:
             return Response({
                 'success': False,
-                'message': 'A nova palavra-passe deve ter pelo menos 4 caracteres.'
+                'message': f'A nova palavra-passe deve ter pelo menos {settings.MIN_SENHA_UTILIZADOR} caracteres.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         if senha_atual:

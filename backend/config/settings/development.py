@@ -3,6 +3,7 @@ import os
 from urllib.parse import urlparse, unquote, parse_qs
 
 DEBUG = True
+API_DOCS_UI = os.environ.get('API_DOCS_UI', 'True').lower() in ('true', '1', 't')
 
 # Configuracao da Base de Dados
 is_testing = 'pytest' in sys.modules or 'test' in sys.argv or os.environ.get('TESTING') == '1'

@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     # Terceiros
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'drf_spectacular',
@@ -116,7 +117,7 @@ AUTH_USER_MODEL = 'accounts.Usuario'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 6}},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
 ]
 
 # Internacionalização e Fuso Horário de Moçambique
@@ -177,7 +178,7 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.environ.get('JWT_ACCESS_LIFETIME_MINUTES', '120'))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('JWT_REFRESH_LIFETIME_DAYS', '7'))),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
@@ -216,6 +217,14 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# Interface Swagger/Redoc: só em desenvolvimento por omissão. Em produção o esquema OpenAPI
+# (/api/schema/) exige JWT de SUPERADMIN e as páginas /api/docs/ e /api/redoc/ ficam desligadas
+# (ligue com API_DOCS_UI=True se precisar).
+API_DOCS_UI = os.environ.get('API_DOCS_UI', 'False').lower() in ('true', '1', 't')
+
+# Comprimento mínimo de palavras-passe ESCOLHIDAS pelo utilizador (o código oficial inicial não conta).
+MIN_SENHA_UTILIZADOR = 8
 
 # Limites de Upload de Documentos, Materiais Escolares (Base64 / PDF / DOCX) e Logótipos (100 MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600

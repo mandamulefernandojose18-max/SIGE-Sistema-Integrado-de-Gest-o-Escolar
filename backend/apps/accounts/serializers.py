@@ -243,8 +243,8 @@ class LoginSerializer(serializers.Serializer):
         }
 
 class RedefinirSenhaSerializer(serializers.Serializer):
-    nova_senha = serializers.CharField(min_length=4, write_only=True, required=False)
-    novaSenha = serializers.CharField(min_length=4, write_only=True, required=False)
+    nova_senha = serializers.CharField(min_length=8, write_only=True, required=False)
+    novaSenha = serializers.CharField(min_length=8, write_only=True, required=False)
     repor_codigo = serializers.BooleanField(required=False, default=False)
 
 

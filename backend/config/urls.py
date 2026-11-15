@@ -1,4 +1,7 @@
+from django.conf import settings
 from django.contrib import admin
+from rest_framework.permissions import IsAuthenticated
+from common.permissions.rbac import IsSuperAdmin
 from django.urls import path, re_path, include
 from django.http import JsonResponse
 from apps.ferramentas.views import pagina_ia_prova
@@ -54,9 +57,14 @@ urlpatterns = [
     # API Versionada /api/v1/
     re_path(r'^api/v1/?', include(api_v1_patterns)),
 
-    # OpenAPI Schema & Swagger UI
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # OpenAPI Schema: só SUPERADMIN autenticado (JWT). Não expõe publicamente o mapa completo da API.
+    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[IsAuthenticated, IsSuperAdmin]), name='schema'),
 ]
+
+# Swagger UI / Redoc: desligados em produção por omissão (API_DOCS_UI=True para activar).
+if getattr(settings, 'API_DOCS_UI', False):
+    urlpatterns += [
+        path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+        path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    ]
 
