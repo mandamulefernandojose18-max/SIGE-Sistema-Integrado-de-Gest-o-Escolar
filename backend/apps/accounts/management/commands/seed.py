@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+import os
 from decimal import Decimal
 
 from apps.tenants.models import Plano
@@ -25,9 +26,19 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('[OK] Planos do SaaS configurados em MZN.'))
 
         # 2. SuperAdmin do SaaS
+        # A senha NUNCA fica no código. Regras:
+        #  - conta nova: senha inicial vem de SUPERADMIN_PASSWORD; sem ela, a conta fica sem senha utilizável
+        #    (defina SUPERADMIN_PASSWORD no .env e reinicie, ou use `manage.py changepassword`);
+        #  - conta existente: a senha só é alterada se SUPERADMIN_PASSWORD estiver definida (rotação explícita).
+        #    Sem a variável, o arranque do contentor NÃO repõe nenhuma senha.
+        senha_env = os.environ.get('SUPERADMIN_PASSWORD', '').strip()
+        if senha_env and len(senha_env) < 12:
+            self.stdout.write(self.style.WARNING('[AVISO] SUPERADMIN_PASSWORD ignorada: use pelo menos 12 caracteres.'))
+            senha_env = ''
+
         super_admins = [
-            {'email': 'mandamulefj@sige.com', 'nome': 'Eng. Fernando Mandamule', 'pass': 'Deusamo8'},
-            {'email': 'admin.master@sige.com', 'nome': 'Eng. Fernando Mandamule (Master)', 'pass': 'Deusamo8'},
+            {'email': 'mandamulefj@sige.com', 'nome': 'Eng. Fernando Mandamule'},
+            {'email': 'admin.master@sige.com', 'nome': 'Eng. Fernando Mandamule (Master)'},
         ]
         for sa in super_admins:
             email_valido = sa['email'].replace('.@sige.com', '@sige.com')
@@ -41,7 +52,8 @@ class Command(BaseCommand):
                 pass
 
             u = Usuario.objects.filter(email=email_valido).first()
-            if not u:
+            nova = u is None
+            if nova:
                 u = Usuario(email=email_valido, username=email_valido)
             u.nome = sa['nome']
             u.username = email_valido
@@ -50,7 +62,12 @@ class Command(BaseCommand):
             u.is_superuser = True
             u.is_staff = True
             u.escola = None  # SuperAdmin não pertence a uma escola específica (gerencia a plataforma)
-            u.set_password(sa['pass'])
+            if senha_env:
+                u.set_password(senha_env)
+            elif nova:
+                u.set_unusable_password()
+                self.stdout.write(self.style.WARNING(
+                    f'[AVISO] SuperAdmin {email_valido} criado SEM senha: defina SUPERADMIN_PASSWORD e reinicie.'))
             try:
                 u.save()
             except Exception as e:

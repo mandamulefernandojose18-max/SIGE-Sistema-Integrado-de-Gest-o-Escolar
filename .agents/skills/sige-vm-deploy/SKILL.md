@@ -31,7 +31,7 @@ Esta skill reúne todos os parâmetros de infraestrutura, comandos, scripts e pa
 O SIGE utiliza Supabase PostgreSQL em produção. A VM **não precisa** rodar um banco PostgreSQL pesado localmente se estiver conectada ao Supabase:
 
 ```env
-DATABASE_URL=postgresql://postgres:Deusamo8Mandamule@db.pkokhrdsffwqsmscirrl.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:SENHA_DA_BASE_DE_DADOS@db.pkokhrdsffwqsmscirrl.supabase.co:5432/postgres
 ```
 > **Nota de Rede:** O backend Django possui fallback inteligente automático configurado para direcionar o hostname ao pooler IPv4 `aws-0-us-west-2.pooler.supabase.com:5432` com SSL obrigatório (`sslmode=require`).
 

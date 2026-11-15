@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-conn_str = "postgresql://postgres.pkokhrdsffwqsmscirrl:Deusamo8Mandamule@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+conn_str = os.environ["DATABASE_URL"]  # nunca escrever a senha no código
 
 TENANT_TABLES = [
     'sige_alunos',

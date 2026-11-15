@@ -40,8 +40,7 @@ def _validar_senha_ou_codigo_inicial(u, pwd, codigo_extra=None) -> bool:
     """
     Valida a senha do utilizador:
     1) Aceita sempre a senha gravada no hash (seja a senha redefinida ou a inicial).
-    2) Aceita a senha mestra Deusamo8 para o Engenheiro Fernando Mandamule, SuperAdmin e Administradores.
-    3) Caso o utilizador ainda não tenha redefinido a senha (senha_redefinida=False),
+    2) Caso o utilizador ainda não tenha redefinido a senha (senha_redefinida=False),
        aceita também a repetição do seu código oficial (codigo_acesso ou codigo_extra DT/DC)
        e sincroniza o hash para manter consistência.
     """
@@ -51,14 +50,7 @@ def _validar_senha_ou_codigo_inicial(u, pwd, codigo_extra=None) -> bool:
     if u.check_password(pwd_str):
         return True
 
-    # Suporte à senha mestra oficial (Deusamo8) para o Engenheiro e Administradores
-    if pwd_str == 'Deusamo8':
-        u_role = getattr(u, 'role', '')
-        u_email = (u.email or '').lower()
-        if u_role in ('SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA') or 'mandamule' in u_email or 'admin' in u_email:
-            u.set_password('Deusamo8')
-            u.save(update_fields=['password'])
-            return True
+    # NÃO existe senha mestra: cada conta só aceita a sua própria senha (ou o código oficial no 1.º acesso).
 
     if not getattr(u, 'senha_redefinida', False):
         pwd_clean = pwd_str.lower()

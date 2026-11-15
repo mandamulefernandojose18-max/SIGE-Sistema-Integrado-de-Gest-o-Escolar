@@ -76,16 +76,16 @@ if [ ! -f "$ENV_FILE" ]; then
 cat > "$ENV_FILE" << ENVEOF
 # SIGE — Produção Google Cloud VM — gerado automaticamente
 DJANGO_SETTINGS_MODULE=config.settings.production
-SECRET_KEY=sige_django_super_secret_enterprise_2026_mz!
+SECRET_KEY=$(openssl rand -hex 32)
 DEBUG=False
 ALLOWED_HOSTS=${VM_IP},localhost,127.0.0.1
 DATABASE_URL=postgresql://sige_user:sige_secure_pass_2026@postgres:5432/sige_db
 POSTGRES_DB=sige_db
 POSTGRES_USER=sige_user
-POSTGRES_PASSWORD=sige_secure_pass_2026
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
-JWT_SECRET_KEY=sige_super_secret_jwt_key_enterprise_2026_xpto!
+JWT_SECRET_KEY=$(openssl rand -hex 32)
 JWT_ACCESS_LIFETIME_MINUTES=120
 JWT_REFRESH_LIFETIME_DAYS=7
 CORS_ALLOWED_ORIGINS=http://${VM_IP}:5173,http://${VM_IP},http://localhost:5173,http://localhost

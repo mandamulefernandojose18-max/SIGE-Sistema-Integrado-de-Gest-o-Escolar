@@ -107,22 +107,22 @@ else
 
 # Django Backend
 DJANGO_SETTINGS_MODULE=config.settings.production
-SECRET_KEY=sige_django_super_secret_enterprise_2026_mz!
+SECRET_KEY=$(openssl rand -hex 32)
 DEBUG=False
 
 # Hosts permitidos (inclui o IP da VM)
 ALLOWED_HOSTS=${VM_IP},localhost,127.0.0.1
 
 # PostgreSQL (Supabase em Produção)
-DATABASE_URL=postgresql://postgres:Deusamo8Mandamule@db.pkokhrdsffwqsmscirrl.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:SENHA_DA_BASE_DE_DADOS@db.pkokhrdsffwqsmscirrl.supabase.co:5432/postgres
 POSTGRES_DB=sige_db
 POSTGRES_USER=sige_user
-POSTGRES_PASSWORD=sige_secure_pass_2026
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 
 # JWT
-JWT_SECRET_KEY=sige_super_secret_jwt_key_enterprise_2026_xpto!
+JWT_SECRET_KEY=$(openssl rand -hex 32)
 JWT_ACCESS_LIFETIME_MINUTES=120
 JWT_REFRESH_LIFETIME_DAYS=7
 
