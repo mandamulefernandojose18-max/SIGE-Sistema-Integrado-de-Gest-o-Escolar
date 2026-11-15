@@ -446,8 +446,8 @@ def _posicao_assinatura(pdf_bytes, indice, bw, bh, w, h, escala):
         x0, x1, topo = rotulo.x0, rotulo.x1, rotulo.y0
         linhas = [p for p in palavras
                   if len(p[4]) > 5 and set(p[4]) <= set('_')
-                  and p[0] < rotulo.x1 and p[2] > rotulo.x0 and abs(p[3] - rotulo.y0) < 3 * CM]
-        if linhas:
+                  and rotulo.x0 - 20 <= (p[0] + p[2]) / 2 <= rotulo.x1 + 20 and abs(p[3] - rotulo.y0) < 3 * CM]
+        if linhas:  # a linha de assinatura do director está centrada sobre o rótulo (não outras linhas da página)
             linha = min(linhas, key=lambda p: abs(p[3] - rotulo.y0))
             x0, x1, topo = linha[0], linha[2], min(topo, linha[1])
         # Bloco da assinatura: rótulo, linha e nome do director (o carimbo fica exactamente por cima de tudo isto)
