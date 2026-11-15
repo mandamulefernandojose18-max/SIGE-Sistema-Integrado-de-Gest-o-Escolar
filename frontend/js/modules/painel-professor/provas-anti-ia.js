@@ -492,6 +492,7 @@
         '<div class="duas"><label class="campo"><span>N.º de perguntas</span><input type="number" name="folha_n_perguntas" min="1" max="100" value="' + esc(pg.total || '') + '" placeholder="1 a 100"></label>' +
         '<label class="campo"><span>Alternativas por pergunta</span><select name="folha_n_alternativas"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label></div>' +
         '<label class="campo"><span>Tipo de avaliação</span><select name="folha_tipo" id="escudoFolhaTipo"><option value="ACS1">1ª ACS</option></select></label>' +
+        '<label class="campo" id="escudoFolhaTrimBox"><span>Trimestre</span><select name="folha_trimestre" id="escudoFolhaTrim"><option value="" selected>Seleccione o trimestre…</option><option value="1_TRIMESTRE">1.º Trimestre</option><option value="2_TRIMESTRE">2.º Trimestre</option><option value="3_TRIMESTRE">3.º Trimestre</option></select><small>Escolha obrigatória: não é preenchido automaticamente. Não se aplica ao Exame Final.</small></label>' +
         '<fieldset style="border:0;padding:0;margin:0"><legend class="suave pequeno">Dados da avaliação impressos na folha (opcionais: sem preencher, ficam em branco)</legend>' +
           '<div class="duas"><label class="campo"><span>Data</span><input type="date" name="folha_data" id="escudoFolhaData"></label>' +
           '<label class="campo"><span>Sala</span><input type="text" name="folha_sala" maxlength="20" placeholder="Ex.: 3"></label></div>' +
@@ -649,6 +650,10 @@
         aviso('O Guião ainda não está pronto: carrega em «Gerar Guião com a IA» e espera, ou escolhe «Sem Guião».', 'atencao');
         return;
       }
+      var folhaSim = $('#escudoFolha'), trimSel = $('#escudoFolhaTrim'), tipoSel = $('#escudoFolhaTipo');
+      if (folhaSim && folhaSim.value === 'sim' && trimSel && !trimSel.value && !(tipoSel && tipoSel.value === 'EXAME')) {
+        aviso('Seleccione o trimestre da folha de resposta.', 'atencao'); trimSel.focus(); return;
+      }
       if (!ativas().length && !confirm('Não colocaste nenhum código. Gerar mesmo assim?')) return;
       var btn = $('#escudoGerar'); btn.disabled = true; aviso('A gerar as cópias seladas…');
       var ok = await descarregar('POST', pid + '/gerar/', dados(), 'copias.zip');
@@ -681,6 +686,7 @@
         try {
           ctx = (await api(pid + '/folha-contexto/')).data; msg.textContent = '';
           $('#escudoFolhaTipo').innerHTML = (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
+          $('#escudoFolhaTipo').dispatchEvent(new Event('change'));
           $('#escudoFolhaLogoCampo').hidden = !(ctx.escola && ctx.escola.logo_proprio_disponivel);
           var classes = ctx.classes || [];
           sClasse.innerHTML = classes.length ? classes.map(function (c) { return '<option value="' + esc(c.classe) + '">' + esc(c.classe) + ' (' + plural(c.total_alunos, 'aluno', 'alunos') + ')</option>'; }).join('') : '<option value="">Sem turmas registadas</option>';
@@ -700,6 +706,9 @@
         if (sel.value === 'sim') carregar();
       });
       // hora final = hora inicial + duração (minutos); se ajustares a hora final, a duração acompanha
+      var tipoF = $('#escudoFolhaTipo');
+      var trimVis = function () { $('#escudoFolhaTrimBox').hidden = tipoF.value === 'EXAME'; };
+      tipoF.addEventListener('change', trimVis); trimVis();
       var hIni = $('#escudoFolhaHora'), hFim = $('#escudoFolhaHoraFim'), hDur = $('#escudoFolhaDur');
       var minutos = function (v) { var m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null; };
       var calcFim = function () {

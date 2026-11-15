@@ -1505,6 +1505,8 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 > **Folha personalizada, carregamento de classes (2026-11-08):** as classes, secções/áreas e turmas do ecrã do Escudo vêm de `GET /api/v1/escudo/<id>/folha-contexto/` (mesma autenticação do Escudo, isolada pela escola da prova); em caso de erro o campo Classe mostra o motivo.
 
 
+> **Blindagem Anti-IA, trimestre da folha (2026-11-15):** ao anexar a folha de resposta à prova selada, o trimestre passa a ser **escolhido** num campo próprio (`folha_trimestre`: 1.º, 2.º ou 3.º; escondido no Exame Final). Já não é preenchido automaticamente com o trimestre activo da escola; o ecrã exige a escolha antes de gerar.
+>
 > **Folha de resposta e provas sem escola (2026-11-09):** se a prova não tiver escola própria (Super Admin), a folha usa a escola seleccionada ou da conta; sem nenhuma, o ecrã pede para seleccionar a escola.
 
 

@@ -315,13 +315,14 @@ def preparar(p, form, ficheiros=None, escola_alt=None, previa=False):
     escola = _escola_da_prova(p, escola_alt)
     if not escola:
         raise ValueError('Para a folha de resposta, seleccione primeiro a escola (Super Admin) ou use uma conta de escola.')
-    esc = fr.montar_dados_escola(escola)
+    esc = {**fr.montar_dados_escola(escola), 'trimestre': ''}  # o trimestre nunca vem do automático: é escolhido no formulário
     ano = escola.ano_letivo_ativo
     personalizada = _on(form, 'folha_personalizada')
     classe = (form.get('folha_classe') or '').strip() or (p.get('classe') or '').strip()
 
     cfg_in = {
         'tipo_avaliacao': form.get('folha_tipo') or 'ACS1',
+        'trimestre': (form.get('folha_trimestre') or '').strip(),
         'disciplina': p.get('disciplina') or '',
         'n_perguntas': form.get('folha_n_perguntas'),
         'n_alternativas': form.get('folha_n_alternativas') or 4,

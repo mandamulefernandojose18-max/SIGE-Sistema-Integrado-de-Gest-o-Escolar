@@ -1133,6 +1133,21 @@ def test_folha_nao_e_opcional_por_omissao_e_sai_na_primeira_pagina(duas_escolas)
     assert len(PdfReader(io.BytesIO(nao.content)).pages) == paginas_sem
 
 
+def test_folha_trimestre_e_escolhido_e_nunca_automatico(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    base = {'marcas': '[]', 'copias': '1', 'folha_resposta': 'sim', 'folha_n_perguntas': '20', 'folha_personalizada': 'nao'}
+
+    def texto(extra):
+        r = c.post(API + pid + '/gerar/', {**base, **extra})
+        assert r.status_code == 200, r.content
+        return (PdfReader(io.BytesIO(r.content)).pages[0].extract_text() or '')
+
+    assert '3.º Trimestre' in texto({'folha_trimestre': '3_TRIMESTRE'})
+    sem = texto({})
+    assert 'Trimestre' not in sem.replace('Trimestre:', '') or '1.º Trimestre' not in sem
+
+
 def test_folha_exige_numero_de_perguntas(duas_escolas):
     c = _cliente(duas_escolas)
     pid = _pid(_criar(c))
