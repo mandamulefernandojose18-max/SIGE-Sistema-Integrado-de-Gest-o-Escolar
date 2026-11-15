@@ -214,3 +214,53 @@ class AlunoMeFaltasPdfView(APIView):
         resp = HttpResponse(buf.getvalue(), content_type='application/pdf')
         resp['Content-Disposition'] = f'attachment; filename="faltas_{ano}.pdf"'
         return resp
+
+
+class AlunoMeCalendarioExamesView(APIView):
+    """Calendário de exames do próprio aluno: só as suas disciplinas, o seu júri e a sua sala.
+
+    Nunca devolve a lista de colegas nem dados de outros alunos.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.notas.exames_servico import analisar_turma, chave_disciplina
+        from apps.notas.models import CalendarioExame, JuriExameAluno
+        aluno = _aluno_do_pedido(request)
+        if not aluno:
+            return Response({'success': False, 'message': 'Utilizador não é um aluno cadastrado.'}, status=status.HTTP_404_NOT_FOUND)
+        ano = str(request.query_params.get('ano') or aluno.escola.ano_letivo_ativo)
+        turma = {str(t.ano_letivo): t for t in _turmas_do_aluno(aluno)}.get(ano)
+        if not turma:
+            return Response({'success': True, 'data': {'ano': ano, 'classe': '', 'itens': []}})
+        analise = analisar_turma(turma)
+        cal = {}
+        for c in CalendarioExame.objects.filter(escola=aluno.escola, ano_letivo=ano, classe=turma.grau_ano):
+            cal.setdefault(chave_disciplina(c.disciplina), {})[c.epoca] = c
+        juris = {}
+        for ja in JuriExameAluno.objects.filter(aluno=aluno, juri__ano_letivo=ano).select_related('juri'):
+            juris[(chave_disciplina(ja.juri.disciplina), ja.juri.epoca)] = ja.juri
+        itens = []
+        for chave, g in analise.items():
+            d = g['alunos'].get(aluno.id)
+            if not d or d['estado'] == 'SEM_NOTA':
+                continue
+            item = {'disciplina': g['nome'], 'estado': d['estado'], 'nota_frequencia': d['freq'], 'chamadas': []}
+            if d['estado'] == 'ADMITIDO':
+                for epoca in (1, 2):
+                    j = juris.get((chave, epoca))
+                    if epoca == 2 and not d['vai_2epoca'] and not j:
+                        continue
+                    c = cal.get(chave, {}).get(epoca)
+                    item['chamadas'].append({
+                        'epoca': epoca,
+                        'data': c.data.isoformat() if c else None,
+                        'periodo': c.periodo if c else None,
+                        'hora_inicio': c.hora_inicio.strftime('%H:%M') if c else None,
+                        'hora_fim': c.hora_fim.strftime('%H:%M') if c else None,
+                        'duracao_minutos': c.duracao_minutos if c else None,
+                        'juri': j.numero if j else None,
+                        'sala': (j.sala or None) if j else None,
+                    })
+            itens.append(item)
+        return Response({'success': True, 'data': {'ano': ano, 'classe': turma.grau_ano, 'turma': turma.nome, 'itens': itens}})

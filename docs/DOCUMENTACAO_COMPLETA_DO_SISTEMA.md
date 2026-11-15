@@ -1084,6 +1084,13 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `GET` | `/api/v1/notas/juris-exame/pdf/` | Pessoal da escola | PDF dos júris (uma página por júri: disciplina, data, período, horário, sala e lista com a nota de frequência). |
 | `GET` | `/api/v1/notas/juris-exame/excluidos/` e `/excluidos/pdf/` | Pessoal da escola | Lista (JSON e PDF) dos alunos excluídos do exame (frequência ≤ 9,4) por disciplina. |
 | `GET` | `/api/v1/alunos/me/calendario-exames/?ano=` | `ALUNO` | Apenas os exames do próprio aluno: data, período, horário, número do júri e sala; nunca a lista de colegas. |
+| `GET/POST` | `/api/v1/notas/calendario-exames/?ano=&classe=` | Leitura: pessoal da escola (não alunos) · Gravação: Direção, Administração, `DAP` | Calendário de Exames: por disciplina com exame, data, período (obrigatório: Manhã/Tarde/Noturno), hora inicial, duração e hora final automática, para a 1ª e 2ª chamada. Valida conflitos de horário na mesma classe e a 2ª época depois da 1ª. |
+| `DELETE` | `/api/v1/notas/calendario-exames/<id>/` | Direção, Administração, `DAP` | Remove uma chamada do calendário. |
+| `POST` | `/api/v1/notas/juris-exame/formar/` | Direção, Administração, `DAP` | Forma os júris: `{epoca, max_alunos, num_salas?, classe?}`. Distribuição equilibrada por ordem alfabética; sala opcional atribuída sem choques de data/hora; devolve avisos. |
+| `GET` | `/api/v1/notas/juris-exame/?ano=&epoca=&classe=&disciplina=` | Pessoal da escola | Júris formados com alunos, matrícula, turma e **nota de frequência da disciplina**. |
+| `GET` | `/api/v1/notas/juris-exame/pdf/` | Pessoal da escola | PDF dos júris (uma página por júri: disciplina, data, período, horário, sala e lista com a nota de frequência). |
+| `GET` | `/api/v1/notas/juris-exame/excluidos/` e `/excluidos/pdf/` | Pessoal da escola | Lista (JSON e PDF) dos alunos excluídos do exame (frequência ≤ 9,4) por disciplina. |
+| `GET` | `/api/v1/alunos/me/calendario-exames/?ano=` | `ALUNO` | Apenas os exames do próprio aluno: data, período, horário, número do júri e sala; nunca a lista de colegas. |
 | `GET/POST` | `/api/v1/pautas` | Autenticado / Pedagógico | Lista pautas ou cria/consolida pauta de uma turma e período. |
 | `GET` | `/api/v1/pautas/geral` | Pedagógico | Devolve a Pauta Geral da Turma e todos os cálculos demográficos da Acta do Conselho de Avaliação. |
 | `POST/PATCH` | `/api/v1/pautas/<pk>/fechar` e `/reabrir` | Direção / `DAP` | Homologa/fecha uma pauta (congelando notas) ou reabre para retificação. |
@@ -1382,6 +1389,13 @@ umero_extenso.py e Sincronização API/Frontend:** A conversão gramatical para 
 
 ---
 
+### 15.2 Calendário dos Exames, Júris e Excluídos (submenu de Exames)
+Página calendario-exames (Área Pedagógica › Exames › Calendário dos Exames), com filtros em cascata **Classe → Disciplina → Júri** (altura constante, sem listas abertas) e três separadores:
+- **Calendário:** disciplinas com exame (vindas do Plano Curricular) com data, **período obrigatório** (Manhã, Tarde ou Noturno), hora inicial, duração e **hora final automática**, para a 1ª e a 2ª chamada/época. Bloqueia choques de horário na mesma classe e exige a 2ª época depois da 1ª.
+- **Júris de Exames:** formação automática por disciplina para os alunos **admitidos** (frequência > 9,4). A escola define o **máximo de alunos por júri** (obrigatório) e, opcionalmente, o **número de salas**; os júris saem equilibrados (sem júri quase vazio), por ordem alfabética, com a sala atribuída sem choques de data/hora. As listas mostram a **nota de frequência da disciplina**. PDF por disciplina ou de todos os júris. Na 2ª época entram os admitidos com nota de 1ª época abaixo da nota mínima.
+- **Excluídos:** lista específica por disciplina (frequência ≤ 9,4) com exportação em PDF.
+- **Painel do aluno** (Calendário Académico › Os Meus Exames): data, período, horário, júri e sala **apenas do próprio aluno**; nunca a lista dos colegas.
+Modelos: CalendarioExame, JuriExame, JuriExameAluno (pps.notas, todos com escola). Lógica em pps/notas/exames_servico.py; PDFs em pps/notas/exames_pdf.py (Times New Roman, tabelas conforme REGRAS_EXCEL_E_PDF.md). Protegido pela funcionalidade de pacote exames (e portal_aluno no lado do aluno). Testes: 	ests/test_calendario_juris_exames.py.
 ### 15.2 Calendário dos Exames, Júris e Excluídos (submenu de Exames)
 Página calendario-exames (Área Pedagógica › Exames › Calendário dos Exames), com filtros em cascata **Classe → Disciplina → Júri** (altura constante, sem listas abertas) e três separadores:
 - **Calendário:** disciplinas com exame (vindas do Plano Curricular) com data, **período obrigatório** (Manhã, Tarde ou Noturno), hora inicial, duração e **hora final automática**, para a 1ª e a 2ª chamada/época. Bloqueia choques de horário na mesma classe e exige a 2ª época depois da 1ª.

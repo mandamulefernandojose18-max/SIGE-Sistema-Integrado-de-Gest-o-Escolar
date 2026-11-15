@@ -1,0 +1,163 @@
+<!-- ===================================================================== -->
+<!-- SIGE - CALENDÁRIO DOS EXAMES (datas, horários, júris e excluídos)      -->
+<!-- Lógica em js/modules/painel-escola/calendario-exames.js                -->
+<!-- API /api/v1/notas/calendario-exames e /api/v1/notas/juris-exame        -->
+<!-- ===================================================================== -->
+<section id="view-calendario-exames" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="calExameAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('calendario-exames')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="calendarioExamesConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="card p-3 mb-3 border-0 shadow-sm no-print">
+      <div class="d-flex flex-wrap align-items-end gap-3">
+        <div>
+          <label class="form-label small fw-bold text-muted mb-1" for="calExClasse"><i class="bi bi-layers-fill text-primary me-1"></i>Classe</label>
+          <select id="calExClasse" class="form-select form-select-sm" style="min-width: 200px;" onchange="calExMudouClasse()">
+            <option value="">A carregar classes...</option>
+          </select>
+        </div>
+        <div class="text-muted small flex-grow-1">
+          <i class="bi bi-info-circle me-1"></i>As disciplinas com exame vêm do Plano Curricular. Os admitidos têm frequência superior a 9,4; os restantes ficam excluídos do exame.
+        </div>
+      </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3 no-print" id="calExTabs">
+      <li class="nav-item"><button type="button" class="nav-link active" data-cx-tab="calendario" onclick="calExAba('calendario')"><i class="bi bi-calendar-week me-1"></i>Calendário</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-cx-tab="juris" onclick="calExAba('juris')"><i class="bi bi-people-fill me-1"></i>Júris de Exames</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-cx-tab="excluidos" onclick="calExAba('excluidos')"><i class="bi bi-person-x-fill me-1"></i>Excluídos</button></li>
+    </ul>
+
+    <!-- 1. CALENDÁRIO -->
+    <div id="calExPainelCalendario">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <h6 class="fw-bold mb-0"><i class="bi bi-calendar-week text-warning me-2"></i>Datas e horários por disciplina</h6>
+            <button type="button" class="btn btn-primary btn-sm fw-bold" id="calExBtnGuardar" onclick="calExGuardar()">
+              <i class="bi bi-floppy-fill me-1"></i> Guardar calendário
+            </button>
+          </div>
+          <div class="small text-muted mb-2">Período obrigatório (Manhã, Tarde ou Noturno). A hora final calcula-se sozinha (hora inicial + duração). Deixe a data vazia para remover a chamada.</div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle sige-cal-exames mb-0" id="calExTabela">
+              <thead class="table-primary text-center">
+                <tr>
+                  <th rowspan="2" class="text-start">Disciplina</th>
+                  <th colspan="5">1ª Chamada / Época</th>
+                  <th colspan="5">2ª Chamada / Época</th>
+                  <th rowspan="2">Admitidos</th>
+                  <th rowspan="2">Excluídos</th>
+                </tr>
+                <tr>
+                  <th>Data</th><th>Período</th><th>Início</th><th>Duração (min)</th><th>Fim</th>
+                  <th>Data</th><th>Período</th><th>Início</th><th>Duração (min)</th><th>Fim</th>
+                </tr>
+              </thead>
+              <tbody id="calExCorpo">
+                <tr><td colspan="13" class="text-center text-muted py-4">Escolha a classe para ver as disciplinas com exame.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. JÚRIS -->
+    <div id="calExPainelJuris" class="d-none">
+      <div class="card shadow-sm border-0 mb-3 no-print">
+        <div class="card-body">
+          <h6 class="fw-bold mb-2"><i class="bi bi-magic text-primary me-2"></i>Formação automática de júris</h6>
+          <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3">
+              <label class="form-label small fw-bold mb-1" for="calExEpoca">Chamada / Época</label>
+              <select id="calExEpoca" class="form-select form-select-sm" onchange="calExCarregarJuris()">
+                <option value="1">1ª Chamada / Época</option>
+                <option value="2">2ª Chamada / Época</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small fw-bold mb-1" for="calExMax">Máx. de alunos por júri <span class="text-danger">*</span></label>
+              <input type="number" id="calExMax" class="form-control form-control-sm" min="1" max="500" value="30">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small fw-bold mb-1" for="calExSalas">Nº de salas da escola <span class="text-muted fw-normal">(opcional)</span></label>
+              <input type="number" id="calExSalas" class="form-control form-control-sm" min="0" max="500" placeholder="Sem salas">
+            </div>
+            <div class="col-6 col-md-3">
+              <button type="button" class="btn btn-success btn-sm fw-bold w-100" id="calExBtnFormar" onclick="calExFormarJuris()">
+                <i class="bi bi-diagram-3-fill me-1"></i> Formar júris
+              </button>
+            </div>
+          </div>
+          <div class="form-text">Classe escolhida acima = só essa classe; "Todas as classes" forma os júris de toda a escola. Refazer substitui os júris anteriores desta época.</div>
+          <div class="form-check mt-1">
+            <input class="form-check-input" type="checkbox" id="calExTodasClasses">
+            <label class="form-check-label small" for="calExTodasClasses">Formar para todas as classes</label>
+          </div>
+          <div id="calExAvisos" class="mt-2"></div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-end gap-2 mb-3 no-print">
+            <div>
+              <label class="form-label small fw-bold text-muted mb-1" for="calExDisc">Disciplina</label>
+              <select id="calExDisc" class="form-select form-select-sm" style="min-width: 220px;" onchange="calExMudouDisciplina()">
+                <option value="">Escolha a disciplina...</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label small fw-bold text-muted mb-1" for="calExJuri">Júri</label>
+              <select id="calExJuri" class="form-select form-select-sm" style="min-width: 160px;" onchange="calExMostrarJuri()">
+                <option value="">Escolha o júri...</option>
+              </select>
+            </div>
+            <div class="ms-auto d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-danger btn-sm fw-bold" onclick="calExPdfJuris(false)">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF da disciplina
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm fw-bold" onclick="calExPdfJuris(true)">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF de todos os júris
+              </button>
+            </div>
+          </div>
+          <div id="calExJuriDetalhe" class="text-muted small">Forme os júris e escolha a disciplina e o júri para ver a lista.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. EXCLUÍDOS -->
+    <div id="calExPainelExcluidos" class="d-none">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-end gap-2 mb-3 no-print">
+            <div>
+              <label class="form-label small fw-bold text-muted mb-1" for="calExExclDisc">Disciplina</label>
+              <select id="calExExclDisc" class="form-select form-select-sm" style="min-width: 220px;" onchange="calExMostrarExcluidos()">
+                <option value="">Escolha a disciplina...</option>
+              </select>
+            </div>
+            <div class="ms-auto">
+              <button type="button" class="btn btn-danger btn-sm fw-bold" onclick="calExPdfExcluidos()">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF dos excluídos da classe
+              </button>
+            </div>
+          </div>
+          <div id="calExExclCorpo" class="text-muted small">Escolha a classe e a disciplina.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

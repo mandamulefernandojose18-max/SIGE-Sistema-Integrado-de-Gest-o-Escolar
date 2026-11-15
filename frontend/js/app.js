@@ -2429,6 +2429,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'calendario-exames', titulo: 'Calendário dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
@@ -2456,6 +2457,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas, Actas & Conselhos', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Controlo de Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'calendario-exames', titulo: 'Calendário dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
@@ -2535,6 +2537,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'calendario-exames', titulo: 'Calendário dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
@@ -2568,6 +2571,7 @@ function renderizarSidebarPorNivel(role) {
     'caderneta',
     'pautas',
     'exames',
+    'calendario-exames',
     'provas-anti-ia',
     'folha-resposta',
     'estatisticas-aproveitamento'
@@ -2636,6 +2640,9 @@ function renderizarSidebarPorNivel(role) {
             <a class="nav-link py-1 small" href="#/exames" onclick="navegarPara('exames'); return false;" id="subnav-exames">
               <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
             </a>
+            <a class="nav-link py-1 small ps-4" href="#/calendario-exames" onclick="navegarPara('calendario-exames'); return false;" id="subnav-calendario-exames">
+              <i class="bi bi-calendar-event-fill text-warning me-1"></i> <span>Calendário dos Exames</span>
+            </a>
             <a class="nav-link py-1 small" href="#/provas-anti-ia" onclick="navegarPara('provas-anti-ia'); return false;" id="subnav-provas-anti-ia">
               <i class="bi bi-qr-code-scan text-danger me-1"></i> <span>Blindagem Anti-IA de Provas</span>
             </a>
@@ -2680,6 +2687,7 @@ function renderizarSidebarPorNivel(role) {
 // Funcionalidade (pacote) que protege cada entrada do menu; o núcleo MEC não aparece aqui (sempre visível).
 const FUNCIONALIDADE_POR_MENU = {
   'exames': 'exames',
+  'calendario-exames': 'exames',
   'estatisticas-aproveitamento': 'estatisticas',
   'horarios': 'rotina',
   'sumarios': 'rotina',
@@ -2982,7 +2990,7 @@ function navegarPara(viewId) {
 
   // Se o painel usar acordeão pedagógico, incluir os subitens
   if (['painel-direcao', 'painel-pedagogico', 'painel-escola'].includes(painel)) {
-    ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'].forEach(id => {
+    ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'].forEach(id => {
       if (!menusPermitidos.includes(id)) menusPermitidos.push(id);
     });
   }
@@ -3042,7 +3050,7 @@ function navegarPara(viewId) {
       // Se for subitem da Área Pedagógica, manter o acordeão aberto
       const subnav = document.getElementById('subnav-area-pedagogica');
       const seta = document.getElementById('seta-area-pedagogica');
-      const ITENS_SUBNAV_PEDAGOGICO = ['atribuicoes-cargos', 'plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
+      const ITENS_SUBNAV_PEDAGOGICO = ['atribuicoes-cargos', 'plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
       if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId) && subnav) {
         subnav.style.display = 'block';
         if (seta) seta.style.transform = 'rotate(180deg)';
@@ -3332,6 +3340,7 @@ async function navegarPara(viewId) {
     'caderneta',
     'pautas',
     'exames',
+    'calendario-exames',
     'provas-anti-ia',
     'folha-resposta',
     'estatisticas-aproveitamento'
@@ -3411,6 +3420,7 @@ async function navegarPara(viewId) {
   if (viewId === 'caderneta') inicializarNavegacaoCaderneta();
   if (viewId === 'pautas') carregarPautas(null, false);
   if (viewId === 'exames') carregarExames();
+  if (viewId === 'calendario-exames' && typeof window.carregarCalendarioExames === 'function') window.carregarCalendarioExames(state.anosPorView[viewId]);
   if (viewId === 'director-turma') carregarPainelDirectorTurma();
   if (viewId === 'atribuicoes-cargos' && typeof carregarAtribuicoesCargos === 'function') carregarAtribuicoesCargos(state.anosPorView[viewId]);
   if (viewId === 'minhas-atividades' && typeof carregarMinhasAtividades === 'function') carregarMinhasAtividades(1);
@@ -21982,6 +21992,8 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarPautas === 'function') await carregarPautas(ano, true);
   } else if (viewId === 'exames') {
     if (typeof carregarExames === 'function') await carregarExames(ano, true);
+  } else if (viewId === 'calendario-exames') {
+    if (typeof window.carregarCalendarioExames === 'function') await window.carregarCalendarioExames(ano);
   } else if (viewId === 'director-turma') {
     if (typeof carregarPainelDirectorTurma === 'function') await carregarPainelDirectorTurma();
   } else if (viewId === 'atribuicoes-cargos') {

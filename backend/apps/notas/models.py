@@ -337,3 +337,85 @@ class OcorrenciaDisciplinar(models.Model):
 
     def __str__(self):
         return f'{self.gravidade}: {self.aluno.nome} ({self.data})'
+
+
+class CalendarioExame(models.Model):
+    """Data, período e horário de cada disciplina com exame, por classe e chamada (1ª ou 2ª época)."""
+    EPOCAS = [(1, '1ª Chamada/Época'), (2, '2ª Chamada/Época')]
+    PERIODOS = [('MANHA', 'Manhã'), ('TARDE', 'Tarde'), ('NOITE', 'Noturno')]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='calendario_exames')
+    ano_letivo = models.CharField(max_length=10)
+    classe = models.CharField(max_length=50)
+    disciplina = models.CharField(max_length=100)
+    epoca = models.PositiveSmallIntegerField(choices=EPOCAS, default=1)
+    data = models.DateField()
+    periodo = models.CharField(max_length=10, choices=PERIODOS)
+    hora_inicio = models.TimeField()
+    duracao_minutos = models.PositiveSmallIntegerField()
+    hora_fim = models.TimeField(editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_calendario_exames'
+        verbose_name = 'Calendário de Exame'
+        verbose_name_plural = 'Calendário de Exames'
+        indexes = [models.Index(fields=['escola', 'ano_letivo', 'classe'])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'ano_letivo', 'classe', 'disciplina', 'epoca'],
+                name='unique_calendario_exame_disc_epoca',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        from datetime import datetime, timedelta
+        fim = datetime.combine(self.data, self.hora_inicio) + timedelta(minutes=int(self.duracao_minutos))
+        self.hora_fim = fim.time()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.classe} · {self.disciplina} · {self.epoca}ª época · {self.data}'
+
+
+class JuriExame(models.Model):
+    """Júri de exame formado automaticamente para uma disciplina/classe/época (com sala opcional)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='juris_exame')
+    ano_letivo = models.CharField(max_length=10)
+    classe = models.CharField(max_length=50)
+    disciplina = models.CharField(max_length=100)
+    epoca = models.PositiveSmallIntegerField(default=1)
+    numero = models.PositiveIntegerField()
+    sala = models.CharField(max_length=50, blank=True, default='')
+    max_alunos = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_juris_exame'
+        verbose_name = 'Júri de Exame'
+        verbose_name_plural = 'Júris de Exame'
+        ordering = ['classe', 'disciplina', 'epoca', 'numero']
+        indexes = [models.Index(fields=['escola', 'ano_letivo', 'classe', 'epoca'])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['escola', 'ano_letivo', 'classe', 'disciplina', 'epoca', 'numero'],
+                name='unique_juri_exame_numero',
+            ),
+        ]
+
+
+class JuriExameAluno(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    juri = models.ForeignKey(JuriExame, on_delete=models.CASCADE, related_name='alunos_juri')
+    aluno = models.ForeignKey('alunos.Aluno', on_delete=models.CASCADE, related_name='juris_exame')
+    ordem = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = 'sige_juris_exame_alunos'
+        ordering = ['juri', 'ordem']
+        constraints = [
+            models.UniqueConstraint(fields=['juri', 'aluno'], name='unique_juri_exame_aluno'),
+        ]

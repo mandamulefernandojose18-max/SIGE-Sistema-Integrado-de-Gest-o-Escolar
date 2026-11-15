@@ -1,10 +1,10 @@
 {
-  "version": "2.9.46",
-  "build": "20261115_2350",
-  "data": "2026-11-15",
+  "version": "2.9.47",
+  "build": "20261116_1200",
+  "data": "2026-11-16",
   "nome": "SIGE Ã¢â‚¬â€ Sistema Integrado de GestÃƒÂ£o Escolar",
   "descricao": "Sistema Integrado de GestÃƒÂ£o Escolar (SaaS)",
-  "novidades": "Carimbo digital da escola (niveis A, B e C): em cada emissao pergunta-se se o documento sai com ou sem carimbo; selo com QR e assinatura digital verificaveis na pagina publica."
+  "novidades": "Calendario dos Exames: datas e horarios da 1a e 2a chamada, formacao automatica de juris (max. de alunos e salas opcionais) com nota de frequencia, lista de excluidos e PDFs; o aluno ve apenas o seu juri, sala e horario."
 }
 
 
