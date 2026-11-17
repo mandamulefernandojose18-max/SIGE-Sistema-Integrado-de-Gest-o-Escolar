@@ -299,7 +299,7 @@ function renderizarTabelaTurmasNoDOM(turmas) {
           <td class="text-end">
             <div class="d-inline-flex gap-1">
               ${botaoAlunosHtml}
-              ${isViewPrincipal ? `<button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="modalDescarregarTurma('${t.id}', '${(t.nome || '').replace(/'/g, "\\'")}')" title="Descarregar a ficha desta turma (PDF ou Excel, com ou sem carimbo)">
+              ${isViewPrincipal ? `<button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="modalDescarregarTurma('${t.id}', '${(t.nome || '').replace(/'/g, "\\'")}')" title="Descarregar a ficha e a relação nominal dos alunos desta turma (PDF ou Excel, com ou sem carimbo)">
                 <i class="bi bi-download me-1"></i>Descarregar
               </button>` : ''}
               <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Nomear (DP) e Homologar Directores (GD)">
@@ -319,7 +319,7 @@ function renderizarTabelaTurmasNoDOM(turmas) {
   if (tbodyEscola) tbodyEscola.innerHTML = gerarHtmlLinhas(false);
 }
 
-// Descarregar a ficha de uma turma: a informação só sai no ficheiro, após escolher formato e carimbo.
+// Descarregar uma turma: um ZIP com a ficha da turma e a relação nominal dos alunos, após escolher formato e carimbo.
 window.modalDescarregarTurma = function(turmaId, nomeTurma) {
   abrirModal(`Descarregar — ${nomeTurma}`, `
     <form id="formDescarregarTurma">
@@ -353,7 +353,7 @@ window.modalDescarregarTurma = function(turmaId, nomeTurma) {
     const carimbo = document.getElementById('dtCarimbo').value;
     if (!formato || !carimbo) return;
     fecharModal();
-    const nomeFicheiro = `turma_${(nomeTurma || 'turma').replace(/\s+/g, '_')}.${formato}`;
+    const nomeFicheiro = `turma_${(nomeTurma || 'turma').replace(/\s+/g, '_')}.zip`;
     await downloadFicheiroBinario(`/api/v1/escola-admin/turmas/${turmaId}/ficha/?formato=${formato}&carimbo=${carimbo}`, nomeFicheiro);
   });
 };

@@ -453,26 +453,30 @@ class TurmaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='ficha')
     def ficha(self, request, pk=None):
-        """Ficha da turma em PDF (`formato=pdf`) ou Excel (`formato=xlsx`). O carimbo (`carimbo=sim|nao`)
-        é decidido pelo middleware de carimbo."""
+        """ZIP com a ficha da turma e a relação nominal dos alunos, em PDF (`formato=pdf`) ou Excel
+        (`formato=xlsx`). `carimbo=sim|nao` é obrigatório; com «sim» o carimbo fica sobre a assinatura
+        «O Director da Escola» (topo, à direita) de cada documento."""
         from django.http import HttpResponse
+        from apps.certificados.carimbo import carimbar_documento, decidir_carimbo
         from apps.documentos.services.pdf_service import DocumentoSemLogoError
-        from .export_turma import pdf_turma, xlsx_turma
+        from .export_turma import zip_turma
         turma = self.get_object()  # já filtrado pelo tenant
-        ocupacao = turma.alunos.filter(status='ATIVO').count()
+        com_carimbo = decidir_carimbo(request)  # depois das permissões/tenant, antes de gerar
         xlsx = str(request.query_params.get('formato') or 'pdf').lower() in ('xlsx', 'excel')
         base = f'turma_{turma.nome}_{turma.grau_ano}'.replace(' ', '_').replace('/', '-')
         try:
-            if xlsx:
-                resp = HttpResponse(xlsx_turma(turma.escola, turma, ocupacao),
-                                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                resp['Content-Disposition'] = f'attachment; filename="{base}.xlsx"'
-                return resp
-            resp = HttpResponse(pdf_turma(turma.escola, turma, ocupacao), content_type='application/pdf')
-            resp['Content-Disposition'] = f'attachment; filename="{base}.pdf"'
-            return resp
+            conteudo = zip_turma(turma.escola, turma, 'xlsx' if xlsx else 'pdf')
         except DocumentoSemLogoError as e:
             return Response({'detail': str(e), 'message': str(e)}, status=409)
+        if com_carimbo:
+            getattr(request, '_request', request)._carimbo_aplicado = True  # o middleware não carimba outra vez
+            conteudo = carimbar_documento(
+                True, conteudo, 'zip', turma.escola, 'TURMA', f'turma:{turma.id}:{turma.ano_letivo}',
+                f'Ficha e relação nominal — {turma.nome} ({turma.grau_ano}) — {turma.ano_letivo}',
+                getattr(request.user, 'nome', None) or 'Secretaria')
+        resp = HttpResponse(conteudo, content_type='application/zip')
+        resp['Content-Disposition'] = f'attachment; filename="{base}.zip"'
+        return resp
 
     @action(detail=False, methods=['get'], url_path='previa-formacao-automatica')
     def previa_formacao_automatica(self, request):
