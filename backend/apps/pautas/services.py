@@ -915,6 +915,38 @@ def resolver_permissoes_exames_usuario(user, escola, turma=None, disciplinas_inf
     }
 
 
+AREAS_EXAME_1_CICLO = {
+    'CCS': {'titulo': 'Área 1 - Ciências Sociais e Comunicação', 'materias': {'LP', 'FRAN', 'ING', 'HIS', 'GEO'}},
+    'MCN': {'titulo': 'Área 2 - Matemática e Ciências Naturais', 'materias': {'MAT', 'BIO', 'FIS', 'QUI'}},
+    'AP': {'titulo': 'Área 3 - Artes e Disciplinas Profissionalizantes',
+           'materias': {'EV', 'TIC', 'AGRO', 'EMPR', 'EF'}},
+}
+NOTA_NEGATIVA_MAX = 9.4
+
+
+def classe_1_ciclo_com_areas(turma):
+    """1.º Ciclo (1.ª a 9.ª classe, área/secção 'Geral'): retenção por área só nas classes 7–9."""
+    num = extrair_numero_classe(getattr(turma, 'grau_ano', '') or '')
+    return num is not None and 7 <= num <= 9
+
+
+def area_exame_da_disciplina(disciplina):
+    """Devolve 'CCS', 'MCN', 'AP' ou None para a disciplina do 1.º Ciclo."""
+    m = identificar_materia_canonica(disciplina)
+    if not m and 'empreendedor' in normalizar_texto(getattr(disciplina, 'nome', '') or ''):
+        m = 'EMPR'
+    for sigla, cfg in AREAS_EXAME_1_CICLO.items():
+        if m in cfg['materias']:
+            return sigla
+    return None
+
+
+def areas_reprovadas(notas_por_area):
+    """notas_por_area: {sigla: [notas finais]} -> siglas (ordem CCS, MCN, AP) com alguma nota <= 9,4."""
+    return [s for s in AREAS_EXAME_1_CICLO
+            if any(n is not None and n <= NOTA_NEGATIVA_MAX for n in notas_por_area.get(s, []))]
+
+
 def consolidar_pauta_exames(turma, ano_letivo='2026'):
     """
     Gera a Pauta Oficial de Exames do SIGE estruturada fielmente ao modelo do MEC:
@@ -929,6 +961,7 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
 
     # 1. Carregar disciplinas da turma
     disciplinas = obter_disciplinas_pauta_turma(turma)
+    regime_areas = classe_1_ciclo_com_areas(turma)
 
     # Identificar quais têm exame e quais não têm
     disciplinas_info = []
@@ -940,7 +973,8 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             'id': str(d.id),
             'nome': d.nome,
             'codigo': d.codigo or '',
-            'tem_exame': tem_ex
+            'tem_exame': tem_ex,
+            'area_exame': area_exame_da_disciplina(d) if regime_areas else None,
         })
 
     # 2. Carregar alunos ativos da turma
@@ -1004,6 +1038,7 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
         disciplinas_aluno = {}
         notas_finais_calc = []
         disciplinas_reprovadas = []
+        notas_por_area = {}
 
         tem_algum_exame = False
         aluno_tem_2epoca_pendente = False
@@ -1169,6 +1204,8 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                     disciplinas_reprovadas.append(d_info['nome'])
 
             notas_finais_calc.append({'disciplina': d_info['nome'], 'notaFinal': media_disc_int if media_disc_int is not None else 0})
+            if regime_areas and d_info.get('area_exame'):
+                notas_por_area.setdefault(d_info['area_exame'], []).append(media_disc_int)
 
             disciplinas_aluno[d_id] = {
                 'disciplina_id': d_id,
@@ -1191,12 +1228,17 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
 
         # Avaliar Resultado Final do Aluno:
         # REGRA SOLICITADA: 'Aprovado' se tiver todas as disciplinas Positivas e com média igual ou superior a 9.5, e caso contrário 'Reprovado'.
+        areas_rep = areas_reprovadas(notas_por_area) if regime_areas else []
         if notas_finais_calc:
             soma_finais = sum(n['notaFinal'] for n in notas_finais_calc)
             mf_global = int(round(soma_finais / len(notas_finais_calc)))
             total_negativas = len(disciplinas_reprovadas)
 
-            aprovado_geral = (total_negativas == 0 and mf_global >= 9.5)
+            if regime_areas:
+                # Retenção por área: nota <= 9,4 em qualquer disciplina reprova o ano inteiro.
+                aprovado_geral = not areas_rep and total_negativas == 0
+            else:
+                aprovado_geral = (total_negativas == 0 and mf_global >= 9.5)
             resultado_final = f"Aprovad{sufixo_genero}" if aprovado_geral else f"Reprovad{sufixo_genero}"
             if aprovado_geral:
                 total_aprovados += 1
@@ -1222,7 +1264,9 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
                 'resultado': resultado_final,
                 'mf': mf_global,
                 'media_final': mf_global,
-                'disciplinas_reprovou': ", ".join(disciplinas_reprovadas) if disciplinas_reprovadas else "---",
+                'disciplinas_reprovou': (", ".join(areas_rep) if areas_rep
+                                         else ", ".join(disciplinas_reprovadas) if disciplinas_reprovadas else "---"),
+                'areas_reprovou': areas_rep,
                 'total_negativas': len(disciplinas_reprovadas)
             }
         })
