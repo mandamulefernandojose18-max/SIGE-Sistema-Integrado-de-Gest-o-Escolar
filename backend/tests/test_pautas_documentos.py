@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 import base64
 from rest_framework.test import APIClient
 from apps.accounts.models import Usuario
@@ -47,19 +47,19 @@ class TestPautasEDocumentos:
 
     def test_emissao_pauta_pdf_xlsx_docx(self):
         # PDF
-        res_pdf = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/pdf/?periodo=1_TRIMESTRE')
+        res_pdf = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/pdf/?periodo=1_TRIMESTRE&carimbo=nao')
         assert res_pdf.status_code == 200
         assert res_pdf['Content-Type'] == 'application/pdf'
         assert len(res_pdf.content) > 1000
 
         # XLSX
-        res_xlsx = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/export-xlsx/?periodo=1_TRIMESTRE')
+        res_xlsx = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/export-xlsx/?periodo=1_TRIMESTRE&carimbo=nao')
         assert res_xlsx.status_code == 200
         assert 'spreadsheetml' in res_xlsx['Content-Type']
         assert len(res_xlsx.content) > 1000
 
         # DOCX
-        res_docx = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/docx/?periodo=1_TRIMESTRE')
+        res_docx = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/docx/?periodo=1_TRIMESTRE&carimbo=nao')
         assert res_docx.status_code == 200
         assert 'wordprocessingml' in res_docx['Content-Type']
         assert len(res_docx.content) > 1000
@@ -284,14 +284,14 @@ class TestPautasEDocumentos:
         assert 'Química' not in nomes_lg
 
         # TESTE 3: Exportação de PDF, XLSX e DOCX para Ciências com Biologia
-        res_pdf = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/pdf/?periodo=1_TRIMESTRE')
+        res_pdf = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/pdf/?periodo=1_TRIMESTRE&carimbo=nao')
         assert res_pdf.status_code == 200
         assert res_pdf['Content-Type'] == 'application/pdf'
 
-        res_xlsx = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/export-xlsx/?periodo=1_TRIMESTRE')
+        res_xlsx = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/export-xlsx/?periodo=1_TRIMESTRE&carimbo=nao')
         assert res_xlsx.status_code == 200
 
-        res_docx = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/docx/?periodo=1_TRIMESTRE')
+        res_docx = self.client.get(f'/api/v1/pautas/turma/{turma_ciencias_bio.id}/docx/?periodo=1_TRIMESTRE&carimbo=nao')
         assert res_docx.status_code == 200
 
         # TESTE 4: Pauta da Turma de Ciências com Geografia (Regra expressa do usuário)
@@ -391,17 +391,17 @@ class TestPautasEDocumentos:
         assert ta3['fimAno']['avaliados']['hm'] == 1
 
     def test_pauta_exames_download_xlsx_e_pdf(self):
-        res_xlsx = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/xlsx?anoLetivo=2026')
+        res_xlsx = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/xlsx?anoLetivo=2026&carimbo=nao')
         assert res_xlsx.status_code == 200
         assert res_xlsx['Content-Type'] == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         assert len(res_xlsx.content) > 0
 
-        res_pdf = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/pdf?anoLetivo=2026')
+        res_pdf = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/pdf?anoLetivo=2026&carimbo=nao')
         assert res_pdf.status_code == 200
         assert res_pdf['Content-Type'] == 'application/pdf'
         assert len(res_pdf.content) > 0
 
-        res_docx = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/docx?anoLetivo=2026')
+        res_docx = self.client.get(f'/api/v1/pautas/exames/turma/{self.turma.id}/docx?anoLetivo=2026&carimbo=nao')
         assert res_docx.status_code == 200
         assert res_docx['Content-Type'] == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         assert len(res_docx.content) > 0
@@ -411,13 +411,13 @@ class TestPautasEDocumentos:
 
     def test_estatisticas_gerais_pdf_e_acta_em_ambas_orientacoes(self):
         import re
-        res_est = self.client.get('/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=2026')
+        res_est = self.client.get('/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=2026&carimbo=nao')
         assert res_est.status_code == 200
         assert res_est['Content-Type'] == 'application/pdf'
         assert res_est.content[:4] == b'%PDF'
 
         for orientacao in ('portrait', 'landscape'):
-            res_acta = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/acta-pdf?anoLetivo=2026&orientacao={orientacao}')
+            res_acta = self.client.get(f'/api/v1/pautas/turma/{self.turma.id}/acta-pdf?anoLetivo=2026&orientacao={orientacao}&carimbo=nao')
             assert res_acta.status_code == 200
             assert res_acta['Content-Type'] == 'application/pdf'
             assert res_acta.content[:4] == b'%PDF'
@@ -433,17 +433,17 @@ class TestPautasEDocumentos:
                                 periodo='1_TRIMESTRE', media_final=8 + i, resultado='Aprovado')
 
         urls = [
-            f'/api/v1/pautas/turma/{self.turma.id}/pdf?anoLetivo=2026&orientacao=landscape',
-            f'/api/v1/pautas/exames/turma/{self.turma.id}/pdf?anoLetivo=2026',
-            '/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=2026',
+            f'/api/v1/pautas/turma/{self.turma.id}/pdf?anoLetivo=2026&orientacao=landscape&carimbo=nao',
+            f'/api/v1/pautas/exames/turma/{self.turma.id}/pdf?anoLetivo=2026&carimbo=nao',
+            '/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=2026&carimbo=nao',
         ]
         for url in urls:
             res = self.client.get(url)
             assert res.status_code == 200, url
             assert res.content[:4] == b'%PDF'
 
-        for url in (f'/api/v1/pautas/exames/turma/{self.turma.id}/xlsx?anoLetivo=2026',
-                    '/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=2026'):
+        for url in (f'/api/v1/pautas/exames/turma/{self.turma.id}/xlsx?anoLetivo=2026&carimbo=nao',
+                    '/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=2026&carimbo=nao'):
             res = self.client.get(url)
             assert res.status_code == 200, url
             openpyxl.load_workbook(io.BytesIO(res.content))
@@ -545,25 +545,25 @@ class TestPautasEDocumentos:
 
     def test_emissao_lote_completa_com_mapa_e_todos_documentos_alunos(self):
         # 1. Lote PDF: deve conter Mapa Oficial + Documentos de Cada Aluno
-        res_pdf = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/pdf?tipo=BOLETIM')
+        res_pdf = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/pdf?tipo=BOLETIM&carimbo=nao')
         assert res_pdf.status_code == 200
         assert res_pdf['Content-Type'] == 'application/pdf'
         assert len(res_pdf.content) > 1000
 
         # 2. Lote DOCX: deve conter Mapa Oficial + Documentos de Cada Aluno
-        res_docx = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/docx?tipo=BOLETIM')
+        res_docx = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/docx?tipo=BOLETIM&carimbo=nao')
         assert res_docx.status_code == 200
         assert 'wordprocessingml' in res_docx['Content-Type']
         assert len(res_docx.content) > 1000
 
         # 3. Lote XLSX: deve conter folha Mapa de Emissao + aba individual para cada aluno
-        res_xlsx = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/xlsx?tipo=BOLETIM')
+        res_xlsx = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/xlsx?tipo=BOLETIM&carimbo=nao')
         assert res_xlsx.status_code == 200
         assert 'spreadsheetml' in res_xlsx['Content-Type']
         assert len(res_xlsx.content) > 1000
 
         # 4. Lote ZIP: deve conter Mapa Oficial + Documento Completo Unificado + Documentos Individuais
-        res_zip = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/zip?tipo=BOLETIM')
+        res_zip = self.client.get(f'/api/v1/impressao/lote/turma/{self.turma.id}/zip?tipo=BOLETIM&carimbo=nao')
         assert res_zip.status_code == 200
         assert res_zip['Content-Type'] == 'application/zip'
         assert len(res_zip.content) > 1000

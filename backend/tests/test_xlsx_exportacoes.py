@@ -152,16 +152,16 @@ class TestVarreduraExcel:
     def _urls(self):
         t, a = self.turma.id, self.aluno.id
         return [
-            f'/api/v1/pautas/turma/{t}/export-xlsx/?periodo=1_TRIMESTRE',
-            f'/api/v1/pautas/turma/{t}/export-xlsx/?periodo=1_TRIMESTRE&orientacao=portrait',
-            f'/api/v1/pautas/exames/turma/{t}/xlsx?anoLetivo=2026',
-            '/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=2026',
-            f'/api/v1/pautas/turma/{t}/acta-xlsx?anoLetivo=2026',
-            f'/api/v1/pautas/turma/{t}/acta-xlsx?anoLetivo=2026&orientacao=portrait',
-            f'/api/v1/impressao/boletim/{a}/xlsx?anoLetivo=2026',
-            f'/api/v1/impressao/declaracao/{a}/xlsx?anoLetivo=2026',
-            f'/api/v1/impressao/certificado/{a}/xlsx?anoLetivo=2026',
-            f'/api/v1/impressao/lote/turma/{t}/xlsx?tipo=BOLETIM&anoLetivo=2026',
+            f'/api/v1/pautas/turma/{t}/export-xlsx/?periodo=1_TRIMESTRE&carimbo=nao',
+            f'/api/v1/pautas/turma/{t}/export-xlsx/?periodo=1_TRIMESTRE&orientacao=portrait&carimbo=nao',
+            f'/api/v1/pautas/exames/turma/{t}/xlsx?anoLetivo=2026&carimbo=nao',
+            '/api/v1/pautas/estatisticas-gerais/xlsx?anoLetivo=2026&carimbo=nao',
+            f'/api/v1/pautas/turma/{t}/acta-xlsx?anoLetivo=2026&carimbo=nao',
+            f'/api/v1/pautas/turma/{t}/acta-xlsx?anoLetivo=2026&orientacao=portrait&carimbo=nao',
+            f'/api/v1/impressao/boletim/{a}/xlsx?anoLetivo=2026&carimbo=nao',
+            f'/api/v1/impressao/declaracao/{a}/xlsx?anoLetivo=2026&carimbo=nao',
+            f'/api/v1/impressao/certificado/{a}/xlsx?anoLetivo=2026&carimbo=nao',
+            f'/api/v1/impressao/lote/turma/{t}/xlsx?tipo=BOLETIM&anoLetivo=2026&carimbo=nao',
         ]
 
     def test_todas_as_exportacoes_xlsx_abrem(self):

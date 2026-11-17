@@ -1,4 +1,4 @@
-﻿"""Carimbo digital da escola: pergunta obrigatória em cada emissão, níveis A/B/C e verificação pública."""
+"""Carimbo digital da escola: pergunta obrigatória em cada emissão, níveis A/B/C e verificação pública."""
 import base64
 import io
 
@@ -40,6 +40,7 @@ class TestCarimbo:
         Usuario.objects.create_user(email='dir@escola.mz', password='CarPassword123!', role='DIRECTOR_ESCOLA', escola=self.escola)
         Usuario.objects.create_user(email='sec@escola.mz', password='CarPassword123!', role='SECRETARIA', escola=self.escola)
         turma = Turma.objects.create(escola=self.escola, nome='10ª A', grau_ano='10ª Classe', ano_letivo='2026')
+        self.turma = turma
         disc = Disciplina.objects.create(escola=self.escola, nome='Matemática', codigo='MAT-10', ano_letivo='2026')
         self.aluno = Aluno.objects.create(escola=self.escola, turma=turma, matricula='2026001', nome='Maria Joaquina Santos',
                                           data_nascimento='2009-03-15', genero='F')
@@ -218,3 +219,96 @@ class TestCarimboPdfIntegro:
         palavras_com = {p[4] for pg in com for p in pg.get_text('words')}
         assert palavras_sem <= palavras_com
         assert any(p.startswith('SEL-') for p in palavras_com)
+
+
+@pytest.mark.django_db
+class TestCarimboCentral:
+    """Qualquer PDF/Excel/ZIP gerado pelo sistema passa pela pergunta e pelo carimbo (middleware)."""
+    setup_method = TestCarimbo.setup_method
+    _nivel = TestCarimbo._nivel
+
+    def test_pauta_pdf_exige_decisao_e_leva_carimbo(self):
+        self._nivel('SELO')
+        pdf = f'/api/v1/pautas/turma/{self.turma.id}/pdf?periodo=1_TRIMESTRE'
+        r = self.dir.get(pdf)
+        assert r.status_code == 409 and r.json()['requer_decisao_carimbo'] is True
+        sem = self.dir.get(pdf + '&carimbo=nao')
+        com = self.dir.get(pdf + '&carimbo=sim')
+        assert sem.status_code == 200 and com.status_code == 200 and com.content[:4] == b'%PDF'
+        assert com.content != sem.content
+        assert DocumentoCarimbado.objects.filter(tipo='PAUTA').count() == 1
+        self.dir.get(pdf + '&carimbo=sim')  # mesmo documento: mesmo código
+        assert DocumentoCarimbado.objects.filter(tipo='PAUTA').count() == 1
+
+    def test_excel_exige_decisao_e_leva_imagem_do_carimbo(self):
+        import openpyxl
+        self._nivel('ASSINATURA')
+        xl = f'/api/v1/pautas/turma/{self.turma.id}/xlsx?periodo=1_TRIMESTRE'
+        assert self.dir.get(xl).status_code == 409
+        sem = openpyxl.load_workbook(io.BytesIO(self.dir.get(xl + '&carimbo=nao').content))
+        com_resp = self.dir.get(xl + '&carimbo=sim')
+        assert com_resp.status_code == 200
+        com = openpyxl.load_workbook(io.BytesIO(com_resp.content))
+        assert len(com.worksheets[0]._images) == len(sem.worksheets[0]._images) + 1
+        doc = DocumentoCarimbado.objects.get(tipo='PAUTA')
+        assert verificar_assinatura(doc) is True
+        textos = [c.value for linha in com.worksheets[0].iter_rows() for c in linha if isinstance(c.value, str)]
+        assert any(doc.codigo in s for s in textos)
+
+    def test_ficheiros_carregados_pela_escola_nao_sao_carimbados_nem_perguntados(self):
+        from apps.certificados.middleware import EXCLUIDOS
+        assert '/material-escolar' in EXCLUIDOS and '/alunos/me/' in EXCLUIDOS and '/provas-anti-ia' in EXCLUIDOS
+
+    def test_zip_carimba_cada_ficheiro(self):
+        import zipfile
+        from apps.certificados.carimbo import aplicar_carimbo_zip
+        self._nivel('IMAGEM')
+        pdf = self.dir.get(f'/api/v1/pautas/turma/{self.turma.id}/pdf?periodo=1_TRIMESTRE&carimbo=nao').content
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w') as z:
+            z.writestr('a.pdf', pdf)
+            z.writestr('leia-me.txt', 'texto')
+        out = zipfile.ZipFile(io.BytesIO(aplicar_carimbo_zip(buf.getvalue(), self.escola, 'IMAGEM')))
+        assert out.read('a.pdf') != pdf and out.read('a.pdf')[:4] == b'%PDF' and out.read('leia-me.txt') == b'texto'
+
+
+@pytest.mark.django_db
+class TestCarimbarFicheiroDoNavegador:
+    """Exportações geradas no navegador (listas em PDF/Excel/Word) são carimbadas pelo servidor."""
+    setup_method = TestCarimbo.setup_method
+    _nivel = TestCarimbo._nivel
+
+    @staticmethod
+    def _pdf():
+        from reportlab.pdfgen import canvas
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf)
+        c.drawString(100, 700, 'Lista de alunos')
+        c.save()
+        return buf.getvalue()
+
+    def _enviar(self, cliente, nome, dados):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return cliente.post('/api/v1/certificados/carimbar/',
+                            {'ficheiro': SimpleUploadedFile(nome, dados), 'tipo': 'Lista de alunos'}, format='multipart')
+
+    def test_pdf_e_excel_saem_carimbados_e_registados(self):
+        import openpyxl
+        self._nivel('ASSINATURA')
+        pdf = self._pdf()
+        r = self._enviar(self.dir, 'lista.pdf', pdf)
+        assert r.status_code == 200 and r.content[:4] == b'%PDF' and r.content != pdf
+        wb = openpyxl.Workbook()
+        wb.active['A1'] = 'Nome'
+        buf = io.BytesIO(); wb.save(buf)
+        x = self._enviar(self.dir, 'lista.xlsx', buf.getvalue())
+        assert x.status_code == 200 and x.content[:2] == b'PK'
+        assert DocumentoCarimbado.objects.filter(tipo='EXPORTACAO').count() == 2
+        self._enviar(self.dir, 'lista.pdf', pdf)   # o mesmo ficheiro mantém o mesmo código
+        assert DocumentoCarimbado.objects.filter(tipo='EXPORTACAO').count() == 2
+
+    def test_recusa_formatos_invalidos_e_ficheiros_falsos(self):
+        assert self._enviar(self.dir, 'x.exe', b'MZ').status_code == 400
+        assert self._enviar(self.dir, 'falso.pdf', b'nao sou pdf').status_code == 400
+        assert self.dir.post('/api/v1/certificados/carimbar/', {}, format='multipart').status_code == 400
+        assert APIClient().post('/api/v1/certificados/carimbar/', {}, format='multipart').status_code in (401, 403)

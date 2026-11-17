@@ -310,7 +310,7 @@ Validações ligadas ao plano nas rotas existentes: `POST/PUT /disciplinas/` (cl
 | `PUT` | `/api/v1/certificados/carimbo/` | Director / Administrador | Grava `nivel` (`IMAGEM`\|`SELO`\|`ASSINATURA`), `origem` (`GERADO`\|`CARREGADO`), `imagem_base64` (data URI PNG/JPEG ≤ 1,5 MB) ou `remover_imagem`. |
 | `GET` | `/api/v1/certificados/verificar/<codigo>/` | Público | Verifica certificados `CERT-...` **e selos de carimbo `SEL-...`** (níveis B/C). Selo: devolve `selo: true`, `descricao`, `nivel`, `assinatura_digital {presente, valida, impressao_digital_chave}`; **409** se a assinatura não confere. |
 
-> **Carimbo nos documentos:** os endpoints individuais de boletim, declaração, certificado, ficha e recibo (`pdf` e `docx`) exigem `?carimbo=sim` ou `?carimbo=nao`; sem o parâmetro respondem **409** `{"success": false, "requer_decisao_carimbo": true}`. Aluno/encarregado ficam sempre sem carimbo.
+> **Carimbo nos documentos:** **todos** os endpoints GET que devolvem PDF, Excel, Word ou ZIP exigem `?carimbo=sim` ou `?carimbo=nao`; sem o parâmetro respondem **409** `{"success": false, "requer_decisao_carimbo": true}` (middleware central). Aluno/encarregado, ficheiros carregados pela escola, Blindagem Anti-IA e Folha de Resposta ficam de fora. `POST /api/v1/certificados/carimbar/` (multipart `ficheiro` + `tipo`; director, secretaria e restante pessoal da escola) devolve um PDF/xlsx/docx gerado no navegador já carimbado.
 
 ---
 

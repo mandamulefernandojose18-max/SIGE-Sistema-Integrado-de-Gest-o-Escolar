@@ -218,19 +218,19 @@ class TestTransferencias:
 
     def test_exportar_xlsx_e_pdf(self):
         self._pedido()
-        x = self.dir.get(BASE + 'exportar/?formato=xlsx')
+        x = self.dir.get(BASE + 'exportar/?formato=xlsx&carimbo=nao')
         assert x.status_code == 200 and x.content[:2] == b'PK'
-        p = self.dir.get(BASE + 'exportar/?formato=pdf')
+        p = self.dir.get(BASE + 'exportar/?formato=pdf&carimbo=nao')
         assert p.status_code == 200 and p.content[:4] == b'%PDF'
         assert self.dir.get(BASE + 'exportar/?formato=csv').status_code == 400
 
     # ---------- documento oficial e verificação pública ----------
     def test_guia_pdf_so_apos_aprovacao_e_verificacao_publica(self):
         t = self._pedido().data['data']['id']
-        assert self.dir.get(f'{BASE}{t}/documento/').status_code == 400
+        assert self.dir.get(f'{BASE}{t}/documento/?carimbo=nao').status_code == 400
         self._quitar(t)
         self.dir.post(f'{BASE}{t}/aprovar/')
-        r = self.dir.get(f'{BASE}{t}/documento/')
+        r = self.dir.get(f'{BASE}{t}/documento/?carimbo=nao')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
         codigo = TransferenciaAnulacao.objects.get(id=t).codigo_verificacao
         pub = APIClient().get(f'{BASE}verificar/{codigo}/')
@@ -242,7 +242,7 @@ class TestTransferencias:
         t = self._pedido(tipo='ANULACAO_MATRICULA', motivo_categoria='DESISTENCIA', escola_origem_destino='').data['data']['id']
         self._quitar(t)
         self.dir.post(f'{BASE}{t}/aprovar/')
-        assert self.dir.get(f'{BASE}{t}/documento/').content[:4] == b'%PDF'
+        assert self.dir.get(f'{BASE}{t}/documento/?carimbo=nao').content[:4] == b'%PDF'
 
     def test_codigo_de_verificacao_so_valido_se_aprovado(self):
         t = self._pedido().data['data']['id']

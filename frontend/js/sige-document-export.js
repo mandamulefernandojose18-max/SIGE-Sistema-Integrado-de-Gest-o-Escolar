@@ -23,7 +23,12 @@
   'use strict';
 
   // Utilitário para descarregar Blob no navegador
-  function descarregarBlob(blob, nomeFicheiro) {
+  async function descarregarBlob(blob, nomeFicheiro) {
+    // Carimbo da escola: pergunta sempre «Sim ou Não» antes de entregar o ficheiro (excepto painel do aluno)
+    if (typeof window.carimbarBlobSeDesejado === 'function') {
+      blob = await window.carimbarBlobSeDesejado(blob, nomeFicheiro);
+      if (blob === null) return false;
+    }
     if (window.navigator && window.navigator.msSaveOrOpenBlob) {
       window.navigator.msSaveOrOpenBlob(blob, nomeFicheiro);
       return;

@@ -130,7 +130,7 @@ class TestDocumentosDownloadNome:
         assert 'filename="Boletim - Joao Manuel Silva - 2026.docx"' in disposition_docx
 
         # XLSX
-        res_xlsx = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/xlsx')
+        res_xlsx = self.client.get(f'/api/v1/impressao/boletim/{self.aluno.id}/xlsx?carimbo=nao')
         assert res_xlsx.status_code == 200
         disposition_xlsx = res_xlsx['Content-Disposition']
         assert 'filename="Boletim - Joao Manuel Silva - 2026.xlsx"' in disposition_xlsx
@@ -147,7 +147,7 @@ class TestDocumentosDownloadNome:
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Declaracao - Joao Manuel Silva - 2026.docx"' in disposition_docx
 
-        res_xlsx = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/xlsx')
+        res_xlsx = self.client.get(f'/api/v1/impressao/declaracao/{self.aluno.id}/xlsx?carimbo=nao')
         assert res_xlsx.status_code == 200
         disposition_xlsx = res_xlsx['Content-Disposition']
         assert 'filename="Declaracao - Joao Manuel Silva - 2026.xlsx"' in disposition_xlsx
@@ -164,7 +164,7 @@ class TestDocumentosDownloadNome:
         disposition_docx = res_docx['Content-Disposition']
         assert 'filename="Certificado - Joao Manuel Silva - 2026.docx"' in disposition_docx
 
-        res_xlsx = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/xlsx')
+        res_xlsx = self.client.get(f'/api/v1/impressao/certificado/{self.aluno.id}/xlsx?carimbo=nao')
         assert res_xlsx.status_code == 200
         disposition_xlsx = res_xlsx['Content-Disposition']
         assert 'filename="Certificado - Joao Manuel Silva - 2026.xlsx"' in disposition_xlsx

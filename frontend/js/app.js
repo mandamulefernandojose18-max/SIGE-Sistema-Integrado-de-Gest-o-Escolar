@@ -1567,9 +1567,20 @@ window.validarLogoInstituicaoParaDownload = validarLogoInstituicaoParaDownload;
 
 // Carimbo digital: documentos oficiais individuais (boletim, declaração, certificado, ficha, recibo) em PDF/Word.
 // Regra: em CADA emissão pergunta-se se o documento sai com ou sem carimbo; nunca há resposta por omissão.
-const REGEX_DOCUMENTO_COM_CARIMBO = /\/api\/v1\/(?:impressao|documentos)\/(?:boletim|declaracao|certificado|ficha|recibo)\/[^/?#]+\/(?:pdf|docx)\/?(?:\?|$)/i;
+// Ficheiros que não são documentos emitidos pela escola (aluno, carregados por terceiros, Blindagem Anti-IA)
+const CARIMBO_EXCLUIDOS = ['/alunos/me/', '/provas-anti-ia', '/escudo/', '/ferramentas/', 'download_anexo',
+  'download_documento_oficial', 'modelo_csv', '/material-escolar', '/comprovativo', '/cofre', '/auth/',
+  '/saas', '/superadmin', '/certificados/', '/folha-resposta'];
+const CARIMBO_ULTIMO_SEGMENTO = ['pdf', 'xlsx', 'docx', 'zip', 'export-xlsx', 'acta-pdf', 'acta-docx', 'acta-xlsx'];
 function documentoAdmiteCarimbo(url) {
-  return REGEX_DOCUMENTO_COM_CARIMBO.test(String(url || '')) && !/[?&]carimbo=/i.test(String(url || ''));
+  const u = String(url || '');
+  if (/[?&]carimbo=/i.test(u)) return false;
+  const [caminho, consulta = ''] = u.split('?');
+  if (!/\/api\/v1\//i.test(caminho)) return false;
+  if (CARIMBO_EXCLUIDOS.some((x) => caminho.includes(x))) return false;
+  const ultimo = caminho.replace(/\/+$/, '').split('/').pop().toLowerCase();
+  if (CARIMBO_ULTIMO_SEGMENTO.includes(ultimo)) return true;
+  return /(^|&)formato=(pdf|xlsx|docx|zip)\b/i.test(consulta);
 }
 window.documentoAdmiteCarimbo = documentoAdmiteCarimbo;
 
@@ -1626,11 +1637,39 @@ async function resolverUrlComCarimbo(url) {
   if (!documentoAdmiteCarimbo(url)) return url;
   // Cópias de consulta do próprio aluno/encarregado não são emissões da escola: saem sempre sem carimbo.
   const papel = String(state.user?.role || '').toUpperCase();
+  if (papel === 'SUPERADMIN' && !(localStorage.getItem('sige_selected_tenant') || state.tenant?.id)) return url; // sem escola: sem carimbo
   const escolha = (papel === 'ALUNO' || papel === 'ENCARREGADO') ? 'nao' : await perguntarCarimboDocumento();
   if (!escolha) return null;
   return url + (String(url).includes('?') ? '&' : '?') + 'carimbo=' + escolha;
 }
 window.resolverUrlComCarimbo = resolverUrlComCarimbo;
+
+// Ficheiros gerados no navegador (listas e relatórios exportados em PDF, Excel ou Word): pergunta Sim/Não e,
+// com «Sim», o servidor devolve o ficheiro com o carimbo da escola. Devolve o blob final, ou null se cancelar.
+async function carimbarBlobSeDesejado(blob, nome, rotulo) {
+  const ext = String(nome || '').split('.').pop().toLowerCase();
+  if (!['pdf', 'xlsx', 'docx'].includes(ext)) return blob;
+  const papel = String(state.user?.role || '').toUpperCase();
+  if (papel === 'ALUNO' || papel === 'ENCARREGADO' || !state.token) return blob;
+  if (papel === 'SUPERADMIN' && !(localStorage.getItem('sige_selected_tenant') || state.tenant?.id)) return blob;
+  const escolha = await perguntarCarimboDocumento();
+  if (!escolha) return null;
+  if (escolha === 'nao') return blob;
+  const fd = new FormData();
+  fd.append('ficheiro', blob, nome);
+  fd.append('tipo', rotulo || 'Lista');
+  const h = { Authorization: `Bearer ${state.token}` };
+  const tenant = (papel === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null) || state.tenant?.id || state.user?.escola_id;
+  if (tenant) h['X-Tenant-ID'] = tenant;
+  const res = await fetch(formatarUrlApi('/api/v1/certificados/carimbar/'), { method: 'POST', headers: h, body: fd });
+  if (!res.ok) {
+    let msg = 'Não foi possível aplicar o carimbo ao documento.';
+    try { msg = (await res.json()).message || msg; } catch (_) {}
+    throw new Error(msg);
+  }
+  return await res.blob();
+}
+window.carimbarBlobSeDesejado = carimbarBlobSeDesejado;
 
 async function downloadFicheiroBinario(url, defaultFilename) {
   // Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para documentos
@@ -1665,6 +1704,15 @@ async function downloadFicheiroBinario(url, defaultFilename) {
       }
     }
 
+    if (res.status === 409 && !/[?&]carimbo=/i.test(url)) {
+      let pedido = null;
+      try { pedido = await res.clone().json(); } catch (_) {}
+      if (pedido && pedido.requer_decisao_carimbo) {
+        const escolha = await perguntarCarimboDocumento();
+        if (!escolha) return false;
+        return downloadFicheiroBinario(url + (String(url).includes('?') ? '&' : '?') + 'carimbo=' + escolha, defaultFilename);
+      }
+    }
     if (!res.ok) {
       let erroMsg = null;
       try {

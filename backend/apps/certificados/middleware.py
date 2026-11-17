@@ -23,7 +23,7 @@ FORMATOS = {
 # Ficheiros que não são documentos emitidos pela escola: painel do aluno, ficheiros carregados por terceiros
 # (anexos, calendário oficial) e a Blindagem Anti-IA (a integridade dos ficheiros protegidos não pode ser alterada).
 EXCLUIDOS = ('/alunos/me/', '/provas-anti-ia', '/escudo/', '/ferramentas/', 'download_anexo',
-             'download_documento_oficial', 'modelo_csv', '/auth/', '/saas', '/superadmin')
+             'download_documento_oficial', 'modelo_csv', '/material-escolar', '/comprovativo', '/cofre', '/auth/', '/saas', '/superadmin', '/certificados/carimbar', '/folha-resposta')
 
 
 def _tipo_do_pedido(request):

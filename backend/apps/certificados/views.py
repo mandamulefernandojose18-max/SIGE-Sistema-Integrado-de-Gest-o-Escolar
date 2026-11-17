@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import io
 import os
 import uuid
@@ -241,3 +241,48 @@ class CarimboConfigView(APIView):
         escola.save(update_fields=['carimbo_nivel', 'carimbo_origem', 'carimbo_imagem_base64', 'updated_at'])
         return Response({'success': True, 'data': self._estado(escola)})
 
+
+
+class CarimbarFicheiroView(APIView):
+    """Carimba um ficheiro PDF/Excel/Word gerado no navegador (listas e relatórios exportados no painel).
+    Recebe o ficheiro, devolve-o carimbado com o carimbo da escola do utilizador. Aluno/encarregado não carimbam."""
+    permission_classes = [IsAuthenticated]
+    TAMANHO_MAX = 15 * 1024 * 1024
+    TIPOS = {
+        'pdf': 'application/pdf',
+        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }
+
+    def post(self, request):
+        import hashlib
+        from django.http import HttpResponse
+        from common.utils.tenant import get_tenant_escola
+        from .carimbo import carimbar_documento
+        if str(getattr(request.user, 'role', '') or '').upper() in ('ALUNO', 'ENCARREGADO'):
+            return Response({'success': False, 'message': 'Este perfil não emite documentos carimbados.'}, status=status.HTTP_403_FORBIDDEN)
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'success': False, 'message': 'Nenhuma escola associada.'}, status=status.HTTP_400_BAD_REQUEST)
+        f = request.FILES.get('ficheiro')
+        if not f:
+            return Response({'success': False, 'message': 'Envie o ficheiro a carimbar.'}, status=status.HTTP_400_BAD_REQUEST)
+        if f.size > self.TAMANHO_MAX:
+            return Response({'success': False, 'message': 'O ficheiro excede 15 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+        formato = (f.name.rsplit('.', 1)[-1] if '.' in f.name else '').lower()
+        if formato not in self.TIPOS:
+            return Response({'success': False, 'message': 'Só se carimbam ficheiros PDF, Excel (xlsx) e Word (docx).'}, status=status.HTTP_400_BAD_REQUEST)
+        dados = f.read()
+        magia = {'pdf': b'%PDF', 'xlsx': b'PK', 'docx': b'PK'}[formato]
+        if not dados.startswith(magia):
+            return Response({'success': False, 'message': 'O ficheiro não é válido.'}, status=status.HTTP_400_BAD_REQUEST)
+        rotulo = (request.data.get('tipo') or 'Documento').strip()[:40] or 'Documento'
+        referencia = 'ficheiro:' + hashlib.sha256(dados).hexdigest()   # o mesmo ficheiro mantém o mesmo código
+        try:
+            saida = carimbar_documento(True, dados, formato, escola, 'EXPORTACAO', referencia, rotulo,
+                                       getattr(request.user, 'nome', None) or 'Secretaria')
+        except Exception:
+            return Response({'success': False, 'message': 'Não foi possível aplicar o carimbo ao documento.'}, status=500)
+        resposta = HttpResponse(saida, content_type=self.TIPOS[formato])
+        resposta['Content-Disposition'] = 'attachment; filename="carimbado.' + formato + '"'
+        return resposta

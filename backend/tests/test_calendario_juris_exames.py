@@ -115,12 +115,12 @@ class TestCalendarioJurisExames:
     def test_pdfs_juris_e_excluidos(self):
         self._calendario(hora_inicio='10:30')
         self.c.post('/api/v1/notas/juris-exame/formar/', {'epoca': 1, 'max_alunos': 4}, format='json')
-        r = self.c.get('/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1')
+        r = self.c.get('/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&carimbo=nao')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
         r = self.c.get('/api/v1/notas/juris-exame/excluidos/?ano=2026&classe=10ª Classe')
         mat = next(g for g in r.data['data'] if g['disciplina'] == 'Matemática')
         assert len(mat['alunos']) == 2 and all(a['freq'] == 8.0 for a in mat['alunos'])
-        r = self.c.get('/api/v1/notas/juris-exame/excluidos/pdf/?ano=2026&classe=10ª Classe')
+        r = self.c.get('/api/v1/notas/juris-exame/excluidos/pdf/?ano=2026&classe=10ª Classe&carimbo=nao')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
 
     def test_professor_so_le_e_aluno_nao_acede(self):
@@ -164,35 +164,35 @@ class TestCalendarioJurisExames:
     def test_pdf_calendario_escola_e_pdf_do_aluno(self):
         self._calendario(hora_inicio='10:30')
         self.c.post('/api/v1/notas/juris-exame/formar/', {'epoca': 1, 'max_alunos': 4, 'num_salas': 3}, format='json')
-        r = self.c.get('/api/v1/notas/calendario-exames/pdf/?ano=2026')
+        r = self.c.get('/api/v1/notas/calendario-exames/pdf/?ano=2026&carimbo=nao')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
-        r = self.c.get('/api/v1/notas/calendario-exames/pdf/?ano=2026&classe=10ª Classe')
+        r = self.c.get('/api/v1/notas/calendario-exames/pdf/?ano=2026&classe=10ª Classe&carimbo=nao')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
         Usuario.objects.create_user(email='a0p@ex.mz', password=SENHA, role='ALUNO', escola=self.escola,
                                     aluno_id=self.alunos[0].id)
         ca = _login('a0p@ex.mz')
-        r = ca.get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026')
+        r = ca.get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026&carimbo=nao')
         assert r.status_code == 200 and r.content[:4] == b'%PDF'
-        assert ca.get('/api/v1/notas/calendario-exames/pdf/?ano=2026').status_code == 403
+        assert ca.get('/api/v1/notas/calendario-exames/pdf/?ano=2026&carimbo=nao').status_code == 403
 
     def test_excel_calendario_juris_excluidos_e_aluno(self):
         import io
         from openpyxl import load_workbook
         self._calendario(hora_inicio='10:30')
         self.c.post('/api/v1/notas/juris-exame/formar/', {'epoca': 1, 'max_alunos': 4, 'num_salas': 3}, format='json')
-        for url in ('/api/v1/notas/calendario-exames/pdf/?ano=2026&formato=xlsx',
-                    '/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&formato=xlsx',
-                    '/api/v1/notas/juris-exame/excluidos/pdf/?ano=2026&classe=10ª Classe&formato=xlsx'):
+        for url in ('/api/v1/notas/calendario-exames/pdf/?ano=2026&formato=xlsx&carimbo=nao',
+                    '/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&formato=xlsx&carimbo=nao',
+                    '/api/v1/notas/juris-exame/excluidos/pdf/?ano=2026&classe=10ª Classe&formato=xlsx&carimbo=nao'):
             r = self.c.get(url)
             assert r.status_code == 200 and r.content[:2] == b'PK', url
             assert 'xlsx' in r['Content-Disposition']
-        wb = load_workbook(io.BytesIO(self.c.get('/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&formato=xlsx').content))
+        wb = load_workbook(io.BytesIO(self.c.get('/api/v1/notas/juris-exame/pdf/?ano=2026&epoca=1&formato=xlsx&carimbo=nao').content))
         textos = [str(c.value) for row in wb.active.iter_rows() for c in row if c.value is not None]
         assert any(t.startswith('Júri 1') for t in textos) and 12.0 in [c.value for row in wb.active.iter_rows() for c in row]
         assert all(not t.startswith('=') for t in textos)
         Usuario.objects.create_user(email='a0x@ex.mz', password=SENHA, role='ALUNO', escola=self.escola,
                                     aluno_id=self.alunos[0].id)
-        r = _login('a0x@ex.mz').get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026&formato=xlsx')
+        r = _login('a0x@ex.mz').get('/api/v1/alunos/me/calendario-exames/pdf/?ano=2026&formato=xlsx&carimbo=nao')
         assert r.status_code == 200 and r.content[:2] == b'PK'
         textos = ' '.join(str(c.value) for row in load_workbook(io.BytesIO(r.content)).active.iter_rows() for c in row if c.value)
         assert 'Aluno01' not in textos  # nada de colegas
