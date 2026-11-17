@@ -59,6 +59,12 @@ class Usuario(AbstractUser):
     codigo_acesso = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     senha_redefinida = models.BooleanField(default=False)
 
+    # Autenticação de dois factores (TOTP). O segredo nunca é serializado para a API.
+    totp_secret = models.CharField(max_length=64, blank=True, default='')
+    totp_ativo = models.BooleanField(default=False)
+    totp_ultimo_passo = models.BigIntegerField(null=True, blank=True)
+    totp_codigos_recuperacao = models.JSONField(default=list, blank=True)  # hashes SHA-256
+
     username = models.CharField(max_length=150, unique=True, blank=True)
 
     objects = UsuarioManager()

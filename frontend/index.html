@@ -807,6 +807,17 @@
         </div>
       </div>
  
+      <div id="loginBloco2FA" class="mb-4 d-none">
+        <label class="form-label text-uppercase fw-bold text-start d-block" for="loginCodigo2FA" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
+          CÓDIGO DE VERIFICAÇÃO (2FA)
+        </label>
+        <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden;">
+          <span class="input-group-text bg-transparent border-0 pe-1 text-warning"><i class="bi bi-shield-lock fs-5"></i></span>
+          <input type="text" id="loginCodigo2FA" class="form-control bg-transparent border-0 shadow-none ps-2" inputmode="text" autocomplete="one-time-code" maxlength="12" placeholder="6 dígitos ou código de recuperação" style="font-size: 0.95rem; font-weight: 600; letter-spacing: 1px; color: #0f172a; padding: 12px 10px;">
+        </div>
+        <div class="small mt-1 text-start" style="color: #94a3b8;">Abra a aplicação autenticadora no telemóvel. Sem telemóvel? Use um código de recuperação.</div>
+      </div>
+
       <div id="loginFeedback" class="mb-3 d-none" style="border-radius: 10px; font-size: 0.86rem; padding: 10px 14px; text-align: left;"></div>
 
       <button type="submit" id="btnLoginSubmit" class="btn w-100 fw-bold shadow-sm" style="background: #df8704; color: #ffffff; padding: 12px; border-radius: 10px; border: none; font-size: 0.98rem; letter-spacing: 0.3px; transition: background 0.2s;" onmouseover="this.style.background='#c97702'" onmouseout="this.style.background='#df8704'">

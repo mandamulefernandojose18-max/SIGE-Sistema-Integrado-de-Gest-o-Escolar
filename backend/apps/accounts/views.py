@@ -106,6 +106,14 @@ class LoginView(APIView):
 
         data = serializer.validated_data
         user = data['user']
+
+        # Segundo factor (TOTP): só depois de a palavra-passe estar correcta e antes de emitir qualquer token.
+        if getattr(user, 'totp_ativo', False):
+            from .views_2fa import verificar_segundo_factor
+            resposta_2fa = verificar_segundo_factor(request, user, chave_ip, chave_global, _incrementar_falhas)
+            if resposta_2fa is not None:
+                return resposta_2fa
+
         if chave_ip:
             cache.delete(chave_ip)
 

@@ -9,6 +9,13 @@ from .views import (
     AlterarMinhaSenhaView,
     AuditoriaListView,
 )
+from .views_2fa import (
+    Estado2FAView,
+    Configurar2FAView,
+    Activar2FAView,
+    Desativar2FAView,
+    Repor2FAView,
+)
 
 urlpatterns = [
     path('login', LoginView.as_view(), name='auth_login_no_slash'),
@@ -25,6 +32,11 @@ urlpatterns = [
     path('minha-senha/', AlterarMinhaSenhaView.as_view(), name='auth_minha_senha'),
     path('usuarios/<uuid:user_id>/redefinir-senha', RedefinirSenhaView.as_view(), name='auth_redefinir_senha_no_slash'),
     path('usuarios/<uuid:user_id>/redefinir-senha/', RedefinirSenhaView.as_view(), name='auth_redefinir_senha'),
+    path('2fa/estado/', Estado2FAView.as_view(), name='auth_2fa_estado'),
+    path('2fa/configurar/', Configurar2FAView.as_view(), name='auth_2fa_configurar'),
+    path('2fa/activar/', Activar2FAView.as_view(), name='auth_2fa_activar'),
+    path('2fa/desactivar/', Desativar2FAView.as_view(), name='auth_2fa_desactivar'),
+    path('usuarios/<uuid:user_id>/2fa/repor/', Repor2FAView.as_view(), name='auth_2fa_repor'),
     path('auditoria', AuditoriaListView.as_view(), name='auth_auditoria_no_slash'),
     path('auditoria/', AuditoriaListView.as_view(), name='auth_auditoria'),
 ]

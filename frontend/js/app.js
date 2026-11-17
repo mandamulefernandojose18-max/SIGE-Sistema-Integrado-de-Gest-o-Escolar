@@ -1986,7 +1986,9 @@ function modalRedefinirMinhaSenha() {
         </button>
       </div>
     </form>
+    <div id="bloco2FA" class="mt-4 pt-3 border-top"></div>
   `);
+  renderBloco2FA();
 
   document.getElementById('formRedefinirMinhaSenha')?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -2014,6 +2016,114 @@ function modalRedefinirMinhaSenha() {
       alert(err.message || 'Erro ao redefinir a palavra-passe.');
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Autenticação de dois factores (2FA/TOTP) — painel dentro de "Meu Perfil"
+// ---------------------------------------------------------------------------
+const PERFIS_2FA = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP'];
+
+async function renderBloco2FA() {
+  const el = document.getElementById('bloco2FA');
+  if (!el) return;
+  if (!PERFIS_2FA.includes(state.user?.role)) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="small text-muted"><i class="bi bi-arrow-repeat spin me-1"></i>A verificar 2FA...</div>';
+  try {
+    const res = await apiFetch('/api/v1/auth/2fa/estado/', { noCache: true });
+    const d = res?.data || {};
+    if (d.ativo) {
+      el.innerHTML = `
+        <h6 class="fw-bold mb-2"><i class="bi bi-shield-check text-success me-1"></i> Autenticação de dois factores <span class="badge bg-success ms-1">Activa</span></h6>
+        <p class="small text-muted mb-2">Códigos de recuperação disponíveis: <strong>${Number(d.codigos_recuperacao_restantes) || 0}</strong></p>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4"><label class="form-label small fw-bold">Palavra-passe</label><input type="password" id="f2faDesPass" class="form-control form-control-sm" autocomplete="current-password"></div>
+          <div class="col-md-4"><label class="form-label small fw-bold">Código (app ou recuperação)</label><input type="text" id="f2faDesCodigo" class="form-control form-control-sm" autocomplete="one-time-code" maxlength="12"></div>
+          <div class="col-md-4"><button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="desactivar2FA()"><i class="bi bi-shield-x me-1"></i>Desactivar 2FA</button></div>
+        </div>`;
+    } else {
+      el.innerHTML = `
+        <h6 class="fw-bold mb-2"><i class="bi bi-shield-lock text-warning me-1"></i> Autenticação de dois factores <span class="badge bg-secondary ms-1">Desactivada</span></h6>
+        <p class="small text-muted mb-2">Reforce a sua conta com um código gerado no telemóvel (Google Authenticator, Microsoft Authenticator, Authy).</p>
+        <button type="button" class="btn btn-warning btn-sm fw-semibold" onclick="iniciarConfiguracao2FA()"><i class="bi bi-shield-plus me-1"></i>Activar 2FA</button>`;
+    }
+  } catch (err) {
+    el.innerHTML = '<div class="small text-danger">Não foi possível carregar o estado do 2FA.</div>';
+  }
+}
+
+async function iniciarConfiguracao2FA() {
+  const el = document.getElementById('bloco2FA');
+  if (!el) return;
+  try {
+    const res = await apiFetch('/api/v1/auth/2fa/configurar/', { method: 'POST', body: JSON.stringify({}) });
+    const d = res?.data || {};
+    const segredoFmt = String(d.segredo || '').replace(/(.{4})/g, '$1 ').trim();
+    el.innerHTML = `
+      <h6 class="fw-bold mb-2"><i class="bi bi-qr-code me-1"></i> Passo 1: ligue a aplicação autenticadora</h6>
+      <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
+        <img src="${escapeHtml(d.qr || '')}" alt="QR code para a aplicação autenticadora" width="170" height="170" style="image-rendering: pixelated; border: 1px solid #dee2e6; border-radius: 8px;">
+        <div class="small">
+          <div class="mb-1">Leia o QR code na aplicação, ou introduza esta chave manualmente:</div>
+          <code class="fw-bold user-select-all">${escapeHtml(segredoFmt)}</code>
+        </div>
+      </div>
+      <h6 class="fw-bold mb-2">Passo 2: confirme com um código</h6>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label small fw-bold">Código de 6 dígitos</label><input type="text" id="f2faCodigo" class="form-control form-control-sm" inputmode="numeric" autocomplete="one-time-code" maxlength="8"></div>
+        <div class="col-md-4"><label class="form-label small fw-bold">A sua palavra-passe</label><input type="password" id="f2faPass" class="form-control form-control-sm" autocomplete="current-password"></div>
+        <div class="col-md-4"><button type="button" class="btn btn-success btn-sm w-100" onclick="confirmarActivacao2FA()"><i class="bi bi-check-lg me-1"></i>Confirmar e activar</button></div>
+      </div>`;
+  } catch (err) {
+    alert(err.message || 'Não foi possível iniciar a configuração do 2FA.');
+  }
+}
+
+async function confirmarActivacao2FA() {
+  const codigo = (document.getElementById('f2faCodigo')?.value || '').trim();
+  const password = document.getElementById('f2faPass')?.value || '';
+  if (!codigo || !password) return alert('Indique o código e a sua palavra-passe.');
+  try {
+    const res = await apiFetch('/api/v1/auth/2fa/activar/', { method: 'POST', body: JSON.stringify({ codigo, password }) });
+    const codigos = res?.data?.codigos_recuperacao || [];
+    const el = document.getElementById('bloco2FA');
+    if (el) {
+      el.innerHTML = `
+        <h6 class="fw-bold mb-2"><i class="bi bi-shield-check text-success me-1"></i> 2FA activado</h6>
+        <div class="alert alert-warning small py-2">Guarde estes <strong>códigos de recuperação</strong> num local seguro. Cada um serve <strong>uma só vez</strong> se perder o telemóvel e <strong>não voltam a ser mostrados</strong>.</div>
+        <div class="row g-2 mb-2 font-monospace fw-bold">${codigos.map(c => `<div class="col-6 col-md-3"><div class="border rounded px-2 py-1 text-center bg-light user-select-all">${escapeHtml(c)}</div></div>`).join('')}</div>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCopiarCodigos2FA"><i class="bi bi-clipboard me-1"></i>Copiar códigos</button>`;
+      document.getElementById('btnCopiarCodigos2FA')?.addEventListener('click', () => {
+        navigator.clipboard?.writeText(codigos.join('\n')).then(() => mostrarNotificacao('Códigos copiados.', 'success'));
+      });
+    }
+  } catch (err) {
+    alert(err.message || 'Código inválido.');
+  }
+}
+
+async function desactivar2FA() {
+  const password = document.getElementById('f2faDesPass')?.value || '';
+  const codigo = (document.getElementById('f2faDesCodigo')?.value || '').trim();
+  if (!codigo || !password) return alert('Indique a palavra-passe e um código.');
+  if (!confirm('Desactivar o 2FA reduz a segurança da sua conta. Continuar?')) return;
+  try {
+    await apiFetch('/api/v1/auth/2fa/desactivar/', { method: 'POST', body: JSON.stringify({ codigo, password }) });
+    mostrarNotificacao('2FA desactivado.', 'success');
+    renderBloco2FA();
+  } catch (err) {
+    alert(err.message || 'Não foi possível desactivar o 2FA.');
+  }
+}
+
+async function reporDoisFactores(userId) {
+  if (!confirm('Repor o 2FA deste utilizador? Ele deixará de precisar do código até o configurar de novo.')) return;
+  try {
+    const res = await apiFetch(`/api/v1/auth/usuarios/${userId}/2fa/repor/`, { method: 'POST', body: JSON.stringify({}) });
+    mostrarNotificacao(res?.message || '2FA reposto.', 'success');
+    fecharModal();
+  } catch (err) {
+    alert(err.message || 'Não foi possível repor o 2FA.');
+  }
 }
 
 function preencherLogin(email, senha) {
@@ -2064,11 +2174,12 @@ async function realizarLogin(e) {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ 
-        email, 
+      body: JSON.stringify({
+        email,
         senha,
         username: email,
-        password: senha
+        password: senha,
+        ...(((document.getElementById('loginCodigo2FA')?.value || '').trim()) ? { codigo_2fa: document.getElementById('loginCodigo2FA').value.trim() } : {})
       })
     });
     let json = null;
@@ -2077,6 +2188,8 @@ async function realizarLogin(e) {
     } catch (_) {}
 
     if (res.ok && json && json.success) {
+      document.getElementById('loginBloco2FA')?.classList.add('d-none');
+      if (document.getElementById('loginCodigo2FA')) document.getElementById('loginCodigo2FA').value = '';
       localStorage.setItem('sige_ultimo_usuario', email);
       sessionStorage.setItem('sige_token', json.data.tokens.accessToken);
       sessionStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
@@ -2088,7 +2201,21 @@ async function realizarLogin(e) {
       state.user = json.data.user;
       state.tenant = json.data.escola;
       await iniciarApp();
+    } else if (json && json.requer_2fa) {
+      // Palavra-passe correcta; falta (ou falhou) o segundo factor. Mantém utilizador e senha preenchidos.
+      const bloco = document.getElementById('loginBloco2FA');
+      const campo = document.getElementById('loginCodigo2FA');
+      const tinhaCodigo = !!(campo && campo.value.trim());
+      if (bloco) bloco.classList.remove('d-none');
+      if (campo) { campo.value = ''; setTimeout(() => campo.focus(), 80); }
+      if (feedbackEl) {
+        feedbackEl.className = (tinhaCodigo ? 'alert alert-danger' : 'alert alert-info') + ' mb-3 py-2 px-3 small';
+        feedbackEl.innerHTML = `<i class="bi bi-shield-lock-fill me-1"></i> ${escapeHtml(json.message || 'Introduza o código de verificação.')}`;
+        feedbackEl.classList.remove('d-none');
+      }
+      return;
     } else {
+      document.getElementById('loginBloco2FA')?.classList.add('d-none');
       const rawDetail = (json && (json.message || json.detail)) || '';
       const isBlocked = rawDetail && (
         rawDetail.toLowerCase().includes('bloque') ||
@@ -17792,6 +17919,9 @@ function modalRedefinirSenhaUsuario(userId, userNome, codigoAcesso = '') {
           <i class="bi bi-arrow-counterclockwise me-1"></i> Repor Senha Padrão (Repetir Código: <strong>${codigoAcesso}</strong>)
         </button>
       ` : ''}
+      <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="reporDoisFactores('${userId}')">
+        <i class="bi bi-shield-x me-1"></i> Repor 2FA (telemóvel perdido)
+      </button>
     </form>
   `);
 
