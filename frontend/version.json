@@ -1,7 +1,7 @@
-{
-  "version": "2.9.47",
-  "build": "20261116_1500",
-  "data": "2026-11-16",
+﻿{
+  "version": "2.9.48",
+  "build": "20261117_1100",
+  "data": "2026-11-17",
   "nome": "SIGE Ã¢â‚¬â€ Sistema Integrado de GestÃƒÂ£o Escolar",
   "descricao": "Sistema Integrado de GestÃƒÂ£o Escolar (SaaS)",
   "novidades": "Calendario dos Exames: datas e horarios da 1a e 2a chamada, formacao automatica de juris (max. de alunos e salas opcionais) com nota de frequencia, lista de excluidos e PDFs; o aluno ve apenas o seu juri, sala e horario."

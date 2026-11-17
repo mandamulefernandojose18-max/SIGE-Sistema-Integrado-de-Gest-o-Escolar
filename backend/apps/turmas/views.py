@@ -451,6 +451,29 @@ class TurmaViewSet(viewsets.ModelViewSet):
             'turmas_resumo': resumo
         })
 
+    @action(detail=True, methods=['get'], url_path='ficha')
+    def ficha(self, request, pk=None):
+        """Ficha da turma em PDF (`formato=pdf`) ou Excel (`formato=xlsx`). O carimbo (`carimbo=sim|nao`)
+        é decidido pelo middleware de carimbo."""
+        from django.http import HttpResponse
+        from apps.documentos.services.pdf_service import DocumentoSemLogoError
+        from .export_turma import pdf_turma, xlsx_turma
+        turma = self.get_object()  # já filtrado pelo tenant
+        ocupacao = turma.alunos.filter(status='ATIVO').count()
+        xlsx = str(request.query_params.get('formato') or 'pdf').lower() in ('xlsx', 'excel')
+        base = f'turma_{turma.nome}_{turma.grau_ano}'.replace(' ', '_').replace('/', '-')
+        try:
+            if xlsx:
+                resp = HttpResponse(xlsx_turma(turma.escola, turma, ocupacao),
+                                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                resp['Content-Disposition'] = f'attachment; filename="{base}.xlsx"'
+                return resp
+            resp = HttpResponse(pdf_turma(turma.escola, turma, ocupacao), content_type='application/pdf')
+            resp['Content-Disposition'] = f'attachment; filename="{base}.pdf"'
+            return resp
+        except DocumentoSemLogoError as e:
+            return Response({'detail': str(e), 'message': str(e)}, status=409)
+
     @action(detail=False, methods=['get'], url_path='previa-formacao-automatica')
     def previa_formacao_automatica(self, request):
         import datetime

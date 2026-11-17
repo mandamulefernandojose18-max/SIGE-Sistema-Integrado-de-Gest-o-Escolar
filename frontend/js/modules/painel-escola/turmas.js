@@ -299,6 +299,9 @@ function renderizarTabelaTurmasNoDOM(turmas) {
           <td class="text-end">
             <div class="d-inline-flex gap-1">
               ${botaoAlunosHtml}
+              ${isViewPrincipal ? `<button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="modalDescarregarTurma('${t.id}', '${(t.nome || '').replace(/'/g, "\\'")}')" title="Descarregar a ficha desta turma (PDF ou Excel, com ou sem carimbo)">
+                <i class="bi bi-download me-1"></i>Descarregar
+              </button>` : ''}
               <button class="btn btn-outline-primary btn-sm py-0 px-2" onclick="modalEditarTurma('${t.id}')" title="Editar Turma, Nomear (DP) e Homologar Directores (GD)">
                 <i class="bi bi-pencil-square me-1"></i>Editar
               </button>
@@ -315,6 +318,45 @@ function renderizarTabelaTurmasNoDOM(turmas) {
   if (tbodyView) tbodyView.innerHTML = gerarHtmlLinhas(true);
   if (tbodyEscola) tbodyEscola.innerHTML = gerarHtmlLinhas(false);
 }
+
+// Descarregar a ficha de uma turma: a informação só sai no ficheiro, após escolher formato e carimbo.
+window.modalDescarregarTurma = function(turmaId, nomeTurma) {
+  abrirModal(`Descarregar — ${nomeTurma}`, `
+    <form id="formDescarregarTurma">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Formato *</label>
+          <select id="dtFormato" class="form-select" required>
+            <option value="" selected>Escolha o formato...</option>
+            <option value="pdf">PDF</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Carimbo *</label>
+          <select id="dtCarimbo" class="form-select" required>
+            <option value="" selected>Escolha...</option>
+            <option value="sim">Com carimbo</option>
+            <option value="nao">Sem carimbo</option>
+          </select>
+        </div>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-4">
+        <button type="button" class="btn btn-outline-secondary" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary px-4"><i class="bi bi-download me-1"></i> Descarregar</button>
+      </div>
+    </form>
+  `);
+  document.getElementById('formDescarregarTurma').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formato = document.getElementById('dtFormato').value;
+    const carimbo = document.getElementById('dtCarimbo').value;
+    if (!formato || !carimbo) return;
+    fecharModal();
+    const nomeFicheiro = `turma_${(nomeTurma || 'turma').replace(/\s+/g, '_')}.${formato}`;
+    await downloadFicheiroBinario(`/api/v1/escola-admin/turmas/${turmaId}/ficha/?formato=${formato}&carimbo=${carimbo}`, nomeFicheiro);
+  });
+};
 
 function abrirAlunosDaTurma(turmaId, grauAno) {
   navegarPara('alunos');
