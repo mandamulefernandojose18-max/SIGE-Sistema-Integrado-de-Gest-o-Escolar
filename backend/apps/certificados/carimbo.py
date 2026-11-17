@@ -491,7 +491,7 @@ def _posicao_assinatura(doc_fitz, indice, bw, bh, w, h, escala):
             centro_x = (q[0] + q[2]) / 2
             if x0 - 10 <= centro_x <= x1 + 10 and topo - 1 <= q[1] <= topo + 3.2 * CM and not (set(q[4]) <= set('_.-')):
                 base = max(base, q[3])
-        cx, cy = (x0 + x1) / 2, (topo + base) / 2
+        cx, cy = (x0 + x1) / 2, (rotulo.y0 + base) / 2   # exactamente sobre o rótulo e o nome
         d = DIAMETRO_CM * CM * escala
         x = cx - d / 2 - COLUNA_CM * CM * escala
         x = max(MARGEM_CARIMBO, min(x, w - MARGEM_CARIMBO - bw * escala))
