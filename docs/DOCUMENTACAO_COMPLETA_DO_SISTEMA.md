@@ -1289,7 +1289,8 @@ O SIGE implementa um mecanismo de deteção de actualizações sem indicadores p
 Em conformidade rigorosa com a directriz de manter o sistema puro para receber dados reais e fiéis:
 1. **Remoção Absoluta de Dados Fictícios:** Foram expurgados do banco de dados e do código-fonte todos os registros, escolas e utilizadores temporários de teste, bem como nomes pré-fixados de demonstração.
 2. **Campos Directivos Puros:** O modelo `Escola` possui campos de directoria (`director_nome`, `director_carreira`, `dap_nome`, `chefe_secretaria_nome`) com valor padrão vazio (`blank=True, default=''`), garantindo que apenas os membros reais nomeados por cada instituição constem nos cadastros e impressões oficiais.
-3. **Resguardo Legal de Documentos Emitidos:** Na ausência temporária de filiação ou número de identificação civil nos formulários, o motor de relatórios do SIGE adota preenchimento neutro (`---`), eliminando qualquer possibilidade de geração inadvertida de dados fictícios em certidões e certificados do MEC.
+3. **Formulários Sempre Limpos:** Os campos dos formulários (propinas, lotes, planos de pagamento, telefones, cargas horárias, capacidades e quantidades de turmas, ano lectivo, faltas, duração de desbloqueio, folha de resposta, etc.) não vêm pré-preenchidos com valores padrão (ex.: `2500`, `2026-03`, `+258`, `50`); ficam vazios até o utilizador seleccionar ou digitar os dados. Mantêm-se apenas valores vindos de registos reais (edição), parâmetros oficiais do MEC e opções de tema.
+4. **Resguardo Legal de Documentos Emitidos:** Na ausência temporária de filiação ou número de identificação civil nos formulários, o motor de relatórios do SIGE adota preenchimento neutro (`---`), eliminando qualquer possibilidade de geração inadvertida de dados fictícios em certidões e certificados do MEC.
 
 
 

@@ -57,7 +57,10 @@ def decidir_carimbo(request):
     e não são perguntados. O carimbo é um acto da escola."""
     if str(getattr(request.user, 'role', '') or '').upper() in ('ALUNO', 'ENCARREGADO'):
         return False
-    valor = (request.query_params.get('carimbo') or '').strip().lower()
+    parametros = getattr(request, 'query_params', None)
+    if parametros is None:
+        parametros = request.GET
+    valor = (parametros.get('carimbo') or '').strip().lower()
     if valor in ('sim', 's', 'true', '1'):
         return True
     if valor in ('nao', 'não', 'n', 'false', '0'):
@@ -374,7 +377,7 @@ MARGEM_CARIMBO = 1.2 * CM            # o carimbo fica dentro da moldura da pági
 PALAVRAS_ASSINATURA = ('Director', 'Directora', 'Carimbo', 'Chefe')
 
 
-def _posicao_livre(pdf_bytes, indice, bw, bh, w, h, ancora=None, bloqueio=None, escalas=None):
+def _posicao_livre(doc_fitz, indice, bw, bh, w, h, ancora=None, bloqueio=None, escalas=None):
     """Procura na página o sítio livre (sem texto nem imagens pequenas por baixo) mais próximo da assinatura do
     director. Devolve (x, y, escala) em coordenadas PDF (origem em baixo) ou None se não conseguir analisar.
     Usa uma grelha de ocupação + imagem integral (numpy) para avaliar todas as posições de uma só vez."""
@@ -384,7 +387,7 @@ def _posicao_livre(pdf_bytes, indice, bw, bh, w, h, ancora=None, bloqueio=None, 
             import pymupdf as fitz
         except ImportError:
             import fitz
-        pagina = fitz.open(stream=pdf_bytes, filetype='pdf')[indice]
+        pagina = doc_fitz[indice]
         g = 2.0  # pontos por célula da grelha
         nx, ny = int(math.ceil(w / g)) + 1, int(math.ceil(h / g)) + 1
         ocupado = np.zeros((ny, nx), dtype=np.int32)
@@ -452,7 +455,7 @@ def _posicao_livre(pdf_bytes, indice, bw, bh, w, h, ancora=None, bloqueio=None, 
         return None
 
 
-def _posicao_assinatura(pdf_bytes, indice, bw, bh, w, h, escala):
+def _posicao_assinatura(doc_fitz, indice, bw, bh, w, h, escala):
     """Carimbo sobre a assinatura do director: o círculo fica centrado na linha de assinatura e apoiado
     acima do que for mais alto entre a linha e o rótulo «O Director da Escola» (nunca tapa o rótulo).
     Devolve (x, y, escala) em coordenadas PDF ou None se não encontrar a assinatura."""
@@ -461,7 +464,7 @@ def _posicao_assinatura(pdf_bytes, indice, bw, bh, w, h, escala):
             import pymupdf as fitz
         except ImportError:
             import fitz
-        pagina = fitz.open(stream=pdf_bytes, filetype='pdf')[indice]
+        pagina = doc_fitz[indice]
         palavras = pagina.get_text('words')
         rotulos = []
         for e in palavras:  # «Director/Directora» … «da» … «Escola» na mesma linha, junto um do outro
@@ -499,42 +502,52 @@ def _posicao_assinatura(pdf_bytes, indice, bw, bh, w, h, escala):
         return None
 
 
-def _pagina_da_assinatura(pdf_bytes):
-    """Índice da última página que tem a assinatura do director (uma página final com só o nome não conta);
-    None se não for possível determinar (usa-se então a última página)."""
+def _abrir_fitz(pdf_bytes):
     try:
         try:
             import pymupdf as fitz
         except ImportError:
             import fitz
-        encontrada = None
-        for i, pagina in enumerate(fitz.open(stream=pdf_bytes, filetype='pdf')):
-            if any(p[4].strip('.,:/') in PALAVRAS_ASSINATURA for p in pagina.get_text('words')):
-                encontrada = i
-        return encontrada
+        return fitz.open(stream=pdf_bytes, filetype='pdf')
     except Exception:
         return None
 
 
+def _paginas_com_assinatura(doc_fitz):
+    """Índices das páginas com a assinatura «O Director da Escola» (um lote tem uma por documento).
+    Sem nenhuma, usa a última página que tenha outra palavra de assinatura; se também não houver, lista vazia."""
+    if doc_fitz is None:
+        return []
+    diretor, outras = [], []
+    for i, pagina in enumerate(doc_fitz):
+        palavras = pagina.get_text('words')
+        if any(e[4] == 'Escola' and any(q[4] in ('Director', 'Directora') and abs(q[1] - e[1]) < 2
+                                        and 0 < e[0] - q[2] < 80 for q in palavras) for e in palavras):
+            diretor.append(i)
+        elif any(p[4].strip('.,:/') in PALAVRAS_ASSINATURA for p in palavras):
+            outras.append(i)
+    return diretor or outras[-1:]
+
+
 def aplicar_carimbo_pdf(pdf_bytes, escola, nivel, doc=None, posicao='direita'):
-    """Sobrepõe o carimbo na última página, no sítio livre mais próximo da assinatura do director
-    (se a análise falhar, usa o canto inferior direito, ou o centro na declaração)."""
+    """Sobrepõe o carimbo exactamente sobre a assinatura do director de cada documento do PDF; se a assinatura
+    não existir, no sítio livre mais próximo do fim da página (ou canto inferior direito / centro na declaração)."""
     from pypdf import PdfReader, PdfWriter
     from reportlab.pdfgen import canvas
     leitor = PdfReader(io.BytesIO(pdf_bytes))
     escritor = PdfWriter()
-    alvo = _pagina_da_assinatura(pdf_bytes)
-    ultimo = alvo if alvo is not None else len(leitor.pages) - 1
+    doc_f = _abrir_fitz(pdf_bytes)
+    alvos = set(_paginas_com_assinatura(doc_f)) or {len(leitor.pages) - 1}
     bw, bh = dimensoes_carimbo_pt(nivel if doc is not None else 'IMAGEM')
     tem_coluna = doc is not None and nivel != 'IMAGEM'
     for i, pagina in enumerate(leitor.pages):
         nova = escritor.add_page(pagina)
-        if i != ultimo:
+        if i not in alvos:
             continue
         w, h = float(nova.mediabox.width), float(nova.mediabox.height)
         buf = io.BytesIO()
         c = canvas.Canvas(buf, pagesize=(w, h))
-        fixo = _posicao_assinatura(pdf_bytes, i, bw, bh, w, h, 0.8)
+        fixo = _posicao_assinatura(doc_f, i, bw, bh, w, h, 0.8) if doc_f is not None else None
         if fixo:
             # Círculo apoiado na assinatura do director; o QR procura a zona livre mais próxima do círculo
             x, y, escala = fixo
@@ -544,12 +557,12 @@ def aplicar_carimbo_pdf(pdf_bytes, escola, nivel, doc=None, posicao='direita'):
             if tem_coluna:
                 cw, ch = COLUNA_CM * CM, COLUNA_ALTURA_CM * CM
                 coluna = _posicao_livre(
-                    pdf_bytes, i, cw, ch, w, h, ancora=(cx_circ - cw * escala / 2, h - y - d / 2),
+                    doc_f, i, cw, ch, w, h, ancora=(cx_circ - cw * escala / 2, h - y - d / 2),
                     bloqueio=(cx_circ, h - (y + d), cx_circ + d, h - y), escalas=(escala,))
                 xc, yc, ec = coluna if coluna else (x, y, escala)
                 _com_escala(c, xc, yc, ec, lambda: _desenhar_coluna(c, 0, 0, nivel, doc))
         else:
-            livre = _posicao_livre(pdf_bytes, i, bw, bh, w, h)
+            livre = _posicao_livre(doc_f, i, bw, bh, w, h) if doc_f is not None else None
             if livre:
                 x, y, escala = livre
             else:
@@ -578,9 +591,56 @@ def aplicar_carimbo_docx(docx_bytes, escola, nivel, doc=None, posicao='direita')
     return saida.getvalue()
 
 
+def aplicar_carimbo_xlsx(xlsx_bytes, escola, nivel, doc=None):
+    """Excel: o carimbo (imagem) entra por baixo da tabela da primeira folha, com uma linha de texto com o selo.
+    As linhas usadas ficam visíveis (as de baixo estão ocultas por regra) e o carimbo não altera o conteúdo."""
+    import openpyxl
+    from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.utils import get_column_letter
+    png, larg_cm = renderizar_carimbo_png(escola, nivel if doc is not None else 'IMAGEM', doc)
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+    ws = wb.worksheets[0]
+    img = XLImage(io.BytesIO(png))
+    escala_img = (larg_cm / 2.54 * 96 * 0.8) / img.width       # ~80 % do tamanho nominal, em pixéis
+    img.width, img.height = int(img.width * escala_img), int(img.height * escala_img)
+    primeira = (ws.max_row or 1) + 2
+    linhas = int(math.ceil(img.height * 0.75 / 15.0)) + 1      # altura em pontos / 15
+    for r in range(primeira, primeira + linhas + 1):
+        ws.row_dimensions[r].height = 15
+        ws.row_dimensions[r].hidden = False
+    if doc is not None:
+        ws.cell(row=primeira + linhas, column=1,
+                value=f"Selo {doc.codigo} — verifique em {_url_base().split('://')[-1]}")
+    coluna = max(1, (ws.max_column or 1) - 3)
+    ws.add_image(img, f"{get_column_letter(coluna)}{primeira}")
+    saida = io.BytesIO()
+    wb.save(saida)
+    return saida.getvalue()
+
+
+def aplicar_carimbo_zip(zip_bytes, escola, nivel, doc=None, posicao='direita'):
+    """ZIP (lote): carimba cada PDF, Excel e Word que o ZIP contém."""
+    import zipfile
+    entrada = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, 'w', zipfile.ZIP_DEFLATED) as z:
+        for info in entrada.infolist():
+            dados = entrada.read(info.filename)
+            ext = info.filename.lower().rsplit('.', 1)[-1]
+            if ext == 'pdf':
+                dados = aplicar_carimbo_pdf(dados, escola, nivel, doc, posicao)
+            elif ext == 'xlsx':
+                dados = aplicar_carimbo_xlsx(dados, escola, nivel, doc)
+            elif ext == 'docx':
+                dados = aplicar_carimbo_docx(dados, escola, nivel, doc, posicao)
+            z.writestr(info.filename, dados)
+    return saida.getvalue()
+
+
 def carimbar_documento(com_carimbo, conteudo, formato, escola, tipo, referencia, descricao,
                        emitido_por, posicao='direita'):
-    """Ponto único usado pelas views: se o utilizador escolheu «sem carimbo» devolve o documento intacto."""
+    """Ponto único: se o utilizador escolheu «sem carimbo» devolve o documento intacto.
+    `formato`: pdf, docx, xlsx ou zip."""
     if not com_carimbo:
         return conteudo
     nivel = getattr(escola, 'carimbo_nivel', 'SELO') or 'SELO'
@@ -590,4 +650,8 @@ def carimbar_documento(com_carimbo, conteudo, formato, escola, tipo, referencia,
         nivel = doc.nivel
     if formato == 'pdf':
         return aplicar_carimbo_pdf(conteudo, escola, nivel, doc, posicao)
+    if formato == 'xlsx':
+        return aplicar_carimbo_xlsx(conteudo, escola, nivel, doc)
+    if formato == 'zip':
+        return aplicar_carimbo_zip(conteudo, escola, nivel, doc, posicao)
     return aplicar_carimbo_docx(conteudo, escola, nivel, doc, posicao)

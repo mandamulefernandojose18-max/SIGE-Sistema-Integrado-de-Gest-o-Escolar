@@ -88,6 +88,7 @@ MIDDLEWARE = [
     'common.middleware.tenant.TenantMiddleware',
     'apps.tenants.saas_middleware.VerificarAssinaturaMiddleware',
     'apps.tenants.saas_middleware.VerificarFuncionalidadeMiddleware',
+    'apps.certificados.middleware.CarimboDownloadsMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

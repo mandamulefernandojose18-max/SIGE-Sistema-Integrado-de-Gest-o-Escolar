@@ -47,6 +47,7 @@ def _carimbar(request, com_carimbo, conteudo, formato, escola, tipo, aluno=None,
     """Aplica o carimbo da escola se (e só se) o utilizador respondeu «sim» à pergunta desta emissão."""
     if not com_carimbo:
         return conteudo
+    getattr(request, '_request', request)._carimbo_aplicado = True   # o middleware não carimba outra vez
     ano = _obter_ano_letivo_documento(aluno, escola, pagamento)
     ref_id = f"pagamento:{pagamento.id}" if pagamento is not None else f"aluno:{aluno.id}"
     desc = _ROTULOS_CARIMBO[tipo] + (f" — {_nome_abrev_carimbo(aluno)}" if aluno is not None else '')
