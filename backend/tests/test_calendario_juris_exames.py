@@ -71,8 +71,9 @@ class TestCalendarioJurisExames:
     def test_conflito_de_horario_e_periodo_obrigatorio(self):
         r = self._calendario()  # Física 08:30 sobrepõe Matemática 08:00-10:00
         assert r.status_code == 400 and 'Conflito' in r.data['message']
-        r = self._calendario(hora_inicio='10:00', periodo='')
-        assert r.status_code == 400 and 'período' in r.data['message']
+        r = self._calendario(hora_inicio='10:00', periodo='')  # período é opcional
+        assert r.status_code == 200
+        assert self._calendario(hora_inicio='10:00', periodo='INVALIDO').status_code == 400
 
     def test_segunda_epoca_depois_da_primeira(self):
         assert self._calendario(hora_inicio='10:30').status_code == 200

@@ -128,8 +128,8 @@ class CalendarioExamesView(APIView):
                         existente.delete()
                     continue
                 periodo = str(it.get('periodo') or '').upper()
-                if periodo not in PERIODOS:
-                    return _erro(f'{disciplina} ({epoca}ª época): o período (Manhã, Tarde ou Noturno) é obrigatório.')
+                if periodo and periodo not in PERIODOS:
+                    return _erro(f'{disciplina} ({epoca}ª época): período inválido (use Manhã, Tarde ou Noturno).')
                 try:
                     data = dt.date.fromisoformat(str(it['data']))
                     inicio = dt.time.fromisoformat(str(it.get('hora_inicio') or ''))

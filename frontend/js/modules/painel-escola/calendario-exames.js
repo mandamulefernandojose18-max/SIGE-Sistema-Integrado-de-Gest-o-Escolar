@@ -31,11 +31,6 @@
     if (isNaN(t) || t >= 1440) return '—';
     return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
   }
-  function periodoSugerido(ini) {
-    if (!ini) return '';
-    var h = parseInt(ini.split(':')[0], 10);
-    return h < 12 ? 'MANHA' : (h < 18 ? 'TARDE' : 'NOITE');
-  }
 
   window.carregarCalendarioExames = async function (ano) {
     ctx.ano = ano || ctx.ano || '';
@@ -53,7 +48,8 @@
       sel.innerHTML = '<option value="">Escolha a classe...</option>' + classes.map(function (c) {
         return '<option value="' + esc(c) + '"' + (c === atual ? ' selected' : '') + '>' + esc(c) + '</option>';
       }).join('');
-      if (atual && classes.indexOf(atual) >= 0) window.calExMudouClasse();
+      if (!atual && classes.length === 1) { sel.value = classes[0]; atual = classes[0]; }   // uma só classe: já escolhida
+      if (atual && classes.indexOf(atual) >= 0) { sel.value = atual; window.calExMudouClasse(); }
     } catch (e) { toast(e.message || 'Erro ao carregar as classes.', 'danger'); }
   };
 
@@ -71,7 +67,7 @@
     var c = classe();
     var corpo = $('calExCorpo');
     if (!c) {
-      corpo.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4">Escolha a classe para ver as disciplinas com exame.</td></tr>';
+      corpo.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4">Escolha a Classe no topo da página para preencher as datas e os horários.</td></tr>';
       return;
     }
     corpo.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4">A carregar...</td></tr>';
@@ -116,8 +112,6 @@
     var id = 'cx_' + i + '_' + ep;
     var ini = $(id + '_i').value; var dur = $(id + '_u').value;
     $(id + '_f').textContent = horaFim(ini, dur) || '—';
-    var p = $(id + '_p');
-    if (p && !p.value && ini) p.value = periodoSugerido(ini);   // sugestão; continua editável
   };
 
   window.calExGuardar = async function () {

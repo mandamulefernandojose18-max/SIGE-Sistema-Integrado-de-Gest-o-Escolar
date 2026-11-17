@@ -351,7 +351,7 @@ class CalendarioExame(models.Model):
     disciplina = models.CharField(max_length=100)
     epoca = models.PositiveSmallIntegerField(choices=EPOCAS, default=1)
     data = models.DateField()
-    periodo = models.CharField(max_length=10, choices=PERIODOS)
+    periodo = models.CharField(max_length=10, choices=PERIODOS, blank=True, default='')
     hora_inicio = models.TimeField()
     duracao_minutos = models.PositiveSmallIntegerField()
     hora_fim = models.TimeField(editable=False)
