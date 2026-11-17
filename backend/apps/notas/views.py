@@ -19,9 +19,53 @@ from common.utils.avaliacoes_mocambique import calcular_media_trimestral
 from common.permissions.rbac import IsEscolaAdmin
 from common.utils.tenant import get_tenant_escola
 
+_CAMPOS_AUDITADOS_NOTA = (
+    'teste1', 'teste2', 'teste3', 'teste4', 'trabalho', 'avaliacao_trimestral',
+    'media_final', 'resultado', 'comportamento', 'faltas',
+)
+
+
+def _instantaneo_nota(nota):
+    """Valores auditáveis de uma nota (None se ainda não existe)."""
+    if nota is None:
+        return None
+    return {c: (str(getattr(nota, c)) if getattr(nota, c) is not None else None) for c in _CAMPOS_AUDITADOS_NOTA}
+
+
+def _ip_do_pedido(request):
+    return request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR') or '127.0.0.1'
+
+
+def _auditar_nota(request, escola, aluno, disciplina, periodo, antes, nota):
+    """Regista criação/alteração de nota com valores antes/depois; ignora gravações sem mudança."""
+    depois = _instantaneo_nota(nota)
+    if antes == depois:
+        return
+    from apps.accounts.audit import registrar_auditoria
+    registrar_auditoria(
+        request.user, escola, 'NOTA', 'CRIACAO' if antes is None else 'ALTERACAO', nota.id,
+        f'Nota de {aluno.nome} a {disciplina.nome} ({periodo}) '
+        f'{"lançada" if antes is None else "alterada"} por {getattr(request.user, "nome", "") or request.user.email}',
+        antes=antes, depois=depois, ip=_ip_do_pedido(request),
+    )
+
+
 class NotaViewSet(viewsets.ModelViewSet):
     serializer_class = NotaSerializer
     permission_classes = [IsAuthenticated]
+
+    # O lançamento e a correcção de notas fazem-se só por POST (valida professor alocado e prazos
+    # e é auditado). PUT/PATCH/DELETE genéricos contornariam essas regras.
+    def update(self, request, *args, **kwargs):
+        return Response({'success': False, 'message': 'Use o lançamento de avaliações (POST).'},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response({'success': False, 'message': 'A eliminação de notas não é permitida.'},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def get_queryset(self):
         escola = get_tenant_escola(self.request)
@@ -111,7 +155,10 @@ class NotaViewSet(viewsets.ModelViewSet):
                 # Cálculo oficial de avaliação de Moçambique
                 calc = calcular_media_trimestral(item)
 
-                Nota.objects.update_or_create(
+                nota_antes = Nota.objects.filter(
+                    escola=escola, aluno=aluno, disciplina=disciplina, turma=turma, periodo=periodo).first()
+                antes_snap = _instantaneo_nota(nota_antes)
+                nota_gravada, _ = Nota.objects.update_or_create(
                     escola=escola,
                     aluno=aluno,
                     disciplina=disciplina,
@@ -131,6 +178,8 @@ class NotaViewSet(viewsets.ModelViewSet):
                         'faltas': int(item.get('faltas') or 0),
                     }
                 )
+                nota_gravada.refresh_from_db()
+                _auditar_nota(request, escola, aluno, disciplina, periodo, antes_snap, nota_gravada)
                 salvos += 1
 
             return Response({
@@ -252,6 +301,8 @@ class NotaViewSet(viewsets.ModelViewSet):
                 except (ValueError, TypeError):
                     return None
 
+            antes_snap = _instantaneo_nota(Nota.objects.filter(
+                escola=escola, aluno=aluno, disciplina=disciplina, turma=turma, periodo=periodo).first())
             try:
                 nota_obj, created = Nota.objects.update_or_create(
                     escola=escola,
@@ -279,6 +330,8 @@ class NotaViewSet(viewsets.ModelViewSet):
                     'message': f'Erro de integridade ao gravar avaliação: {str(e)}'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+            nota_obj.refresh_from_db()
+            _auditar_nota(request, escola, aluno, disciplina, periodo, antes_snap, nota_obj)
             return Response({
                 'success': True,
                 'message': 'Avaliação gravada com sucesso.',
@@ -484,6 +537,12 @@ class AutorizacaoEdicaoView(APIView):
                 'ativa': True
             }
         )
+        registrar_auditoria(
+            request.user, escola, 'NOTA', 'DESBLOQUEIO', perm.id,
+            f'Desbloqueio de edição de notas ({periodo}, {horas}h) para a turma {turma.nome}. Motivo: {motivo}',
+            depois={'periodo': periodo, 'duracao_horas': horas, 'professor_id': str(prof.id) if prof else None,
+                    'disciplina_id': str(disc.id) if disc else None, 'turma_id': str(turma.id)},
+            ip=_ip_do_pedido(request))
         return Response({
             'success': True,
             'message': 'Autorização de desbloqueio concedida com sucesso!',
@@ -498,6 +557,8 @@ class AutorizacaoEdicaoView(APIView):
         perm = get_object_or_404(PermissaoEdicaoNotas, id=target_id, escola=escola)
         perm.ativa = False
         perm.save()
+        registrar_auditoria(request.user, escola, 'NOTA', 'REVOGACAO', perm.id,
+                            'Desbloqueio de edição de notas revogado', ip=_ip_do_pedido(request))
         return Response({'success': True, 'message': 'Autorização de desbloqueio revogada com sucesso.'})
 
 

@@ -334,11 +334,25 @@ class AuditoriaListView(APIView):
         if objeto_id:
             qs = qs.filter(objeto_id=objeto_id)
 
+        # Filtros por data (AAAA-MM-DD), inclusivos
+        from django.utils.dateparse import parse_date
+        data_inicio = parse_date(request.GET.get('data_inicio') or '')
+        data_fim = parse_date(request.GET.get('data_fim') or '')
+        if data_inicio:
+            qs = qs.filter(created_at__date__gte=data_inicio)
+        if data_fim:
+            qs = qs.filter(created_at__date__lte=data_fim)
+
         try:
-            limite = min(int(request.GET.get('limit', 100)), 500)
+            limite = max(1, min(int(request.GET.get('limit', 100)), 500))
         except Exception:
             limite = 100
+        try:
+            offset = max(0, int(request.GET.get('offset', 0)))
+        except Exception:
+            offset = 0
 
-        logs = qs[:limite]
+        total = qs.count()
+        logs = qs[offset:offset + limite]
         serializer = LogAuditoriaSerializer(logs, many=True)
-        return Response({'success': True, 'data': serializer.data})
+        return Response({'success': True, 'data': serializer.data, 'total': total, 'offset': offset, 'limit': limite})

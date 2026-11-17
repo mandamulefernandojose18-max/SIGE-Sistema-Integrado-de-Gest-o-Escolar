@@ -1135,13 +1135,28 @@ class PautaExamesView(APIView):
             e2_num = parse_num(e2)
             mfreq_num = parse_num(mfreq)
 
-            ne_obj, _ = NotaExame.objects.get_or_create(
+            ne_obj, ne_criada = NotaExame.objects.get_or_create(
                 escola=escola or turma.escola,
                 aluno_id=aluno_id,
                 disciplina_id=disc_id,
                 turma=turma,
                 ano_letivo=ano_letivo
             )
+            _campos_ne = ('nota_frequencia', 'exame_1epoca', 'exame_2epoca', 'nota_final', 'resultado')
+            _snap = lambda o: {c: (str(getattr(o, c)) if getattr(o, c) is not None else None) for c in _campos_ne}
+            ne_antes = None if ne_criada else _snap(ne_obj)
+
+            def _auditar_ne(obj=ne_obj, antes=ne_antes, criada=ne_criada):
+                depois = _snap(obj)
+                if antes == depois:
+                    return
+                from apps.accounts.audit import registrar_auditoria
+                registrar_auditoria(
+                    request.user, escola or turma.escola, 'NOTA_EXAME', 'CRIACAO' if criada else 'ALTERACAO', obj.id,
+                    f'Nota de exame {ano_letivo} (aluno {obj.aluno_id}, disciplina {obj.disciplina_id}, turma {turma.nome}) '
+                    f'{"lançada" if criada else "alterada"}',
+                    antes=antes, depois=depois,
+                    ip=request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR') or '127.0.0.1')
 
             if mfreq_num is not None:
                 ne_obj.nota_frequencia = mfreq_num
@@ -1155,6 +1170,7 @@ class PautaExamesView(APIView):
                 ne_obj.nota_final = int(round(mfreq_num))
                 ne_obj.resultado = 'Excluído'
                 ne_obj.save()
+                _auditar_ne()
                 salvos += 1
                 continue
 
@@ -1190,6 +1206,7 @@ class PautaExamesView(APIView):
                 ne_obj.resultado = 'Reprovado'
 
             ne_obj.save()
+            _auditar_ne()
             salvos += 1
 
         return Response({

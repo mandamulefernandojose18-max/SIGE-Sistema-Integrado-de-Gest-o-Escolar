@@ -112,9 +112,24 @@ class AlocarProfessorView(APIView):
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def delete(self, request, alocacao_id):
-        aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id)
+        aloc = _filtrar_alocacoes_da_escola(request, AlocacaoDocente.objects.all()).filter(id=alocacao_id).first()
+        if not aloc:
+            from django.http import Http404
+            raise Http404('Alocação não encontrada.')
         aloc.delete()
         return Response({'success': True, 'message': 'Alocação removida com sucesso.'})
+
+def _filtrar_alocacoes_da_escola(request, qs):
+    """Isolamento multi-tenant: utilizadores normais só vêem alocações da sua escola.
+    SUPERADMIN sem escola activa mantém acesso global; com escola activa fica nela."""
+    from common.utils.tenant import get_tenant_escola
+    escola = get_tenant_escola(request)
+    if escola:
+        return qs.filter(escola=escola)
+    if getattr(getattr(request, 'user', None), 'role', '') == 'SUPERADMIN':
+        return qs
+    return qs.none()
+
 
 class ProfessorStatsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -200,9 +215,12 @@ def _safe_ascii_filename(nome: str) -> str:
 
 def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
     escola = getattr(request, 'tenant', None) or getattr(getattr(request, 'user', None), 'escola', None)
-    aloc = AlocacaoDocente.objects.select_related('turma', 'disciplina', 'professor', 'escola').filter(id=alocacao_id).first()
+    qs = _filtrar_alocacoes_da_escola(
+        request, AlocacaoDocente.objects.select_related('turma', 'disciplina', 'professor', 'escola'))
+    aloc = qs.filter(id=alocacao_id).first()
     if not aloc:
-        aloc = get_object_or_404(AlocacaoDocente, id=alocacao_id)
+        from django.http import Http404
+        raise Http404('Alocação não encontrada.')
     escola = aloc.escola or escola
 
     # Regra de Seguranca Estrita: O professor so e so ve as suas cadernetas das suas turmas

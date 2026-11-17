@@ -185,6 +185,15 @@ def _obter_escola_do_pedido(request, user):
             return None
     return None
 
+def _da_escola(qs, escola, user):
+    """Isolamento multi-tenant: restringe o queryset à escola do pedido.
+    Sem escola, só o SUPERADMIN mantém acesso global; os restantes não obtêm nada."""
+    if escola:
+        return qs.filter(escola=escola)
+    if getattr(user, 'role', None) == 'SUPERADMIN':
+        return qs
+    return qs.none()
+
 def _aplicar_cabecalhos_seguranca(response):
     response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response['X-Robots-Tag'] = 'noindex, nofollow'
@@ -473,7 +482,7 @@ def api_enviar_whatsapp(request):
     if not canonico:
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Número de telemóvel inválido para Moçambique (+258).'}, status=400))
 
-    aluno_obj = Aluno.objects.filter(id=aluno_id).first() if aluno_id else None
+    aluno_obj = _da_escola(Aluno.objects.filter(id=aluno_id), escola, user).first() if aluno_id else None
     nome_dest = f"{aluno_obj.nome} {aluno_obj.apelido}".strip() if aluno_obj else 'Encarregado de Educação'
 
     # Gerar link directo wa.me sem o sinal +
@@ -584,11 +593,11 @@ def api_iniciar_pagamento_movel(request):
     # Obter aluno e pagamento se existirem
     aluno_obj = None
     if aluno_id:
-        aluno_obj = Aluno.objects.filter(id=aluno_id).first()
+        aluno_obj = _da_escola(Aluno.objects.filter(id=aluno_id), escola, user).first()
 
     pagamento_obj = None
     if pagamento_id:
-        pagamento_obj = Pagamento.objects.filter(id=pagamento_id).first()
+        pagamento_obj = _da_escola(Pagamento.objects.filter(id=pagamento_id), escola, user).first()
         if pagamento_obj and not aluno_obj:
             aluno_obj = pagamento_obj.aluno
 
@@ -728,11 +737,11 @@ def api_liquidar_pagamento_manual(request):
 
     pagamento_obj = None
     if pagamento_id:
-        pagamento_obj = Pagamento.objects.filter(id=pagamento_id).first()
+        pagamento_obj = _da_escola(Pagamento.objects.filter(id=pagamento_id), escola, user).first()
 
     aluno_obj = None
     if aluno_id:
-        aluno_obj = Aluno.objects.filter(id=aluno_id).first()
+        aluno_obj = _da_escola(Aluno.objects.filter(id=aluno_id), escola, user).first()
     elif pagamento_obj:
         aluno_obj = pagamento_obj.aluno
 
@@ -982,17 +991,18 @@ def api_reconciliacao_associar(request):
     aluno_id = dados.get('aluno_id')
     pagamento_id = dados.get('pagamento_id')
 
-    rec_obj = ReconciliacaoSmsMovel.objects.filter(id=reconciliacao_id).first()
+    escola = _obter_escola_do_pedido(request, user)
+    rec_obj = _da_escola(ReconciliacaoSmsMovel.objects.filter(id=reconciliacao_id), escola, user).first()
     if not rec_obj:
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Registo de reconciliação não encontrado.'}, status=404))
 
-    aluno_obj = Aluno.objects.filter(id=aluno_id).first()
+    aluno_obj = _da_escola(Aluno.objects.filter(id=aluno_id), escola, user).first()
     if not aluno_obj:
         return _aplicar_cabecalhos_seguranca(JsonResponse({'success': False, 'message': 'Aluno não encontrado.'}, status=404))
 
     pag_obj = None
     if pagamento_id:
-        pag_obj = Pagamento.objects.filter(id=pagamento_id).first()
+        pag_obj = _da_escola(Pagamento.objects.filter(id=pagamento_id), escola, user).first()
     else:
         pag_obj = Pagamento.objects.filter(aluno=aluno_obj, status='PENDENTE').first()
 
