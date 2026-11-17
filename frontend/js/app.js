@@ -2477,7 +2477,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
-    { id: 'calendario-exames', titulo: 'Calendário dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'calendario-exames', titulo: 'Calendário e Júris dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
@@ -2505,7 +2505,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas, Actas & Conselhos', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Controlo de Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
-    { id: 'calendario-exames', titulo: 'Calendário dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'calendario-exames', titulo: 'Calendário e Júris dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
@@ -2585,7 +2585,7 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas & Actas Oficiais', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
-    { id: 'calendario-exames', titulo: 'Calendário dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'calendario-exames', titulo: 'Calendário e Júris dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
@@ -2689,7 +2689,7 @@ function renderizarSidebarPorNivel(role) {
               <i class="bi bi-file-earmark-spreadsheet-fill text-warning me-1"></i> <span>Exames</span>
             </a>
             <a class="nav-link py-1 small ps-4" href="#/calendario-exames" onclick="navegarPara('calendario-exames'); return false;" id="subnav-calendario-exames">
-              <i class="bi bi-calendar-event-fill text-warning me-1"></i> <span>Calendário dos Exames</span>
+              <i class="bi bi-calendar-event-fill text-warning me-1"></i> <span>Calendário e Júris dos Exames</span>
             </a>
             <a class="nav-link py-1 small" href="#/provas-anti-ia" onclick="navegarPara('provas-anti-ia'); return false;" id="subnav-provas-anti-ia">
               <i class="bi bi-qr-code-scan text-danger me-1"></i> <span>Blindagem Anti-IA de Provas</span>
