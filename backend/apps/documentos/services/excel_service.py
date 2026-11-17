@@ -590,9 +590,28 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         cell.alignment = ALIGN_CENTER
         aplicar_estilo_intervalo(ws, idx_c, 4, idx_c, 6, font=FONT_HEADER, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
+    from apps.pautas.services import colunas_pauta_exames
+    colunas_disc = colunas_pauta_exames(dados_pauta)
+    inicios_grupo = []  # colunas onde começa CCS / MCN / AP (7.ª–9.ª): linha carregada
+
     curr_c = 6
     # Disciplinas com exame: 4 colunas cada (Frequência Proven., Exame 1ª, Exame 2ª, Média)
-    for d in disciplinas_com_exame:
+    for col_d in colunas_disc:
+        d = col_d['disc']
+        if col_d['inicio_grupo']:
+            inicios_grupo.append(curr_c)
+        if not col_d['com_exame']:
+            # Disciplinas sem exame: 1 coluna (Frequência)
+            ws.cell(row=4, column=curr_c, value=d['nome']).font = FONT_HEADER
+            ws.cell(row=4, column=curr_c).fill = FILL_NAVY
+            ws.cell(row=4, column=curr_c).alignment = ALIGN_CENTER
+            ws.cell(row=4, column=curr_c).border = THIN_BORDER
+
+            ws.merge_cells(start_row=5, start_column=curr_c, end_row=6, end_column=curr_c)
+            ws.cell(row=5, column=curr_c, value="Freq.").font = FONT_SMALL_BOLD
+            aplicar_estilo_intervalo(ws, curr_c, 5, curr_c, 6, font=FONT_SMALL_BOLD, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_CENTER)
+            curr_c += 1
+            continue
         d_nome = d['nome']
         c_start = curr_c
         c_end = curr_c + 3
@@ -623,19 +642,6 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
 
         aplicar_estilo_intervalo(ws, c_start, 5, c_end, 6, font=FONT_SMALL_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_CENTER)
         curr_c += 4
-
-    # Disciplinas sem exame: 1 coluna cada (Frequência)
-    for d in disciplinas_sem_exame:
-        d_nome = d['nome']
-        ws.cell(row=4, column=curr_c, value=d_nome).font = FONT_HEADER
-        ws.cell(row=4, column=curr_c).fill = FILL_NAVY
-        ws.cell(row=4, column=curr_c).alignment = ALIGN_CENTER
-        ws.cell(row=4, column=curr_c).border = THIN_BORDER
-
-        ws.merge_cells(start_row=5, start_column=curr_c, end_row=6, end_column=curr_c)
-        ws.cell(row=5, column=curr_c, value="Freq.").font = FONT_SMALL_BOLD
-        aplicar_estilo_intervalo(ws, curr_c, 5, curr_c, 6, font=FONT_SMALL_BOLD, fill=FILL_LIGHT, border=THIN_BORDER, alignment=ALIGN_CENTER)
-        curr_c += 1
 
     # RESULTADO FINAL: 3 colunas
     c_res_start = curr_c
@@ -684,10 +690,20 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         disc_map = aluno.get('disciplinas', {})
         c_cursor = 6
 
-        # Disciplinas com exame: 4 colunas
-        for d in disciplinas_com_exame:
+        for col_d in colunas_disc:
+            d = col_d['disc']
             d_data = disc_map.get(d['id']) or {}
             v_freq = d_data.get('frequencia', '-')
+            if not col_d['com_exame']:
+                c_f = ws.cell(row=current_row, column=c_cursor, value=v_freq if v_freq is not None else '-')
+                c_f.alignment = ALIGN_CENTER
+                c_f.border = THIN_BORDER
+                if isinstance(v_freq, (int, float)):
+                    c_f.font = FONT_GREEN if v_freq >= 9.5 else FONT_RED
+                else:
+                    c_f.font = FONT_REGULAR
+                c_cursor += 1
+                continue
             v_e1 = d_data.get('exame_1epoca', '')
             v_e2 = d_data.get('exame_2epoca', '')
             v_med = d_data.get('media', '-')
@@ -721,19 +737,6 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
 
             c_cursor += 4
 
-        # Disciplinas sem exame: 1 coluna
-        for d in disciplinas_sem_exame:
-            d_data = disc_map.get(d['id']) or {}
-            v_freq = d_data.get('frequencia', '-')
-            c_f = ws.cell(row=current_row, column=c_cursor, value=v_freq if v_freq is not None else '-')
-            c_f.alignment = ALIGN_CENTER
-            c_f.border = THIN_BORDER
-            if isinstance(v_freq, (int, float)):
-                c_f.font = FONT_GREEN if v_freq >= 9.5 else FONT_RED
-            else:
-                c_f.font = FONT_REGULAR
-            c_cursor += 1
-
         # RESULTADO FINAL
         res_info = aluno.get('resultado_final', {})
         res_aprov = str(res_info.get('aprovado', '') or 'Pendente').strip()
@@ -762,6 +765,10 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
         c_rep.font = FONT_SMALL
 
         current_row += 1
+
+    # Linha carregada entre grupos CCS | MCN | AP (só 1.º Ciclo, 7.ª–9.ª classe)
+    if inicios_grupo:
+        ws._sige_linhas_grossas = set(inicios_grupo)  # lido por aplicar_moldura_tabelas (xlsx_seguro)
 
     # 5. Rodapé Oficial com Resumo e Assinaturas
     current_row += 1

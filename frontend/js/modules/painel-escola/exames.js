@@ -317,47 +317,55 @@ function renderizarTabelaExamesHtml(d) {
     <th rowspan="3" class="align-middle bg-primary text-white border-end text-nowrap px-2" style="font-size: 0.72rem;">Turma</th>
   `;
 
-  // Disciplinas com exame: 4 colunas cada (sem min-width artificial)
-  disciplinasComExame.forEach(disc => {
-    thLinha1 += `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary fw-bold border-start border-end text-nowrap px-2" style="font-size: 0.75rem;">${disc.nome}</th>`;
+  // Ordem das colunas de disciplinas. 2.º Ciclo (10.ª–12.ª): primeiro com exame, depois sem exame (como sempre).
+  // 1.º Ciclo (7.ª–9.ª, agrupar_por_area): CCS → MCN → AP, com linha carregada entre grupos.
+  const agruparPorArea = !!d.agrupar_por_area;
+  const ordemAreas = { CCS: 0, MCN: 1, AP: 2 };
+  const posDisc = {};
+  (d.disciplinas || []).forEach((x, i) => { posDisc[String(x.id)] = i; });
+  const colunasDisc = [
+    ...disciplinasComExame.map(x => ({ disc: x, comExame: true })),
+    ...disciplinasSemExame.map(x => ({ disc: x, comExame: false })),
+  ];
+  if (agruparPorArea) {
+    colunasDisc.sort((a, b) =>
+      ((ordemAreas[a.disc.area_exame] ?? 3) - (ordemAreas[b.disc.area_exame] ?? 3)) ||
+      ((posDisc[String(a.disc.id)] ?? 0) - (posDisc[String(b.disc.id)] ?? 0)));
+  }
+  colunasDisc.forEach((c, i) => {
+    c.inicioGrupo = agruparPorArea && i > 0 && (c.disc.area_exame || '') !== (colunasDisc[i - 1].disc.area_exame || '');
+    c.linhaGrossa = c.inicioGrupo ? ' border-left: 3px solid #000 !important;' : '';
   });
 
-  // Disciplinas sem exame: 1 coluna cada
-  disciplinasSemExame.forEach(disc => {
-    thLinha1 += `<th rowspan="2" class="text-center bg-light text-dark fw-bold border-start border-end text-nowrap px-2" style="font-size: 0.72rem;">${disc.nome}</th>`;
+  let thLinha2 = '';
+  let thLinha3 = '';
+  colunasDisc.forEach(c => {
+    const disc = c.disc;
+    if (c.comExame) {
+      thLinha1 += `<th colspan="4" class="text-center bg-primary bg-opacity-10 text-primary fw-bold border-start border-end text-nowrap px-2" style="font-size: 0.75rem;${c.linhaGrossa}">${disc.nome}</th>`;
+      thLinha2 += `
+      <th rowspan="2" class="bg-light text-dark fw-bold border-end align-middle text-nowrap px-1" style="font-size: 0.68rem;${c.linhaGrossa}">Freq.</th>
+      <th colspan="2" class="bg-warning bg-opacity-25 text-dark fw-bold border-end text-nowrap px-1" style="font-size: 0.68rem;">Exame</th>
+      <th rowspan="2" class="bg-primary bg-opacity-10 text-primary fw-bold border-end align-middle text-nowrap px-1" style="font-size: 0.68rem;">Média</th>
+    `;
+      thLinha3 += `
+      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end text-nowrap p-0" style="font-size: 0.65rem; width: 44px; min-width: 44px; max-width: 44px;">1ª</th>
+      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end text-nowrap p-0" style="font-size: 0.65rem; width: 44px; min-width: 44px; max-width: 44px;">2ª</th>
+    `;
+    } else {
+      thLinha1 += `<th rowspan="2" class="text-center bg-light text-dark fw-bold border-start border-end text-nowrap px-2" style="font-size: 0.72rem;${c.linhaGrossa}">${disc.nome}</th>`;
+      thLinha3 += `<th class="bg-light text-muted border-end text-nowrap px-1" style="font-size: 0.65rem;${c.linhaGrossa}">Freq.</th>`;
+    }
   });
 
   // RESULTADO FINAL: 3 colunas
   thLinha1 += `<th colspan="3" class="text-center bg-dark text-white fw-bold border-start text-nowrap px-2" style="font-size: 0.75rem;">RESULTADO FINAL</th>`;
-
-  // Linha 2 do cabeçalho
-  let thLinha2 = '';
-  disciplinasComExame.forEach(() => {
-    thLinha2 += `
-      <th rowspan="2" class="bg-light text-dark fw-bold border-end align-middle text-nowrap px-1" style="font-size: 0.68rem;">Freq.</th>
-      <th colspan="2" class="bg-warning bg-opacity-25 text-dark fw-bold border-end text-nowrap px-1" style="font-size: 0.68rem;">Exame</th>
-      <th rowspan="2" class="bg-primary bg-opacity-10 text-primary fw-bold border-end align-middle text-nowrap px-1" style="font-size: 0.68rem;">Média</th>
-    `;
-  });
 
   thLinha2 += `
     <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end text-nowrap px-2" style="font-size: 0.72rem;">Resultado</th>
     <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end text-nowrap px-1" style="font-size: 0.72rem;">MF</th>
     <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold text-start ps-2 text-nowrap px-2" style="font-size: 0.72rem;">Disciplina(s) com Negativa</th>
   `;
-
-  // Linha 3 do cabeçalho
-  let thLinha3 = '';
-  disciplinasComExame.forEach(() => {
-    thLinha3 += `
-      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end text-nowrap p-0" style="font-size: 0.65rem; width: 44px; min-width: 44px; max-width: 44px;">1ª</th>
-      <th class="bg-warning bg-opacity-10 text-dark fw-bold border-end text-nowrap p-0" style="font-size: 0.65rem; width: 44px; min-width: 44px; max-width: 44px;">2ª</th>
-    `;
-  });
-
-  disciplinasSemExame.forEach(() => {
-    thLinha3 += `<th class="bg-light text-muted border-end text-nowrap px-1" style="font-size: 0.65rem;">Freq.</th>`;
-  });
 
   // Linhas dos Alunos
   let trsCorpo = '';
@@ -368,9 +376,20 @@ function renderizarTabelaExamesHtml(d) {
 
     let tdsDiscs = '';
 
-    // Disciplinas com exame
-    disciplinasComExame.forEach(d => {
+    // Disciplinas (ordem unificada; no 1.º Ciclo agrupadas CCS | MCN | AP)
+    colunasDisc.forEach(col => {
+      const d = col.disc;
       const dData = discMap[d.id] || {};
+      if (!col.comExame) {
+        const vFreqSE = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
+        const corFreqSE = (typeof vFreqSE === 'number' || (!isNaN(Number(vFreqSE)) && vFreqSE !== '-'))
+          ? (Number(vFreqSE) >= 9.5 ? 'text-dark fw-bold' : 'text-danger fw-bold')
+          : 'text-muted';
+        tdsDiscs += `
+        <td class="text-center border-end font-monospace small text-nowrap px-2 ${corFreqSE}" style="${col.linhaGrossa}">${vFreqSE}</td>
+      `;
+        return;
+      }
       const rawFreq = (dData.frequencia_decimal !== undefined && dData.frequencia_decimal !== null) ? dData.frequencia_decimal : dData.frequencia;
       const freqNum = (rawFreq !== undefined && rawFreq !== null && rawFreq !== '-' && !isNaN(Number(rawFreq))) ? Number(rawFreq) : null;
       const vFreq = (freqNum !== null) ? (freqNum % 1 === 0 ? freqNum : Number(freqNum.toFixed(2))) : (dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-');
@@ -423,7 +442,7 @@ function renderizarTabelaExamesHtml(d) {
       const podeEditarEstaDisc = podeEditar && (!disciplinasAutorizadas || disciplinasAutorizadas.includes(String(d.id)));
 
       tdsDiscs += `
-        <td class="text-center bg-light border-end font-monospace small text-nowrap px-2">${vFreq}</td>
+        <td class="text-center bg-light border-end font-monospace small text-nowrap px-2" style="${col.linhaGrossa}">${vFreq}</td>
         <td class="p-1 text-center border-end align-middle text-nowrap" style="width: 44px; min-width: 44px; max-width: 44px;">
           <input type="number" step="0.01" min="0" max="20" class="form-control form-control-sm text-center p-0 font-monospace input-exame-nota shadow-none"
             value="${e1Val}" placeholder="" data-aluno="${aluno.id}" data-disc="${d.id}" data-epoca="1"
@@ -445,18 +464,6 @@ function renderizarTabelaExamesHtml(d) {
         </td>
       `;
     });
-    // Disciplinas sem exame
-    disciplinasSemExame.forEach(d => {
-      const dData = discMap[d.id] || {};
-      const vFreq = dData.frequencia !== undefined && dData.frequencia !== null ? dData.frequencia : '-';
-      const corFreq = (typeof vFreq === 'number' || (!isNaN(Number(vFreq)) && vFreq !== '-')) 
-        ? (Number(vFreq) >= 9.5 ? 'text-dark fw-bold' : 'text-danger fw-bold') 
-        : 'text-muted';
-      tdsDiscs += `
-        <td class="text-center border-end font-monospace small text-nowrap px-2 ${corFreq}">${vFreq}</td>
-      `;
-    });
-
     // Resultado Final do Aluno: Aprovado a preto e Reprovado a vermelho (sem pintar fundo)
     const rawRes = String(resFinal.aprovado || resFinal.resultado || `Reprovad${sufixoGen}`).trim();
     const resAprov = rawRes.includes('Aprovad') ? `Aprovad${sufixoGen}` : `Reprovad${sufixoGen}`;

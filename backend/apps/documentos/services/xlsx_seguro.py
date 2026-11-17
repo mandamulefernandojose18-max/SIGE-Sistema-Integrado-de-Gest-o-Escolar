@@ -278,6 +278,8 @@ def aplicar_moldura_tabelas(ws, max_r, max_c):
         def aresta_v(a, b):  # a à esquerda, b à direita
             if a not in comp or b not in comp:
                 return lado('thick', _NAVY)
+            if b[1] in getattr(ws, '_sige_linhas_grossas', ()):
+                return lado('thick', '000000')  # fronteira de grupo (ex.: CCS | MCN | AP no 1.º Ciclo)
             if a[1] in grupos:
                 return lado('medium', 'FFFFFF' if a in navy else _NAVY)
             return lado('thin', _AZUL_CLARO if a in navy else _CINZA_VERT)

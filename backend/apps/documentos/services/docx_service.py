@@ -2072,8 +2072,27 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
         r = p.add_run(nome_c)
         aplicar_fonte_times(r, pt_size=9, bold=True)
 
+    from apps.pautas.services import colunas_pauta_exames
+    colunas_disc = colunas_pauta_exames(dados_pauta)
+    inicios_grupo = []  # 7.ª–9.ª: colunas onde começa CCS / MCN / AP
+
     curr_col = 5
-    for d in disciplinas_com_exame:
+    for col_d in colunas_disc:
+        d = col_d['disc']
+        if col_d['inicio_grupo']:
+            inicios_grupo.append(curr_col)
+        if not col_d['com_exame']:
+            d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
+            cell_top = table.cell(0, curr_col)
+            cell_bot = table.cell(1, curr_col)
+            cell_top.merge(cell_bot)
+            cell_top.text = ""
+            p = cell_top.paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(d_nome_curto)
+            aplicar_fonte_times(r, pt_size=9, bold=True)
+            curr_col += 1
+            continue
         d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
         # Merge colunas de exame na linha 0
         c_start = table.cell(0, curr_col)
@@ -2095,19 +2114,6 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
             aplicar_fonte_times(r_sub, pt_size=8, bold=True)
 
         curr_col += 4
-
-    for d in disciplinas_sem_exame:
-        d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
-        cell_top = table.cell(0, curr_col)
-        cell_bot = table.cell(1, curr_col)
-        cell_top.merge(cell_bot)
-        cell_top.text = ""
-        p = cell_top.paragraphs[0]
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = p.add_run(d_nome_curto)
-        aplicar_fonte_times(r, pt_size=9, bold=True)
-
-        curr_col += 1
 
     # RESULTADO FINAL
     c_res_start = table.cell(0, curr_col)
@@ -2148,9 +2154,14 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
 
             c_pos = 5
             disc_map = aluno.get('disciplinas', {})
-            for d in disciplinas_com_exame:
+            for col_d in colunas_disc:
+                d = col_d['disc']
                 d_data = disc_map.get(d['id']) or {}
                 v_freq = d_data.get('frequencia', '-')
+                if not col_d['com_exame']:
+                    cells[c_pos].text = str(v_freq if v_freq is not None else '-')
+                    c_pos += 1
+                    continue
                 v_e1 = d_data.get('exame_1epoca')
                 v_e2 = d_data.get('exame_2epoca')
                 v_med = d_data.get('media', '-')
@@ -2160,12 +2171,6 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
                 cells[c_pos + 2].text = str(v_e2 if v_e2 is not None and v_e2 != "" else '-')
                 cells[c_pos + 3].text = str(v_med if v_med is not None else '-')
                 c_pos += 4
-
-            for d in disciplinas_sem_exame:
-                d_data = disc_map.get(d['id']) or {}
-                v_freq = d_data.get('frequencia', '-')
-                cells[c_pos].text = str(v_freq if v_freq is not None else '-')
-                c_pos += 1
 
             res_info = aluno.get('resultado_final', {})
             res_aprov = str(res_info.get('aprovado', '') or 'Pendente').strip()
@@ -2183,6 +2188,24 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
                         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     for r in p.runs:
                         aplicar_fonte_times(r, pt_size=8.5)
+
+    # Linha carregada entre grupos CCS | MCN | AP (só 1.º Ciclo, 7.ª–9.ª classe)
+    if inicios_grupo:
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        for r_tab in table.rows:
+            for c_g in inicios_grupo:
+                tc_pr = r_tab.cells[c_g]._tc.get_or_add_tcPr()
+                borders = tc_pr.find(qn('w:tcBorders'))
+                if borders is None:
+                    borders = OxmlElement('w:tcBorders')
+                    tc_pr.append(borders)
+                left = OxmlElement('w:left')
+                left.set(qn('w:val'), 'single')
+                left.set(qn('w:sz'), '24')
+                left.set(qn('w:space'), '0')
+                left.set(qn('w:color'), '000000')
+                borders.append(left)
 
     doc.add_paragraph()
     p_foot = doc.add_paragraph()

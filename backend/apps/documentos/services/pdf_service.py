@@ -1098,39 +1098,42 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         ('BACKGROUND', (0, 0), (4, 2), colors.HexColor('#1e3a8a')),
     ]
 
+    from apps.pautas.services import colunas_pauta_exames
+    colunas_disc = colunas_pauta_exames(dados_pauta)
     curr_col = 5
-    # Disciplinas com Exame
-    for d in disciplinas_com_exame:
+    for col in colunas_disc:
+        d = col['disc']
+        if col['inicio_grupo']:
+            # 1.º Ciclo (7.ª–9.ª): linha carregada a separar CCS | MCN | AP
+            table_styles.append(('LINEBEFORE', (curr_col, 0), (curr_col, -1), 2.2, colors.black))
         d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
-        row_hdr1.extend([Paragraph(d_nome_curto, sh_bold_w), "", "", ""])
-        table_styles.append(('SPAN', (curr_col, 0), (curr_col + 3, 0)))
+        if col['com_exame']:
+            row_hdr1.extend([Paragraph(d_nome_curto, sh_bold_w), "", "", ""])
+            table_styles.append(('SPAN', (curr_col, 0), (curr_col + 3, 0)))
 
-        row_hdr2.extend([
-            ParagrafoVertical("Frequência", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
-            ParagrafoVertical("Exame", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
-            ParagrafoVertical("Exame", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
-            ParagrafoVertical("Média", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
-        ])
-        row_hdr3.extend([
-            Paragraph("", sh_sub),
-            Paragraph("1ª", sh_sub),
-            Paragraph("2ª", sh_sub),
-            Paragraph("", sh_sub),
-        ])
-        table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))
-        table_styles.append(('SPAN', (curr_col + 3, 1), (curr_col + 3, 2)))
-        curr_col += 4
-
-    # Disciplinas sem Exame
-    for d in disciplinas_sem_exame:
-        d_nome_curto = d['nome'].replace('Língua ', '').replace('Educação ', 'Ed. ')
-        # Coluna única e estreita: o nome da disciplina é escrito na vertical, ocupando as 3 linhas do cabeçalho
-        row_hdr1.append(ParagrafoVertical(d_nome_curto, 'Times-Bold', 6.0, colors.white, max_altura=2.9 * cm))
-        row_hdr2.append("")
-        row_hdr3.append("")
-        table_styles.append(('SPAN', (curr_col, 0), (curr_col, 2)))
-        table_styles.append(('BACKGROUND', (curr_col, 0), (curr_col, 2), colors.HexColor('#1e3a8a')))
-        curr_col += 1
+            row_hdr2.extend([
+                ParagrafoVertical("Frequência", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+                ParagrafoVertical("Exame", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+                ParagrafoVertical("Exame", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+                ParagrafoVertical("Média", 'Times-Bold', 5.5, colors.HexColor('#1e293b')),
+            ])
+            row_hdr3.extend([
+                Paragraph("", sh_sub),
+                Paragraph("1ª", sh_sub),
+                Paragraph("2ª", sh_sub),
+                Paragraph("", sh_sub),
+            ])
+            table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))
+            table_styles.append(('SPAN', (curr_col + 3, 1), (curr_col + 3, 2)))
+            curr_col += 4
+        else:
+            # Coluna única e estreita: o nome da disciplina é escrito na vertical, ocupando as 3 linhas do cabeçalho
+            row_hdr1.append(ParagrafoVertical(d_nome_curto, 'Times-Bold', 6.0, colors.white, max_altura=2.9 * cm))
+            row_hdr2.append("")
+            row_hdr3.append("")
+            table_styles.append(('SPAN', (curr_col, 0), (curr_col, 2)))
+            table_styles.append(('BACKGROUND', (curr_col, 0), (curr_col, 2), colors.HexColor('#1e3a8a')))
+            curr_col += 1
 
     # Resultado Final
     row_hdr1.extend([Paragraph("RESULTADO FINAL", sh_bold_w), "", ""])
@@ -1159,35 +1162,32 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
         ]
 
         disc_map = aluno.get('disciplinas', {})
-        for d in disciplinas_com_exame:
+        for col in colunas_disc:
+            d = col['disc']
             d_data = disc_map.get(d['id']) or {}
             v_freq = d_data.get('frequencia', '-')
-            v_e1 = d_data.get('exame_1epoca')
-            v_e2 = d_data.get('exame_2epoca')
-            v_med = d_data.get('media', '-')
+            if col['com_exame']:
+                v_e1 = d_data.get('exame_1epoca')
+                v_e2 = d_data.get('exame_2epoca')
+                v_med = d_data.get('media', '-')
 
-            e_str = f"{v_e2}" if v_e2 is not None else (f"{v_e1}" if v_e1 is not None else "-")
-
-            e1_str = f"{v_e1}" if v_e1 is not None and v_e1 != "" else "-"
-            e2_str = f"{v_e2}" if v_e2 is not None and v_e2 != "" else "-"
-            row.append(Paragraph(str(v_freq), st_c))
-            row.append(Paragraph(e1_str, st_c))
-            row.append(Paragraph(e2_str, st_c))
-
-            if isinstance(v_med, (int, float)):
-                m_st = st_green if v_med >= 9.5 else st_red
-                row.append(Paragraph(str(v_med), m_st))
-            else:
-                row.append(Paragraph(str(v_med), st_c_bold))
-
-        for d in disciplinas_sem_exame:
-            d_data = disc_map.get(d['id']) or {}
-            v_freq = d_data.get('frequencia', '-')
-            if isinstance(v_freq, (int, float)):
-                f_st = st_green if v_freq >= 9.5 else st_red
-                row.append(Paragraph(str(v_freq), f_st))
-            else:
+                e1_str = f"{v_e1}" if v_e1 is not None and v_e1 != "" else "-"
+                e2_str = f"{v_e2}" if v_e2 is not None and v_e2 != "" else "-"
                 row.append(Paragraph(str(v_freq), st_c))
+                row.append(Paragraph(e1_str, st_c))
+                row.append(Paragraph(e2_str, st_c))
+
+                if isinstance(v_med, (int, float)):
+                    m_st = st_green if v_med >= 9.5 else st_red
+                    row.append(Paragraph(str(v_med), m_st))
+                else:
+                    row.append(Paragraph(str(v_med), st_c_bold))
+            else:
+                if isinstance(v_freq, (int, float)):
+                    f_st = st_green if v_freq >= 9.5 else st_red
+                    row.append(Paragraph(str(v_freq), f_st))
+                else:
+                    row.append(Paragraph(str(v_freq), st_c))
 
         res_info = aluno.get('resultado_final', {})
         res_aprov = str(res_info.get('aprovado', '') or 'Pendente').strip()

@@ -369,7 +369,7 @@ def disciplina_pertence_a_area_turma(d, turma, ramo_turma, sub_turma, num_classe
     return False
 
 
-def obter_disciplinas_pauta_turma(turma):
+def _obter_disciplinas_pauta_turma_legado(turma):
     """
     Retorna única e exclusivamente as disciplinas pertencentes ao plano curricular da secção/área da turma,
     carregando estritamente as disciplinas cadastradas e disponíveis para aquela escola, classe e área,
@@ -531,6 +531,64 @@ def obter_disciplinas_pauta_turma(turma):
 
     disciplinas_finais.sort(key=ordem_sort_key)
     return disciplinas_finais
+
+
+
+
+def obter_disciplinas_pauta_exames_1_ciclo(turma):
+    """
+    SÓ para a Pauta de Exames da 7.ª–9.ª classe com exame (1.º Ciclo, área «Geral»): TODAS as
+    disciplinas cadastradas na classe no Plano Curricular (mais as já alocadas à turma),
+    sem limite máximo e sem ocultar nenhuma. Só se fundem duplicados com o mesmo nome.
+    Não é usada por cadernetas nem por outras pautas.
+    """
+    from apps.disciplinas import plano
+
+    escola = turma.escola
+    grau_turma = (turma.grau_ano or '').strip()
+
+    candidatas = list(plano.disciplinas_da_classe(escola, grau_turma)) if grau_turma else []
+    if not candidatas and grau_turma:
+        num = extrair_numero_classe(grau_turma)
+        qs = Disciplina.objects.filter(escola=escola)
+        qs = qs.filter(classe__icontains=str(num)) if num else qs.filter(classe__iexact=grau_turma)
+        candidatas = list(qs)
+
+    try:
+        ids_alocadas = set(AlocacaoDocente.objects.filter(turma=turma).values_list('disciplina_id', flat=True))
+    except Exception:
+        ids_alocadas = set()
+    ids_cand = {d.id for d in candidatas}
+    for d_aloc in Disciplina.objects.filter(id__in=ids_alocadas, escola=escola):
+        if d_aloc.id not in ids_cand:
+            candidatas.append(d_aloc)
+
+    vistas = {}
+    for d in candidatas:
+        vistas.setdefault(normalizar_texto(d.nome), d)
+    finais = list(vistas.values())
+
+    for d in finais:
+        canon = identificar_materia_canonica(d)
+        oficial = MATERIA_NOMES_OFICIAIS.get(canon) if canon else None
+        if oficial:
+            d.nome = oficial
+        elif d.nome:
+            d.nome = d.nome.strip()
+
+    def ordem_sort_key(d):
+        chave_mat = identificar_materia_canonica(d)
+        if chave_mat and chave_mat in ORDEM_CURRICULAR_CANONICA:
+            return (ORDEM_CURRICULAR_CANONICA.index(chave_mat), d.nome)
+        return (999, d.nome)
+
+    finais.sort(key=ordem_sort_key)
+    return finais
+
+
+def obter_disciplinas_pauta_turma(turma):
+    """Disciplinas da turma (cadernetas, pautas, exames): lógica original, intacta para todas as classes."""
+    return _obter_disciplinas_pauta_turma_legado(turma)
 
 
 # =====================================================================
@@ -925,9 +983,9 @@ NOTA_NEGATIVA_MAX = 9.4
 
 
 def classe_1_ciclo_com_areas(turma):
-    """1.º Ciclo (1.ª a 9.ª classe, área/secção 'Geral'): retenção por área só nas classes 7–9."""
+    """1.º Ciclo: só a 7.ª–9.ª classe QUE TEM EXAME agrupa por área (CCS/MCN/AP) na pauta de exames."""
     num = extrair_numero_classe(getattr(turma, 'grau_ano', '') or '')
-    return num is not None and 7 <= num <= 9
+    return num is not None and 7 <= num <= 9 and bool(turma_tem_exame(turma))
 
 
 def area_exame_da_disciplina(disciplina):
@@ -947,6 +1005,31 @@ def areas_reprovadas(notas_por_area):
             if any(n is not None and n <= NOTA_NEGATIVA_MAX for n in notas_por_area.get(s, []))]
 
 
+def colunas_pauta_exames(dados):
+    """
+    Colunas de disciplinas da pauta de exames, na ordem de desenho.
+    - Normal (2.º Ciclo, 10.ª–12.ª): primeiro as com exame e depois as sem exame (como sempre foi).
+    - 1.º Ciclo (7.ª–9.ª, `agrupar_por_area`): agrupadas CCS → MCN → AP; `inicio_grupo` marca a
+      primeira disciplina de cada novo grupo (os documentos desenham aí uma linha carregada).
+    Devolve [{'disc': {...}, 'com_exame': bool, 'inicio_grupo': bool}].
+    """
+    com = list(dados.get('disciplinas_com_exame') or [])
+    sem = list(dados.get('disciplinas_sem_exame') or [])
+    todas = [(d, True) for d in com] + [(d, False) for d in sem]
+    agrupar = bool(dados.get('agrupar_por_area'))
+    if agrupar:
+        ordem_areas = {s: i for i, s in enumerate(AREAS_EXAME_1_CICLO)}
+        pos = {str(d.get('id')): i for i, d in enumerate(dados.get('disciplinas') or [])}
+        todas.sort(key=lambda x: (ordem_areas.get(x[0].get('area_exame'), len(ordem_areas)),
+                                  pos.get(str(x[0].get('id')), 0)))
+    colunas, anterior = [], None
+    for i, (d, tem) in enumerate(todas):
+        grupo = (d.get('area_exame') or '') if agrupar else None
+        colunas.append({'disc': d, 'com_exame': tem, 'inicio_grupo': bool(agrupar and i > 0 and grupo != anterior)})
+        anterior = grupo
+    return colunas
+
+
 def consolidar_pauta_exames(turma, ano_letivo='2026'):
     """
     Gera a Pauta Oficial de Exames do SIGE estruturada fielmente ao modelo do MEC:
@@ -960,22 +1043,30 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
     from common.utils.avaliacoes_mocambique import avaliar_aprovacao_pauta
 
     # 1. Carregar disciplinas da turma
-    disciplinas = obter_disciplinas_pauta_turma(turma)
     regime_areas = classe_1_ciclo_com_areas(turma)
+    disciplinas = obter_disciplinas_pauta_exames_1_ciclo(turma) if regime_areas else obter_disciplinas_pauta_turma(turma)
 
     # Identificar quais têm exame e quais não têm
     disciplinas_info = []
     disciplinas_objs_map = {}
     for d in disciplinas:
+        area_ex = area_exame_da_disciplina(d) if regime_areas else None
         tem_ex = disciplina_tem_exame_na_turma(d, turma)
+        if area_ex == 'AP':
+            tem_ex = False  # 7.ª–9.ª: as disciplinas da área AP não têm exame (média = frequência)
         disciplinas_objs_map[str(d.id)] = d
         disciplinas_info.append({
             'id': str(d.id),
             'nome': d.nome,
             'codigo': d.codigo or '',
             'tem_exame': tem_ex,
-            'area_exame': area_exame_da_disciplina(d) if regime_areas else None,
+            'area_exame': area_ex,
         })
+
+    if regime_areas:
+        # 1.º Ciclo (7.ª–9.ª): agrupar CCS, MCN, AP (estável: mantém a ordem curricular dentro de cada grupo)
+        _ordem_areas = {s: i for i, s in enumerate(AREAS_EXAME_1_CICLO)}
+        disciplinas_info.sort(key=lambda x: _ordem_areas.get(x.get('area_exame'), len(_ordem_areas)))
 
     # 2. Carregar alunos ativos da turma
     alunos = list(Aluno.objects.filter(turma=turma, status='ATIVO').order_by('nome', 'apelido'))
@@ -1127,6 +1218,9 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             # Se na nota de frequência tiver uma nota <= 9.4 (negativa), então o aluno
             # NÃO TEM DIREITO AO EXAME, fica 'Excluído', e os campos de exame devem estar vazios.
             e_excluido = (mfreq_val is not None and mfreq_val <= 9.4)
+            if regime_areas and not tem_ex:
+                # Sem exame (ex.: AP na 7.ª–9.ª): não há admissão a exame; a média é a frequência.
+                e_excluido = False
 
             if e_excluido:
                 e1 = None
@@ -1318,6 +1412,7 @@ def consolidar_pauta_exames(turma, ano_letivo='2026'):
             'marca_dagua_base64': getattr(escola, 'marca_dagua_base64', None) if escola else None,
             'marca_dagua_modo': getattr(escola, 'marca_dagua_modo', 'EMBLEMA_NACIONAL') if escola else 'EMBLEMA_NACIONAL',
         },
+        'agrupar_por_area': regime_areas,
         'disciplinas': disciplinas_info,
         'disciplinas_com_exame': [d for d in disciplinas_info if d['tem_exame']],
         'disciplinas_sem_exame': [d for d in disciplinas_info if not d['tem_exame']],
