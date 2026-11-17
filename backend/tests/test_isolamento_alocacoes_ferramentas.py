@@ -52,6 +52,26 @@ class TestIsolamentoAlocacoesEFerramentas:
         self.pagamento_b.refresh_from_db()
         assert self.pagamento_b.status == 'PENDENTE'
 
+    def test_utilizador_com_escola_nao_ve_historico_sms_de_outra_escola(self):
+        from apps.ferramentas.models import MensagemSMS
+        MensagemSMS.objects.create(escola=self.escola_b, destinatario='841234567', mensagem='Aviso', status='ENVIADO')
+        res = self.client.get('/api/v1/ferramentas/sms/historico/')
+        assert res.status_code == 200
+        assert 'Aviso' not in str(res.content)
+
+    def test_utilizador_sem_escola_nao_ve_dados_de_nenhuma_escola(self):
+        """Falha fechada: sem escola associada (e sem ser SUPERADMIN) não se recebe nada."""
+        from apps.ferramentas.models import MensagemSMS
+        MensagemSMS.objects.create(escola=self.escola_b, destinatario='841234567', mensagem='Aviso B', status='ENVIADO')
+        Usuario.objects.create_user(email='orfao@iso.mz', password='PassO123!', role='ADMIN_ESCOLA', escola=None)
+        res = self.client.post('/api/v1/auth/login/', {'email': 'orfao@iso.mz', 'password': 'PassO123!'}, format='json')
+        if res.status_code != 200:
+            pytest.skip('Login sem escola não é permitido (já protegido no login).')
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {res.data['token']}")
+        assert 'Aviso B' not in str(self.client.get('/api/v1/ferramentas/sms/historico/').content)
+        res = self.client.get('/api/v1/professores/minhas-turmas/')
+        assert str(self.aloc_b.id) not in str(res.content)
+
     def test_nao_associa_reconciliacao_com_aluno_de_outra_escola(self):
         res = self.client.post('/api/v1/ferramentas/reconciliacao/associar/',
                                {'reconciliacao_id': '00000000-0000-0000-0000-000000000000',

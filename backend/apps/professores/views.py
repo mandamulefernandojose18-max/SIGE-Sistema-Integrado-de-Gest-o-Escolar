@@ -169,6 +169,8 @@ class MinhasTurmasView(APIView):
         qs = AlocacaoDocente.objects.all()
         if escola:
             qs = qs.filter(escola=escola)
+        elif user_role != 'SUPERADMIN':
+            qs = qs.none()  # sem escola, só o SUPERADMIN vê alocações (fail-closed)
 
         # Filtro opcional por ano lectivo
         ano_letivo = request.query_params.get('ano_letivo') or request.query_params.get('ano')

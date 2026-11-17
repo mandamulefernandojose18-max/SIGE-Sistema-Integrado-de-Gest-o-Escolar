@@ -216,9 +216,9 @@ def api_gateway_stats(request):
     escola = _obter_escola_do_pedido(request, user)
     qs_sms = MensagemSMS.objects.all()
     qs_trx = TransacaoGatewayMovel.objects.all()
-    if escola and role != 'SUPERADMIN':
-        qs_sms = qs_sms.filter(escola=escola)
-        qs_trx = qs_trx.filter(escola=escola)
+    if role != 'SUPERADMIN':
+        qs_sms = _da_escola(qs_sms, escola, user)
+        qs_trx = _da_escola(qs_trx, escola, user)
 
     total_sms = qs_sms.count()
     sms_entregues = qs_sms.filter(status='ENTREGUE').count()
@@ -426,8 +426,8 @@ def api_historico_sms(request):
 
     escola = _obter_escola_do_pedido(request, user)
     qs = MensagemSMS.objects.all()
-    if escola and role != 'SUPERADMIN':
-        qs = qs.filter(escola=escola)
+    if role != 'SUPERADMIN':
+        qs = _da_escola(qs, escola, user)
 
     lista = []
     for m in qs[:60]:
@@ -522,8 +522,8 @@ def api_historico_whatsapp(request):
 
     escola = _obter_escola_do_pedido(request, user)
     qs = MensagemWhatsApp.objects.all()
-    if escola and role != 'SUPERADMIN':
-        qs = qs.filter(escola=escola)
+    if role != 'SUPERADMIN':
+        qs = _da_escola(qs, escola, user)
 
     lista = []
     for w in qs[:60]:
@@ -682,8 +682,8 @@ def api_transacoes_moveis(request):
 
     escola = _obter_escola_do_pedido(request, user)
     qs = TransacaoGatewayMovel.objects.all().select_related('aluno')
-    if escola and role != 'SUPERADMIN':
-        qs = qs.filter(escola=escola)
+    if role != 'SUPERADMIN':
+        qs = _da_escola(qs, escola, user)
 
     lista = []
     for t in qs[:60]:
@@ -949,8 +949,8 @@ def api_reconciliacoes_lista(request):
 
     escola = _obter_escola_do_pedido(request, user)
     qs = ReconciliacaoSmsMovel.objects.all().select_related('aluno', 'pagamento')
-    if escola and role != 'SUPERADMIN':
-        qs = qs.filter(escola=escola)
+    if role != 'SUPERADMIN':
+        qs = _da_escola(qs, escola, user)
 
     lista = []
     for r in qs[:60]:
