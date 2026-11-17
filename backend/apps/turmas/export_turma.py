@@ -1,4 +1,4 @@
-"""Documentos de uma turma, descarregados a partir do botão «Descarregar» da linha da turma:
+﻿"""Documentos de uma turma, descarregados a partir do botão «Descarregar» da linha da turma:
 a ficha da turma e a relação nominal dos alunos (PDF ou Excel), entregues num ZIP.
 
 Regras: docs/REGRAS_EXCEL_E_PDF.md (Times New Roman, cabeçalhos centrados, Excel por guardar_xlsx_seguro).
@@ -17,6 +17,7 @@ from reportlab.platypus import Table, TableStyle
 
 from apps.documentos.services.pdf_service import Paragraph, Spacer
 from apps.documentos.services.xlsx_seguro import guardar_xlsx_seguro
+from apps.documentos.services.topo_director import topo_cabecalho_director
 from apps.notas.exames_pdf import _doc, _esc, _tabela
 from apps.notas.exames_xlsx import _cabecalho as _cab_xlsx, _titulos
 
@@ -72,32 +73,9 @@ def linhas_ficha(turma, ocupacao):
 
 
 # ------------------------------------------------------------------------------------------------ PDF
-def _assinatura_director_topo(escola):
-    """Bloco no topo, à direita: espaço para o carimbo, linha, «O Director da Escola» e o nome."""
-    st = ParagraphStyle('AsD', fontName='Times-Roman', fontSize=10, leading=12, alignment=1)
-    stb = ParagraphStyle('AsDB', fontName='Times-Bold', fontSize=10, leading=12, alignment=1)
-    bloco = Table([[Spacer(1, 1.3 * cm)], [Paragraph(LINHA, st)], [Paragraph('O Director da Escola', stb)],
-                   [Paragraph(_esc(getattr(escola, 'director_nome', '') or ''), st)], [Spacer(1, 1.2 * cm)]],
-                  colWidths=[5.8 * cm])
-    bloco.setStyle(TableStyle([('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                               ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0)]))
-    return bloco
-
-
 def _topo_cabecalho(escola):
-    """Cabeçalho oficial à esquerda e, lado a lado, a assinatura do Director com o carimbo à direita
-    (sem espaço vazio entre eles)."""
-    from apps.documentos.services.pdf_service import gerar_cabecalho_mec, getSampleStyleSheet
-    esq = gerar_cabecalho_mec(getSampleStyleSheet(), escola.nome, escola.provincia, escola.distrito,
-                              compacto=True, escola=escola)
-    for e in esq:
-        if hasattr(e, 'hAlign'):
-            e.hAlign = 'CENTER'  # emblema centrado sobre o texto do cabeçalho
-    topo = Table([[esq, _assinatura_director_topo(escola)]], colWidths=[11.2 * cm, 5.8 * cm])
-    topo.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                              ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0),
-                              ('BOTTOMPADDING', (0, 0), (-1, -1), 0)]))
-    return topo
+    """Cabeçalho oficial + assinatura do Director (carimbo) lado a lado, ajustado ao carimbo da escola."""
+    return topo_cabecalho_director(escola)
 
 
 def _titulo(titulo, subtitulo):

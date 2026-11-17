@@ -1,4 +1,4 @@
-# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
+﻿# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
 ### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
@@ -1083,7 +1083,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST` | `/api/v1/notas/juris-exame/formar/` | Direção, Administração, `DAP` | Forma os júris: `{epoca, max_alunos, num_salas?, classe?}`. Distribuição equilibrada por ordem alfabética; sala opcional atribuída sem choques de data/hora; devolve avisos. |
 | `GET` | `/api/v1/notas/juris-exame/?ano=&epoca=&classe=&disciplina=` | Pessoal da escola | Júris formados com alunos, matrícula, turma e **nota de frequência da disciplina**. |
 | `GET` | `/api/v1/notas/juris-exame/pdf/` (`&formato=xlsx` para Excel) | Pessoal da escola | PDF/Excel dos júris (uma página por júri: disciplina, data, período, horário, sala e lista com a nota de frequência). |
-| `GET` | `/api/v1/escola-admin/turmas/<id>/ficha/?formato=pdf\|xlsx&carimbo=sim\|nao` | Utilizador autenticado da escola (tenant) | ZIP com a ficha da turma (classe, secção, ano, turno, sala, ocupação/máx, directores) e a relação nominal dos alunos, ambos em PDF ou Excel; botão «Descarregar» na linha da turma (Turmas & Capacidade), que pede formato e carimbo. Assinatura «O Director da Escola» no topo à direita (o carimbo fica sempre sobre ela) e «O Director Pedagógico (DAP)» no fim. |
+| `GET` | `/api/v1/escola-admin/turmas/<id>/ficha/?formato=pdf\|xlsx&carimbo=sim\|nao` | Utilizador autenticado da escola (tenant) | ZIP com a ficha da turma (classe, secção, ano, turno, sala, ocupação/máx, directores) e a relação nominal dos alunos, ambos em PDF ou Excel; botão «Descarregar» na linha da turma (Turmas & Capacidade), que pede formato e carimbo. Assinatura «O Director da Escola» no topo à direita (o carimbo fica sempre sobre ela) e «O Director Pedagógico (DAP)» no fim. O topo (cabeçalho oficial à esquerda + assinatura/carimbo à direita, lado a lado, sem espaço vazio) é gerado por `apps/documentos/services/topo_director.py`, que ajusta sozinho a largura e as folgas ao nível do carimbo da escola (Imagem/Selo/Assinatura); qualquer documento com o carimbo no topo deve usá-lo. |
 | `GET` | `/api/v1/notas/juris-exame/excluidos/` e `/excluidos/pdf/` (`&formato=xlsx`) | Pessoal da escola | Lista (JSON, PDF e Excel) dos alunos excluídos do exame (frequência ≤ 9,4) por disciplina. |
 | `GET` | `/api/v1/notas/calendario-exames/pdf/` (`&formato=xlsx`) | Pessoal da escola | Calendário de exames em PDF ou Excel (uma classe ou todas). |
 | `GET` | `/api/v1/alunos/me/calendario-exames/?ano=` e `/pdf/` (`&formato=xlsx`) | `ALUNO` | Apenas os exames do próprio aluno: data, período, horário, número do júri e sala; nunca a lista de colegas. |

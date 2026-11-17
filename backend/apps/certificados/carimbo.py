@@ -552,7 +552,9 @@ def aplicar_carimbo_pdf(pdf_bytes, escola, nivel, doc=None, posicao='direita'):
             # Círculo apoiado na assinatura do director; o QR procura a zona livre mais próxima do círculo
             x, y, escala = fixo
             d = DIAMETRO_CM * CM * escala
-            cx_circ = x + (COLUNA_CM * CM * escala if tem_coluna else 0)
+            # x já inclui a coluna do QR à esquerda do círculo; sem coluna (nível A) o círculo centra-se na mesma
+            # sobre a assinatura (antes ficava deslocado para a esquerda)
+            cx_circ = x + COLUNA_CM * CM * escala
             _com_escala(c, cx_circ, y, escala, lambda: _desenhar_circulo(c, 0, 0, escola))
             if tem_coluna:
                 cw, ch = COLUNA_CM * CM, COLUNA_ALTURA_CM * CM
