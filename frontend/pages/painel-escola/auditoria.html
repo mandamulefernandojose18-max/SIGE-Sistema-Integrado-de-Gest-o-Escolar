@@ -17,6 +17,7 @@
           <select id="filtroEntidadeAuditoria" class="form-select form-select-sm" onchange="carregarTrilhaAuditoria()">
             <option value="">-- Todos os Módulos --</option>
             <option value="NOTA">Notas & Avaliações</option>
+            <option value="NOTA_EXAME">Notas de Exame</option>
             <option value="PAGAMENTO">Pagamentos & Propinas</option>
             <option value="MATRICULA">Alunos & Matrículas</option>
             <option value="DESPESA">Receitas & Despesas</option>
@@ -24,12 +25,23 @@
             <option value="CALENDARIO">Calendário Escolar</option>
           </select>
         </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDataInicioAuditoria">De</label>
+          <input type="date" id="filtroDataInicioAuditoria" class="form-control form-control-sm" onchange="carregarTrilhaAuditoria()">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small fw-semibold text-muted mb-1" for="filtroDataFimAuditoria">Até</label>
+          <input type="date" id="filtroDataFimAuditoria" class="form-control form-control-sm" onchange="carregarTrilhaAuditoria()">
+        </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold text-muted mb-1">Operação</label>
           <select id="filtroAcaoAuditoria" class="form-select form-select-sm" onchange="carregarTrilhaAuditoria()">
             <option value="">-- Todas as Acções --</option>
             <option value="CRIACAO">Criação / Inserção</option>
-            <option value="EDICAO">Edição / Alteração</option>
+            <option value="EDICAO">Edição</option>
+            <option value="ALTERACAO">Alteração de nota</option>
+            <option value="DESBLOQUEIO">Desbloqueio de edição</option>
+            <option value="REVOGACAO">Revogação de desbloqueio</option>
             <option value="VALIDACAO">Validação Pedagógica</option>
             <option value="APROVACAO">Aprovação da Direcção</option>
             <option value="ELIMINACAO">Eliminação / Cancelamento</option>
@@ -57,6 +69,13 @@
             <tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-arrow-repeat spin me-2"></i>A carregar trilha de auditoria...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+      <span id="infoPaginaAuditoria" class="small text-muted">0–0 de 0</span>
+      <div class="btn-group btn-group-sm">
+        <button id="btnAuditoriaAnterior" class="btn btn-outline-secondary" onclick="paginaAuditoria(-1)" disabled><i class="bi bi-chevron-left"></i> Anterior</button>
+        <button id="btnAuditoriaSeguinte" class="btn btn-outline-secondary" onclick="paginaAuditoria(1)" disabled>Seguinte <i class="bi bi-chevron-right"></i></button>
       </div>
     </div>
   </div>
