@@ -243,6 +243,7 @@ Em estrita conformidade com os princípios de confiabilidade jurídica e auditor
 
 ## Limites de pedidos, cookies e CI
 
+- **Dissuasão no login (frontend):** `frontend/js/login-guard.js` bloqueia F12, Ctrl+Shift+I/J/C, Ctrl+U e o botão direito apenas enquanto o utilizador não está autenticado (permite colar e menu de contexto nos campos de texto). É só dissuasão: a protecção real é o rate limiting, o bloqueio por tentativas falhadas e os cabeçalhos (HSTS, CSP, X-Frame-Options) descritos abaixo.
 - `LoginView` (`throttle_scope = 'login'`, por omissão 10/min) e `VerificarCertificadoView` (`'verificacao'`, 30/min) usam `ScopedRateThrottle`; ajuste com `THROTTLE_LOGIN` e `THROTTLE_VERIFICACAO`.
 - Em produção, `SESSION_COOKIE_SECURE` e `CSRF_COOKIE_SECURE` assumem `True`, e `SECURE_HSTS_SECONDS` assume um ano.
 - O CI corre `makemigrations --check` e exige cobertura mínima de 55% (`--cov-fail-under`).
