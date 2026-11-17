@@ -204,6 +204,38 @@ def _texto_em_arco(c, texto, cx, cy, raio, centro_graus, fonte, tamanho, em_cima
             ang += w / raio
 
 
+_EMBLEMA_MONO = {}
+
+
+def _emblema_cor_do_carimbo():
+    """Emblema nacional em silhueta com a cor do carimbo (azul): tudo o que não é fundo passa a tinta azul,
+    com a densidade do original, para o emblema parecer parte do mesmo carimbo."""
+    if 'png' in _EMBLEMA_MONO:
+        return _EMBLEMA_MONO['png']
+    png = None
+    try:
+        from apps.documentos.services.pdf_service import EMBLEMA_PATH
+        from PIL import Image, ImageChops
+        if os.path.exists(EMBLEMA_PATH):
+            im = Image.open(EMBLEMA_PATH).convert('RGBA')
+            from PIL import ImageOps
+            a = im.split()[3]
+            # densidade = escuridão do original (contornos fortes, zonas claras mais leves), com contraste
+            escuridao = ImageOps.invert(im.convert('L'))
+            densidade = ImageOps.autocontrast(escuridao, cutoff=3).point(lambda v: min(255, int((v / 255.0) ** 0.7 * 255 * 1.15)))
+            mascara = ImageChops.multiply(densidade, a)
+            cor = tuple(int(AZUL_CARIMBO[i:i + 2], 16) for i in (1, 3, 5))
+            mono = Image.new('RGBA', im.size, cor + (255,))
+            mono.putalpha(mascara)
+            saida = io.BytesIO()
+            mono.save(saida, format='PNG')
+            png = saida.getvalue()
+    except Exception:
+        png = None
+    _EMBLEMA_MONO['png'] = png
+    return png
+
+
 def _desenhar_circulo(c, x, y, escola):
     """Carimbo circular gerado pelo sistema (ou imagem carregada pela escola) com canto inferior esquerdo em (x, y)."""
     from reportlab.lib import colors
@@ -240,11 +272,11 @@ def _desenhar_circulo(c, x, y, escola):
                    'Times-Bold', 5.4, em_cima=False, limite_graus=168)
     # Centro: emblema nacional
     try:
-        from apps.documentos.services.pdf_service import EMBLEMA_PATH
         from reportlab.lib.utils import ImageReader
-        if os.path.exists(EMBLEMA_PATH):
+        png = _emblema_cor_do_carimbo()
+        if png:
             lado = 1.0 * CM
-            c.drawImage(ImageReader(EMBLEMA_PATH), cx - lado / 2, cy - lado / 2,
+            c.drawImage(ImageReader(io.BytesIO(png)), cx - lado / 2, cy - lado / 2,
                         width=lado, height=lado, mask='auto', preserveAspectRatio=True)
     except Exception:
         pass
