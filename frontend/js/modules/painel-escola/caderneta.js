@@ -805,7 +805,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
       <div class="row g-2 mb-3">
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Faltas no Trimestre</label>
-          <div class="input-group"><input type="number" id="mlnFaltas" class="form-control" value="0" min="0"><button type="button" class="btn btn-outline-secondary" title="Contar as faltas registadas nas presenças deste trimestre" onclick="mlnSugerirFaltasPresencas()"><i class="bi bi-person-check"></i></button></div><small class="text-muted">Use <i class="bi bi-person-check"></i> para sugerir pelas presenças.</small>
+          <div class="input-group"><input type="number" id="mlnFaltas" class="form-control" value="" min="0"><button type="button" class="btn btn-outline-secondary" title="Contar as faltas registadas nas presenças deste trimestre" onclick="mlnSugerirFaltasPresencas()"><i class="bi bi-person-check"></i></button></div><small class="text-muted">Use <i class="bi bi-person-check"></i> para sugerir pelas presenças.</small>
         </div>
         <div class="col-md-8">
           <label class="form-label small fw-semibold">Anotação Especial do Aluno</label>

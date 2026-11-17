@@ -535,7 +535,7 @@ async function modalCriarTurma() {
         </div>
         <div class="col-md-3">
           <label class="form-label small fw-semibold">Secção / Área de Estudo</label>
-          <input type="text" list="listaAreasEstudoTurma" id="mtArea" class="form-control" value="Geral" placeholder="Geral / Ciências..." oninput="atualizarAssistenteCriarTurma()">
+          <input type="text" list="listaAreasEstudoTurma" id="mtArea" class="form-control" value="" placeholder="Geral / Ciências..." oninput="atualizarAssistenteCriarTurma()">
           <datalist id="listaAreasEstudoTurma">
             <option value="Geral">Tronco Comum / Geral</option>
             <option value="Ciências com Biologia">Ciências com Biologia</option>
@@ -555,7 +555,7 @@ async function modalCriarTurma() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Capacidade Máxima (Alunos)</label>
-          <input type="number" id="mtCapacidade" class="form-control" value="50" min="1" max="150" required>
+          <input type="number" id="mtCapacidade" class="form-control" value="" min="1" max="150" required>
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Sala de Aula</label>
@@ -713,7 +713,7 @@ async function modalCriarTurmasEmLote() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Quantidade de Turmas a Criar</label>
-          <input type="number" id="mlQtd" class="form-control" value="3" min="1" max="20" required>
+          <input type="number" id="mlQtd" class="form-control" value="" min="1" max="20" required>
           <small class="text-muted">Ex: 3 cria Turma 1, Turma 2 e Turma 3</small>
         </div>
         <div class="col-md-4">
@@ -733,7 +733,7 @@ async function modalCriarTurmasEmLote() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Número Máximo de Alunos (Capacidade)</label>
-          <input type="number" id="mlCapacidade" class="form-control" value="50" min="5" max="150" required>
+          <input type="number" id="mlCapacidade" class="form-control" value="" min="5" max="150" required>
         </div>
         <div class="col-12 mt-2">
           <div class="card p-3 bg-light border">
@@ -965,7 +965,7 @@ window.modalFormacaoAutomaticaTurmas = async function(classeFiltro = 'TODAS', ar
           </div>
           <div class="col-md-4">
             <label class="form-label small fw-semibold">Capacidade Máxima por Turma</label>
-            <input type="number" id="mfaCapacidade" class="form-control" value="50" min="10" max="150" required>
+            <input type="number" id="mfaCapacidade" class="form-control" value="" min="10" max="150" required>
             <small class="text-muted" style="font-size: 0.72rem;">Padrão MEC: 50 alunos por sala.</small>
           </div>
         </div>

@@ -349,11 +349,11 @@ function modalCarregarDocumentoCalendario(abaPadrao = 'ficheiro') {
               <div class="row g-3">
                 <div class="col-md-8">
                   <label class="form-label small fw-semibold">Título do Documento <span class="text-danger">*</span></label>
-                  <input type="text" id="inputDocOficialTitulo" class="form-control" value="Calendário Escolar Oficial" placeholder="Ex: Calendário do Ensino Geral 2026 - Diploma Ministerial">
+                  <input type="text" id="inputDocOficialTitulo" class="form-control" value="" placeholder="Ex: Calendário do Ensino Geral 2026 - Diploma Ministerial">
                 </div>
                 <div class="col-md-4">
                   <label class="form-label small fw-semibold">Ano Lectivo</label>
-                  <input type="text" id="inputDocOficialAno" class="form-control" value="2026" placeholder="2026">
+                  <input type="text" id="inputDocOficialAno" class="form-control" value="" placeholder="2026">
                 </div>
                 <div class="col-12">
                   <label class="form-label small fw-semibold">Ficheiro Oficial (PDF, DOCX, Imagem) <span class="text-danger">*</span></label>

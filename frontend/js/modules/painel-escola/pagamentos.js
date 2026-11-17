@@ -214,16 +214,16 @@ async function modalNovoPagamento() {
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Descrição *</label>
-        <input type="text" id="mpagDesc" class="form-control" value="Mensalidade Escolar" required>
+        <input type="text" id="mpagDesc" class="form-control" value="" required>
       </div>
       <div class="row g-2 mb-3">
         <div class="col-6">
           <label class="form-label small fw-semibold">Mês Ref. *</label>
-          <input type="text" id="mpagMes" class="form-control" value="2026-03" required>
+          <input type="text" id="mpagMes" class="form-control" value="" required>
         </div>
         <div class="col-6">
           <label class="form-label small fw-semibold">Valor em Meticais (MZN) *</label>
-          <input type="number" id="mpagValor" class="form-control" value="2500" required>
+          <input type="number" id="mpagValor" class="form-control" value="" required>
         </div>
       </div>
       <div class="mb-3">
@@ -313,16 +313,16 @@ async function modalGerarMensalidadesTurma() {
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Descrição da Cobrança *</label>
-        <input type="text" id="mlotDesc" class="form-control" value="Propina de 2026-03" required>
+        <input type="text" id="mlotDesc" class="form-control" value="" required>
       </div>
       <div class="row g-2 mb-3">
         <div class="col-6">
           <label class="form-label small fw-semibold">Mês Ref. (AAAA-MM) *</label>
-          <input type="text" id="mlotMes" class="form-control" value="2026-03" required>
+          <input type="text" id="mlotMes" class="form-control" value="" required>
         </div>
         <div class="col-6">
           <label class="form-label small fw-semibold">Valor da Propina (MZN) *</label>
-          <input type="number" id="mlotValor" class="form-control" value="2500" required>
+          <input type="number" id="mlotValor" class="form-control" value="" required>
         </div>
       </div>
       <div class="mb-3">
@@ -465,11 +465,11 @@ async function modalNovoPlanoEscola() {
       <div class="row g-2 mb-3">
         <div class="col-6">
           <label class="form-label small fw-semibold">Dia de Vencimento Padrão *</label>
-          <input type="number" id="planoDiaVenc" class="form-control" min="1" max="31" value="10" required>
+          <input type="number" id="planoDiaVenc" class="form-control" min="1" max="31" value="" required>
         </div>
         <div class="col-6">
           <label class="form-label small fw-semibold">Multa por Atraso (%)</label>
-          <input type="number" id="planoMulta" class="form-control" min="0" step="0.01" value="0">
+          <input type="number" id="planoMulta" class="form-control" min="0" step="0.01" value="">
         </div>
       </div>
       <div class="mb-3">

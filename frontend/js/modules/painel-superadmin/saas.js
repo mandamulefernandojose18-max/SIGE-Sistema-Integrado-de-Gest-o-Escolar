@@ -782,7 +782,7 @@ async function modalCadastrarEscolaSuperAdmin() {
           </div>
           <div class="col-md-6">
             <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
-            <input type="text" id="cadEscolaTelefone" class="form-control" value="+258 " required>
+            <input type="text" id="cadEscolaTelefone" class="form-control" value="" required>
           </div>
 
           <div class="col-12">

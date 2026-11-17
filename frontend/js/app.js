@@ -3901,7 +3901,7 @@ async function modalCadastrarEscolaSuperAdmin() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
-          <input type="tel" id="cadEscolaTelefone" class="form-control" value="+258 " required inputmode="tel" placeholder="+258 ...">
+          <input type="tel" id="cadEscolaTelefone" class="form-control" value="" required inputmode="tel" placeholder="+258 ...">
         </div>
 
         <div class="col-md-6">
@@ -6653,7 +6653,7 @@ async function modalCriarTurma() {
         </div>
         <div class="col-md-3">
           <label class="form-label small fw-semibold">Secção / Área de Estudo</label>
-          <input type="text" list="listaAreasEstudoTurma" id="mtArea" class="form-control" value="Geral" placeholder="Geral / Ciências..." oninput="atualizarAssistenteCriarTurma()">
+          <input type="text" list="listaAreasEstudoTurma" id="mtArea" class="form-control" value="" placeholder="Geral / Ciências..." oninput="atualizarAssistenteCriarTurma()">
           <datalist id="listaAreasEstudoTurma">
             <option value="Geral">Tronco Comum / Geral</option>
             <option value="Ciências com Biologia">Ciências com Biologia</option>
@@ -6673,7 +6673,7 @@ async function modalCriarTurma() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Capacidade Máxima (Alunos)</label>
-          <input type="number" id="mtCapacidade" class="form-control" value="50" min="1" max="150" required>
+          <input type="number" id="mtCapacidade" class="form-control" value="" min="1" max="150" required>
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Sala de Aula</label>
@@ -6832,7 +6832,7 @@ async function modalCriarTurmasEmLote() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Quantidade de Turmas a Criar</label>
-          <input type="number" id="mlQtd" class="form-control" value="3" min="1" max="20" required>
+          <input type="number" id="mlQtd" class="form-control" value="" min="1" max="20" required>
           <small class="text-muted">Ex: 3 cria Turma 1, Turma 2 e Turma 3</small>
         </div>
         <div class="col-md-4">
@@ -6852,7 +6852,7 @@ async function modalCriarTurmasEmLote() {
         </div>
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Número Máximo de Alunos (Capacidade)</label>
-          <input type="number" id="mlCapacidade" class="form-control" value="50" min="5" max="150" required>
+          <input type="number" id="mlCapacidade" class="form-control" value="" min="5" max="150" required>
         </div>
         <div class="col-12 mt-2">
           <div class="card p-3 bg-light border">
@@ -7103,7 +7103,7 @@ window.modalFormacaoAutomaticaTurmas = async function(classeFiltro = 'TODAS', ar
           </div>
           <div class="col-md-4">
             <label class="form-label small fw-semibold">Capacidade Máxima por Turma</label>
-            <input type="number" id="mfaCapacidade" class="form-control" value="50" min="10" max="150" required>
+            <input type="number" id="mfaCapacidade" class="form-control" value="" min="10" max="150" required>
             <small class="text-muted" style="font-size: 0.72rem;">Padrão MEC: 50 alunos por sala.</small>
           </div>
         </div>
@@ -9069,7 +9069,7 @@ async function modalNovoAluno() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone de Contacto (+258 Padrão)</label>
-          <input type="tel" id="maTel" class="form-control" value="+258 " placeholder="+258 ..." inputmode="tel">
+          <input type="tel" id="maTel" class="form-control" value="" placeholder="+258 ..." inputmode="tel">
         </div>
       </div>
       <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-person-plus-fill me-1"></i> Confirmar Matrícula Oficial</button>
@@ -9666,7 +9666,7 @@ async function modalNovoProfessor() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
-          <input type="text" id="mpTel" class="form-control" value="+258 ">
+          <input type="text" id="mpTel" class="form-control" value="">
         </div>
 
         <div class="col-md-6">
@@ -9694,7 +9694,7 @@ async function modalNovoProfessor() {
 
         <div class="col-md-12">
           <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
-          <input type="number" id="mpCarga" class="form-control" value="20" required min="1" max="60">
+          <input type="number" id="mpCarga" class="form-control" value="" required min="1" max="60">
         </div>
 
         <!-- Secção de Atribuição Sequencial: Classe(s) -> Turma(s) -->
@@ -10098,7 +10098,7 @@ async function modalAlocarProfessor(professorIdPadrao = '') {
         <div class="col-md-5">
           <label class="form-label small fw-semibold text-info"><i class="bi bi-speedometer2 me-1"></i> Carga Normal Máx. nesta Classe</label>
           <div class="input-group input-group-sm">
-            <input type="number" id="malocCargaMaxClasse" class="form-control fw-bold border-info text-center" value="16" min="1" max="40" oninput="aoAtualizarCalculoCargaAlocar()">
+            <input type="number" id="malocCargaMaxClasse" class="form-control fw-bold border-info text-center" value="" min="1" max="40" oninput="aoAtualizarCalculoCargaAlocar()">
             <span class="input-group-text bg-info bg-opacity-10 text-info fw-bold">h/sem</span>
           </div>
           <small class="text-muted" style="font-size: 0.7rem;">Teto contratual normal do docente para esta classe.</small>
@@ -11030,7 +11030,7 @@ window.abrirModalNovaClasse = function() {
         ` : `
           <div class="input-group">
             <span class="input-group-text bg-light text-success fw-bold">Nível</span>
-            <input type="number" id="modalInputNumeroNivel" class="form-control border-success fw-bold" min="1" max="15" value="1" placeholder="Ex: 1">
+            <input type="number" id="modalInputNumeroNivel" class="form-control border-success fw-bold" min="1" max="15" value="" placeholder="Ex: 1">
           </div>
         `}
       </div>
@@ -12171,11 +12171,11 @@ function modalNovaDisciplina(classePredefinida = '', areaPredefinida = '') {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Carga Horária (Aulas/Semana)</label>
-          <input type="number" id="mdCarga" class="form-control" value="4" min="1" max="40" required>
+          <input type="number" id="mdCarga" class="form-control" value="" min="1" max="40" required>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Ano Lectivo</label>
-          <input type="text" id="mdAnoLetivo" class="form-control" value="2026" required>
+          <input type="text" id="mdAnoLetivo" class="form-control" value="" required>
         </div>
 
         <!-- DEFINIÇÃO OBRIGATÓRIA: A Disciplina tem Exame: Sim ou Não -->
@@ -13276,7 +13276,7 @@ async function modalSalvarNotaCaderneta(alunoIdPreSelecionado = null) {
       <div class="row g-2 mb-3">
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Faltas no Trimestre</label>
-          <input type="number" id="mlnFaltas" class="form-control" value="0" min="0">
+          <input type="number" id="mlnFaltas" class="form-control" value="" min="0">
         </div>
         <div class="col-md-8">
           <label class="form-label small fw-semibold">Anotação Especial do Aluno</label>
@@ -14509,16 +14509,16 @@ async function modalNovoPagamento() {
       </div>
       <div class="mb-3">
         <label class="form-label small fw-semibold">Descrição</label>
-        <input type="text" id="mpagDesc" class="form-control" value="Mensalidade Escolar" required>
+        <input type="text" id="mpagDesc" class="form-control" value="" required>
       </div>
       <div class="row g-2 mb-3">
         <div class="col-6">
           <label class="form-label small fw-semibold">Mês Ref.</label>
-          <input type="text" id="mpagMes" class="form-control" value="2026-03" required>
+          <input type="text" id="mpagMes" class="form-control" value="" required>
         </div>
         <div class="col-6">
           <label class="form-label small fw-semibold">Valor em Meticais (MZN)</label>
-          <input type="number" id="mpagValor" class="form-control" value="2500" required>
+          <input type="number" id="mpagValor" class="form-control" value="" required>
         </div>
       </div>
       <div class="mb-3">
@@ -14579,11 +14579,11 @@ async function modalGerarMensalidadesTurma() {
       <div class="row g-2 mb-3">
         <div class="col-6">
           <label class="form-label small fw-semibold">Mês Ref. (AAAA-MM)</label>
-          <input type="text" id="mlotMes" class="form-control" value="2026-03" required>
+          <input type="text" id="mlotMes" class="form-control" value="" required>
         </div>
         <div class="col-6">
           <label class="form-label small fw-semibold">Valor da Propina (MZN)</label>
-          <input type="number" id="mlotValor" class="form-control" value="2500" required>
+          <input type="number" id="mlotValor" class="form-control" value="" required>
         </div>
       </div>
       <div class="mb-3">

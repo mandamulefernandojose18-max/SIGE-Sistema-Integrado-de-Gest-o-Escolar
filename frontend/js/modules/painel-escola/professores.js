@@ -426,7 +426,7 @@ async function modalNovoProfessor() {
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Telefone (+258 Padrão)</label>
-          <input type="tel" id="mpTel" class="form-control" value="+258 " placeholder="+258 ..." inputmode="tel">
+          <input type="tel" id="mpTel" class="form-control" value="" placeholder="+258 ..." inputmode="tel">
         </div>
 
         <div class="col-md-6">
@@ -454,7 +454,7 @@ async function modalNovoProfessor() {
 
         <div class="col-md-12">
           <label class="form-label small fw-semibold">Carga Horária Semanal (Horas)</label>
-          <input type="number" id="mpCarga" class="form-control" value="20" required min="1" max="60">
+          <input type="number" id="mpCarga" class="form-control" value="" required min="1" max="60">
         </div>
 
         <!-- Secção de Atribuição Sequencial: Classe(s) -> Turma(s) -->
@@ -858,7 +858,7 @@ async function modalAlocarProfessor(professorIdPadrao = '') {
         <div class="col-md-5">
           <label class="form-label small fw-semibold text-info"><i class="bi bi-speedometer2 me-1"></i> Carga Normal Máx. nesta Classe</label>
           <div class="input-group input-group-sm">
-            <input type="number" id="malocCargaMaxClasse" class="form-control fw-bold border-info text-center" value="16" min="1" max="40" oninput="aoAtualizarCalculoCargaAlocar()">
+            <input type="number" id="malocCargaMaxClasse" class="form-control fw-bold border-info text-center" value="" min="1" max="40" oninput="aoAtualizarCalculoCargaAlocar()">
             <span class="input-group-text bg-info bg-opacity-10 text-info fw-bold">h/sem</span>
           </div>
           <small class="text-muted" style="font-size: 0.7rem;">Teto contratual normal do docente para esta classe.</small>

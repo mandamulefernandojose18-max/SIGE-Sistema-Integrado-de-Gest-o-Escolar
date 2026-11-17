@@ -448,7 +448,7 @@
 
     cancelarEdicaoDisciplina() {
       ['pcDiscId', 'pcDiscNome', 'pcDiscCodigo'].forEach((i) => { const el = $(i); if (el) el.value = ''; });
-      const c = $('pcDiscCarga'); if (c) c.value = 4;
+      const c = $('pcDiscCarga'); if (c) c.value = '';
       const nm = $('pcDiscNome'); if (nm) nm.readOnly = false;
       P.codigoManual = false;
       const b = $('pcDiscBtn'); if (b) b.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Cadastrar';
