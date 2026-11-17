@@ -18852,6 +18852,9 @@ async function descarregarEstatisticasPdf() {
   const container = document.getElementById('containerEstatisticasDocumento');
   if (!container) return alert('Carregue as estatísticas primeiro');
   const ano = document.getElementById('statAnoFiltro')?.value || '2026';
+  const periodoPdf = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';
+  const okPdf = await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=${ano}&periodo=${periodoPdf}`, `Estatisticas_Aproveitamento_${ano}.pdf`);
+  if (okPdf) return;
   const table = container.querySelector('table');
   if (window.SigeExport && table) {
     await window.SigeExport.exportarTabelaHtml(table, 'pdf', {

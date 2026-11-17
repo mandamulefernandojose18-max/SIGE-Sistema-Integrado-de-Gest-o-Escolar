@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SIGE - PAINEL-ESCOLA | Estatísticas de Aproveitamento
  * Ficheiro de código independente do menu: estatisticas-aproveitamento.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -260,6 +260,9 @@ async function descarregarEstatisticasPdf() {
   const container = document.getElementById('containerEstatisticasDocumento');
   if (!container) return alert('Carregue as estatísticas primeiro');
   const ano = document.getElementById('statAnoFiltro')?.value || '2026';
+  const periodoPdf = document.getElementById('statPeriodoFiltro')?.value || 'GLOBAL';
+  const okPdf = await downloadFicheiroBinario(`/api/v1/pautas/estatisticas-gerais/pdf?anoLetivo=${ano}&periodo=${periodoPdf}`, `Estatisticas_Aproveitamento_${ano}.pdf`);
+  if (okPdf) return;
   await exportarElementoParaPdf(container, `Estatisticas_Aproveitamento_Pedagogico_${ano}.pdf`, 'landscape');
 }
 
