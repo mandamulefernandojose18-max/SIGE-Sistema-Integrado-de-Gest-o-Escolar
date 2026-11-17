@@ -249,17 +249,23 @@
           styles: {
             font: 'times',
             fontSize: 12,
-            cellPadding: 1.8,
+            cellPadding: 2.6,
             overflow: 'linebreak',
-            lineColor: [203, 213, 225],
-            lineWidth: 0.2
+            valign: 'middle',
+            lineColor: [148, 163, 184],
+            lineWidth: 0.25
           },
+          tableLineColor: [30, 58, 138],
+          tableLineWidth: 0.7,
           headStyles: {
             fillColor: [30, 58, 138],
             textColor: [255, 255, 255],
             fontStyle: 'bold',
             halign: 'center',
-            fontSize: 12
+            valign: 'middle',
+            fontSize: 12,
+            lineColor: [201, 162, 39],
+            lineWidth: 0.4
           },
           alternateRowStyles: {
             fillColor: [248, 250, 252]
@@ -267,6 +273,8 @@
           didParseCell: function (data) {
             // Destaque para notas negativas (< 9.5) a vermelho
             if (data.section === 'body') {
+              // Números curtos centrados; texto à esquerda
+              if (/^[\d.,%\-\s/]{1,10}$/.test(String(data.cell.raw).trim())) data.cell.styles.halign = 'center';
               const val = parseFloat(String(data.cell.raw).replace(',', '.'));
               if (!isNaN(val) && val >= 0 && val < 9.5) {
                 data.cell.styles.textColor = [220, 38, 38];

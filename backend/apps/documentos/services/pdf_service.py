@@ -713,24 +713,26 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
 
     # 2. Tabela Oficial da Pauta com Encaixe Milimetrico
     n_discs = max(len(disciplinas), 1)
-    font_disc_sz = 6.5 if n_discs >= 11 else 7.5
-    lead_disc = 7.5 if n_discs >= 11 else 8.5
+    # Números maiores e legíveis: o corpo da pauta cresce até caber na largura útil (ajuste pelo nº de disciplinas)
+    _sz = 9.5 if n_discs <= 8 else (8.5 if n_discs <= 10 else (7.5 if n_discs <= 14 else 7.0))
+    font_disc_sz = _sz - 1.0
+    lead_disc = font_disc_sz + 1.5
 
-    sh_num = ParagraphStyle('HN', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
-    sh_nome = ParagraphStyle('HNome', fontName='Times-Bold', fontSize=7.0, leading=8.0, alignment=0)
-    sh_gen = ParagraphStyle('HG', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1)
+    sh_num = ParagraphStyle('HN', fontName='Times-Bold', fontSize=_sz - 1.5, leading=_sz, alignment=1)
+    sh_nome = ParagraphStyle('HNome', fontName='Times-Bold', fontSize=_sz - 0.5, leading=_sz + 1, alignment=0)
+    sh_gen = ParagraphStyle('HG', fontName='Times-Bold', fontSize=_sz - 1.5, leading=_sz, alignment=1)
     sh_disc = ParagraphStyle('HD', fontName='Times-Bold', fontSize=font_disc_sz, leading=lead_disc, alignment=1, textColor=colors.HexColor('#4338ca'))
-    sh_meds = ParagraphStyle('HM', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1)
-    sh_white = ParagraphStyle('HW', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=1, textColor=colors.white)
-    sh_sub = ParagraphStyle('HS', fontName='Times-Roman', fontSize=5.5, leading=6.5, alignment=1)
+    sh_meds = ParagraphStyle('HM', fontName='Times-Bold', fontSize=_sz - 2.0, leading=_sz - 0.5, alignment=1)
+    sh_white = ParagraphStyle('HW', fontName='Times-Bold', fontSize=_sz - 1.5, leading=_sz, alignment=1, textColor=colors.white)
+    sh_sub = ParagraphStyle('HS', fontName='Times-Roman', fontSize=(6.5 if n_discs <= 8 else 5.5), leading=(7.5 if n_discs <= 8 else 6.5), alignment=1)
 
-    st_num = ParagraphStyle('TNum', fontName='Times-Roman', fontSize=7.5, leading=8.5, alignment=1)
-    st_nome = ParagraphStyle('TN', fontName='Times-Bold', fontSize=7.5, leading=8.5, alignment=0)
-    st_c = ParagraphStyle('TC', fontName='Times-Roman', fontSize=7.5, leading=8.5, alignment=1)
-    st_red = ParagraphStyle('TR', fontName='Times-Bold', fontSize=7.5, leading=8.5, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_bold = ParagraphStyle('TB', fontName='Times-Bold', fontSize=7.5, leading=8.5, alignment=1)
-    st_res_rep = ParagraphStyle('TRRep', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_res_apr = ParagraphStyle('TRApr', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#111827'))
+    st_num = ParagraphStyle('TNum', fontName='Times-Roman', fontSize=_sz, leading=_sz + 1.5, alignment=1)
+    st_nome = ParagraphStyle('TN', fontName='Times-Bold', fontSize=_sz, leading=_sz + 1.5, alignment=0)
+    st_c = ParagraphStyle('TC', fontName='Times-Roman', fontSize=_sz, leading=_sz + 1.5, alignment=1)
+    st_red = ParagraphStyle('TR', fontName='Times-Bold', fontSize=_sz, leading=_sz + 1.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_bold = ParagraphStyle('TB', fontName='Times-Bold', fontSize=_sz, leading=_sz + 1.5, alignment=1)
+    st_res_rep = ParagraphStyle('TRRep', fontName='Times-Bold', fontSize=_sz - 2.0, leading=_sz - 0.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_res_apr = ParagraphStyle('TRApr', fontName='Times-Bold', fontSize=_sz - 2.0, leading=_sz - 0.5, alignment=1, textColor=colors.HexColor('#111827'))
 
     # Header Row 1 (com Nº de Ordem, Nome Completo e Gén)
     row1 = [
@@ -771,8 +773,8 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
         ('SPAN', (2, 0), (2, 1)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
-        ('TOPPADDING', (0, 0), (-1, -1), 1.0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.0),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.4),
         ('LEFTPADDING', (0, 0), (-1, -1), 0.5),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0.5),
     ]
@@ -934,7 +936,7 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     pct_aprov = round(aprov_n / tot_al * 100, 1) if tot_al > 0 else 0.0
     pct_reprov = round(reprov_n / tot_al * 100, 1) if tot_al > 0 else 0.0
 
-    st_resumo = ParagraphStyle('TPautaResumo', fontName='Times-Bold', fontSize=6.2, leading=7.5, alignment=0)
+    st_resumo = ParagraphStyle('TPautaResumo', fontName='Times-Bold', fontSize=_sz - 1.0, leading=_sz + 0.5, alignment=0)
     txt_resumo = (
         f"Total Inscritos: <b>{tot_al}</b> (H: {h_n} | M: {m_n}) | "
         f"Avaliados: <b>{tot_al}</b> | "
@@ -967,7 +969,7 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     elements.append(KeepTogether(t_sig))
@@ -2083,7 +2085,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         f"<b>{hIni3}</b> horas e <b>{mIni3}</b> minutos e com término às <b>{hFim3}</b> horas e <b>{mFim3}</b> minutos (IIIº Trim). "
         f"No final deste conselho colheram-se os resultados que abaixo vão discriminados de todos os membros que participaram:"
     )
-    style_proto = ParagraphStyle('ActaProto', parent=styles['Normal'], alignment=4, fontSize=6.8, leading=8.5, fontName='Times-Roman')
+    style_proto = ParagraphStyle('ActaProto', parent=styles['Normal'], alignment=4, fontSize=7.4, leading=9.2, fontName='Times-Roman')
     elements.append(Paragraph(texto_protocolar, style_proto))
     elements.append(Spacer(1, 0.12 * cm))
 
@@ -2120,7 +2122,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 5.5),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('LEADING', (0, 0), (-1, -1), 6.5),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -2172,7 +2174,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             curr_row_t1 += 1
 
     t1_col_widths = [3.2 * cm, 0.65 * cm, 1.2 * cm, 1.1 * cm, 1.2 * cm, 1.1 * cm, 1.2 * cm, 1.1 * cm, 1.2 * cm, 1.1 * cm]
-    t1_table = Table(data_t1, colWidths=t1_col_widths, rowHeights=[10.5, 9.5] + [8.5] * 21)
+    t1_table = Table(data_t1, colWidths=t1_col_widths, rowHeights=[12, 11] + [10] * 21)
     t1_table.setStyle(TableStyle(t1_styles))
 
     # 5. TABELA 2: Aproveitamento Pedagógico por Faixas e Crescimento
@@ -2196,7 +2198,7 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 5.5),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('LEADING', (0, 0), (-1, -1), 6.5),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -2273,11 +2275,11 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             curr_row_t2 += 1
 
     t2_col_widths = [2.8 * cm, 0.6 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 0.95 * cm, 1.0 * cm, 1.0 * cm, 1.0 * cm]
-    t2_table = Table(data_t2, colWidths=t2_col_widths, rowHeights=[10.5, 9.5] + [8.5] * 24)
+    t2_table = Table(data_t2, colWidths=t2_col_widths, rowHeights=[12, 11] + [10] * 24)
     t2_table.setStyle(TableStyle(t2_styles))
 
     # Título das tabelas lado a lado e inclusão imediata na Página 1 após a informação
-    style_th_block = ParagraphStyle('THB', fontName='Times-Bold', fontSize=6.5, leading=8, alignment=1, textColor=colors.HexColor('#1e3a8a'))
+    style_th_block = ParagraphStyle('THB', fontName='Times-Bold', fontSize=8, leading=10, alignment=1, textColor=colors.HexColor('#1e3a8a'))
     col_t1 = [Paragraph("<b>APROVEITAMENTO POR TRIMESTRES E FIM DO ANO (EFECTIVOS E MOVIMENTO)</b>", style_th_block), Spacer(1, 0.06 * cm), t1_table]
     col_t2 = [Paragraph("<b>APROVEITAMENTO PEDAGÓGICO POR FAIXAS E CRESCIMENTO</b>", style_th_block), Spacer(1, 0.06 * cm), t2_table]
 
@@ -2337,13 +2339,13 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
             ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
             ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
             ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 5.5),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('LEADING', (0, 0), (-1, -1), 6.5),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
-            ('TOPPADDING', (0, 0), (-1, -1), 1.2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.2),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.2),
             ('LEFTPADDING', (0, 0), (-1, -1), 1),
             ('RIGHTPADDING', (0, 0), (-1, -1), 1),
             ('SPAN', (0, 0), (0, 1)),
@@ -2407,15 +2409,15 @@ def gerar_acta_pdf(turma, escola, periodo, ano_letivo, dados_alunos,
     ]
     tabela_alunos_data = [headers_alunos]
 
-    style_td_num = ParagraphStyle('TDNum', fontName='Times-Roman', fontSize=8, alignment=1)
-    style_td_nome = ParagraphStyle('TDNome', fontName='Times-Roman', fontSize=8, alignment=0)
-    style_td_med = ParagraphStyle('TDMed', fontName='Times-Bold', fontSize=8, alignment=1)
-    style_td_comp = ParagraphStyle('TDComp', fontName='Times-Roman', fontSize=8, alignment=1)
+    style_td_num = ParagraphStyle('TDNum', fontName='Times-Roman', fontSize=10, alignment=1)
+    style_td_nome = ParagraphStyle('TDNome', fontName='Times-Roman', fontSize=10, alignment=0)
+    style_td_med = ParagraphStyle('TDMed', fontName='Times-Bold', fontSize=10, alignment=1)
+    style_td_comp = ParagraphStyle('TDComp', fontName='Times-Roman', fontSize=10, alignment=1)
 
     for idx, aluno in enumerate(dados_alunos, start=1):
         res_val = str(aluno.get('resultado', 'Aprovado')).strip()
         cor = colors.HexColor('#dc2626') if res_val in ('Reprovado', 'R') else colors.HexColor('#15803d')
-        style_res = ParagraphStyle('TDRes', fontName='Times-Bold', fontSize=8, alignment=1, textColor=cor)
+        style_res = ParagraphStyle('TDRes', fontName='Times-Bold', fontSize=10, alignment=1, textColor=cor)
 
         tabela_alunos_data.append([
             Paragraph(str(aluno.get('numero') or idx), style_td_num),
@@ -2917,7 +2919,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     TableStyle = _ReportLabTableStyle
     buffer = io.BytesIO()
     page_size = obter_tamanho_pagina(orientacao, padrao='landscape')
-    doc = SimpleDocTemplate(
+    doc = _ReportLabSimpleDocTemplate(
         buffer,
         pagesize=page_size,
         rightMargin=1.0 * cm,
@@ -3006,7 +3008,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         except (ValueError, TypeError):
             return r
 
-    style_nome = ParagraphStyle('CadAlNome', fontName='Times-Roman', fontSize=6.5, leading=7.5, alignment=0)
+    style_nome = _estilo_denso('CadAlNome', fontName='Times-Roman', fontSize=10, leading=12, alignment=0)
     for idx, al in enumerate(alunos, start=1):
         t1 = al.get('t1') or {}
         t2 = al.get('t2') or {}
@@ -3033,24 +3035,24 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
 
     stat_rows_start = len(data_table)
 
-    st_param_title = ParagraphStyle('StatParamTitle', fontName='Times-Bold', fontSize=6.5, leading=7.5, alignment=0, textColor=colors.HexColor('#0f172a'))
-    st_stat_lbl_dark = ParagraphStyle('StatLblDark', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=0, textColor=colors.HexColor('#0f172a'))
-    st_stat_lbl_green = ParagraphStyle('StatLblGreen', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=0, textColor=colors.HexColor('#059669'))
-    st_stat_lbl_red = ParagraphStyle('StatLblRed', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=0, textColor=colors.HexColor('#dc2626'))
+    st_param_title = _estilo_denso('StatParamTitle', fontName='Times-Bold', fontSize=10, leading=12, alignment=0, textColor=colors.HexColor('#0f172a'))
+    st_stat_lbl_dark = _estilo_denso('StatLblDark', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=0, textColor=colors.HexColor('#0f172a'))
+    st_stat_lbl_green = _estilo_denso('StatLblGreen', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=0, textColor=colors.HexColor('#059669'))
+    st_stat_lbl_red = _estilo_denso('StatLblRed', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=0, textColor=colors.HexColor('#dc2626'))
 
-    st_stat_gen_dark = ParagraphStyle('StatGenDark', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
-    st_stat_gen_dark_bold = ParagraphStyle('StatGenDarkB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
-    st_stat_gen_green = ParagraphStyle('StatGenGreen', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
-    st_stat_gen_green_bold = ParagraphStyle('StatGenGreenB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
-    st_stat_gen_red = ParagraphStyle('StatGenRed', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_stat_gen_red_bold = ParagraphStyle('StatGenRedB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_stat_gen_dark = _estilo_denso('StatGenDark', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_stat_gen_dark_bold = _estilo_denso('StatGenDarkB', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_stat_gen_green = _estilo_denso('StatGenGreen', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#059669'))
+    st_stat_gen_green_bold = _estilo_denso('StatGenGreenB', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#059669'))
+    st_stat_gen_red = _estilo_denso('StatGenRed', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_stat_gen_red_bold = _estilo_denso('StatGenRedB', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#dc2626'))
 
-    st_val_dark = ParagraphStyle('StatValDark', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
-    st_val_dark_bold = ParagraphStyle('StatValDarkB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#0f172a'))
-    st_val_green = ParagraphStyle('StatValGreen', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
-    st_val_green_bold = ParagraphStyle('StatValGreenB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#059669'))
-    st_val_red = ParagraphStyle('StatValRed', fontName='Times-Roman', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
-    st_val_red_bold = ParagraphStyle('StatValRedB', fontName='Times-Bold', fontSize=6.0, leading=7.0, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_val_dark = _estilo_denso('StatValDark', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_val_dark_bold = _estilo_denso('StatValDarkB', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#0f172a'))
+    st_val_green = _estilo_denso('StatValGreen', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#059669'))
+    st_val_green_bold = _estilo_denso('StatValGreenB', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#059669'))
+    st_val_red = _estilo_denso('StatValRed', fontName='Times-Roman', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#dc2626'))
+    st_val_red_bold = _estilo_denso('StatValRedB', fontName='Times-Bold', fontSize=9.5, leading=11.5, alignment=1, textColor=colors.HexColor('#dc2626'))
 
     def _val_cad(col_k, getter, default='-'):
         if not col_k or col_k not in estatisticas:
@@ -3152,21 +3154,23 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     ]
     data_table.append(row_med)
 
-    col_widths = [0.65 * cm, 4.35 * cm, 0.65 * cm] + ([0.86 * cm] * 24) + [0.95 * cm]
+    col_widths = [0.7 * cm, 4.6 * cm, 1.1 * cm] + ([0.82 * cm] * 24) + [0.95 * cm]
     t_cad = Table(data_table, colWidths=col_widths, repeatRows=2)
     t_styles = [
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('FONTNAME', (0, 0), (-1, 1), 'Times-Bold'),
         ('FONTNAME', (0, 2), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
-        ('LEADING', (0, 0), (-1, -1), 8.5),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('LEADING', (0, 0), (-1, -1), 12),
+        ('FONTSIZE', (0, 0), (-1, 1), 8.5),
+        ('LEADING', (0, 0), (-1, 1), 10),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (1, 2), (1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#94a3b8')),
-        ('TOPPADDING', (0, 0), (-1, -1), 1.4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.6),
         ('LEFTPADDING', (0, 0), (-1, -1), 1.2),
         ('RIGHTPADDING', (0, 0), (-1, -1), 1.2),
         ('SPAN', (0, 0), (0, 1)),
@@ -3233,8 +3237,8 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
 
     # Padding compacto e grid para todas as linhas estatísticas
     t_styles.append(('VALIGN', (0, stat_rows_start), (-1, len(data_table) - 1), 'MIDDLE'))
-    t_styles.append(('TOPPADDING', (0, stat_rows_start), (-1, len(data_table) - 1), 0.7))
-    t_styles.append(('BOTTOMPADDING', (0, stat_rows_start), (-1, len(data_table) - 1), 0.7))
+    t_styles.append(('TOPPADDING', (0, stat_rows_start), (-1, len(data_table) - 1), 1.4))
+    t_styles.append(('BOTTOMPADDING', (0, stat_rows_start), (-1, len(data_table) - 1), 1.4))
     t_styles.append(('GRID', (0, stat_rows_start), (-1, len(data_table) - 1), 0.4, colors.HexColor('#94a3b8')))
 
     t_cad.setStyle(TableStyle(t_styles))
@@ -3251,7 +3255,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.0),
+        ('FONTSIZE', (0, 0), (-1, -1), 10.0),
     ]))
     elements.append(KeepTogether(t_sig))
 

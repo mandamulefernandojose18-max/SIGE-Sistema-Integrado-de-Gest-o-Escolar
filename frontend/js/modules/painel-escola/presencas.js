@@ -31,7 +31,7 @@ window.carregarPresencasAno = async function (ano) {
     ? 'Lance as presenças e faltas (justificadas/injustificadas) dos alunos das suas turmas.'
     : 'Consulta das presenças e faltas registadas pelos professores, por aula e turma.';
   const data = document.getElementById('presData');
-  if (data) { data.max = presHoje(); if (!data.value) data.value = presHoje(); }
+  if (data) { data.max = presHoje(); }
 
   try {
     const q = `?ano_letivo=${encodeURIComponent(ano)}`;

@@ -1,3 +1,44 @@
+// ==================== FILTROS SEMPRE LIMPOS (NENHUM CAMPO CARREGA DADOS SEM ESCOLHA DO UTILIZADOR) ====================
+// Regra: nenhuma caixa de selecção de dados (classe, secção, turma, disciplina, trimestre, aluno...) pode vir com uma
+// opção real já escolhida. Sempre que uma <select> de dados é preenchida, é-lhe acrescentada a opção em branco
+// "-- Escolha --" e fica seleccionada, pelo que nada é carregado até o utilizador escolher.
+(function () {
+  if (window.__sigeSelectsLimpos) return;
+  window.__sigeSelectsLimpos = true;
+  var INCLUIR = /(classe|area|secc|secao|turma|disciplina|trimestre|periodo|aluno|professor|alocacao|nivel|turno|curso|encarregado|escola)/i;
+  var EXCLUIR = /(orienta|ordem|modo|tipo|format|metodo|epoca|periodicidade|prioridade|nalt|escopo|multa|fundo|carimbo|regime|^conf|^cfg|saasfiltro|provincia|distrito|canal|sms|idioma|tema|ano(letivo|lectivo|select)|^ano)/i;
+  function qualifica(sel) {
+    if (!sel || sel.multiple || sel.dataset.semPlaceholder !== undefined || !sel.options || !sel.options.length) return false;
+    var chave = (sel.id || '') + ' ' + (sel.name || '');
+    if (!INCLUIR.test(chave) || EXCLUIR.test(chave)) return false;
+    var v = sel.options[0].value;
+    return v !== '' && !/^(TODAS|TODOS|GERAL)$/i.test(v);
+  }
+  function limpar(sel) {
+    if (!qualifica(sel)) return;
+    var ph = document.createElement('option');
+    ph.value = ''; ph.textContent = '-- Escolha --'; ph.dataset.placeholder = '1';
+    sel.insertBefore(ph, sel.options[0]);
+    sel.selectedIndex = 0;
+    if (sel.closest && sel.closest('form')) sel.required = true;
+  }
+  var desc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if (desc && desc.set) {
+    Object.defineProperty(HTMLSelectElement.prototype, 'innerHTML', {
+      configurable: true, enumerable: desc.enumerable, get: desc.get,
+      set: function (html) { desc.set.call(this, html); limpar(this); }
+    });
+  }
+  function varrer(no) {
+    if (!no || no.nodeType !== 1) return;
+    if (no.tagName === 'SELECT') limpar(no);
+    else if (no.querySelectorAll) no.querySelectorAll('select').forEach(limpar);
+  }
+  new MutationObserver(function (ms) {
+    ms.forEach(function (m) { m.addedNodes.forEach(varrer); });
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+
 // ==================== EXPORTAÇÃO E DOWNLOAD EM PDF (CADERNETA, PAUTA, ACTA E DOCUMENTOS) ====================
 function inicializarPatchHtml2Pdf() {
   if (!window.html2pdf || window.__html2pdfPatched) return;
@@ -98,12 +139,24 @@ async function exportarElementoParaPdf(elementoOuId, filename, orientation = 'la
               background-color: #ffffff !important;
             }
             table {
-              border-collapse: collapse !important;
+              border-collapse: separate !important;
+              border-spacing: 0 !important;
               width: 100% !important;
             }
             th, td {
               font-family: 'Times New Roman', Times, Georgia, serif !important;
+              font-size: 14px !important;
+              line-height: 1.3 !important;
+              vertical-align: middle !important;
+              padding: 5px 6px !important;
+              text-decoration: none !important;
+              border-right: 1px solid #94a3b8 !important;
+              border-bottom: 1px solid #94a3b8 !important;
+              border-top: 0 !important;
+              border-left: 0 !important;
             }
+            thead th { text-align: center !important; font-weight: bold !important; }
+            table { border-top: 1.5px solid #1e3a8a !important; border-left: 1.5px solid #1e3a8a !important; }
           `;
           clonedDoc.head.appendChild(styleClone);
 

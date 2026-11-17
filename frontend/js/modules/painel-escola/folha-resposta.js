@@ -453,8 +453,7 @@
       $('frTipo').innerHTML = '<option value="">-- Tipo de avaliação --</option>' + (ctx.tipos_avaliacao || []).map(function (t) { return '<option value="' + esc(t.codigo) + '">' + esc(t.rotulo) + '</option>'; }).join('');
       restaurar();
       // Trimestre da folha: por omissão o activo da escola; o utilizador pode escolher o 1.º, 2.º ou 3.º
-      if ($('frTrimestre') && ctx.escola && ctx.escola.trimestre && !$('frTrimestre').dataset.tocado) $('frTrimestre').value = ctx.escola.trimestre;
-      $('frTrimestre').addEventListener('change', function () { this.dataset.tocado = '1'; });
+            $('frTrimestre').addEventListener('change', function () { this.dataset.tocado = '1'; });
       pintarRegra(ctx.regra_exclusao);
       preencherClasses();
       mostrarCamposEscopo();
