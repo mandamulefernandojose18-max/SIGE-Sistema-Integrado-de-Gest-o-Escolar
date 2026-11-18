@@ -192,13 +192,18 @@ class PresencaAlunoSerializer(serializers.ModelSerializer):
     aluno_matricula = serializers.CharField(source='aluno.matricula', read_only=True)
     turma_nome = serializers.CharField(source='turma.nome', read_only=True)
     disciplina_nome = serializers.CharField(source='disciplina.nome', read_only=True, default='')
+    trimestre = serializers.SerializerMethodField()
+
+    def get_trimestre(self, obj):
+        from .services_assiduidade import trimestre_da_data
+        return trimestre_da_data(obj.data, obj.escola)
 
     class Meta:
         model = PresencaAluno
         fields = [
             'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula',
             'turma', 'turma_nome', 'disciplina', 'disciplina_nome',
-            'professor', 'data', 'status', 'observacao', 'registado_por',
+            'professor', 'data', 'trimestre', 'status', 'aulas', 'observacao', 'registado_por',
             'justificacao', 'justificada_em', 'pedido_justificacao', 'pedido_justificacao_em',
             'created_at', 'updated_at'
         ]

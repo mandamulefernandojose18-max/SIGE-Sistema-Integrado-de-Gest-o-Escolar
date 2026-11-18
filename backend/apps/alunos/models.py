@@ -181,6 +181,8 @@ class PresencaAluno(models.Model):
         ('ATRASO', 'Atraso'),
     ]
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PRESENTE')
+    # Nº de aulas do tempo lectivo: 1 = aula simples (1 falta); 2 = aula dupla (2 faltas por cada ausência)
+    aulas = models.PositiveSmallIntegerField(default=1, choices=[(1, 'Aula simples (1)'), (2, 'Aula dupla (2)')])
     observacao = models.CharField(max_length=255, blank=True, default='')
     registado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     # Justificação posterior (secretaria/direcção) de uma falta injustificada

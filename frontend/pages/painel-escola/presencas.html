@@ -41,9 +41,17 @@
             <label class="form-label small fw-semibold text-muted mb-1">Disciplina</label>
             <select id="presDisciplina" class="form-select form-select-sm" onchange="presAoMudarDisciplina()"></select>
           </div>
-          <div class="col-12 col-md-2">
-            <label class="form-label small fw-semibold text-muted mb-1">Data da Aula</label>
+          <div class="col-6 col-md-2">
+            <label class="form-label small fw-semibold text-muted mb-1">Data da Aula <span id="presTrimestreBadge" class="badge bg-secondary ms-1"></span></label>
             <input type="date" id="presData" class="form-control form-control-sm" onchange="presCarregarAlunos()">
+          </div>
+          <div class="col-6 col-md-3" id="presAulasWrap" style="display: none;">
+            <label class="form-label small fw-semibold text-muted mb-1">Tipo de aula <span class="text-danger">*</span></label>
+            <select id="presAulas" class="form-select form-select-sm">
+              <option value="">— Indique primeiro —</option>
+              <option value="1">1 aula (cada falta conta 1)</option>
+              <option value="2">Aula dupla – 2 aulas (cada falta conta 2)</option>
+            </select>
           </div>
         </div>
       </div>
@@ -103,11 +111,44 @@
             <tr>
               <th class="ps-3" style="width: 50px;">#</th><th>Matrícula</th><th>Nome do aluno</th>
               <th class="text-center">Aulas</th><th class="text-center">Presenças</th><th class="text-center">F. justif.</th>
-              <th class="text-center">F. injustif.</th><th class="text-center">Atrasos</th><th class="text-center pe-3">% Faltas</th>
+              <th class="text-center">F. injustif.</th><th class="text-center">Atrasos</th><th class="text-center">% Faltas</th>
+              <th class="text-center">Faltas 1.º T</th><th class="text-center">Faltas 2.º T</th><th class="text-center">Faltas 3.º T</th><th class="text-center pe-3">Total faltas</th>
             </tr>
           </thead>
           <tbody id="presResumoTurmaCorpo">
-            <tr><td colspan="9" class="text-center text-muted py-3">Escolha a classe, a secção, a turma (e a disciplina) para ver o resumo.</td></tr>
+            <tr><td colspan="13" class="text-center text-muted py-3">Escolha a classe, a secção, a turma (e a disciplina) para ver o resumo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Lista geral de faltas acumuladas por aluno e disciplina (aula simples = 1 falta; aula dupla = 2) -->
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-header bg-white py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="fw-semibold small text-uppercase text-muted">Lista geral de faltas acumuladas por disciplina</span>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <select id="presGeralAmbito" class="form-select form-select-sm" style="width: auto;" onchange="presCarregarGeral()" title="Âmbito da lista geral">
+            <option value="turma">Turma escolhida</option>
+            <option value="area">Classe + secção/área escolhidas</option>
+            <option value="classe">Classe escolhida</option>
+            <option value="todas">Todo o ano lectivo</option>
+          </select>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Descarregar lista geral de faltas">
+            <button class="btn btn-outline-danger" type="button" onclick="presExportarGeral('pdf')"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</button>
+            <button class="btn btn-outline-success" type="button" onclick="presExportarGeral('xlsx')"><i class="bi bi-file-earmark-excel me-1"></i> XLSX</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-body p-0" style="max-height: 380px; overflow-y: auto;">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light small text-uppercase text-muted" style="position: sticky; top: 0;">
+            <tr>
+              <th class="ps-3" style="width: 50px;">#</th><th>Matrícula</th><th>Nome do aluno</th><th>Classe</th><th>Turma</th><th>Disciplina</th>
+              <th class="text-center">1.º T</th><th class="text-center">2.º T</th><th class="text-center">3.º T</th><th class="text-center pe-3">Total</th>
+            </tr>
+          </thead>
+          <tbody id="presGeralCorpo">
+            <tr><td colspan="10" class="text-center text-muted py-3">Escolha a classe, a secção e a turma para ver a lista geral de faltas.</td></tr>
           </tbody>
         </table>
       </div>

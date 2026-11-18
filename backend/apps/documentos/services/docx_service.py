@@ -1588,7 +1588,7 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
         '1º 1ªA', '1º 2ªA', '1º 3ªA', '1º MAP', '1º MAS', '1º AT', '1º MT', '1º Cp',
         '2º 1ªA', '2º 2ªA', '2º 3ªA', '2º MAP', '2º MAS', '2º AT', '2º MT', '2º Cp',
         '3º 1ªA', '3º 2ªA', '3º 3ªA', '3º MAP', '3º MAS', '3º AT', '3º MT', '3º Cp',
-        'MFD'
+        'MFD', 'Falt. 1ºT', 'Falt. 2ºT', 'Falt. 3ºT', 'Falt. Tot'
     ]
     t = doc.add_table(rows=1, cols=len(headers))
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -1637,15 +1637,17 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
             fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_m(t1.get('mt')), str(t1.get('comportamento') or '-'),
             fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_m(t2.get('mt')), str(t2.get('comportamento') or '-'),
             fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_m(t3.get('mt')), str(t3.get('comportamento') or '-'),
-            fmt_m(al.get('mfd'))
+            fmt_m(al.get('mfd')),
+            str(t1.get('faltas') or 0), str(t2.get('faltas') or 0), str(t3.get('faltas') or 0),
+            str(al.get('faltas_total') or 0)
         ]
         for c_i, v in enumerate(vals):
             p = row.cells[c_i].paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 1 else WD_ALIGN_PARAGRAPH.CENTER
             r = p.add_run(v)
-            is_bold = (c_i in (9, 17, 25, 27))
+            is_bold = (c_i in (9, 17, 25, 27, 31))
             aplicar_fonte_times(r, pt_size=6.0, bold=is_bold)
-            if c_i >= 3 and c_i not in (10, 18, 26):
+            if 3 <= c_i <= 27 and c_i not in (10, 18, 26):
                 try:
                     if float(v) < 9.5:
                         r.font.color.rgb = RGBColor(0xDC, 0x26, 0x26)
@@ -1671,7 +1673,7 @@ def gerar_caderneta_docx(caderneta_data: dict, orientacao='landscape') -> bytes:
 
     # 1. Linha: Parametro estatistico
     r_hdr = t.add_row()
-    r_hdr.cells[0].merge(r_hdr.cells[27])
+    r_hdr.cells[0].merge(r_hdr.cells[31])
     p_hdr = r_hdr.cells[0].paragraphs[0]
     p_hdr.alignment = WD_ALIGN_PARAGRAPH.LEFT
     r_run = p_hdr.add_run("Parametro estatistico")

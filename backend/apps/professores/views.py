@@ -258,6 +258,13 @@ def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
             'faltas': n.faltas
         }
 
+    # Faltas por trimestre vindas automaticamente das Presenças (aula simples = 1, dupla = 2)
+    from apps.alunos.models import PresencaAluno
+    from apps.alunos.services_assiduidade import soma_faltas
+    pres_qs = PresencaAluno.objects.filter(escola=escola, turma=turma, disciplina=disc)
+    faltas_pres = soma_faltas(pres_qs, escola, ('aluno_id',))
+    com_registo = {str(i) for i in pres_qs.values_list('aluno_id', flat=True).distinct()}
+
     total_h = alunos.filter(genero='M').count()
     total_m = alunos.filter(genero='F').count()
 
@@ -304,6 +311,11 @@ def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
         t1_data = extrair_trimestre('1_TRIMESTRE')
         t2_data = extrair_trimestre('2_TRIMESTRE')
         t3_data = extrair_trimestre('3_TRIMESTRE')
+        # Com registos de presença o valor vem das presenças; sem eles mantém-se o lançamento manual na nota
+        if str(a.id) in com_registo:
+            ft = faltas_pres.get((str(a.id),), {1: 0, 2: 0, 3: 0})
+            t1_data['faltas'], t2_data['faltas'], t3_data['faltas'] = ft[1], ft[2], ft[3]
+        faltas_total = sum(int(x.get('faltas') or 0) for x in (t1_data, t2_data, t3_data))
 
         def tem_mt_valido(trim_data):
             if not trim_data:
@@ -340,7 +352,8 @@ def compilar_dados_caderneta(request, alocacao_id, ignorar_restricao=False):
             't1': t1_data,
             't2': t2_data,
             't3': t3_data,
-            'mfd': mfd
+            'mfd': mfd,
+            'faltas_total': faltas_total,
         })
 
     chaves = [

@@ -456,6 +456,10 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
           <td>${formatComportamento(a.t3)}</td>
           <!-- MFD: só exibe quando as médias dos 3 trimestres estiverem disponíveis -->
           <td class="bg-light fw-bold fs-6">${podeExibirMFD ? formatVal(a.mfd, true) : '<span class="text-muted">-</span>'}</td>
+          <td class="text-danger">${a.t1.faltas ?? 0}</td>
+          <td class="text-danger">${a.t2.faltas ?? 0}</td>
+          <td class="text-danger">${a.t3.faltas ?? 0}</td>
+          <td class="bg-light fw-bold text-danger">${a.faltas_total ?? ((a.t1.faltas || 0) + (a.t2.faltas || 0) + (a.t3.faltas || 0))}</td>
         </tr>
       `;
     }).join('');
@@ -468,7 +472,7 @@ async function carregarCadernetaDocente(alocacaoIdParam = null) {
         't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', null,
         't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', null,
         't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', null,
-        'mfd'
+        'mfd', null, null, null, null
       ];
 
       // Garantir que faixas e média existam calculando dinamicamente a partir de d.alunos se não vierem da API

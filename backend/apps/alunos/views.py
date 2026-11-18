@@ -622,7 +622,7 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         ano = params.get('ano_letivo') or params.get('ano')
         if ano and str(ano).upper() != 'TODOS':
             qs = qs.filter(turma__ano_letivo=ano)
-        return qs.select_related('aluno', 'turma', 'disciplina').order_by('-data', 'aluno__nome')
+        return qs.select_related('aluno', 'turma', 'disciplina', 'escola').order_by('-data', 'aluno__nome')
 
     def perform_create(self, serializer):
         self._exigir_escrita()
@@ -655,6 +655,12 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         if not (turma_id and disciplina_id and data_txt):
             return Response({'success': False, 'message': 'Turma, disciplina e data são obrigatórias.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            aulas = int(body.get('aulas'))
+        except (TypeError, ValueError):
+            aulas = 0
+        if aulas not in (1, 2):
+            return Response({'success': False, 'message': 'Indique se é 1 aula (simples) ou aula dupla (2 aulas).'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
             data = date.fromisoformat(str(data_txt)[:10])
         except ValueError:
             return Response({'success': False, 'message': 'Data inválida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -681,7 +687,7 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
                 PresencaAluno.objects.update_or_create(
                     aluno_id=aluno_id, turma=turma, disciplina_id=disciplina_id, data=data,
                     defaults={
-                        'escola': escola, 'professor_id': prof_id, 'status': st,
+                        'escola': escola, 'professor_id': prof_id, 'status': st, 'aulas': aulas,
                         'observacao': str(r.get('observacao') or '')[:255], 'registado_por': request.user,
                     },
                 )
@@ -720,7 +726,7 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         from . import services_assiduidade as svc
         escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
         limite = getattr(escola, 'limite_faltas_percent', None)
-        resultados = svc.calcular_resumo(self._qs_resumo(), limite)
+        resultados = svc.calcular_resumo(self._qs_resumo(), limite, escola)
         return Response({'success': True, 'limite_percent': limite,
                          'total_em_risco': sum(1 for r in resultados if r['em_risco']),
                          'resultados': resultados})
@@ -744,7 +750,9 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         if p.get('turma_id'):
             qs = qs.filter(turma_id=p['turma_id'])
         total = qs.count()
-        faltas = qs.filter(status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')).count()
+        # Faltas ponderadas: aula simples = 1 falta, aula dupla = 2 faltas
+        from django.db.models import Sum
+        faltas = qs.filter(status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')).aggregate(s=Sum('aulas'))['s'] or 0
         return Response({'success': True, 'faltas': faltas, 'aulas_registadas': total,
                          'de': ini.isoformat(), 'ate': fim.isoformat()})
 
@@ -806,6 +814,64 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(data__lte=self._data_ou_400(p['data_fim'], 'data_fim'))
         return qs
 
+    @action(detail=False, methods=['get'], url_path='trimestre')
+    def trimestre(self, request):
+        """Trimestre (1-3) a que pertence a data indicada, segundo o calendário da escola."""
+        from . import services_assiduidade as svc
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        data = self._data_ou_400(request.query_params.get('data', ''), 'data')
+        return Response({'success': True, 'trimestre': svc.trimestre_da_data(data, escola)})
+
+    def _qs_geral(self):
+        """Presenças filtradas por turma, classe, secção/área, disciplina, ano e datas.
+        O professor só vê as suas próprias (turma, disciplina)."""
+        from django.db.models import Q
+        qs = self._qs_resumo()
+        p = self.request.query_params
+        if p.get('classe'):
+            qs = qs.filter(turma__grau_ano=p['classe'])
+        if p.get('area'):
+            qs = qs.filter(turma__area=p['area'])
+        if getattr(self.request.user, 'role', '') == 'PROFESSOR':
+            from apps.professores.models import AlocacaoDocente
+            pares = AlocacaoDocente.objects.filter(professor_id=getattr(self.request.user, 'professor_id', None))
+            cond = Q(pk__in=[])
+            for t, d in pares.values_list('turma_id', 'disciplina_id'):
+                cond |= Q(turma_id=t, disciplina_id=d)
+            qs = qs.filter(cond)
+        return qs
+
+    @action(detail=False, methods=['get'], url_path='faltas-geral')
+    def faltas_geral(self, request):
+        """Lista geral de faltas acumuladas por aluno e disciplina (1.º/2.º/3.º trimestre e total).
+        Filtros: ano_letivo, classe, area, turma_id, disciplina_id. `formato=pdf|xlsx` descarrega o ficheiro."""
+        from django.http import HttpResponse
+        from rest_framework.exceptions import ValidationError
+        from apps.disciplinas.models import Disciplina
+        from . import services_assiduidade as svc
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        geral = svc.calcular_geral(self._qs_geral(), escola)
+        formato = (request.query_params.get('formato') or '').lower()
+        if not formato:
+            return Response({'success': True, 'resultados': geral})
+        if formato not in ('pdf', 'xlsx'):
+            raise ValidationError({'formato': 'Use pdf ou xlsx.'})
+        p = request.query_params
+        turma = Turma.objects.filter(id=self._uuid_ou_400(p['turma_id'], 'turma_id'), escola=escola).first() if p.get('turma_id') and escola else None
+        disc = Disciplina.objects.filter(id=self._uuid_ou_400(p['disciplina_id'], 'disciplina_id'), escola=escola).first() if p.get('disciplina_id') and escola else None
+        filtros = {
+            'Ano lectivo': p.get('ano_letivo') or p.get('ano') or '', 'Classe': p.get('classe', ''),
+            'Secção / Área': p.get('area', ''), 'Turma': turma.nome if turma else '',
+            'Disciplina': disc.nome if disc else '',
+        }
+        if formato == 'xlsx':
+            resp = HttpResponse(svc.gerar_geral_xlsx(geral, escola, filtros),
+                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        else:
+            resp = HttpResponse(svc.gerar_geral_pdf(geral, escola, filtros), content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="faltas-acumuladas.{formato}"'
+        return resp
+
     @action(detail=False, methods=['get'], url_path='exportar')
     def exportar(self, request):
         """Exporta o resumo de assiduidade em PDF ou XLSX (Times New Roman), com os mesmos filtros do resumo."""
@@ -826,7 +892,7 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
             'Disciplina': disc.nome if disc else '',
             'De': p.get('data_inicio', ''), 'Até': p.get('data_fim', ''),
         }
-        resumo = svc.calcular_resumo(self._qs_resumo(), getattr(escola, 'limite_faltas_percent', None))
+        resumo = svc.calcular_resumo(self._qs_resumo(), getattr(escola, 'limite_faltas_percent', None), escola)
         if formato == 'xlsx':
             resp = HttpResponse(svc.gerar_xlsx(resumo, escola, filtros),
                                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

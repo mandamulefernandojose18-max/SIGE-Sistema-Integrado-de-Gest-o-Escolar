@@ -26,7 +26,7 @@ class TestPresencasAlunos:
         self.client.force_authenticate(self.user)
 
     def _lote(self, **extra):
-        body = {'turma': str(self.turma26.id), 'disciplina': str(self.disc.id), 'data': '2026-03-02',
+        body = {'turma': str(self.turma26.id), 'disciplina': str(self.disc.id), 'data': '2026-03-02', 'aulas': 1,
                 'registos': [{'aluno': str(self.aluno.id), 'status': 'FALTA_INJUSTIFICADA', 'observacao': 'sem aviso'}]}
         body.update(extra)
         return self.client.post('/api/v1/alunos/presencas/lote/', body, format='json')
@@ -182,6 +182,62 @@ class TestPresencasAlunos:
         self.escola.save()
         self.user.escola = self.escola
         assert self.client.get(base).data['faltas'] == 0
+
+    def test_tipo_de_aula_obrigatorio(self):
+        for invalido in (None, 0, 3, 'x'):
+            assert self._lote(aulas=invalido).status_code == 400
+        assert PresencaAluno.objects.count() == 0
+
+    def test_aula_dupla_conta_duas_faltas_por_trimestre(self):
+        from datetime import date
+        self.escola.data_inicio_t1, self.escola.data_fim_t1 = date(2026, 2, 1), date(2026, 4, 30)
+        self.escola.data_inicio_t2, self.escola.data_fim_t2 = date(2026, 5, 1), date(2026, 8, 31)
+        self.escola.save()
+        self.user.escola = self.escola
+        assert self._lote(data='2026-03-02', aulas=1).status_code == 200   # 1 falta no 1.º T
+        assert self._lote(data='2026-03-03', aulas=2).status_code == 200   # +2 faltas no 1.º T
+        assert self._lote(data='2026-06-01', aulas=2).status_code == 200   # 2 faltas no 2.º T
+        r = self.client.get(f'/api/v1/alunos/presencas/faltas-geral/?ano_letivo=2026&turma_id={self.turma26.id}')
+        assert r.status_code == 200
+        linha = r.data['resultados'][0]
+        assert (linha['f1'], linha['f2'], linha['f3'], linha['total']) == (3, 2, 0, 5)
+        assert linha['disciplina'] == 'Matemática'
+        resumo = self.client.get(f'/api/v1/alunos/presencas/resumo/?turma_id={self.turma26.id}').data['resultados'][0]
+        assert (resumo['f1'], resumo['f2'], resumo['faltas_total']) == (3, 2, 5)
+        assert self.client.get(f'/api/v1/alunos/presencas/trimestre/?data=2026-06-10').data['trimestre'] == 2
+
+    def test_caderneta_carrega_faltas_das_presencas(self):
+        from datetime import date
+        from apps.professores.views import compilar_dados_caderneta
+        self.escola.data_inicio_t1, self.escola.data_fim_t1 = date(2026, 2, 1), date(2026, 4, 30)
+        self.escola.data_inicio_t2, self.escola.data_fim_t2 = date(2026, 5, 1), date(2026, 8, 31)
+        self.escola.save()
+        self.user.escola = self.escola
+        self._lote(data='2026-03-02', aulas=2)
+        self._lote(data='2026-06-01', aulas=1)
+        aloc = AlocacaoDocente.objects.get(turma=self.turma26, disciplina=self.disc)
+        from rest_framework.test import APIRequestFactory
+        req = APIRequestFactory().get('/')
+        req.user = self.user
+        req.tenant = self.escola
+        al = compilar_dados_caderneta(req, aloc.id)[2][0]
+        assert (al['t1']['faltas'], al['t2']['faltas'], al['t3']['faltas'], al['faltas_total']) == (2, 1, 0, 3)
+
+    def test_faltas_geral_exporta_pdf_e_xlsx(self):
+        self._lote()
+        for fmt, tipo in (('pdf', 'application/pdf'), ('xlsx', 'spreadsheetml')):
+            r = self.client.get(f'/api/v1/alunos/presencas/faltas-geral/?formato={fmt}&classe=7ª Classe&carimbo=nao')
+            assert r.status_code == 200 and tipo in r['Content-Type']
+        assert self.client.get('/api/v1/alunos/presencas/faltas-geral/?formato=doc&carimbo=nao').status_code == 400
+
+    def test_faltas_geral_professor_so_ve_as_suas_disciplinas(self):
+        outro = Professor.objects.create(escola=self.escola, nome='Outro', email='outro.pres@sige.mz', especialidade='Física')
+        AlocacaoDocente.objects.create(escola=self.escola, professor=outro, disciplina=self.outra_disc, turma=self.turma26)
+        PresencaAluno.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma26, disciplina=self.outra_disc,
+                                     data='2026-03-02', status='FALTA_INJUSTIFICADA', aulas=2)
+        self._lote()
+        r = self.client.get('/api/v1/alunos/presencas/faltas-geral/')
+        assert [x['disciplina'] for x in r.data['resultados']] == ['Matemática']
 
     def test_parametros_invalidos_dao_400_e_nao_500(self):
         for url in ('/api/v1/alunos/presencas/?turma_id=abc',

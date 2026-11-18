@@ -3053,14 +3053,14 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         'Iº TRIMESTRE', '', '', '', '', '', '', '',
         'IIº TRIMESTRE', '', '', '', '', '', '', '',
         'IIIº TRIMESTRE', '', '', '', '', '', '', '',
-        'MFD'
+        'MFD', 'FALTAS', '', '', ''
     ]
     row_sub = [
         '', '', '',
         '1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp',
         '1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp',
         '1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp',
-        ''
+        '', '1ºT', '2ºT', '3ºT', 'Tot'
     ]
     data_table = [row_top, row_sub]
 
@@ -3098,7 +3098,9 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
             fmt_n(t1.get('t1')), fmt_n(t1.get('t2')), fmt_n(t1.get('t3')), fmt_n(t1.get('map')), fmt_n(t1.get('mas')), fmt_n(t1.get('at')), fmt_m(t1.get('mt')), str(t1.get('comportamento') or '-'),
             fmt_n(t2.get('t1')), fmt_n(t2.get('t2')), fmt_n(t2.get('t3')), fmt_n(t2.get('map')), fmt_n(t2.get('mas')), fmt_n(t2.get('at')), fmt_m(t2.get('mt')), str(t2.get('comportamento') or '-'),
             fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')), fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_m(t3.get('mt')), str(t3.get('comportamento') or '-'),
-            fmt_m(al.get('mfd'))
+            fmt_m(al.get('mfd')),
+            str(t1.get('faltas') or 0), str(t2.get('faltas') or 0), str(t3.get('faltas') or 0),
+            str(al.get('faltas_total') or 0)
         ]
         data_table.append(r)
 
@@ -3107,7 +3109,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         't1_t1', 't1_t2', 't1_t3', 't1_map', 't1_mas', 't1_at', 't1_mt', None,
         't2_t1', 't2_t2', 't2_t3', 't2_map', 't2_mas', 't2_at', 't2_mt', None,
         't3_t1', 't3_t2', 't3_t3', 't3_map', 't3_mas', 't3_at', 't3_mt', None,
-        'mfd'
+        'mfd', None, None, None, None
     ]
 
     stat_rows_start = len(data_table)
@@ -3140,7 +3142,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         return getter(col_st)
 
     # 1. Linha: Parametro estatistico
-    row_param = [Paragraph('Parametro estatistico', st_param_title)] + [''] * 27
+    row_param = [Paragraph('Parametro estatistico', st_param_title)] + [''] * 31
     r_param_idx = len(data_table)
     data_table.append(row_param)
 
@@ -3231,7 +3233,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
     ]
     data_table.append(row_med)
 
-    col_widths = [0.7 * cm, 4.6 * cm, 1.1 * cm] + ([0.82 * cm] * 24) + [0.95 * cm]
+    col_widths = [0.7 * cm, 3.4 * cm, 1.1 * cm] + ([0.8 * cm] * 24) + [0.95 * cm] + ([0.8 * cm] * 4)
     t_cad = Table(data_table, colWidths=col_widths, repeatRows=2)
     t_styles = [
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),
@@ -3257,6 +3259,7 @@ def gerar_caderneta_pdf(caderneta_data: dict, orientacao='landscape') -> bytes:
         ('SPAN', (11, 0), (18, 0)),
         ('SPAN', (19, 0), (26, 0)),
         ('SPAN', (27, 0), (27, 1)),
+        ('SPAN', (28, 0), (31, 0)),
     ]
     # Destacar colunas MT (9, 17, 25) e MFD (27) nas linhas de alunos
     for col_mt in (9, 17, 25, 27):

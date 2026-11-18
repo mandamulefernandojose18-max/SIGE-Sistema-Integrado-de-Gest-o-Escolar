@@ -2256,6 +2256,10 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     ws['T9'] = 'IIIº TRIMESTRE'
     ws.merge_cells('AB9:AB10')
     ws['AB9'] = 'MFD'
+    ws.merge_cells('AC9:AF9')
+    ws['AC9'] = 'FALTAS'
+    for idx_f, f_name in enumerate(['1ºT', '2ºT', '3ºT', 'Total']):
+        ws.cell(row=10, column=29 + idx_f, value=f_name)
 
     # Linha 10 (subcabeçalhos de cada trimestre):
     subcols = ['1ªA', '2ªA', '3ªA', 'MAP', 'MAS', 'AT', 'MT', 'Cp']
@@ -2266,7 +2270,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
 
     ws.row_dimensions[9].height = 24
     ws.row_dimensions[10].height = 22
-    aplicar_estilo_intervalo(ws, 1, 9, 28, 10, font=FONT_HEADER_SM, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
+    aplicar_estilo_intervalo(ws, 1, 9, 32, 10, font=FONT_HEADER_SM, fill=FILL_NAVY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 
     # 3. Linhas dos Alunos (mesmas regras do ecrã: <= 0 aparece '-'; MT e MFD arredondados ao inteiro)
     def fmt_n(val):
@@ -2310,19 +2314,21 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
             fmt_n(t3.get('t1')), fmt_n(t3.get('t2')), fmt_n(t3.get('t3')),
             fmt_n(t3.get('map')), fmt_n(t3.get('mas')), fmt_n(t3.get('at')), fmt_m(t3.get('mt')),
             str(t3.get('comportamento') or '-'),
-            fmt_m(al.get('mfd'))
+            fmt_m(al.get('mfd')),
+            int(t1.get('faltas') or 0), int(t2.get('faltas') or 0), int(t3.get('faltas') or 0),
+            int(al.get('faltas_total') or 0)
         ]
         for col_idx, val in enumerate(vals, start=1):
             c = ws.cell(row=row, column=col_idx, value=val)
             c.border = THIN_BORDER
             c.alignment = ALIGN_LEFT if col_idx == 2 else ALIGN_CENTER
-            if col_idx in (10, 18, 26, 28):  # MT e MFD
+            if col_idx in (10, 18, 26, 28, 32):  # MT, MFD e total de faltas
                 c.fill = FILL_LIGHT
                 c.font = FONT_TINY_BOLD
             else:
                 c.font = FONT_TINY
-            # Notas negativas (< 9,5) a vermelho, como no ecrã
-            if col_idx >= 4 and col_idx not in (11, 19, 27) and isinstance(val, (int, float)) and val < 9.5:
+            # Notas negativas (< 9,5) a vermelho, como no ecrã (as faltas não são notas)
+            if 4 <= col_idx <= 28 and col_idx not in (11, 19, 27) and isinstance(val, (int, float)) and val < 9.5:
                 c.font = FONT_RED_SM
 
     # 4. Parâmetros Estatísticos Oficiais (Colunas 4 a 28)
@@ -2553,7 +2559,7 @@ def gerar_caderneta_xlsx(caderneta_data: dict, orientacao='landscape') -> bytes:
     ws.column_dimensions['A'].width = 5.0
     ws.column_dimensions['B'].width = max(28.0, min(60.0, max_nome_len * 1.2 + 3.0))
     ws.column_dimensions['C'].width = 5.5
-    for c_idx in range(4, 29):
+    for c_idx in range(4, 33):
         col_letter = get_column_letter(c_idx)
         ws.column_dimensions[col_letter].width = 7.0
 

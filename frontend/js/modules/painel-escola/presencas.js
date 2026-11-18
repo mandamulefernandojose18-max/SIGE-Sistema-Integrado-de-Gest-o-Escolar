@@ -26,6 +26,8 @@ window.carregarPresencasAno = async function (ano) {
   const prof = presEhProfessor();
   const wrapDisc = document.getElementById('presDiscWrap');
   if (wrapDisc) wrapDisc.style.display = '';
+  const wrapAulas = document.getElementById('presAulasWrap');
+  if (wrapAulas) wrapAulas.style.display = prof ? '' : 'none';
   const sub = document.getElementById('presencasSubtitulo');
   if (sub) sub.textContent = prof
     ? 'Lance as presenças e faltas (justificadas/injustificadas) dos alunos das suas turmas.'
@@ -138,6 +140,7 @@ window.presCarregarAlunos = async function () {
     return;
   }
   if (!data) { tbody.innerHTML = presLinhaVazia('Escolha a data da aula.'); return; }
+  presMostrarTrimestre(data);
   tbody.innerHTML = presLinhaVazia('<i class="bi bi-arrow-repeat spin me-2"></i>A carregar lista de alunos...');
 
   try {
@@ -149,8 +152,15 @@ window.presCarregarAlunos = async function () {
     ]);
     presState.alunos = presLista(resAlunos);
     presState.todosRegistos = presLista(resPres);
+    // Tipo de aula: pré-selecciona o já gravado para esta aula; sem registo o professor tem de indicar
+    const selAulas = document.getElementById('presAulas');
+    if (selAulas && prof) {
+      const gravado = presState.todosRegistos.find(p => p.aulas);
+      selAulas.value = gravado ? String(gravado.aulas) : '';
+    }
     await presCarregarRisco(turmaId);
     presRenderLista();
+    presCarregarGeral();
   } catch (e) {
     tbody.innerHTML = presLinhaVazia('Erro ao carregar a lista de assiduidade.', 'text-danger');
   }
@@ -277,7 +287,7 @@ function presRenderResumoTurma() {
   if (titulo) titulo.textContent = presState.resumoDisciplina ? `Resumo de assiduidade — ${presState.resumoDisciplina}` : 'Resumo de assiduidade da turma';
   const dados = presState.resumoTurma || [];
   if (!dados.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Ainda não existem registos de assiduidade para esta turma neste ano lectivo.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-3">Ainda não existem registos de assiduidade para esta turma neste ano lectivo.</td></tr>';
     return;
   }
   const pct = (v) => String(v).replace('.', ',') + '%';
@@ -288,8 +298,58 @@ function presRenderResumoTurma() {
       <td class="text-center">${r.total}</td><td class="text-center">${r.presentes}</td>
       <td class="text-center">${r.justificadas}</td>
       <td class="text-center ${r.injustificadas ? 'text-danger fw-semibold' : ''}">${r.injustificadas}</td>
-      <td class="text-center">${r.atrasos}</td><td class="text-center pe-3">${pct(r.percent_faltas)}</td></tr>`).join('');
+      <td class="text-center">${r.atrasos}</td><td class="text-center">${pct(r.percent_faltas)}</td>
+      <td class="text-center">${r.f1 ?? 0}</td><td class="text-center">${r.f2 ?? 0}</td><td class="text-center">${r.f3 ?? 0}</td>
+      <td class="text-center fw-bold pe-3">${r.faltas_total ?? 0}</td></tr>`).join('');
 }
+
+// Trimestre da data da aula (calendário da escola) — mostra o selo ao lado da data.
+async function presMostrarTrimestre(data) {
+  const el = document.getElementById('presTrimestreBadge');
+  if (!el) return;
+  try {
+    const res = await apiFetch(`/api/v1/alunos/presencas/trimestre/?data=${encodeURIComponent(data)}`);
+    el.textContent = res?.trimestre ? `${res.trimestre}.º Trimestre` : 'Fora dos trimestres';
+  } catch (e) { el.textContent = ''; }
+}
+
+// Lista geral de faltas acumuladas (aluno × disciplina; 1.º/2.º/3.º trimestre e total).
+function presParamsGeral() {
+  const ambito = document.getElementById('presGeralAmbito')?.value || 'turma';
+  const p = new URLSearchParams({ ano_letivo: presState.ano });
+  const classe = document.getElementById('presClasse')?.value;
+  const area = document.getElementById('presArea')?.value;
+  const turma = document.getElementById('presTurma')?.value;
+  const disc = document.getElementById('presDisciplina')?.value;
+  if (ambito !== 'todas' && classe) p.set('classe', classe);
+  if ((ambito === 'area' || ambito === 'turma') && area) p.set('area', area);
+  if (ambito === 'turma' && turma) p.set('turma_id', turma);
+  if (disc) p.set('disciplina_id', disc);
+  return p;
+}
+
+window.presCarregarGeral = async function () {
+  const tbody = document.getElementById('presGeralCorpo');
+  if (!tbody || !presState.ano) return;
+  try {
+    const res = await apiFetch(`/api/v1/alunos/presencas/faltas-geral/?${presParamsGeral()}`);
+    const dados = res?.resultados || [];
+    tbody.innerHTML = dados.length ? dados.map((r, i) => `<tr>
+      <td class="ps-3 text-muted">${i + 1}</td><td class="font-monospace small">${escapeHtml(r.matricula)}</td>
+      <td class="fw-semibold">${escapeHtml(r.nome)}</td><td>${escapeHtml(r.classe)}</td><td>${escapeHtml(r.turma)}</td>
+      <td>${escapeHtml(r.disciplina)}</td><td class="text-center">${r.f1}</td><td class="text-center">${r.f2}</td>
+      <td class="text-center">${r.f3}</td><td class="text-center fw-bold pe-3">${r.total}</td></tr>`).join('')
+      : '<tr><td colspan="10" class="text-center text-muted py-3">Ainda não existem faltas registadas para os filtros escolhidos.</td></tr>';
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-3">Erro ao carregar a lista geral de faltas.</td></tr>';
+  }
+};
+
+window.presExportarGeral = function (formato) {
+  const p = presParamsGeral();
+  p.set('formato', formato);
+  return downloadFicheiroBinario(`/api/v1/alunos/presencas/faltas-geral/?${p}`, `faltas-acumuladas.${formato}`);
+};
 
 const PRES_PERFIS_LIMITE = ['DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'SUPERADMIN'];
 const PRES_PERFIS_SMS = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'FINANCEIRO'];
@@ -402,6 +462,12 @@ window.presSalvarLote = async function () {
     mostrarToast('Selecione a turma, a disciplina e a data.', 'warning');
     return;
   }
+  const aulas = Number(document.getElementById('presAulas')?.value || 0);
+  if (![1, 2].includes(aulas)) {
+    mostrarToast('Indique primeiro se é 1 aula ou aula dupla (2 aulas) antes de lançar as faltas.', 'warning');
+    document.getElementById('presAulas')?.focus();
+    return;
+  }
   presGuardarMarcacoesLocais();
   const registos = presState.alunos.map(al => ({
     aluno: String(al.id),
@@ -414,7 +480,7 @@ window.presSalvarLote = async function () {
   if (btn) btn.disabled = true;
   try {
     const res = await apiFetch('/api/v1/alunos/presencas/lote/', {
-      method: 'POST', body: JSON.stringify({ turma, disciplina, data, registos })
+      method: 'POST', body: JSON.stringify({ turma, disciplina, data, aulas, registos })
     });
     if (res?.success) {
       mostrarToast(`Assiduidade lançada com sucesso (${res.guardados} alunos).`, 'success');
