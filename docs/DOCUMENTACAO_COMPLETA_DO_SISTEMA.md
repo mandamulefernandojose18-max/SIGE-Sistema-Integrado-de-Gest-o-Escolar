@@ -1657,3 +1657,15 @@ Camada de relação com encarregados de educação, nativa no Django (sem CRM ex
 Faltas efectivas seguem a regra da v2.9.60 (aula dupla = 2 faltas, menos as justificadas). Notas negativas ainda não entram no alerta (próxima fase). Testes: `backend/tests/test_crm.py`. Próximas fases: assistente virtual (nível 0, só leitura), funil de admissões, canais externos opcionais.
 
 **Ecrã do CRM (v2.9.61):** menu "CRM Escolar (Encarregados)" na categoria Comunicação dos painéis da Direcção, Pedagógico (DAP), Secretaria e Escola. Ficheiros: `frontend/pages/painel-escola/crm.html` e `frontend/js/modules/painel-escola/crm.js`. Separador **Alertas de evasão** com filtros em cascata Classe → Turma, limites de faltas e propinas, paginação ("Mostrar mais") e botão de ficha 360º (com registo de contactos). Separador **Atendimentos** com filtros de estado e prioridade, criação (aluno opcional, procurado por nome ou matrícula) e resolução. Sem registos mostra o estado vazio explicativo.
+
+
+### Assistente Virtual — nível 0 (app `apps.assistente`, `POST /api/v1/assistente/perguntar/`, v2.9.62)
+
+Assistente de custo zero (sem modelo de linguagem, dentro do orçamento de US$ 6/mês), **só leitura**, isolado por escola. Corpo: `{"pergunta": "...", "aluno_id": "<uuid, opcional>"}`; resposta: `intencao`, `resposta`, `dados` (quando há consulta), `sugestoes`, e `precisa_aluno` quando falta escolher o aluno.
+
+- **Consultas reais:** faltas efectivas (regra v2.9.60: aula dupla = 2 faltas, menos as justificadas) e propinas em atraso/a vencer do ano lectivo activo. Sem registos responde que não há registos; nunca inventa valores.
+- **Regras do MEC (de `docs/REGRAS_PEDAGOGICAS_MEC.md`):** MT, MFD, MAC, aprovação (7.ª–11.ª e 12.ª), exames/épocas, escala qualitativa, siglas de anotação, faltas em aula dupla.
+- **Permissões:** Aluno/Encarregado só vê o aluno associado à sua conta (o `aluno_id` enviado é ignorado); Direcção, DAP, Chefe de Secretaria e Secretaria consultam qualquer aluno da escola; Financeiro só propinas; Professor só faltas de alunos das suas turmas. Alunos de outra escola nunca são devolvidos.
+- **Auditoria:** cada pergunta fica em `sige_assistente_consultas` (escola, utilizador, aluno, pergunta, intenção; não guarda a resposta). Pergunta limitada a 500 caracteres.
+- **Ecrã:** menu "Assistente Virtual" em todos os painéis da escola (`frontend/pages/painel-escola/assistente.html`, `frontend/js/modules/painel-escola/assistente.js`): conversa em caixa de altura fixa (últimas 30 mensagens), seis perguntas sugeridas e, para perfis de gestão, escolha do aluno por pesquisa de nome ou matrícula.
+- Testes: `backend/tests/test_assistente.py`. Próxima fase: modelo de linguagem pequeno apenas como reserva, com cache e quota por escola, após `budget-check`.

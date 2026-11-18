@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'apps.escudo',
     'apps.atribuicoes',
     'apps.crm',
+    'apps.assistente',
 ]
 
 MIDDLEWARE = [

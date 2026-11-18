@@ -2793,6 +2793,17 @@ const MENUS_POR_PAINEL = {
   }
 });
 
+// Assistente Virtual (nível 0, só leitura): disponível a todos os perfis da escola; a API aplica as permissões.
+['painel-direcao', 'painel-pedagogico', 'painel-secretaria', 'painel-professor', 'painel-aluno', 'painel-financeiro', 'painel-escola'].forEach(p => {
+  const menu = MENUS_POR_PAINEL[p];
+  if (menu && !menu.some(m => m.id === 'assistente')) {
+    const idx = menu.findIndex(m => m.id === 'comunicados');
+    const categoria = idx >= 0 ? menu[idx].categoria : 'Comunicação';
+    const item = { id: 'assistente', titulo: 'Assistente Virtual', icone: 'bi-robot text-primary', categoria };
+    if (idx >= 0) menu.splice(idx, 0, item); else menu.push(item);
+  }
+});
+
 function renderizarSidebarPorNivel(role) {
   const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
   const isSuperAdminInspecionando = isSuperAdmin && !!localStorage.getItem('sige_selected_tenant');

@@ -1,0 +1,29 @@
+<!-- SIGE - Assistente Virtual (nível 0): responde com dados reais (só leitura) e regras oficiais do MEC. Lógica em js/modules/painel-escola/assistente.js · API /api/v1/assistente/perguntar/ -->
+<section id="view-assistente" class="modulo-view p-3 p-md-4" style="display: none;">
+  <div class="mb-3 pb-2 border-bottom">
+    <h3 class="fw-bold mb-1"><i class="bi bi-robot text-primary me-2"></i>Assistente Virtual</h3>
+    <p class="text-muted mb-0 small">Pergunte sobre faltas, propinas, fórmulas de notas (MT, MFD), regras de aprovação e exames. Só consulta; responde com registos reais ou diz que não os há.</p>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-3" id="assAlunoCard" style="display: none;">
+    <div class="card-body py-2">
+      <label class="form-label small mb-1" for="assBusca">Aluno a que as perguntas se referem</label>
+      <div class="input-group input-group-sm">
+        <input id="assBusca" class="form-control" placeholder="Nome ou matrícula" onkeydown="if(event.key==='Enter'){assBuscarAluno();}">
+        <button type="button" class="btn btn-outline-secondary" onclick="assBuscarAluno()"><i class="bi bi-search"></i></button>
+      </div>
+      <select id="assAluno" class="form-select form-select-sm mt-1" onchange="assEscolherAluno()"><option value="">Nenhum aluno escolhido</option></select>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body" id="assConversa" style="height: 340px; overflow-y: auto; background: #f8f9fa;" aria-live="polite"></div>
+    <div class="card-footer bg-white">
+      <div class="d-flex flex-wrap gap-1 mb-2" id="assSugestoes"></div>
+      <div class="input-group">
+        <input id="assPergunta" class="form-control" maxlength="500" placeholder="Escreva a sua pergunta..." onkeydown="if(event.key==='Enter'){assEnviar();}">
+        <button type="button" class="btn btn-primary" id="assBtnEnviar" onclick="assEnviar()"><i class="bi bi-send-fill"></i> Perguntar</button>
+      </div>
+    </div>
+  </div>
+</section>
