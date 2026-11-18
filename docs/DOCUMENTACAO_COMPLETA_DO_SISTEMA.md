@@ -1641,3 +1641,17 @@ O QR de cada folha abre `https://sigesaas.duckdns.org/verificar-folha.html?d=<da
 - **Professor:** *As Minhas Actividades de Cargo* (`#view-minhas-atividades`) mostra apenas as suas actividades; pode mudar o estado (Pendente / Em curso / Concluída) e deixar uma nota. Sem atribuições mostra o estado vazio.
 - **API** (`/api/v1/atribuicoes/`): `GET /` (filtros `ano`, `cargo`, `classe`, `estado`, `search`, `page`), `POST /` (vários `atividades` de uma vez), `PATCH|DELETE /<id>/`, `GET /sugestoes/?cargo=`, `DELETE /modelos/<id>/`. Isolamento por escola; só a gestão atribui, o professor só vê e actualiza as suas.
 - **Dados:** tabelas `sige_atribuicoes_cargos` e `sige_atividades_modelo` (migração `atribuicoes.0001`); sem dados fictícios — o catálogo contém apenas modelos de trabalho.
+
+
+### CRM Escolar — Fase 1 (app `apps.crm`, rotas `/api/v1/crm/`)
+
+Camada de relação com encarregados de educação, nativa no Django (sem CRM externo, dentro do orçamento de US$ 6/mês). Só opera com registos reais; sem dados, devolve listas vazias / totais a zero. Acesso: Direcção, Chefe de Secretaria, Secretaria e DAP (`IsEscolaAdmin`); todos os dados isolados por `escola_id`.
+
+| Endpoint | Função |
+|---|---|
+| `GET/POST /crm/atendimentos/` (+ `PATCH`, `POST /{id}/resolver/`) | Pedidos e reclamações com estado (ABERTO/EM_CURSO/RESOLVIDO), prioridade, canal e responsável. Filtros: `estado`, `prioridade`, `aluno_id`, `responsavel_id`. |
+| `GET/POST /crm/comunicacoes/` | Histórico de contactos com o encarregado (tipo, canal, mensagem). Apenas regista; não envia SMS/WhatsApp. Filtros: `aluno_id`, `tipo`. |
+| `GET /crm/encarregado/{aluno_id}/` | Ficha 360º: dados do encarregado, faltas efectivas, propinas em atraso, atendimentos abertos e últimas comunicações. |
+| `GET /crm/alertas-evasao/` | Alunos activos com faltas efectivas ≥ `min_faltas` (10) ou propinas em atraso ≥ `min_propinas_atraso` (2). Filtros em cascata `classe`, `turma_id`, `ano_letivo`; paginação `limite` (máx. 200) e `offset`. |
+
+Faltas efectivas seguem a regra da v2.9.60 (aula dupla = 2 faltas, menos as justificadas). Notas negativas ainda não entram no alerta (próxima fase). Testes: `backend/tests/test_crm.py`. Próximas fases: assistente virtual (nível 0, só leitura), funil de admissões, canais externos opcionais.

@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'apps.ferramentas',
     'apps.escudo',
     'apps.atribuicoes',
+    'apps.crm',
 ]
 
 MIDDLEWARE = [
