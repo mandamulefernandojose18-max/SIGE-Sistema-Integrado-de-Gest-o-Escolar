@@ -231,7 +231,10 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     ws.row_dimensions[3].height = 22
 
     ws.merge_cells(f'A4:{end_col_letter}4')
-    ws['A4'] = f"PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO {ano_letivo or 2026}"
+    # 1.º Ciclo, classe de exame (7.ª–9.ª): Pauta de Frequência, com resultado por secção
+    freq_1c = any('resultado_frequencia' in a for a in dados_alunos)
+    titulo_pauta = "PAUTA DE FREQUÊNCIA" if freq_1c else "PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO"
+    ws['A4'] = f"{titulo_pauta} — ANO LECTIVO {ano_letivo or 2026}"
     ws['A4'].font = FONT_TITLE
     ws['A4'].alignment = ALIGN_CENTER
     ws.row_dimensions[4].height = 24
@@ -405,10 +408,20 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
 
         # Resultado
         res_val = str(aluno.get('resultadoFinal') or aluno.get('resultado') or 'Aprovado').strip()
+        if freq_1c:
+            linhas_rf = (aluno.get('resultado_frequencia') or {}).get('linhas') or []
+            res_val = '\n'.join(linhas_rf) if linhas_rf else 'Pendente'
+            ws.row_dimensions[current_row].height = max(20, 16 * max(len(linhas_rf), 1))
         c_res = ws.cell(row=current_row, column=res_col, value=res_val)
         c_res.border = THIN_BORDER
-        c_res.alignment = ALIGN_CENTER
-        if res_val in ('Reprovado', 'R', 'Excluído'):
+        if freq_1c:
+            from openpyxl.styles import Alignment as _Al
+            c_res.alignment = _Al(horizontal='center', vertical='center', wrap_text=True)
+        else:
+            c_res.alignment = ALIGN_CENTER
+        if freq_1c:
+            c_res.font = FONT_RED_SM if ('Exclu' in res_val or 'Reprov' in res_val) else FONT_TINY_BOLD
+        elif res_val in ('Reprovado', 'R', 'Excluído'):
             c_res.font = FONT_RED_SM
         elif res_val in ('Aprovado', 'A'):
             c_res.font = FONT_GREEN_SM
@@ -426,6 +439,10 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     pct_rep = round((reprovados / total_al) * 100, 1) if total_al > 0 else 0.0
 
     resumo_pauta = f"Total Inscritos: {total_al} (H: {h_tot} | M: {m_tot}) | Avaliados: {total_al} | Aprovados: {aprovados} ({pct_ap}%) | Reprovados: {reprovados} ({pct_rep}%)"
+    if freq_1c:
+        adm_n = sum(1 for a in dados_alunos if (a.get('resultado_frequencia') or {}).get('situacao') == 'Admitido')
+        exc_n = sum(1 for a in dados_alunos if (a.get('resultado_frequencia') or {}).get('situacao') == 'Excluído')
+        resumo_pauta = f"Total Inscritos: {total_al} (H: {h_tot} | M: {m_tot}) | Avaliados: {total_al} | Admitidos: {adm_n} | Excluídos: {exc_n}"
     ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=total_cols)
     ws.cell(row=current_row, column=1, value=resumo_pauta)
     aplicar_estilo_intervalo(ws, 1, current_row, total_cols, current_row, font=FONT_REGULAR_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_LEFT)
@@ -498,7 +515,7 @@ def gerar_pauta_xlsx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
         ws.column_dimensions[col_letter].width = w_sub
 
     ws.column_dimensions[get_column_letter(mg_col)].width = 9.0
-    ws.column_dimensions[get_column_letter(res_col)].width = 14.0
+    ws.column_dimensions[get_column_letter(res_col)].width = 24.0 if freq_1c else 14.0
     ajustar_larguras_cabecalho_fundido(ws, 7, 7)
 
     buffer = io.BytesIO()
@@ -660,7 +677,7 @@ def gerar_pauta_exames_xlsx(dados_pauta, escola, ano_letivo='2026', orientacao='
     ws.cell(row=5, column=c_res_start + 1).alignment = ALIGN_CENTER
 
     ws.merge_cells(start_row=5, start_column=c_res_start + 2, end_row=6, end_column=c_res_start + 2)
-    ws.cell(row=5, column=c_res_start + 2, value="Disciplina(s) que\nReprovou").font = FONT_SMALL_BOLD
+    ws.cell(row=5, column=c_res_start + 2, value=("Secção que\nReprovou" if dados_pauta.get('agrupar_por_area') else "Disciplina(s) que\nReprovou")).font = FONT_SMALL_BOLD
     ws.cell(row=5, column=c_res_start + 2).alignment = ALIGN_CENTER
     aplicar_estilo_intervalo(ws, c_res_start, 5, c_res_start + 2, 6, font=FONT_SMALL_BOLD, fill=FILL_GRAY, border=THIN_BORDER, alignment=ALIGN_CENTER)
 

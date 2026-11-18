@@ -210,7 +210,10 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
     p_title = doc.add_paragraph()
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_title.paragraph_format.space_after = Pt(4)
-    r_title = p_title.add_run(f"PAUTA OFICIAL DE APROVEITAMENTO — {periodo_str.upper()} / {ano_letivo}")
+    # 1.º Ciclo, classe de exame (7.ª–9.ª): Pauta de Frequência, com resultado por secção
+    freq_1c = any('resultado_frequencia' in a for a in dados_alunos)
+    titulo_pauta = "PAUTA DE FREQUÊNCIA" if freq_1c else "PAUTA OFICIAL DE APROVEITAMENTO"
+    r_title = p_title.add_run(f"{titulo_pauta} — {periodo_str.upper()} / {ano_letivo}")
     aplicar_fonte_times(r_title, pt_size=12, bold=True)
 
     area_desc = f" | Área/Secção: {turma.area}" if getattr(turma, 'area', None) and str(turma.area).strip().lower() not in ('geral', 'ensino geral', 'tronco comum', '') else ""
@@ -262,6 +265,9 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
 
             row_cells[-2].text = str(aluno.get('media_geral', '-'))
             res_val = str(aluno.get('resultado', 'Aprovado')).strip()
+            if freq_1c:
+                linhas_rf = (aluno.get('resultado_frequencia') or {}).get('linhas') or []
+                res_val = '\n'.join(linhas_rf) if linhas_rf else 'Pendente'
             row_cells[-1].text = res_val
 
             for c_idx, cell in enumerate(row_cells):
@@ -274,7 +280,7 @@ def gerar_pauta_docx(turma, escola, periodo, ano_letivo, dados_alunos, disciplin
 
             if row_cells[-1].paragraphs and row_cells[-1].paragraphs[0].runs:
                 r_res = row_cells[-1].paragraphs[0].runs[0]
-                if res_val in ('Reprovado', 'R', 'Excluído'):
+                if res_val in ('Reprovado', 'R', 'Excluído') or (freq_1c and ('Exclu' in res_val or 'Reprov' in res_val)):
                     aplicar_fonte_times(r_res, pt_size=8.5, bold=True, color_rgb=RGBColor(220, 38, 38))
                 else:
                     aplicar_fonte_times(r_res, pt_size=8.5, bold=True)
@@ -2125,7 +2131,7 @@ def gerar_pauta_exames_docx(dados_pauta, escola, ano_letivo='2026', orientacao='
     r_rf = p_rf.add_run("RESULTADO FINAL")
     aplicar_fonte_times(r_rf, pt_size=9, bold=True)
 
-    res_sub_labels = ['Resultado', 'MF', 'Disc. Reprovou']
+    res_sub_labels = ['Resultado', 'MF', 'Secção que Reprovou' if dados_pauta.get('agrupar_por_area') else 'Disc. Reprovou']
     for s_idx, s_lbl in enumerate(res_sub_labels):
         cell_sub = table.cell(1, curr_col + s_idx)
         cell_sub.text = ""

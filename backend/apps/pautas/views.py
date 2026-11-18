@@ -33,6 +33,20 @@ def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefet
     # Buscar única e estritamente as disciplinas daquela área ou secção da turma
     disciplinas = obter_disciplinas_pauta_turma(turma)
 
+    # Pauta de Frequência de classe de exame do 1.º Ciclo (7.ª–9.ª com exame): resultado por secção
+    from apps.pautas.services import (
+        classe_1_ciclo_com_areas, area_exame_da_disciplina, disciplina_tem_exame_na_turma,
+        resultado_frequencia_1_ciclo,
+    )
+    freq_1_ciclo = classe_1_ciclo_com_areas(turma)
+    area_de_disc, areas_com_exame = {}, set()
+    if freq_1_ciclo:
+        for d in disciplinas:
+            sigla = area_exame_da_disciplina(d)
+            area_de_disc[d.id] = sigla
+            if sigla and sigla != 'AP' and disciplina_tem_exame_na_turma(d, turma):
+                areas_com_exame.add(sigla)
+
     # Obter todas as notas da turma (1_TRIMESTRE, 2_TRIMESTRE, 3_TRIMESTRE) para histórico completo
     if notas_prefetched is not None:
         todas_notas_qs = notas_prefetched
@@ -60,6 +74,7 @@ def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefet
         aluno_notas = {}
         notas_disciplinas_map = {}
         notas_disciplinas_calc = []
+        notas_por_area_freq = {}
 
         t1_list = []
         t2_list = []
@@ -149,6 +164,8 @@ def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefet
 
             if nota_relevante is not None:
                 notas_disciplinas_calc.append({'disciplina': d.nome, 'notaFinal': nota_relevante})
+                if freq_1_ciclo and area_de_disc.get(d.id):
+                    notas_por_area_freq.setdefault(area_de_disc[d.id], []).append(float(nota_relevante))
 
         if notas_disciplinas_calc:
             avaliacao = avaliar_aprovacao_pauta(notas_disciplinas_calc, turma.grau_ano)
@@ -173,7 +190,13 @@ def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefet
         neg_t3 = sum(1 for v in t3_list if v < 9.5)
         neg_mfd = sum(1 for v in mfd_list if v < 9.5)
 
+        extra_freq = {}
+        if freq_1_ciclo:
+            extra_freq['resultado_frequencia'] = resultado_frequencia_1_ciclo(
+                notas_por_area_freq, areas_com_exame, aluno.genero)
+
         dados_alunos.append({
+            **extra_freq,
             'numero': idx,
             'id': str(aluno.id),
             'alunoId': str(aluno.id),
@@ -239,7 +262,8 @@ def consolidar_dados_turma(turma, periodo=None, ano_letivo='2026', alunos_prefet
         'turma': turma,
         'disciplinas': disciplinas,
         'dados_alunos': dados_alunos,
-        'estatistica': estatistica
+        'estatistica': estatistica,
+        'pauta_frequencia_1_ciclo': freq_1_ciclo,
     }
 
 def _calcular_tabelas_acta(alunos, disciplinas):

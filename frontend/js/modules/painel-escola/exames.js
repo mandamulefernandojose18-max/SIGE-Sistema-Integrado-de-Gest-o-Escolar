@@ -364,7 +364,7 @@ function renderizarTabelaExamesHtml(d) {
   thLinha2 += `
     <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end text-nowrap px-2" style="font-size: 0.72rem;">Resultado</th>
     <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold border-end text-nowrap px-1" style="font-size: 0.72rem;">MF</th>
-    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold text-start ps-2 text-nowrap px-2" style="font-size: 0.72rem;">Disciplina(s) com Negativa</th>
+    <th rowspan="2" class="bg-secondary bg-opacity-10 text-dark fw-bold text-start ps-2 text-nowrap px-2" style="font-size: 0.72rem;">${agruparPorArea ? 'Secção que Reprovou' : 'Disciplina(s) com Negativa'}</th>
   `;
 
   // Linhas dos Alunos

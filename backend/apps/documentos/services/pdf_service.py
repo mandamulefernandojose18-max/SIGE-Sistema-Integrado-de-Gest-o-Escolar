@@ -699,7 +699,10 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
         'PPautaTitle', alignment=1, fontSize=10.5, leading=12.5, fontName='Times-Bold',
         textColor=colors.HexColor('#4338ca')
     )
-    elements.append(Paragraph(f"PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO — ANO LECTIVO {ano_letivo or 2026}", style_pauta_title))
+    # 1.º Ciclo, classe de exame (7.ª–9.ª): é a Pauta de Frequência, com resultado por secção
+    freq_1c = any('resultado_frequencia' in a for a in dados_alunos)
+    titulo_pauta = "PAUTA DE FREQUÊNCIA" if freq_1c else "PAUTA OFICIAL DE APROVEITAMENTO PEDAGÓGICO"
+    elements.append(Paragraph(f"{titulo_pauta} — ANO LECTIVO {ano_letivo or 2026}", style_pauta_title))
 
     # Subtitulo com dados da Turma
     dt_nome = turma.director_turma.nome if getattr(turma, 'director_turma', None) else ""
@@ -883,7 +886,16 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
             row.append(Paragraph('-', st_bold))
 
         res_str = str(a.get('resultado') or a.get('resultadoFinal', 'Aprovado')).strip()
-        if res_str in ('Reprovado', 'R', 'Excluído'):
+        if freq_1c:
+            linhas_rf = (a.get('resultado_frequencia') or {}).get('linhas') or []
+            if not linhas_rf:
+                row.append(Paragraph('Pendente', st_c))
+            else:
+                html_rf = '<br/>'.join(
+                    (f'<font color="#dc2626">{l}</font>' if l.startswith(('Exclu', 'Reprov')) else l)
+                    for l in linhas_rf)
+                row.append(Paragraph(html_rf, st_res_apr))
+        elif res_str in ('Reprovado', 'R', 'Excluído'):
             row.append(Paragraph('Reprovado', st_res_rep))
         elif res_str in ('Aprovado', 'A'):
             row.append(Paragraph('Aprovado', st_res_apr))
@@ -922,6 +934,8 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
         w_mg = 0.85 * cm
         w_res = 1.40 * cm
 
+    if freq_1c:
+        w_res = max(w_res, 3.2 * cm)  # «Admitido: CCS, MCN» / «Aprovado: AP» cabem inteiros
     espaco_fixo = w_num + w_nome + w_gen + (w_med_col * 3) + (w_neg_col * 4) + w_mg + w_res
     resto_discs = util_total - espaco_fixo
     w_subdisc = resto_discs / (n_discs * 4)
@@ -943,12 +957,20 @@ def gerar_pauta_pdf(turma, escola, periodo, ano_letivo, dados_alunos, disciplina
     pct_reprov = round(reprov_n / tot_al * 100, 1) if tot_al > 0 else 0.0
 
     st_resumo = ParagraphStyle('TPautaResumo', fontName='Times-Bold', fontSize=_sz - 1.0, leading=_sz + 0.5, alignment=0)
-    txt_resumo = (
-        f"Total Inscritos: <b>{tot_al}</b> (H: {h_n} | M: {m_n}) | "
-        f"Avaliados: <b>{tot_al}</b> | "
-        f"Aprovados: <b>{aprov_n}</b> ({pct_aprov}%) | "
-        f"Reprovados: <b>{reprov_n}</b> ({pct_reprov}%)"
-    )
+    if freq_1c:
+        adm_n = sum(1 for a in dados_alunos if (a.get('resultado_frequencia') or {}).get('situacao') == 'Admitido')
+        exc_n = sum(1 for a in dados_alunos if (a.get('resultado_frequencia') or {}).get('situacao') == 'Excluído')
+        txt_resumo = (
+            f"Total Inscritos: <b>{tot_al}</b> (H: {h_n} | M: {m_n}) | "
+            f"Avaliados: <b>{tot_al}</b> | Admitidos: <b>{adm_n}</b> | Excluídos: <b>{exc_n}</b>"
+        )
+    else:
+        txt_resumo = (
+            f"Total Inscritos: <b>{tot_al}</b> (H: {h_n} | M: {m_n}) | "
+            f"Avaliados: <b>{tot_al}</b> | "
+            f"Aprovados: <b>{aprov_n}</b> ({pct_aprov}%) | "
+            f"Reprovados: <b>{reprov_n}</b> ({pct_reprov}%)"
+        )
     r_resumo = [Paragraph(txt_resumo, st_resumo)] + [''] * (len(col_widths) - 1)
     table_data.append(r_resumo)
     r_resumo_idx = len(table_data) - 1
@@ -1142,7 +1164,7 @@ def gerar_pauta_exames_pdf(dados_pauta, escola, ano_letivo='2026', orientacao='l
     row_hdr2.extend([
         Paragraph("Aprovado(a)", sh_sub),
         Paragraph("MF", sh_sub),
-        Paragraph("Disciplina(s) que Reprovou", sh_sub),
+        Paragraph("Secção que Reprovou" if dados_pauta.get('agrupar_por_area') else "Disciplina(s) que Reprovou", sh_sub),
     ])
     row_hdr3.extend(["", "", ""])
     table_styles.append(('SPAN', (curr_col, 1), (curr_col, 2)))

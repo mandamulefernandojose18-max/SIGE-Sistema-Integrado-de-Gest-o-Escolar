@@ -1005,6 +1005,35 @@ def areas_reprovadas(notas_por_area):
             if any(n is not None and n <= NOTA_NEGATIVA_MAX for n in notas_por_area.get(s, []))]
 
 
+def resultado_frequencia_1_ciclo(notas_por_area, areas_com_exame, genero):
+    """
+    Resultado da Pauta de Frequência de uma classe de exame do 1.º Ciclo (7.ª–9.ª), por secção:
+    - secções COM exame (CCS, MCN): «Admitido/a» (sem nota ≤ 9,4) ou «Excluído/a» (com nota ≤ 9,4), com a(s) secção(ões);
+    - secções SEM exame (AP): «Aprovado/a» ou «Reprovado/a».
+    Devolve {'situacao': 'Admitido'|'Excluído'|'Pendente', 'linhas': [...], 'admitidas': [...], 'excluidas': [...]}.
+    """
+    fem = str(genero or 'M').upper().startswith('F')
+    suf = 'a' if fem else 'o'
+    negativas = set(areas_reprovadas(notas_por_area))
+    com_notas = [s for s in AREAS_EXAME_1_CICLO if notas_por_area.get(s)]
+    if not com_notas:
+        return {'situacao': 'Pendente', 'linhas': [], 'admitidas': [], 'excluidas': []}
+    admitidas = [s for s in com_notas if s in areas_com_exame and s not in negativas]
+    excluidas = [s for s in com_notas if s in areas_com_exame and s in negativas]
+    sem_exame = [s for s in com_notas if s not in areas_com_exame]
+    linhas = []
+    if admitidas:
+        linhas.append(f"Admitid{suf}: {', '.join(admitidas)}")
+    if excluidas:
+        linhas.append(f"Excluíd{suf}: {', '.join(excluidas)}")
+    for s in sem_exame:
+        linhas.append(f"{'Reprovad' if s in negativas else 'Aprovad'}{suf}: {s}")
+    return {
+        'situacao': 'Excluído' if excluidas else 'Admitido',
+        'linhas': linhas, 'admitidas': admitidas, 'excluidas': excluidas,
+    }
+
+
 def colunas_pauta_exames(dados):
     """
     Colunas de disciplinas da pauta de exames, na ordem de desenho.

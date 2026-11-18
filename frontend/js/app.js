@@ -13825,7 +13825,9 @@ async function carregarPautaGeral(turmaId) {
     const dirTel = d.turma?.director_turma_tel ? ` (${d.turma.director_turma_tel})` : '';
 
     const elTitulo = document.getElementById('pautaGeralTitulo');
-    if (elTitulo) elTitulo.textContent = `Pauta Oficial de Aproveitamento Pedagógico — ${turmaNome} (${turmaGrau}${areaTxt})`;
+    // 1.º Ciclo, classe de exame (7.ª–9.ª): Pauta de Frequência, com resultado por secção
+    const freq1Ciclo = (Array.isArray(d.alunos) ? d.alunos : []).some(a => a && a.resultado_frequencia);
+    if (elTitulo) elTitulo.textContent = `${freq1Ciclo ? 'Pauta de Frequência' : 'Pauta Oficial de Aproveitamento Pedagógico'} — ${turmaNome} (${turmaGrau}${areaTxt})`;
 
     const elSubtitulo = document.getElementById('pautaGeralSubtitulo');
     if (elSubtitulo) elSubtitulo.textContent = `Ano Lectivo: ${anoLetivo} | Turno: ${turno} | Director de Turma: ${dirTurma}${dirTel}`;
@@ -13876,7 +13878,12 @@ async function carregarPautaGeral(turmaId) {
 
         let badgeResultado = '';
         const resTexto = (a.resultadoFinal || a.resultado || '').trim();
-        if (resTexto === 'A' || resTexto === 'Aprovado') {
+        if (freq1Ciclo) {
+          const linhasRf = (a.resultado_frequencia && a.resultado_frequencia.linhas) || [];
+          badgeResultado = linhasRf.length
+            ? linhasRf.map(l => `<div class="fw-bold text-nowrap" style="${/^(Exclu|Reprov)/.test(l) ? 'color: #dc2626;' : 'color: #000000;'}">${l}</div>`).join('')
+            : '<span class="fw-bold text-secondary">Pendente</span>';
+        } else if (resTexto === 'A' || resTexto === 'Aprovado') {
           badgeResultado = '<span class="fw-bold text-dark" style="font-weight: 700; color: #000000 !important;">Aprovado</span>';
         } else if (resTexto === 'R' || resTexto === 'Reprovado') {
           badgeResultado = '<span class="fw-bold text-danger" style="font-weight: 700; color: #dc2626 !important;">Reprovado</span>';
@@ -13930,7 +13937,7 @@ async function carregarPautaGeral(turmaId) {
             <th colspan="3" class="bg-secondary bg-opacity-10 fw-bold" style="font-size: 0.72rem;">Médias Trimestrais</th>
             <th colspan="4" class="bg-secondary bg-opacity-10 fw-bold" style="font-size: 0.72rem;">Disciplinas Negativas</th>
             <th rowspan="2" class="align-middle bg-primary text-white fw-bold" style="width: 70px;">Média<br>Geral</th>
-            <th rowspan="2" class="align-middle bg-secondary text-white fw-bold" style="width: 85px;">Resultado</th>
+            <th rowspan="2" class="align-middle bg-secondary text-white fw-bold" style="width: ${freq1Ciclo ? 170 : 85}px;">Resultado</th>
           </tr>
           <tr>
             ${thSubDisciplinas}
