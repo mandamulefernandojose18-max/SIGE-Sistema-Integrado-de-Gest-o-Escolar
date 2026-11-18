@@ -1,0 +1,135 @@
+<!-- SIGE - CRM Escolar: alertas de evasão, atendimentos e ficha 360º do encarregado. Lógica em js/modules/painel-escola/crm.js · API /api/v1/crm/ -->
+<section id="view-crm" class="modulo-view p-3 p-md-4" style="display: none;">
+  <div class="mb-3 pb-2 border-bottom">
+    <h3 class="fw-bold mb-1"><i class="bi bi-people-fill text-primary me-2"></i>CRM Escolar</h3>
+    <p class="text-muted mb-0 small">Relação com os encarregados de educação: alunos em risco, pedidos e reclamações, e histórico de contactos. Só mostra registos reais.</p>
+  </div>
+
+  <ul class="nav nav-tabs mb-3" id="crmTabs">
+    <li class="nav-item"><button type="button" class="nav-link active" id="crmTabAlertas" onclick="crmMostrarTab('alertas')"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Alertas de evasão</button></li>
+    <li class="nav-item"><button type="button" class="nav-link" id="crmTabAtend" onclick="crmMostrarTab('atend')"><i class="bi bi-chat-left-text-fill text-info me-1"></i>Atendimentos</button></li>
+  </ul>
+
+  <!-- ALERTAS -->
+  <div id="crmPainelAlertas">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="row g-2 align-items-end">
+          <div class="col-6 col-md-3">
+            <label class="form-label small mb-1" for="crmClasse">Classe</label>
+            <select id="crmClasse" class="form-select form-select-sm" onchange="crmAoMudarClasse()"></select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small mb-1" for="crmTurma">Turma</label>
+            <select id="crmTurma" class="form-select form-select-sm"></select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1" for="crmMinFaltas">Faltas ≥</label>
+            <input type="number" min="0" id="crmMinFaltas" class="form-control form-control-sm" value="10">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1" for="crmMinPropinas">Propinas em atraso ≥</label>
+            <input type="number" min="0" id="crmMinPropinas" class="form-control form-control-sm" value="2">
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button type="button" class="btn btn-sm btn-primary" onclick="crmCarregarAlertas(true)"><i class="bi bi-search me-1"></i>Buscar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted">
+              <tr><th class="ps-3">Aluno</th><th>Classe / Turma</th><th class="text-center">Faltas efectivas</th><th class="text-center">Propinas em atraso</th><th>Motivo</th><th class="text-end pe-3">Ficha</th></tr>
+            </thead>
+            <tbody id="crmTabelaAlertas"><tr><td colspan="6" class="text-center py-4 text-muted">Escolha a classe e a turma e clique em Buscar.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-white small text-muted d-flex justify-content-between align-items-center">
+        <span id="crmAlertasResumo"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="crmAlertasMais" onclick="crmCarregarAlertas(false)">Mostrar mais</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ATENDIMENTOS -->
+  <div id="crmPainelAtend" style="display: none;">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="row g-2 align-items-end">
+          <div class="col-6 col-md-3">
+            <label class="form-label small mb-1" for="crmFiltroEstado">Estado</label>
+            <select id="crmFiltroEstado" class="form-select form-select-sm" onchange="crmCarregarAtendimentos(true)">
+              <option value="">Todos</option><option value="ABERTO">Aberto</option><option value="EM_CURSO">Em curso</option><option value="RESOLVIDO">Resolvido</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small mb-1" for="crmFiltroPrioridade">Prioridade</label>
+            <select id="crmFiltroPrioridade" class="form-select form-select-sm" onchange="crmCarregarAtendimentos(true)">
+              <option value="">Todas</option><option value="ALTA">Alta</option><option value="NORMAL">Normal</option><option value="BAIXA">Baixa</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3 ms-md-auto d-grid">
+            <button type="button" class="btn btn-sm btn-primary" onclick="crmNovoAtendimento()"><i class="bi bi-plus-lg me-1"></i>Novo atendimento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted">
+              <tr><th class="ps-3">Data</th><th>Assunto</th><th>Aluno</th><th>Prioridade</th><th>Estado</th><th class="text-end pe-3">Acções</th></tr>
+            </thead>
+            <tbody id="crmTabelaAtend"><tr><td colspan="6" class="text-center py-4 text-muted">A carregar...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-white small text-muted d-flex justify-content-between align-items-center">
+        <span id="crmAtendResumo"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="crmAtendMais" onclick="crmCarregarAtendimentos(false)">Mostrar mais</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: ficha 360º -->
+  <div class="modal fade" id="crmModalFicha" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="crmFichaTitulo">Ficha 360º</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+        <div class="modal-body" id="crmFichaCorpo"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: novo atendimento -->
+  <div class="modal fade" id="crmModalAtend" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Novo atendimento</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label small mb-1" for="crmAtAssunto">Assunto *</label><input id="crmAtAssunto" class="form-control form-control-sm" maxlength="200"></div>
+          <div class="mb-2"><label class="form-label small mb-1" for="crmAtDescricao">Descrição</label><textarea id="crmAtDescricao" class="form-control form-control-sm" rows="3"></textarea></div>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label small mb-1" for="crmAtCanal">Canal</label>
+              <select id="crmAtCanal" class="form-select form-select-sm"><option value="PRESENCIAL">Presencial</option><option value="TELEFONE">Telefone</option><option value="EMAIL">E-mail</option><option value="APP">Aplicação</option></select></div>
+            <div class="col-6"><label class="form-label small mb-1" for="crmAtPrioridade">Prioridade</label>
+              <select id="crmAtPrioridade" class="form-select form-select-sm"><option value="NORMAL">Normal</option><option value="ALTA">Alta</option><option value="BAIXA">Baixa</option></select></div>
+          </div>
+          <div class="mb-1"><label class="form-label small mb-1" for="crmAtBusca">Aluno (opcional)</label>
+            <div class="input-group input-group-sm">
+              <input id="crmAtBusca" class="form-control" placeholder="Nome ou matrícula" onkeydown="if(event.key==='Enter'){crmBuscarAluno();}">
+              <button type="button" class="btn btn-outline-secondary" onclick="crmBuscarAluno()"><i class="bi bi-search"></i></button>
+            </div>
+            <select id="crmAtAluno" class="form-select form-select-sm mt-1"><option value="">Sem aluno associado</option></select>
+          </div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-sm btn-primary" onclick="crmGravarAtendimento()">Registar</button></div>
+      </div>
+    </div>
+  </div>
+</section>

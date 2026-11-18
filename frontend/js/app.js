@@ -2783,6 +2783,16 @@ const MENUS_POR_PAINEL = {
   ]
 };
 
+// CRM Escolar: Direcção, Pedagógico (DAP) e Secretaria (a API só aceita estes perfis).
+['painel-direcao', 'painel-pedagogico', 'painel-secretaria', 'painel-escola'].forEach(p => {
+  const menu = MENUS_POR_PAINEL[p];
+  if (menu && !menu.some(m => m.id === 'crm')) {
+    const idx = menu.findIndex(m => m.id === 'comunicados');
+    const item = { id: 'crm', titulo: 'CRM Escolar (Encarregados)', icone: 'bi-people-fill text-primary', categoria: 'Comunicação' };
+    if (idx >= 0) menu.splice(idx, 0, item); else menu.push(item);
+  }
+});
+
 function renderizarSidebarPorNivel(role) {
   const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
   const isSuperAdminInspecionando = isSuperAdmin && !!localStorage.getItem('sige_selected_tenant');
