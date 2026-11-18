@@ -38,18 +38,42 @@
       '<circle cx="-22" cy="-16" r="22" fill="#2f9e5f"/><circle cx="20" cy="-16" r="24" fill="#2f9e5f"/><circle cx="0" cy="-28" r="28" fill="#3fb374"/>' +
       '<circle cx="-14" cy="-30" r="4" fill="#fb7185"/><circle cx="12" cy="-18" r="4" fill="#fde047"/><circle cx="-26" cy="-10" r="4" fill="#fff"/><circle cx="26" cy="-30" r="4" fill="#f472b6"/></g></g>';
   }
-  function kid(shirt, skin, hair, pack, y, dir, dur, dl, sc) {
+  function kid(shirt, skin, hair, pack, y, dir, dur, dl, sc, hop) {
     var flip = dir < 0 ? -sc : sc;
     return '<g transform="translate(0 ' + y + ')"><g class="' + (dir < 0 ? 'lb-walkL' : 'lb-walkR') + '" style="--d:' + dur + 's;animation-delay:' + dl + 's">' +
-      '<g transform="scale(' + flip + ' ' + sc + ')"><ellipse cx="0" cy="2" rx="16" ry="4" fill="#000" opacity=".15"/><g class="lb-kid">' +
+      '<g transform="scale(' + flip + ' ' + sc + ')"><ellipse cx="0" cy="2" rx="16" ry="4" fill="#000" opacity=".15"/><g class="lb-kid' + (hop ? ' lb-hop' : '') + '">' +
       '<g transform="translate(0 -34)"><g class="lb-leg b"><path d="M0 0V32" stroke="#334155" stroke-width="6" stroke-linecap="round"/><path d="M-1 34h8" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/></g></g>' +
       '<g transform="translate(0 -34)"><g class="lb-leg"><path d="M0 0V32" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/><path d="M-1 34h8" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/></g></g>' +
       '<rect x="-19" y="-62" width="11" height="22" rx="4" fill="' + pack + '"/>' +
       '<rect x="-11" y="-64" width="22" height="32" rx="9" fill="' + shirt + '"/>' +
       '<g transform="translate(0 -58)"><g class="lb-leg b" style="animation-duration:.5s"><path d="M0 0V22" stroke="' + skin + '" stroke-width="5" stroke-linecap="round"/></g></g>' +
       '<circle cx="0" cy="-76" r="12" fill="' + skin + '"/><path d="M-12 -78a12 12 0 0 1 24 0z" fill="' + hair + '"/>' +
-      '<circle cx="5" cy="-75" r="1.8" fill="#1e293b"/><path d="M3 -70q3 3 6 0" stroke="#7c2d12" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+      '<circle class="lb-blink" cx="5" cy="-75" r="1.8" fill="#1e293b"/><path d="M3 -70q3 3 6 0" stroke="#7c2d12" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
       '</g></g></g></g>';
+  }
+  /* Pessoa de frente, parada, com animação própria: acena, salta, driba uma bola ou ensina */
+  function arm(side, skin, cls, extra) {
+    return '<g transform="translate(' + (side * 13) + ' -60)"><g class="' + cls + '"><path d="M0 0V24" stroke="' + skin + '" stroke-width="5" stroke-linecap="round"/><circle cy="24" r="3.8" fill="' + skin + '"/>' + (extra || '') + '</g></g>';
+  }
+  function stand(x, y, sc, o) {
+    var mode = o.mode, pants = o.pants || '#1e293b', body = '', head;
+    var rightCls = mode === 'wave' || mode === 'teach' ? 'lb-wave' : mode === 'jump' ? 'lb-wave' : mode === 'ball' ? 'lb-drib' : '';
+    var leftCls = mode === 'jump' ? 'lb-waveL' : '';
+    var book = mode === 'teach' ? '<rect x="-9" y="20" width="18" height="24" rx="2" fill="#2563eb" transform="rotate(-8)"/><rect x="-7" y="22" width="14" height="20" fill="#fff7e0" transform="rotate(-8)"/>' : '';
+    body += '<path d="M-5 -34V-2" stroke="' + pants + '" stroke-width="7" stroke-linecap="round"/><path d="M5 -34V-2" stroke="' + pants + '" stroke-width="7" stroke-linecap="round"/><path d="M-9 0h8M1 0h8" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>';
+    body += arm(-1, o.skin, leftCls, book);
+    body += '<rect x="-13" y="-66" width="26" height="34" rx="10" fill="' + o.shirt + '"/>';
+    if (mode === 'teach') body += '<path d="M0 -64l5 8l-5 18l-5 -18z" fill="#df8704"/><path d="M-13 -56h26" stroke="#fff" stroke-opacity=".25" stroke-width="2"/>';
+    body += arm(1, o.skin, rightCls);
+    head = '<circle cy="-80" r="14" fill="' + o.skin + '"/>';
+    if (o.girl) head += '<circle cx="-17" cy="-76" r="6" fill="' + o.hair + '"/><circle cx="17" cy="-76" r="6" fill="' + o.hair + '"/><path d="M-14 -80a14 14 0 0 1 28 0q-14 -6 -28 0z" fill="' + o.hair + '"/>';
+    else head += '<path d="M-14 -82a14 14 0 0 1 28 0q-14 -7 -28 0z" fill="' + o.hair + '"/>';
+    head += '<g class="lb-blink"><circle cx="-5" cy="-80" r="1.9" fill="#1e293b"/><circle cx="5" cy="-80" r="1.9" fill="#1e293b"/></g><path d="M-5 -73q5 5 10 0" stroke="#7c2d12" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="-9" cy="-75" r="2.6" fill="#f472b6" opacity=".35"/><circle cx="9" cy="-75" r="2.6" fill="#f472b6" opacity=".35"/>';
+    if (mode === 'teach') head += '<circle cx="-5" cy="-80" r="4.6" fill="none" stroke="#1e293b" stroke-width="1.4"/><circle cx="5" cy="-80" r="4.6" fill="none" stroke="#1e293b" stroke-width="1.4"/><path d="M-0.4 -80h0.8" stroke="#1e293b" stroke-width="1.4"/>';
+    var inner = '<g class="lb-breathe">' + body + head + '</g>';
+    if (mode === 'jump') inner = '<g class="lb-jump">' + inner + '</g>';
+    var ball = mode === 'ball' ? '<ellipse cx="28" cy="2" rx="9" ry="2.5" fill="#000" opacity=".18"/><g transform="translate(28 -9)"><g class="lb-ball"><circle r="9" fill="#f97316"/><path d="M-9 0H9M0 -9V9M-6 -6Q0 0 -6 6M6 -6Q0 0 6 6" stroke="#7c2d12" stroke-width="1.2" fill="none"/></g></g>' : '';
+    return '<g transform="translate(' + x + ' ' + y + ') scale(' + sc + ')"><ellipse cx="0" cy="2" rx="18" ry="4.5" fill="#000" opacity=".18"/>' + inner + ball + '</g>';
   }
   function spark(x, y, dl, c) {
     return '<path class="lb-spark" style="animation-delay:' + dl + 's" transform="translate(' + x + ' ' + y + ')" d="M0 -12 Q2 -2 12 0 Q2 2 0 12 Q-2 2 -12 0 Q-2 -2 0 -12Z" fill="' + c + '"/>';
@@ -120,6 +144,15 @@
     '.lb-plane{animation:lbPlane 28s ease-in-out infinite}' +
     '@keyframes lbPlane{0%{transform:translate(-120px,430px) rotate(-14deg)}35%{transform:translate(520px,260px) rotate(-6deg)}70%{transform:translate(1120px,320px) rotate(9deg)}100%{transform:translate(1760px,130px) rotate(-12deg)}}' +
     '.lb-min{animation:lbSpin 30s linear infinite}.lb-hr{animation:lbSpin 360s linear infinite}' +
+    '.lb-wave{animation:lbWave .5s ease-in-out infinite alternate}@keyframes lbWave{from{transform:rotate(-150deg)}to{transform:rotate(-198deg)}}' +
+    '.lb-waveL{animation:lbWaveL .5s ease-in-out infinite alternate}@keyframes lbWaveL{from{transform:rotate(150deg)}to{transform:rotate(198deg)}}' +
+    '.lb-jump{animation:lbJump .85s cubic-bezier(.3,0,.4,1) infinite}@keyframes lbJump{0%,100%{transform:translateY(0)}50%{transform:translateY(-30px)}}' +
+    '.lb-drib{animation:lbDrib .6s ease-in-out infinite alternate}@keyframes lbDrib{from{transform:rotate(-8deg)}to{transform:rotate(-42deg)}}' +
+    '.lb-ball{animation:lbBall .6s cubic-bezier(.35,0,.65,1) infinite alternate}@keyframes lbBall{from{transform:translateY(0)}to{transform:translateY(-46px)}}' +
+    '.lb-blink{transform-box:fill-box!important;transform-origin:center;animation:lbBlink 4.2s infinite}@keyframes lbBlink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}' +
+    '.lb-breathe{animation:lbBreathe 2.4s ease-in-out infinite alternate}@keyframes lbBreathe{to{transform:scaleY(1.025)}}' +
+    '.lb-hop{animation:lbHop .55s ease-out infinite alternate}@keyframes lbHop{to{transform:translateY(-16px)}}' +
+    '.lb-pass{animation:lbPass .6s ease-in-out infinite alternate}@keyframes lbPass{to{transform:translateY(-3px)}}' +
     '@media (prefers-reduced-motion:reduce){.lb *{animation:none!important}}' +
     '</style>' +
     '<rect x="-200" y="-200" width="2000" height="1300" fill="url(#lbSky)"/>' +
@@ -130,8 +163,8 @@
     cloud(100, 90, 1.3, 150, -20, 0.95) + cloud(520, 210, 0.9, 190, -90, 0.85) + cloud(300, 40, 0.7, 220, -150, 0.8) + cloud(900, 120, 1.1, 170, -60, 0.9) + cloud(40, 330, 0.8, 200, -120, 0.75) +
     '<g class="lb-flock">' + bird(0, 200, 0) + bird(40, 224, .1) + bird(78, 196, .2) + bird(112, 232, .05) + bird(150, 208, .15) + '</g>' +
     '<g class="lb-plane"><path d="M0 0L-52 -12L-34 4Z" fill="#fff"/><path d="M0 0L-34 4L-42 24Z" fill="#c7d2fe"/><path d="M-52 -12L-34 4" stroke="#a5b4fc" stroke-width="1.5"/></g>' +
-    floatObj(170, 300, 6.2, 0, OBJ_BOOK) + floatObj(380, 170, 5.4, -1.2, OBJ_PENCIL) + floatObj(300, 440, 7, -2.4, OBJ_GLOBE) +
-    floatObj(1440, 320, 6.6, -.6, OBJ_BLOCK) + floatObj(1220, 400, 5.8, -1.8, OBJ_CAP) + floatObj(1500, 140, 6.9, -3, OBJ_BULB) +
+    floatObj(150, 440, 6.2, 0, OBJ_BOOK) + floatObj(400, 190, 5.4, -1.2, OBJ_PENCIL) + floatObj(340, 360, 7, -2.4, OBJ_GLOBE) +
+    floatObj(1450, 430, 6.6, -.6, OBJ_BLOCK) + floatObj(1250, 450, 5.8, -1.8, OBJ_CAP) + floatObj(1500, 140, 6.9, -3, OBJ_BULB) +
     spark(260, 250, 0, '#fff') + spark(430, 280, 1.1, '#fde047') + spark(120, 430, .6, '#fff') + spark(1330, 250, 1.4, '#fff') + spark(1500, 440, .3, '#fde047') + spark(1180, 300, 2, '#fff') +
     '</g>' +
 
@@ -167,10 +200,16 @@
     '<rect x="-100" y="796" width="1800" height="76" fill="#4b5563"/><rect x="-100" y="796" width="1800" height="6" fill="#374151"/>' +
     '<path class="lb-road" d="M-100 836H1700" stroke="#fde68a" stroke-width="5" fill="none"/>' +
     kid('#ef4444', '#f2c29b', '#3b2a20', '#2563eb', 764, 1, 46, -8, 1.15) + kid('#22c55e', '#8d5a3b', '#111827', '#f59e0b', 772, -1, 54, -30, 1.3) +
-    kid('#8b5cf6', '#e8b48a', '#7c4a1d', '#ec4899', 758, 1, 62, -40, 1.05) + kid('#0ea5e9', '#6b4423', '#0f172a', '#ef4444', 770, -1, 40, -12, 1.25) +
+    kid('#8b5cf6', '#e8b48a', '#7c4a1d', '#ec4899', 758, 1, 62, -40, 1.05) + kid('#0ea5e9', '#6b4423', '#0f172a', '#ef4444', 770, -1, 40, -12, 1.25) + kid('#f59e0b', '#f2c29b', '#7c2d12', '#22c55e', 762, 1, 34, -20, 1.1, true) + kid('#14b8a6', '#8d5a3b', '#111827', '#f43f5e', 774, -1, 48, -4, 1.2, true) +
+    stand(300, 778, 1.25, { mode: 'wave', shirt: '#f43f5e', skin: '#f2c29b', hair: '#3b2a20' }) + stand(352, 774, 1.15, { mode: 'jump', shirt: '#a855f7', skin: '#8d5a3b', hair: '#111827', girl: true, pants: '#334155' }) +
+    stand(1150, 774, 1.35, { mode: 'teach', shirt: '#1d4ed8', skin: '#e8b48a', hair: '#4b2e1a', pants: '#1e293b' }) + stand(1262, 778, 1.2, { mode: 'ball', shirt: '#22c55e', skin: '#6b4423', hair: '#0f172a' }) +
     '<g class="lb-bus"><g class="lb-busb" transform="translate(0 0)">' +
     '<rect x="0" y="772" width="226" height="64" rx="14" fill="#fbbf24"/><rect x="0" y="772" width="226" height="16" rx="10" fill="#fcd34d"/>' +
     '<rect x="14" y="780" width="30" height="26" rx="4" fill="#bfe6ff"/><rect x="52" y="780" width="30" height="26" rx="4" fill="#bfe6ff"/><rect x="90" y="780" width="30" height="26" rx="4" fill="#bfe6ff"/><rect x="128" y="780" width="30" height="26" rx="4" fill="#bfe6ff"/><rect x="170" y="780" width="42" height="34" rx="5" fill="#bfe6ff"/>' +
+    [[29, '#f2c29b', '#3b2a20'], [67, '#8d5a3b', '#111827'], [105, '#e8b48a', '#7c2d12'], [143, '#6b4423', '#0f172a']].map(function (p, k) {
+      return '<g class="lb-pass" style="animation-delay:' + (-k * 0.17) + 's"><circle cx="' + p[0] + '" cy="797" r="8.5" fill="' + p[1] + '"/><path d="M' + (p[0] - 8.5) + ' 795a8.5 8.5 0 0 1 17 0z" fill="' + p[2] + '"/></g>';
+    }).join('') +
+    '<g transform="translate(120 800)"><g class="lb-wave"><path d="M0 0V15" stroke="#e8b48a" stroke-width="4" stroke-linecap="round"/><circle cy="15" r="3" fill="#e8b48a"/></g></g>' +
     '<rect x="0" y="812" width="226" height="6" fill="#1f2937"/><text x="14" y="831" font-family="Segoe UI,Arial,sans-serif" font-weight="800" font-size="11" fill="#1f2937" letter-spacing="2">ESCOLAR</text>' +
     '<circle cx="221" cy="822" r="5" fill="#fef08a"/><rect x="0" y="826" width="226" height="8" rx="3" fill="#92400e" opacity=".5"/>' +
     '<g transform="translate(52 838)"><g class="lb-wheel"><circle r="16" fill="#111827"/><circle r="7" fill="#9ca3af"/><path d="M-7 0H7M0 -7V7" stroke="#4b5563" stroke-width="2"/></g></g>' +
