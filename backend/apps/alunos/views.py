@@ -1,4 +1,4 @@
-﻿from rest_framework import permissions
+from rest_framework import permissions
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -684,10 +684,20 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
                 aluno_id, st = str(r.get('aluno', '')), r.get('status')
                 if aluno_id not in alunos_ok or st not in estados:
                     return Response({'success': False, 'message': 'Registo inválido: aluno fora da turma ou estado desconhecido.'}, status=status.HTTP_400_BAD_REQUEST)
+                # Faltas justificadas: marcada como justificada pelo professor = todas as faltas da aula;
+                # mantém-se o que a direcção já justificou (limitado às novas faltas); sem falta, nada a justificar.
+                existente = PresencaAluno.objects.filter(aluno_id=aluno_id, turma=turma, disciplina_id=disciplina_id, data=data).first()
+                if st == 'FALTA_JUSTIFICADA':
+                    just = aulas
+                elif st == 'FALTA_INJUSTIFICADA' and existente:
+                    just = min(existente.aulas_justificadas or 0, aulas)
+                else:
+                    just = 0
                 PresencaAluno.objects.update_or_create(
                     aluno_id=aluno_id, turma=turma, disciplina_id=disciplina_id, data=data,
                     defaults={
                         'escola': escola, 'professor_id': prof_id, 'status': st, 'aulas': aulas,
+                        'aulas_justificadas': just,
                         'observacao': str(r.get('observacao') or '')[:255], 'registado_por': request.user,
                     },
                 )
@@ -710,10 +720,11 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
             return Response({'success': False, 'message': 'Só é possível justificar faltas injustificadas.'}, status=status.HTTP_400_BAD_REQUEST)
         antes = {'status': reg.status}
         reg.status = 'FALTA_JUSTIFICADA'
+        reg.aulas_justificadas = reg.aulas or 1
         reg.justificacao = motivo
         reg.justificada_por = request.user
         reg.justificada_em = timezone.now()
-        reg.save(update_fields=['status', 'justificacao', 'justificada_por', 'justificada_em', 'updated_at'])
+        reg.save(update_fields=['status', 'aulas_justificadas', 'justificacao', 'justificada_por', 'justificada_em', 'updated_at'])
         registrar_auditoria(usuario=request.user, escola=reg.escola, entidade='PresencaAluno', acao='JUSTIFICAR',
                             objeto_id=str(reg.id), descricao=f'Falta de {reg.data} justificada: {motivo}',
                             antes=antes, depois={'status': reg.status})
@@ -742,9 +753,10 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         if not (aluno_id and disciplina_id and tri):
             return Response({'success': False, 'message': 'Aluno, disciplina e trimestre são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
         escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
-        ini, fim = (getattr(escola, f'data_inicio_t{tri}', None), getattr(escola, f'data_fim_t{tri}', None)) if escola else (None, None)
+        from .services_assiduidade import _intervalos_trimestres
+        ini, fim = _intervalos_trimestres(escola).get(tri, (None, None)) if escola else (None, None)
         if not (ini and fim):
-            return Response({'success': False, 'message': f'As datas do {tri}º trimestre não estão configuradas na escola.'},
+            return Response({'success': False, 'message': f'As datas do {tri}º trimestre não estão configuradas no Calendário Oficial de Prazos.'},
                             status=status.HTTP_400_BAD_REQUEST)
         qs = self.get_queryset().order_by().filter(aluno_id=aluno_id, disciplina_id=disciplina_id, data__gte=ini, data__lte=fim)
         if p.get('turma_id'):
@@ -752,7 +764,8 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
         total = qs.count()
         # Faltas ponderadas: aula simples = 1 falta, aula dupla = 2 faltas
         from django.db.models import Sum
-        faltas = qs.filter(status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')).aggregate(s=Sum('aulas'))['s'] or 0
+        agg = qs.filter(status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')).aggregate(b=Sum('aulas'), j=Sum('aulas_justificadas'))
+        faltas = (agg['b'] or 0) - (agg['j'] or 0)  # efectivas: já descontadas as justificadas
         return Response({'success': True, 'faltas': faltas, 'aulas_registadas': total,
                          'de': ini.isoformat(), 'ate': fim.isoformat()})
 
@@ -841,36 +854,127 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(cond)
         return qs
 
-    @action(detail=False, methods=['get'], url_path='faltas-geral')
-    def faltas_geral(self, request):
-        """Lista geral de faltas acumuladas por aluno e disciplina (1.º/2.º/3.º trimestre e total).
-        Filtros: ano_letivo, classe, area, turma_id, disciplina_id. `formato=pdf|xlsx` descarrega o ficheiro."""
-        from django.http import HttpResponse
+    def _aplicar_periodo(self, qs, escola):
+        """Período do relatório: ANO (todo), T1/T2/T3 (datas do Calendário Oficial de Prazos) ou datas personalizadas."""
         from rest_framework.exceptions import ValidationError
+        from . import services_faltas as sf
+        periodo = (self.request.query_params.get('periodo') or 'ANO').upper()
+        if periodo in ('T1', 'T2', 'T3'):
+            iv = sf.periodo_do_calendario(escola, periodo)
+            if not iv:
+                raise ValidationError({'periodo': f'As datas do {periodo[-1]}.º trimestre não estão configuradas no Calendário Oficial de Prazos de Lançamento.'})
+            qs = qs.filter(data__gte=iv[0], data__lte=iv[1])
+        return qs
+
+    def _filtros_texto(self, escola):
         from apps.disciplinas.models import Disciplina
-        from . import services_assiduidade as svc
-        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
-        geral = svc.calcular_geral(self._qs_geral(), escola)
-        formato = (request.query_params.get('formato') or '').lower()
-        if not formato:
-            return Response({'success': True, 'resultados': geral})
-        if formato not in ('pdf', 'xlsx'):
-            raise ValidationError({'formato': 'Use pdf ou xlsx.'})
-        p = request.query_params
+        p = self.request.query_params
         turma = Turma.objects.filter(id=self._uuid_ou_400(p['turma_id'], 'turma_id'), escola=escola).first() if p.get('turma_id') and escola else None
         disc = Disciplina.objects.filter(id=self._uuid_ou_400(p['disciplina_id'], 'disciplina_id'), escola=escola).first() if p.get('disciplina_id') and escola else None
-        filtros = {
+        periodo = (p.get('periodo') or 'ANO').upper()
+        rot_periodo = {'ANO': 'Ano lectivo completo', 'T1': '1.º Trimestre', 'T2': '2.º Trimestre', 'T3': '3.º Trimestre'}.get(periodo, '')
+        return {
             'Ano lectivo': p.get('ano_letivo') or p.get('ano') or '', 'Classe': p.get('classe', ''),
             'Secção / Área': p.get('area', ''), 'Turma': turma.nome if turma else '',
-            'Disciplina': disc.nome if disc else '',
+            'Disciplina': disc.nome if disc else '', 'Período': rot_periodo,
+            'De': p.get('data_inicio', ''), 'Até': p.get('data_fim', ''),
         }
-        if formato == 'xlsx':
-            resp = HttpResponse(svc.gerar_geral_xlsx(geral, escola, filtros),
-                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    @action(detail=False, methods=['get'], url_path='faltas-geral')
+    def faltas_geral(self, request):
+        """Lista geral: um aluno por linha, disciplinas na horizontal com faltas efectivas do 1.º/2.º/3.º trimestre
+        (já descontadas as justificadas) e coluna de faltas justificadas por disciplina.
+        Filtros: ano_letivo, classe, area, turma_id, disciplina_id, periodo (ANO|T1|T2|T3), data_inicio, data_fim.
+        `formato=pdf|xlsx` descarrega; `modo=detalhado` descarrega cada falta com a sua data."""
+        from django.http import HttpResponse
+        from rest_framework.exceptions import ValidationError
+        from . import services_faltas as sf
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        qs = self._aplicar_periodo(self._qs_geral(), escola)
+        formato = (request.query_params.get('formato') or '').lower()
+        modo = (request.query_params.get('modo') or 'resumo').lower()
+        if not formato:
+            return Response({'success': True, **sf.montar_pivot(qs, escola)})
+        if formato not in ('pdf', 'xlsx') or modo not in ('resumo', 'detalhado'):
+            raise ValidationError({'formato': 'Use formato=pdf|xlsx e modo=resumo|detalhado.'})
+        filtros = self._filtros_texto(escola)
+        if modo == 'detalhado':
+            det = sf.montar_detalhe(qs, escola)
+            dados = sf.gerar_detalhe_xlsx(det, escola, filtros) if formato == 'xlsx' else sf.gerar_detalhe_pdf(det, escola, filtros)
+            nome = 'faltas-detalhadas'
         else:
-            resp = HttpResponse(svc.gerar_geral_pdf(geral, escola, filtros), content_type='application/pdf')
-        resp['Content-Disposition'] = f'attachment; filename="faltas-acumuladas.{formato}"'
+            pv = sf.montar_pivot(qs, escola)
+            dados = sf.gerar_pivot_xlsx(pv, escola, filtros) if formato == 'xlsx' else sf.gerar_pivot_pdf(pv, escola, filtros)
+            nome = 'faltas-acumuladas'
+        tipo = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if formato == 'xlsx' else 'application/pdf'
+        resp = HttpResponse(dados, content_type=tipo)
+        resp['Content-Disposition'] = f'attachment; filename="{nome}.{formato}"'
         return resp
+
+    @action(detail=False, methods=['get'], url_path='faltas-detalhe')
+    def faltas_detalhe(self, request):
+        """Cada falta (data, disciplina, trimestre, tipo de aula, justificadas/efectivas) + justificações do aluno."""
+        from . import services_faltas as sf
+        from .models import JustificacaoFalta
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        qs = self._aplicar_periodo(self._qs_geral(), escola)
+        det = sf.montar_detalhe(qs, escola)
+        justs = []
+        if request.query_params.get('aluno_id'):
+            js = JustificacaoFalta.objects.filter(escola=escola, aluno_id=self._uuid_ou_400(request.query_params['aluno_id'], 'aluno_id')) \
+                .select_related('disciplina', 'justificada_por')
+            justs = [{'id': str(j.id), 'disciplina': j.disciplina.nome if j.disciplina else '', 'trimestre': j.trimestre,
+                      'quantidade': j.quantidade, 'motivo': j.motivo, 'anulada': j.anulada,
+                      'data': j.created_at.date().isoformat(),
+                      'por': getattr(j.justificada_por, 'nome', '') or getattr(j.justificada_por, 'email', '')} for j in js]
+        return Response({'success': True, 'faltas': det, 'justificacoes': justs})
+
+    @action(detail=False, methods=['post'], url_path='justificar-faltas')
+    def justificar_faltas(self, request):
+        """Justifica N faltas (as mais antigas primeiro) de um aluno numa disciplina e trimestre;
+        as faltas efectivas (caderneta, lista geral) descem de imediato."""
+        from rest_framework.exceptions import PermissionDenied
+        from . import services_faltas as sf
+        if getattr(request.user, 'role', '') not in self.PERFIS_JUSTIFICAR:
+            raise PermissionDenied('Sem permissão para justificar faltas.')
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        b = request.data
+        aluno = Aluno.objects.filter(id=self._uuid_ou_400(b.get('aluno'), 'aluno'), escola=escola).first() if escola else None
+        if not aluno:
+            return Response({'success': False, 'message': 'Aluno não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        disc_id = self._uuid_ou_400(b.get('disciplina'), 'disciplina')
+        try:
+            tri, qtd = int(b.get('trimestre')), int(b.get('quantidade'))
+        except (TypeError, ValueError):
+            return Response({'success': False, 'message': 'Trimestre e número de faltas devem ser inteiros.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            j = sf.justificar_faltas(escola, request.user, aluno.id, disc_id, tri, qtd, b.get('motivo'))
+        except sf.ErroJustificacao as e:
+            return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        registrar_auditoria(usuario=request.user, escola=escola, entidade='PresencaAluno', acao='JUSTIFICAR_FALTAS',
+                            objeto_id=str(aluno.id), descricao=f'{qtd} falta(s) justificada(s) no {tri}.º trimestre: {j.motivo}',
+                            depois={'quantidade': qtd, 'trimestre': tri, 'disciplina': disc_id})
+        return Response({'success': True, 'justificacao': str(j.id), 'quantidade': qtd})
+
+    @action(detail=False, methods=['post'], url_path='anular-justificacao')
+    def anular_justificacao(self, request):
+        """Anula uma justificação: as faltas abatidas voltam a contar."""
+        from rest_framework.exceptions import PermissionDenied
+        from . import services_faltas as sf
+        from .models import JustificacaoFalta
+        if getattr(request.user, 'role', '') not in self.PERFIS_JUSTIFICAR:
+            raise PermissionDenied('Sem permissão para anular justificações.')
+        escola = get_tenant_escola(request) or getattr(request.user, 'escola', None)
+        j = JustificacaoFalta.objects.filter(id=self._uuid_ou_400(request.data.get('id'), 'id'), escola=escola).first() if escola else None
+        if not j:
+            return Response({'success': False, 'message': 'Justificação não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            sf.anular_justificacao(j, request.user)
+        except sf.ErroJustificacao as e:
+            return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        registrar_auditoria(usuario=request.user, escola=escola, entidade='PresencaAluno', acao='ANULAR_JUSTIFICACAO_FALTAS',
+                            objeto_id=str(j.aluno_id), descricao=f'Justificação de {j.quantidade} falta(s) anulada.')
+        return Response({'success': True})
 
     @action(detail=False, methods=['get'], url_path='exportar')
     def exportar(self, request):

@@ -199,9 +199,9 @@ class TestPresencasAlunos:
         assert self._lote(data='2026-06-01', aulas=2).status_code == 200   # 2 faltas no 2.º T
         r = self.client.get(f'/api/v1/alunos/presencas/faltas-geral/?ano_letivo=2026&turma_id={self.turma26.id}')
         assert r.status_code == 200
-        linha = r.data['resultados'][0]
-        assert (linha['f1'], linha['f2'], linha['f3'], linha['total']) == (3, 2, 0, 5)
-        assert linha['disciplina'] == 'Matemática'
+        assert [d['nome'] for d in r.data['disciplinas']] == ['Matemática']
+        x = r.data['alunos'][0]['disc'][str(self.disc.id)]
+        assert (x['f1'], x['f2'], x['f3'], x['total'], x['j']) == (3, 2, 0, 5, 0)
         resumo = self.client.get(f'/api/v1/alunos/presencas/resumo/?turma_id={self.turma26.id}').data['resultados'][0]
         assert (resumo['f1'], resumo['f2'], resumo['faltas_total']) == (3, 2, 5)
         assert self.client.get(f'/api/v1/alunos/presencas/trimestre/?data=2026-06-10').data['trimestre'] == 2
@@ -223,12 +223,71 @@ class TestPresencasAlunos:
         al = compilar_dados_caderneta(req, aloc.id)[2][0]
         assert (al['t1']['faltas'], al['t2']['faltas'], al['t3']['faltas'], al['faltas_total']) == (2, 1, 0, 3)
 
-    def test_faltas_geral_exporta_pdf_e_xlsx(self):
+    def test_faltas_geral_exporta_resumo_e_detalhado(self):
         self._lote()
-        for fmt, tipo in (('pdf', 'application/pdf'), ('xlsx', 'spreadsheetml')):
-            r = self.client.get(f'/api/v1/alunos/presencas/faltas-geral/?formato={fmt}&classe=7ª Classe&carimbo=nao')
-            assert r.status_code == 200 and tipo in r['Content-Type']
+        for modo in ('resumo', 'detalhado'):
+            for fmt, tipo in (('pdf', 'application/pdf'), ('xlsx', 'spreadsheetml')):
+                r = self.client.get(f'/api/v1/alunos/presencas/faltas-geral/?formato={fmt}&modo={modo}&classe=7ª Classe&carimbo=nao')
+                assert r.status_code == 200 and tipo in r['Content-Type'], (modo, fmt)
         assert self.client.get('/api/v1/alunos/presencas/faltas-geral/?formato=doc&carimbo=nao').status_code == 400
+
+    def _direccao(self):
+        u = Usuario.objects.create_user(email='dir.pres@sige.mz', password='PassDir123!', role='DIRECTOR_ESCOLA', escola=self.escola)
+        c = APIClient()
+        c.force_authenticate(u)
+        return c
+
+    def test_justificar_quantidade_reduz_faltas_e_pode_anular(self):
+        from datetime import date
+        self.escola.data_inicio_t1, self.escola.data_fim_t1 = date(2026, 2, 1), date(2026, 4, 30)
+        self.escola.save()
+        self.user.escola = self.escola
+        self._lote(data='2026-03-02', aulas=2)   # 2 faltas
+        self._lote(data='2026-03-09', aulas=1)   # +1 falta = 3 no 1.º T
+        direcao = self._direccao()
+        corpo = {'aluno': str(self.aluno.id), 'disciplina': str(self.disc.id), 'trimestre': 1, 'quantidade': 2, 'motivo': 'doença'}
+        # só direcção/secretaria justifica; o professor não
+        assert self.client.post('/api/v1/alunos/presencas/justificar-faltas/', corpo, format='json').status_code == 403
+        assert direcao.post('/api/v1/alunos/presencas/justificar-faltas/', {**corpo, 'quantidade': 4}, format='json').status_code == 400
+        r = direcao.post('/api/v1/alunos/presencas/justificar-faltas/', corpo, format='json')
+        assert r.status_code == 200
+        pivot = direcao.get('/api/v1/alunos/presencas/faltas-geral/?ano_letivo=2026').data
+        x = pivot['alunos'][0]['disc'][str(self.disc.id)]
+        assert (x['f1'], x['j']) == (1, 2)          # 3 marcadas - 2 justificadas = 1 efectiva
+        assert pivot['alunos'][0]['justificadas_txt'] == 'Mat: 2'
+        # a mais antiga (aula dupla) ficou totalmente justificada; a simples continua injustificada
+        estados = dict(PresencaAluno.objects.values_list('data', 'status'))
+        assert estados[date(2026, 3, 2)] == 'FALTA_JUSTIFICADA' and estados[date(2026, 3, 9)] == 'FALTA_INJUSTIFICADA'
+        # a caderneta passa a mostrar as faltas efectivas
+        resumo = direcao.get(f'/api/v1/alunos/presencas/resumo/?turma_id={self.turma26.id}').data['resultados'][0]
+        assert resumo['f1'] == 1
+        # detalhe por data + histórico
+        det = direcao.get(f'/api/v1/alunos/presencas/faltas-detalhe/?aluno_id={self.aluno.id}').data
+        assert [(f['data'], f['aulas'], f['justificadas'], f['efectivas']) for f in det['faltas']] == [
+            ('2026-03-02', 2, 2, 0), ('2026-03-09', 1, 0, 1)]
+        assert det['justificacoes'][0]['quantidade'] == 2
+        # anular devolve as faltas
+        jid = det['justificacoes'][0]['id']
+        assert direcao.post('/api/v1/alunos/presencas/anular-justificacao/', {'id': jid}, format='json').status_code == 200
+        assert direcao.post('/api/v1/alunos/presencas/anular-justificacao/', {'id': jid}, format='json').status_code == 400
+        x = direcao.get('/api/v1/alunos/presencas/faltas-geral/?ano_letivo=2026').data['alunos'][0]['disc'][str(self.disc.id)]
+        assert (x['f1'], x['j']) == (3, 0)
+        assert PresencaAluno.objects.get(data='2026-03-02').status == 'FALTA_INJUSTIFICADA'
+
+    def test_periodo_vem_do_calendario_de_prazos(self):
+        from datetime import date
+        self._lote(data='2026-03-02', aulas=1)
+        self._lote(data='2026-06-01', aulas=2)
+        base = '/api/v1/alunos/presencas/faltas-geral/?ano_letivo=2026&periodo='
+        assert self.client.get(base + 'T1').status_code == 400   # calendário sem datas: pede configuração
+        self.escola.data_inicio_t1, self.escola.data_fim_t1 = date(2026, 2, 1), date(2026, 4, 30)
+        self.escola.data_inicio_t2, self.escola.data_fim_t2 = date(2026, 5, 1), date(2026, 8, 31)
+        self.escola.save()
+        self.user.escola = self.escola
+        t2 = self.client.get(base + 'T2').data['alunos'][0]['disc'][str(self.disc.id)]
+        assert (t2['f1'], t2['f2']) == (0, 2)
+        pers = self.client.get('/api/v1/alunos/presencas/faltas-geral/?data_inicio=2026-03-01&data_fim=2026-03-31').data
+        assert pers['alunos'][0]['total'] == 1
 
     def test_faltas_geral_professor_so_ve_as_suas_disciplinas(self):
         outro = Professor.objects.create(escola=self.escola, nome='Outro', email='outro.pres@sige.mz', especialidade='Física')
@@ -237,7 +296,7 @@ class TestPresencasAlunos:
                                      data='2026-03-02', status='FALTA_INJUSTIFICADA', aulas=2)
         self._lote()
         r = self.client.get('/api/v1/alunos/presencas/faltas-geral/')
-        assert [x['disciplina'] for x in r.data['resultados']] == ['Matemática']
+        assert [d['nome'] for d in r.data['disciplinas']] == ['Matemática']
 
     def test_parametros_invalidos_dao_400_e_nao_500(self):
         for url in ('/api/v1/alunos/presencas/?turma_id=abc',

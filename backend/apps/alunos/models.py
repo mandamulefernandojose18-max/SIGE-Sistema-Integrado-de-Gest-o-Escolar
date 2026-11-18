@@ -183,6 +183,8 @@ class PresencaAluno(models.Model):
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='PRESENTE')
     # Nº de aulas do tempo lectivo: 1 = aula simples (1 falta); 2 = aula dupla (2 faltas por cada ausência)
     aulas = models.PositiveSmallIntegerField(default=1, choices=[(1, 'Aula simples (1)'), (2, 'Aula dupla (2)')])
+    # Faltas (de `aulas`) já justificadas: 0..aulas. Reduz as faltas efectivas do aluno.
+    aulas_justificadas = models.PositiveSmallIntegerField(default=0)
     observacao = models.CharField(max_length=255, blank=True, default='')
     registado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     # Justificação posterior (secretaria/direcção) de uma falta injustificada
@@ -213,6 +215,43 @@ class PresencaAluno(models.Model):
 
     def __str__(self):
         return f'{self.aluno.nome} - {self.data} - {self.status}'
+
+    @property
+    def eh_falta(self):
+        return self.status in ('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA')
+
+    @property
+    def faltas_brutas(self):
+        """Aula simples = 1 falta; aula dupla = 2 faltas (automático)."""
+        return (self.aulas or 1) if self.eh_falta else 0
+
+    @property
+    def faltas_efectivas(self):
+        return max(self.faltas_brutas - (self.aulas_justificadas or 0), 0)
+
+
+class JustificacaoFalta(models.Model):
+    """Registo auditável de uma justificação de N faltas de um aluno numa disciplina/trimestre.
+    `alocacao` guarda quantas faltas foram abatidas em cada presença ({presenca_id: n}) para poder anular."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='justificacoes_faltas')
+    aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE, related_name='justificacoes_faltas')
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, null=True, blank=True, related_name='+')
+    trimestre = models.PositiveSmallIntegerField()
+    quantidade = models.PositiveSmallIntegerField()
+    motivo = models.CharField(max_length=255)
+    alocacao = models.JSONField(default=dict)
+    justificada_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    anulada = models.BooleanField(default=False)
+    anulada_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    anulada_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'sige_justificacoes_faltas'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['escola', 'aluno'])]
+
 
 class TransferenciaAnulacao(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

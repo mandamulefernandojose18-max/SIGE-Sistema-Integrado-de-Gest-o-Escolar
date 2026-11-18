@@ -203,11 +203,11 @@ class PresencaAlunoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'escola', 'aluno', 'aluno_nome', 'aluno_matricula',
             'turma', 'turma_nome', 'disciplina', 'disciplina_nome',
-            'professor', 'data', 'trimestre', 'status', 'aulas', 'observacao', 'registado_por',
+            'professor', 'data', 'trimestre', 'status', 'aulas', 'aulas_justificadas', 'observacao', 'registado_por',
             'justificacao', 'justificada_em', 'pedido_justificacao', 'pedido_justificacao_em',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'escola', 'professor', 'registado_por',
+        read_only_fields = ['id', 'escola', 'professor', 'registado_por', 'aulas_justificadas',
                             'justificacao', 'justificada_em', 'pedido_justificacao', 'pedido_justificacao_em',
                             'created_at', 'updated_at']
 

@@ -28,6 +28,9 @@ window.carregarPresencasAno = async function (ano) {
   if (wrapDisc) wrapDisc.style.display = '';
   const wrapAulas = document.getElementById('presAulasWrap');
   if (wrapAulas) wrapAulas.style.display = prof ? '' : 'none';
+  const infoAulas = document.getElementById('presAulasInfoWrap');
+  if (infoAulas) infoAulas.style.display = prof ? '' : 'none';
+  document.getElementById('presAulas')?.addEventListener('change', presAtualizarInfoAulas);
   const sub = document.getElementById('presencasSubtitulo');
   if (sub) sub.textContent = prof
     ? 'Lance as presenças e faltas (justificadas/injustificadas) dos alunos das suas turmas.'
@@ -160,7 +163,6 @@ window.presCarregarAlunos = async function () {
     }
     await presCarregarRisco(turmaId);
     presRenderLista();
-    presCarregarGeral();
   } catch (e) {
     tbody.innerHTML = presLinhaVazia('Erro ao carregar a lista de assiduidade.', 'text-danger');
   }
@@ -313,44 +315,232 @@ async function presMostrarTrimestre(data) {
   } catch (e) { el.textContent = ''; }
 }
 
-// Lista geral de faltas acumuladas (aluno × disciplina; 1.º/2.º/3.º trimestre e total).
+// ===================== LISTA GERAL DE FALTAS (aluno × disciplina × trimestre) =====================
+// Um aluno por linha; disciplinas na horizontal (1.º/2.º/3.º trimestre = faltas efectivas, já sem as justificadas);
+// coluna final «Faltas justificadas» (ex.: Mat: 2). Filtros em cascata mantêm a altura constante para qualquer n.
+const pgState = { alunos: [], discs: [], discsTodas: [], aluno: null, detalhe: null };
+
+window.presAbrirGeral = function () {
+  if (!presState.ano) return;
+  if (!document.getElementById('pgClasse')?.options.length) presGeralPreencherClasses();
+  presCarregarGeral();
+};
+
+function presGeralPreencherClasses() {
+  const classes = [...new Set(presState.itens.map(i => i.classe))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const sel = document.getElementById('pgClasse');
+  if (sel) sel.innerHTML = '<option value="">Todas as classes</option>' + classes.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  presGeralMudouClasse(false);
+  const sd = document.getElementById('pgDisciplina');
+  if (sd && presEhProfessor()) {
+    const m = new Map();
+    presState.itens.forEach(i => m.set(i.discId, i.discNome));
+    sd.innerHTML = '<option value="">Todas as minhas disciplinas</option>' + [...m.entries()].map(([id, n]) => `<option value="${escapeHtml(id)}">${escapeHtml(n)}</option>`).join('');
+  }
+}
+
+window.presGeralMudouClasse = function (recarregar = true) {
+  const classe = document.getElementById('pgClasse')?.value;
+  const areas = [...new Set(presState.itens.filter(i => !classe || i.classe === classe).map(i => i.area))].sort();
+  const sel = document.getElementById('pgArea');
+  if (sel) sel.innerHTML = '<option value="">Todas as secções</option>' + areas.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  presGeralMudouArea(recarregar);
+};
+
+window.presGeralMudouArea = function (recarregar = true) {
+  const classe = document.getElementById('pgClasse')?.value;
+  const area = document.getElementById('pgArea')?.value;
+  const m = new Map();
+  presState.itens.filter(i => (!classe || i.classe === classe) && (!area || i.area === area)).forEach(i => m.set(i.turmaId, `${i.classe} ${i.turmaNome}`.trim()));
+  const ord = [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }));
+  const sel = document.getElementById('pgTurma');
+  if (sel) sel.innerHTML = '<option value="">Todas as turmas</option>' + ord.map(([id, n]) => `<option value="${escapeHtml(id)}">${escapeHtml(n)}</option>`).join('');
+  if (recarregar !== false) presCarregarGeral();
+};
+
+window.presGeralMudouPeriodo = function () {
+  const pers = document.getElementById('pgPeriodo')?.value === 'PERSONALIZADO';
+  document.querySelectorAll('.pg-datas').forEach(el => { el.style.display = pers ? '' : 'none'; });
+  presCarregarGeral();
+};
+
 function presParamsGeral() {
-  const ambito = document.getElementById('presGeralAmbito')?.value || 'turma';
   const p = new URLSearchParams({ ano_letivo: presState.ano });
-  const classe = document.getElementById('presClasse')?.value;
-  const area = document.getElementById('presArea')?.value;
-  const turma = document.getElementById('presTurma')?.value;
-  const disc = document.getElementById('presDisciplina')?.value;
-  if (ambito !== 'todas' && classe) p.set('classe', classe);
-  if ((ambito === 'area' || ambito === 'turma') && area) p.set('area', area);
-  if (ambito === 'turma' && turma) p.set('turma_id', turma);
-  if (disc) p.set('disciplina_id', disc);
+  const v = (id) => document.getElementById(id)?.value || '';
+  if (v('pgClasse')) p.set('classe', v('pgClasse'));
+  if (v('pgArea')) p.set('area', v('pgArea'));
+  if (v('pgTurma')) p.set('turma_id', v('pgTurma'));
+  if (v('pgDisciplina')) p.set('disciplina_id', v('pgDisciplina'));
+  const per = v('pgPeriodo') || 'ANO';
+  p.set('periodo', per);
+  if (per === 'PERSONALIZADO') {
+    if (v('pgDe')) p.set('data_inicio', v('pgDe'));
+    if (v('pgAte')) p.set('data_fim', v('pgAte'));
+  }
   return p;
 }
 
 window.presCarregarGeral = async function () {
-  const tbody = document.getElementById('presGeralCorpo');
-  if (!tbody || !presState.ano) return;
+  const corpo = document.getElementById('pgCorpo');
+  if (!corpo || !presState.ano) return;
+  corpo.innerHTML = '<tr><td class="text-muted py-4"><i class="bi bi-arrow-repeat spin me-2"></i>A carregar...</td></tr>';
   try {
     const res = await apiFetch(`/api/v1/alunos/presencas/faltas-geral/?${presParamsGeral()}`);
-    const dados = res?.resultados || [];
-    tbody.innerHTML = dados.length ? dados.map((r, i) => `<tr>
-      <td class="ps-3 text-muted">${i + 1}</td><td class="font-monospace small">${escapeHtml(r.matricula)}</td>
-      <td class="fw-semibold">${escapeHtml(r.nome)}</td><td>${escapeHtml(r.classe)}</td><td>${escapeHtml(r.turma)}</td>
-      <td>${escapeHtml(r.disciplina)}</td><td class="text-center">${r.f1}</td><td class="text-center">${r.f2}</td>
-      <td class="text-center">${r.f3}</td><td class="text-center fw-bold pe-3">${r.total}</td></tr>`).join('')
-      : '<tr><td colspan="10" class="text-center text-muted py-3">Ainda não existem faltas registadas para os filtros escolhidos.</td></tr>';
+    if (res?.success === false) throw new Error(res.message || res.detail || 'Erro');
+    pgState.alunos = res?.alunos || [];
+    pgState.discs = res?.disciplinas || [];
+    // opções do filtro de disciplina (consulta): as que existem no resultado sem filtro de disciplina
+    const sd = document.getElementById('pgDisciplina');
+    if (sd && !presEhProfessor() && !sd.value) {
+      sd.innerHTML = '<option value="">Todas as disciplinas</option>' + pgState.discs.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.nome)}</option>`).join('');
+    }
+    presRenderGeral();
   } catch (e) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-3">Erro ao carregar a lista geral de faltas.</td></tr>';
+    pgState.alunos = []; pgState.discs = [];
+    document.getElementById('pgCabeca').innerHTML = '';
+    corpo.innerHTML = `<tr><td class="text-danger py-4">${escapeHtml(e?.message || 'Erro ao carregar a lista geral de faltas.')}</td></tr>`;
   }
 };
 
-window.presExportarGeral = function (formato) {
-  const p = presParamsGeral();
-  p.set('formato', formato);
-  return downloadFicheiroBinario(`/api/v1/alunos/presencas/faltas-geral/?${p}`, `faltas-acumuladas.${formato}`);
+window.presRenderGeral = function () {
+  const cab = document.getElementById('pgCabeca');
+  const corpo = document.getElementById('pgCorpo');
+  const resumo = document.getElementById('pgResumo');
+  if (!cab || !corpo) return;
+  const termo = (document.getElementById('pgBusca')?.value || '').trim().toLowerCase();
+  const alunos = pgState.alunos.filter(a => !termo || `${a.nome} ${a.matricula}`.toLowerCase().includes(termo));
+  if (!pgState.alunos.length) {
+    cab.innerHTML = '';
+    corpo.innerHTML = '<tr><td class="text-muted py-4">Ainda não existem registos de assiduidade para os filtros escolhidos.</td></tr>';
+    if (resumo) resumo.innerHTML = '&nbsp;';
+    return;
+  }
+  const D = pgState.discs;
+  const stick = 'position: sticky; left: 0; background: #fff; z-index: 1;';
+  const bl = 'border-left: 2px solid #1e3a8a !important;';
+  cab.innerHTML = `<tr>
+      <th rowspan="2" class="align-middle">#</th>
+      <th rowspan="2" class="align-middle text-start" style="min-width: 190px; position: sticky; left: 0; z-index: 2; background: #f8f9fa;">Aluno</th>
+      <th rowspan="2" class="align-middle">Turma</th>
+      ${D.map(d => `<th colspan="3" class="text-nowrap" style="${bl}" title="${escapeHtml(d.nome)}">${escapeHtml(d.nome)}</th>`).join('')}
+      <th rowspan="2" class="align-middle" style="${bl}">Total</th>
+      <th rowspan="2" class="align-middle" style="min-width: 150px;">Faltas justificadas</th>
+    </tr><tr>${D.map(() => `<th style="${bl}">1.º T</th><th>2.º T</th><th>3.º T</th>`).join('')}</tr>`;
+  const cel = (n) => n ? `<span class="text-danger fw-semibold">${n}</span>` : '<span class="text-muted">0</span>';
+  corpo.innerHTML = alunos.length ? alunos.map((a, i) => `<tr>
+      <td class="text-muted">${i + 1}</td>
+      <td class="text-start fw-semibold" style="${stick}"><a href="#" class="text-decoration-none" onclick="presAbrirFaltasAluno('${escapeHtml(a.aluno)}'); return false;" title="Ver datas e justificar">${escapeHtml(a.nome)}</a><div class="small text-muted font-monospace">${escapeHtml(a.matricula || '')}</div></td>
+      <td class="text-nowrap">${escapeHtml((a.classe + ' ' + a.turma).trim())}</td>
+      ${D.map(d => { const x = a.disc[d.id]; return x ? `<td style="${bl}">${cel(x.f1)}</td><td>${cel(x.f2)}</td><td>${cel(x.f3)}</td>` : `<td style="${bl}" class="text-muted">–</td><td class="text-muted">–</td><td class="text-muted">–</td>`; }).join('')}
+      <td class="fw-bold" style="${bl}">${a.total}</td>
+      <td class="small text-start">${a.justificadas_txt ? escapeHtml(a.justificadas_txt) : '<span class="text-muted">–</span>'}</td>
+    </tr>`).join('') : `<tr><td colspan="${5 + 3 * D.length}" class="text-muted py-4">Nenhum aluno corresponde à pesquisa.</td></tr>`;
+  if (resumo) {
+    const tot = alunos.reduce((s, a) => s + a.total, 0);
+    const j = alunos.reduce((s, a) => s + a.justificadas_total, 0);
+    resumo.innerHTML = `${alunos.length} aluno(s) · ${D.length} disciplina(s) · <b class="text-danger">${tot}</b> falta(s) efectiva(s) · ${j} justificada(s)`;
+  }
 };
 
+window.presExportarGeral = function (formato, modo) {
+  const p = presParamsGeral();
+  p.set('formato', formato);
+  p.set('modo', modo);
+  return downloadFicheiroBinario(`/api/v1/alunos/presencas/faltas-geral/?${p}`, `${modo === 'detalhado' ? 'faltas-detalhadas' : 'faltas-acumuladas'}.${formato}`);
+};
+
+// ---- Janela: faltas do aluno por data + justificação por quantidade ----
+window.presAbrirFaltasAluno = async function (alunoId) {
+  pgState.aluno = pgState.alunos.find(a => a.aluno === alunoId) || null;
+  document.getElementById('pmNome').textContent = pgState.aluno ? `${pgState.aluno.nome} — faltas por data` : 'Faltas do aluno';
+  const el = document.getElementById('presModalFaltas');
+  if (!el) return;
+  bootstrap.Modal.getOrCreateInstance(el).show();
+  await presRecarregarModal();
+};
+
+async function presRecarregarModal() {
+  const a = pgState.aluno;
+  if (!a) return;
+  const corpo = document.getElementById('pmFaltas');
+  corpo.innerHTML = '<tr><td colspan="8" class="text-muted py-3">A carregar...</td></tr>';
+  const p = new URLSearchParams({ ano_letivo: presState.ano, aluno_id: a.aluno });
+  try {
+    const res = await apiFetch(`/api/v1/alunos/presencas/faltas-detalhe/?${p}`);
+    pgState.detalhe = res || { faltas: [], justificacoes: [] };
+  } catch (e) { pgState.detalhe = { faltas: [], justificacoes: [] }; }
+  const f = pgState.detalhe.faltas;
+  const fmtData = (iso) => iso.split('-').reverse().join('/');
+  corpo.innerHTML = f.length ? f.map(r => {
+    const estado = r.efectivas === 0 ? '<span class="badge bg-success">Justificada</span>' : r.justificadas ? '<span class="badge bg-warning text-dark">Parcialmente justificada</span>' : '<span class="badge bg-danger">Injustificada</span>';
+    const nota = [r.observacao, r.justificacao ? `Justif.: ${r.justificacao}` : ''].filter(Boolean).join(' · ');
+    return `<tr><td class="text-nowrap">${fmtData(r.data)}</td><td>${escapeHtml(r.disciplina)}</td><td class="text-center">${r.trimestre ? r.trimestre + '.º' : '–'}</td>
+      <td class="text-center">${r.aulas === 2 ? 'Dupla (2 aulas)' : 'Simples (1 aula)'}</td><td class="text-center">${r.aulas}</td>
+      <td class="text-center">${r.justificadas}</td><td class="text-center fw-bold ${r.efectivas ? 'text-danger' : ''}">${r.efectivas}</td>
+      <td>${estado}<div class="small text-muted">${escapeHtml(nota)}</div></td></tr>`;
+  }).join('') : '<tr><td colspan="8" class="text-center text-muted py-3">Este aluno não tem faltas registadas.</td></tr>';
+  const totB = f.reduce((s, r) => s + r.aulas, 0), totJ = f.reduce((s, r) => s + r.justificadas, 0);
+  document.getElementById('pmResumo').innerHTML = `<span class="badge bg-secondary fs-6">Marcadas: ${totB}</span><span class="badge bg-success fs-6">Justificadas: ${totJ}</span><span class="badge bg-danger fs-6">Efectivas: ${totB - totJ}</span>`;
+  const js = pgState.detalhe.justificacoes || [];
+  const podeJ = PRES_PERFIS_JUSTIFICAR.includes(state.user?.role);
+  document.getElementById('pmJustificacoes').innerHTML = js.length ? js.map(j => `<tr class="${j.anulada ? 'text-decoration-line-through text-muted' : ''}">
+      <td>${fmtData(j.data)}</td><td>${escapeHtml(j.disciplina)}</td><td class="text-center">${j.trimestre}.º</td><td class="text-center">${j.quantidade}</td>
+      <td>${escapeHtml(j.motivo)}</td><td>${escapeHtml(j.por || '')}</td>
+      <td class="text-end">${podeJ && !j.anulada ? `<button class="btn btn-sm btn-outline-danger" onclick="presAnularJustificacao('${escapeHtml(j.id)}')">Anular</button>` : (j.anulada ? 'anulada' : '')}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="text-center text-muted py-3">Sem justificações registadas.</td></tr>';
+  // formulário: só combinações disciplina × trimestre com faltas por justificar
+  const alvo = {};
+  f.forEach(r => {
+    if (!r.trimestre) return;
+    const k = `${r.disciplina_id}|${r.trimestre}`;
+    alvo[k] = alvo[k] || { disc: r.disciplina, pend: 0 };
+    alvo[k].pend += r.efectivas;
+  });
+  const opts = Object.entries(alvo).filter(([, v]) => v.pend > 0);
+  pgState.alvos = Object.fromEntries(opts);
+  const form = document.getElementById('pmFormJustificar');
+  form.style.display = podeJ ? '' : 'none';
+  const sel = document.getElementById('pmAlvo');
+  sel.innerHTML = opts.length ? opts.map(([k, v]) => `<option value="${escapeHtml(k)}">${escapeHtml(v.disc)} — ${k.split('|')[1]}.º T (${v.pend} por justificar)</option>`).join('')
+    : '<option value="">Sem faltas por justificar</option>';
+  document.getElementById('pmBtn').disabled = !opts.length;
+  presModalAlvo();
+}
+
+window.presModalAlvo = function () {
+  const v = pgState.alvos?.[document.getElementById('pmAlvo')?.value];
+  const q = document.getElementById('pmQtd');
+  document.getElementById('pmMax').textContent = v ? `(máx. ${v.pend})` : '';
+  if (q) { q.max = v ? v.pend : ''; q.value = v ? Math.min(1, v.pend) : ''; }
+};
+
+window.presModalJustificar = async function () {
+  const [disciplina, trimestre] = (document.getElementById('pmAlvo')?.value || '').split('|');
+  const quantidade = Number(document.getElementById('pmQtd')?.value || 0);
+  const motivo = (document.getElementById('pmMotivo')?.value || '').trim();
+  if (!disciplina || !quantidade || quantidade < 1) { mostrarToast('Indique o número de faltas a justificar.', 'warning'); return; }
+  if (!motivo) { mostrarToast('Indique o motivo da justificação.', 'warning'); return; }
+  try {
+    const res = await apiFetch('/api/v1/alunos/presencas/justificar-faltas/', {
+      method: 'POST', body: JSON.stringify({ aluno: pgState.aluno.aluno, disciplina, trimestre: Number(trimestre), quantidade, motivo })
+    });
+    if (res?.success) {
+      mostrarToast(`${quantidade} falta(s) justificada(s). As faltas efectivas foram reduzidas.`, 'success');
+      document.getElementById('pmMotivo').value = '';
+      await presRecarregarModal();
+      presCarregarGeral();
+    } else mostrarToast(res?.message || res?.detail || 'Não foi possível justificar.', 'danger');
+  } catch (e) { mostrarToast(e?.message || 'Erro ao justificar as faltas.', 'danger'); }
+};
+
+window.presAnularJustificacao = async function (id) {
+  if (!confirm('Anular esta justificação? As faltas voltam a contar.')) return;
+  try {
+    const res = await apiFetch('/api/v1/alunos/presencas/anular-justificacao/', { method: 'POST', body: JSON.stringify({ id }) });
+    if (res?.success) { mostrarToast('Justificação anulada.', 'success'); await presRecarregarModal(); presCarregarGeral(); }
+    else mostrarToast(res?.message || res?.detail || 'Não foi possível anular.', 'danger');
+  } catch (e) { mostrarToast(e?.message || 'Erro ao anular a justificação.', 'danger'); }
+};
 const PRES_PERFIS_LIMITE = ['DIRECTOR_ESCOLA', 'ADMIN_ESCOLA', 'SUPERADMIN'];
 const PRES_PERFIS_SMS = ['SUPERADMIN', 'ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'FINANCEIRO'];
 
@@ -446,7 +636,9 @@ function presAtualizarResumo() {
     ? ` · <a href="#" class="small" onclick="presDefinirLimite(); return false;">${presState.limite ? 'alterar' : 'definir'} limite de faltas</a>` : '';
   resumo.innerHTML = `${presState.alunos.length} alunos${limiteTxt}${btnLimite} ·<span class="text-success">${cont.PRESENTE} presentes</span> · ` +
     `<span class="text-warning">${cont.FALTA_JUSTIFICADA} F. justif.</span> · ` +
-    `<span class="text-danger">${cont.FALTA_INJUSTIFICADA} F. injustif.</span> · ${cont.ATRASO} atrasos`;
+    `<span class="text-danger">${cont.FALTA_INJUSTIFICADA} F. injustif.</span> · ${cont.ATRASO} atrasos` +
+    (presEhProfessor() && document.getElementById('presAulas')?.value
+      ? ` · <b>${(cont.FALTA_JUSTIFICADA + cont.FALTA_INJUSTIFICADA) * Number(document.getElementById('presAulas').value)} falta(s) a registar</b>` : '');
 }
 
 window.presMarcarTodosPresentes = function () {
@@ -494,3 +686,17 @@ window.presSalvarLote = async function () {
     if (btn) btn.disabled = false;
   }
 };
+
+// Aviso imediato do que cada ausência vai valer (1 aula = 1 falta; aula dupla = 2 faltas).
+function presAtualizarInfoAulas() {
+  const v = document.getElementById('presAulas')?.value;
+  const el = document.getElementById('presAulasInfo');
+  if (!el) return;
+  el.className = 'alert py-2 px-3 mb-0 small ' + (v === '2' ? 'alert-warning' : 'alert-info');
+  el.innerHTML = v === '2'
+    ? '<i class="bi bi-2-square me-1"></i><b>Aula dupla (2 aulas):</b> cada aluno ausente fica com <b>2 faltas</b> automaticamente.'
+    : v === '1'
+      ? '<i class="bi bi-1-square me-1"></i><b>1 aula:</b> cada aluno ausente fica com <b>1 falta</b>.'
+      : '<i class="bi bi-info-circle me-1"></i>Escolha o tipo de aula: <b>1 aula = 1 falta</b> · <b>aula dupla (2 aulas) = 2 faltas</b>, contadas automaticamente por aluno ausente.';
+  presAtualizarResumo();
+}
