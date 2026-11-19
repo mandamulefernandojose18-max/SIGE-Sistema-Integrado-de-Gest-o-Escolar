@@ -15,6 +15,7 @@ from .views import (
     ClassesExamesConfigView
 )
 
+from .saas_painel_views import SaasLogsAcessoView, SaasEscolasOpcoesView
 from .saas_views import (
     SaasResumoView,
     SaasAlarmesView,
@@ -45,6 +46,10 @@ escola_router = OptionalSlashRouter()
 escola_router.register(r'anos-letivos', AnoLectivoViewSet, basename='escola_ano_letivo')
 
 saas_admin_urls = [
+    path('logs-acesso', SaasLogsAcessoView.as_view(), name='saas_logs_acesso_no_slash'),
+    path('logs-acesso/', SaasLogsAcessoView.as_view(), name='saas_logs_acesso'),
+    path('escolas-opcoes', SaasEscolasOpcoesView.as_view(), name='saas_escolas_opcoes_no_slash'),
+    path('escolas-opcoes/', SaasEscolasOpcoesView.as_view(), name='saas_escolas_opcoes'),
     path('metrics', SaaSMetricsView.as_view(), name='saas_metrics_no_slash'),
     path('metrics/', SaaSMetricsView.as_view(), name='saas_metrics'),
     path('verificar-expiracoes', VerificarExpiracoesView.as_view(), name='saas_verificar_expiracoes_no_slash'),

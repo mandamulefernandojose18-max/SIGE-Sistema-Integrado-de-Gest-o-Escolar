@@ -90,7 +90,10 @@
 | `POST`| `/api/v1/saas-admin/escolas/<uuid:pk>/toggle-status/` | `SUPERADMIN` | Alterna o status da escola entre `ATIVA` e `SUSPENSA`. |
 | `GET` | `/api/v1/saas-admin/escolas/<uuid:pk>/comprovativo-contrato/` | `SUPERADMIN` | Emite o comprovativo formal de assinatura em PDF com termos do plano. |
 | `GET` | `/api/v1/saas-admin/planos/` | `SUPERADMIN` | Catálogo de planos de subscrição (`MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`). |
-| `POST`| `/api/v1/saas-admin/planos/<uuid:pk>/preco/` | `SUPERADMIN` | Atualiza o valor em Meticais (`MZN`) de um plano. |
+| `POST/PATCH`| `/api/v1/saas-admin/planos/<uuid:pk>/preco/` | `SUPERADMIN` | Atualiza o valor em Meticais (`MZN`) de um plano. Valida valor numérico entre 0 e 99 999 999,99 (400 caso contrário) e regista a alteração na auditoria. |
+| `GET` | `/api/v1/saas-admin/logs-acesso/` | `SUPERADMIN` | Logs de acesso de todas as escolas, paginados (`pagina`, `tamanho` ≤ 100) com filtros `escola`, `tipo`, `q`. Resposta: `data` + `meta{total,pagina,paginas,tamanho}`. |
+| `GET` | `/api/v1/saas-admin/escolas-opcoes/` | `SUPERADMIN` | Lista leve (`id`, `nome`, `codigo`) para os filtros de escola do painel. |
+| `GET` | `/api/v1/escola-admin/usuarios-credenciais/` | `ADMIN_ESCOLA`, `SUPERADMIN` | Para o SuperAdmin (sem escola em inspecção): paginado com filtros `escola`, `role`, `q`, `pagina`, `tamanho` ≤ 100 e `meta`. |
 | `POST`| `/api/v1/saas-admin/verificar-expiracoes/` | `SUPERADMIN` | Executa a varredura manual de assinaturas expiradas (rotina diária). |
 
 ---
@@ -104,13 +107,13 @@
 | `GET` | `/api/v1/saas/assinaturas/<uuid:pk>/` | `SUPERADMIN` | Consulta detalhe do contrato da instituição. |
 | `POST`| `/api/v1/saas/assinaturas/<uuid:pk>/configurar/` | `SUPERADMIN` | Configura cotas personalizadas de alunos e professores. |
 | `GET` | `/api/v1/saas/pagamentos/pendentes/` | `SUPERADMIN` | Lista depósitos e transferências bancárias pendentes de aprovação. |
-| `POST`| `/api/v1/saas/pagamentos/<uuid:pk>/confirmar/` | `SUPERADMIN` | Confirma o pagamento da escola e renova a vigência da assinatura. |
-| `POST`| `/api/v1/saas/pagamentos/<uuid:pk>/rejeitar/` | `SUPERADMIN` | Rejeita comprovativo inválido de transferência bancária. |
+| `POST`| `/api/v1/saas/pagamentos/<uuid:pk>/confirmar/` | `SUPERADMIN` | Confirma o pagamento da escola e renova a vigência da assinatura. Só aceita pagamentos no estado `enviado` (bloqueio de linha); um pagamento já confirmado ou rejeitado devolve `409`. |
+| `POST`| `/api/v1/saas/pagamentos/<uuid:pk>/rejeitar/` | `SUPERADMIN` | Rejeita comprovativo inválido (motivo obrigatório). Também só aceita o estado `enviado` (`409` caso contrário). |
 | `POST`| `/api/v1/saas/faturas/<uuid:pk>/prorrogar/` | `SUPERADMIN` | Concede dias de tolerância antes do bloqueio da instituição. |
 | `POST`| `/api/v1/saas/instituicoes/<uuid:pk>/suspender-reactivar/` | `SUPERADMIN` | Gestão de Acesso: Suspensão/Reactivação Manuais (com justificativa) e Automáticas ('auto_suspender', 'auto_reactivar', 'auto_avaliar'). |
 | `POST`| `/api/v1/saas/rotina-diaria/` | `SUPERADMIN` | Executa o ciclo diário de faturação, aplicação de multas e suspensão/reactivação automática. |
 | `GET` | `/api/v1/saas/minha-assinatura/` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
-| `POST`| `/api/v1/saas/registar-pagamento/` | Admin Escola | Envia comprovativo de pagamento de mensalidade para homologação. |
+| `POST`| `/api/v1/saas/registar-pagamento/` | `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA` (e SuperAdmin em nome da escola) | Envia comprovativo de pagamento para homologação. Valida: método (`M-Pesa`, `e-Mola`, `transferencia_bancaria`, `numerario`), valor (0,01 a 99 999 999,99), referência (≤ 100 caracteres e única entre pagamentos `enviado`/`confirmado` da escola), ficheiro PDF/JPG/PNG ≤ 5 MB com conteúdo coerente com a extensão, e `comprovativo_base64` apenas como data URL de imagem/PDF. |
 | `GET` | `/api/v1/saas/coordenadas/` | Autenticado | Consulta as contas bancárias e carteiras móveis oficiais (iniciam em branco, sem dados fictícios). |
 | `POST`| `/api/v1/saas/coordenadas/` | `SUPERADMIN` | Configura e atualiza contas bancárias (BIM, BCI), carteiras móveis (M-Pesa, e-Mola) e NUIT oficiais (com validação estrita de no máximo 9 dígitos numéricos, sem letras). |
 

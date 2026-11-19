@@ -213,6 +213,13 @@ class RedefinirSenhaView(APIView):
         if getattr(request.user, 'role', '') != 'SUPERADMIN' and user.escola != request.user.escola:
             return Response({'success': False, 'message': 'Sem permissão para alterar utilizador de outra escola.'}, status=status.HTTP_403_FORBIDDEN)
 
+        def _auditar(acao, descricao):
+            from .audit import registrar_auditoria
+            fwd = request.META.get('HTTP_X_FORWARDED_FOR', '')
+            registrar_auditoria(
+                usuario=request.user, escola=user.escola, entidade='UTILIZADOR', acao=acao, objeto_id=user.id,
+                descricao=descricao, ip=(fwd.split(',')[0].strip() if fwd else request.META.get('REMOTE_ADDR')) or '127.0.0.1')
+
         repor_codigo = serializer.validated_data.get('repor_codigo', False) or bool(request.data.get('reporCodigo'))
         nova_senha = (
             serializer.validated_data.get('nova_senha')
@@ -230,6 +237,7 @@ class RedefinirSenhaView(APIView):
             user.set_password(cod_padrao)
             user.senha_redefinida = False
             user.save(update_fields=['password', 'senha_redefinida'])
+            _auditar('REPOR_SENHA', f'{request.user.nome or request.user.email} repôs a senha de {user.nome} ({user.codigo_acesso}) para o código oficial.')
             return Response({
                 'success': True,
                 'message': f'Senha de {user.nome} reposta para o código oficial ({cod_padrao}) com sucesso!'
@@ -241,6 +249,7 @@ class RedefinirSenhaView(APIView):
         user.set_password(nova_senha)
         user.senha_redefinida = (nova_senha.lower() != (user.codigo_acesso or '').strip().lower())
         user.save(update_fields=['password', 'senha_redefinida'])
+        _auditar('REDEFINIR_SENHA', f'{request.user.nome or request.user.email} redefiniu a senha de {user.nome} ({user.codigo_acesso}).')
 
         return Response({'success': True, 'message': f'Senha de {user.nome} redefinida com sucesso!'})
 

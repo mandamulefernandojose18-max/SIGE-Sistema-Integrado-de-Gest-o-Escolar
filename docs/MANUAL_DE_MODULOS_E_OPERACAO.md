@@ -263,12 +263,14 @@
 ### Módulo 17: Cofre de Credenciais e Gestão de Senhas (`#view-usuarios-senhas`)
 - **Quem usa:** `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP` e `CHEFE_SECRETARIA`.
 - **Sincronização Automática:** Deteta e gera instantaneamente contas de acesso em falta para órgãos diretivos, professores, diretores de turma e alunos.
-- **Controlo de Senhas:** Visualização dos códigos oficiais de acesso, redefinição de palavras-passe esquecidas e bloqueio/desbloqueio de utilizadores.
+- **Controlo de Senhas:** Visualização dos códigos oficiais de acesso, redefinição de palavras-passe esquecidas e bloqueio/desbloqueio de utilizadores. Cada redefinição/reposição fica registada na auditoria (quem, a quem, quando).
+- **Visão do SuperAdmin (v2.9.71):** utilizadores de todas as escolas, com coluna *Escola*, filtros em cascata (Escola → Perfil → pesquisa) e paginação no servidor (25 por página).
 
 ---
 
 ### Módulo 18: Auditoria e Registo de Acessos (`#view-acessos`)
 - **Quem usa:** `ADMIN_ESCOLA` e `SUPERADMIN`.
+- **SuperAdmin (v2.9.71):** logs de todas as escolas, com filtros em cascata (Escola → Evento → pesquisa) e paginação no servidor; os dados vêm de `/api/v1/saas-admin/logs-acesso/`.
 - **Rastreamento Total:** Log cronológico de todas as sessões iniciadas, tentativas inválidas de autenticação e bloqueios por assinatura expirada com registo de data, hora e dispositivo (`user-agent`).
 
 ---

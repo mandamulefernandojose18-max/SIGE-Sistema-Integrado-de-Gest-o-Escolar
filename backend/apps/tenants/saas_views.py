@@ -1,5 +1,7 @@
 import os
+import re
 import uuid
+from django.core.exceptions import ValidationError as DjangoValidationError
 from decimal import Decimal
 from datetime import date, timedelta
 from django.utils import timezone
@@ -21,6 +23,19 @@ from .saas_serializers import (
     SaasCoordenadasPagamentoSerializer
 )
 from .saas_middleware import limpar_cache_assinatura
+
+
+PERFIS_PAGAMENTO_ESCOLA = ('ADMIN_ESCOLA', 'DIRECTOR_ESCOLA')
+METODOS_PAGAMENTO_VALIDOS = {c[0] for c in SaasPagamento._meta.get_field('metodo').choices}
+VALOR_MAXIMO_PAGAMENTO = Decimal('99999999.99')
+TAMANHO_MAXIMO_COMPROVATIVO = 5 * 1024 * 1024
+ASSINATURAS_FICHEIRO = {
+    '.pdf': (b'%PDF',),
+    '.png': (b'\x89PNG',),
+    '.jpg': (b'\xff\xd8\xff',),
+    '.jpeg': (b'\xff\xd8\xff',),
+}
+DATA_URL_COMPROVATIVO = re.compile(r'^data:(image/(png|jpeg)|application/pdf);base64,[A-Za-z0-9+/=\s]+$')
 
 
 def is_postgresql():
@@ -295,15 +310,22 @@ class SaasConfirmarPagamentoView(APIView):
         if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
-        pag = SaasPagamento.objects.filter(id=pk).first()
-        if not pag:
-            return Response({'success': False, 'message': 'Pagamento não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
         utilizador = request.user.nome or request.user.email
 
         from .saas_services import aplicar_pagamento_adiantado_python
 
         with transaction.atomic():
+            # Bloqueio de linha + verificação de estado: um pagamento só pode ser confirmado uma vez
+            # (evita duplo clique, reenvio ou confirmação de um pagamento já rejeitado).
+            pag = SaasPagamento.objects.select_for_update().filter(id=pk).first()
+            if not pag:
+                return Response({'success': False, 'message': 'Pagamento não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            if pag.estado != 'enviado':
+                return Response({
+                    'success': False,
+                    'message': f'Este pagamento já foi processado (estado: {pag.estado}). Não pode ser confirmado novamente.'
+                }, status=status.HTTP_409_CONFLICT)
+
             fat = pag.fatura
             ass = fat.assinatura
 
@@ -354,16 +376,27 @@ class SaasRejeitarPagamentoView(APIView):
         if not motivo:
             return Response({'success': False, 'message': 'O motivo de rejeição é estritamente obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        pag = SaasPagamento.objects.filter(id=pk).first()
-        if not pag:
-            return Response({'success': False, 'message': 'Pagamento não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
         utilizador = request.user.nome or request.user.email
 
+        with transaction.atomic():
+            pag = SaasPagamento.objects.select_for_update().filter(id=pk).first()
+            if not pag:
+                return Response({'success': False, 'message': 'Pagamento não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            if pag.estado != 'enviado':
+                return Response({
+                    'success': False,
+                    'message': f'Este pagamento já foi processado (estado: {pag.estado}). Não pode ser rejeitado.'
+                }, status=status.HTTP_409_CONFLICT)
+            resultado = self._rejeitar(pag, pk, motivo, utilizador)
+
+        return Response({'success': True, 'data': resultado})
+
+    @staticmethod
+    def _rejeitar(pag, pk, motivo, utilizador):
         if is_postgresql():
             with connection.cursor() as cursor:
                 cursor.execute("SELECT public.rejeitar_pagamento(%s, %s, %s)", [str(pk), motivo, utilizador])
-                resultado = cursor.fetchone()[0]
+                return cursor.fetchone()[0]
         else:
             pag.estado = 'rejeitado'
             pag.motivo_rejeicao = motivo
@@ -380,9 +413,7 @@ class SaasRejeitarPagamentoView(APIView):
                 feito_por=utilizador,
                 motivo=motivo
             )
-            resultado = {'sucesso': True, 'mensagem': 'Pagamento rejeitado com sucesso.'}
-
-        return Response({'success': True, 'data': resultado})
+            return {'sucesso': True, 'mensagem': 'Pagamento rejeitado com sucesso.'}
 
 
 class SaasProrrogarDataLimiteView(APIView):
@@ -637,11 +668,11 @@ class RegistarPagamentoInstituicaoView(APIView):
 
     def post(self, request):
         user = request.user
-        if getattr(user, 'role', '') in ['ALUNO', 'PROFESSOR']:
+        if not (is_superadmin_user(user) or getattr(user, 'role', '') in PERFIS_PAGAMENTO_ESCOLA):
             return Response(
                 {
                     'success': False,
-                    'message': 'Acesso restrito. Pagamentos SaaS são de competência exclusiva da administração da instituição.'
+                    'message': 'Acesso restrito. Pagamentos SaaS são de competência exclusiva da direcção da instituição.'
                 },
                 status=status.HTTP_403_FORBIDDEN
             )
@@ -656,7 +687,7 @@ class RegistarPagamentoInstituicaoView(APIView):
 
         fatura_id = request.data.get('fatura_id')
         metodo = request.data.get('metodo')
-        referencia = request.data.get('referencia', '').strip()
+        referencia = str(request.data.get('referencia') or '').strip()
         valor_raw = request.data.get('valor')
         comprovativo_file = request.FILES.get('comprovativo')
         comprovativo_base64 = request.data.get('comprovativo_base64')
@@ -664,16 +695,29 @@ class RegistarPagamentoInstituicaoView(APIView):
         if not fatura_id or not metodo or not referencia or not valor_raw:
             return Response({'success': False, 'message': 'Fatura, método, referência e valor são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        fat = SaasFatura.objects.filter(id=fatura_id, instituicao=escola).first()
+        if metodo not in METODOS_PAGAMENTO_VALIDOS:
+            return Response({'success': False, 'message': 'Método de pagamento inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(referencia) > 100:
+            return Response({'success': False, 'message': 'A referência não pode exceder 100 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            fat = SaasFatura.objects.filter(id=fatura_id, instituicao=escola).first()
+        except (ValueError, DjangoValidationError):
+            fat = None
         if not fat:
             return Response({'success': False, 'message': 'Fatura não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            valor = Decimal(str(valor_raw))
-            if valor <= 0:
+            valor = Decimal(str(valor_raw).strip().replace(',', '.'))
+            if not valor.is_finite() or valor <= 0 or valor > VALOR_MAXIMO_PAGAMENTO:
                 raise ValueError()
+            valor = valor.quantize(Decimal('0.01'))
         except Exception:
             return Response({'success': False, 'message': 'Valor de pagamento inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # A mesma referência não pode ser usada em dois pagamentos activos da instituição (evita duplicação de comprovativos).
+        if SaasPagamento.objects.filter(instituicao=escola, referencia__iexact=referencia, estado__in=['enviado', 'confirmado']).exists():
+            return Response({'success': False, 'message': 'Esta referência já foi submetida. Verifique o comprovativo ou utilize outra referência.'}, status=status.HTTP_400_BAD_REQUEST)
 
         comprovativo_path = None
         comprovativo_url = None
@@ -682,6 +726,12 @@ class RegistarPagamentoInstituicaoView(APIView):
             ext = os.path.splitext(comprovativo_file.name)[1].lower()
             if ext not in ('.pdf', '.jpg', '.jpeg', '.png'):
                 return Response({'success': False, 'message': 'Formato de ficheiro inválido. Envie PDF, JPG ou PNG.'}, status=status.HTTP_400_BAD_REQUEST)
+            if comprovativo_file.size > TAMANHO_MAXIMO_COMPROVATIVO:
+                return Response({'success': False, 'message': 'O comprovativo não pode exceder 5 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+            cabecalho = comprovativo_file.read(8)
+            comprovativo_file.seek(0)
+            if not any(cabecalho.startswith(a) for a in ASSINATURAS_FICHEIRO.get(ext, ())):
+                return Response({'success': False, 'message': 'O conteúdo do ficheiro não corresponde a um PDF, JPG ou PNG válido.'}, status=status.HTTP_400_BAD_REQUEST)
 
             nome_seguro = f"comp_{uuid.uuid4().hex[:12]}{ext}"
             caminho_relativo = os.path.join('comprovativos', str(escola.id), str(fat.id), nome_seguro)
@@ -696,8 +746,12 @@ class RegistarPagamentoInstituicaoView(APIView):
             comprovativo_url = f"/media/{caminho_relativo.replace(os.sep, '/')}"
 
         elif comprovativo_base64:
-            # Suporte para envio base64
-            comprovativo_url = comprovativo_base64
+            # Suporte para envio base64: apenas data URLs de imagem/PDF com tamanho limitado
+            # (recusa "javascript:", HTML e qualquer outro esquema).
+            b64 = str(comprovativo_base64)
+            if not DATA_URL_COMPROVATIVO.match(b64) or len(b64) > TAMANHO_MAXIMO_COMPROVATIVO * 4 // 3 + 200:
+                return Response({'success': False, 'message': 'Comprovativo inválido: envie PDF, JPG ou PNG (máx. 5 MB).'}, status=status.HTTP_400_BAD_REQUEST)
+            comprovativo_url = b64
             comprovativo_path = 'base64_encoded'
 
         pagamento = SaasPagamento.objects.create(

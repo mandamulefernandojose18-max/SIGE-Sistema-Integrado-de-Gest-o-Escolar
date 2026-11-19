@@ -1,4 +1,4 @@
-﻿# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
+# 📘 Documentação Completa do Sistema — SIGE (v2.5.0)
 ### Sistema Integrado de Gestão Escolar — Plataforma SaaS Multi-Tenant (MEC — Moçambique)
 
 > **Documento Mestre de Arquitetura, Regras de Negócio, Módulos Funcionais, API e Infraestrutura**  
@@ -1043,7 +1043,7 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 | `POST` | `/api/v1/saas/instituicoes/<pk>/suspender-reactivar` | `SUPERADMIN` | Gestão de Acesso: Suspensão e Reactivação Manuais (com justificação de auditoria) e Operações Automáticas ('auto_suspender', 'auto_reactivar', 'auto_avaliar' com base nas regras de tolerância e corte). |
 | `POST` | `/api/v1/saas/rotina-diaria` | `SUPERADMIN` | Executa o ciclo diário de faturação, aplicação de multas por atraso e suspensão/reactivação automáticas de instituições. |
 | `GET` | `/api/v1/saas/minha-assinatura` | Admin Escola | Permite à escola consultar o status e dias restantes da sua assinatura. |
-| `POST` | `/api/v1/saas/registar-pagamento` | Admin Escola | Envia comprovativo de pagamento de subscrição para homologação. |
+| `POST` | `/api/v1/saas/registar-pagamento` | Admin/Director da Escola | Envia comprovativo de pagamento de subscrição para homologação (método, valor, referência única, ficheiro ≤ 5 MB validados). A confirmação/rejeição pelo SuperAdmin só é possível uma vez por pagamento (`409` nas repetições). |
 | `GET` | `/api/v1/saas/coordenadas` | Autenticado | Consulta as contas bancárias e carteiras móveis oficiais (iniciam em branco, sem dados fictícios). |
 | `POST` | `/api/v1/saas/coordenadas` | `SUPERADMIN` | Configura e atualiza contas bancárias (BIM, BCI), carteiras móveis (M-Pesa, e-Mola) e NUIT oficiais. |
 
@@ -1734,6 +1734,8 @@ O assistente (`apps/assistente`) passou de 3 consultas fixas para um **registo d
 **Qualidade medida:** `tests/test_assistente_cobertura.py` tem 129 perguntas reais (informais, sem acentos, com erros) distribuídas pelos 10 perfis; todas têm de cair na capacidade certa permitida ao perfil. Ao acrescentar uma capacidade, acrescentar aqui exemplos.
 
 **Salvaguardas de qualidade (v2.9.68):** (1) uma pergunta de seguimento só continua a capacidade anterior com um sinal verdadeiro (marcador "e o…/também/agora" ou um nome de aluno); texto sem sentido nunca herda a pergunta anterior. (2) Uma correspondência fraca (uma só palavra-chave) numa frase cheia de palavras desconhecidas ("receita de bolo de chocolate") responde "ainda não sei", em vez de dados irrelevantes. (3) A correcção de escrita só troca erros reais, nunca flexões.
+
+**Painel SuperAdmin (v2.9.71):** corrigida a página *Auditoria & Acessos* (não mostrava dados porque chamava um endpoint sem logs; agora usa `GET /saas-admin/logs-acesso/`, paginado e filtrado por escola/evento). O *Cofre de Credenciais* passa a mostrar a escola de cada utilizador, filtros em cascata e paginação no servidor (em vez de 500 registos misturados). Texto vindo da API é escapado em ambas as páginas e no modal de senha (prevenção de XSS). `PATCH /saas-admin/planos/<id>/preco` valida o valor e regista auditoria; a redefinição/reposição de senha também fica na auditoria. **Pagamentos de assinatura (v2.9.71):** confirmar/rejeitar passa a ser atómico e único por pagamento (estado `enviado`, bloqueio de linha, `409` nas repetições, evitando dupla contagem); a submissão do comprovativo é restrita a Admin/Director da escola e valida método, valor, referência duplicada, tamanho e conteúdo do ficheiro; o painel SuperAdmin escapa os dados e só abre anexos `/media/` ou data URLs de imagem/PDF. Testes em `backend/tests/test_painel_superadmin.py`.
 
 **Revisão semanal (v2.9.69):** o Relatório do Assistente exporta em CSV (`GET /assistente/relatorio/?dias=&formato=csv`; células seguras contra fórmulas do Excel, com coluna de decisão) e o procedimento está em `docs/REVISAO_SEMANAL_ASSISTENTE.md`.
 

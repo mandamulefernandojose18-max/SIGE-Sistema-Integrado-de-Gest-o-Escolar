@@ -18082,11 +18082,15 @@ function filtrarUsuariosCofre() {
   renderizarTabelaCofre(filtrados);
 }
 
-function modalRedefinirSenhaUsuario(userId, userNome, codigoAcesso = '') {
-  abrirModal(`Gerir / Redefinir Palavra-passe: ${userNome}`, `
+function modalRedefinirSenhaUsuario(userId, userNome, codigoAcessoBruto = '') {
+  // Todos os valores vindos da API são escapados antes de entrarem em HTML/atributos.
+  const nomeSeguro = escapeHtml(userNome);
+  const codigoAcesso = escapeHtml(codigoAcessoBruto);
+  userId = escapeHtml(userId);
+  abrirModal(`Gerir / Redefinir Palavra-passe: ${nomeSeguro}`, `
     <form id="formRedefinirSenhaUsuario">
       <div class="p-3 bg-light rounded border mb-3 small">
-        <div><strong>Utilizador:</strong> ${userNome}</div>
+        <div><strong>Utilizador:</strong> ${nomeSeguro}</div>
         ${codigoAcesso ? `<div class="mt-1"><strong>Código Oficial:</strong> <code class="fw-bold text-dark">${codigoAcesso}</code></div>` : ''}
       </div>
       <div class="mb-3">

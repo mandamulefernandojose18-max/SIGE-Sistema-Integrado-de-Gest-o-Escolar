@@ -70,6 +70,16 @@ async function carregarResumoSuperAdmin() {
   }
 }
 
+// Só aceita ligações do próprio sistema (/media/...) ou data URLs de imagem/PDF.
+// Recusa "javascript:", HTML e qualquer outro esquema vindo de uma escola.
+function urlComprovativoSeguro(url) {
+  const u = String(url || '').trim();
+  if (!u) return '';
+  if (/^\/media\/[\w\-./]+$/.test(u) && !u.includes('..')) return u;
+  if (/^data:(image\/(png|jpeg)|application\/pdf);base64,[A-Za-z0-9+/=\s]+$/.test(u)) return u;
+  return '';
+}
+
 async function carregarPagamentosPendentes() {
   try {
     const res = await apiFetch('/saas/pagamentos/pendentes/');
@@ -86,16 +96,17 @@ async function carregarPagamentosPendentes() {
     if (card) card.style.display = 'block';
 
     tbody.innerHTML = res.data.map(p => {
-      const compBtn = p.comprovativo_url
-        ? `<a href="${p.comprovativo_url}" target="_blank" class="btn btn-sm btn-outline-primary" title="Abrir Comprovativo"><i class="bi bi-file-earmark-arrow-down me-1"></i> Ver Anexo</a>`
-        : `<span class="badge bg-secondary">Sem anexo</span>`;
+      const hrefAnexo = urlComprovativoSeguro(p.comprovativo_url);
+      const compBtn = hrefAnexo
+        ? `<a href="${escapeHtml(hrefAnexo)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary" title="Abrir Comprovativo"><i class="bi bi-file-earmark-arrow-down me-1"></i> Ver Anexo</a>`
+        : (p.comprovativo_url ? `<span class="badge bg-danger" title="Ligação do anexo recusada por segurança">Anexo inválido</span>` : `<span class="badge bg-secondary">Sem anexo</span>`);
 
       return `
         <tr>
-          <td><strong>${p.instituicao_nome || '-'}</strong></td>
-          <td><span class="badge bg-light text-dark border">${p.numero_fatura || 'Fatura'}</span> <small class="text-muted d-block">${p.fatura_periodo || ''}</small></td>
-          <td><span class="badge bg-info text-dark">${p.metodo}</span></td>
-          <td><code>${p.referencia}</code></td>
+          <td><strong>${escapeHtml(p.instituicao_nome || '-')}</strong></td>
+          <td><span class="badge bg-light text-dark border">${escapeHtml(p.numero_fatura || 'Fatura')}</span> <small class="text-muted d-block">${escapeHtml(p.fatura_periodo || '')}</small></td>
+          <td><span class="badge bg-info text-dark">${escapeHtml(p.metodo)}</span></td>
+          <td><code>${escapeHtml(p.referencia)}</code></td>
           <td class="fw-bold text-success">${formatarValorMZN(p.valor)} <span class="moeda-sufixo">MZN</span></td>
           <td><small>${formatarDataHoraPt(p.criado_em)}</small></td>
           <td>${compBtn}</td>
@@ -337,13 +348,13 @@ async function abrirFichaInstituicao(assinaturaId) {
         tbodyPag.innerHTML = d.pagamentos.map(p => `
           <tr>
             <td><small>${formatarDataHoraPt(p.criado_em)}</small></td>
-            <td><span class="badge bg-light text-dark border">${p.metodo}</span></td>
-            <td><code>${p.referencia}</code></td>
+            <td><span class="badge bg-light text-dark border">${escapeHtml(p.metodo)}</span></td>
+            <td><code>${escapeHtml(p.referencia)}</code></td>
             <td class="fw-bold text-success">${formatarValorMZN(p.valor)} MZN</td>
-            <td><span class="badge ${p.estado === 'confirmado' ? 'bg-success' : (p.estado === 'rejeitado' ? 'bg-danger' : 'bg-warning text-dark')}">${p.estado}</span></td>
-            <td><small>${p.confirmado_por || '-'}</small></td>
+            <td><span class="badge ${p.estado === 'confirmado' ? 'bg-success' : (p.estado === 'rejeitado' ? 'bg-danger' : 'bg-warning text-dark')}">${escapeHtml(p.estado)}</span></td>
+            <td><small>${escapeHtml(p.confirmado_por || '-')}</small></td>
             <td class="text-end">
-              ${p.comprovativo_url ? `<a href="${p.comprovativo_url}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i></a>` : '-'}
+              ${urlComprovativoSeguro(p.comprovativo_url) ? `<a href="${escapeHtml(urlComprovativoSeguro(p.comprovativo_url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i></a>` : '-'}
             </td>
           </tr>
         `).join('');

@@ -1,5 +1,6 @@
 ﻿import logging
-from decimal import Decimal
+import uuid
+from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -275,12 +276,27 @@ class PlanoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['put', 'patch'], url_path='preco')
     def preco(self, request, pk=None):
         plano = self.get_object()
-        novo_preco = request.data.get('preco')
-        if novo_preco is not None:
-            plano.preco = novo_preco
-            plano.save()
-            return Response({'success': True, 'data': PlanoSerializer(plano).data})
-        return Response({'success': False, 'message': 'Preço não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        bruto = request.data.get('preco')
+        if bruto is None or str(bruto).strip() == '':
+            return Response({'success': False, 'message': 'Preço não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            novo_preco = Decimal(str(bruto).strip().replace(',', '.'))
+        except (InvalidOperation, ValueError):
+            return Response({'success': False, 'message': 'Preço inválido: indique um valor numérico em MZN.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not novo_preco.is_finite() or novo_preco < 0 or novo_preco > Decimal('99999999.99'):
+            return Response({'success': False, 'message': 'Preço inválido: deve estar entre 0 e 99 999 999,99 MZN.'}, status=status.HTTP_400_BAD_REQUEST)
+        novo_preco = novo_preco.quantize(Decimal('0.01'))
+        anterior = plano.preco
+        plano.preco = novo_preco
+        plano.save()
+        from apps.accounts.audit import registrar_auditoria
+        registrar_auditoria(
+            usuario=request.user, escola=None, entidade='PLANO', acao='ALTERAR_PRECO', objeto_id=plano.id,
+            descricao=f"SuperAdmin alterou o preço do plano {plano.nome}: {anterior} → {novo_preco} MZN.",
+            antes={'preco': str(anterior)}, depois={'preco': str(novo_preco)},
+            ip=EscolaViewSet._ip_pedido(request),
+        )
+        return Response({'success': True, 'data': PlanoSerializer(plano).data})
 
 class PacoteViewSet(viewsets.ModelViewSet):
     """Pacotes de funcionalidades e preços (só SuperAdmin). Sem eliminação: desactivar em vez de apagar."""
@@ -1021,10 +1037,33 @@ class UsuariosCredenciaisView(APIView):
         escola = get_tenant_escola(request)
         if not escola:
             if getattr(request.user, 'role', '') == 'SUPERADMIN':
-                usuarios = Usuario.objects.all().order_by('-date_joined')[:500]
+                # Visão global paginada no servidor com filtros em cascata (Escola → Perfil → pesquisa).
+                qs = Usuario.objects.select_related('escola').order_by('-date_joined')
+                escola_id = (request.query_params.get('escola') or '').strip()
+                role = (request.query_params.get('role') or '').strip()
+                termo = (request.query_params.get('q') or '').strip()
+                if escola_id:
+                    try:
+                        qs = qs.filter(escola_id=uuid.UUID(escola_id))
+                    except ValueError:
+                        return Response({'success': False, 'message': 'Escola inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+                if role:
+                    qs = qs.filter(role=role)
+                if termo:
+                    qs = qs.filter(Q(nome__icontains=termo) | Q(email__icontains=termo) | Q(codigo_acesso__icontains=termo))
+                try:
+                    tamanho = max(1, min(int(request.query_params.get('tamanho', 25)), 100))
+                    pagina = max(1, int(request.query_params.get('pagina', 1)))
+                except (TypeError, ValueError):
+                    tamanho, pagina = 25, 1
+                total = qs.count()
+                paginas = max(1, -(-total // tamanho))
+                pagina = min(pagina, paginas)
+                usuarios = qs[(pagina - 1) * tamanho: pagina * tamanho]
                 return Response({
                     'success': True,
-                    'data': UsuarioSerializer(usuarios, many=True).data
+                    'data': UsuarioSerializer(usuarios, many=True).data,
+                    'meta': {'total': total, 'pagina': pagina, 'paginas': paginas, 'tamanho': tamanho},
                 })
             return Response({'success': True, 'data': []})
         try:
