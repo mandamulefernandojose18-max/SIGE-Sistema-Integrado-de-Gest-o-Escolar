@@ -3503,6 +3503,8 @@ window.addEventListener('hashchange', () => {
 
 async function navegarPara(viewId) {
   if (viewId === 'classes-exames' || viewId === 'disciplinas') viewId = 'plano-curricular';
+  // Contexto do Assistente: guarda o último módulo aberto antes de abrir o próprio assistente.
+  if (viewId !== 'assistente') window._sigeUltimaPagina = viewId;
   fecharSidebarMobile();
 
   const role = state.user?.role || 'ADMIN_ESCOLA';
@@ -3660,6 +3662,7 @@ async function navegarPara(viewId) {
 
   // Gatilhos de carregamento específico
   if (viewId === 'dashboard') carregarDashboardGeral(null, false);
+  if (viewId === 'assistente' && typeof window.assIniciar === 'function') window.assIniciar();
   if (viewId === 'saas') {
     if (typeof carregarPainelSaaS === 'function') carregarPainelSaaS();
   }

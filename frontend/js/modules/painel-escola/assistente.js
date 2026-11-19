@@ -1,18 +1,22 @@
-// Assistente Virtual (nível 0) — só leitura. API: POST /api/v1/assistente/perguntar/
+// Assistente Virtual (nível 0) — só leitura. API: /api/v1/assistente/{perguntar,sugestoes,feedback}/
 // Conversa em caixa de altura fixa com rolagem; guarda só as últimas mensagens (altura constante para qualquer n).
-const assState = { alunoId: '', alunoNome: '', msgs: [] };
+const assState = { alunoId: '', alunoNome: '', msgs: [], pagina: '' };
 const ASS_MAX_MSGS = 30;
-const ASS_SUGESTOES = [
-  'Quantas faltas tem o aluno?',
-  'Há propinas em atraso?',
-  'Como se calcula a média trimestral (MT)?',
-  'Como se calcula a média final da disciplina (MFD)?',
-  'Quais são as regras de aprovação?',
-  'Como funcionam as faltas em aula dupla?'
-];
 
 function assEhProprio() { return ['ALUNO', 'ENCARREGADO'].includes(state.user?.role); }
 function assLista(res) { return res?.data || res?.results || (Array.isArray(res) ? res : []); }
+
+// O destino do atalho só aparece se existir no menu do perfil actual (cada painel mostra só o que o perfil pode ver).
+function assDestinoPermitido(destino) {
+  try {
+    const role = state.user?.role || '';
+    const painel = (typeof MAPA_PAINEIS !== 'undefined' && MAPA_PAINEIS[role]) || 'painel-escola';
+    const menus = (typeof MENUS_POR_PAINEL !== 'undefined' && MENUS_POR_PAINEL[painel]) || [];
+    return menus.some(m => m.id === destino);
+  } catch (e) {
+    return false;
+  }
+}
 
 function assRender() {
   const box = document.getElementById('assConversa');
@@ -21,30 +25,64 @@ function assRender() {
     box.innerHTML = '<p class="text-muted small mb-0">Olá! Faça uma pergunta ou escolha uma sugestão abaixo.</p>';
     return;
   }
-  box.innerHTML = assState.msgs.map(m => m.de === 'eu'
-    ? `<div class="d-flex justify-content-end mb-2"><div class="bg-primary text-white rounded-3 px-3 py-2 small" style="max-width: 85%;">${escapeHtml(m.texto)}</div></div>`
-    : `<div class="d-flex justify-content-start mb-2"><div class="bg-white border rounded-3 px-3 py-2 small" style="max-width: 85%;"><i class="bi bi-robot text-primary me-1"></i>${escapeHtml(m.texto)}</div></div>`
-  ).join('');
+  box.innerHTML = assState.msgs.map((m, i) => {
+    if (m.de === 'eu') {
+      return `<div class="d-flex justify-content-end mb-2"><div class="bg-primary text-white rounded-3 px-3 py-2 small" style="max-width: 85%;">${escapeHtml(m.texto)}</div></div>`;
+    }
+    const acao = m.acao && assDestinoPermitido(m.acao.destino)
+      ? `<div class="mt-2"><button type="button" class="btn btn-sm btn-outline-primary py-0" onclick="assAbrir('${escapeHtml(m.acao.destino)}')"><i class="bi bi-box-arrow-up-right me-1"></i>${escapeHtml(m.acao.rotulo)}</button></div>` : '';
+    const util = m.consulta
+      ? `<div class="mt-1 small text-muted">${m.util === undefined
+        ? `Foi útil? <a href="javascript:void(0)" class="text-decoration-none ms-1" onclick="assUtil(${i}, true)" title="Foi útil">👍</a> <a href="javascript:void(0)" class="text-decoration-none ms-1" onclick="assUtil(${i}, false)" title="Não ajudou">👎</a>`
+        : (m.util ? 'Obrigado pelo feedback.' : 'Obrigado — vamos melhorar esta resposta.')}</div>` : '';
+    return `<div class="d-flex justify-content-start mb-2"><div class="bg-white border rounded-3 px-3 py-2 small" style="max-width: 85%;"><i class="bi bi-robot text-primary me-1"></i>${escapeHtml(m.texto)}${acao}${util}</div></div>`;
+  }).join('');
   box.scrollTop = box.scrollHeight;
 }
 
-function assAdicionar(de, texto) {
-  assState.msgs.push({ de, texto });
+function assAdicionar(msg) {
+  assState.msgs.push(msg);
   if (assState.msgs.length > ASS_MAX_MSGS) assState.msgs.splice(0, assState.msgs.length - ASS_MAX_MSGS);
   assRender();
 }
 
-function assIniciar() {
-  document.getElementById('assAlunoCard').style.display = assEhProprio() ? 'none' : '';
+function assRenderSugestoes(lista) {
   const sug = document.getElementById('assSugestoes');
-  sug.innerHTML = ASS_SUGESTOES.map((s, i) =>
+  if (!sug) return;
+  assState.sugestoes = Array.isArray(lista) ? lista.slice(0, 6) : [];
+  sug.innerHTML = assState.sugestoes.map((s, i) =>
     `<button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="assUsarSugestao(${i})">${escapeHtml(s)}</button>`).join('');
+}
+
+async function assIniciar() {
+  document.getElementById('assAlunoCard').style.display = assEhProprio() ? 'none' : '';
+  assState.pagina = String(window._sigeUltimaPagina || '').replace(/[^a-z0-9-]/g, '').slice(0, 60);
   assRender();
+  try {
+    const res = await apiFetch('/api/v1/assistente/sugestoes/' + (assState.pagina ? `?pagina=${encodeURIComponent(assState.pagina)}` : ''));
+    assRenderSugestoes(res?.sugestoes);
+  } catch (e) {
+    assRenderSugestoes(['Como se calcula a média trimestral (MT)?', 'Quais são as regras de aprovação?']);
+  }
 }
 
 window.assUsarSugestao = function (i) {
-  document.getElementById('assPergunta').value = ASS_SUGESTOES[i];
+  document.getElementById('assPergunta').value = (assState.sugestoes || [])[i] || '';
   assEnviar();
+};
+
+window.assAbrir = function (destino) {
+  if (typeof navegarPara === 'function') navegarPara(destino);
+};
+
+window.assUtil = async function (i, util) {
+  const m = assState.msgs[i];
+  if (!m || !m.consulta || m.util !== undefined) return;
+  m.util = util;
+  assRender();
+  try {
+    await apiFetch('/api/v1/assistente/feedback/', { method: 'POST', body: JSON.stringify({ consulta_id: m.consulta, util }) });
+  } catch (e) { /* o feedback é opcional: não interrompe a conversa */ }
 };
 
 window.assBuscarAluno = async function () {
@@ -73,20 +111,24 @@ window.assEnviar = async function () {
   const pergunta = campo.value.trim();
   if (!pergunta) return;
   campo.value = '';
-  assAdicionar('eu', pergunta);
+  assAdicionar({ de: 'eu', texto: pergunta });
   const btn = document.getElementById('assBtnEnviar');
   btn.disabled = true;
   try {
     const corpo = { pergunta };
     if (assState.alunoId && !assEhProprio()) corpo.aluno_id = assState.alunoId;
+    if (assState.pagina) corpo.pagina = assState.pagina;
     const res = await apiFetch('/api/v1/assistente/perguntar/', { method: 'POST', body: JSON.stringify(corpo) });
-    assAdicionar('bot', res?.resposta || 'Sem resposta.');
+    assAdicionar({ de: 'bot', texto: res?.resposta || 'Sem resposta.', acao: res?.acao || null, consulta: res?.consulta_id || '' });
+    if (res?.precisa_aluno) document.getElementById('assBusca')?.focus();
+    if (Array.isArray(res?.sugestoes) && res.sugestoes.length) assRenderSugestoes(res.sugestoes);
   } catch (e) {
-    assAdicionar('bot', 'Não foi possível obter resposta: ' + (e.message || 'erro desconhecido'));
+    assAdicionar({ de: 'bot', texto: 'Não foi possível obter resposta: ' + (e.message || 'erro desconhecido') });
   } finally {
     btn.disabled = false;
     campo.focus();
   }
 };
 
-assIniciar();
+// Chamado pelo router sempre que o ecrã é aberto (actualiza o contexto da página anterior e as sugestões).
+window.assIniciar = assIniciar;
