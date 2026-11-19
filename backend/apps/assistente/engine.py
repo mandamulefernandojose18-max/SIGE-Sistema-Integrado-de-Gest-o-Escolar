@@ -28,11 +28,36 @@ def _categoria(role):
     return {'FINANCEIRO': 'financeiro', 'PROFESSOR': 'professor'}.get(role)
 
 
+def educandos_do_encarregado(user, escola):
+    """Educandos de uma conta de Encarregado: os associados pela escola + o aluno_id antigo da conta (se houver)."""
+    from apps.alunos.models import Aluno
+    from apps.crm.models import VinculoEncarregado
+    ids = set(VinculoEncarregado.objects.filter(escola=escola, usuario=user).values_list('aluno_id', flat=True))
+    if getattr(user, 'aluno_id', None):
+        ids.add(user.aluno_id)
+    if not ids:
+        return []
+    return list(Aluno.objects.filter(id__in=ids, escola=escola).select_related('turma').order_by('nome'))
+
+
 def resolver_aluno(ctx, capacidade, aluno_id):
     """Devolve (aluno, erro). O aluno/encarregado só vê o seu educando; o professor só alunos das suas turmas."""
     from apps.alunos.models import Aluno
     cats = ACESSO_ALUNO.get(capacidade.nome, {'proprio', 'gestao'})
     role = ctx.role
+    if role == 'ENCARREGADO':
+        if 'proprio' not in cats:
+            return None, 'sem_permissao'
+        educandos = educandos_do_encarregado(ctx.user, ctx.escola)
+        if not educandos:
+            return None, 'sem_vinculo'
+        ctx.educandos = educandos
+        if aluno_id:
+            escolhido = next((a for a in educandos if str(a.id) == str(aluno_id)), None)
+            return (escolhido, None) if escolhido else (None, 'sem_permissao')   # nunca outro aluno que não seja um dos seus
+        if len(educandos) == 1:
+            return educandos[0], None
+        return None, 'precisa_aluno'
     if role in PROPRIO:
         if 'proprio' not in cats:
             return None, 'sem_permissao'
@@ -101,9 +126,15 @@ def responder(user, escola, pergunta, aluno_id=None, pagina=None):
         # Pergunta de resumo ("quantas…", "pendentes…") numa capacidade opcional: responde pela escola, mesmo com um aluno escolhido
         resumo = capacidade.aluno == 'opcional' and any(w in ctx.texto for w in (' quantas ', ' quantos ', ' pendentes', ' este ano', ' no total'))
         quer_aluno = capacidade.aluno == 'obrigatorio' or ctx.proprio or (bool(aluno_id) and not resumo)
+        if capacidade.aluno == 'proprio':      # só usa o educando do aluno/encarregado; os outros perfis ignoram o aluno escolhido
+            quer_aluno = ctx.proprio
         if quer_aluno:
             aluno, erro = resolver_aluno(ctx, capacidade, aluno_id)
             if erro == 'precisa_aluno':
+                if ctx.role == 'ENCARREGADO' and getattr(ctx, 'educandos', None):
+                    nomes = ', '.join(a.nome for a in ctx.educandos[:6])
+                    return nome, None, _simples(nome, f'De qual dos seus educandos quer saber? ({nomes}). Escolha-o na lista acima.', ctx,
+                                                precisa_aluno=True, educandos=[{'id': str(a.id), 'nome': a.nome} for a in ctx.educandos])
                 return nome, None, _simples(nome, PEDE_ALUNO, ctx, precisa_aluno=True)
             if erro:
                 msg = {'nao_encontrado': NAO_ENCONTRADO, 'sem_vinculo': SEM_VINCULO}.get(erro, SEM_PERMISSAO)

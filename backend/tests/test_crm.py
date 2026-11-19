@@ -85,3 +85,29 @@ class TestCRM:
         r = self.sec.get('/api/v1/crm/alertas-evasao/?min_faltas=5&ano_letivo=2026')
         assert r.data['resultados'][0]['motivos'] == ['FALTAS', 'PROPINAS']
         assert self.sec_outra.get('/api/v1/crm/alertas-evasao/?min_faltas=1').data['total'] == 0
+
+    # ------------------------------------------------------------ vínculo encarregado ↔ educandos
+    def test_vinculos_associar_listar_remover_e_isolar(self):
+        from apps.crm.models import VinculoEncarregado
+        Usuario.objects.create_user(email='enc.um@sige.mz', password='PassTeste123!', role='ENCARREGADO', escola=self.escola)
+        Usuario.objects.create_user(email='enc.outra@sige.mz', password='PassTeste123!', role='ENCARREGADO', escola=self.outra)
+        Usuario.objects.create_user(email='prof.vin@sige.mz', password='PassTeste123!', role='PROFESSOR', escola=self.escola)
+        url = '/api/v1/crm/vinculos/'
+        r = self.sec.post(url, {'aluno': str(self.aluno.id), 'email': 'ENC.um@sige.mz'}, format='json')   # e-mail sem distinguir maiúsculas
+        assert r.status_code == 201 and r.data['conta'] == 'enc.um@sige.mz'
+        assert self.sec.post(url, {'aluno': str(self.aluno.id), 'email': 'enc.um@sige.mz'}, format='json').status_code == 400   # repetido
+        assert self.sec.post(url, {'aluno': str(self.aluno.id), 'email': 'nao.existe@sige.mz'}, format='json').status_code == 400
+        assert self.sec.post(url, {'aluno': str(self.aluno.id), 'email': 'prof.vin@sige.mz'}, format='json').status_code == 400  # não é encarregado
+        assert self.sec.post(url, {'aluno': str(self.aluno.id), 'email': 'enc.outra@sige.mz'}, format='json').status_code == 400  # outra escola
+        assert self.sec.post(url, {'aluno': str(self.aluno_outra.id), 'email': 'enc.um@sige.mz'}, format='json').status_code == 400
+        assert [v['conta'] for v in _res(self.sec.get(url + f'?aluno_id={self.aluno.id}'))] == ['enc.um@sige.mz']
+        assert len(_res(self.sec_outra.get(url))) == 0
+        ficha = self.sec.get(f'/api/v1/crm/encarregado/{self.aluno.id}/')
+        assert ficha.data['contas_encarregado'][0]['email'] == 'enc.um@sige.mz'
+        assert self.sec_outra.delete(url + f'{r.data["id"]}/').status_code == 404     # não remove vínculos de outra escola
+        assert self.sec.delete(url + f'{r.data["id"]}/').status_code == 204
+        assert VinculoEncarregado.objects.count() == 0
+
+    def test_vinculos_so_para_gestao(self):
+        prof = self._cliente('PROFESSOR', 'prof.vin2@sige.mz', self.escola)
+        assert prof.get('/api/v1/crm/vinculos/').status_code == 403

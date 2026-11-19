@@ -43,6 +43,7 @@ class Ctx:
     texto: str
     pagina: Optional[str] = None
     aluno: object = None
+    educandos: object = None
     hoje: datetime.date = field(default_factory=datetime.date.today)
 
     @property
@@ -307,7 +308,7 @@ def h_horario(ctx):
     if ctx.ano:
         qs = qs.filter(turma__ano_letivo=ctx.ano)
     if ctx.proprio:
-        aluno = Aluno.objects.filter(id=getattr(ctx.user, 'aluno_id', None), escola=ctx.escola).select_related('turma').first()
+        aluno = ctx.aluno
         if not aluno or not aluno.turma_id:
             return _res('Ainda não tem turma atribuída, por isso não há horário para mostrar.', {})
         qs, quem = qs.filter(turma=aluno.turma), False
@@ -343,7 +344,7 @@ def h_exames_calendario(ctx):
     if ctx.ano:
         qs = qs.filter(ano_letivo=ctx.ano)
     if ctx.proprio:
-        aluno = Aluno.objects.filter(id=getattr(ctx.user, 'aluno_id', None), escola=ctx.escola).first()
+        aluno = ctx.aluno
         if aluno and aluno.classe:
             qs = qs.filter(classe__iexact=aluno.classe)
     itens = list(qs.order_by('data', 'hora_inicio')[:60])
@@ -576,12 +577,13 @@ CAPACIDADES = [
                h_alunos_resumo, perfis=GESTAO | {'FINANCEIRO'}, destino='alunos', rotulo='Abrir Alunos & Matrículas'),
     Capacidade('turmas', 'dados', [' turmas', ' vagas', ' lotada', ' lotadas', ' capacidade', ' sem director de turma', ' sem diretor de turma'], h_turmas,
                perfis=GESTAO | {'PROFESSOR'}, destino='turmas', rotulo='Abrir Turmas'),
-    Capacidade('horario', 'dados', [' horario', ' aulas hoje', ' aulas amanha', ' tenho aula', ' que aula'], h_horario, destino='horarios', rotulo='Abrir Horários'),
+    Capacidade('horario', 'dados', [' horario', ' aulas hoje', ' aulas amanha', ' tenho aula', ' que aula'], h_horario, aluno='proprio',
+               destino='horarios', rotulo='Abrir Horários'),
     Capacidade('calendario', 'dados', [' calendario', ' prazo', ' prazos', ' feriado', ' proximo evento', ' proximos eventos', ' quando termina', ' quando comeca', ' datas'],
                h_calendario, destino='calendario', rotulo='Abrir o Calendário Escolar', destino_proprio='aluno-calendario'),
     Capacidade('exames_calendario', 'dados', [' quando e o exame', ' quando sao os exames', ' quando ha exame', ' quando e a prova', ' data do exame', ' datas dos exames',
                                               ' proximo exame', ' proximos exames', ' calendario de exame', ' calendario dos exames'], h_exames_calendario,
-               destino='calendario-exames', rotulo='Abrir o Calendário dos Exames', destino_proprio='aluno-calendario', peso=2),
+               aluno='proprio', destino='calendario-exames', rotulo='Abrir o Calendário dos Exames', destino_proprio='aluno-calendario', peso=2),
     Capacidade('crm', 'dados', [' atendimento', ' atendimentos', ' reclamacao', ' reclamacoes', ' pedidos abertos', ' pedidos por resolver'], h_crm,
                perfis=GESTAO, destino='crm', rotulo='Abrir o CRM Escolar'),
     Capacidade('risco', 'dados', [' em risco', ' risco de evasao', ' evasao', ' alunos em risco'], h_risco,

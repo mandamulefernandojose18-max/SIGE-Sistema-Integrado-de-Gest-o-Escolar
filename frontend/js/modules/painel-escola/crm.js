@@ -90,6 +90,9 @@ window.crmAbrirFicha = async function (alunoId) {
     const com = (f.comunicacoes_recentes || []).map(c => `<li class="list-group-item small">
       <span class="badge bg-light text-dark border me-1">${escapeHtml(c.tipo)}</span>${escapeHtml(c.mensagem)}
       <div class="text-muted">${escapeHtml(new Date(c.created_at).toLocaleString('pt-PT'))} · ${escapeHtml(c.canal)}</div></li>`).join('');
+    const contas = (f.contas_encarregado || []).map(c =>
+      `<li class="list-group-item d-flex justify-content-between align-items-center small py-1">${escapeHtml(c.email)}
+        <button class="btn btn-sm btn-outline-danger py-0 px-2" title="Remover a associação" onclick="crmRemoverVinculo('${escapeHtml(c.id)}','${escapeHtml(alunoId)}')"><i class="bi bi-x-lg"></i></button></li>`).join('');
     document.getElementById('crmFichaTitulo').textContent = f.aluno.nome;
     corpo.innerHTML = `
       <div class="row g-3 mb-3">
@@ -104,6 +107,12 @@ window.crmAbrirFicha = async function (alunoId) {
         <div class="col-4"><div class="border rounded p-2"><div class="fs-4">${f.propinas_em_atraso.quantidade}</div><div class="small text-muted">Propinas em atraso (${escapeHtml(f.propinas_em_atraso.valor)} MZN)</div></div></div>
         <div class="col-4"><div class="border rounded p-2"><div class="fs-4">${f.atendimentos_abertos}</div><div class="small text-muted">Atendimentos abertos</div></div></div>
       </div>
+      <h6 class="fw-bold">Contas de encarregado associadas</h6>
+      ${contas ? `<ul class="list-group mb-2">${contas}</ul>` : '<p class="text-muted small mb-2">Nenhuma conta de encarregado associada a este aluno.</p>'}
+      <div class="input-group input-group-sm mb-3">
+        <input id="crmVinEmail" type="email" class="form-control" placeholder="E-mail da conta do encarregado" onkeydown="if(event.key==='Enter'){crmAssociarEncarregado('${escapeHtml(alunoId)}');}">
+        <button class="btn btn-outline-primary" onclick="crmAssociarEncarregado('${escapeHtml(alunoId)}')">Associar</button>
+      </div>
       <h6 class="fw-bold">Registar contacto com o encarregado</h6>
       <div class="row g-2 mb-3">
         <div class="col-6 col-md-3"><select id="crmCoTipo" class="form-select form-select-sm"><option value="FALTAS">Faltas</option><option value="PROPINA">Propina</option><option value="REUNIAO">Reunião</option><option value="PAUTA">Pauta / Notas</option><option value="OUTRO">Outro</option></select></div>
@@ -115,6 +124,29 @@ window.crmAbrirFicha = async function (alunoId) {
       ${com ? `<ul class="list-group list-group-flush">${com}</ul>` : '<p class="text-muted small mb-0">Ainda não há contactos registados com este encarregado.</p>'}`;
   } catch (e) {
     corpo.innerHTML = '<p class="text-danger mb-0">Erro ao carregar a ficha.</p>';
+  }
+};
+
+window.crmAssociarEncarregado = async function (alunoId) {
+  const email = document.getElementById('crmVinEmail').value.trim();
+  if (!email) { mostrarToast('Indique o e-mail da conta do encarregado.', 'warning'); return; }
+  try {
+    await apiFetch('/api/v1/crm/vinculos/', { method: 'POST', body: JSON.stringify({ aluno: alunoId, email }) });
+    mostrarToast('Conta associada ao aluno.', 'success');
+    crmAbrirFicha(alunoId);
+  } catch (e) {
+    mostrarToast(e.message || 'Não foi possível associar a conta.', 'danger');
+  }
+};
+
+window.crmRemoverVinculo = async function (id, alunoId) {
+  if (!window.confirm('Remover a associação desta conta ao aluno?')) return;
+  try {
+    await apiFetch(`/api/v1/crm/vinculos/${id}/`, { method: 'DELETE' });
+    mostrarToast('Associação removida.', 'success');
+    crmAbrirFicha(alunoId);
+  } catch (e) {
+    mostrarToast('Erro ao remover: ' + e.message, 'danger');
   }
 };
 

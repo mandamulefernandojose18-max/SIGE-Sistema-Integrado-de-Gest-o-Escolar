@@ -74,3 +74,33 @@ class Comunicacao(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class VinculoEncarregado(models.Model):
+    """Associa uma conta de Encarregado de Educação a um educando (um encarregado pode ter vários; um aluno pode ter vários encarregados).
+
+    A associação é feita pela escola (gestão). O `aluno_id` antigo da conta continua a valer como um educando adicional.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='crm_vinculos_encarregado')
+    usuario = models.ForeignKey('accounts.Usuario', on_delete=models.CASCADE, related_name='vinculos_educandos')
+    aluno = models.ForeignKey('alunos.Aluno', on_delete=models.CASCADE, related_name='vinculos_encarregado')
+    criado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_crm_vinculos_encarregado'
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['escola', 'usuario', 'aluno'], name='unique_vinculo_encarregado_aluno')]
+        indexes = [models.Index(fields=['escola', 'usuario'])]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from common.integrity import validar_integridade_tenant
+        validar_integridade_tenant(self, aluno=self.aluno, usuario=self.usuario)
+        if self.usuario.role != 'ENCARREGADO':
+            raise ValidationError('A conta tem de ser de um Encarregado de Educação.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

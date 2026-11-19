@@ -7,8 +7,8 @@
 
   <div class="card border-0 shadow-sm mb-3" id="assAlunoCard" style="display: none;">
     <div class="card-body py-2">
-      <label class="form-label small mb-1" for="assBusca">Aluno a que as perguntas se referem</label>
-      <div class="input-group input-group-sm">
+      <label class="form-label small mb-1" for="assBusca" id="assAlunoRotulo">Aluno a que as perguntas se referem</label>
+      <div class="input-group input-group-sm" id="assBuscaGrupo">
         <input id="assBusca" class="form-control" placeholder="Nome ou matrícula" onkeydown="if(event.key==='Enter'){assBuscarAluno();}">
         <button type="button" class="btn btn-outline-secondary" onclick="assBuscarAluno()"><i class="bi bi-search"></i></button>
       </div>

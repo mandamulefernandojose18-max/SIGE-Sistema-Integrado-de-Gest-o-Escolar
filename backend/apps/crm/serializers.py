@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from common.utils.tenant import get_tenant_escola
-from .models import Atendimento, Comunicacao
+from apps.accounts.models import Usuario
+from .models import Atendimento, Comunicacao, VinculoEncarregado
 
 
 def _escola_do_pedido(serializer):
@@ -38,3 +39,24 @@ class ComunicacaoSerializer(_TenantValidacao, serializers.ModelSerializer):
         model = Comunicacao
         fields = ['id', 'aluno', 'aluno_nome', 'tipo', 'canal', 'mensagem', 'destinatario', 'registado_por', 'created_at']
         read_only_fields = ['id', 'registado_por', 'created_at']
+
+
+class VinculoEncarregadoSerializer(_TenantValidacao, serializers.ModelSerializer):
+    email = serializers.EmailField(write_only=True)
+    conta = serializers.CharField(source='usuario.email', read_only=True)
+
+    class Meta:
+        model = VinculoEncarregado
+        fields = ['id', 'aluno', 'email', 'conta', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate(self, attrs):
+        escola = _escola_do_pedido(self)
+        email = attrs.pop('email')
+        usuario = Usuario.objects.filter(escola=escola, email__iexact=email, role='ENCARREGADO').first() if escola else None
+        if not usuario:
+            raise serializers.ValidationError({'email': 'Não existe uma conta de Encarregado de Educação com esse e-mail nesta escola.'})
+        if VinculoEncarregado.objects.filter(escola=escola, usuario=usuario, aluno=attrs['aluno']).exists():
+            raise serializers.ValidationError({'email': 'Esta conta já está associada a este aluno.'})
+        attrs['usuario'] = usuario
+        return attrs

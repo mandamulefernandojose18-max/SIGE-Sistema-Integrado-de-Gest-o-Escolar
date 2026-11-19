@@ -1,10 +1,11 @@
 from django.urls import path, include
 from common.routers import OptionalSlashRouter
-from .views import AtendimentoViewSet, ComunicacaoViewSet, Encarregado360View, AlertasEvasaoView
+from .views import AtendimentoViewSet, ComunicacaoViewSet, Encarregado360View, AlertasEvasaoView, VinculoEncarregadoViewSet
 
 router = OptionalSlashRouter()
 router.register(r'atendimentos', AtendimentoViewSet, basename='crm-atendimentos')
 router.register(r'comunicacoes', ComunicacaoViewSet, basename='crm-comunicacoes')
+router.register(r'vinculos', VinculoEncarregadoViewSet, basename='crm-vinculos')
 
 urlpatterns = [
     path('encarregado/<uuid:aluno_id>/', Encarregado360View.as_view(), name='crm_encarregado_360'),

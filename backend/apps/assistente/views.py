@@ -68,6 +68,18 @@ class FeedbackView(APIView):
         return Response({'success': True})
 
 
+class EducandosView(APIView):
+    """GET /assistente/educandos/ — educandos associados à conta de Encarregado (vazio para os outros perfis)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        escola = _escola(request)
+        if getattr(request.user, 'role', '') != 'ENCARREGADO':
+            return Response({'educandos': []})
+        return Response({'educandos': [{'id': str(a.id), 'nome': a.nome, 'matricula': a.matricula, 'classe': a.classe, 'turma': a.turma.nome if a.turma else None}
+                                       for a in engine.educandos_do_encarregado(request.user, escola)]})
+
+
 class SugestoesView(APIView):
     """GET /assistente/sugestoes/?pagina= — perguntas sugeridas para o perfil e a página actual."""
     permission_classes = [IsAuthenticated]

@@ -293,3 +293,43 @@ class TestAssistente:
         assert outro.post(fb, {'consulta_id': d['consulta_id'], 'util': False}, format='json').status_code == 400  # só o autor
         c.refresh_from_db()
         assert c.util is True
+
+    # ------------------------------------------------------------ encarregado com vários educandos
+    def _encarregado(self, email='enc.multi@sige.mz', educandos=()):
+        from apps.crm.models import VinculoEncarregado
+        u = Usuario.objects.create_user(email=email, password='PassTeste123!', role='ENCARREGADO', escola=self.escola)
+        for a in educandos:
+            VinculoEncarregado.objects.create(escola=self.escola, usuario=u, aluno=a)
+        c = APIClient()
+        c.force_authenticate(u)
+        return c
+
+    def test_encarregado_com_dois_educandos_escolhe_e_nao_ve_outros(self):
+        enc = self._encarregado(educandos=[self.aluno, self.outro_aluno])
+        PresencaAluno.objects.create(escola=self.escola, aluno=self.outro_aluno, turma=self.turma, data=HOJE, status='FALTA_INJUSTIFICADA', aulas=2)
+        d = self._r(enc, 'Quantas faltas tem?')            # dois educandos e nenhum escolhido
+        assert d['precisa_aluno'] is True and {e['nome'] for e in d['educandos']} == {'Aluno Um', 'Aluno Dois'}
+        assert self._r(enc, 'Quantas faltas tem?', aluno_id=str(self.outro_aluno.id))['dados']['faltas_efectivas'] == 2
+        assert self._r(enc, 'Quantas faltas tem?', aluno_id=str(self.aluno.id))['dados']['faltas_efectivas'] == 0
+        fora = self._r(enc, 'Quantas faltas tem?', aluno_id=str(self.aluno_outra.id))      # aluno que não é seu
+        assert 'permissão' in fora['resposta'] and 'dados' not in fora
+        assert 'educandos' in self._r(enc, 'Que aulas tenho hoje?')      # também o horário pede o educando
+
+    def test_encarregado_com_um_educando_nao_precisa_escolher_e_lista_educandos(self):
+        enc = self._encarregado('enc.um@sige.mz', educandos=[self.aluno])
+        assert 'Aluno Um' in self._r(enc, 'Quantas faltas tem?')['resposta']
+        lista = enc.get('/api/v1/assistente/educandos/').data['educandos']
+        assert [e['nome'] for e in lista] == ['Aluno Um']
+        assert self.sec.get('/api/v1/assistente/educandos/').data['educandos'] == []
+
+    def test_encarregado_aluno_id_antigo_conta_como_educando(self):
+        legado = self._cliente('ENCARREGADO', 'enc.legado@sige.mz', aluno_id=self.aluno.id)
+        assert 'Aluno Um' in self._r(legado, 'Quantas faltas tem?')['resposta']
+
+    def test_vinculo_de_outra_escola_nao_da_acesso(self):
+        from apps.crm.models import VinculoEncarregado
+        enc = self._encarregado('enc.cruz@sige.mz')
+        # um vínculo criado por engano com um aluno de outra escola é rejeitado pelo modelo
+        with pytest.raises(Exception):
+            VinculoEncarregado.objects.create(escola=self.escola, usuario=Usuario.objects.get(email='enc.cruz@sige.mz'), aluno=self.aluno_outra)
+        assert 'não está associada' in self._r(enc, 'Quantas faltas tem?')['resposta']

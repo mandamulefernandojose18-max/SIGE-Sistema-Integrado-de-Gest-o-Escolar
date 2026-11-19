@@ -11,8 +11,8 @@ from apps.alunos.models import Aluno, PresencaAluno
 from apps.pagamentos.models import Pagamento
 from common.permissions.rbac import IsEscolaAdmin
 from common.utils.tenant import get_tenant_escola
-from .models import Atendimento, Comunicacao
-from .serializers import AtendimentoSerializer, ComunicacaoSerializer
+from .models import Atendimento, Comunicacao, VinculoEncarregado
+from .serializers import AtendimentoSerializer, ComunicacaoSerializer, VinculoEncarregadoSerializer
 
 LIMITE_MAX = 200
 
@@ -78,6 +78,27 @@ class ComunicacaoViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.
         serializer.save(escola=escola, registado_por=self.request.user, destinatario=destinatario)
 
 
+class VinculoEncarregadoViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    """Associa contas de Encarregado de Educação aos seus educandos (gestão da escola)."""
+    serializer_class = VinculoEncarregadoSerializer
+    permission_classes = [IsEscolaAdmin]
+
+    def get_queryset(self):
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            return VinculoEncarregado.objects.none()
+        qs = VinculoEncarregado.objects.filter(escola=escola).select_related('usuario', 'aluno')
+        if self.request.query_params.get('aluno_id'):
+            qs = qs.filter(aluno_id=self.request.query_params['aluno_id'])
+        return qs
+
+    def perform_create(self, serializer):
+        escola = get_tenant_escola(self.request)
+        if not escola:
+            raise ValidationError({'escola': 'Nenhuma escola identificada.'})
+        serializer.save(escola=escola, criado_por=self.request.user)
+
+
 def _faltas_efectivas_por_aluno(escola, ano_letivo=None, turma_id=None, aluno_id=None):
     qs = PresencaAluno.objects.filter(escola=escola, status__in=('FALTA_JUSTIFICADA', 'FALTA_INJUSTIFICADA'))
     if ano_letivo:
@@ -118,6 +139,8 @@ class Encarregado360View(APIView):
             'propinas_em_atraso': {'quantidade': atraso.count(),
                                    'valor': str(sum((p.valor - p.valor_pago for p in atraso), 0))},
             'atendimentos_abertos': Atendimento.objects.filter(escola=escola, aluno=aluno).exclude(estado='RESOLVIDO').count(),
+            'contas_encarregado': [{'id': str(v.id), 'email': v.usuario.email}
+                                   for v in VinculoEncarregado.objects.filter(escola=escola, aluno=aluno).select_related('usuario')],
             'comunicacoes_recentes': ComunicacaoSerializer(
                 Comunicacao.objects.filter(escola=escola, aluno=aluno).select_related('aluno')[:10], many=True).data,
         })

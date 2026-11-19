@@ -54,8 +54,30 @@ function assRenderSugestoes(lista) {
     `<button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="assUsarSugestao(${i})">${escapeHtml(s)}</button>`).join('');
 }
 
+function assEhEncarregado() { return state.user?.role === 'ENCARREGADO'; }
+
+// Encarregado: em vez de pesquisar, escolhe entre os educandos que a escola associou à sua conta.
+async function assCarregarEducandos() {
+  const sel = document.getElementById('assAluno');
+  document.getElementById('assBuscaGrupo').style.display = 'none';
+  document.getElementById('assAlunoRotulo').textContent = 'Educando a que as perguntas se referem';
+  let lista = [];
+  try {
+    lista = (await apiFetch('/api/v1/assistente/educandos/'))?.educandos || [];
+  } catch (e) { /* sem lista: o assistente pede para escolher quando for preciso */ }
+  if (!lista.length) {
+    sel.innerHTML = '<option value="">Nenhum educando associado à sua conta</option>';
+    return;
+  }
+  sel.innerHTML = (lista.length > 1 ? '<option value="">Escolha o educando</option>' : '') +
+    lista.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.nome)}${a.classe ? ' — ' + escapeHtml(a.classe) : ''}</option>`).join('');
+  if (lista.length === 1) sel.selectedIndex = 0;
+  assEscolherAluno();
+}
+
 async function assIniciar() {
-  document.getElementById('assAlunoCard').style.display = assEhProprio() ? 'none' : '';
+  document.getElementById('assAlunoCard').style.display = (assEhProprio() && !assEhEncarregado()) ? 'none' : '';
+  if (assEhEncarregado()) assCarregarEducandos();
   assState.pagina = String(window._sigeUltimaPagina || '').replace(/[^a-z0-9-]/g, '').slice(0, 60);
   assRender();
   try {
@@ -116,11 +138,11 @@ window.assEnviar = async function () {
   btn.disabled = true;
   try {
     const corpo = { pergunta };
-    if (assState.alunoId && !assEhProprio()) corpo.aluno_id = assState.alunoId;
+    if (assState.alunoId && (!assEhProprio() || assEhEncarregado())) corpo.aluno_id = assState.alunoId;
     if (assState.pagina) corpo.pagina = assState.pagina;
     const res = await apiFetch('/api/v1/assistente/perguntar/', { method: 'POST', body: JSON.stringify(corpo) });
     assAdicionar({ de: 'bot', texto: res?.resposta || 'Sem resposta.', acao: res?.acao || null, consulta: res?.consulta_id || '' });
-    if (res?.precisa_aluno) document.getElementById('assBusca')?.focus();
+    if (res?.precisa_aluno) (assEhEncarregado() ? document.getElementById('assAluno') : document.getElementById('assBusca'))?.focus();
     if (Array.isArray(res?.sugestoes) && res.sugestoes.length) assRenderSugestoes(res.sugestoes);
   } catch (e) {
     assAdicionar({ de: 'bot', texto: 'Não foi possível obter resposta: ' + (e.message || 'erro desconhecido') });
