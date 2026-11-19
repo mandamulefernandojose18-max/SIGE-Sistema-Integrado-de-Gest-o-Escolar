@@ -62,27 +62,27 @@ class SaasResumoView(APIView):
 
         # 1. Total de Instituições por Estado
         estados_contagem = {
-            'activa': SaasAssinatura.objects.filter(estado='activa').count(),
-            'fatura_pendente': SaasAssinatura.objects.filter(estado='fatura_pendente').count(),
-            'em_atraso': SaasAssinatura.objects.filter(estado='em_atraso').count(),
-            'restrita': SaasAssinatura.objects.filter(estado='restrita').count(),
-            'suspensa': SaasAssinatura.objects.filter(estado='suspensa').count(),
-            'cancelada': SaasAssinatura.objects.filter(estado='cancelada').count(),
-            'teste': SaasAssinatura.objects.filter(estado='teste').count(),
+            'activa': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='activa').count(),
+            'fatura_pendente': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='fatura_pendente').count(),
+            'em_atraso': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='em_atraso').count(),
+            'restrita': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='restrita').count(),
+            'suspensa': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='suspensa').count(),
+            'cancelada': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='cancelada').count(),
+            'teste': SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='teste').count(),
         }
         total_instituicoes = Escola.objects.count()
 
         # 2. Valor total em dívida (faturas abertas ou em atraso)
-        faturas_devedoras = SaasFatura.objects.filter(estado__in=['aberta', 'em_atraso', 'paga_parcial'])
+        faturas_devedoras = SaasFatura.objects.filter(instituicao__eliminada_em__isnull=True, estado__in=['aberta', 'em_atraso', 'paga_parcial'])
         valor_em_divida = sum(float(f.valor + f.multa_aplicada - f.valor_pago) for f in faturas_devedoras)
 
         # 3. Pagamentos aguardando validação
-        pagamentos_pendentes = SaasPagamento.objects.filter(estado='enviado').count()
+        pagamentos_pendentes = SaasPagamento.objects.filter(instituicao__eliminada_em__isnull=True, estado='enviado').count()
 
         # 4. Receita do mês corrente
         hoje = timezone.localdate()
         mes_inicio = hoje.replace(day=1)
-        pagamentos_mes = SaasPagamento.objects.filter(estado='confirmado', confirmado_em__date__gte=mes_inicio)
+        pagamentos_mes = SaasPagamento.objects.filter(instituicao__eliminada_em__isnull=True, estado='confirmado', confirmado_em__date__gte=mes_inicio)
         receita_mes = sum(float(p.valor) for p in pagamentos_mes)
 
         return Response({
@@ -196,7 +196,7 @@ class SaasAssinaturasListView(APIView):
                     proxima_fatura_em=proxima
                 )
 
-        qs = SaasAssinatura.objects.select_related('instituicao', 'plano').all().order_by('-created_at')
+        qs = SaasAssinatura.objects.select_related('instituicao', 'plano').filter(instituicao__eliminada_em__isnull=True).order_by('-created_at')
 
         # Filtros
         estado_filtro = request.GET.get('estado')
@@ -301,7 +301,7 @@ class SaasPagamentosPendentesView(APIView):
         if not is_superadmin_user(request.user):
             return Response({'success': False, 'message': 'Acesso restrito ao Super Administrador.'}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = SaasPagamento.objects.select_related('instituicao', 'fatura').filter(estado='enviado').order_by('-criado_em')
+        qs = SaasPagamento.objects.select_related('instituicao', 'fatura').filter(instituicao__eliminada_em__isnull=True, estado='enviado').order_by('-criado_em')
         serializer = SaasPagamentoSerializer(qs, many=True)
         return Response({'success': True, 'data': serializer.data})
 

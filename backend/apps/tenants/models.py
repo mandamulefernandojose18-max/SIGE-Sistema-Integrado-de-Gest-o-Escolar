@@ -72,6 +72,12 @@ class Pacote(models.Model):
         return f'{self.nome} ({self.preco_mensal} MZN/mês)'
 
 
+class EscolaActivaManager(models.Manager):
+    """Gestor por omissão: esconde as escolas na lixeira (eliminação reversível). Use `Escola.todas` para vê-las."""
+    def get_queryset(self):
+        return super().get_queryset().filter(eliminada_em__isnull=True)
+
+
 class Escola(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nome = models.CharField(max_length=255)
@@ -212,6 +218,14 @@ class Escola(models.Model):
     galeria_fundos = models.JSONField(default=list, blank=True)
 
     bloqueada_manualmente = models.BooleanField(default=False)
+    # Eliminação reversível (lixeira): a escola fica oculta e bloqueada até ser restaurada ou apagada de vez.
+    eliminada_em = models.DateTimeField(null=True, blank=True, db_index=True)
+    eliminada_por = models.CharField(max_length=150, blank=True, default='')
+    status_antes_eliminacao = models.CharField(max_length=20, blank=True, default='')
+
+    objects = EscolaActivaManager()
+    todas = models.Manager()
+
     permitir_visualizacao_notas = models.BooleanField(default=True)
     modo_publicacao_notas = models.CharField(
         max_length=20,

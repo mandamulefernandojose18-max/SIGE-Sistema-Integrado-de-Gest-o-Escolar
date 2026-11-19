@@ -86,7 +86,10 @@
 | `POST`| `/api/v1/saas-admin/escolas/` | `SUPERADMIN` | Cadastra nova escola e gera automaticamente as contas diretivas (`GD`, `DP`, `SECR`). |
 | `GET` | `/api/v1/saas-admin/escolas/<uuid:pk>/` | `SUPERADMIN` | Detalhes cadastrais e contratuais de uma escola. |
 | `PUT` | `/api/v1/saas-admin/escolas/<uuid:pk>/` | `SUPERADMIN` | Atualiza dados e plano de uma instituição. |
-| `DELETE`| `/api/v1/saas-admin/escolas/<uuid:pk>/` | `SUPERADMIN` | Elimina definitivamente uma escola e seus registros associados. |
+| `DELETE`| `/api/v1/saas-admin/escolas/<uuid:pk>/` | `SUPERADMIN` | Eliminação **reversível**: com `confirmar_nome` correcto a escola vai para a lixeira (estado `ELIMINADA`, oculta e bloqueada; os dados são mantidos). |
+| `GET` | `/api/v1/saas-admin/escolas/?lixeira=1` | `SUPERADMIN` | Lista as escolas na lixeira (`eliminada_em`, `eliminada_por`). Sem o parâmetro, a lixeira não aparece. |
+| `POST`| `/api/v1/saas-admin/escolas/<uuid:pk>/restaurar/` | `SUPERADMIN` | Restaura uma escola da lixeira para o estado que tinha antes de ser eliminada. |
+| `POST`| `/api/v1/saas-admin/escolas/<uuid:pk>/eliminar-definitivo/` | `SUPERADMIN` | Apaga de vez uma escola que esteja na lixeira há pelo menos 30 dias (exige `confirmar_nome`). Irreversível; auditado como `ELIMINAR_DEFINITIVO`. |
 | `POST`| `/api/v1/saas-admin/escolas/<uuid:pk>/toggle-status/` | `SUPERADMIN` | Alterna o status da escola entre `ATIVA` e `SUSPENSA`. |
 | `GET` | `/api/v1/saas-admin/escolas/<uuid:pk>/comprovativo-contrato/` | `SUPERADMIN` | Emite o comprovativo formal de assinatura em PDF com termos do plano. |
 | `GET` | `/api/v1/saas-admin/planos/` | `SUPERADMIN` | Catálogo de planos de subscrição (`MENSAL`, `TRIMESTRAL`, `SEMESTRAL`, `ANUAL`). |

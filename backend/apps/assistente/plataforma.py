@@ -32,11 +32,11 @@ def h_plat_resumo(ctx):
 
 def h_plat_assinaturas(ctx):
     from apps.tenants.models import SaasAssinatura
-    por_estado = Counter(SaasAssinatura.objects.values_list('estado', flat=True))
+    por_estado = Counter(SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True).values_list('estado', flat=True))
     if not por_estado:
         return _res('Ainda não há assinaturas SaaS registadas.', {'assinaturas': 0}, 'saas', 'Abrir o Painel Master')
     partes = '; '.join(f'{n} {ESTADO_ROTULO.get(e, e)}' for e, n in por_estado.items())
-    criticas = [a.instituicao.nome for a in SaasAssinatura.objects.filter(estado__in=('em_atraso', 'restrita', 'suspensa')).select_related('instituicao')[:20]]
+    criticas = [a.instituicao.nome for a in SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado__in=('em_atraso', 'restrita', 'suspensa')).select_related('instituicao')[:20]]
     txt = f'Assinaturas SaaS: {partes}.'
     if criticas:
         txt += ' A pedir atenção: ' + _lista(criticas, 5) + '.'
@@ -45,7 +45,7 @@ def h_plat_assinaturas(ctx):
 
 def h_plat_faturas(ctx):
     from apps.tenants.models import SaasFatura
-    abertas = SaasFatura.objects.filter(estado__in=('aberta', 'paga_parcial', 'em_atraso'))
+    abertas = SaasFatura.objects.filter(instituicao__eliminada_em__isnull=True, estado__in=('aberta', 'paga_parcial', 'em_atraso'))
     n, atraso = abertas.count(), abertas.filter(estado='em_atraso').count()
     if not n:
         return _res('Não há faturas SaaS em aberto.', {'em_aberto': 0}, 'pagamentos-saas', 'Abrir Assinaturas & Pagamentos SaaS')
@@ -77,7 +77,7 @@ def h_plat_planos(ctx):
 
 def h_plat_mrr(ctx):
     from apps.tenants.models import SaasAssinatura
-    activas = SaasAssinatura.objects.filter(estado__in=('activa', 'fatura_pendente')).select_related('plano')
+    activas = SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado__in=('activa', 'fatura_pendente')).select_related('plano')
     mrr = sum((a.plano.preco_mensal for a in activas), Decimal('0'))
     n = activas.count()
     if not n:

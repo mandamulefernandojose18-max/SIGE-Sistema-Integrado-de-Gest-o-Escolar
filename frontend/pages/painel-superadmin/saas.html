@@ -30,7 +30,7 @@
               <div>
                 <span class="text-muted small text-uppercase fw-semibold">Taxa de Churn</span>
                 <h3 id="saasChurn" class="fw-bold mb-0 text-danger">0%</h3>
-                <small class="text-muted">Escolas suspensas/expiradas</small>
+                <small class="text-muted" id="saasChurnDetalhe">Últimos 30 dias</small>
               </div>
               <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-person-x-fill"></i></div>
             </div>
@@ -81,6 +81,9 @@
               </div>
               <button class="btn btn-primary btn-sm" onclick="modalCadastrarEscolaSuperAdmin()">
                 <i class="bi bi-plus-lg me-1"></i> Cadastrar Nova Escola
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="abrirLixeiraEscolas()" title="Escolas eliminadas: restaurar ou apagar de vez">
+                <i class="bi bi-trash3 me-1"></i> Lixeira
               </button>
               <button class="btn btn-outline-secondary btn-sm" onclick="executarCronVerificacaoManual()">
                 <i class="bi bi-arrow-repeat me-1"></i> Rodar Verificação de Expiração

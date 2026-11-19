@@ -538,7 +538,7 @@ def _executar_rotina_diaria_core():
     alteracoes_estado = 0
 
     # 1. Gerar Faturas do Dia
-    assinaturas = SaasAssinatura.objects.exclude(estado='cancelada').filter(proxima_fatura_em__lte=hoje)
+    assinaturas = SaasAssinatura.objects.exclude(estado='cancelada').filter(instituicao__eliminada_em__isnull=True, proxima_fatura_em__lte=hoje)
     for ass in assinaturas:
         inicio = ass.proxima_fatura_em
         plano = ass.plano
@@ -617,7 +617,7 @@ def _executar_rotina_diaria_core():
 
     # 2. Avaliação Automática de Estados (Suspensão e Reactivação Automáticas)
     # Avalia todas as instituições cujo controlo seja automático (não bloqueadas manualmente)
-    todas_assinaturas = SaasAssinatura.objects.exclude(estado='cancelada').select_related('instituicao')
+    todas_assinaturas = SaasAssinatura.objects.exclude(estado='cancelada').filter(instituicao__eliminada_em__isnull=True).select_related('instituicao')
     for ass in todas_assinaturas:
         escola = ass.instituicao
         # Preserva bloqueio manual discricionário se configurado

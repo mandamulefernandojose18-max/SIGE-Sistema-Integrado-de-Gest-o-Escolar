@@ -42,7 +42,7 @@ def calcular_alarmes():
     alarmes = []
 
     # 1. Comprovativos por confirmar (críticos se esperam mais de 24 h)
-    pendentes = list(SaasPagamento.objects.select_related('instituicao', 'fatura').filter(estado='enviado').order_by('criado_em'))
+    pendentes = list(SaasPagamento.objects.select_related('instituicao', 'fatura').filter(instituicao__eliminada_em__isnull=True, estado='enviado').order_by('criado_em'))
     itens = []
     for p in pendentes:
         horas = int((agora - p.criado_em).total_seconds() // 3600)
@@ -59,7 +59,7 @@ def calcular_alarmes():
 
     # 2. Faturas a vencer nos próximos dias / faturas em atraso / a entrar em suspensão
     a_vencer, em_atraso, quase_suspensas = [], [], []
-    faturas = SaasFatura.objects.select_related('instituicao', 'assinatura').filter(
+    faturas = SaasFatura.objects.select_related('instituicao', 'assinatura').filter(instituicao__eliminada_em__isnull=True, 
         estado__in=['aberta', 'paga_parcial', 'em_atraso'])
     for f in faturas:
         ass = f.assinatura
@@ -115,7 +115,7 @@ def calcular_alarmes():
                                descricao='Referências repetidas ou valores diferentes do devido.'))
 
     # 4b. Excepções activas "não suspender até <data>" (informativo)
-    adiadas = SaasAssinatura.objects.select_related('instituicao').filter(
+    adiadas = SaasAssinatura.objects.select_related('instituicao').filter(instituicao__eliminada_em__isnull=True, 
         suspensao_adiada_ate__gte=hoje).order_by('suspensao_adiada_ate')
     itens = [{'instituicao_id': str(a.instituicao_id), 'instituicao': a.instituicao.nome,
               'detalhe': f'até {a.suspensao_adiada_ate.strftime("%d/%m/%Y")} · {(a.suspensao_adiada_motivo or "")[:70]}'}

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SIGE - PAINEL-SUPERADMIN | Gestão de Escolas & Planos SaaS
  * Ficheiro de código independente do menu: saas.js
  * Isolamento estrito de painel: Nenhuma ligação entre painéis de níveis distintos.
@@ -419,6 +419,8 @@ async function carregarPainelSaaS() {
 
       const elChurn = document.getElementById('saasChurn');
       if (elChurn) elChurn.textContent = churn + '%';
+      const elChurnDet = document.getElementById('saasChurnDetalhe');
+      if (elChurnDet) elChurnDet.textContent = `Últimos ${d.churn_janela_dias ?? 30} dias: ${d.churn_escolas ?? 0} escola(s) perdida(s)`;
 
       const elTotal = document.getElementById('saasTotalEscolas');
       if (elTotal) elTotal.textContent = totalEscolas;
@@ -1420,10 +1422,10 @@ async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
   const rotulo = codigo ? `[${escapeHtml(codigo)}] ${escapeHtml(nomeLimpo)}` : `[${escapeHtml(nomeLimpo)}]`;
   window._eliminarEscolaPendente = { escolaId, nome: nomeLimpo };
   // Confirmação reforçada: o nome da escola tem de ser digitado; o botão só activa quando coincide.
-  abrirModal('Eliminar escola definitivamente', `
+  abrirModal('Mover escola para a lixeira', `
     <div class="alert alert-danger small mb-3">
       <i class="bi bi-exclamation-octagon-fill me-1"></i>
-      Vai eliminar <strong>${rotulo}</strong> e <strong>todos os seus dados</strong>. Esta operação <strong>não pode ser revertida</strong> e fica registada na auditoria.
+      Vai mover <strong>${rotulo}</strong> para a lixeira. A escola fica <strong>oculta e bloqueada</strong>, mas os dados são mantidos e pode <strong>restaurá-la durante 30 dias</strong>. Só depois desse prazo pode ser apagada de vez. Fica registado na auditoria.
     </div>
     <label class="form-label small fw-semibold" for="inputConfirmarEliminarEscola">Para confirmar, digite o nome exacto da escola:</label>
     <div class="form-text mb-1 user-select-all fw-bold">${escapeHtml(nomeLimpo)}</div>
@@ -1431,7 +1433,7 @@ async function eliminarEscolaSuperAdmin(escolaId, nome, codigo = '') {
     <div id="erroEliminarEscola" class="text-danger small mt-2" style="display:none" role="alert"></div>
     <div class="d-flex justify-content-end gap-2 mt-3">
       <button class="btn btn-outline-secondary" onclick="fecharModal()">Cancelar</button>
-      <button class="btn btn-danger" id="btnConfirmarEliminarEscola" disabled onclick="confirmarEliminarEscolaSuperAdmin()"><i class="bi bi-trash me-1"></i>Eliminar definitivamente</button>
+      <button class="btn btn-danger" id="btnConfirmarEliminarEscola" disabled onclick="confirmarEliminarEscolaSuperAdmin()"><i class="bi bi-trash me-1"></i>Mover para a lixeira</button>
     </div>`);
 }
 
@@ -1465,6 +1467,76 @@ async function confirmarEliminarEscolaSuperAdmin() {
     if (erro) { erro.textContent = err.message || 'Erro ao eliminar escola'; erro.style.display = ''; }
   }
 }
+// ==================== 8b. LIXEIRA DE ESCOLAS (eliminação reversível) ====================
+const RETENCAO_LIXEIRA_DIAS = 30;
+
+async function abrirLixeiraEscolas() {
+  abrirModal('Lixeira de escolas', '<div id="lixeiraEscolasConteudo" class="text-center text-muted py-3">A carregar...</div>');
+  await carregarLixeiraEscolas();
+}
+
+async function carregarLixeiraEscolas() {
+  const el = document.getElementById('lixeiraEscolasConteudo');
+  if (!el) return;
+  try {
+    const res = await apiFetch('/api/v1/saas-admin/escolas?lixeira=1');
+    const lista = res && res.success && Array.isArray(res.data) ? res.data : [];
+    if (lista.length === 0) {
+      el.innerHTML = '<div class="text-muted py-3">A lixeira está vazia.</div>';
+      return;
+    }
+    el.className = '';
+    el.innerHTML = `<p class="small text-muted">As escolas ficam ${RETENCAO_LIXEIRA_DIAS} dias na lixeira. Até lá podem ser restauradas; depois podem ser apagadas de vez.</p>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead class="table-light"><tr><th>Escola</th><th>Eliminada</th><th>Prazo</th><th class="text-end">Acções</th></tr></thead>
+        <tbody>${lista.map(e => {
+          const quando = e.eliminada_em ? new Date(e.eliminada_em) : null;
+          const restam = quando ? Math.ceil((quando.getTime() + RETENCAO_LIXEIRA_DIAS * 86400000 - Date.now()) / 86400000) : null;
+          const podeApagar = restam !== null && restam <= 0;
+          return `<tr>
+            <td><strong>${escapeHtml(e.nome)}</strong><div class="small text-muted">${escapeHtml(e.codigo_escola || '')}</div></td>
+            <td><small>${quando ? quando.toLocaleDateString('pt-PT') : '-'}<br>${escapeHtml(e.eliminada_por || '')}</small></td>
+            <td><small>${podeApagar ? '<span class="text-danger">Pode ser apagada</span>' : `Restam ${restam} dia(s)`}</small></td>
+            <td class="text-end">
+              <button class="btn btn-outline-success btn-sm" data-id="${escapeHtml(e.id)}" onclick="restaurarEscolaSuperAdmin(this.dataset.id)"><i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar</button>
+              <button class="btn btn-outline-danger btn-sm" ${podeApagar ? '' : 'disabled title="Disponível após o período de retenção"'} data-id="${escapeHtml(e.id)}" data-nome="${escapeHtml(e.nome)}" onclick="apagarEscolaDefinitivo(this.dataset.id, this.dataset.nome)"><i class="bi bi-x-octagon me-1"></i>Apagar de vez</button>
+            </td></tr>`;
+        }).join('')}</tbody></table></div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="text-danger py-3">${escapeHtml(err.message || 'Falha ao carregar a lixeira.')}</div>`;
+  }
+}
+
+async function restaurarEscolaSuperAdmin(id) {
+  if (!confirm('Restaurar esta escola? Volta ao estado que tinha antes de ser eliminada.')) return;
+  try {
+    const res = await apiFetch(`/api/v1/saas-admin/escolas/${encodeURIComponent(id)}/restaurar`, { method: 'POST' });
+    mostrarNotificacao((res && res.message) || 'Operação concluída.', res && res.success ? 'success' : 'danger');
+    await carregarLixeiraEscolas();
+    carregarPainelSaaS();
+  } catch (err) {
+    mostrarNotificacao(err.message || 'Falha ao restaurar.', 'danger');
+  }
+}
+
+async function apagarEscolaDefinitivo(id, nome) {
+  const digitado = prompt(`APAGAR DE VEZ (irreversível): todos os dados da escola serão destruídos.\n\nPara confirmar, digite o nome exacto:\n${nome}`);
+  if (digitado === null) return;
+  try {
+    const res = await apiFetch(`/api/v1/saas-admin/escolas/${encodeURIComponent(id)}/eliminar-definitivo`, {
+      method: 'POST',
+      body: JSON.stringify({ confirmar_nome: digitado.trim() })
+    });
+    mostrarNotificacao((res && res.message) || 'Operação concluída.', res && res.success ? 'success' : 'danger');
+    await carregarLixeiraEscolas();
+  } catch (err) {
+    mostrarNotificacao(err.message || 'Falha ao apagar.', 'danger');
+  }
+}
+
+window.abrirLixeiraEscolas = abrirLixeiraEscolas;
+window.restaurarEscolaSuperAdmin = restaurarEscolaSuperAdmin;
+window.apagarEscolaDefinitivo = apagarEscolaDefinitivo;
 // ==================== 9. LOGÓTIPO SAAS CADASTRO ====================
 function processarLogoCadastroLocal(input) {
   const file = input.files?.[0];

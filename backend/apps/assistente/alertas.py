@@ -152,6 +152,31 @@ def alertas_assinatura(user, escola):
     return []
 
 
+def alertas_pagamentos_saas(user, escola):
+    """Decisões do SuperAdmin sobre os comprovativos da assinatura que a escola submeteu.
+
+    Rejeitado: alta prioridade, com o motivo, até a fatura ser paga ou existir novo comprovativo para ela.
+    Confirmado: informativo durante 7 dias. Desaparecem sozinhos (não é preciso "dispensar").
+    """
+    from apps.tenants.models import SaasPagamento
+    desde = timezone.now() - datetime.timedelta(days=14)
+    decididos = (SaasPagamento.objects.select_related('fatura')
+                 .filter(instituicao=escola, estado__in=('confirmado', 'rejeitado'), confirmado_em__gte=desde)
+                 .order_by('-confirmado_em')[:6])
+    destino = 'assinatura-escola' if user.role in DIRECCAO else None
+    out = []
+    for p in decididos:
+        if p.estado == 'rejeitado':
+            if p.fatura.estado == 'paga':
+                continue
+            if SaasPagamento.objects.filter(fatura=p.fatura, estado__in=('enviado', 'confirmado'), criado_em__gt=p.criado_em).exists():
+                continue
+            motivo = (p.motivo_rejeicao or 'sem motivo indicado')[:160]
+            out.append(_a('alta', f'Comprovativo {p.referencia} rejeitado ({p.valor} MZN)', f'Motivo: {motivo}. Submeta um novo comprovativo.', destino, 'Ver assinatura'))
+        elif (timezone.now() - p.confirmado_em).days < 7:
+            out.append(_a('info', f'Pagamento {p.referencia} confirmado ({p.valor} MZN)', f'Fatura {p.fatura.numero_fatura}.', destino, 'Ver assinatura'))
+    return out[:3]
+
 def alertas_despesas(user, escola):
     from apps.pagamentos.models import TransacaoFinanceira
     n = TransacaoFinanceira.objects.filter(escola=escola, status_aprovacao='PENDENTE').count()
@@ -203,6 +228,7 @@ ALERTAS = [
     (alertas_familia, PROPRIO),
     (alertas_professor, {'PROFESSOR'}),
     (alertas_assinatura, DIRECCAO),
+    (alertas_pagamentos_saas, DIRECCAO | {'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA', 'FINANCEIRO'}),
     (alertas_transferencias, GESTAO),
     (alertas_crm, GESTAO),
     (alertas_risco, GESTAO),
@@ -219,13 +245,13 @@ def alertas_plataforma(user):
     """Super Admin sem escola em inspecção: o que merece atenção na plataforma."""
     from apps.tenants.models import SaasAssinatura, SaasFatura, SaasPagamento
     out = []
-    por_validar = SaasPagamento.objects.filter(estado='enviado').count()
+    por_validar = SaasPagamento.objects.filter(instituicao__eliminada_em__isnull=True, estado='enviado').count()
     if por_validar:
         out.append(_a('alta', f'{por_validar} comprovativo(s) de pagamento por validar', '', 'pagamentos-saas', 'Validar'))
-    em_atraso = SaasFatura.objects.filter(estado='em_atraso').count()
+    em_atraso = SaasFatura.objects.filter(instituicao__eliminada_em__isnull=True, estado='em_atraso').count()
     if em_atraso:
         out.append(_a('alta', f'{em_atraso} fatura(s) SaaS em atraso', '', 'pagamentos-saas', 'Ver faturas'))
-    criticas = SaasAssinatura.objects.filter(estado__in=('restrita', 'suspensa')).count()
+    criticas = SaasAssinatura.objects.filter(instituicao__eliminada_em__isnull=True, estado__in=('restrita', 'suspensa')).count()
     if criticas:
         out.append(_a('media', f'{criticas} assinatura(s) restrita(s) ou suspensa(s)', '', 'saas', 'Ver escolas'))
     return out

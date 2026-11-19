@@ -1,4 +1,5 @@
-﻿import logging
+import logging
+from datetime import timedelta
 import uuid
 from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status
@@ -222,42 +223,12 @@ class GeografiaView(APIView):
         })
 
 class SaaSMetricsView(APIView):
+    """Métricas do topo da página Escolas. Calculadas sobre o modelo de assinaturas SaaS (ver saas_metricas)."""
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
-        stats = Escola.objects.aggregate(
-            total=Count('id'),
-            ativas=Count('id', filter=Q(status='ATIVA')),
-            expiradas=Count('id', filter=Q(status='EXPIRADA'))
-        )
-        total_escolas = stats['total'] or 0
-        escolas_ativas = stats['ativas'] or 0
-        escolas_expiradas = stats['expiradas'] or 0
-        total_alunos = Aluno.objects.count()
-        total_professores = Professor.objects.count()
-        mrr = AssinaturaEscola.objects.filter(status='ATIVA').aggregate(total=Sum('valor'))['total'] or 0
-
-        mrr_val = float(mrr)
-        arr_val = mrr_val * 12.0
-        churn_val = round((escolas_expiradas / total_escolas * 100), 1) if total_escolas else 0.0
-
-        payload = {
-            'mrr': mrr_val,
-            'arr': arr_val,
-            'churn': churn_val,
-            'escolas': {
-                'total': total_escolas,
-                'ativas': escolas_ativas,
-                'expiradas': escolas_expiradas,
-            },
-            'totalEscolas': total_escolas,
-            'escolasAtivas': escolas_ativas,
-            'escolasExpiradas': escolas_expiradas,
-            'totalAlunos': total_alunos,
-            'totalProfessores': total_professores,
-            'receitaMensalEstimada': mrr_val,
-        }
-
+        from .saas_metricas import calcular_metricas_saas
+        payload = calcular_metricas_saas()
         return Response({
             'success': True,
             'data': payload,
@@ -395,7 +366,9 @@ class EscolaViewSet(viewsets.ModelViewSet):
             Professor.objects.filter(escola=OuterRef('pk')).values('escola').annotate(c=Count('id')).values('c')[:1],
             output_field=IntegerField()
         )
-        return Escola.objects.select_related('plano', 'pacote').prefetch_related('assinaturas__plano', 'saas_assinaturas').annotate(
+        no_lixo = self.action in ('restaurar', 'eliminar_definitivo') or self.request.query_params.get('lixeira') == '1'
+        base = Escola.todas.filter(eliminada_em__isnull=False) if no_lixo else Escola.objects.all()
+        return base.select_related('plano', 'pacote').prefetch_related('assinaturas__plano', 'saas_assinaturas').annotate(
             total_alunos_count=functions.Coalesce(aluno_count_sq, 0),
             total_professores_count=functions.Coalesce(prof_count_sq, 0)
         ).all()
@@ -425,13 +398,13 @@ class EscolaViewSet(viewsets.ModelViewSet):
                 'message': 'Campos obrigatórios: Nome da Instituição, NUIT e E-mail.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if Escola.objects.filter(nif_cnpj__iexact=nif_cnpj).exists():
+        if Escola.todas.filter(nif_cnpj__iexact=nif_cnpj).exists():
             return Response({
                 'success': False,
                 'message': f'Já existe uma instituição cadastrada com o NUIT {nif_cnpj}.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if Escola.objects.filter(email__iexact=email).exists():
+        if Escola.todas.filter(email__iexact=email).exists():
             return Response({
                 'success': False,
                 'message': f'Já existe uma instituição cadastrada com o E-mail {email}.'
@@ -446,7 +419,7 @@ class EscolaViewSet(viewsets.ModelViewSet):
                     'success': False,
                     'message': 'Código da escola inválido. O código manual deve ter exactamente 8 dígitos numéricos.'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if Escola.objects.filter(codigo_escola__iexact=codigo_manual).exists():
+            if Escola.todas.filter(codigo_escola__iexact=codigo_manual).exists():
                 return Response({
                     'success': False,
                     'message': f'Já existe uma escola com o código {codigo_manual}.'
@@ -518,7 +491,7 @@ class EscolaViewSet(viewsets.ModelViewSet):
             valor_contrato = 0
 
         duracao_dias = plano.duracao_dias if plano else 30
-        data_fim = timezone.now() + timezone.timedelta(days=duracao_dias)
+        data_fim = timezone.now() + timedelta(days=duracao_dias)
 
         assinatura = AssinaturaEscola.objects.create(
             escola=escola,
@@ -612,7 +585,7 @@ class EscolaViewSet(viewsets.ModelViewSet):
         if ass:
             if dias_adicionais:
                 try:
-                    ass.data_fim = ass.data_fim + timezone.timedelta(days=int(dias_adicionais))
+                    ass.data_fim = ass.data_fim + timedelta(days=int(dias_adicionais))
                     ass.status = 'ATIVA'
                     escola.status = 'ATIVA'
                     ass.save()
@@ -666,18 +639,86 @@ class EscolaViewSet(viewsets.ModelViewSet):
         )
         return Response({'success': True, 'message': 'Inspeção registada na auditoria.'})
 
+    RETENCAO_LIXEIRA_DIAS = 30
+
+    @staticmethod
+    def _confirmou_nome(request, escola):
+        confirmar = str(request.data.get('confirmar_nome', '') if hasattr(request.data, 'get') else '').strip()
+        return confirmar.casefold() == (escola.nome or '').strip().casefold()
+
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
+        """Eliminação REVERSÍVEL: a escola vai para a lixeira (oculta e bloqueada) e pode ser restaurada.
+        Só é apagada de vez, após o período de retenção, por `eliminar-definitivo`."""
         escola = self.get_object()
         nome = escola.nome
         cod = escola.codigo_escola or ''
 
         # Confirmação reforçada: o SuperAdmin tem de digitar o nome exacto da escola.
-        confirmar = str(request.data.get('confirmar_nome', '') if hasattr(request.data, 'get') else '').strip()
-        if confirmar.casefold() != (nome or '').strip().casefold():
+        if not self._confirmou_nome(request, escola):
             return Response({
                 'success': False,
                 'message': 'Confirmação inválida: digite o nome exacto da escola para a eliminar.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        escola.status_antes_eliminacao = escola.status if escola.status != 'ELIMINADA' else ''
+        escola.status = 'ELIMINADA'
+        escola.eliminada_em = timezone.now()
+        escola.eliminada_por = (request.user.nome or request.user.email)[:150]
+        escola.save(update_fields=['status', 'status_antes_eliminacao', 'eliminada_em', 'eliminada_por'])
+
+        from apps.accounts.audit import registrar_auditoria
+        registrar_auditoria(
+            usuario=request.user,
+            escola=None,
+            entidade='ESCOLA',
+            acao='ELIMINAR',
+            objeto_id=str(escola.id),
+            descricao=f"SuperAdmin moveu para a lixeira a escola [{cod or '-'}] {nome} (restaurável durante {self.RETENCAO_LIXEIRA_DIAS} dias).",
+            antes={'nome': nome, 'codigo_escola': cod, 'status': escola.status_antes_eliminacao},
+            ip=self._ip_pedido(request),
+        )
+        identificador = f"[{cod}] {nome}" if cod else nome
+        return Response({
+            'success': True,
+            'message': f'Instituição {identificador} movida para a lixeira. Pode restaurá-la durante {self.RETENCAO_LIXEIRA_DIAS} dias.'
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='restaurar')
+    @transaction.atomic
+    def restaurar(self, request, pk=None):
+        escola = self.get_object()  # get_queryset devolve a lixeira para esta acção
+        anterior = escola.status_antes_eliminacao or 'SUSPENSA'
+        escola.eliminada_em = None
+        escola.eliminada_por = ''
+        escola.status = anterior if anterior != 'ELIMINADA' else 'SUSPENSA'
+        escola.status_antes_eliminacao = ''
+        escola.save(update_fields=['status', 'status_antes_eliminacao', 'eliminada_em', 'eliminada_por'])
+        from apps.accounts.audit import registrar_auditoria
+        registrar_auditoria(
+            usuario=request.user, escola=escola, entidade='ESCOLA', acao='RESTAURAR', objeto_id=str(escola.id),
+            descricao=f"SuperAdmin restaurou a escola [{escola.codigo_escola or '-'}] {escola.nome} da lixeira (estado: {escola.status}).",
+            ip=self._ip_pedido(request),
+        )
+        return Response({'success': True, 'message': f'Instituição restaurada (estado: {escola.status}).',
+                         'data': EscolaSerializer(escola).data})
+
+    @action(detail=True, methods=['post'], url_path='eliminar-definitivo')
+    @transaction.atomic
+    def eliminar_definitivo(self, request, pk=None):
+        """Apaga de vez uma escola que já esteja na lixeira há, pelo menos, o período de retenção. Irreversível."""
+        escola = self.get_object()  # só encontra escolas na lixeira
+        nome = escola.nome
+        cod = escola.codigo_escola or ''
+        if not self._confirmou_nome(request, escola):
+            return Response({'success': False, 'message': 'Confirmação inválida: digite o nome exacto da escola.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        limite = escola.eliminada_em + timedelta(days=self.RETENCAO_LIXEIRA_DIAS)
+        if timezone.now() < limite:
+            return Response({
+                'success': False,
+                'message': f'A escola só pode ser apagada de vez a partir de {timezone.localtime(limite).strftime("%d/%m/%Y")} '
+                           f'({self.RETENCAO_LIXEIRA_DIAS} dias na lixeira). Até lá pode restaurá-la.'
             }, status=status.HTTP_400_BAD_REQUEST)
         escola_id = str(escola.id)
 
@@ -703,21 +744,12 @@ class EscolaViewSet(viewsets.ModelViewSet):
         # Registo global (escola=None) para sobreviver à eliminação em cascata dos logs da escola.
         from apps.accounts.audit import registrar_auditoria
         registrar_auditoria(
-            usuario=request.user,
-            escola=None,
-            entidade='ESCOLA',
-            acao='ELIMINAR',
-            objeto_id=escola_id,
+            usuario=request.user, escola=None, entidade='ESCOLA', acao='ELIMINAR_DEFINITIVO', objeto_id=escola_id,
             descricao=f"SuperAdmin eliminou definitivamente a escola [{cod or '-'}] {nome}.",
-            antes={'nome': nome, 'codigo_escola': cod},
-            ip=self._ip_pedido(request),
+            antes={'nome': nome, 'codigo_escola': cod}, ip=self._ip_pedido(request),
         )
         identificador = f"[{cod}] {nome}" if cod else nome
-        return Response({
-            'success': True,
-            'message': f'Instituição {identificador} removida com sucesso.'
-        }, status=status.HTTP_200_OK)
-
+        return Response({'success': True, 'message': f'Instituição {identificador} apagada definitivamente.'})
     @action(detail=True, methods=['post', 'patch'], url_path='toggle-status')
     def toggle_status(self, request, pk=None):
         escola = self.get_object()

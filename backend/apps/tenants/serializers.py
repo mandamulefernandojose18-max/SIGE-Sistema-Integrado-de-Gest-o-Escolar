@@ -100,7 +100,8 @@ class EscolaListSerializer(serializers.ModelSerializer):
             'data_adesao', 'created_at', 'updated_at',
             'plano_id', 'plano_nome', 'plano', 'assinatura_ativa', 'assinaturas', '_count',
             'codigo_gabinete_director', 'codigo_direccao_pedagogica', 'codigo_secretaria',
-            'codigos_orgaos', 'bloqueada_manualmente', 'permitir_visualizacao_notas', 'logo_url'
+            'codigos_orgaos', 'bloqueada_manualmente', 'permitir_visualizacao_notas', 'logo_url',
+            'eliminada_em', 'eliminada_por'
         ]
 
     def get_plano(self, obj):
@@ -174,7 +175,8 @@ class EscolaSerializer(serializers.ModelSerializer):
         fields = '__all__'
         # O carimbo só se altera em /certificados/carimbo/ (exclusivo do director/administrador).
         read_only_fields = ['id', 'created_at', 'updated_at',
-                            'carimbo_nivel', 'carimbo_origem', 'carimbo_imagem_base64']
+                            'carimbo_nivel', 'carimbo_origem', 'carimbo_imagem_base64',
+                            'eliminada_em', 'eliminada_por', 'status_antes_eliminacao']
 
     def get_funcionalidades(self, obj):
         """Funcionalidades efectivas: sem pacote = acesso total."""
