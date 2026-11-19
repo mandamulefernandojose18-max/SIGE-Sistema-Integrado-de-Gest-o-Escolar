@@ -44,6 +44,7 @@ class Ctx:
     pagina: Optional[str] = None
     aluno: object = None
     educandos: object = None
+    modulos: object = None          # módulos do painel do perfil (as capacidades compostas só juntam o que o perfil pode ver)
     hoje: datetime.date = field(default_factory=datetime.date.today)
 
     @property
@@ -80,6 +81,10 @@ class Capacidade:
     rotulo: Optional[str] = None
     destino_proprio: Optional[str] = None
     peso: float = 1                 # multiplica os acertos de palavras-chave (frases específicas vencem as genéricas)
+    alt: tuple = ()                 # módulos alternativos que também dão acesso (ex.: o professor vê 'minhas-atividades')
+    universal: bool = False         # informação comum a todos os perfis da escola (calendário, comunicados)
+    plataforma: bool = False        # dados da plataforma (só SuperAdmin, sem escola)
+    exemplos: tuple = ()            # perguntas de exemplo (sugestões e ajuda por perfil)
 
 
 # Quem pode ver dados de um aluno, por capacidade
@@ -91,6 +96,11 @@ ACESSO_ALUNO = {
     'transferencias': {'gestao', 'financeiro'},
     'certificados': {'proprio', 'gestao'},
 }
+
+
+def _nome(a):
+    """Nome completo do aluno (nome + apelido)."""
+    return f'{a.nome} {a.apelido}'.strip() if getattr(a, 'apelido', None) else a.nome
 
 
 def _res(texto, dados=None, destino=None, rotulo=None):
@@ -125,8 +135,8 @@ def h_faltas(ctx):
     efectivas, injust = faltas_do_aluno(escola, aluno, ano)
     sufixo = f' no ano lectivo {ano}' if ano else ''
     if not efectivas:
-        return _res(f'{aluno.nome} não tem faltas efectivas registadas{sufixo}.', {'faltas_efectivas': 0})
-    return _res(f'{aluno.nome} tem {efectivas} falta(s) efectiva(s){sufixo}, das quais {injust} ainda por justificar.',
+        return _res(f'{_nome(aluno)} não tem faltas efectivas registadas{sufixo}.', {'faltas_efectivas': 0})
+    return _res(f'{_nome(aluno)} tem {efectivas} falta(s) efectiva(s){sufixo}, das quais {injust} ainda por justificar.',
                 {'faltas_efectivas': efectivas, 'por_justificar': injust})
 
 
@@ -138,7 +148,7 @@ def h_propinas(ctx):
     atraso = [p for p in abertos if p.data_vencimento < agora]
     futuros = [p for p in abertos if p.data_vencimento >= agora]
     if not atraso and not futuros:
-        return _res(f'{aluno.nome} não tem propinas pendentes registadas.', {'em_atraso': 0, 'a_vencer': 0})
+        return _res(f'{_nome(aluno)} não tem propinas pendentes registadas.', {'em_atraso': 0, 'a_vencer': 0})
     valor = sum((p.valor - p.valor_pago for p in atraso), Decimal('0'))
     meses = ', '.join(p.mes_referencia for p in sorted(atraso, key=lambda x: x.mes_referencia))
     partes = []
@@ -146,7 +156,7 @@ def h_propinas(ctx):
         partes.append(f'{len(atraso)} propina(s) em atraso ({meses}), no valor de {valor} MZN')
     if futuros:
         partes.append(f'{len(futuros)} a vencer')
-    return _res(f'{aluno.nome}: ' + '; '.join(partes) + '.',
+    return _res(f'{_nome(aluno)}: ' + '; '.join(partes) + '.',
                 {'em_atraso': len(atraso), 'valor_em_atraso': str(valor), 'a_vencer': len(futuros)})
 
 
@@ -189,8 +199,24 @@ def h_notas(ctx):
         partes.append(txt)
         dados[p] = {'avaliadas': len(itens), 'negativas': len(neg)}
     if not partes:
-        return _res(f'{ctx.aluno.nome} ainda não tem notas{" publicadas" if ctx.proprio else ""} registadas.', {})
-    return _res(f'{ctx.aluno.nome} — ' + '; '.join(partes) + '.', dados)
+        return _res(f'{_nome(ctx.aluno)} ainda não tem notas{" publicadas" if ctx.proprio else ""} registadas.', {})
+    # pergunta sobre uma disciplina concreta ("notas de Matemática"): as médias dessa disciplina em cada trimestre
+    pedida = [(d, per) for d, per in mapa.items() if normalizar(d).strip() and normalizar(d) in ctx.texto]
+    if pedida:
+        linhas = []
+        for d, per in pedida:
+            valores = [f'{ROTULO_TRIM[p]} {per[p]:g}' for p in periodos if p in per]
+            mfd = ''
+            if all(p in per for p in TRIMESTRES):
+                mfd = f'; MFD {int(sum(per[p] for p in TRIMESTRES) / 3 + 0.5)}'
+            linhas.append(f'{d}: ' + '; '.join(valores) + mfd)
+        return _res(f'{_nome(ctx.aluno)} — ' + ' | '.join(linhas) + '.', dados)
+    ultimo = next((p for p in reversed(periodos) if any(p in per for per in mapa.values())), None)
+    detalhe = ''
+    if ultimo:
+        itens = sorted((d, per[ultimo]) for d, per in mapa.items() if ultimo in per)
+        detalhe = f' Notas do {ROTULO_TRIM[ultimo]}: ' + _lista([f'{d} {m:g}' for d, m in itens], 12) + '.'
+    return _res(f'{_nome(ctx.aluno)} — ' + '; '.join(partes) + '.' + detalhe, dados)
 
 
 def h_quanto_preciso(ctx):
@@ -224,7 +250,7 @@ def h_quanto_preciso(ctx):
     if impossiveis:
         partes.append('não é possível chegar a 10 em: ' + _lista(impossiveis, 8))
     aviso = ' (MFD = média das 3 MT arredondada; a aprovação final também depende das regras da classe).'
-    return _res(f'{ctx.aluno.nome}: ' + '; '.join(partes) + aviso,
+    return _res(f'{_nome(ctx.aluno)}: ' + '; '.join(partes) + aviso,
                 {'precisa': dict(precisa), 'garantidas': garantidas, 'impossiveis': impossiveis})
 
 
@@ -234,10 +260,10 @@ def h_transferencias(ctx):
     if ctx.aluno is not None:
         proc = list(qs.filter(aluno=ctx.aluno).order_by('-created_at')[:5])
         if not proc:
-            return _res(f'{ctx.aluno.nome} não tem processos de transferência ou anulação.', {'processos': 0},
+            return _res(f'{_nome(ctx.aluno)} não tem processos de transferência ou anulação.', {'processos': 0},
                         'transferencias', 'Abrir Transferências & Anulações')
         linhas = [f'{p.get_tipo_display()} ({p.get_status_display()}) a {_data(p.data_solicitacao)}' for p in proc]
-        return _res(f'{ctx.aluno.nome}: ' + '; '.join(linhas) + '.', {'processos': len(proc)},
+        return _res(f'{_nome(ctx.aluno)}: ' + '; '.join(linhas) + '.', {'processos': len(proc)},
                     'transferencias', 'Abrir Transferências & Anulações')
     limite = ctx.hoje - datetime.timedelta(days=7)
     pend = qs.filter(status='PENDENTE')
@@ -258,8 +284,8 @@ def h_certificados(ctx):
         n = qs.filter(aluno=ctx.aluno).count()
         ultimo = qs.filter(aluno=ctx.aluno).order_by('-emitido_em').first()
         if not n:
-            return _res(f'{ctx.aluno.nome} não tem certificados emitidos.', {'emitidos': 0})
-        return _res(f'{ctx.aluno.nome} tem {n} certificado(s) emitido(s); o último a {_data(ultimo.emitido_em.date())}.', {'emitidos': n})
+            return _res(f'{_nome(ctx.aluno)} não tem certificados emitidos.', {'emitidos': 0})
+        return _res(f'{_nome(ctx.aluno)} tem {n} certificado(s) emitido(s); o último a {_data(ultimo.emitido_em.date())}.', {'emitidos': n})
     n = qs.filter(emitido_em__year=ctx.hoje.year).count()
     return _res(f'Foram emitidos {n} certificado(s) este ano.' if n else 'Ainda não foram emitidos certificados este ano.', {'emitidos_ano': n})
 
@@ -302,11 +328,29 @@ def h_turmas(ctx):
                 'turmas', 'Abrir Turmas')
 
 
+_DIAS_NOMES = {' segunda': 1, ' terca': 2, ' quarta': 3, ' quinta': 4, ' sexta': 5, ' sabado': 6}
+
+
+def _turma_pedida(ctx):
+    """Turma escrita na pergunta: "7.ª classe turma A" / "7ª A" (só da escola e do ano lectivo activo)."""
+    from apps.turmas.models import Turma
+    m = re.search(r'\b(\d{1,2})\s*a?\s*classe\s+(?:turma\s+)?([a-z0-9]{1,3})\b', ctx.texto) or re.search(r'\b(\d{1,2})\s*a\s+([a-z])\b', ctx.texto)
+    if not m:
+        return None
+    qs = Turma.objects.filter(escola=ctx.escola, grau_ano__regex=rf'^{int(m.group(1))}[^0-9]', nome__iexact=m.group(2))
+    if ctx.ano:
+        qs = qs.filter(ano_letivo=ctx.ano)
+    return qs.first()
+
+
 def h_horario(ctx):
     from apps.alunos.models import Aluno
     from apps.turmas.models import HorarioEscolar
     dia = ctx.hoje.isoweekday() + (1 if ' amanha ' in ctx.texto else 0)
     dia = 1 if dia > 7 else dia
+    for nome_dia_pedido, n_dia in _DIAS_NOMES.items():      # "horário de segunda-feira"
+        if nome_dia_pedido in ctx.texto:
+            dia = n_dia
     if dia == 7:
         return _res('No domingo não há aulas no horário lectivo.', {})
     qs = HorarioEscolar.objects.filter(escola=ctx.escola, dia_semana=dia, status_aprovacao='APROVADO').select_related('disciplina', 'turma')
@@ -320,7 +364,10 @@ def h_horario(ctx):
     elif ctx.role == 'PROFESSOR':
         qs, quem = qs.filter(professor_id=getattr(ctx.user, 'professor_id', None)), True
     else:
-        return _res('Para ver o horário de uma turma abra a página Horários e escolha a turma.', {}, 'horarios', 'Abrir Horários')
+        turma = _turma_pedida(ctx)
+        if not turma:
+            return _res('Indique a turma (por exemplo "horário da 7.ª classe turma A") ou abra a página Horários e escolha a turma.', {}, 'horarios', 'Abrir Horários')
+        qs, quem = qs.filter(turma=turma), False
     aulas = list(qs.order_by('hora_inicio'))
     nome_dia = DIAS.get(dia, '')
     if not aulas:
@@ -566,12 +613,12 @@ CAPACIDADES = [
     # dados do aluno
     Capacidade('faltas', 'dados', [' falta', ' faltas', ' faltou', ' assiduidade', ' ausencia', ' presenca'], h_faltas, aluno='obrigatorio',
                destino='presencas', rotulo='Abrir Presenças dos Alunos', destino_proprio='aluno-faltas'),
-    Capacidade('propinas', 'dados', [' propina', ' mensalidade', ' pagamento', ' pagar', ' divida', ' em atraso', ' atrasad'], h_propinas,
+    Capacidade('propinas', 'dados', [' propina', ' mensalidade', ' pagamento', ' pagar', ' divida', ' em atraso', ' atrasad', ' devo', ' quanto devo', ' tenho dividas', ' estou em divida'], h_propinas,
                aluno='obrigatorio', destino='pagamentos', rotulo='Abrir Propinas & Mensalidades', destino_proprio='aluno-pagamentos'),
     Capacidade('notas', 'dados', [' nota', ' notas', ' media', ' medias', ' negativa', ' negativas', ' classificacao', ' boletim', ' resultados'], h_notas,
                aluno='obrigatorio', destino='caderneta', rotulo='Abrir a Caderneta', destino_proprio='aluno-notas'),
-    Capacidade('quanto_preciso', 'dados', [' quanto preciso', ' preciso para passar', ' para passar', ' quanto falta para', ' minimo para'], h_quanto_preciso,
-               aluno='obrigatorio', destino='caderneta', rotulo='Abrir a Caderneta', destino_proprio='aluno-notas'),
+    Capacidade('quanto_preciso', 'dados', [' quanto preciso', ' preciso para passar', ' para passar', ' quanto falta para', ' minimo para', ' esta a passar', ' estou a passar', ' vai passar', ' vou passar', ' consegue passar', ' consigo passar', ' vai reprovar', ' vou reprovar'], h_quanto_preciso,
+               aluno='obrigatorio', destino='caderneta', rotulo='Abrir a Caderneta', destino_proprio='aluno-notas', peso=1.5),
     Capacidade('transferencias', 'dados', [' transferencia', ' transferencias', ' anulacao', ' processo de transferencia', ' em que estado', ' em que fase',
                                            ' estado do processo', ' pendentes'], h_transferencias,
                perfis=GESTAO | {'FINANCEIRO'}, aluno='opcional', destino='transferencias', rotulo='Abrir Transferências & Anulações'),
@@ -583,11 +630,11 @@ CAPACIDADES = [
     Capacidade('turmas', 'dados', [' turmas', ' vagas', ' lotada', ' lotadas', ' capacidade', ' sem director de turma', ' sem diretor de turma'], h_turmas,
                perfis=GESTAO | {'PROFESSOR'}, destino='turmas', rotulo='Abrir Turmas'),
     Capacidade('horario', 'dados', [' horario', ' aulas hoje', ' aulas amanha', ' tenho aula', ' que aula'], h_horario, aluno='proprio',
-               destino='horarios', rotulo='Abrir Horários'),
-    Capacidade('calendario', 'dados', [' calendario', ' prazo', ' prazos', ' feriado', ' proximo evento', ' proximos eventos', ' quando termina', ' quando comeca', ' datas'],
+               destino='horarios', rotulo='Abrir Horários', peso=2),
+    Capacidade('calendario', 'dados', [' calendario', ' prazo', ' prazos', ' feriado', ' proximo evento', ' proximos eventos', ' quando termina', ' quando comeca', ' datas', ' proximo teste', ' proximos testes', ' quando e o teste', ' quando sao os testes', ' reuniao', ' reunioes', ' ferias'],
                h_calendario, destino='calendario', rotulo='Abrir o Calendário Escolar', destino_proprio='aluno-calendario'),
     Capacidade('exames_calendario', 'dados', [' quando e o exame', ' quando sao os exames', ' quando ha exame', ' quando e a prova', ' data do exame', ' datas dos exames',
-                                              ' proximo exame', ' proximos exames', ' calendario de exame', ' calendario dos exames'], h_exames_calendario,
+                                              ' proximo exame', ' proximos exames', ' calendario de exame', ' calendario dos exames', ' ha exame', ' exames este mes', ' exames esta semana', ' exame amanha', ' exame hoje', ' exames hoje'], h_exames_calendario,
                aluno='proprio', destino='calendario-exames', rotulo='Abrir o Calendário dos Exames', destino_proprio='aluno-calendario', peso=2),
     Capacidade('crm', 'dados', [' atendimento', ' atendimentos', ' reclamacao', ' reclamacoes', ' pedidos abertos', ' pedidos por resolver'], h_crm,
                perfis=GESTAO, destino='crm', rotulo='Abrir o CRM Escolar'),
@@ -599,7 +646,7 @@ CAPACIDADES = [
                perfis=DIRECCAO | {'FINANCEIRO'}, destino='despesas', rotulo='Abrir Receitas & Despesas'),
     Capacidade('plano_curricular', 'dados', [' disciplinas', ' que disciplinas', ' carga horaria', ' materias', ' grelha curricular'], h_plano_curricular,
                destino='plano-curricular', rotulo='Abrir o Plano Curricular'),
-    Capacidade('material', 'dados', [' material escolar', ' material didatico', ' manuais', ' livros', ' fichas didaticas'], h_material,
+    Capacidade('material', 'dados', [' material escolar', ' material didatico', ' manuais', ' livros', ' fichas didaticas', ' material', ' materiais'], h_material,
                destino='material-escolar', rotulo='Abrir o Material Escolar'),
     Capacidade('cargos', 'dados', [' cargo', ' cargos', ' actividades', ' atividades', ' tarefas'], h_cargos,
                perfis=GESTAO | {'PROFESSOR'}, destino='atribuicoes-cargos', rotulo='Abrir Actividades dos Cargos'),
@@ -609,11 +656,94 @@ CAPACIDADES = [
                destino='comunicados', rotulo='Abrir Comunicados'),
     # regras do MEC
     *[Capacidade(n, 'regra', list(ch), _regra(n)) for n, ch in REGRAS.items()],
-    Capacidade('faq_aprovacao', 'regra', [' aprov', ' reprov', ' transit', ' passar de classe', ' retid', ' regras de aprovacao'], h_aprovacao),
+    Capacidade('faq_aprovacao', 'regra', [' aprov', ' reprov', ' transit', ' passar de classe', ' retid', ' regras de aprovacao', ' regras para passar', ' regra para passar', ' condicoes para passar'], h_aprovacao),
     # guias por módulo
     *[Capacidade('guia_' + g['id'], 'guia', g['chaves'], _guia(g), destino=g.get('destino'), rotulo=g.get('rotulo')) for g in guias.GUIAS],
 ]
+
+# Ajustes de segurança e de apresentação por capacidade (a regra geral está em `permitido`).
+_AJUSTES = {
+    'calendario': dict(universal=True),
+    'comunicados': dict(universal=True),
+    'certificados': dict(perfis=None),                       # aluno/encarregado (o seu) e gestão; o módulo decide quem
+    'turmas': dict(perfis=GESTAO),
+    'exames_calendario': dict(alt=('exames',)),
+    'cargos': dict(alt=('minhas-atividades',)),
+    'plano_curricular': dict(destino_proprio='aluno-notas', alt=('caderneta',)),
+}
+_GUIA_PERFIS = {
+    'pedir_documentos': PROPRIO,
+    'matricula': GESTAO, 'turmas': DIRECCAO | {'DAP'}, 'alocacao_docente': DIRECCAO | {'DAP'}, 'comunicados': GESTAO | {'FINANCEIRO'},
+    'material': GESTAO | {'PROFESSOR'}, 'registar_presencas': DIRECCAO | {'DAP', 'PROFESSOR'}, 'horarios': DIRECCAO | {'DAP'},
+    'calendario_guia': DIRECCAO | {'DAP'},
+}
+_GUIA_ALT = {'cargos_guia': ('atribuicoes-cargos',), 'juris': ('exames',)}
+_GUIA_DESTINO_PROPRIO = {'justificar_falta': 'aluno-faltas'}
+_EXEMPLOS = {
+    'faltas': 'Quantas faltas tem o aluno?', 'propinas': 'Há propinas em atraso?', 'notas': 'Quais as notas do aluno?',
+    'quanto_preciso': 'Quanto preciso para passar?', 'transferencias': 'Há transferências pendentes?', 'certificados': 'Quantos certificados foram emitidos?',
+    'alunos_resumo': 'Quantos alunos temos?', 'turmas': 'Que turmas estão lotadas?', 'horario': 'Que aulas tenho hoje?',
+    'calendario': 'Quais os próximos eventos?', 'exames_calendario': 'Quando são os exames?', 'crm': 'Há atendimentos abertos?',
+    'risco': 'Há alunos em risco por faltas?', 'assinatura': 'Quando termina a assinatura?', 'caixa': 'Qual o saldo de caixa deste mês?',
+    'plano_curricular': 'Que disciplinas tem a 11.ª classe?', 'material': 'Que material escolar existe?', 'cargos': 'Quais as actividades de cargo por concluir?',
+    'pautas': 'Que pautas estão por fechar?', 'comunicados': 'Quais os últimos comunicados?', 'faq_mt': 'Como se calcula a média trimestral (MT)?',
+    'faq_mfd': 'Como se calcula a MFD?', 'faq_mac': 'O que é a MAC?', 'faq_exames': 'Qual a nota mínima do exame?', 'faq_escala': 'Qual a escala qualitativa?',
+    'faq_siglas': 'O que significam as siglas PPF e VT?', 'aula_dupla': 'Como funcionam as faltas em aula dupla?', 'faq_aprovacao': 'Quais são as regras de aprovação?',
+    'guia_matricula': 'Como faço uma matrícula?', 'guia_turmas': 'Como crio turmas em lote?', 'guia_plano_curricular': 'Como funciona o plano curricular?',
+    'guia_alocacao_docente': 'Como atribuo disciplinas a um professor?', 'guia_lancar_notas': 'Como lanço as notas?', 'guia_desbloqueio': 'Como desbloqueio um trimestre?',
+    'guia_pautas': 'Como emito a pauta e a acta?', 'guia_exames': 'Como lanço as notas de exame?', 'guia_juris': 'Onde vejo os júris dos exames?',
+    'guia_estatistica': 'Como vejo a estatística de aproveitamento?', 'guia_certificados': 'Como emito um certificado?', 'guia_pagar_propina': 'Como pago a propina?',
+    'guia_cobrar_propina': 'Como gero as cobranças?', 'guia_despesas': 'Como registo e aprovo uma despesa?', 'guia_impressao': 'Como imprimo um boletim?',
+    'guia_portal_aluno': 'O que posso ver no portal do aluno?', 'guia_senhas': 'Como redefino uma senha?', 'guia_auditoria': 'Como vejo quem alterou uma nota?',
+    'guia_assinatura_guia': 'Como pago a assinatura do sistema?', 'guia_gateway': 'Como envio SMS aos encarregados?', 'guia_material': 'Como carrego material escolar?',
+    'guia_justificar_falta': 'Como justifico uma falta?', 'guia_registar_presencas': 'Como registo as presenças?', 'guia_transferencia': 'Como faço uma transferência?',
+    'guia_comunicados': 'Como publico um comunicado?', 'guia_horarios': 'Como elaboro o horário?', 'guia_sumarios': 'Como registo o sumário da aula?',
+    'guia_ocorrencias': 'Como registo uma ocorrência disciplinar?', 'guia_antiia': 'Como protejo uma prova contra IA?', 'guia_folha_resposta': 'Como gero a folha de resposta?',
+    'guia_cargos_guia': 'O que faz o Director de Turma?', 'guia_crm_guia': 'Como registo um contacto com o encarregado?', 'guia_calendario_guia': 'Como adiciono eventos ao calendário?',
+    'guia_assistente_guia': 'O que sabes fazer?', 'guia_pedir_documentos': 'Como peço uma declaração?', 'guia_recuperar_acesso': 'Esqueci a minha senha.', 'guia_ano_lectivo': 'Porque a página está vazia?',
+    'guia_saas_painel': 'O que mostra o painel master?', 'guia_saas_cadastrar': 'Como cadastro uma escola?', 'guia_saas_inspeccionar': 'Como inspeciono uma escola?',
+    'guia_saas_renovar': 'Como renovo a assinatura de uma escola?', 'guia_pagamentos_saas': 'Como valido um comprovativo de pagamento?',
+    'guia_acessos_guia': 'Onde vejo os registos de acessos?',
+}
+
+
+def _ajustar_registo():
+    for c in CAPACIDADES:
+        for k, v in _AJUSTES.get(c.nome, {}).items():
+            setattr(c, k, v)
+        if c.tipo == 'guia':
+            gid = c.nome[len('guia_'):]
+            if gid in _GUIA_PERFIS:
+                c.perfis = _GUIA_PERFIS[gid]
+            if gid in _GUIA_ALT:
+                c.alt = _GUIA_ALT[gid]
+            if gid in _GUIA_DESTINO_PROPRIO:
+                c.destino_proprio = _GUIA_DESTINO_PROPRIO[gid]
+            if c.destino is None:
+                c.universal = True
+        if c.nome in _EXEMPLOS:
+            c.exemplos = (_EXEMPLOS[c.nome],)
+
+
+_ajustar_registo()
 POR_NOME = {c.nome: c for c in CAPACIDADES}
+
+
+def permitido(cap, role, modulos):
+    """Regra de segurança: o assistente só responde sobre o que pertence ao painel do perfil.
+
+    1. o perfil tem de estar na lista da capacidade (se houver);
+    2. regras do MEC e informação comum (calendário, comunicados, ajuda) são para todos;
+    3. caso contrário, o módulo da capacidade tem de existir no painel do perfil (ou num módulo alternativo).
+    """
+    if cap.perfis is not None and role not in cap.perfis:
+        return False
+    if cap.universal or cap.tipo == 'regra':
+        return True
+    destino = cap.destino_proprio if (role in PROPRIO and cap.destino_proprio) else cap.destino
+    if destino is None:
+        return True
+    return destino in modulos or any(a in modulos for a in cap.alt)
 
 # Em que página o utilizador está → capacidade favorecida (desempate)
 PAGINA_CAPACIDADE = {
@@ -641,6 +771,8 @@ SUGESTOES_PAGINA = {
     'comunicados': ['Quais os últimos comunicados?', 'Como publico um comunicado?'],
 }
 SUGESTOES_PERFIL = {
+    'SUPERADMIN': ['Quantas escolas temos?', 'Há comprovativos por validar?', 'Há faturas em atraso?', 'Qual a receita mensal (MRR)?',
+                   'Como cadastro uma escola?', 'Como inspeciono uma escola?'],
     'ALUNO': ['Quais as minhas negativas?', 'Quanto preciso para passar?', 'Que propinas tenho em atraso?', 'Que aulas tenho hoje?', 'Quando são os exames?'],
     'ENCARREGADO': ['Quantas faltas tem o meu educando?', 'Há propinas em atraso?', 'Quais as notas publicadas?', 'Quais os últimos comunicados?'],
     'PROFESSOR': ['Que aulas tenho hoje?', 'Quais as actividades de cargo por concluir?', 'Como lanço as notas?', 'Como registo presenças?'],
@@ -662,12 +794,107 @@ def sugestoes(role, pagina=None):
     return itens[:6]
 
 
-def pontuar(cap, texto, pagina):
-    """Pontos = palavras-chave presentes; "como/onde" favorece guias; a página actual desempata."""
-    pontos = sum(1 for c in cap.chaves if c in texto) * cap.peso
+# ---------------------------------------------------------------- compreensão (forma canónica)
+# Aplicada ao texto E às palavras-chave: tira artigos/preposições, passa o plural ao singular, leva "cadastro/crio/lanço…" ao infinitivo
+# e corrige erros de escrita comuns ("propinaa", "lansar"). Assim "como registo as presenças" encontra "registar presença".
+_ARTIGOS = {'a', 'o', 'as', 'os', 'um', 'uma', 'uns', 'umas', 'de', 'da', 'do', 'das', 'dos', 'no', 'na', 'nos', 'nas'}
+_VERBOS = {
+    'cadastro': 'cadastrar', 'crio': 'criar', 'lanco': 'lancar', 'registo': 'registar', 'emito': 'emitir', 'faco': 'fazer', 'pago': 'pagar',
+    'gero': 'gerar', 'redefino': 'redefinir', 'imprimo': 'imprimir', 'publico': 'publicar', 'justifico': 'justificar', 'desbloqueio': 'desbloquear',
+    'carrego': 'carregar', 'vejo': 'ver', 'envio': 'enviar', 'protejo': 'proteger', 'elaboro': 'elaborar', 'adiciono': 'adicionar',
+    'inspeciono': 'inspecionar', 'inspeccionar': 'inspecionar', 'valido': 'validar', 'confirmo': 'confirmar', 'consulto': 'consultar', 'abro': 'abrir',
+    'marco': 'marcar', 'aprovo': 'aprovar', 'apago': 'apagar', 'altero': 'alterar', 'corrijo': 'corrigir', 'exporto': 'exportar', 'descarrego': 'descarregar',
+    'encontro': 'encontrar', 'atribuo': 'atribuir', 'renovo': 'renovar', 'liquido': 'liquidar', 'cobro': 'cobrar', 'recebo': 'receber', 'anulo': 'anular',
+    'cancelo': 'cancelar', 'rejeito': 'rejeitar', 'importo': 'importar', 'procuro': 'procurar', 'pesquiso': 'pesquisar', 'actividades': 'atividades', 'actividade': 'atividade', 'actas': 'acta', 'activa': 'ativa', 'activo': 'ativo', 'activas': 'ativa',
+    'activos': 'ativo', 'diretor': 'director', 'diretora': 'directora', 'directo': 'direto', 'subscricao': 'assinatura', 'senhas': 'senha',
+}
+
+
+def _singular(t):
+    return t[:-1] if len(t) > 3 and t.endswith('s') and not t.endswith('ss') else t
+
+
+def _canon_tokens(texto):
+    out = []
+    for t in texto.split():
+        if t in _ARTIGOS:
+            continue
+        t = _VERBOS.get(t, t)
+        out.append(_singular(t))
+    return out
+
+
+def canon(texto):
+    return ' ' + ' '.join(_canon_tokens(texto)) + ' '
+
+
+_VOCAB = None
+_CK_CACHE = {}
+
+
+def _vocabulario():
+    global _VOCAB
+    if _VOCAB is None:
+        _VOCAB = {t for c in CAPACIDADES for k in c.chaves for t in _canon_tokens(k.strip()) if len(t) >= 5}
+    return _VOCAB
+
+
+def _e_erro_de_escrita(t, m):
+    """Erro de escrita (troca, falta ou repetição de letra) e não uma flexão da palavra (funcionam ≠ funciona, aluno ≠ alunos)."""
+    if t.startswith(m) or m.startswith(t):
+        curto, longo = sorted((t, m), key=len)
+        extra = longo[len(curto):]
+        return len(set(extra)) == 1 and extra[0] == curto[-1]      # só se for a última letra repetida ("propinaa")
+    return True
+
+
+def _corrigir_escrita(tc):
+    """Troca palavras quase iguais às do vocabulário do assistente (erros de escrita), só em palavras longas e sem ambiguidade."""
+    import difflib
+    vocab = _vocabulario()
+    out = []
+    for t in tc.split():
+        if len(t) >= 6 and t not in vocab:
+            m = difflib.get_close_matches(t, vocab, n=1, cutoff=0.88)
+            if m and _e_erro_de_escrita(t, m[0]):
+                t = m[0]
+        out.append(t)
+    return ' ' + ' '.join(out) + ' '
+
+
+def _grupos(cap):
+    """Grupos de chaves equivalentes (singular/plural, artigos…). Cada grupo conta UMA vez; frases maiores valem mais que palavras soltas."""
+    k = (cap.nome, len(cap.chaves))
+    g = _CK_CACHE.get(k)
+    if g is None:
+        mapa = {}
+        for c in cap.chaves:
+            cc = canon(c)
+            # uma chave de várias palavras que fica reduzida a uma só (ex.: " classe do" → " classe ") ficaria genérica demais:
+            # essa só vale na forma original
+            if len(c.split()) >= 2 and len(cc.split()) < 2:
+                cc = None
+            chave = cc if cc is not None else ('raw', c)
+            entrada = mapa.setdefault(chave, {'canon': cc, 'raws': [], 'ntok': len((cc or c).split())})
+            entrada['raws'].append(c)
+        g = [(e['canon'], e['raws'], 1 + 0.5 * min(e['ntok'] - 1, 2)) for e in mapa.values()]
+        _CK_CACHE[k] = g
+    return g
+
+
+def pontuar(cap, texto, pagina, tc=None):
+    """Pontos = palavras-chave presentes (no texto e na sua forma canónica); "como/onde" favorece guias; a página actual desempata."""
+    pontos = 0.0
+    for cc, raws, peso in _grupos(cap):
+        if (cc is not None and tc and cc in tc) or any(r in texto for r in raws):
+            pontos += peso
+    pontos *= cap.peso
     if not pontos:
         return 0
     pergunta_de_ajuda = any(p in texto for p in (' como ', ' onde ', ' passo a passo', ' tutorial', ' o que faz', ' o que e '))
+    # "como está / como vai…" pergunta pelo ESTADO de algo (dados), não por um procedimento (guia)
+    if any(p in texto for p in (' como esta', ' como estao', ' como vai', ' como vao', ' como anda', ' como andam')):
+        pergunta_de_ajuda = False
     if pergunta_de_ajuda:
         pontos += 2 if cap.tipo == 'guia' else (-1 if cap.tipo == 'dados' else 0)
     if PAGINA_CAPACIDADE.get(pagina or '') == cap.nome:
@@ -675,20 +902,34 @@ def pontuar(cap, texto, pagina):
     return pontos
 
 
-def classificar(pergunta, pagina=None):
-    texto = normalizar(pergunta)
-    melhor, chave = None, (0, 0)
-    prioridade = {'regra': 2, 'guia': 1, 'dados': 0}  # em empate, regras e guias antes de dados
+PRIORIDADE = {'regra': 2, 'guia': 1, 'dados': 0}   # em empate, regras e guias antes de dados
+
+
+def pontuacoes(texto, pagina=None):
+    """Todas as capacidades com pontos > 0, da melhor para a pior: [(pontos, prioridade, capacidade)]."""
+    out = []
+    tc = _corrigir_escrita(canon(texto))
     for cap in CAPACIDADES:
-        p = pontuar(cap, texto, pagina)
-        if p > 0 and (p, prioridade[cap.tipo]) > chave:
-            melhor, chave = cap, (p, prioridade[cap.tipo])
-    return melhor, texto
+        p = pontuar(cap, texto, pagina, tc)
+        if p > 0:
+            out.append((p, PRIORIDADE[cap.tipo], cap))
+    out.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return out
+
+
+def classificar(pergunta, pagina=None):
+    """Melhor capacidade (sem filtrar por perfil; o filtro de segurança está em `permitido`)."""
+    texto = normalizar(pergunta)
+    ordem = pontuacoes(texto, pagina)
+    return (ordem[0][2] if ordem else None), texto
+
+
+FRASES_NAVEGACAO = (' onde fica', ' onde esta', ' onde vejo', ' onde encontro', ' onde abro', ' abrir ', ' leva me', ' ir para', ' mostra me onde')
 
 
 def navegar(texto):
-    """"Onde fica X?" → (destino, rótulo) ou None."""
-    if not any(f in texto for f in (' onde fica', ' onde esta', ' onde vejo', ' onde encontro', ' onde abro', ' abrir ', ' leva me', ' ir para', ' mostra me onde')):
+    """"Onde fica X?" → (destino, rótulo) do melhor módulo, ou None. O filtro por painel é feito pelo motor."""
+    if not any(f in texto for f in FRASES_NAVEGACAO):
         return None
     melhor, pontos = None, 0
     for destino, (rotulo, chaves) in guias.NAVEGACAO.items():

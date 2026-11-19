@@ -42,7 +42,7 @@ def alertas_familia(user, escola):
     out, agora, hoje = [], timezone.now(), datetime.date.today()
     for aluno in _educandos(user, escola):
         ctx = _ctx(user, escola, aluno)
-        nome = aluno.nome if user.role == 'ENCARREGADO' else 'Você'
+        nome = cap._nome(aluno) if user.role == 'ENCARREGADO' else 'Você'
         abertos = list(Pagamento.objects.filter(escola=escola, aluno=aluno, status__in=('PENDENTE', 'ATRASADO')))
         atraso = [p for p in abertos if p.data_vencimento < agora]
         if atraso:
@@ -215,9 +215,27 @@ ALERTAS = [
 ]
 
 
+def alertas_plataforma(user):
+    """Super Admin sem escola em inspecção: o que merece atenção na plataforma."""
+    from apps.tenants.models import SaasAssinatura, SaasFatura, SaasPagamento
+    out = []
+    por_validar = SaasPagamento.objects.filter(estado='enviado').count()
+    if por_validar:
+        out.append(_a('alta', f'{por_validar} comprovativo(s) de pagamento por validar', '', 'pagamentos-saas', 'Validar'))
+    em_atraso = SaasFatura.objects.filter(estado='em_atraso').count()
+    if em_atraso:
+        out.append(_a('alta', f'{em_atraso} fatura(s) SaaS em atraso', '', 'pagamentos-saas', 'Ver faturas'))
+    criticas = SaasAssinatura.objects.filter(estado__in=('restrita', 'suspensa')).count()
+    if criticas:
+        out.append(_a('media', f'{criticas} assinatura(s) restrita(s) ou suspensa(s)', '', 'saas', 'Ver escolas'))
+    return out
+
+
 def alertas_do_utilizador(user, escola):
     """Lista ordenada por urgência (e limitada); cada função só corre para os perfis a que se destina."""
     role = getattr(user, 'role', '')
+    if role == 'SUPERADMIN' and escola is None:
+        return sorted(alertas_plataforma(user), key=lambda a: ORDEM[a['nivel']])[:MAX_ALERTAS]
     out = []
     for func, perfis in ALERTAS:
         if perfis is None or role in perfis:

@@ -1,0 +1,45 @@
+<!-- SIGE - Relatório do Assistente (Super Admin e Direcção): onde o assistente falha. Lógica em js/modules/painel-escola/assistente-relatorio.js · API /api/v1/assistente/relatorio/ -->
+<section id="view-assistente-relatorio" class="modulo-view p-3 p-md-4" style="display: none;">
+  <div class="d-flex flex-wrap justify-content-between align-items-end mb-3 pb-2 border-bottom gap-2">
+    <div>
+      <h3 class="fw-bold mb-1"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Relatório do Assistente</h3>
+      <p class="text-muted mb-0 small">Onde o assistente falha: perguntas sem resposta, fora do painel ou marcadas "não útil". Serve para decidir o que acrescentar a seguir. Não mostra respostas nem dados dos alunos.</p>
+    </div>
+    <div>
+      <label class="form-label small mb-1" for="relDias">Período</label>
+      <select id="relDias" class="form-select form-select-sm" onchange="relCarregar()">
+        <option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-3" id="relKpis"></div>
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white small fw-semibold"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Perguntas a melhorar</div>
+        <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted"><tr><th class="ps-3">Pergunta</th><th class="text-center">Vezes</th><th>Motivo</th><th class="pe-3" id="relColEscola">Escolas</th></tr></thead>
+            <tbody id="relTabelaMelhorar"><tr><td colspan="4" class="text-center py-4 text-muted">A carregar...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white small fw-semibold"><i class="bi bi-bar-chart-fill text-primary me-1"></i>Mais usadas</div>
+        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+          <table class="table table-sm mb-0"><tbody id="relTabelaIntencoes"><tr><td class="text-center py-3 text-muted">A carregar...</td></tr></tbody></table>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white small fw-semibold"><i class="bi bi-people-fill text-primary me-1"></i>Por perfil</div>
+        <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+          <table class="table table-sm mb-0"><tbody id="relTabelaPerfis"><tr><td class="text-center py-3 text-muted">A carregar...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

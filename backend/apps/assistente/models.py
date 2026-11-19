@@ -9,7 +9,8 @@ class ConsultaAssistente(models.Model):
     à equipa que capacidade criar a seguir.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='consultas_assistente')
+    # Nulo = pergunta do Super Admin em modo plataforma (sem escola)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='consultas_assistente', null=True, blank=True)
     usuario = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     aluno = models.ForeignKey('alunos.Aluno', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     pergunta = models.CharField(max_length=500)

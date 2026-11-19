@@ -1,6 +1,7 @@
 // Assistente Virtual (nível 0) — só leitura. API: /api/v1/assistente/{perguntar,sugestoes,feedback}/
 // Conversa em caixa de altura fixa com rolagem; guarda só as últimas mensagens (altura constante para qualquer n).
-const assState = { alunoId: '', alunoNome: '', msgs: [], pagina: '' };
+const assState = { alunoId: '', alunoNome: '', msgs: [], pagina: '', anterior: '' };
+const ASS_SEM_SEGUIMENTO = ['desconhecida', 'fora_do_painel', 'navegacao', 'escolher_escola'];
 const ASS_MAX_MSGS = 30;
 
 function assEhProprio() { return ['ALUNO', 'ENCARREGADO'].includes(state.user?.role); }
@@ -31,11 +32,13 @@ function assRender() {
     }
     const acao = m.acao && assDestinoPermitido(m.acao.destino)
       ? `<div class="mt-2"><button type="button" class="btn btn-sm btn-outline-primary py-0" onclick="assAbrir('${escapeHtml(m.acao.destino)}')"><i class="bi bi-box-arrow-up-right me-1"></i>${escapeHtml(m.acao.rotulo)}</button></div>` : '';
+    const candidatos = (m.candidatos || []).map((c, j) =>
+      `<button type="button" class="btn btn-sm btn-outline-secondary py-0 me-1 mt-1" onclick="assEscolherCandidato(${i}, ${j})">${escapeHtml(c.nome)}</button>`).join('');
     const util = m.consulta
       ? `<div class="mt-1 small text-muted">${m.util === undefined
         ? `Foi útil? <a href="javascript:void(0)" class="text-decoration-none ms-1" onclick="assUtil(${i}, true)" title="Foi útil">👍</a> <a href="javascript:void(0)" class="text-decoration-none ms-1" onclick="assUtil(${i}, false)" title="Não ajudou">👎</a>`
         : (m.util ? 'Obrigado pelo feedback.' : 'Obrigado — vamos melhorar esta resposta.')}</div>` : '';
-    return `<div class="d-flex justify-content-start mb-2"><div class="bg-white border rounded-3 px-3 py-2 small" style="max-width: 85%;"><i class="bi bi-robot text-primary me-1"></i>${escapeHtml(m.texto)}${acao}${util}</div></div>`;
+    return `<div class="d-flex justify-content-start mb-2"><div class="bg-white border rounded-3 px-3 py-2 small" style="max-width: 85%;"><i class="bi bi-robot text-primary me-1"></i>${escapeHtml(m.texto)}${candidatos ? `<div>${candidatos}</div>` : ''}${acao}${util}</div></div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
 }
@@ -94,7 +97,9 @@ window.assRenderAlertas = function () {
 async function assIniciar() {
   if (typeof sigeAtualizarAlertas === 'function') sigeAtualizarAlertas(true);
   assRenderAlertas();
-  document.getElementById('assAlunoCard').style.display = (assEhProprio() && !assEhEncarregado()) ? 'none' : '';
+  // Aluno: sem escolha de aluno. Super Admin em modo plataforma (sem escola em inspecção): sem alunos, só dados da plataforma.
+  const modoPlataforma = state.user?.role === 'SUPERADMIN' && !localStorage.getItem('sige_selected_tenant');
+  document.getElementById('assAlunoCard').style.display = ((assEhProprio() && !assEhEncarregado()) || modoPlataforma) ? 'none' : '';
   if (assEhEncarregado()) assCarregarEducandos();
   assState.pagina = String(window._sigeUltimaPagina || '').replace(/[^a-z0-9-]/g, '').slice(0, 60);
   assRender();
@@ -123,6 +128,20 @@ window.assUtil = async function (i, util) {
   try {
     await apiFetch('/api/v1/assistente/feedback/', { method: 'POST', body: JSON.stringify({ consulta_id: m.consulta, util }) });
   } catch (e) { /* o feedback é opcional: não interrompe a conversa */ }
+};
+
+// Vários alunos com o mesmo nome: o utilizador escolhe um e a pergunta anterior continua com esse aluno.
+window.assEscolherCandidato = function (i, j) {
+  const c = assState.msgs[i]?.candidatos?.[j];
+  if (!c) return;
+  const sel = document.getElementById('assAluno');
+  if (sel && (!assEhProprio() || assEhEncarregado())) {
+    if (![...sel.options].some(o => o.value === c.id)) sel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome)}</option>`);
+    sel.value = c.id;
+    assEscolherAluno();
+  }
+  document.getElementById('assPergunta').value = c.nome;
+  assEnviar();
 };
 
 window.assBuscarAluno = async function () {
@@ -158,8 +177,10 @@ window.assEnviar = async function () {
     const corpo = { pergunta };
     if (assState.alunoId && (!assEhProprio() || assEhEncarregado())) corpo.aluno_id = assState.alunoId;
     if (assState.pagina) corpo.pagina = assState.pagina;
+    if (assState.anterior) corpo.anterior = assState.anterior;     // permite perguntas de seguimento ("e do João?")
     const res = await apiFetch('/api/v1/assistente/perguntar/', { method: 'POST', body: JSON.stringify(corpo) });
-    assAdicionar({ de: 'bot', texto: res?.resposta || 'Sem resposta.', acao: res?.acao || null, consulta: res?.consulta_id || '' });
+    if (res?.intencao && !ASS_SEM_SEGUIMENTO.includes(res.intencao)) assState.anterior = res.intencao;
+    assAdicionar({ de: 'bot', texto: res?.resposta || 'Sem resposta.', acao: res?.acao || null, consulta: res?.consulta_id || '', candidatos: res?.candidatos || null });
     if (res?.precisa_aluno) (assEhEncarregado() ? document.getElementById('assAluno') : document.getElementById('assBusca'))?.focus();
     if (Array.isArray(res?.sugestoes) && res.sugestoes.length) assRenderSugestoes(res.sugestoes);
   } catch (e) {

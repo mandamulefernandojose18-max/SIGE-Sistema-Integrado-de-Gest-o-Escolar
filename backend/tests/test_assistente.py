@@ -17,6 +17,10 @@ from apps.assistente.models import ConsultaAssistente
 from apps.assistente.engine import classificar
 
 URL = '/api/v1/assistente/perguntar/'
+
+
+def recusa(texto):
+    return 'permissão' in texto or 'não faz parte do seu painel' in texto
 HOJE = datetime.date.today()
 
 
@@ -34,6 +38,7 @@ class TestAssistente:
                                                 data_nascimento='2012-01-01', genero='F')
         self.aluno_outra = Aluno.objects.create(escola=self.outra, matricula='AS_003', nome='Aluno Outra',
                                                 data_nascimento='2012-01-01', genero='F')
+        self.dir = self._cliente('DIRECTOR_ESCOLA', 'diretor.base@sige.mz')
         self.sec = self._cliente('SECRETARIA', 'sec.ass@sige.mz')
 
     def _cliente(self, role, email, **extra):
@@ -52,52 +57,52 @@ class TestAssistente:
 
     # ------------------------------------------------------------ classificação
     def test_classificacao(self):
-        casos = {
-            'Quantas faltas tem o aluno?': 'faltas', 'Há propinas em atraso?': 'propinas', 'Como se calcula a MFD?': 'faq_mfd',
-            'Regras de aprovação da 12ª classe': 'faq_aprovacao', 'Quanto preciso para passar?': 'quanto_preciso',
-            'Quais as minhas negativas?': 'notas', 'Que turmas estão lotadas?': 'turmas', 'Quantos alunos temos?': 'alunos_resumo',
-            'Quando são os exames?': 'exames_calendario', 'Qual a nota mínima do exame?': 'faq_exames', 'Há atendimentos abertos?': 'crm',
-            'Quando termina a assinatura?': 'assinatura', 'Qual o saldo de caixa deste mês?': 'caixa', 'Há alunos em risco por faltas?': 'risco',
-            'Como lanço as notas?': 'guia_lancar_notas', 'Como faço uma transferência?': 'guia_transferencia', 'Como pago por M-Pesa?': 'guia_pagar_propina',
-            'Como redefino uma senha?': 'guia_senhas', 'Como emito um certificado?': 'guia_certificados', 'Como gero as cobranças?': 'guia_cobrar_propina',
-            'Como faço uma matrícula?': 'guia_matricula', 'Como crio turmas em lote?': 'guia_turmas', 'Como registo presenças?': 'guia_registar_presencas',
-            'Como funcionam as faltas em aula dupla?': 'aula_dupla', 'Como se calcula a média trimestral (MT)?': 'faq_mt',
-            'Que aulas tenho hoje?': 'horario', 'Quais os últimos comunicados?': 'comunicados', 'qual a capital da França': 'desconhecida',
-        }
-        for pergunta, esperado in casos.items():
-            assert classificar(pergunta)[0] == esperado, pergunta
-
+        D, A = 'DIRECTOR_ESCOLA', 'ALUNO'
+        casos = [
+            ('Quantas faltas tem o aluno?', D, 'faltas'), ('Há propinas em atraso?', D, 'propinas'), ('Como se calcula a MFD?', D, 'faq_mfd'),
+            ('Regras de aprovação da 12ª classe', D, 'faq_aprovacao'), ('Quanto preciso para passar?', A, 'quanto_preciso'),
+            ('Quais as minhas negativas?', A, 'notas'), ('Que turmas estão lotadas?', D, 'turmas'), ('Quantos alunos temos?', D, 'alunos_resumo'),
+            ('Quando são os exames?', D, 'exames_calendario'), ('Qual a nota mínima do exame?', D, 'faq_exames'), ('Há atendimentos abertos?', D, 'crm'),
+            ('Quando termina a assinatura?', D, 'assinatura'), ('Qual o saldo de caixa deste mês?', D, 'caixa'), ('Há alunos em risco por faltas?', D, 'risco'),
+            ('Como lanço as notas?', D, 'guia_lancar_notas'), ('Como faço uma transferência?', D, 'guia_transferencia'), ('Como pago por M-Pesa?', A, 'guia_pagar_propina'),
+            ('Como redefino uma senha?', D, 'guia_senhas'), ('Como emito um certificado?', D, 'guia_certificados'), ('Como gero as cobranças?', D, 'guia_cobrar_propina'),
+            ('Como faço uma matrícula?', D, 'guia_matricula'), ('Como crio turmas em lote?', D, 'guia_turmas'), ('Como registo presenças?', 'PROFESSOR', 'guia_registar_presencas'),
+            ('Como funcionam as faltas em aula dupla?', D, 'aula_dupla'), ('Como se calcula a média trimestral (MT)?', D, 'faq_mt'),
+            ('Que aulas tenho hoje?', A, 'horario'), ('Quais os últimos comunicados?', D, 'comunicados'), ('qual a capital da França', D, 'desconhecida'),
+        ]
+        for pergunta, role, esperado in casos:
+            assert classificar(pergunta, role=role)[0] == esperado, (pergunta, role)
     def test_onde_fica_devolve_atalho(self):
-        d = self._r(self.sec, 'Onde fica a central de impressão?')
+        d = self._r(self.dir, 'Onde fica a central de impressão?')
         assert d['intencao'] == 'navegacao' and d['acao']['destino'] == 'impressao'
 
     # ------------------------------------------------------------ regras e guias
     def test_regras_e_guias_sem_aluno(self):
-        d = self._r(self.sec, 'Como se calcula a média trimestral (MT)?')
+        d = self._r(self.dir, 'Como se calcula a média trimestral (MT)?')
         assert '2 × MAC' in d['resposta'] and 'acao' not in d
-        assert 'no máximo 2' in self._r(self.sec, 'Qual a regra de aprovação na 12ª classe?')['resposta']
-        g = self._r(self.sec, 'Como lanço as notas?')
+        assert 'no máximo 2' in self._r(self.dir, 'Qual a regra de aprovação na 12ª classe?')['resposta']
+        g = self._r(self.dir, 'Como lanço as notas?')
         assert 'Só o professor lança notas' in g['resposta'] and g['acao']['destino'] == 'caderneta'
-        assert self._r(self.sec, 'Como faço uma transferência?')['acao']['destino'] == 'transferencias'
+        assert self._r(self.dir, 'Como faço uma transferência?')['acao']['destino'] == 'transferencias'
 
     def test_desconhecida_nao_inventa(self):
-        d = self._r(self.sec, 'qual a capital da França')
+        d = self._r(self.dir, 'qual a capital da França')
         assert d['intencao'] == 'desconhecida' and 'Ainda não sei' in d['resposta']
 
     # ------------------------------------------------------------ faltas e propinas (regressão)
     def test_faltas_pede_aluno_estado_vazio_e_aula_dupla(self):
-        assert self._r(self.sec, 'Quantas faltas tem?')['precisa_aluno'] is True
-        d = self._r(self.sec, 'Quantas faltas tem?', aluno_id=str(self.aluno.id))
+        assert self._r(self.dir, 'Quantas faltas tem?')['precisa_aluno'] is True
+        d = self._r(self.dir, 'Quantas faltas tem?', aluno_id=str(self.aluno.id))
         assert d['dados']['faltas_efectivas'] == 0
         PresencaAluno.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma, data=HOJE, status='FALTA_INJUSTIFICADA',
                                      aulas=2, aulas_justificadas=1)
-        assert self._r(self.sec, 'Quantas faltas tem?', aluno_id=str(self.aluno.id))['dados'] == {'faltas_efectivas': 1, 'por_justificar': 1}
+        assert self._r(self.dir, 'Quantas faltas tem?', aluno_id=str(self.aluno.id))['dados'] == {'faltas_efectivas': 1, 'por_justificar': 1}
 
     def test_propinas_reais(self):
-        assert self._r(self.sec, 'tem propinas em atraso?', aluno_id=str(self.aluno.id))['dados']['em_atraso'] == 0
+        assert self._r(self.dir, 'tem propinas em atraso?', aluno_id=str(self.aluno.id))['dados']['em_atraso'] == 0
         Pagamento.objects.create(escola=self.escola, aluno=self.aluno, mes_referencia='2026-01', valor=1000, status='PENDENTE',
                                  descricao='Propina 2026-01', data_vencimento=timezone.now() - datetime.timedelta(days=30))
-        d = self._r(self.sec, 'tem propinas em atraso?', aluno_id=str(self.aluno.id))
+        d = self._r(self.dir, 'tem propinas em atraso?', aluno_id=str(self.aluno.id))
         assert d['dados']['em_atraso'] == 1 and d['dados']['valor_em_atraso'] == '1000.00'
 
     # ------------------------------------------------------------ notas e "quanto preciso"
@@ -110,11 +115,11 @@ class TestAssistente:
         return Disciplina.objects.create(escola=self.escola, nome=nome, codigo=codigo, classe=classe, area=area, ano_letivo='2026')
 
     def test_notas_e_negativas_vazio_e_real(self):
-        d = self._r(self.sec, 'Quais as notas do aluno?', aluno_id=str(self.aluno.id))
+        d = self._r(self.dir, 'Quais as notas do aluno?', aluno_id=str(self.aluno.id))
         assert 'ainda não tem notas' in d['resposta']
         mat, fis = self._disc('Matemática', 'MAT'), self._disc('Física', 'FIS')
         self._notas(mat, 12), self._notas(fis, 8)
-        d = self._r(self.sec, 'Quais as notas do aluno?', aluno_id=str(self.aluno.id))
+        d = self._r(self.dir, 'Quais as notas do aluno?', aluno_id=str(self.aluno.id))
         assert d['dados']['1_TRIMESTRE'] == {'avaliadas': 2, 'negativas': 1} and 'Física 8' in d['resposta']
 
     def test_quanto_preciso_para_passar(self):
@@ -122,7 +127,7 @@ class TestAssistente:
         self._notas(mat, 8, 9)      # 28,5 - 17 = 11,5 -> MT3 >= 12
         self._notas(fis, 14, 15)    # já garantida
         self._notas(qui, 2, 3)      # 28,5 - 5 = 23,5 -> impossível
-        d = self._r(self.sec, 'Quanto preciso para passar?', aluno_id=str(self.aluno.id))
+        d = self._r(self.dir, 'Quanto preciso para passar?', aluno_id=str(self.aluno.id))
         assert d['dados']['precisa'] == {'Matemática': 12} and d['dados']['garantidas'] == 1 and d['dados']['impossiveis'] == ['Química']
 
     def test_aluno_so_ve_notas_publicadas(self):
@@ -139,12 +144,12 @@ class TestAssistente:
 
     # ------------------------------------------------------------ dados da escola
     def test_alunos_e_turmas(self):
-        d = self._r(self.sec, 'Quantos alunos temos?')
+        d = self._r(self.dir, 'Quantos alunos temos?')
         assert d['dados']['por_estado'] == {'ATIVO': 2} and '1 H / 1 M' in d['resposta']
-        t = self._r(self.sec, 'Que turmas estão lotadas?')
+        t = self._r(self.dir, 'Que turmas estão lotadas?')
         assert t['dados']['lotadas'] == 1 and t['dados']['sem_director_turma'] == 1 and t['dados']['vagas'] == 0
         assert t['acao']['destino'] == 'turmas'
-        assert self._r(self.sec, 'turmas da 9ª classe')['dados']['turmas'] == 0
+        assert self._r(self.dir, 'turmas da 9ª classe')['dados']['turmas'] == 0
 
     def test_horario_do_aluno_e_do_professor(self):
         prof = Professor.objects.create(escola=self.escola, nome='Prof', email='prof.hor@sige.mz', especialidade='Matemática')
@@ -160,17 +165,17 @@ class TestAssistente:
         prof_cli.force_authenticate(Usuario.objects.get(professor_id=prof.id))
         if HOJE.isoweekday() < 7:
             assert 'Matemática (A)' in self._r(prof_cli, 'Que aulas tenho hoje?')['resposta']
-        assert 'página Horários' in self._r(self.sec, 'Que aulas tenho hoje?')['resposta']
+        assert 'página Horários' in self._r(self.dir, 'Que aulas tenho hoje?')['resposta']
 
     def test_calendario_e_exames(self):
-        assert 'Não há eventos futuros' in self._r(self.sec, 'Quais os próximos eventos?')['resposta']
+        assert 'Não há eventos futuros' in self._r(self.dir, 'Quais os próximos eventos?')['resposta']
         CalendarioEscolar.objects.create(escola=self.escola, titulo='Início do 2.º trimestre', tipo='AVALIACAO_TESTE',
                                          data_inicio=HOJE + datetime.timedelta(days=5))
-        assert 'Início do 2.º trimestre' in self._r(self.sec, 'Quais os próximos eventos?')['resposta']
-        assert 'Não há exames agendados' in self._r(self.sec, 'Quando são os exames?')['resposta']
+        assert 'Início do 2.º trimestre' in self._r(self.dir, 'Quais os próximos eventos?')['resposta']
+        assert 'Não há exames agendados' in self._r(self.dir, 'Quando são os exames?')['resposta']
         CalendarioExame.objects.create(escola=self.escola, ano_letivo='2026', classe='10ª Classe', disciplina='Física', epoca=1,
                                        data=HOJE + datetime.timedelta(days=9), hora_inicio=datetime.time(8, 0), duracao_minutos=120)
-        d = self._r(self.sec, 'Quando é o exame de Física?')
+        d = self._r(self.dir, 'Quando é o exame de Física?')
         assert '10ª Classe, Física' in d['resposta']
         assert 'Não há exames agendados' in self._r(self._cliente('ALUNO', 'aluno.ex@sige.mz', aluno_id=self.aluno.id), 'Quando são os exames?')['resposta']
 
@@ -203,24 +208,24 @@ class TestAssistente:
         for i in range(6):
             PresencaAluno.objects.create(escola=self.escola, aluno=self.aluno, turma=self.turma, data=HOJE - datetime.timedelta(days=i + 1),
                                          status='FALTA_INJUSTIFICADA', aulas=2)
-        assert self._r(self.sec, 'Há alunos em risco?')['dados']['por_faltas'] == 1
+        assert self._r(self.dir, 'Há alunos em risco?')['dados']['por_faltas'] == 1
 
-        assert 'Não há disciplinas' in self._r(self.sec, 'Que disciplinas tem a 7ª classe?')['resposta']
+        assert 'Não há disciplinas' in self._r(self.dir, 'Que disciplinas tem a 7ª classe?')['resposta']
         self._disc('Matemática', 'MAT'), self._disc('História', 'HIS', classe='10ª Classe')
-        d = self._r(self.sec, 'Que disciplinas tem a 7ª classe?')
+        d = self._r(self.dir, 'Que disciplinas tem a 7ª classe?')
         assert 'Matemática' in d['resposta'] and 'História' not in d['resposta']
-        assert 'Indique a classe' in self._r(self.sec, 'Que disciplinas existem?')['resposta']
+        assert 'Indique a classe' in self._r(self.dir, 'Que disciplinas existem?')['resposta']
 
-        assert 'Ainda não há material' in self._r(self.sec, 'Que material escolar existe?')['resposta']
+        assert 'Ainda não há material' in self._r(self.dir, 'Que material escolar existe?')['resposta']
 
         prof = Professor.objects.create(escola=self.escola, nome='Prof', email='prof.cargo@sige.mz', especialidade='Matemática')
         AtribuicaoCargo.objects.create(escola=self.escola, ano_letivo='2026', cargo='DIRECTOR_TURMA', professor=prof, turma=self.turma,
                                        titulo='Reunião de pais', prazo=HOJE - datetime.timedelta(days=1))
-        assert self._r(self.sec, 'Quais as actividades de cargo por concluir?')['dados'] == {'por_concluir': 1, 'em_atraso': 1}
+        assert self._r(self.dir, 'Quais as actividades de cargo por concluir?')['dados'] == {'por_concluir': 1, 'em_atraso': 1}
 
-        assert 'Ainda não há pautas' in self._r(self.sec, 'Que pautas estão por fechar?')['resposta']
+        assert 'Ainda não há pautas' in self._r(self.dir, 'Que pautas estão por fechar?')['resposta']
 
-        assert 'Não há comunicados' in self._r(self.sec, 'Quais os últimos comunicados?')['resposta']
+        assert 'Não há comunicados' in self._r(self.dir, 'Quais os últimos comunicados?')['resposta']
         ComunicadoEscolar.objects.create(escola=self.escola, titulo='Reunião geral', conteudo='x', publico_alvo='PROFESSORES', status='PUBLICADO')
         pergunta = 'Quais os últimos comunicados?'
         assert 'Reunião geral' not in self._r(self._cliente('ALUNO', 'aluno.com@sige.mz', aluno_id=self.aluno.id), pergunta)['resposta']
@@ -234,11 +239,11 @@ class TestAssistente:
 
     # ------------------------------------------------------------ permissões e isolamento
     def test_nao_cruza_escolas_nem_id_invalido(self):
-        assert 'Não encontrei' in self._r(self.sec, 'faltas', aluno_id=str(self.aluno_outra.id))['resposta']
-        assert self._p(self.sec, 'faltas', aluno_id='nao-e-uuid').status_code == 400
-        assert 'Não há atendimentos' in self._r(self.sec, 'atendimentos abertos')['resposta']
+        assert 'Não encontrei' in self._r(self.dir, 'faltas', aluno_id=str(self.aluno_outra.id))['resposta']
+        assert self._p(self.dir, 'faltas', aluno_id='nao-e-uuid').status_code == 400
+        assert 'Não há atendimentos' in self._r(self.dir, 'atendimentos abertos')['resposta']
         Atendimento.objects.create(escola=self.outra, assunto='Outra escola')
-        assert 'Não há atendimentos' in self._r(self.sec, 'atendimentos abertos')['resposta']
+        assert 'Não há atendimentos' in self._r(self.dir, 'atendimentos abertos')['resposta']
 
     def test_aluno_so_ve_o_proprio(self):
         cli = self._cliente('ALUNO', 'aluno.ass@sige.mz', aluno_id=self.aluno.id)
@@ -250,15 +255,15 @@ class TestAssistente:
 
     def test_perfis_sem_permissao(self):
         fin = self._cliente('FINANCEIRO', 'fin.ass@sige.mz')
-        assert 'permissão' in self._r(fin, 'faltas', aluno_id=str(self.aluno.id))['resposta']
+        assert recusa(self._r(fin, 'faltas', aluno_id=str(self.aluno.id))['resposta'])
         assert 'dados' in self._r(fin, 'propinas', aluno_id=str(self.aluno.id))
         prof = self._cliente('PROFESSOR', 'prof.ass@sige.mz')
-        assert 'permissão' in self._r(prof, 'faltas', aluno_id=str(self.aluno.id))['resposta']
-        assert 'permissão' in self._r(prof, 'propinas', aluno_id=str(self.aluno.id))['resposta']
+        assert recusa(self._r(prof, 'faltas', aluno_id=str(self.aluno.id))['resposta'])
+        assert recusa(self._r(prof, 'propinas', aluno_id=str(self.aluno.id))['resposta'])
         aluno = self._cliente('ALUNO', 'aluno.perm@sige.mz', aluno_id=self.aluno.id)
         for pergunta in ('Há atendimentos abertos?', 'Quando termina a assinatura?', 'Qual o saldo de caixa?', 'Quantos alunos temos?', 'transferências pendentes'):
-            assert 'permissão' in self._r(aluno, pergunta)['resposta'], pergunta
-        assert 'permissão' in self._r(prof, 'Qual o saldo de caixa?')['resposta']
+            assert recusa(self._r(aluno, pergunta)['resposta']), pergunta
+        assert recusa(self._r(prof, 'Qual o saldo de caixa?')['resposta'])
 
     def test_professor_ve_faltas_so_das_suas_turmas(self):
         prof = Professor.objects.create(escola=self.escola, nome='Prof', email='prof.falt@sige.mz', especialidade='Matemática')
@@ -268,27 +273,27 @@ class TestAssistente:
         assert 'faltas efectivas' in self._r(cli, 'faltas', aluno_id=str(self.aluno.id))['resposta']
         outra_turma = Turma.objects.create(escola=self.escola, nome='B', grau_ano='7ª Classe', ano_letivo='2026')
         fora = Aluno.objects.create(escola=self.escola, turma=outra_turma, matricula='AS_009', nome='Aluno Fora', data_nascimento='2012-01-01', genero='M')
-        assert 'permissão' in self._r(cli, 'faltas', aluno_id=str(fora.id))['resposta']
+        assert recusa(self._r(cli, 'faltas', aluno_id=str(fora.id))['resposta'])
 
     # ------------------------------------------------------------ contexto, feedback, auditoria
     def test_sugestoes_por_perfil_e_pagina(self):
-        r = self.sec.get('/api/v1/assistente/sugestoes/?pagina=transferencias')
+        r = self.dir.get('/api/v1/assistente/sugestoes/?pagina=transferencias')
         assert r.status_code == 200 and r.data['sugestoes'][0] == 'Quantas transferências estão pendentes?' and len(r.data['sugestoes']) <= 6
-        d = self._r(self.sec, 'Como lanço as notas?', pagina='caderneta')
+        d = self._r(self.dir, 'Como lanço as notas?', pagina='caderneta')
         assert d['sugestoes'][0] == 'Como lanço as notas?'
 
     def test_feedback_e_auditoria(self):
-        assert self._p(self.sec, '   ').status_code == 400
-        assert self._p(self.sec, 'x' * 501).status_code == 400
+        assert self._p(self.dir, '   ').status_code == 400
+        assert self._p(self.dir, 'x' * 501).status_code == 400
         assert APIClient().post(URL, {'pergunta': 'faltas'}, format='json').status_code == 401
-        d = self._r(self.sec, 'Como se calcula a MFD?', pagina='caderneta')
+        d = self._r(self.dir, 'Como se calcula a MFD?', pagina='caderneta')
         c = ConsultaAssistente.objects.get()
         assert c.escola == self.escola and c.intencao == 'faq_mfd' and c.pagina == 'caderneta' and c.util is None
         fb = '/api/v1/assistente/feedback/'
-        assert self.sec.post(fb, {'consulta_id': d['consulta_id'], 'util': True}, format='json').status_code == 200
+        assert self.dir.post(fb, {'consulta_id': d['consulta_id'], 'util': True}, format='json').status_code == 200
         c.refresh_from_db()
         assert c.util is True
-        assert self.sec.post(fb, {'consulta_id': d['consulta_id'], 'util': 'sim'}, format='json').status_code == 400
+        assert self.dir.post(fb, {'consulta_id': d['consulta_id'], 'util': 'sim'}, format='json').status_code == 400
         outro = self._cliente('SECRETARIA', 'sec2.ass@sige.mz')
         assert outro.post(fb, {'consulta_id': d['consulta_id'], 'util': False}, format='json').status_code == 400  # só o autor
         c.refresh_from_db()
@@ -312,7 +317,7 @@ class TestAssistente:
         assert self._r(enc, 'Quantas faltas tem?', aluno_id=str(self.outro_aluno.id))['dados']['faltas_efectivas'] == 2
         assert self._r(enc, 'Quantas faltas tem?', aluno_id=str(self.aluno.id))['dados']['faltas_efectivas'] == 0
         fora = self._r(enc, 'Quantas faltas tem?', aluno_id=str(self.aluno_outra.id))      # aluno que não é seu
-        assert 'permissão' in fora['resposta'] and 'dados' not in fora
+        assert recusa(fora['resposta']) and 'dados' not in fora
         assert 'educandos' in self._r(enc, 'Que aulas tenho hoje?')      # também o horário pede o educando
 
     def test_encarregado_com_um_educando_nao_precisa_escolher_e_lista_educandos(self):
@@ -320,7 +325,7 @@ class TestAssistente:
         assert 'Aluno Um' in self._r(enc, 'Quantas faltas tem?')['resposta']
         lista = enc.get('/api/v1/assistente/educandos/').data['educandos']
         assert [e['nome'] for e in lista] == ['Aluno Um']
-        assert self.sec.get('/api/v1/assistente/educandos/').data['educandos'] == []
+        assert self.dir.get('/api/v1/assistente/educandos/').data['educandos'] == []
 
     def test_encarregado_aluno_id_antigo_conta_como_educando(self):
         legado = self._cliente('ENCARREGADO', 'enc.legado@sige.mz', aluno_id=self.aluno.id)

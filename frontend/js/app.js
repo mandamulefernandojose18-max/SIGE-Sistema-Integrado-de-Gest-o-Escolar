@@ -2796,11 +2796,11 @@ const MENUS_POR_PAINEL = {
 });
 
 // Assistente Virtual (nível 0, só leitura): disponível a todos os perfis da escola; a API aplica as permissões.
-['painel-direcao', 'painel-pedagogico', 'painel-secretaria', 'painel-professor', 'painel-aluno', 'painel-financeiro', 'painel-escola'].forEach(p => {
+['painel-superadmin', 'painel-direcao', 'painel-pedagogico', 'painel-secretaria', 'painel-professor', 'painel-aluno', 'painel-financeiro', 'painel-escola'].forEach(p => {
   const menu = MENUS_POR_PAINEL[p];
   if (menu && !menu.some(m => m.id === 'assistente')) {
     const idx = menu.findIndex(m => m.id === 'comunicados');
-    const categoria = idx >= 0 ? menu[idx].categoria : 'Comunicação';
+    const categoria = idx >= 0 ? menu[idx].categoria : (p === 'painel-superadmin' ? 'Administração Geral SaaS' : 'Comunicação');
     const item = { id: 'assistente', titulo: 'Assistente Virtual', icone: 'bi-robot text-primary', categoria };
     if (idx >= 0) menu.splice(idx, 0, item); else menu.push(item);
   }
@@ -2811,7 +2811,6 @@ window._sigeAlertas = { total: 0, urgentes: 0, lista: [], t: 0 };
 async function sigeAtualizarAlertas(forcar) {
   const A = window._sigeAlertas;
   if (!state.user || !state.token) return;
-  if (state.user.role === 'SUPERADMIN' && !localStorage.getItem('sige_selected_tenant')) return;
   if (!forcar && Date.now() - A.t < 300000) return;   // no máximo de 5 em 5 minutos
   A.t = Date.now();
   try {
@@ -2887,6 +2886,16 @@ window.sigeEscolherEducando = function (id) {
   const viewId = window._sigeUltimaPagina || 'aluno-perfil';
   if (typeof navegarPara === 'function') navegarPara(viewId);
 };
+
+// Relatório do Assistente (onde falha): só Super Admin e Direcção; a API recusa os outros perfis.
+['painel-superadmin', 'painel-direcao', 'painel-escola'].forEach(p => {
+  const menu = MENUS_POR_PAINEL[p];
+  if (menu && !menu.some(m => m.id === 'assistente-relatorio')) {
+    const i = menu.findIndex(m => m.id === 'assistente');
+    menu.splice(i >= 0 ? i + 1 : menu.length, 0, { id: 'assistente-relatorio', titulo: 'Relatório do Assistente', icone: 'bi-graph-up-arrow text-primary',
+      categoria: i >= 0 ? menu[i].categoria : 'Comunicação' });
+  }
+});
 
 function renderizarSidebarPorNivel(role) {
   const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
@@ -3729,7 +3738,7 @@ async function navegarPara(viewId) {
   // A escolha do ano lectivo numa página NÃO influencia as outras páginas.
   // Cada página só carrega e exibe dados após a escolha do ano lectivo NA PRÓPRIA PÁGINA.
   // CRM e Assistente não dependem de um ano lectivo escolhido na página (o CRM usa o ano lectivo activo da escola).
-  const VIEWS_SEM_FILTRO_ANO = ['minhas-atividades', 'crm', 'assistente'];
+  const VIEWS_SEM_FILTRO_ANO = ['minhas-atividades', 'crm', 'assistente', 'assistente-relatorio'];
   if (painel !== 'painel-superadmin' && !VIEWS_SEM_FILTRO_ANO.includes(viewId)) {
     const anoDestaView = state.anosPorView ? state.anosPorView[viewId] : null;
     if (!anoDestaView) {
@@ -3749,6 +3758,7 @@ async function navegarPara(viewId) {
   // Gatilhos de carregamento específico
   if (viewId === 'dashboard') carregarDashboardGeral(null, false);
   if (viewId === 'assistente' && typeof window.assIniciar === 'function') window.assIniciar();
+  if (viewId === 'assistente-relatorio' && typeof window.relCarregar === 'function') window.relCarregar();
   if (viewId === 'saas') {
     if (typeof carregarPainelSaaS === 'function') carregarPainelSaaS();
   }

@@ -43,7 +43,7 @@ GUIAS = [
      'texto': 'Em Pautas & Actas (Director de Turma, DAP e Director) há duas abas: a Pauta Geral da Turma (disciplinas com 1.º, 2.º, 3.º trimestre e MFD, negativas, média geral e resultado) '
               'e a Acta do Conselho de Avaliação (valores por extenso). Exporta-se em Excel e PDF (A4 paisagem). O Director de Turma define data, hora e presidente da sessão do conselho.'},
     {'id': 'exames', 'destino': 'exames', 'rotulo': 'Abrir Exames',
-     'chaves': [' pauta de exame', ' lancar nota de exame', ' parametros do exame', ' nota final do exame'],
+     'chaves': [' pauta de exame', ' lancar nota de exame', ' nota de exame', ' notas de exame', ' parametros do exame', ' nota final do exame'],
      'texto': 'Em Exames só aparecem as turmas de classes "Com Exame" (padrão MEC: 10.ª e 12.ª). A frequência vem das cadernetas dos 3 trimestres; em "Parâmetros do Exame" definem-se os pesos (a soma tem de ser 100%) e a nota mínima. '
               'Lançam-se as notas da 1.ª e 2.ª época e guarda-se; exporta-se em Excel ou PDF. As classificações alimentam o Certificado e a Declaração com Notas.'},
     {'id': 'juris', 'destino': 'calendario-exames', 'rotulo': 'Abrir Calendário e Júris dos Exames',
@@ -76,7 +76,7 @@ GUIAS = [
      'chaves': [' portal do aluno', ' o meu perfil', ' espaco do aluno', ' ver as minhas notas', ' meu boletim'],
      'texto': 'O Espaço do Aluno tem o perfil e comprovativo de matrícula, as notas e o boletim (apenas os trimestres que a escola publicou), as faltas, o calendário, o horário, as propinas e o material escolar da classe.'},
     {'id': 'senhas', 'destino': 'usuarios-senhas', 'rotulo': 'Abrir Utilizadores & Permissões',
-     'chaves': [' redefinir senha', ' redefino', ' redefinir', ' esqueci a senha', ' esqueci a palavra', ' palavra passe', ' criar utilizador', ' bloquear utilizador', ' codigo de acesso', ' senha do professor'],
+     'chaves': [' redefinir senha', ' redefino', ' redefinir', ' palavra passe', ' criar utilizador', ' bloquear utilizador', ' codigo de acesso', ' senha do professor'],
      'texto': 'Em Utilizadores & Permissões (Administrador, Director, DAP e Chefe de Secretaria) o sistema gera as contas em falta (direcção, professores, directores de turma e alunos), '
               'mostra os códigos de acesso, redefine palavras-passe esquecidas e bloqueia ou desbloqueia utilizadores. Quem esqueceu a senha deve pedir a redefinição a esses perfis.'},
     {'id': 'auditoria', 'destino': 'auditoria', 'rotulo': 'Abrir a Auditoria',
@@ -120,7 +120,7 @@ GUIAS = [
      'chaves': [' ocorrencia', ' ocorrencias', ' disciplinar', ' indisciplina'],
      'texto': 'Docentes e secretaria registam ocorrências com gravidade, descrição e medida imediata; o DAP dá o parecer pedagógico e o Director da Escola homologa a medida disciplinar.'},
     {'id': 'antiia', 'destino': 'provas-anti-ia', 'rotulo': 'Abrir a Blindagem Anti-IA',
-     'chaves': [' anti ia', ' prova codificada', ' prova protegida', ' selos', ' embargo', ' qr da prova', ' escudo'],
+     'chaves': [' anti ia', ' prova codificada', ' prova protegida', ' proteger prova', ' proteger uma prova', ' prova contra ia', ' contra ia', ' blindagem', ' selos', ' embargo', ' qr da prova', ' escudo'],
      'texto': 'Na Blindagem Anti-IA escolha o Ano Lectivo e Buscar, carregue a prova (Word ou PDF), defina a identificação, a data de libertação (embargo) e, em "Selos e cópias", gere as cópias numeradas em PDF e/ou Word. '
               'O QR e o código de barras de cada cópia mostram "Prova sob embargo" até à data definida e registam cada leitura.'},
     {'id': 'folha_resposta', 'destino': 'folha-resposta', 'rotulo': 'Abrir a Folha de Resposta',
@@ -139,6 +139,40 @@ GUIAS = [
      'chaves': [' criar evento', ' importar calendario', ' carregar calendario', ' adicionar evento'],
      'texto': 'No Calendário Escolar a Direcção e o DAP configuram os eventos lectivos (testes, exames, conselhos, feriados), por formulário ou importando um ficheiro Excel/CSV com o modelo oficial, e podem arquivar o documento oficial do calendário. '
               'Todos os outros perfis consultam.'},
+    # ---- Painel do Super Admin (plataforma)
+    {'id': 'saas_painel', 'destino': 'saas', 'rotulo': 'Abrir o Painel Master',
+     'chaves': [' painel master', ' o que mostra o painel', ' metricas', ' churn', ' escolas vencidas'],
+     'texto': 'O Painel Master SaaS (exclusivo do Super Admin) mostra em tempo real o MRR, o ARR, o churn, as escolas activas e vencidas e o total de alunos e professores na plataforma, '
+              'e é a partir dele que se cadastram escolas, se inspeccionam e se renovam assinaturas.'},
+    {'id': 'saas_cadastrar', 'destino': 'saas', 'rotulo': 'Abrir o Painel Master',
+     'chaves': [' cadastrar escola', ' nova escola', ' criar escola', ' adicionar escola', ' registar escola'],
+     'texto': 'No Painel Master escolha "Cadastrar Nova Escola" e preencha província, distrito, plano e data de adesão. O sistema gera o código institucional da escola '
+              '(por exemplo 0808S0001) e cria automaticamente as contas directivas: Administrador, Director, DAP e Chefe da Secretaria.'},
+    {'id': 'saas_inspeccionar', 'destino': 'saas', 'rotulo': 'Abrir o Painel Master',
+     'chaves': [' inspecionar', ' inspeccionar', ' entrar na escola', ' abrir a escola', ' ver uma escola', ' inspecao'],
+     'texto': 'Para ver uma escola por dentro, use o botão "Inspecionar" no Painel Master: abre o painel dessa escola sem pedir a senha local, e as suas acções ficam marcadas '
+              'na auditoria como "SuperAdmin em inspecção". Para voltar à visão global, use "Voltar ao SaaS". Só com uma escola em inspecção posso responder sobre os dados dela.'},
+    {'id': 'saas_renovar', 'destino': 'saas', 'rotulo': 'Abrir o Painel Master',
+     'chaves': [' renovar assinatura', ' prolongar assinatura', ' renovar a assinatura', ' dias de vigencia', ' estender assinatura'],
+     'texto': 'No Painel Master, "Renovar Assinatura" acrescenta dias de vigência ao contrato da escola escolhida e restaura o estado activo. '
+              'O "Comprovativo de Contrato" descarrega em PDF a minuta com os termos do plano e os limites de utilização.'},
+    {'id': 'pagamentos_saas', 'destino': 'pagamentos-saas', 'rotulo': 'Abrir Assinaturas & Pagamentos SaaS',
+     'chaves': [' validar comprovativo', ' confirmar pagamento', ' rejeitar pagamento', ' pagamentos das escolas', ' faturas das escolas', ' comprovativo da escola'],
+     'texto': 'Em Assinaturas & Pagamentos SaaS o Super Admin acompanha as faturas das escolas e valida os comprovativos de pagamento enviados por elas (M-Pesa, e-Mola ou transferência): '
+              'cada pagamento fica "enviado" até ser confirmado ou rejeitado (a rejeição leva um motivo).'},
+    {'id': 'acessos_guia', 'destino': 'acessos', 'rotulo': 'Abrir os Acessos',
+     'chaves': [' registo de acessos', ' tentativas invalidas', ' sessoes iniciadas', ' log de acessos', ' acessos das escolas'],
+     'texto': 'Em Acessos vê o registo cronológico das sessões iniciadas, das tentativas inválidas de autenticação e dos bloqueios por assinatura expirada, com data, hora e dispositivo.'},
+    {'id': 'pedir_documentos', 'destino': 'aluno-perfil', 'rotulo': 'Abrir O Meu Perfil',
+     'chaves': [' pedir declaracao', ' preciso de uma declaracao', ' preciso de declaracao', ' pedir certificado', ' preciso de um certificado', ' pedir boletim', ' quero o boletim',
+                ' declaracao com notas', ' segunda via'],
+     'texto': 'Declarações, certificados e boletins são emitidos pela secretaria da escola: dirija-se à secretaria (ou peça por escrito) indicando o documento de que precisa. '
+              'No Espaço do Aluno pode consultar o seu perfil e as notas publicadas; os documentos oficiais levam código e QR de verificação.'},
+    {'id': 'recuperar_acesso', 'destino': None,
+     'chaves': [' esqueci a senha', ' esqueci a palavra', ' perdi a senha', ' nao consigo entrar', ' nao consigo aceder', ' recuperar acesso', ' trocar a senha', ' alterar a senha',
+                ' mudar a senha', ' conta bloqueada'],
+     'texto': 'Se não consegue entrar, use "Esqueci a senha" no ecrã de login. Se continuar sem acesso, peça a redefinição da palavra-passe à Direcção ou à Secretaria da escola, '
+              'que gerem as contas. Pode alterar a sua própria senha em "Meu Perfil & Alterar Senha", no fundo do menu.'},
     {'id': 'assistente_guia', 'destino': 'assistente', 'rotulo': 'Abrir o Assistente',
      'chaves': [' o que sabes', ' o que podes', ' ajuda ', ' como funcionas', ' para que serves'],
      'texto': 'Sou o assistente do SIGE. Respondo (só em leitura) com dados reais da escola e com os guias dos módulos. Pergunte, por exemplo, por faltas, notas, propinas, horário, calendário, exames, transferências, '
@@ -184,4 +218,9 @@ NAVEGACAO = {
     'aluno-pagamentos': ('As Minhas Propinas', [' minhas propinas']),
     'aluno-calendario': ('o Calendário Académico', [' calendario academico']),
     'assistente': ('o Assistente', [' assistente']),
+    'saas': ('o Painel Master', [' painel master', ' escolas', ' mrr']),
+    'pagamentos-saas': ('Assinaturas & Pagamentos SaaS', [' pagamentos saas', ' comprovativos', ' faturas']),
+    'acessos': ('os Acessos', [' acessos', ' sessoes']),
+    'assistente-relatorio': ('o Relatório do Assistente', [' relatorio do assistente', ' relatorio']),
+    'professor-perfil': ('o Meu Perfil Docente', [' perfil docente']),
 }
