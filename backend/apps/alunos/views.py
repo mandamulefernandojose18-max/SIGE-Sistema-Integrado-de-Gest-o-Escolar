@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Count
 from django.utils import timezone
 
+from .educando import aluno_alvo_id, educandos_ids
 from .models import Aluno
 from .serializers import AlunoSerializer, TransferirAlunoSerializer
 from apps.turmas.models import Turma
@@ -192,9 +193,10 @@ class AlunoPerfilMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.aluno_id:
+        alvo = aluno_alvo_id(request)
+        if not alvo:
             return Response({'success': False, 'message': 'Utilizador não é um aluno cadastrado.'}, status=status.HTTP_404_NOT_FOUND)
-        aluno = Aluno.objects.filter(id=request.user.aluno_id).first()
+        aluno = Aluno.objects.filter(id=alvo).first()
         if not aluno:
             return Response({'success': False, 'message': 'Aluno não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'success': True, 'data': AlunoSerializer(aluno).data})
@@ -203,14 +205,18 @@ class AlunoMeNotasView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        target_aluno_id = getattr(request.user, 'aluno_id', None)
-        if not target_aluno_id:
-            # Permitir que utilizadores da escola / professores / superadmin consultem notas de aluno
+        role = getattr(request.user, 'role', '')
+        target_aluno_id = aluno_alvo_id(request)
+        if not target_aluno_id and role not in ('ALUNO', 'ENCARREGADO'):
+            # Utilizadores da escola / professores / superadmin consultam notas de um aluno (nunca alunos e encarregados: só os seus)
             target_aluno_id = request.query_params.get('aluno_id') or request.query_params.get('alunoId')
-            if not target_aluno_id:
-                return Response({'success': False, 'message': 'Não autorizado ou nenhum aluno especificado.'}, status=status.HTTP_403_FORBIDDEN)
+        if not target_aluno_id:
+            return Response({'success': False, 'message': 'Não autorizado ou nenhum aluno especificado.'}, status=status.HTTP_403_FORBIDDEN)
 
         aluno = Aluno.objects.select_related('escola', 'turma').filter(id=target_aluno_id).first()
+        # Isolamento entre escolas: só o SuperAdmin consulta alunos de qualquer escola
+        if aluno and role != 'SUPERADMIN' and aluno.escola_id != getattr(request.user, 'escola_id', None):
+            aluno = None
         if not aluno:
             return Response({'success': False, 'message': 'Aluno não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -464,9 +470,10 @@ class AlunoMePagamentosView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.aluno_id:
+        alvo = aluno_alvo_id(request)
+        if not alvo:
             return Response({'success': False, 'message': 'Não autorizado.'}, status=status.HTTP_403_FORBIDDEN)
-        pagamentos = Pagamento.objects.filter(aluno_id=request.user.aluno_id)
+        pagamentos = Pagamento.objects.filter(aluno_id=alvo)
         ano = request.query_params.get('ano')
         if ano:
             filtro_ano = Q(mes_referencia__startswith=str(ano))
@@ -489,15 +496,16 @@ class AlunoMePagamentosView(APIView):
         return Response({'success': True, 'data': data})
 
     def post(self, request):
-        aluno_id = getattr(request.user, 'aluno_id', None)
-        if not aluno_id:
+        ids = educandos_ids(request.user)
+        if not ids:
             return Response({'success': False, 'message': 'Acesso exclusivo para alunos autenticados.'}, status=status.HTTP_403_FORBIDDEN)
 
         pagamento_id = request.data.get('pagamento_id') or request.data.get('id')
         if not pagamento_id:
             return Response({'success': False, 'message': 'O ID do pagamento é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        pagamento = Pagamento.objects.filter(id=pagamento_id, aluno_id=aluno_id).first()
+        # Só mensalidades de um dos seus educandos (o encarregado pode pagar a de qualquer um deles)
+        pagamento = Pagamento.objects.filter(id=pagamento_id, aluno_id__in=ids).first()
         if not pagamento:
             return Response({'success': False, 'message': 'Mensalidade não encontrada para este aluno.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -602,9 +610,10 @@ class PresencaAlunoViewSet(viewsets.ModelViewSet):
 
         if role in ('ALUNO', 'ENCARREGADO'):
             # Só o próprio educando; sem vínculo (aluno_id) não vê nada (antes o encarregado via a escola toda).
-            if not getattr(user, 'aluno_id', None):
+            ids = educandos_ids(user)
+            if not ids:
                 return PresencaAluno.objects.none()
-            qs = qs.filter(aluno__id=user.aluno_id)
+            qs = qs.filter(aluno__id__in=ids)
         elif role == 'PROFESSOR':
             prof_id = getattr(user, 'professor_id', None)
             if not prof_id:

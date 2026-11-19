@@ -101,9 +101,11 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         escola = get_tenant_escola(self.request)
         if escola:
             qs = Pagamento.objects.filter(escola=escola)
-            if getattr(self.request.user, 'role', '') == 'ALUNO':
-                target_aluno_id = getattr(self.request.user, 'aluno_id', None)
-                qs = qs.filter(aluno_id=target_aluno_id) if target_aluno_id else qs.none()
+            if getattr(self.request.user, 'role', '') in ('ALUNO', 'ENCARREGADO'):
+                # Aluno: só as suas propinas; encarregado: só as dos seus educandos (nunca as da escola toda)
+                from apps.alunos.educando import educandos_ids
+                ids = educandos_ids(self.request.user)
+                qs = qs.filter(aluno_id__in=ids) if ids else qs.none()
         else:
             qs = Pagamento.objects.none()
 
@@ -191,11 +193,11 @@ class PagamentoViewSet(viewsets.ModelViewSet):
         pagamento = self.get_object()
 
         # Restrição de segurança: Se for aluno, só pode liquidar a sua própria propina
-        if getattr(request.user, 'role', '') == 'ALUNO':
-            aluno_id = getattr(request.user, 'aluno_id', None)
-            if not aluno_id or str(pagamento.aluno_id) != str(aluno_id):
+        if getattr(request.user, 'role', '') in ('ALUNO', 'ENCARREGADO'):
+            from apps.alunos.educando import educandos_ids
+            if str(pagamento.aluno_id) not in {str(i) for i in educandos_ids(request.user)}:
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied('Apenas o próprio aluno ou a direcção da escola podem liquidar esta propina.')
+                raise PermissionDenied('Apenas o próprio aluno, o encarregado do educando ou a direcção da escola podem liquidar esta propina.')
 
         serializer = LiquidarPagamentoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

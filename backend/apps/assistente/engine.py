@@ -30,11 +30,9 @@ def _categoria(role):
 
 def educandos_do_encarregado(user, escola):
     """Educandos de uma conta de Encarregado: os associados pela escola + o aluno_id antigo da conta (se houver)."""
+    from apps.alunos.educando import educandos_ids
     from apps.alunos.models import Aluno
-    from apps.crm.models import VinculoEncarregado
-    ids = set(VinculoEncarregado.objects.filter(escola=escola, usuario=user).values_list('aluno_id', flat=True))
-    if getattr(user, 'aluno_id', None):
-        ids.add(user.aluno_id)
+    ids = educandos_ids(user)
     if not ids:
         return []
     return list(Aluno.objects.filter(id__in=ids, escola=escola).select_related('turma').order_by('nome'))

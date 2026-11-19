@@ -9,11 +9,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .educando import aluno_alvo_id
 from .models import Aluno, PresencaAluno
 
 
 def _aluno_do_pedido(request):
-    aluno_id = getattr(request.user, 'aluno_id', None)
+    aluno_id = aluno_alvo_id(request)   # encarregado: o educando escolhido (validado)
     if not aluno_id:
         return None
     return Aluno.objects.select_related('escola', 'turma').filter(id=aluno_id).first()

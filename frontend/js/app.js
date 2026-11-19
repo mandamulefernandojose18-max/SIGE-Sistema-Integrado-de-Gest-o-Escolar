@@ -1414,6 +1414,7 @@ window.renovarTokenAcesso = renovarTokenAcesso;
 const _inFlightApiRequests = new Map();
 
 async function apiFetch(endpoint, options = {}) {
+  endpoint = sigeComEducando(endpoint);   // encarregado: acrescenta o educando escolhido às chamadas do portal
   const isGet = (!options.method || options.method.toUpperCase() === 'GET');
   const activeTenantId = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null)
     || state.tenant?.id
@@ -1725,6 +1726,7 @@ async function carimbarBlobSeDesejado(blob, nome, rotulo) {
 window.carimbarBlobSeDesejado = carimbarBlobSeDesejado;
 
 async function downloadFicheiroBinario(url, defaultFilename) {
+  url = sigeComEducando(url);
   // Regra Mandatória: Nenhum documento deve ser descarregado sem o logótipo que a instituição terá escolhido para documentos
   const checagemLogo = validarLogoInstituicaoParaDownload();
   if (!checagemLogo.valido) {
@@ -2804,6 +2806,53 @@ const MENUS_POR_PAINEL = {
   }
 });
 
+// Portal do Encarregado: um encarregado pode ter vários educandos (associados pela escola). O educando escolhido é validado no servidor.
+window.sigeEducando = { id: '', lista: [], carregado: false };
+function sigeComEducando(endpoint) {
+  if (typeof endpoint !== 'string' || state.user?.role !== 'ENCARREGADO' || !window.sigeEducando.id) return endpoint;
+  if (!/\/api\/v1\/alunos\/(me\/|perfil\/me)/.test(endpoint) || /[?&]aluno_id=/.test(endpoint)) return endpoint;
+  return endpoint + (endpoint.includes('?') ? '&' : '?') + 'aluno_id=' + encodeURIComponent(window.sigeEducando.id);
+}
+
+async function sigeAtualizarBarraEducando(viewId) {
+  const container = document.getElementById('conteudo-modulo') || document.querySelector('main.content-area');
+  if (!container) return;
+  let barra = document.getElementById('sigeBarraEducando');
+  const aplica = state.user?.role === 'ENCARREGADO' && String(viewId).startsWith('aluno-');
+  if (!aplica) { if (barra) barra.style.display = 'none'; return; }
+  const E = window.sigeEducando;
+  if (!E.carregado) {
+    E.carregado = true;
+    try { E.lista = (await apiFetch('/api/v1/assistente/educandos/'))?.educandos || []; } catch (_) { E.lista = []; }
+    if (E.lista.length === 1) E.id = E.lista[0].id;
+  }
+  if (!barra) {
+    barra = document.createElement('div');
+    barra.id = 'sigeBarraEducando';
+    barra.className = 'px-3 px-md-4 pt-3';
+    container.insertBefore(barra, container.firstChild);
+  }
+  if (E.lista.length < 2) { barra.style.display = 'none'; return; }
+  barra.style.display = '';
+  barra.innerHTML = `<div class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded bg-light">
+      <label class="small fw-semibold mb-0" for="sigeSelEducando"><i class="bi bi-people-fill text-primary me-1"></i>Educando</label>
+      <select id="sigeSelEducando" class="form-select form-select-sm" style="max-width: 320px;" onchange="sigeEscolherEducando(this.value)">
+        ${E.id ? '' : '<option value="">Escolha o educando</option>'}
+        ${E.lista.map(a => `<option value="${escapeHtml(a.id)}"${a.id === E.id ? ' selected' : ''}>${escapeHtml(a.nome)}${a.classe ? ' — ' + escapeHtml(a.classe) : ''}</option>`).join('')}
+      </select>
+      ${E.id ? '' : '<span class="small text-muted">Escolha o educando para ver a informação.</span>'}
+    </div>`;
+}
+
+window.sigeEscolherEducando = function (id) {
+  window.sigeEducando.id = id || '';
+  // Cada página volta a pedir o ano lectivo e o "Buscar" para o novo educando (sem misturar dados entre filhos)
+  Object.keys(state.anosPorView || {}).filter(v => v.startsWith('aluno-')).forEach(v => { delete state.anosPorView[v]; });
+  document.querySelectorAll('.modulo-view[id^="view-aluno-"]').forEach(el => el.remove());
+  const viewId = window._sigeUltimaPagina || 'aluno-perfil';
+  if (typeof navegarPara === 'function') navegarPara(viewId);
+};
+
 function renderizarSidebarPorNivel(role) {
   const isSuperAdmin = (role === 'SUPERADMIN' || state.user?.role === 'SUPERADMIN' || !!state.user?.is_superuser);
   const isSuperAdminInspecionando = isSuperAdmin && !!localStorage.getItem('sige_selected_tenant');
@@ -3581,6 +3630,7 @@ async function navegarPara(viewId) {
 
   const viewEl = document.getElementById(`view-${viewId}`);
   if (viewEl) viewEl.style.display = 'block';
+  sigeAtualizarBarraEducando(viewId);   // encarregado com vários educandos: seletor no topo das páginas do portal
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
 
   // Marcar link como ativo na sidebar e sincronizar submenu da Área Pedagógica
