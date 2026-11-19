@@ -811,6 +811,10 @@ _VERBOS = {
 
 
 def _singular(t):
+    if len(t) > 5 and t.endswith('oes'):          # anulações→anulação, certificações→certificação
+        return t[:-3] + 'ao'
+    if len(t) > 5 and (t.endswith('zes') or t.endswith('res')):      # rapazes→rapaz, professores→professor, mulheres→mulher
+        return t[:-2]
     return t[:-1] if len(t) > 3 and t.endswith('s') and not t.endswith('ss') else t
 
 

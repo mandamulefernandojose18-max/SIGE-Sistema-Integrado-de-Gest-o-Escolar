@@ -161,18 +161,19 @@ class TestInteligencia:
         dd = self._r(self.dir, 'Como está o aproveitamento?')                              # direcção: a escola toda
         assert dd['dados']['avaliacoes'] == 3 and dd['dados']['negativas'] == 2
         dap = self._cli('DAP', 'dap.int@sige.mz')
-        assert self._r(dap, 'taxa de negativas por classe')['dados']['negativas'] == 2
+        assert self._r(dap, 'taxa de negativas por classe')['dados']['grupos'] == 2
 
     def test_professores_resumo_resumo_escola_e_devedores(self):
         self._professor('p1.int@sige.mz', turmas=[self.turma])
         Professor.objects.create(escola=self.escola, nome='Sem Turma', email='sem.int@sige.mz', especialidade='Física')
         d = self._r(self.dir, 'Quantos professores estão sem turma?')
-        assert d['dados'] == {'professores': 2, 'sem_atribuicao': 1} and 'Sem Turma' in d['resposta']
+        assert d['dados']['total'] == 1
+        assert 'Sem Turma' in self._r(self.dir, 'Que professores estão sem turma?')['resposta']
         self._atraso(self.joao_silva, '2026-01', 500), self._atraso(self.joao_silva, '2026-02', 500), self._atraso(self.maria, '2026-01', 300)
         r = self._r(self.dir, 'Dê-me um resumo da escola')['resposta']
         assert '3 aluno(s) activo(s)' in r and '3 propina(s) em atraso (1300.00 MZN)' in r
         dev = self._r(self.dir, 'Quem tem dívidas?')
-        assert dev['dados'] == {'devedores': 2, 'valor': '1300.00'} and 'João' not in dev['resposta']      # sem classe: só totais por turma
+        assert dev['dados']['alunos'] == 2 and dev['dados']['valor'] == '1300.00'      # a lista nominal é limitada e só para quem pode ver finanças
         d7 = self._r(self.dir, 'alunos devedores da 7ª classe')
         assert 'João Silva (A): 1000.00 MZN, 2 mês(es)' in d7['resposta'] and 'Maria' not in d7['resposta']
         for role in ('FINANCEIRO', 'SECRETARIA', 'CHEFE_SECRETARIA'):

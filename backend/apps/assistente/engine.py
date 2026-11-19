@@ -9,7 +9,7 @@ recusado sem revelar nada.
 import difflib
 
 from . import capacidades as cap
-from . import capacidades_extra, plataforma
+from . import capacidades_extra, consulta, plataforma
 from .capacidades import ACESSO_ALUNO, GESTAO, PROPRIO, Ctx, normalizar
 from .modulos import modulos_do_perfil
 
@@ -44,7 +44,7 @@ def _palavras_conhecidas():
     global _CONHECIDAS
     if _CONHECIDAS is None or len(_CONHECIDAS[0]) != len(cap.CAPACIDADES):
         palavras = {t for c in cap.CAPACIDADES for k in c.chaves for t in k.split()}
-        palavras |= {cap._singular(t) for t in palavras} | _NAO_NOME | cap._ARTIGOS
+        palavras |= {cap._singular(t) for t in palavras} | _NAO_NOME | cap._ARTIGOS | consulta.PALAVRAS_PLANO | {t for en in consulta.ENTIDADES for t in en.chaves}
         _CONHECIDAS = (list(cap.CAPACIDADES), palavras)
     return _CONHECIDAS[1]
 
@@ -212,6 +212,8 @@ def _responder_nome_ambiguo(nome, ambiguos, ctx):
                                 precisa_aluno=True, candidatos=ambiguos)
 
 
+LIMIAR_CAPACIDADE = 3.0      # abaixo disto o motor de consulta por parametros pode superar a capacidade pre-definida
+
 def responder(user, escola, pergunta, aluno_id=None, pagina=None, anterior=None):
     """Devolve (nome da capacidade, aluno|None, dict de resposta). Só leitura. `anterior` = capacidade da pergunta anterior (seguimento)."""
     _registar()
@@ -234,12 +236,6 @@ def responder(user, escola, pergunta, aluno_id=None, pagina=None, anterior=None)
 
     ordem = cap.pontuacoes(ctx.texto, pagina)
     permitida, bloqueada = _escolher(ordem, ctx, modulos, em_plataforma)
-    if bloqueada and bloqueada[0] > (permitida[0] if permitida else 0):
-        # a melhor correspondência não pertence ao painel deste perfil: recusa sem revelar nada
-        c = bloqueada[1]
-        if em_plataforma and c.tipo == 'dados' and not c.plataforma:
-            return 'escolher_escola', None, _simples('escolher_escola', ESCOLHA_ESCOLA, ctx, **prox())
-        return 'fora_do_painel', None, _simples('fora_do_painel', FORA_DO_PAINEL, ctx, **prox())
     # "Como está o João Silva?" (com um nome de aluno na pergunta) → resumo do aluno; sem nome, "como está…" continua a ser a pergunta que já foi percebida
     if any(p in ctx.texto for p in (' como esta', ' como vai', ' como anda', ' como estao', ' como vao')) and not (permitida and permitida[0] >= 3):
         c_resumo = cap.POR_NOME.get('resumo_aluno')
@@ -247,6 +243,38 @@ def responder(user, escola, pergunta, aluno_id=None, pagina=None, anterior=None)
             achado, ambiguos = aluno_pelo_nome(ctx, c_resumo)
             if achado is not None or ambiguos:
                 permitida = (3, c_resumo)
+    # Pergunta NOVA que cabe nos dados do painel ("quantas alunas há na 8.ª classe?", "média de Física no 2.º trimestre"):
+    # o motor de consulta entende entidade + operação + filtros e responde dentro do âmbito do perfil.
+    if permitida is None or (bloqueada and consulta.tem_cue(ctx.texto)) or (permitida[1].tipo == 'dados' and permitida[0] < 2) or consulta.tem_cue(ctx.texto):
+        c = consulta.tentar(ctx, modulos, aluno_id, em_plataforma)
+        if c is not None:
+            if c['tipo'] == 'bloqueado':
+                if permitida is None or consulta.tem_cue(ctx.texto):
+                    return 'fora_do_painel', None, _simples('fora_do_painel', FORA_DO_PAINEL, ctx, **prox())
+            elif c['tipo'] == 'pede_aluno':
+                if ctx.role == 'ENCARREGADO' and getattr(ctx, 'educandos', None):
+                    nomes = ', '.join(a.nome for a in ctx.educandos[:6])
+                    return c['nome'], None, _simples(c['nome'], f'De qual dos seus educandos quer saber? ({nomes}). Escolha-o na lista acima.', ctx, precisa_aluno=True,
+                                                     educandos=[{'id': str(a.id), 'nome': a.nome} for a in ctx.educandos])
+                return c['nome'], None, _simples(c['nome'], PEDE_ALUNO, ctx, precisa_aluno=True)
+            elif c['tipo'] == 'ambiguo':
+                return _responder_nome_ambiguo(c['nome'], c['candidatos'], ctx)
+            elif c['tipo'] == 'erro':
+                return c['nome'], None, _simples(c['nome'], {'nao_encontrado': NAO_ENCONTRADO, 'sem_vinculo': SEM_VINCULO}.get(c['erro'], SEM_PERMISSAO), ctx)
+            elif c['tipo'] == 'resposta' and (permitida is None or (consulta.tem_cue(ctx.texto) and (permitida[1].tipo == 'dados' or consulta.tem_quantificador(ctx.texto)) and (c['avancada'] or c['especifico'])) or (bloqueada and bloqueada[0] > permitida[0])):
+                return c['nome'], c['aluno'], _resposta(c['nome'], c['resultado'], ctx, None)
+    if ctx.role == 'ALUNO' and permitida and permitida[1].tipo == 'dados':
+        # o aluno só vê os seus dados: se a pergunta nomeia OUTRO aluno, recusa em vez de responder com os dados dele próprio
+        outro, amb = aluno_pelo_nome(ctx, permitida[1])
+        proprio_id = getattr(ctx.user, 'aluno_id', None)
+        if (outro is not None and str(outro.id) != str(proprio_id)) or amb:
+            return 'fora_do_painel', None, _simples('fora_do_painel', FORA_DO_PAINEL, ctx, **prox())
+    if bloqueada and bloqueada[0] > (permitida[0] if permitida else 0):
+        # a melhor correspondência não pertence ao painel deste perfil: recusa sem revelar nada
+        c = bloqueada[1]
+        if em_plataforma and c.tipo == 'dados' and not c.plataforma:
+            return 'escolher_escola', None, _simples('escolher_escola', ESCOLHA_ESCOLA, ctx, **prox())
+        return 'fora_do_painel', None, _simples('fora_do_painel', FORA_DO_PAINEL, ctx, **prox())
     if not permitida and anterior and anterior in cap.POR_NOME and len(ctx.texto.split()) <= 8:
         # pergunta de seguimento ("e do João?", "João Silva"): continua a capacidade anterior, se o perfil a pode usar
         c = cap.POR_NOME[anterior]
