@@ -140,7 +140,20 @@ def alertas_cargos_gestao(user, escola):
 
 
 def alertas_assinatura(user, escola):
+    from apps.tenants.assinatura_estado import estado_assinatura_escola
     from apps.tenants.models import AssinaturaEscola
+    saas = estado_assinatura_escola(escola)
+    if saas and saas['origem'] == 'saas':
+        dias, estado = saas['dias'], saas['estado']
+        if estado in ('suspensa', 'cancelada'):
+            return [_a('alta', 'O acesso da instituição está suspenso por falta de pagamento', 'Regularize a assinatura para restabelecer o acesso.', 'assinatura-escola', 'Regularizar')]
+        if estado in ('em_atraso', 'restrita'):
+            return [_a('alta', 'A assinatura do sistema está em atraso', 'Submeta o comprovativo de pagamento para evitar a restrição do acesso.', 'assinatura-escola', 'Regularizar')]
+        if dias < 0:
+            return [_a('alta', 'A fatura da assinatura venceu', f'Há {-dias} dia(s).', 'assinatura-escola', 'Regularizar')]
+        if dias <= 15:
+            return [_a('media', f'A fatura da assinatura vence em {dias} dia(s)', '', 'assinatura-escola', 'Ver assinatura')]
+        return []
     ass = AssinaturaEscola.objects.filter(escola=escola).order_by('-data_fim').first()
     if not ass:
         return []

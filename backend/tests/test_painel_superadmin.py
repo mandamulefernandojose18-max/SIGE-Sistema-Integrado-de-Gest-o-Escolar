@@ -351,6 +351,8 @@ class TestReconciliacaoSms:
         ('Recebeu 1.500,50 MZN. Transacao ID: XY99887', Decimal('1500.50'), 'XY99887'),
         ('Recebeu 1500MT Ref ABCD1234', Decimal('1500'), 'ABCD1234'),
         ('841234567 3,000.00MT Ref: Q1W2E3', Decimal('3000.00'), 'Q1W2E3'),
+        ('Confirmado PP261118.1023.A12345. Recebeu 3,000.00MT de 841234567 - JOAO SILVA aos 18/11/26', Decimal('3000.00'), 'PP261118.1023.A12345'),
+        ('Confirmado: ABC123XYZ9 Recebeu 750MT', Decimal('750'), 'ABC123XYZ9'),
     ])
     def test_analisador_de_sms(self, texto, valor, ref):
         assert analisar_sms(texto) == (valor, ref)

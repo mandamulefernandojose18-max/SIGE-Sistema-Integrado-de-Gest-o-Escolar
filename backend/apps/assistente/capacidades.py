@@ -440,7 +440,16 @@ def h_risco(ctx):
 
 
 def h_assinatura(ctx):
+    from apps.tenants.assinatura_estado import estado_assinatura_escola
     from apps.tenants.models import AssinaturaEscola
+    saas = estado_assinatura_escola(ctx.escola, ctx.hoje)
+    if saas and saas['origem'] == 'saas':
+        dias = saas['dias']
+        prazo = (f'a próxima fatura vence em {_data(saas["data"])} (faltam {dias} dia(s))' if dias >= 0
+                 else f'a fatura venceu a {_data(saas["data"])} (há {-dias} dia(s))')
+        estado = saas['estado'].replace('_', ' ')
+        return _res(f'A assinatura ({saas["plano"]}) está {estado} e {prazo}.', {'status': saas['estado'], 'dias': dias},
+                    'assinatura-escola', 'Abrir Assinatura do Sistema')
     ass = AssinaturaEscola.objects.filter(escola=ctx.escola).select_related('plano').order_by('-data_fim').first()
     if not ass:
         return _res('Não há assinatura registada para esta escola.', {}, 'assinatura-escola', 'Abrir Assinatura do Sistema')

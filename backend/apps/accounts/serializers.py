@@ -203,6 +203,7 @@ class LoginSerializer(serializers.Serializer):
                 bloqueada = bool(getattr(escola, 'bloqueada_manualmente', False))
 
                 from apps.tenants.saas_middleware import suspensao_em_modo_leitura
+                from apps.tenants.assinatura_estado import mensagem_bloqueio
                 if (status_escola != 'ATIVA' or bloqueada) and not suspensao_em_modo_leitura(escola):
                     try:
                         LogAcesso.objects.create(
@@ -214,9 +215,7 @@ class LoginSerializer(serializers.Serializer):
                         pass
 
                     raise serializers.ValidationError(
-                        f'Acesso bloqueado: A sua instituição de ensino ({escola.nome}) encontra-se com a subscrição expirada. '
-                        f'Por esse motivo, o acesso ao sistema está temporariamente vedado. '
-                        f'Para restabelecer o acesso, contacte o Engenheiro do Sistema, responsável pela gestão das instituições e pela renovação das respectivas subscrições.'
+                        mensagem_bloqueio(escola.nome, status_escola)
                     )
             else:
                 raise serializers.ValidationError('Acesso bloqueado: O seu utilizador não está vinculado a nenhuma instituição de ensino.')

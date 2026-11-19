@@ -53,6 +53,9 @@ _RE_VALOR = re.compile(r'(?<![\d.,])(\d[\d.,]*\d|\d)\s*(?:MT|MZN|MZM)\b', re.I)
 _RE_REF = re.compile(r'(?:Ref(?:er[eê]ncia)?|Transa[cç][aã]o(?:\s*ID)?|ID(?:\s*da\s*transa[cç][aã]o)?)\s*[.:\-]?\s*([A-Z0-9][A-Z0-9.\-]{3,})', re.I)
 
 
+_RE_CONFIRMADO = re.compile(r'Confirmad[oa]\s*[.:\-]?\s*([A-Z0-9][A-Z0-9.\-]{5,})', re.I)
+
+
 def normalizar_valor(texto):
     """'1,500.00' e '1.500,00' e '1500' → Decimal. O último separador seguido de 1-2 dígitos é a vírgula decimal."""
     t = re.sub(r'\s', '', str(texto))
@@ -77,7 +80,8 @@ def analisar_sms(texto):
         if v is not None and v > 0:
             valor = v
             break
-    m_ref = _RE_REF.search(texto)
+    # 1.º: código rotulado (Ref, ID, Transacção); 2.º: o código que segue "Confirmado" (formato habitual das SMS M-Pesa).
+    m_ref = _RE_REF.search(texto) or _RE_CONFIRMADO.search(texto)
     referencia = m_ref.group(1).strip().rstrip('.,;:-') if m_ref else None
     return valor, referencia
 

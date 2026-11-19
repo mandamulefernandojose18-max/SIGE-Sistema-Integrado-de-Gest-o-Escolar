@@ -45,6 +45,7 @@ class TenantMiddleware(MiddlewareMixin):
                 st = str(getattr(request.tenant, 'status', '') or '').strip().upper()
                 bloqueada = bool(getattr(request.tenant, 'bloqueada_manualmente', False))
                 from apps.tenants.saas_middleware import suspensao_em_modo_leitura
+                from apps.tenants.assinatura_estado import mensagem_bloqueio
                 if (st != 'ATIVA' or bloqueada) and not suspensao_em_modo_leitura(request.tenant):
                     from django.http import JsonResponse
                     is_exempt = (
@@ -59,9 +60,5 @@ class TenantMiddleware(MiddlewareMixin):
                     if request.path.startswith('/api/') and not is_exempt:
                         return JsonResponse({
                             'success': False,
-                            'message': (
-                                f'Acesso bloqueado: A sua instituição de ensino ({request.tenant.nome}) encontra-se com a subscrição expirada. '
-                                f'Por esse motivo, o acesso ao sistema está temporariamente vedado. '
-                                f'Para restabelecer o acesso, contacte o Engenheiro do Sistema, responsável pela gestão das instituições e pela renovação das respectivas subscrições.'
-                            )
+                            'message': mensagem_bloqueio(request.tenant.nome, st)
                         }, status=403)
