@@ -109,15 +109,20 @@ def _lista(itens, limite=LIMITE_LISTA):
 
 
 # ---------------------------------------------------------------- dados do aluno
-def h_faltas(ctx):
+def faltas_do_aluno(escola, aluno, ano):
+    """(faltas efectivas, faltas injustificadas ainda por justificar) no ano lectivo."""
     from apps.alunos.models import PresencaAluno
     from apps.crm.views import _faltas_efectivas_por_aluno
-    escola, aluno, ano = ctx.escola, ctx.aluno, ctx.ano
     efectivas = _faltas_efectivas_por_aluno(escola, ano_letivo=ano, aluno_id=aluno.id).get(aluno.id, 0)
     regs = PresencaAluno.objects.filter(escola=escola, aluno=aluno, status='FALTA_INJUSTIFICADA')
     if ano:
         regs = regs.filter(turma__ano_letivo=ano)
-    injust = sum(max((r.aulas or 1) - (r.aulas_justificadas or 0), 0) for r in regs)
+    return efectivas, sum(max((r.aulas or 1) - (r.aulas_justificadas or 0), 0) for r in regs)
+
+
+def h_faltas(ctx):
+    escola, aluno, ano = ctx.escola, ctx.aluno, ctx.ano
+    efectivas, injust = faltas_do_aluno(escola, aluno, ano)
     sufixo = f' no ano lectivo {ano}' if ano else ''
     if not efectivas:
         return _res(f'{aluno.nome} não tem faltas efectivas registadas{sufixo}.', {'faltas_efectivas': 0})

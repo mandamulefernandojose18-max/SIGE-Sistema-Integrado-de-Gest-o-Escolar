@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils.tenant import get_tenant_escola
-from . import capacidades, engine
+from . import alertas, capacidades, engine
 from .models import ConsultaAssistente
 
 TAMANHO_MAX = 500
@@ -66,6 +66,18 @@ class FeedbackView(APIView):
         if not n:
             raise ValidationError({'consulta_id': 'Consulta não encontrada.'})
         return Response({'success': True})
+
+
+class AlertasView(APIView):
+    """GET /assistente/alertas/ — o que merece atenção do perfil, em dados reais (vazio se nada a assinalar)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        escola = get_tenant_escola(request)
+        if not escola:
+            return Response({'alertas': [], 'total': 0, 'urgentes': 0})
+        lista = alertas.alertas_do_utilizador(request.user, escola)
+        return Response({'alertas': lista, 'total': len(lista), 'urgentes': sum(1 for a in lista if a['nivel'] == 'alta')})
 
 
 class EducandosView(APIView):

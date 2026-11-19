@@ -75,7 +75,25 @@ async function assCarregarEducandos() {
   assEscolherAluno();
 }
 
+// Painel "Merece atenção": alertas reais do perfil (calculados no servidor). Sem alertas, diz que não há nada a assinalar.
+const ASS_COR_ALERTA = { alta: 'danger', media: 'warning', info: 'secondary' };
+window.assRenderAlertas = function () {
+  const box = document.getElementById('assAlertas');
+  if (!box) return;
+  const lista = window._sigeAlertas?.lista || [];
+  if (!lista.length) { box.innerHTML = '<span class="small text-muted">Nada a assinalar neste momento.</span>'; return; }
+  box.innerHTML = lista.map(a => {
+    const botao = a.destino && assDestinoPermitido(a.destino)
+      ? `<button type="button" class="btn btn-sm btn-outline-primary py-0 ms-2" onclick="assAbrir('${escapeHtml(a.destino)}')">${escapeHtml(a.rotulo || 'Abrir')}</button>` : '';
+    return `<div class="d-flex align-items-start gap-2 py-1 border-bottom small">
+      <span class="badge bg-${ASS_COR_ALERTA[a.nivel] || 'secondary'} mt-1">&nbsp;</span>
+      <div class="flex-grow-1"><strong>${escapeHtml(a.titulo)}</strong>${a.detalhe ? `<div class="text-muted">${escapeHtml(a.detalhe)}</div>` : ''}</div>${botao}</div>`;
+  }).join('');
+};
+
 async function assIniciar() {
+  if (typeof sigeAtualizarAlertas === 'function') sigeAtualizarAlertas(true);
+  assRenderAlertas();
   document.getElementById('assAlunoCard').style.display = (assEhProprio() && !assEhEncarregado()) ? 'none' : '';
   if (assEhEncarregado()) assCarregarEducandos();
   assState.pagina = String(window._sigeUltimaPagina || '').replace(/[^a-z0-9-]/g, '').slice(0, 60);

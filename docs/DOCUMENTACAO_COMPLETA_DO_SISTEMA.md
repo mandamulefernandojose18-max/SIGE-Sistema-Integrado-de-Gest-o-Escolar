@@ -1700,3 +1700,21 @@ O assistente (`apps/assistente`) passou de 3 consultas fixas para um **registo d
 - **Correcções de privacidade encontradas no caminho:** (1) `GET /pagamentos/` devolvia ao Encarregado as propinas de **toda a escola**; passa a devolver só as dos seus educandos (e `liquidar` só deles); (2) `GET /alunos/me/notas?aluno_id=` aceitava qualquer aluno, mesmo de outra escola, a quem não tinha aluno_id; passa a recusar alunos/encarregados com outro aluno e a exigir a mesma escola aos restantes perfis (só o SuperAdmin vê qualquer escola); (3) a lista de presenças do Encarregado limita-se aos seus educandos.
 - **Limite actual:** o Material Escolar do portal ainda usa só o `aluno_id` da conta (o conteúdo é a biblioteca da escola, não dados privados).
 - Testes: `backend/tests/test_portal_encarregado.py` (10 testes: escolha, recusa de alunos alheios e de outra escola, um só educando, aluno inalterado, API geral de propinas, liquidação, presenças, pagamento pelo portal). Suite completa do backend (sem `test_escudo`): 540 aprovados. Verificado no navegador num ambiente local isolado (encarregado com 2 filhos).
+
+### Alertas proactivos do Assistente (v2.9.67)
+
+`GET /api/v1/assistente/alertas/` (`apps/assistente/alertas.py`) devolve o que merece atenção do perfil, calculado na hora com dados reais da escola, só leitura e a custo zero. Cada alerta: `nivel` (`alta`/`media`/`info`), `titulo`, `detalhe`, `destino` (ecrã do menu) e `rotulo`; resposta `{alertas, total, urgentes}` ordenada por urgência e limitada a 12. Sem nada a assinalar devolve lista vazia (nunca inventa alertas).
+
+| Perfil | Alertas |
+|---|---|
+| Aluno / Encarregado (por educando) | propinas em atraso (urgente com 2 ou mais) e a vencer em 7 dias; faltas por justificar; negativas do último trimestre **publicado**; exames nos próximos 14 dias |
+| Professor | actividades de cargo com prazo ultrapassado ou a vencer em 7 dias (só as suas) |
+| Direcção (Director/Admin) | assinatura a terminar (≤ 15 dias) ou terminada; movimentos a aguardar aprovação; pautas por fechar; actividades de cargo em atraso; propinas em atraso da escola |
+| DAP | pautas por fechar; actividades de cargo em atraso |
+| Gestão (Direcção, DAP, Chefe de Secretaria, Secretaria) | transferências pendentes (urgente se > 7 dias); atendimentos por resolver (urgente se antigos ou prioridade alta); alunos em risco de evasão |
+| Financeiro | propinas em atraso por cobrar; movimentos a aguardar aprovação do Director |
+| Todos | comunicados dos últimos 7 dias para o seu público-alvo; eventos do calendário nos próximos 7 dias |
+
+- **Ecrã:** contador no menu "Assistente Virtual" (vermelho se houver urgentes; actualiza de 5 em 5 minutos e ao navegar) e painel "Merece atenção" no topo do assistente, com botão para o módulo (só se existir no menu do perfil). Sem alertas mostra "Nada a assinalar neste momento".
+- **Isolamento:** cada função corre só para os perfis a que se destina e sempre dentro da escola; o encarregado vê só os seus educandos e o aluno só o seu. As notas respeitam a publicação decidida pela escola.
+- Testes: `backend/tests/test_assistente_alertas.py` (9 testes). Verificado no navegador num ambiente local isolado.

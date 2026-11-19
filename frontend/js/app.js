@@ -2806,6 +2806,41 @@ const MENUS_POR_PAINEL = {
   }
 });
 
+// Alertas proactivos do Assistente (dados reais, só leitura): contador no menu e painel "Merece atenção" no assistente.
+window._sigeAlertas = { total: 0, urgentes: 0, lista: [], t: 0 };
+async function sigeAtualizarAlertas(forcar) {
+  const A = window._sigeAlertas;
+  if (!state.user || !state.token) return;
+  if (state.user.role === 'SUPERADMIN' && !localStorage.getItem('sige_selected_tenant')) return;
+  if (!forcar && Date.now() - A.t < 300000) return;   // no máximo de 5 em 5 minutos
+  A.t = Date.now();
+  try {
+    const r = await apiFetch('/api/v1/assistente/alertas/', { noCache: true });
+    A.lista = Array.isArray(r?.alertas) ? r.alertas : [];
+    A.total = r?.total || 0;
+    A.urgentes = r?.urgentes || 0;
+  } catch (_) { /* os alertas são um extra: nunca interrompem o sistema */ }
+  sigePintarBadgeAlertas();
+  if (typeof window.assRenderAlertas === 'function') window.assRenderAlertas();
+}
+
+function sigePintarBadgeAlertas() {
+  const link = document.getElementById('nav-assistente');
+  if (!link) return;
+  let b = document.getElementById('sigeBadgeAlertas');
+  const A = window._sigeAlertas;
+  if (!A.total) { if (b) b.remove(); return; }
+  if (!b || b.parentElement !== link) {
+    if (b) b.remove();
+    b = document.createElement('span');
+    b.id = 'sigeBadgeAlertas';
+    link.appendChild(b);
+  }
+  b.className = 'badge rounded-pill ms-auto ' + (A.urgentes ? 'bg-danger' : 'bg-primary');
+  b.textContent = A.total;
+  b.title = A.urgentes ? `${A.urgentes} alerta(s) urgente(s)` : `${A.total} alerta(s)`;
+}
+
 // Portal do Encarregado: um encarregado pode ter vários educandos (associados pela escola). O educando escolhido é validado no servidor.
 window.sigeEducando = { id: '', lista: [], carregado: false };
 function sigeComEducando(endpoint) {
@@ -3631,6 +3666,7 @@ async function navegarPara(viewId) {
   const viewEl = document.getElementById(`view-${viewId}`);
   if (viewEl) viewEl.style.display = 'block';
   sigeAtualizarBarraEducando(viewId);   // encarregado com vários educandos: seletor no topo das páginas do portal
+  sigePintarBadgeAlertas(); sigeAtualizarAlertas(false);   // alertas proactivos: contador no menu do Assistente
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
 
   // Marcar link como ativo na sidebar e sincronizar submenu da Área Pedagógica
