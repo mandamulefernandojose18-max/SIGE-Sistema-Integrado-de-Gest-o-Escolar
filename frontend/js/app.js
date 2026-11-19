@@ -3640,7 +3640,9 @@ async function navegarPara(viewId) {
   // cada página/módulo funciona de forma 100% INDEPENDENTE.
   // A escolha do ano lectivo numa página NÃO influencia as outras páginas.
   // Cada página só carrega e exibe dados após a escolha do ano lectivo NA PRÓPRIA PÁGINA.
-  if (painel !== 'painel-superadmin' && viewId !== 'minhas-atividades') {
+  // CRM e Assistente não dependem de um ano lectivo escolhido na página (o CRM usa o ano lectivo activo da escola).
+  const VIEWS_SEM_FILTRO_ANO = ['minhas-atividades', 'crm', 'assistente'];
+  if (painel !== 'painel-superadmin' && !VIEWS_SEM_FILTRO_ANO.includes(viewId)) {
     const anoDestaView = state.anosPorView ? state.anosPorView[viewId] : null;
     if (!anoDestaView) {
       aplicarBloqueioVisualAnoNaoSelecionado(viewEl, viewId);
