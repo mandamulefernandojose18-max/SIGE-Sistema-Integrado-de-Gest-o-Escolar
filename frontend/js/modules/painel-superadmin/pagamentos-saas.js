@@ -70,15 +70,28 @@ async function carregarResumoSuperAdmin() {
   }
 }
 
-// Só aceita ligações do próprio sistema (/media/...) ou data URLs de imagem/PDF.
-// Recusa "javascript:", HTML e qualquer outro esquema vindo de uma escola.
-function urlComprovativoSeguro(url) {
-  const u = String(url || '').trim();
-  if (!u) return '';
-  if (/^\/media\/[\w\-./]+$/.test(u) && !u.includes('..')) return u;
-  if (/^data:(image\/(png|jpeg)|application\/pdf);base64,[A-Za-z0-9+/=\s]+$/.test(u)) return u;
-  return '';
+// O anexo nunca é aberto por uma ligação vinda da escola: o servidor entrega-o só a quem tem direito,
+// com o token da sessão, e o browser mostra-o a partir de um blob local.
+async function abrirComprovativoSaas(pagamentoId) {
+  const janela = window.open('', '_blank');
+  try {
+    const token = localStorage.getItem('sige_access_token');
+    const apiBase = window.SIGE_CONFIG?.API_BASE_URL || '/api/v1';
+    const resp = await fetch(`${apiBase}/saas/pagamentos/${encodeURIComponent(pagamentoId)}/comprovativo/`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) throw new Error(resp.status === 404 ? 'Este pagamento não tem anexo disponível.' : 'Não foi possível abrir o anexo.');
+    const tipo = (resp.headers.get('Content-Type') || '').split(';')[0];
+    if (!['application/pdf', 'image/png', 'image/jpeg'].includes(tipo)) throw new Error('Tipo de anexo não permitido.');
+    const url = URL.createObjectURL(await resp.blob());
+    if (janela) janela.location.href = url; else window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+  } catch (err) {
+    if (janela) janela.close();
+    mostrarToast(err.message || 'Falha ao abrir o anexo.', 'danger');
+  }
 }
+window.abrirComprovativoSaas = abrirComprovativoSaas;
 
 async function carregarPagamentosPendentes() {
   try {
@@ -96,10 +109,9 @@ async function carregarPagamentosPendentes() {
     if (card) card.style.display = 'block';
 
     tbody.innerHTML = res.data.map(p => {
-      const hrefAnexo = urlComprovativoSeguro(p.comprovativo_url);
-      const compBtn = hrefAnexo
-        ? `<a href="${escapeHtml(hrefAnexo)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary" title="Abrir Comprovativo"><i class="bi bi-file-earmark-arrow-down me-1"></i> Ver Anexo</a>`
-        : (p.comprovativo_url ? `<span class="badge bg-danger" title="Ligação do anexo recusada por segurança">Anexo inválido</span>` : `<span class="badge bg-secondary">Sem anexo</span>`);
+      const compBtn = p.comprovativo_url
+        ? `<button type="button" class="btn btn-sm btn-outline-primary" title="Abrir Comprovativo" onclick="abrirComprovativoSaas('${escapeHtml(p.id)}')"><i class="bi bi-file-earmark-arrow-down me-1"></i> Ver Anexo</button>`
+        : `<span class="badge bg-secondary">Sem anexo</span>`;
 
       return `
         <tr>
@@ -355,7 +367,7 @@ async function abrirFichaInstituicao(assinaturaId) {
             <td><span class="badge ${p.estado === 'confirmado' ? 'bg-success' : (p.estado === 'rejeitado' ? 'bg-danger' : 'bg-warning text-dark')}">${escapeHtml(p.estado)}</span></td>
             <td><small>${escapeHtml(p.confirmado_por || '-')}</small></td>
             <td class="text-end">
-              ${urlComprovativoSeguro(p.comprovativo_url) ? `<a href="${escapeHtml(urlComprovativoSeguro(p.comprovativo_url))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i></a>` : '-'}
+              ${p.comprovativo_url ? `<button type="button" class="btn btn-sm btn-outline-secondary" title="Abrir comprovativo" onclick="abrirComprovativoSaas('${escapeHtml(p.id)}')"><i class="bi bi-download"></i></button>` : '-'}
             </td>
           </tr>
         `).join('');
@@ -865,6 +877,94 @@ async function salvarReconciliacaoSms(event) {
   }
 }
 
+// ---- Tokens do webhook de SMS ----
+async function abrirModalTokensWebhook() {
+  document.getElementById('webhookUrl').value = `${location.origin}/api/v1/saas/webhook/sms/`;
+  document.getElementById('tokenWebhookNovo').innerHTML = '';
+  document.getElementById('tokenWebhookNome').value = '';
+  new bootstrap.Modal(document.getElementById('modalTokensWebhook')).show();
+  await carregarTokensWebhook();
+}
+
+async function carregarTokensWebhook() {
+  const tbody = document.getElementById('tabelaTokensWebhook');
+  try {
+    const res = await apiFetch('/saas/webhook/tokens/');
+    const lista = res && res.success && Array.isArray(res.data) ? res.data : [];
+    if (lista.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Ainda não há tokens. Crie um para activar o reencaminhamento.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = lista.map(t => `
+      <tr>
+        <td><strong>${escapeHtml(t.nome)}</strong><div class="small text-muted">${escapeHtml(t.criado_por || '')}</div></td>
+        <td><code>${escapeHtml(t.prefixo)}…</code></td>
+        <td><small>${t.ultimo_uso_em ? formatarDataHoraPt(t.ultimo_uso_em) : 'Nunca'}</small></td>
+        <td>${Number(t.usos) || 0}</td>
+        <td><span class="badge ${t.activo ? 'bg-success' : 'bg-secondary'}">${t.activo ? 'Activo' : 'Revogado'}</span></td>
+        <td class="text-end">${t.activo ? `<button class="btn btn-outline-danger btn-sm" onclick="revogarTokenWebhook('${escapeHtml(t.id)}')">Revogar</button>` : ''}</td>
+      </tr>`).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-danger text-center py-3">${escapeHtml(err.message || 'Falha ao carregar os tokens.')}</td></tr>`;
+  }
+}
+
+async function criarTokenWebhook(event) {
+  event.preventDefault();
+  const btn = document.getElementById('btnCriarTokenWebhook');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await apiFetch('/saas/webhook/tokens/', {
+      method: 'POST',
+      body: JSON.stringify({ nome: document.getElementById('tokenWebhookNome').value.trim() })
+    });
+    if (res && res.success) {
+      document.getElementById('tokenWebhookNome').value = '';
+      document.getElementById('tokenWebhookNovo').innerHTML = `
+        <div class="alert alert-warning">
+          <strong>Copie o token agora: não volta a ser mostrado.</strong>
+          <div class="input-group input-group-sm mt-2">
+            <input type="text" id="tokenWebhookValor" class="form-control font-monospace" readonly value="${escapeHtml(res.data.token)}">
+            <button class="btn btn-outline-secondary" type="button" onclick="copiarTextoWebhook('tokenWebhookValor')">Copiar</button>
+          </div>
+        </div>`;
+      await carregarTokensWebhook();
+    } else {
+      mostrarToast(res?.message || 'Falha ao criar o token.', 'danger');
+    }
+  } catch (err) {
+    mostrarToast(err.message || 'Falha na ligação com o servidor.', 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function revogarTokenWebhook(id) {
+  if (!confirm('Revogar este token? O telemóvel deixa de conseguir enviar SMS imediatamente.')) return;
+  try {
+    const res = await apiFetch(`/saas/webhook/tokens/${encodeURIComponent(id)}/revogar/`, { method: 'POST' });
+    mostrarToast(res?.message || 'Token revogado.', res && res.success ? 'success' : 'danger');
+    await carregarTokensWebhook();
+  } catch (err) {
+    mostrarToast(err.message || 'Falha ao revogar.', 'danger');
+  }
+}
+
+async function copiarTextoWebhook(idCampo) {
+  const campo = document.getElementById(idCampo);
+  try {
+    await navigator.clipboard.writeText(campo.value);
+    mostrarToast('Copiado.', 'success');
+  } catch (_) {
+    campo.select();
+    mostrarToast('Seleccionado: use Ctrl+C para copiar.', 'info');
+  }
+}
+
+window.abrirModalTokensWebhook = abrirModalTokensWebhook;
+window.criarTokenWebhook = criarTokenWebhook;
+window.revogarTokenWebhook = revogarTokenWebhook;
+window.copiarTextoWebhook = copiarTextoWebhook;
 window.abrirModalPagamentoDirecto = abrirModalPagamentoDirecto;
 window.aoMudarFaturaPagamentoDirecto = aoMudarFaturaPagamentoDirecto;
 window.salvarPagamentoDirecto = salvarPagamentoDirecto;

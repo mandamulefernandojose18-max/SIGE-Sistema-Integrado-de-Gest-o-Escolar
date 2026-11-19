@@ -16,7 +16,10 @@ from .views import (
 )
 
 from .saas_painel_views import SaasLogsAcessoView, SaasEscolasOpcoesView
-from .saas_pagamentos_views import SaasRegistarPagamentoDirectoView, SaasReconciliarSmsView
+from .saas_pagamentos_views import (
+    SaasRegistarPagamentoDirectoView, SaasReconciliarSmsView, SaasComprovativoView, SaasWebhookSmsView,
+    SaasWebhookTokensView, SaasWebhookTokenRevogarView,
+)
 from .saas_views import (
     SaasResumoView,
     SaasAlarmesView,
@@ -89,6 +92,14 @@ saas_pagamentos_urls = [
     path('pagamentos/registar-directo/', SaasRegistarPagamentoDirectoView.as_view(), name='saas_pagamento_directo'),
     path('pagamentos/reconciliar-sms', SaasReconciliarSmsView.as_view(), name='saas_reconciliar_sms_no_slash'),
     path('pagamentos/reconciliar-sms/', SaasReconciliarSmsView.as_view(), name='saas_reconciliar_sms'),
+    path('pagamentos/<uuid:pk>/comprovativo', SaasComprovativoView.as_view(), name='saas_comprovativo_no_slash'),
+    path('pagamentos/<uuid:pk>/comprovativo/', SaasComprovativoView.as_view(), name='saas_comprovativo'),
+    path('webhook/sms', SaasWebhookSmsView.as_view(), name='saas_webhook_sms_no_slash'),
+    path('webhook/sms/', SaasWebhookSmsView.as_view(), name='saas_webhook_sms'),
+    path('webhook/tokens', SaasWebhookTokensView.as_view(), name='saas_webhook_tokens_no_slash'),
+    path('webhook/tokens/', SaasWebhookTokensView.as_view(), name='saas_webhook_tokens'),
+    path('webhook/tokens/<uuid:pk>/revogar', SaasWebhookTokenRevogarView.as_view(), name='saas_webhook_token_revogar_no_slash'),
+    path('webhook/tokens/<uuid:pk>/revogar/', SaasWebhookTokenRevogarView.as_view(), name='saas_webhook_token_revogar'),
     path('pagamentos/pendentes', SaasPagamentosPendentesView.as_view(), name='saas_pagamentos_pendentes_no_slash'),
     path('pagamentos/pendentes/', SaasPagamentosPendentesView.as_view(), name='saas_pagamentos_pendentes'),
     path('pagamentos/<uuid:pk>/confirmar', SaasConfirmarPagamentoView.as_view(), name='saas_pagamento_confirmar_no_slash'),

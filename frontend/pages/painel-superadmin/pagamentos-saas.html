@@ -88,9 +88,14 @@
         <button class="btn btn-warning btn-sm fw-bold" onclick="abrirModalCoordenadasPagamento()" title="Configurar números de carteiras móveis e contas bancárias oficiais">
           <i class="bi bi-credit-card-2-front me-1"></i> Configurar Contas & Carteiras
         </button>
-        <button class="btn btn-outline-success btn-sm" onclick="abrirModalReconciliarSms()" title="Colar uma SMS M-Pesa/e-Mola para confirmar automaticamente o comprovativo correspondente">
-          <i class="bi bi-chat-left-text me-1"></i> Reconciliar SMS
-        </button>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-success" onclick="abrirModalReconciliarSms()" title="Colar uma SMS M-Pesa/e-Mola para confirmar automaticamente o comprovativo correspondente">
+            <i class="bi bi-chat-left-text me-1"></i> Reconciliar SMS
+          </button>
+          <button class="btn btn-outline-success" onclick="abrirModalTokensWebhook()" title="Reencaminhamento automático das SMS a partir do telemóvel (token próprio e revogável)">
+            <i class="bi bi-broadcast me-1"></i> SMS automático
+          </button>
+        </div>
         <button class="btn btn-outline-secondary btn-sm" onclick="executarCicloDiarioManual()" title="Executar rotina diária de verificação e faturação">
           <i class="bi bi-arrow-repeat me-1"></i> Executar Ciclo Diário
         </button>
@@ -563,6 +568,38 @@
           <button type="submit" class="btn btn-primary fw-bold" id="btnReconciliarSms">Reconciliar</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SMS AUTOMÁTICO (tokens de webhook) -->
+<div class="modal fade" id="modalTokensWebhook" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-broadcast me-1"></i> Reencaminhamento Automático de SMS</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="text-muted small">Configure uma aplicação de reencaminhamento de SMS no telemóvel que recebe os pagamentos para enviar cada SMS ao endereço abaixo, com o token no cabeçalho <code>X-Webhook-Token</code> e o corpo JSON <code>{"message": "texto da SMS"}</code>. O pagamento só é confirmado se a referência e o valor coincidirem exactamente com um comprovativo já submetido pela escola. O token serve apenas para isto e pode ser revogado a qualquer momento.</p>
+        <div class="input-group input-group-sm mb-3">
+          <span class="input-group-text">Endereço</span>
+          <input type="text" id="webhookUrl" class="form-control font-monospace" readonly>
+          <button class="btn btn-outline-secondary" type="button" onclick="copiarTextoWebhook('webhookUrl')">Copiar</button>
+        </div>
+        <form id="formNovoTokenWebhook" class="row g-2 mb-3" onsubmit="criarTokenWebhook(event)">
+          <div class="col-md-8"><input type="text" id="tokenWebhookNome" class="form-control form-control-sm" minlength="3" maxlength="100" required placeholder="Nome (ex: Telemóvel M-Pesa da sede)"></div>
+          <div class="col-md-4"><button type="submit" class="btn btn-success btn-sm w-100" id="btnCriarTokenWebhook"><i class="bi bi-plus-lg me-1"></i>Criar token</button></div>
+        </form>
+        <div id="tokenWebhookNovo" class="mb-3"></div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light"><tr><th>Nome</th><th>Token</th><th>Último uso</th><th>Usos</th><th>Estado</th><th class="text-end">Acção</th></tr></thead>
+            <tbody id="tabelaTokensWebhook"><tr><td colspan="6" class="text-center text-muted py-3">A carregar...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer bg-light"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button></div>
     </div>
   </div>
 </div>

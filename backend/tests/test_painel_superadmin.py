@@ -1,6 +1,7 @@
 """Painel SuperAdmin: logs de acesso paginados, Cofre global filtrado e validação/auditoria do preço do plano."""
 from decimal import Decimal
 
+import os
 import pytest
 from rest_framework.test import APIClient
 
@@ -353,3 +354,137 @@ class TestReconciliacaoSms:
     ])
     def test_analisador_de_sms(self, texto, valor, ref):
         assert analisar_sms(texto) == (valor, ref)
+
+
+# ---------------------------------------------------------------------------
+# Anexo autenticado do comprovativo e webhook de SMS com token
+# ---------------------------------------------------------------------------
+import base64 as _b64  # noqa: E402
+
+from apps.tenants.models import SaasWebhookToken  # noqa: E402
+
+
+@pytest.mark.django_db
+class TestAnexoComprovativo:
+    def _pag(self, cenario, fatura, **kw):
+        return SaasPagamento.objects.create(fatura=fatura, instituicao=cenario['a'], metodo='M-Pesa', referencia='ANX1', valor=Decimal('3000.00'), **kw)
+
+    def _url(self, pag):
+        return f'/api/v1/saas/pagamentos/{pag.id}/comprovativo/'
+
+    def test_servico_de_ficheiro_ao_superadmin_e_a_escola_dona(self, cenario, fatura_aberta, settings, tmp_path):
+        settings.MEDIA_ROOT = str(tmp_path)
+        rel = os.path.join('comprovativos', str(cenario['a'].id), 'x', 'comp_1.pdf')
+        os.makedirs(tmp_path / os.path.dirname(rel))
+        (tmp_path / rel).write_bytes(b'%PDF-1.4 conteudo')
+        pag = self._pag(cenario, fatura_aberta, comprovativo_path=rel, comprovativo_url='/media/' + rel.replace(os.sep, '/'))
+
+        r = cenario['client'].get(self._url(pag))
+        assert r.status_code == 200 and r['Content-Type'] == 'application/pdf'
+        assert r['X-Content-Type-Options'] == 'nosniff' and b''.join(r.streaming_content).startswith(b'%PDF')
+        assert _cliente(cenario['admin_a']).get(self._url(pag)).status_code == 200
+
+    def test_outra_escola_aluno_e_anonimo_nao_acedem(self, cenario, fatura_aberta, settings, tmp_path):
+        settings.MEDIA_ROOT = str(tmp_path)
+        rel = os.path.join('comprovativos', 'a', 'x', 'c.pdf')
+        os.makedirs(tmp_path / os.path.dirname(rel))
+        (tmp_path / rel).write_bytes(b'%PDF-1.4')
+        pag = self._pag(cenario, fatura_aberta, comprovativo_path=rel)
+        outro = Usuario.objects.create_user(email='admin.b2@sige.mz', password='SchoolPass2026!', role='ADMIN_ESCOLA', nome='Dir B', escola=cenario['b'])
+        aluno = Usuario.objects.create_user(email='aluno.a@sige.mz', password='SchoolPass2026!', role='ALUNO', nome='Aluno', escola=cenario['a'])
+        assert _cliente(outro).get(self._url(pag)).status_code == 404
+        assert _cliente(aluno).get(self._url(pag)).status_code == 404
+        assert APIClient().get(self._url(pag)).status_code == 401
+
+    def test_fuga_de_directoria_e_tipo_nao_permitido(self, cenario, fatura_aberta, settings, tmp_path):
+        settings.MEDIA_ROOT = str(tmp_path)
+        (tmp_path / 'comprovativos').mkdir()
+        (tmp_path / 'segredo.pdf').write_bytes(b'%PDF-segredo')
+        (tmp_path / 'comprovativos' / 'p.html').write_text('<script>1</script>')
+        for rel in (os.path.join('comprovativos', '..', 'segredo.pdf'), os.path.join('comprovativos', 'p.html')):
+            pag = self._pag(cenario, fatura_aberta, comprovativo_path=rel)
+            assert cenario['client'].get(self._url(pag)).status_code == 404
+
+    def test_base64_so_serve_imagem_ou_pdf(self, cenario, fatura_aberta):
+        png = 'data:image/png;base64,' + _b64.b64encode(b'\x89PNG....').decode()
+        pag = self._pag(cenario, fatura_aberta, comprovativo_path='base64_encoded', comprovativo_url=png)
+        r = cenario['client'].get(self._url(pag))
+        assert r.status_code == 200 and r['Content-Type'] == 'image/png' and r.content.startswith(b'\x89PNG')
+        pag.comprovativo_url = 'data:text/html;base64,PHNjcmlwdD4='
+        pag.save()
+        assert cenario['client'].get(self._url(pag)).status_code == 404
+
+    def test_sem_anexo_da_404(self, cenario, fatura_aberta):
+        assert cenario['client'].get(self._url(self._pag(cenario, fatura_aberta))).status_code == 404
+
+
+@pytest.mark.django_db
+class TestWebhookSms:
+    URL = '/api/v1/saas/webhook/sms/'
+    TOK = '/api/v1/saas/webhook/tokens/'
+
+    def _criar_token(self, cenario, nome='Telemovel da plataforma'):
+        r = cenario['client'].post(self.TOK, {'nome': nome}, format='json')
+        assert r.status_code == 201
+        return r.data['data']['token'], r.data['data']['id']
+
+    def _pag(self, cenario, fatura):
+        return SaasPagamento.objects.create(fatura=fatura, instituicao=cenario['a'], metodo='M-Pesa', referencia='PP261119.1000.A1', valor=Decimal('3000.00'))
+
+    def _sms(self):
+        return 'Confirmado PP261119.1000.A1. Recebeu 3,000.00MT de 841234567 aos 19/11/26. Ref: PP261119.1000.A1'
+
+    def test_token_confirma_sem_sessao_e_e_guardado_como_hash(self, cenario, fatura_aberta):
+        token, _ = self._criar_token(cenario)
+        assert token.startswith('sige_') and token not in str(list(SaasWebhookToken.objects.values()))
+        pag = self._pag(cenario, fatura_aberta)
+        r = APIClient().post(self.URL, {'message': self._sms()}, format='json', HTTP_X_WEBHOOK_TOKEN=token)
+        assert r.status_code == 200 and r.data['status'] == 'CONFIRMADO'
+        pag.refresh_from_db()
+        assert pag.estado == 'confirmado' and 'Telemovel da plataforma' in pag.confirmado_por
+        t = SaasWebhookToken.objects.get()
+        assert t.usos == 1 and t.ultimo_uso_em is not None
+
+    def test_aceita_bearer_e_campo_text(self, cenario, fatura_aberta):
+        token, _ = self._criar_token(cenario)
+        self._pag(cenario, fatura_aberta)
+        r = APIClient().post(self.URL, {'text': self._sms()}, format='json', HTTP_AUTHORIZATION=f'Bearer {token}')
+        assert r.data['status'] == 'CONFIRMADO'
+
+    @pytest.mark.parametrize('cab', [{}, {'HTTP_X_WEBHOOK_TOKEN': 'errado'}, {'HTTP_X_WEBHOOK_TOKEN': ''}])
+    def test_sem_token_ou_errado_da_401_e_nao_confirma(self, cenario, fatura_aberta, cab):
+        pag = self._pag(cenario, fatura_aberta)
+        assert APIClient().post(self.URL, {'message': self._sms()}, format='json', **cab).status_code == 401
+        pag.refresh_from_db()
+        assert pag.estado == 'enviado'
+
+    def test_token_revogado_deixa_de_funcionar(self, cenario, fatura_aberta):
+        token, tid = self._criar_token(cenario)
+        pag = self._pag(cenario, fatura_aberta)
+        assert cenario['client'].post(f'{self.TOK}{tid}/revogar/').status_code == 200
+        assert APIClient().post(self.URL, {'message': self._sms()}, format='json', HTTP_X_WEBHOOK_TOKEN=token).status_code == 401
+        pag.refresh_from_db()
+        assert pag.estado == 'enviado'
+
+    def test_jwt_de_utilizador_nao_serve_como_token(self, cenario, fatura_aberta):
+        self._pag(cenario, fatura_aberta)
+        r = cenario['client'].post(self.URL, {'message': self._sms()}, format='json')
+        assert r.status_code == 401
+
+    def test_gestao_de_tokens_so_superadmin_e_limite(self, cenario):
+        c = _cliente(cenario['admin_a'])
+        assert c.get(self.TOK).status_code == 403 and c.post(self.TOK, {'nome': 'abc'}, format='json').status_code == 403
+        assert cenario['client'].post(self.TOK, {'nome': 'ab'}, format='json').status_code == 400
+        for i in range(10):
+            assert cenario['client'].post(self.TOK, {'nome': f'Telemovel {i}'}, format='json').status_code == 201
+        assert cenario['client'].post(self.TOK, {'nome': 'Onze'}, format='json').status_code == 400
+        lista = cenario['client'].get(self.TOK).data['data']
+        assert len(lista) == 10 and all('token' not in t for t in lista)
+
+    def test_webhook_nao_cria_pagamentos_nem_confirma_valor_errado(self, cenario, fatura_aberta):
+        token, _ = self._criar_token(cenario)
+        pag = self._pag(cenario, fatura_aberta)
+        r = APIClient().post(self.URL, {'message': self._sms().replace('3,000.00', '1,000.00')}, format='json', HTTP_X_WEBHOOK_TOKEN=token)
+        assert r.data['status'] == 'VALOR_DIVERGENTE'
+        pag.refresh_from_db()
+        assert pag.estado == 'enviado' and SaasPagamento.objects.count() == 1

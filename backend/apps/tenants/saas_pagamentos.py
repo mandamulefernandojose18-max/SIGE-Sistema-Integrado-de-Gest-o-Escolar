@@ -80,3 +80,52 @@ def analisar_sms(texto):
     m_ref = _RE_REF.search(texto)
     referencia = m_ref.group(1).strip().rstrip('.,;:-') if m_ref else None
     return valor, referencia
+
+
+# ---------------------------------------------------------------------------
+# Reconciliação por SMS (partilhada pela janela do SuperAdmin e pelo webhook)
+# ---------------------------------------------------------------------------
+def reconciliar_sms_texto(texto, utilizador):
+    """Lê a SMS e, se referência E valor coincidirem exactamente com um comprovativo `enviado`,
+    confirma-o. Nunca cria pagamentos. Devolve (http_status, payload)."""
+    from django.db import transaction
+    from .models import SaasPagamento
+    from .saas_middleware import limpar_cache_assinatura
+
+    texto = str(texto or '').strip()
+    if not texto:
+        return 400, {'success': False, 'message': 'Texto da SMS não fornecido.'}
+    if len(texto) > 1000:
+        return 400, {'success': False, 'message': 'Texto demasiado longo para uma SMS.'}
+
+    valor, referencia = analisar_sms(texto)
+    if valor is None or not referencia:
+        return 200, {'success': True, 'status': 'NAO_RECONHECIDA',
+                     'message': 'Não foi possível ler o valor e a referência desta SMS.'}
+
+    utilizador = str(utilizador)[:150]
+    with transaction.atomic():
+        candidatos = list(SaasPagamento.objects.select_for_update().select_related('fatura__assinatura', 'instituicao')
+                          .filter(referencia__iexact=referencia, estado='enviado'))
+        if not candidatos:
+            ja = SaasPagamento.objects.filter(referencia__iexact=referencia, estado='confirmado').exists()
+            return 200, {'success': True, 'status': 'DUPLICADO' if ja else 'SEM_CORRESPONDENCIA',
+                         'referencia': referencia, 'valor': str(valor),
+                         'message': 'Esta referência já foi confirmada.' if ja else
+                                    'Nenhum comprovativo pendente com esta referência. Aguarde a submissão pela escola.'}
+        exactos = [p for p in candidatos if p.valor == valor]
+        if not exactos:
+            return 200, {'success': True, 'status': 'VALOR_DIVERGENTE', 'referencia': referencia, 'valor': str(valor),
+                         'message': f'A referência existe, mas o valor da SMS ({valor} MZN) difere do comprovativo '
+                                    f'({candidatos[0].valor} MZN). Valide manualmente.'}
+        if len(exactos) > 1:
+            return 200, {'success': True, 'status': 'AMBIGUO', 'referencia': referencia, 'valor': str(valor),
+                         'message': 'Mais de um comprovativo corresponde. Valide manualmente.'}
+
+        pag = exactos[0]
+        resultado = confirmar_pagamento_saas(
+            pag, utilizador, accao='PAGAMENTO_CONFIRMADO_SMS', nota='Reconciliado automaticamente por SMS.')
+
+    limpar_cache_assinatura(pag.instituicao_id)
+    return 200, {'success': True, 'status': 'CONFIRMADO', 'referencia': referencia, 'valor': str(valor),
+                 'instituicao': pag.instituicao.nome, 'message': 'Pagamento confirmado automaticamente.', 'data': resultado}

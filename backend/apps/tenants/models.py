@@ -736,3 +736,33 @@ class SaasCoordenadasPagamento(models.Model):
     def __str__(self):
         return f"Coordenadas de Pagamento SaaS (Atualizado: {self.updated_at})"
 
+
+
+class SaasWebhookToken(models.Model):
+    """Credencial própria (revogável) para um telemóvel/serviço reencaminhar SMS de pagamento.
+
+    Só serve para `POST /saas/webhook/sms/`; não dá acesso a mais nada. O valor em claro é mostrado
+    uma única vez na criação: na base de dados guarda-se apenas o hash SHA-256.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=100)
+    prefixo = models.CharField(max_length=12)
+    token_hash = models.CharField(max_length=64, unique=True)
+    criado_por = models.CharField(max_length=150, blank=True, default='')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    revogado_em = models.DateTimeField(null=True, blank=True)
+    ultimo_uso_em = models.DateTimeField(null=True, blank=True)
+    usos = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'sige_saas_webhook_tokens'
+        verbose_name = 'Token de Webhook SaaS'
+        verbose_name_plural = 'Tokens de Webhook SaaS'
+        ordering = ['-criado_em']
+
+    @property
+    def activo(self):
+        return self.revogado_em is None
+
+    def __str__(self):
+        return f"{self.nome} ({self.prefixo}…)"

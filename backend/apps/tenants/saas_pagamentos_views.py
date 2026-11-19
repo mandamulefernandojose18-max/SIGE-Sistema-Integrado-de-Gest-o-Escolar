@@ -1,24 +1,37 @@
-"""Vias adicionais de pagamento da assinatura SaaS (só SuperAdmin):
+"""Vias adicionais de pagamento da assinatura SaaS:
 
-* registo directo (numerário, depósito, extracto) sem comprovativo submetido pela escola;
+* registo directo pelo SuperAdmin (numerário, depósito, extracto) sem comprovativo da escola;
 * reconciliação por SMS M-Pesa / e-Mola: confirma sozinha, mas só quando a referência E o valor
-  coincidem exactamente com um comprovativo já submetido pela escola.
+  coincidem exactamente com um comprovativo já submetido pela escola;
+* webhook de SMS com token próprio e revogável (reencaminhamento automático a partir do telemóvel);
+* anexo do comprovativo servido só a quem tem direito (SuperAdmin ou pessoal da escola dona).
 Todas auditadas em `SaasLogAssinatura`; a confirmação usa o mesmo núcleo da via manual.
 """
+import base64
+import hashlib
+import mimetypes
+import os
+import re
+import secrets
 import uuid
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.http import FileResponse, HttpResponse
+from django.utils import timezone
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from .models import Escola, SaasFatura, SaasPagamento
+from .models import Escola, SaasFatura, SaasPagamento, SaasWebhookToken
 from .saas_middleware import limpar_cache_assinatura
-from .saas_pagamentos import analisar_sms, confirmar_pagamento_saas
-from .saas_views import (METODOS_PAGAMENTO_VALIDOS, VALOR_MAXIMO_PAGAMENTO, is_superadmin_user)
-from django.core.exceptions import ValidationError as DjangoValidationError
+from .saas_pagamentos import confirmar_pagamento_saas, reconciliar_sms_texto
+from .saas_views import (METODOS_PAGAMENTO_VALIDOS, PERFIS_PAGAMENTO_ESCOLA, VALOR_MAXIMO_PAGAMENTO,
+                         is_superadmin_user)
 
 
 def _so_superadmin(request):
@@ -81,51 +94,149 @@ class SaasRegistarPagamentoDirectoView(APIView):
 
 
 class SaasReconciliarSmsView(APIView):
-    """Recebe o texto de uma SMS de recebimento e confirma o comprovativo correspondente, se existir.
-
-    Segurança: nunca cria pagamentos; só confirma um pagamento `enviado` cuja referência coincide
-    (sem distinguir maiúsculas) e cujo valor é exactamente igual ao da SMS. Em qualquer dúvida
-    (sem correspondência, valor divergente, ambíguo) não confirma e devolve o motivo.
-    """
+    """Janela do SuperAdmin: cola o texto de uma SMS de recebimento."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         negado = _so_superadmin(request)
         if negado:
             return negado
+        texto = request.data.get('message') or request.data.get('text') or request.data.get('sms')
+        codigo, payload = reconciliar_sms_texto(texto, f"Automático (SMS) — {request.user.nome or request.user.email}")
+        return Response(payload, status=codigo)
 
-        texto = str(request.data.get('message') or request.data.get('text') or request.data.get('sms') or '').strip()
-        if not texto:
-            return Response({'success': False, 'message': 'Texto da SMS não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
-        if len(texto) > 1000:
-            return Response({'success': False, 'message': 'Texto demasiado longo para uma SMS.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        valor, referencia = analisar_sms(texto)
-        if valor is None or not referencia:
-            return Response({'success': True, 'status': 'NAO_RECONHECIDA', 'message': 'Não foi possível ler o valor e a referência desta SMS.'})
+# ---------------------------------------------------------------------------
+# Webhook de SMS com token próprio
+# ---------------------------------------------------------------------------
+def _hash_token(token):
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
 
-        utilizador = f"Automático (SMS) — {request.user.nome or request.user.email}"[:150]
-        with transaction.atomic():
-            candidatos = list(SaasPagamento.objects.select_for_update().select_related('fatura__assinatura', 'instituicao')
-                              .filter(referencia__iexact=referencia, estado='enviado'))
-            if not candidatos:
-                ja = SaasPagamento.objects.filter(referencia__iexact=referencia, estado='confirmado').exists()
-                return Response({'success': True, 'status': 'DUPLICADO' if ja else 'SEM_CORRESPONDENCIA',
-                                 'referencia': referencia, 'valor': str(valor),
-                                 'message': 'Esta referência já foi confirmada.' if ja else
-                                            'Nenhum comprovativo pendente com esta referência. Aguarde a submissão pela escola.'})
-            exactos = [p for p in candidatos if p.valor == valor]
-            if len(exactos) == 0:
-                return Response({'success': True, 'status': 'VALOR_DIVERGENTE', 'referencia': referencia, 'valor': str(valor),
-                                 'message': f'A referência existe, mas o valor da SMS ({valor} MZN) difere do comprovativo ({candidatos[0].valor} MZN). Valide manualmente.'})
-            if len(exactos) > 1:
-                return Response({'success': True, 'status': 'AMBIGUO', 'referencia': referencia, 'valor': str(valor),
-                                 'message': 'Mais de um comprovativo corresponde. Valide manualmente.'})
 
-            pag = exactos[0]
-            resultado = confirmar_pagamento_saas(
-                pag, utilizador, accao='PAGAMENTO_CONFIRMADO_SMS', nota='Reconciliado automaticamente por SMS.')
+class WebhookSmsThrottle(SimpleRateThrottle):
+    """Limita tentativas por origem (o Nginx sobrescreve X-Forwarded-For com o IP real)."""
+    scope = 'saas_webhook_sms'
+    rate = '60/min'
 
-        limpar_cache_assinatura(pag.instituicao_id)
-        return Response({'success': True, 'status': 'CONFIRMADO', 'referencia': referencia, 'valor': str(valor),
-                         'instituicao': pag.instituicao.nome, 'message': 'Pagamento confirmado automaticamente.', 'data': resultado})
+    def get_cache_key(self, request, view):
+        return self.cache_format % {'scope': self.scope, 'ident': self.get_ident(request)}
+
+
+class SaasWebhookSmsView(APIView):
+    """Recebe SMS reencaminhadas pelo telemóvel. Autenticação só por token de webhook (cabeçalho
+    `X-Webhook-Token` ou `Authorization: Bearer <token>`), guardado como hash e revogável."""
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [WebhookSmsThrottle]
+
+    def post(self, request):
+        bruto = request.headers.get('X-Webhook-Token') or ''
+        if not bruto:
+            auth = request.headers.get('Authorization') or ''
+            if auth.startswith('Bearer '):
+                bruto = auth.split(' ', 1)[1]
+        bruto = bruto.strip()
+        tok = SaasWebhookToken.objects.filter(token_hash=_hash_token(bruto), revogado_em__isnull=True).first() if bruto else None
+        if not tok:
+            return Response({'success': False, 'message': 'Token inválido ou revogado.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        texto = request.data.get('message') or request.data.get('text') or request.data.get('content') or request.data.get('sms')
+        SaasWebhookToken.objects.filter(pk=tok.pk).update(ultimo_uso_em=timezone.now(), usos=tok.usos + 1)
+        codigo, payload = reconciliar_sms_texto(texto, f"Automático (SMS) — {tok.nome}")
+        return Response(payload, status=codigo)
+
+
+class SaasWebhookTokensView(APIView):
+    """Gestão dos tokens (SuperAdmin): listar e criar. O valor em claro só aparece na criação."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        negado = _so_superadmin(request)
+        if negado:
+            return negado
+        return Response({'success': True, 'data': [{
+            'id': str(t.id), 'nome': t.nome, 'prefixo': t.prefixo, 'activo': t.activo,
+            'criado_em': t.criado_em.isoformat(), 'ultimo_uso_em': t.ultimo_uso_em.isoformat() if t.ultimo_uso_em else None,
+            'usos': t.usos, 'criado_por': t.criado_por,
+        } for t in SaasWebhookToken.objects.all()[:50]]})
+
+    def post(self, request):
+        negado = _so_superadmin(request)
+        if negado:
+            return negado
+        nome = str(request.data.get('nome') or '').strip()
+        if not (3 <= len(nome) <= 100):
+            return Response({'success': False, 'message': 'Indique um nome para o token (3 a 100 caracteres), por exemplo o telemóvel que o usa.'}, status=status.HTTP_400_BAD_REQUEST)
+        if SaasWebhookToken.objects.filter(revogado_em__isnull=True).count() >= 10:
+            return Response({'success': False, 'message': 'Limite de 10 tokens activos. Revogue algum antes de criar outro.'}, status=status.HTTP_400_BAD_REQUEST)
+        token = 'sige_' + secrets.token_urlsafe(32)
+        obj = SaasWebhookToken.objects.create(
+            nome=nome, prefixo=token[:9], token_hash=_hash_token(token),
+            criado_por=(request.user.nome or request.user.email)[:150])
+        return Response({'success': True, 'data': {'id': str(obj.id), 'nome': obj.nome, 'prefixo': obj.prefixo, 'token': token}},
+                        status=status.HTTP_201_CREATED)
+
+
+class SaasWebhookTokenRevogarView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        negado = _so_superadmin(request)
+        if negado:
+            return negado
+        tok = SaasWebhookToken.objects.filter(pk=pk).first()
+        if not tok:
+            return Response({'success': False, 'message': 'Token não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        if tok.revogado_em is None:
+            tok.revogado_em = timezone.now()
+            tok.save(update_fields=['revogado_em'])
+        return Response({'success': True, 'message': 'Token revogado. Deixa de aceitar SMS imediatamente.'})
+
+
+# ---------------------------------------------------------------------------
+# Anexo do comprovativo (acesso autenticado)
+# ---------------------------------------------------------------------------
+_DATA_URL = re.compile(r'^data:(image/(?:png|jpeg)|application/pdf);base64,(.+)$', re.S)
+_TIPOS_PERMITIDOS = {'.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'}
+
+
+class SaasComprovativoView(APIView):
+    """Serve o anexo só ao SuperAdmin ou ao pessoal da escola dona do pagamento."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        user = request.user
+        pag = SaasPagamento.objects.filter(pk=pk).first()
+        autorizado = bool(pag) and (
+            is_superadmin_user(user)
+            or (getattr(user, 'role', '') in PERFIS_PAGAMENTO_ESCOLA and getattr(user, 'escola_id', None) == pag.instituicao_id))
+        if not autorizado:
+            # Mesma resposta para "não existe" e "não é seu": não revela a existência de pagamentos alheios.
+            return Response({'success': False, 'message': 'Comprovativo não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        cabecalhos = {'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store',
+                      'Content-Security-Policy': "default-src 'none'; sandbox"}
+
+        if pag.comprovativo_path == 'base64_encoded' and pag.comprovativo_url:
+            m = _DATA_URL.match(pag.comprovativo_url)
+            if m:
+                try:
+                    conteudo = base64.b64decode(m.group(2), validate=False)
+                except Exception:
+                    conteudo = b''
+                if conteudo:
+                    resp = HttpResponse(conteudo, content_type=m.group(1))
+                    for k, v in cabecalhos.items():
+                        resp[k] = v
+                    return resp
+        elif pag.comprovativo_path:
+            raiz = os.path.realpath(os.path.join(settings.MEDIA_ROOT, 'comprovativos'))
+            caminho = os.path.realpath(os.path.join(settings.MEDIA_ROOT, pag.comprovativo_path))
+            ext = os.path.splitext(caminho)[1].lower()
+            if caminho.startswith(raiz + os.sep) and ext in _TIPOS_PERMITIDOS and os.path.isfile(caminho):
+                resp = FileResponse(open(caminho, 'rb'), content_type=_TIPOS_PERMITIDOS[ext])
+                resp['Content-Disposition'] = f'inline; filename="comprovativo{ext}"'
+                for k, v in cabecalhos.items():
+                    resp[k] = v
+                return resp
+        return Response({'success': False, 'message': 'Este pagamento não tem anexo disponível.'}, status=status.HTTP_404_NOT_FOUND)
