@@ -193,8 +193,13 @@ class TestSubmissaoComprovativo:
         assert r.status_code == 201
         assert SaasPagamento.objects.filter(instituicao=cenario['a'], estado='enviado').count() == 1
 
-    @pytest.mark.parametrize('papel', ['FINANCEIRO', 'SECRETARIA', 'DAP', 'ENCARREGADO', 'PROFESSOR', 'ALUNO'])
-    def test_outros_perfis_da_escola_sao_recusados(self, cenario, fatura_aberta, papel):
+    @pytest.mark.parametrize('papel', ['DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA', 'FINANCEIRO'])
+    def test_pessoal_da_escola_pode_submeter(self, cenario, fatura_aberta, papel):
+        u = Usuario.objects.create_user(email=f'{papel.lower()}@sige.mz', password='SchoolPass2026!', role=papel, nome=papel, escola=cenario['a'])
+        assert _cliente(u).post(self.URL, _corpo(fatura_aberta), format='json').status_code == 201
+
+    @pytest.mark.parametrize('papel', ['ENCARREGADO', 'PROFESSOR', 'ALUNO'])
+    def test_perfis_sem_gestao_da_escola_sao_recusados(self, cenario, fatura_aberta, papel):
         u = Usuario.objects.create_user(email=f'{papel.lower()}@sige.mz', password='SchoolPass2026!', role=papel, nome=papel, escola=cenario['a'])
         assert _cliente(u).post(self.URL, _corpo(fatura_aberta), format='json').status_code == 403
 
@@ -237,3 +242,114 @@ class TestSubmissaoComprovativo:
         assert c.post(self.URL, _corpo(fatura_aberta, comprovativo=grande), format='multipart').status_code == 400
         bom = SimpleUploadedFile('comprovativo.pdf', b'%PDF-1.4 conteudo')
         assert c.post(self.URL, _corpo(fatura_aberta, comprovativo=bom), format='multipart').status_code == 201
+
+
+# ---------------------------------------------------------------------------
+# Registo directo pelo SuperAdmin e reconciliação por SMS
+# ---------------------------------------------------------------------------
+from apps.tenants.models import SaasLogAssinatura  # noqa: E402
+from apps.tenants.saas_pagamentos import analisar_sms  # noqa: E402
+
+
+@pytest.mark.django_db
+class TestRegistoDirecto:
+    URL = '/api/v1/saas/pagamentos/registar-directo/'
+
+    def _corpo(self, cenario, fatura, **extra):
+        corpo = {'instituicao_id': str(cenario['a'].id), 'fatura_id': str(fatura.id), 'metodo': 'numerario',
+                 'valor': '3000.00', 'observacao': 'Entregue em mão na sede'}
+        corpo.update(extra)
+        return corpo
+
+    def test_regista_confirma_e_audita(self, cenario, fatura_aberta):
+        r = cenario['client'].post(self.URL, self._corpo(cenario, fatura_aberta), format='json')
+        assert r.status_code == 201
+        fatura_aberta.refresh_from_db()
+        assert fatura_aberta.estado == 'paga' and fatura_aberta.valor_pago == Decimal('3000.00')
+        pag = SaasPagamento.objects.get()
+        assert pag.estado == 'confirmado' and pag.referencia.startswith('DIRECTO-')
+        assert SaasLogAssinatura.objects.filter(accao='PAGAMENTO_REGISTADO_DIRECTO', instituicao=cenario['a']).exists()
+
+    def test_so_superadmin(self, cenario, fatura_aberta):
+        r = _cliente(cenario['admin_a']).post(self.URL, self._corpo(cenario, fatura_aberta), format='json')
+        assert r.status_code == 403 and not SaasPagamento.objects.exists()
+
+    @pytest.mark.parametrize('extra', [{'observacao': ''}, {'observacao': 'ab'}, {'metodo': 'Bitcoin'}, {'valor': '-1'}, {'valor': 'NaN'}])
+    def test_entradas_invalidas(self, cenario, fatura_aberta, extra):
+        assert cenario['client'].post(self.URL, self._corpo(cenario, fatura_aberta, **extra), format='json').status_code == 400
+        assert not SaasPagamento.objects.exists()
+
+    def test_fatura_de_outra_escola_ou_inexistente(self, cenario, fatura_aberta):
+        r = cenario['client'].post(self.URL, self._corpo(cenario, fatura_aberta, instituicao_id=str(cenario['b'].id)), format='json')
+        assert r.status_code == 404
+        assert cenario['client'].post(self.URL, self._corpo(cenario, fatura_aberta, fatura_id='lixo'), format='json').status_code == 404
+
+    def test_fatura_ja_paga_e_referencia_duplicada(self, cenario, fatura_aberta):
+        c = cenario['client']
+        assert c.post(self.URL, self._corpo(cenario, fatura_aberta, valor='1000', referencia='DEP-1'), format='json').status_code == 201
+        assert c.post(self.URL, self._corpo(cenario, fatura_aberta, valor='500', referencia='dep-1'), format='json').status_code == 400
+        assert c.post(self.URL, self._corpo(cenario, fatura_aberta, valor='2000', referencia='DEP-2'), format='json').status_code == 201
+        # fatura liquidada: já não aceita mais pagamentos
+        assert c.post(self.URL, self._corpo(cenario, fatura_aberta, valor='10', referencia='DEP-3'), format='json').status_code == 400
+
+
+@pytest.mark.django_db
+class TestReconciliacaoSms:
+    URL = '/api/v1/saas/pagamentos/reconciliar-sms/'
+
+    def _pag(self, cenario, fatura, ref='PP261118.1023.A12345', valor='3000.00'):
+        return SaasPagamento.objects.create(fatura=fatura, instituicao=cenario['a'], metodo='M-Pesa', referencia=ref, valor=Decimal(valor))
+
+    def _sms(self, ref='PP261118.1023.A12345', valor='3,000.00'):
+        return f'Confirmado {ref}. Recebeu {valor}MT de 841234567 - JOAO SILVA aos 18/11/26 as 10:23. Ref: {ref}'
+
+    def test_confirma_quando_referencia_e_valor_coincidem(self, cenario, fatura_aberta):
+        pag = self._pag(cenario, fatura_aberta)
+        r = cenario['client'].post(self.URL, {'message': self._sms()}, format='json')
+        assert r.status_code == 200 and r.data['status'] == 'CONFIRMADO'
+        pag.refresh_from_db()
+        assert pag.estado == 'confirmado' and pag.confirmado_por.startswith('Automático (SMS)')
+        assert SaasLogAssinatura.objects.filter(accao='PAGAMENTO_CONFIRMADO_SMS').exists()
+
+    def test_segunda_sms_igual_nao_conta_duas_vezes(self, cenario, fatura_aberta):
+        self._pag(cenario, fatura_aberta)
+        c = cenario['client']
+        assert c.post(self.URL, {'message': self._sms()}, format='json').data['status'] == 'CONFIRMADO'
+        assert c.post(self.URL, {'message': self._sms()}, format='json').data['status'] == 'DUPLICADO'
+        fatura_aberta.refresh_from_db()
+        assert fatura_aberta.valor_pago == Decimal('3000.00')
+
+    def test_valor_divergente_nao_confirma(self, cenario, fatura_aberta):
+        pag = self._pag(cenario, fatura_aberta)
+        r = cenario['client'].post(self.URL, {'message': self._sms(valor='2,000.00')}, format='json')
+        assert r.data['status'] == 'VALOR_DIVERGENTE'
+        pag.refresh_from_db()
+        assert pag.estado == 'enviado'
+
+    def test_sem_correspondencia_nao_cria_nada(self, cenario, fatura_aberta):
+        r = cenario['client'].post(self.URL, {'message': self._sms(ref='ZZ999999.0000.B1')}, format='json')
+        assert r.data['status'] == 'SEM_CORRESPONDENCIA'
+        assert not SaasPagamento.objects.exists()
+
+    def test_sms_ilegivel_e_texto_vazio(self, cenario):
+        assert cenario['client'].post(self.URL, {'message': 'ola, tudo bem?'}, format='json').data['status'] == 'NAO_RECONHECIDA'
+        assert cenario['client'].post(self.URL, {'message': ''}, format='json').status_code == 400
+
+    def test_so_superadmin(self, cenario, fatura_aberta):
+        self._pag(cenario, fatura_aberta)
+        assert _cliente(cenario['admin_a']).post(self.URL, {'message': self._sms()}, format='json').status_code == 403
+
+    def test_rejeitado_nao_e_confirmado_por_sms(self, cenario, fatura_aberta):
+        pag = self._pag(cenario, fatura_aberta)
+        pag.estado = 'rejeitado'
+        pag.save()
+        assert cenario['client'].post(self.URL, {'message': self._sms()}, format='json').data['status'] == 'SEM_CORRESPONDENCIA'
+
+    @pytest.mark.parametrize('texto,valor,ref', [
+        ('Recebeu 1,500.00MT de 841234567. Ref: AB12.34', Decimal('1500.00'), 'AB12.34'),
+        ('Recebeu 1.500,50 MZN. Transacao ID: XY99887', Decimal('1500.50'), 'XY99887'),
+        ('Recebeu 1500MT Ref ABCD1234', Decimal('1500'), 'ABCD1234'),
+        ('841234567 3,000.00MT Ref: Q1W2E3', Decimal('3000.00'), 'Q1W2E3'),
+    ])
+    def test_analisador_de_sms(self, texto, valor, ref):
+        assert analisar_sms(texto) == (valor, ref)

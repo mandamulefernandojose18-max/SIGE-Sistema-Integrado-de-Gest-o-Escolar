@@ -23,9 +23,12 @@ from .saas_serializers import (
     SaasCoordenadasPagamentoSerializer
 )
 from .saas_middleware import limpar_cache_assinatura
+from .saas_pagamentos import confirmar_pagamento_saas
 
 
-PERFIS_PAGAMENTO_ESCOLA = ('ADMIN_ESCOLA', 'DIRECTOR_ESCOLA')
+# Pessoal da escola que pode submeter comprovativos (a confirmação continua a ser só do SuperAdmin).
+# Ficam de fora ALUNO, PROFESSOR e ENCARREGADO: não gerem a assinatura da instituição.
+PERFIS_PAGAMENTO_ESCOLA = ('ADMIN_ESCOLA', 'DIRECTOR_ESCOLA', 'DAP', 'CHEFE_SECRETARIA', 'SECRETARIA', 'FINANCEIRO')
 METODOS_PAGAMENTO_VALIDOS = {c[0] for c in SaasPagamento._meta.get_field('metodo').choices}
 VALOR_MAXIMO_PAGAMENTO = Decimal('99999999.99')
 TAMANHO_MAXIMO_COMPROVATIVO = 5 * 1024 * 1024
@@ -312,7 +315,7 @@ class SaasConfirmarPagamentoView(APIView):
 
         utilizador = request.user.nome or request.user.email
 
-        from .saas_services import aplicar_pagamento_adiantado_python
+        from .saas_pagamentos import confirmar_pagamento_saas
 
         with transaction.atomic():
             # Bloqueio de linha + verificação de estado: um pagamento só pode ser confirmado uma vez
@@ -326,40 +329,7 @@ class SaasConfirmarPagamentoView(APIView):
                     'message': f'Este pagamento já foi processado (estado: {pag.estado}). Não pode ser confirmado novamente.'
                 }, status=status.HTTP_409_CONFLICT)
 
-            fat = pag.fatura
-            ass = fat.assinatura
-
-            pag.estado = 'confirmado'
-            pag.confirmado_por = utilizador
-            pag.confirmado_em = timezone.now()
-            pag.save()
-
-            res_app = aplicar_pagamento_adiantado_python(
-                ass=ass,
-                fatura_principal=fat,
-                valor_pago_total=pag.valor,
-                utilizador=utilizador
-            )
-
-            SaasLogAssinatura.objects.create(
-                instituicao=pag.instituicao,
-                assinatura=ass,
-                fatura=fat,
-                accao='PAGAMENTO_CONFIRMADO',
-                estado_anterior=ass.estado,
-                estado_novo='activa' if res_app['assinatura_reativada'] else ass.estado,
-                valor_novo=pag.valor,
-                feito_por=utilizador,
-                motivo=f"Confirmação de pagamento Ref: {pag.referencia} ({pag.valor} MZN). {res_app['info_adiantado']['descricao']}"
-            )
-
-            resultado = {
-                'sucesso': True,
-                'mensagem': 'Pagamento confirmado e processado com sucesso.',
-                'assinatura_reativada': res_app['assinatura_reativada'],
-                'fatura_liquidada': res_app['fatura_liquidada'],
-                'info_adiantado': res_app['info_adiantado']
-            }
+            resultado = confirmar_pagamento_saas(pag, utilizador[:150])
 
         limpar_cache_assinatura(pag.instituicao_id)
         return Response({'success': True, 'data': resultado})

@@ -88,6 +88,9 @@
         <button class="btn btn-warning btn-sm fw-bold" onclick="abrirModalCoordenadasPagamento()" title="Configurar números de carteiras móveis e contas bancárias oficiais">
           <i class="bi bi-credit-card-2-front me-1"></i> Configurar Contas & Carteiras
         </button>
+        <button class="btn btn-outline-success btn-sm" onclick="abrirModalReconciliarSms()" title="Colar uma SMS M-Pesa/e-Mola para confirmar automaticamente o comprovativo correspondente">
+          <i class="bi bi-chat-left-text me-1"></i> Reconciliar SMS
+        </button>
         <button class="btn btn-outline-secondary btn-sm" onclick="executarCicloDiarioManual()" title="Executar rotina diária de verificação e faturação">
           <i class="bi bi-arrow-repeat me-1"></i> Executar Ciclo Diário
         </button>
@@ -286,6 +289,9 @@
           </button>
         </div>
         <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-success btn-sm" onclick="abrirModalPagamentoDirecto()" title="Lançar um pagamento recebido por outro meio (numerário, depósito, extracto)">
+            <i class="bi bi-cash-coin me-1"></i> Registar Pagamento
+          </button>
           <button type="button" class="btn btn-outline-danger btn-sm" onclick="modalSuspenderManualInstituicao()">
             <i class="bi bi-slash-circle me-1"></i> Suspender Manualmente
           </button>
@@ -484,6 +490,77 @@
         <div class="modal-footer bg-light">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn fw-bold" id="btnAcaoManualSubmit">Confirmar Operação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REGISTAR PAGAMENTO DIRECTO (SuperAdmin, sem comprovativo da escola) -->
+<div class="modal fade" id="modalPagamentoDirecto" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin me-1"></i> Registar Pagamento Recebido</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formPagamentoDirecto" onsubmit="salvarPagamentoDirecto(event)">
+        <div class="modal-body p-4">
+          <div class="alert alert-info small">Para pagamentos recebidos por outro meio (numerário, depósito, extracto). É confirmado de imediato, aplicado à fatura e fica registado na auditoria.</div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Fatura</label>
+            <select id="pagDirectoFatura" class="form-select" required onchange="aoMudarFaturaPagamentoDirecto()"></select>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Meio de pagamento</label>
+              <select id="pagDirectoMetodo" class="form-select" required>
+                <option value="numerario">Numerário</option>
+                <option value="transferencia_bancaria">Transferência / Depósito bancário</option>
+                <option value="M-Pesa">M-Pesa</option>
+                <option value="e-Mola">e-Mola</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Valor (MZN)</label>
+              <input type="number" id="pagDirectoValor" class="form-control" min="0.01" step="0.01" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Referência <span class="text-muted fw-normal">(opcional)</span></label>
+              <input type="text" id="pagDirectoReferencia" class="form-control" maxlength="100" placeholder="Em branco = gerada automaticamente">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Observação (obrigatória)</label>
+              <textarea id="pagDirectoObservacao" class="form-control" rows="2" required minlength="5" placeholder="Ex: Entregue em mão na sede pelo director, recibo nº 123."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success fw-bold" id="btnPagamentoDirecto">Registar e Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RECONCILIAR SMS M-PESA / E-MOLA -->
+<div class="modal fade" id="modalReconciliarSms" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-chat-left-text me-1"></i> Reconciliar SMS</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formReconciliarSms" onsubmit="salvarReconciliacaoSms(event)">
+        <div class="modal-body p-4">
+          <p class="text-muted small">Cole a SMS de recebimento M-Pesa/e-Mola. O pagamento só é confirmado automaticamente se a <strong>referência e o valor</strong> coincidirem exactamente com um comprovativo já submetido pela escola; em qualquer dúvida, nada é confirmado.</p>
+          <textarea id="smsTexto" class="form-control" rows="4" maxlength="1000" required placeholder="Ex: Confirmado PP261118.1023.A12345. Recebeu 3,000.00MT de ..."></textarea>
+          <div id="smsResultado" class="mt-3"></div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          <button type="submit" class="btn btn-primary fw-bold" id="btnReconciliarSms">Reconciliar</button>
         </div>
       </form>
     </div>

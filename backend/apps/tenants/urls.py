@@ -16,6 +16,7 @@ from .views import (
 )
 
 from .saas_painel_views import SaasLogsAcessoView, SaasEscolasOpcoesView
+from .saas_pagamentos_views import SaasRegistarPagamentoDirectoView, SaasReconciliarSmsView
 from .saas_views import (
     SaasResumoView,
     SaasAlarmesView,
@@ -84,6 +85,10 @@ saas_pagamentos_urls = [
     path('assinaturas/<uuid:pk>/', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_detalhe'),
     path('assinaturas/<uuid:pk>/configurar', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_config_no_slash'),
     path('assinaturas/<uuid:pk>/configurar/', SaasAssinaturaDetalheView.as_view(), name='saas_assinatura_config'),
+    path('pagamentos/registar-directo', SaasRegistarPagamentoDirectoView.as_view(), name='saas_pagamento_directo_no_slash'),
+    path('pagamentos/registar-directo/', SaasRegistarPagamentoDirectoView.as_view(), name='saas_pagamento_directo'),
+    path('pagamentos/reconciliar-sms', SaasReconciliarSmsView.as_view(), name='saas_reconciliar_sms_no_slash'),
+    path('pagamentos/reconciliar-sms/', SaasReconciliarSmsView.as_view(), name='saas_reconciliar_sms'),
     path('pagamentos/pendentes', SaasPagamentosPendentesView.as_view(), name='saas_pagamentos_pendentes_no_slash'),
     path('pagamentos/pendentes/', SaasPagamentosPendentesView.as_view(), name='saas_pagamentos_pendentes'),
     path('pagamentos/<uuid:pk>/confirmar', SaasConfirmarPagamentoView.as_view(), name='saas_pagamento_confirmar_no_slash'),

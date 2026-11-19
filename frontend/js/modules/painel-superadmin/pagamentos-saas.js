@@ -261,6 +261,7 @@ async function abrirFichaInstituicao(assinaturaId) {
 
     const d = res.data;
     assinaturaAtualSelecionada = d.assinatura;
+    faturasFichaCache = Array.isArray(d.faturas) ? d.faturas : [];
 
     const elTitulo = document.getElementById('modalFichaInstituicaoTitulo');
     if (elTitulo) elTitulo.innerText = `Ficha de Faturação: ${assinaturaAtualSelecionada.instituicao_nome || ''}`;
@@ -766,6 +767,109 @@ async function executarAcaoAutomaticaInstituicao(tipo) {
     mostrarToast('Falha na comunicação com o servidor.', 'danger');
   }
 }
+
+// ==================== OUTRAS VIAS DE PAGAMENTO (SuperAdmin) ====================
+let faturasFichaCache = [];
+
+function abrirModalPagamentoDirecto() {
+  if (!assinaturaAtualSelecionada) {
+    mostrarToast('Abra primeiro a ficha de uma instituição.', 'warning');
+    return;
+  }
+  const abertas = faturasFichaCache.filter(f => ['aberta', 'em_atraso', 'paga_parcial'].includes(f.estado));
+  const sel = document.getElementById('pagDirectoFatura');
+  if (abertas.length === 0) {
+    mostrarToast('Esta instituição não tem faturas por pagar.', 'info');
+    return;
+  }
+  sel.innerHTML = abertas.map(f => {
+    const saldo = parseFloat(f.valor || 0) + parseFloat(f.multa_aplicada || 0) - parseFloat(f.valor_pago || 0);
+    return `<option value="${escapeHtml(f.id)}" data-saldo="${saldo.toFixed(2)}">${escapeHtml(f.numero_fatura)} — em dívida ${formatarValorMZN(saldo)} MZN</option>`;
+  }).join('');
+  document.getElementById('pagDirectoReferencia').value = '';
+  document.getElementById('pagDirectoObservacao').value = '';
+  aoMudarFaturaPagamentoDirecto();
+  new bootstrap.Modal(document.getElementById('modalPagamentoDirecto')).show();
+}
+
+function aoMudarFaturaPagamentoDirecto() {
+  const sel = document.getElementById('pagDirectoFatura');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.saldo) document.getElementById('pagDirectoValor').value = opt.dataset.saldo;
+}
+
+async function salvarPagamentoDirecto(event) {
+  event.preventDefault();
+  const btn = document.getElementById('btnPagamentoDirecto');
+  const valor = document.getElementById('pagDirectoValor').value;
+  if (!confirm(`Confirmar o registo de ${valor} MZN? O pagamento é confirmado de imediato e não pode ser anulado aqui.`)) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await apiFetch('/saas/pagamentos/registar-directo/', {
+      method: 'POST',
+      body: JSON.stringify({
+        instituicao_id: assinaturaAtualSelecionada.instituicao,
+        fatura_id: document.getElementById('pagDirectoFatura').value,
+        metodo: document.getElementById('pagDirectoMetodo').value,
+        valor: valor,
+        referencia: document.getElementById('pagDirectoReferencia').value.trim(),
+        observacao: document.getElementById('pagDirectoObservacao').value.trim()
+      })
+    });
+    if (res && res.success) {
+      const infoAdv = res.data?.info_adiantado?.descricao;
+      mostrarToast(infoAdv && res.data.info_adiantado.meses + res.data.info_adiantado.dias > 0 ? `Pagamento registado. ${infoAdv}` : 'Pagamento registado e confirmado com sucesso!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('modalPagamentoDirecto'))?.hide();
+      await carregarResumoSuperAdmin();
+      await carregarAssinaturasSuperAdmin();
+      await abrirFichaInstituicao(assinaturaAtualSelecionada.id);
+    } else {
+      mostrarToast(res?.message || 'Falha ao registar o pagamento.', 'danger');
+    }
+  } catch (err) {
+    mostrarToast(err.message || 'Falha na ligação com o servidor.', 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function abrirModalReconciliarSms() {
+  document.getElementById('smsTexto').value = '';
+  document.getElementById('smsResultado').innerHTML = '';
+  new bootstrap.Modal(document.getElementById('modalReconciliarSms')).show();
+}
+
+async function salvarReconciliacaoSms(event) {
+  event.preventDefault();
+  const btn = document.getElementById('btnReconciliarSms');
+  const out = document.getElementById('smsResultado');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await apiFetch('/saas/pagamentos/reconciliar-sms/', {
+      method: 'POST',
+      body: JSON.stringify({ message: document.getElementById('smsTexto').value })
+    });
+    const estado = res?.status;
+    const cls = estado === 'CONFIRMADO' ? 'success' : (estado === 'DUPLICADO' ? 'info' : 'warning');
+    const detalhe = estado === 'CONFIRMADO' && res.instituicao ? ` Instituição: ${escapeHtml(res.instituicao)}, ${escapeHtml(res.valor)} MZN.` : '';
+    out.innerHTML = `<div class="alert alert-${cls} mb-0"><strong>${escapeHtml(estado || 'ERRO')}</strong> — ${escapeHtml(res?.message || 'Sem resposta do servidor.')}${detalhe}</div>`;
+    if (estado === 'CONFIRMADO') {
+      await carregarResumoSuperAdmin();
+      await carregarPagamentosPendentes();
+      await carregarAssinaturasSuperAdmin();
+    }
+  } catch (err) {
+    out.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(err.message || 'Falha na ligação com o servidor.')}</div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+window.abrirModalPagamentoDirecto = abrirModalPagamentoDirecto;
+window.aoMudarFaturaPagamentoDirecto = aoMudarFaturaPagamentoDirecto;
+window.salvarPagamentoDirecto = salvarPagamentoDirecto;
+window.abrirModalReconciliarSms = abrirModalReconciliarSms;
+window.salvarReconciliacaoSms = salvarReconciliacaoSms;
 
 async function executarCicloDiarioManual() {
   if (!confirm('Deseja executar a rotina diária de faturação e atualização de estados agora?')) return;
