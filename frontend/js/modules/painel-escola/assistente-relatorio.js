@@ -42,4 +42,28 @@ window.relCarregar = async function () {
   }
 };
 
+// Lista "perguntas a melhorar" em CSV (Excel), com coluna de decisão para a revisão semanal.
+window.relExportar = async function () {
+  const dias = document.getElementById('relDias')?.value || 30;
+  try {
+    const headers = {};
+    const token = state.token || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token');
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const tenant = (state.user?.role === 'SUPERADMIN' ? localStorage.getItem('sige_selected_tenant') : null) || state.tenant?.id || state.user?.escola_id;
+    if (tenant) headers['X-Tenant-ID'] = tenant;
+    const resp = await fetch(formatarUrlApi(`/api/v1/assistente/relatorio/?dias=${encodeURIComponent(dias)}&formato=csv`), { headers });
+    if (!resp.ok) throw new Error(`Erro ${resp.status} ao exportar`);
+    const url = URL.createObjectURL(await resp.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `perguntas-a-melhorar-${dias}d.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    mostrarToast(e.message || 'Não foi possível exportar.', 'danger');
+  }
+};
+
 // O router chama relCarregar() sempre que o ecrã é aberto.

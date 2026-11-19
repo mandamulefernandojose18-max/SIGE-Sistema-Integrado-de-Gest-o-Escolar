@@ -70,6 +70,25 @@ class TestRelatorio:
         r = sup.get(URL, HTTP_X_TENANT_ID=str(self.e1.id)).data
         assert r['total'] == 1 and r['ambito'] == 'escola'
 
+    def test_exportacao_csv_segura(self):
+        cli, u = self._cli('DIRECTOR_ESCOLA', 'dir3.rel@sige.mz', self.e1)
+        self._c(self.e1, '=HYPERLINK("http://x","clica")', 'desconhecida', user=u)             # texto de utilizador não pode virar fórmula
+        self._c(self.e1, 'pergunta normal', 'fora_do_painel', user=u)
+        self._c(self.e2, 'pergunta da outra escola', 'desconhecida')
+        r = cli.get(URL + '?formato=csv')
+        assert r.status_code == 200 and r['Content-Type'].startswith('text/csv')
+        texto = r.content.decode('utf-8-sig')
+        linhas = texto.strip().splitlines()
+        assert linhas[0].split(';') == ['Pergunta', 'Vezes', 'Motivos', 'Acção sugerida', 'Decisão (preencher)', 'Notas']
+        assert len(linhas) == 3 and "'=HYPERLINK" in texto and 'outra escola' not in texto
+        assert 'Criar capacidade' in texto and 'Confirmar que pertence' in texto
+        vazio = self._cli('DIRECTOR_ESCOLA', 'dir4.rel@sige.mz', self.e2)[0].get(URL + '?formato=csv&dias=1')       # sem dados no período: só o cabeçalho
+        assert len(vazio.content.decode('utf-8-sig').strip().splitlines()) in (1, 2)
+        prof, _ = self._cli('PROFESSOR', 'prof.csv@sige.mz', self.e1)
+        assert prof.get(URL + '?formato=csv').status_code == 403
+        sup, _ = self._cli('SUPERADMIN', 'super.csv@sige.mz')
+        assert 'Escolas' in sup.get(URL + '?formato=csv').content.decode('utf-8-sig').splitlines()[0]
+
     def test_dias_invalidos_nao_partem(self):
         cli, _ = self._cli('ADMIN_ESCOLA', 'adm.rel@sige.mz', self.e1)
         assert cli.get(URL + '?dias=abc').data['periodo_dias'] == 30

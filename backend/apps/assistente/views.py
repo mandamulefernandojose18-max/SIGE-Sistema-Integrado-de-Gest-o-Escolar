@@ -72,6 +72,39 @@ class FeedbackView(APIView):
         return Response({'success': True})
 
 
+ACCAO_SUGERIDA = {
+    'sem resposta': 'Criar capacidade ou acrescentar palavras-chave (capacidades.py / guias.py)',
+    'fora do painel': 'Confirmar que pertence mesmo a outro painel; se for do painel, ligar o módulo em modulos.py',
+    'não útil': 'Rever a resposta e a escolha da capacidade',
+}
+
+
+def _celula_csv(valor):
+    """Texto de utilizadores nunca pode ser interpretado como fórmula no Excel (=, +, -, @ no início)."""
+    texto = str(valor).replace('\r', ' ').replace('\n', ' ')
+    return "'" + texto if texto[:1] in ('=', '+', '-', '@', '\t') else texto
+
+
+def _csv_relatorio(grupos, dias, da_escola):
+    import csv
+    from django.http import HttpResponse
+    resp = HttpResponse(content_type='text/csv; charset=utf-8')
+    resp['Content-Disposition'] = f'attachment; filename="perguntas-a-melhorar-{dias}d.csv"'
+    resp.write('﻿')      # Excel abre em UTF-8 com acentos
+    w = csv.writer(resp, delimiter=';')
+    cabecalho = ['Pergunta', 'Vezes', 'Motivos', 'Acção sugerida', 'Decisão (preencher)', 'Notas']
+    if not da_escola:
+        cabecalho.insert(3, 'Escolas')
+    w.writerow(cabecalho)
+    for g in grupos:
+        motivos = sorted(g['motivos'])
+        linha = [_celula_csv(g['pergunta']), g['vezes'], ', '.join(motivos), '; '.join(ACCAO_SUGERIDA[m] for m in motivos if m in ACCAO_SUGERIDA), '', '']
+        if not da_escola:
+            linha.insert(3, _celula_csv(', '.join(sorted(g['escolas']))))
+        w.writerow(linha)
+    return resp
+
+
 class RelatorioView(APIView):
     """GET /assistente/relatorio/?dias=30 — onde o assistente falha: perguntas sem resposta, fora do painel ou marcadas "não útil".
 
@@ -101,6 +134,8 @@ class RelatorioView(APIView):
         total = qs.count()
         base = {'periodo_dias': dias, 'total': total, 'ambito': 'escola' if escola else 'plataforma'}
         if not total:
+            if request.query_params.get('formato') == 'csv':
+                return _csv_relatorio([], dias, bool(escola))
             return Response({**base, 'taxas': {}, 'por_intencao': [], 'por_perfil': [], 'perguntas_a_melhorar': []})
         pct = lambda n: round(100 * n / total, 1)
         sem_resp = qs.filter(intencao='desconhecida').count()
@@ -122,6 +157,8 @@ class RelatorioView(APIView):
         melhorar = sorted(grupos.values(), key=lambda g: -g['vezes'])[:25]
         for g in melhorar:
             g['motivos'], g['escolas'] = sorted(g['motivos']), sorted(g['escolas'])[:3]
+        if request.query_params.get('formato') == 'csv':
+            return _csv_relatorio(sorted(grupos.values(), key=lambda g: -g['vezes'])[:200], dias, bool(escola))
         return Response({**base, 'taxas': taxas,
                          'por_intencao': list(qs.values('intencao').annotate(n=Count('id')).order_by('-n')[:12]),
                          'por_perfil': list(qs.values('usuario__role').annotate(n=Count('id')).order_by('-n')[:10]),

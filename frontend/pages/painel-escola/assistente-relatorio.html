@@ -5,11 +5,14 @@
       <h3 class="fw-bold mb-1"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Relatório do Assistente</h3>
       <p class="text-muted mb-0 small">Onde o assistente falha: perguntas sem resposta, fora do painel ou marcadas "não útil". Serve para decidir o que acrescentar a seguir. Não mostra respostas nem dados dos alunos.</p>
     </div>
-    <div>
-      <label class="form-label small mb-1" for="relDias">Período</label>
-      <select id="relDias" class="form-select form-select-sm" onchange="relCarregar()">
-        <option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option>
-      </select>
+    <div class="d-flex align-items-end gap-2">
+      <div>
+        <label class="form-label small mb-1" for="relDias">Período</label>
+        <select id="relDias" class="form-select form-select-sm" onchange="relCarregar()">
+          <option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="relExportar()" title="Lista para a revisão semanal (abre no Excel)"><i class="bi bi-download me-1"></i>Exportar CSV</button>
     </div>
   </div>
 

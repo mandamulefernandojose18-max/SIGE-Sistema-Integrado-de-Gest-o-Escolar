@@ -1734,3 +1734,5 @@ O assistente (`apps/assistente`) passou de 3 consultas fixas para um **registo d
 **Qualidade medida:** `tests/test_assistente_cobertura.py` tem 129 perguntas reais (informais, sem acentos, com erros) distribuídas pelos 10 perfis; todas têm de cair na capacidade certa permitida ao perfil. Ao acrescentar uma capacidade, acrescentar aqui exemplos.
 
 **Salvaguardas de qualidade (v2.9.68):** (1) uma pergunta de seguimento só continua a capacidade anterior com um sinal verdadeiro (marcador "e o…/também/agora" ou um nome de aluno); texto sem sentido nunca herda a pergunta anterior. (2) Uma correspondência fraca (uma só palavra-chave) numa frase cheia de palavras desconhecidas ("receita de bolo de chocolate") responde "ainda não sei", em vez de dados irrelevantes. (3) A correcção de escrita só troca erros reais, nunca flexões.
+
+**Revisão semanal (v2.9.69):** o Relatório do Assistente exporta em CSV (`GET /assistente/relatorio/?dias=&formato=csv`; células seguras contra fórmulas do Excel, com coluna de decisão) e o procedimento está em `docs/REVISAO_SEMANAL_ASSISTENTE.md`.
