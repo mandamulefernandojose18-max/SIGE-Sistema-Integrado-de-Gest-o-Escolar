@@ -91,11 +91,20 @@ while [ $RETRY -lt $MAX_RETRIES ]; do
     RETRY=$((RETRY + 1))
     if docker compose exec -T backend python manage.py migrate --noinput >/dev/null 2>&1; then
         log_success "Migrações do Django aplicadas com sucesso!"
+        MIGRADO=true
         break
     fi
     log_warn "Aguardando PostgreSQL/Backend (Tentativa ${RETRY}/${MAX_RETRIES})..."
     sleep 3
 done
+
+# Sem migrações aplicadas o deploy NÃO continua em silêncio (tabelas em falta = erros 500 em produção)
+[ "${MIGRADO:-false}" = true ] || log_error "As migrações do Django falharam após ${MAX_RETRIES} tentativas. Deploy interrompido."
+# Confirma que não ficou nenhuma migração por aplicar (inclui a tabela das mensagens de contacto do site)
+docker compose exec -T backend python manage.py makemigrations --check --dry-run >/dev/null 2>&1 || log_warn "Há alterações de modelos sem migração: gerar e commitar a migração."
+if docker compose exec -T backend python manage.py showmigrations 2>/dev/null | grep -q '^ \[ \]'; then
+    log_error "Existem migrações por aplicar após o migrate. Deploy interrompido."
+fi
 
 docker compose exec -T backend python manage.py collectstatic --noinput >/dev/null 2>&1 || true
 docker compose exec -T backend python manage.py shell -c "from common.utils.geografia_mocambique import sincronizar_todos_codigos_oficiais; print('Codigos oficiais sincronizados:', sincronizar_todos_codigos_oficiais())" || true

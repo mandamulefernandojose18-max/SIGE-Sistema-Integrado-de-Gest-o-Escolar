@@ -1,6 +1,8 @@
+import logging
 import re
 
 from django.conf import settings
+from django.db import DatabaseError, transaction
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -8,6 +10,7 @@ from rest_framework.views import APIView
 
 from .models import MensagemContacto
 
+logger = logging.getLogger(__name__)
 CONTROLO = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 
 
@@ -49,5 +52,11 @@ class ContactoView(APIView):
         d = s.validated_data
         if d.get('site'):                       # robô preencheu a armadilha: finge sucesso sem guardar
             return Response({'success': True}, status=201)
-        MensagemContacto.objects.create(nome=d['nome'], email=d['email'], assunto=d['assunto'], mensagem=d['mensagem'])
+        try:
+            with transaction.atomic():
+                MensagemContacto.objects.create(nome=d['nome'], email=d['email'], assunto=d['assunto'], mensagem=d['mensagem'])
+        except DatabaseError:
+            # tabela em falta (migração por aplicar) ou base de dados indisponível: nunca um 500 sem explicação
+            logger.exception('Contacto do site: não foi possível guardar a mensagem')
+            return Response({'success': False, 'message': 'De momento não conseguimos receber a sua mensagem. Tente novamente dentro de instantes.'}, status=503)
         return Response({'success': True}, status=201)

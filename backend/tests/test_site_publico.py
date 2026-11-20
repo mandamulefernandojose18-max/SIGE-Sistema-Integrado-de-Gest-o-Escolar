@@ -26,6 +26,15 @@ class TestSitePublico:
         codigos = [self.c.post('/api/v1/site/contacto/', VALIDO, format='json').status_code for _ in range(3)]
         assert codigos == [201, 201, 429]
 
+    def test_tabela_em_falta_devolve_503_explicativo(self, monkeypatch):
+        from django.db import ProgrammingError
+
+        def _falha(*a, **k):
+            raise ProgrammingError('relation "sige_site_mensagens_contacto" does not exist')
+        monkeypatch.setattr(MensagemContacto.objects, 'create', _falha)
+        r = self.c.post('/api/v1/site/contacto/', VALIDO, format='json')
+        assert r.status_code == 503 and r.data['success'] is False and 'Tente novamente' in r.data['message']
+
     def test_armadilha_anti_robo_nao_guarda(self):
         r = self.c.post('/api/v1/site/contacto/', {**VALIDO, 'site': 'http://spam.example'}, format='json')
         assert r.status_code == 201 and not MensagemContacto.objects.exists()

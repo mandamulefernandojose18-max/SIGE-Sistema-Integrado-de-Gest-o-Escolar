@@ -123,6 +123,7 @@
         .then(function (r) {
           if (r.status === 201) { form.reset(); form.classList.remove('was-validated'); mostrar('success', 'Mensagem enviada. Obrigado — responderemos assim que possível.'); }
           else if (r.status === 429) mostrar('warning', 'Enviou várias mensagens seguidas. Tente de novo dentro de uma hora.');
+          else if (r.status >= 500) mostrar('warning', 'De momento não conseguimos receber a sua mensagem. Tente novamente dentro de instantes.');
           else mostrar('danger', 'Verifique os campos (email válido, mensagem com pelo menos 10 caracteres, sem código HTML).');
         })
         .catch(function () { mostrar('danger', 'Sem ligação ao servidor. Tente novamente.'); })
