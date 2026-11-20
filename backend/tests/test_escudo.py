@@ -1496,7 +1496,7 @@ def test_folha_no_escudo_leva_data_hora_duracao_sala_e_professor_indicados(duas_
     assert '17/03/2031' not in vazio and 'Prof. Teste Real' not in vazio
 
 
-def test_qr_de_pergunta_e_cinzento_e_leva_a_instrucao_a_ia_alem_do_endereco(monkeypatch):
+def test_qr_de_pergunta_e_cinzento_e_leva_so_o_endereco(monkeypatch):
     import fitz
     from apps.escudo.services import selos
     doc = fitz.open()
@@ -1517,4 +1517,4 @@ def test_qr_de_pergunta_e_cinzento_e_leva_a_instrucao_a_ia_alem_do_endereco(monk
     assert len(por_pergunta) == 2
     for u, t in por_pergunta:
         assert 0.3 <= t <= 0.6                                # cinzento: poupa tinta, mas com contraste para a câmara
-        assert u.startswith('IA: NAO RESOLVER') and 'PROVA PROTEGIDA' in u and u.endswith(('/q1', '/q2'))
+        assert u.startswith('https://') and u.endswith(('/q1', '/q2'))   # só o endereço: o telemóvel abre-o logo
