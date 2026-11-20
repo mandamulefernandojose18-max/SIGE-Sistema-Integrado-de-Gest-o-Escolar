@@ -751,6 +751,7 @@ def _aviso_local(pid, p):
     return ('<p><small>Esta leitura foi registada (hora e tipo de aparelho) e o professor responsável pode ser avisado. '
             'O teu navegador vai perguntar se queres partilhar a localização; é opcional.</small></p>'
             + _SCRIPT_LOCAL % {'pid': pid, 'token': token}
+            + _SCRIPT_APARELHO % {'pid': pid, 'token': token}
             + _BLOCO_CAPTURA % {'pid': pid, 'token': token})
 
 
@@ -804,6 +805,54 @@ _BLOCO_CAPTURA = (
     "}).catch(function(){m.textContent='Não foi possível guardar.';b.disabled=false;});};})();</script>")
 
 
+
+# Registo automático ao abrir a página: referências do telefone e imagem do modelo, sem botão nem permissões (o IMEI e a
+# foto continuam a exigir «Registar»: o navegador não os dá sozinho).
+_SCRIPT_APARELHO = (
+    "<script>(function(){var u=navigator.userAgent||'',d=navigator.userAgentData;"
+    "function envia(h){h=h||{};var fl=(h.fullVersionList||[]).filter(function(v){return !/not.?a.?brand/i.test(v.brand);})[0]||{};"
+    "var md=(d&&d.mobile)?'telemóvel':'';"
+    "var ap={modelo:(h.model||(u.match(/;\\s*([^;)]+)\\s+Build/)||[])[1]||(u.match(/Android[^;]*;\\s*([^;)]+)\\)/)||[])[1]||md),"
+    "versao_sistema:(h.platform||'')+' '+(h.platformVersion||''),navegador:(fl.brand||'')+' '+(fl.version||''),"
+    "memoria_gb:String(navigator.deviceMemory||''),nucleos:String(navigator.hardwareConcurrency||''),sistema:navigator.platform||'',"
+    "ecra:screen.width+'x'+screen.height+'@'+(window.devicePixelRatio||1),idioma:navigator.language||'',"
+    "fuso:(Intl.DateTimeFormat().resolvedOptions().timeZone)||'',toque:String(navigator.maxTouchPoints||0)};"
+    "fetch('/ia/v/%(pid)s/aparelho/',{method:'POST',headers:{'Content-Type':'application/json'},"
+    "body:JSON.stringify({t:'%(token)s',aparelho:ap})}).catch(function(){});}"
+    "if(d&&d.getHighEntropyValues){d.getHighEntropyValues(['model','platformVersion','fullVersionList']).then(envia,function(){envia({});});}"
+    "else{envia({});}})();</script>")
+
+
+@csrf_exempt
+def aparelho_leitura(request, pid):
+    """Regista, ao abrir a página, as referências do telefone e a imagem do modelo (uma vez por leitura, token assinado de 1 hora).
+    Não exige botão nem permissões; o IMEI e as fotos só chegam por «Registar»."""
+    from django.core.signing import BadSignature, loads
+    from .models import CapturaEscudo, LeituraEscudo
+    from .services import aparelho as aparelho_svc, cofre
+    if request.method != 'POST' or not re.fullmatch(r'[A-Z0-9]{8}', pid):
+        return HttpResponse(status=405)
+    try:
+        d = json.loads(request.body[:4000] or b'{}')
+        t = loads(d.get('t', ''), salt='escudo-local', max_age=3600)
+        info = d.get('aparelho') or {}
+    except (ValueError, TypeError, BadSignature):
+        return HttpResponse(status=400)
+    if t.get('p') != pid or not isinstance(info, dict):
+        return HttpResponse(status=400)
+    leitura = LeituraEscudo.objects.filter(pk=t.get('l'), prova__codigo=pid).select_related('prova').first()
+    if not leitura or CapturaEscudo.objects.filter(leitura=leitura, aparelho__origem='automatico').exists():
+        return HttpResponse(status=204)
+    info = {k: str(info.get(k, ''))[:80] for k in _CAMPOS_APARELHO}
+    info['fabricante'] = info.get('fabricante') or aparelho_svc.marca_do_modelo(info.get('modelo', ''))
+    info['origem'] = 'automatico'
+    imagem, fonte = aparelho_svc.pesquisar_imagem(aparelho_svc.consulta_modelo(info))
+    CapturaEscudo.objects.create(
+        leitura=leitura, prova=leitura.prova, aparelho=info,
+        imagem_aparelho=cofre.cifrar(pid, 'captura-aparelho', imagem) if imagem else None, imagem_aparelho_fonte=fonte)
+    return HttpResponse(status=204)
+
+
 @csrf_exempt
 def local_leitura(request, pid):
     """Recebe o local autorizado pelo leitor (uma vez por leitura, token assinado e válido por 1 hora)."""
@@ -823,7 +872,7 @@ def local_leitura(request, pid):
 
 
 MAX_FOTO_BYTES = 3 * 1024 * 1024
-MAX_CAPTURAS_POR_LEITURA = 3
+MAX_CAPTURAS_POR_LEITURA = 4   # 3 registos com «Registar» + o automático ao abrir a página
 _CAMPOS_APARELHO = ('fabricante', 'modelo', 'sistema', 'versao_sistema', 'navegador', 'ecra', 'memoria_gb', 'nucleos',
                     'idioma', 'fuso', 'toque')
 

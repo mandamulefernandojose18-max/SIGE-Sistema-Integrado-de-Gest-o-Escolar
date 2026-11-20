@@ -1572,3 +1572,25 @@ def test_verificar_foto_suspeita_diz_a_copia_a_pagina_e_as_perguntas(duas_escola
     Usuario.objects.create_user(email='admin.vf@sige.mz', password='PassVf123!', role='ADMIN_ESCOLA', escola=duas_escolas[1])
     estranho = _cliente_de('admin.vf@sige.mz', 'PassVf123!')
     assert estranho.post(API + pid + '/verificar-foto/', {'foto': SimpleUploadedFile('f.jpg', foto)}, format='multipart').status_code == 404
+
+
+def test_ao_abrir_a_pagina_regista_sozinho_as_referencias_e_a_imagem_do_telefone(duas_escolas, monkeypatch):
+    import re
+    from apps.escudo.models import CapturaEscudo
+    from apps.escudo.services import alertas
+    monkeypatch.setattr(alertas, 'agendar', lambda *a, **k: None)
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    html = APIClient().get(f'/ia/v/{pid}/1/q2').content.decode()
+    assert f"/ia/v/{pid}/aparelho/" in html                        # o registo automático corre ao abrir a página
+    token = re.search(r"fd.append\('t','([^']+)'", html).group(1)
+    url = f'/ia/v/{pid}/aparelho/'
+    corpo = {'t': token, 'aparelho': {'modelo': 'SM-A546B', 'sistema': 'Linux armv8l', 'ecra': '1080x2340@2.8', 'ip': 'nao-guardar'}}
+    assert APIClient().post(url, {**corpo, 't': 'falso'}, format='json').status_code == 400
+    assert APIClient().post(url, corpo, format='json').status_code == 204
+    assert APIClient().post(url, corpo, format='json').status_code == 204   # repetido: não duplica
+    cap = CapturaEscudo.objects.get(prova__codigo=pid)
+    assert cap.aparelho['origem'] == 'automatico' and cap.aparelho['fabricante'] == 'Samsung' and 'ip' not in cap.aparelho
+    assert cap.imagem_aparelho and not cap.imei_cifrado and not cap.foto_leitor_cifrada
+    lista = c.get(API + pid + '/capturas/').json()['data']['capturas']
+    assert len(lista) == 1 and lista[0]['imagem_aparelho'] and lista[0]['imei'] == ''
