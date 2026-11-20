@@ -377,3 +377,8 @@ Validações ligadas ao plano nas rotas existentes: `POST/PUT /disciplinas/` (cl
 `GET contexto/?ano=`, `GET alunos/?turma_id=`, `POST gerar/` (PDF/XLSX; âmbitos aluno, turma, classe, branco). Erros: 400 (parâmetros inválidos), 403 (perfil/escola), 404 (sem alunos activos), 409 (escola sem logótipo oficial). Corpo e campos em `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`.
 
 `GET /api/v1/documentos/folha-resposta/verificar/?d=&s=` — público (QR da folha); 200 com dados não pessoais da folha ou 404 se o código for inválido/adulterado.
+
+
+## Estatística de Início do Ano (03/03)
+
+GET /api/v1/alunos/estatistica-inicio-ano/turma/{id} (+ /pdf, /xlsx), classe?classe=&ano=, escola?ano=, minhas?ano=. Ver secção 21 da documentação completa para permissões e conteúdo.

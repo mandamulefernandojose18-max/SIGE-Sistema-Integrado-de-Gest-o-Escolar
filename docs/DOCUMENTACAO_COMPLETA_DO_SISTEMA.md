@@ -1740,3 +1740,20 @@ O assistente (`apps/assistente`) passou de 3 consultas fixas para um **registo d
 **Revisão semanal (v2.9.69):** o Relatório do Assistente exporta em CSV (`GET /assistente/relatorio/?dias=&formato=csv`; células seguras contra fórmulas do Excel, com coluna de decisão) e o procedimento está em `docs/REVISAO_SEMANAL_ASSISTENTE.md`.
 
 **Perguntas novas por parâmetros (v2.9.70):** além das capacidades pré-definidas, o assistente tem um motor de consulta (`apps/assistente/consulta.py`) que entende **entidade** (alunos, professores, turmas, faltas, notas, propinas, transferências, atendimentos, pautas, movimentos de caixa, certificados, exames) + **operação** (contar, listar, somar, média, maior/menor, ranking, existe) + **filtros** (classe, turma, género, disciplina, trimestre, mês/ano/"este mês", estado, prioridade, limiares "mais de 3 faltas", agrupar "por classe/turma"). Assim "quantas alunas há na 8.ª classe?", "média de Matemática no 1.º trimestre", "que alunos têm mais de 3 faltas?" ou "quanto se gastou este mês?" são respondidos com números exactos, mesmo sem existirem como pergunta pré-definida. **Segurança:** o motor só responde sobre entidades do painel do perfil e dentro do seu âmbito (o Professor só vê as suas turmas; Aluno e Encarregado só os seus dados/educandos e nunca estatísticas de turma, rankings ou outros alunos); o resto é recusado como "fora do painel". Frases sem entidade, sem operação ou sem filtros ("receita de bolo") não viram consulta. Perguntas que continuam fora do alcance caem em "ainda não sei" e aparecem no Relatório do Assistente (ciclo de melhoria).
+
+
+## 21. Estatística de Início do Ano Lectivo (levantamento de 03/03)
+
+Três mapas encadeados e automáticos (nenhum número é digitado à mão), em ecrã, PDF e Excel:
+
+| Mapa | Onde está | Origem dos dados |
+|---|---|---|
+| Estatística da Turma | Área Pedagógica › Estatística início do ano (03/03) › Estatística da Turma; separador no Painel do Director de Turma | Matrículas dos alunos ATIVOS da turma |
+| Estatística da Classe | Área Pedagógica › … › Estatística da Classe; Painel do Director de Classe (novo) | Soma dos mapas das turmas da classe |
+| Estatística Geral da Escola | Área Pedagógica › … › Estatística Geral da Escola | Soma dos mapas das classes, em 3 grupos: 1º Ciclo (até 9ª), 2º Ciclo (10ª–12ª) e 1º + 2º Ciclos |
+
+Conteúdo: efectivo H/M/HM, idade (anos completados no ano lectivo), necessidades educativas especiais (DV, DAU, DFM, DAP, ALB, PC, OUTRA), órfãos (pai, mãe, ambos), meios de transporte, tempo de casa à escola com local de residência. No 2º Ciclo acresce a parte das disciplinas por secção/área (professor e matriculados). A turma/classe/escola escolhe-se por filtros em cascata (Classe → Secção/Área → Turma).
+
+**Ficha de matrícula** (`Aluno`, migração `0014`): `orfandade`, `necessidade_especial`, `meio_transporte`, `tempo_casa_escola`, `local_residencia` — preenchidos na matrícula e na edição do aluno.
+
+**API** (`/api/v1/alunos/estatistica-inicio-ano/`): `turma/<id>[/pdf|/xlsx]`, `classe[/pdf|/xlsx]?classe=&ano=`, `escola[/pdf|/xlsx]?ano=`, `minhas?ano=` (turmas/classes dirigidas pelo professor). Permissões: turma = Director da Turma, Director da Classe ou gestão; classe = Director da Classe ou gestão; escola = gestão (SUPERADMIN, ADMIN_ESCOLA, DIRECTOR_ESCOLA, DAP). Isolamento por escola. A resposta JSON traz `paginas` (as mesmas tabelas do PDF/Excel). Código: `apps/alunos/estatistica_inicio_ano.py`, `apps/documentos/services/estatistica_inicio_ano_docs.py`, `frontend/js/estatistica-inicio-ano.js`. Testes: `backend/tests/test_estatistica_inicio_ano.py`.

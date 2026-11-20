@@ -30,9 +30,17 @@ class AlunoSerializer(serializers.ModelSerializer):
             'data_nascimento', 'genero', 'tipo_documento', 'numero_documento', 'nuit',
             'nacionalidade', 'provincia', 'distrito', 'pai', 'mae',
             'nome_responsavel', 'contato_responsavel', 'email_responsavel', 'status',
+            'orfandade', 'necessidade_especial', 'meio_transporte', 'tempo_casa_escola', 'local_residencia',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'orfandade': {'required': False},
+            'necessidade_especial': {'required': False, 'allow_blank': True},
+            'meio_transporte': {'required': False, 'allow_blank': True},
+            'tempo_casa_escola': {'required': False, 'allow_blank': True},
+            'local_residencia': {'required': False, 'allow_blank': True},
+        }
 
     def validate_nuit(self, value):
         if value is None or str(value).strip() == '':

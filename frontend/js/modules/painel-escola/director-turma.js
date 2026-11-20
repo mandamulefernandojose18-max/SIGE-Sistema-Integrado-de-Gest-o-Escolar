@@ -154,6 +154,8 @@ function alternarAbaDT(aba) {
   dtAbaAtiva = aba;
   document.getElementById('dtTabPautaBtn').className = 'nav-link fw-bold ' + (aba === 'pauta' ? 'active' : '');
   document.getElementById('dtTabActaBtn').className = 'nav-link fw-bold ' + (aba === 'acta' ? 'active' : '');
+  const btnEstat = document.getElementById('dtTabEstatBtn');
+  if (btnEstat) btnEstat.className = 'nav-link fw-bold ' + (aba === 'estatistica' ? 'active' : '');
   carregarDadosTurmaDT();
 }
 
@@ -163,6 +165,12 @@ async function carregarDadosTurmaDT() {
   container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A carregar documento oficial da turma...</p></div>';
 
   try {
+    if (dtAbaAtiva === 'estatistica') {
+      // Estatística de início do ano (03/03) da turma: só o Director da Turma, o Director da Classe e a gestão têm acesso (validado no servidor)
+      container.innerHTML = '<div id="dtEstatDoc"></div>';
+      await eiaMostrar(document.getElementById('dtEstatDoc'), { tipo: 'turma', turmaId: dtTurmaAtivaId, ano: (state.anosPorView && state.anosPorView['director-turma']) || '' });
+      return;
+    }
     if (dtAbaAtiva === 'pauta') {
       const res = await apiFetch(`/api/v1/pautas/turma/${dtTurmaAtivaId}/completa`);
       if (res.success) {

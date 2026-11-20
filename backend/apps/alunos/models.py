@@ -39,6 +39,28 @@ class Aluno(models.Model):
     contato_responsavel = models.CharField(max_length=50, blank=True, null=True)
     email_responsavel = models.EmailField(blank=True, null=True)
     status = models.CharField(max_length=20, default='ATIVO')  # ATIVO, INATIVO, TRANSFERIDO, EVADIDO
+
+    # Dados recolhidos na matrícula para o Mapa Estatístico de Início do Ano
+    ORFANDADE_CHOICES = [('NENHUMA', 'Não é órfão'), ('PAI', 'Órfão de pai'), ('MAE', 'Órfão de mãe'), ('AMBOS', 'Órfão de pai e mãe')]
+    NEE_CHOICES = [
+        ('DV', 'Deficiência visual'), ('DAU', 'Deficiência auditiva'), ('DFM', 'Deficiência física/motora'),
+        ('DAP', 'Dificuldades de aprendizagem'), ('ALB', 'Albinismo'), ('PC', 'Problemas comportamentais'),
+        ('OUTRA', 'Outra necessidade educativa especial'),
+    ]
+    TRANSPORTE_CHOICES = [
+        ('A_PE', 'A pé'), ('BICICLETA', 'Bicicleta'), ('MOTORIZADA', 'Motorizada'),
+        ('TRANSPORTE_PUBLICO', 'Transporte público (chapa/machimbombo)'), ('CARRO', 'Carro particular'), ('OUTRO', 'Outro'),
+    ]
+    TEMPO_CHOICES = [
+        ('ATE_30', 'Até 30 minutos'), ('DE_30_A_60', 'De 30 a 60 minutos'),
+        ('DE_60_A_90', 'De 60 a 90 minutos'), ('MAIS_90', 'Mais de 90 minutos'),
+    ]
+    orfandade = models.CharField(max_length=10, choices=ORFANDADE_CHOICES, default='NENHUMA', blank=True)
+    necessidade_especial = models.CharField(max_length=10, choices=NEE_CHOICES, blank=True, default='')
+    meio_transporte = models.CharField(max_length=20, choices=TRANSPORTE_CHOICES, blank=True, default='')
+    tempo_casa_escola = models.CharField(max_length=12, choices=TEMPO_CHOICES, blank=True, default='')
+    local_residencia = models.CharField(max_length=120, blank=True, default='')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

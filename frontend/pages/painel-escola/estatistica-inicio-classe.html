@@ -1,0 +1,30 @@
+<!-- ===================================================================== -->
+<!-- SIGE | Estatística de Início do Ano (03/03) — da Classe -->
+<!-- Lógica partilhada em js/estatistica-inicio-ano.js -->
+<!-- ===================================================================== -->
+<section id="view-estatistica-inicio-classe" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="eiaClasseAno" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('estatistica-inicio-classe')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="eiaClasseConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="card p-4 no-print mb-4">
+      <h5 class="fw-bold mb-1"><i class="bi bi-layers-fill text-primary me-2"></i>Estatística de Início do Ano (03/03) — da Classe</h5>
+      <p class="text-muted small mb-3">Soma automática dos mapas das turmas da classe. Nas classes do 2º Ciclo (10ª a 12ª) inclui as disciplinas por secção/área.</p>
+      <div class="row g-2">
+        <div class="col-md-4"><label class="form-label very-small text-muted mb-0">Classe</label>
+          <select id="eiaClasseClasse" class="form-select form-select-sm"><option value="">-- Classe --</option></select></div>
+      </div>
+    </div>
+    <div class="card p-4 printable-document bg-white" id="eiaClasseDoc"></div>
+  </div>
+</section>

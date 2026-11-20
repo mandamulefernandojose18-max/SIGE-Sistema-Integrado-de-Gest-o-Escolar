@@ -2663,6 +2663,9 @@ const MENUS_POR_PAINEL = {
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-turma', titulo: 'Estatística início do ano: Turma', icone: 'bi-people-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-classe', titulo: 'Estatística início do ano: Classe', icone: 'bi-layers-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-escola', titulo: 'Estatística início do ano: Geral da Escola', icone: 'bi-building text-primary', categoria: 'Área Pedagógica' },
     { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Secretaria & Expediente' },
@@ -2687,6 +2690,9 @@ const MENUS_POR_PAINEL = {
     { id: 'caderneta', titulo: 'Caderneta Pedagógica', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Área Pedagógica' },
     { id: 'pautas', titulo: 'Pautas, Actas & Conselhos', icone: 'bi-table', categoria: 'Área Pedagógica' },
     { id: 'exames', titulo: 'Controlo de Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-turma', titulo: 'Estatística início do ano: Turma', icone: 'bi-people-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-classe', titulo: 'Estatística início do ano: Classe', icone: 'bi-layers-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-escola', titulo: 'Estatística início do ano: Geral da Escola', icone: 'bi-building text-primary', categoria: 'Área Pedagógica' },
     { id: 'calendario-exames', titulo: 'Calendário e Júris dos Exames', icone: 'bi-calendar-event-fill text-warning', categoria: 'Área Pedagógica' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
@@ -2716,6 +2722,8 @@ const MENUS_POR_PAINEL = {
   ],
   'painel-professor': [
     { id: 'caderneta', titulo: 'Caderneta do Professor (Notas)', icone: 'bi-journal-bookmark-fill text-info', categoria: 'Espaço do Docente' },
+    { id: 'director-turma', titulo: 'Painel Director de Turma', icone: 'bi-person-workspace text-warning', categoria: 'Espaço do Docente' },
+    { id: 'director-classe', titulo: 'Painel Director de Classe', icone: 'bi-person-workspace text-warning', categoria: 'Espaço do Docente' },
     { id: 'presencas', titulo: 'Registo de Presenças & Faltas', icone: 'bi-person-check-fill text-success', categoria: 'Espaço do Docente' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Espaço do Docente' },
     { id: 'ocorrencias', titulo: 'Ocorrências Disciplinares', icone: 'bi-exclamation-octagon-fill text-warning', categoria: 'Espaço do Docente' },
@@ -2771,6 +2779,9 @@ const MENUS_POR_PAINEL = {
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Área Pedagógica' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Área Pedagógica' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística de Aproveitamento', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-turma', titulo: 'Estatística início do ano: Turma', icone: 'bi-people-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-classe', titulo: 'Estatística início do ano: Classe', icone: 'bi-layers-fill text-primary', categoria: 'Área Pedagógica' },
+    { id: 'estatistica-inicio-escola', titulo: 'Estatística início do ano: Geral da Escola', icone: 'bi-building text-primary', categoria: 'Área Pedagógica' },
     { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Área Pedagógica' },
     { id: 'sumarios', titulo: 'Planos de Aula & Sumários', icone: 'bi-journal-text text-primary', categoria: 'Área Pedagógica' },
     { id: 'alunos', titulo: 'Alunos & Matrículas', icone: 'bi-people-fill', categoria: 'Secretaria & Expediente' },
@@ -2916,7 +2927,10 @@ function renderizarSidebarPorNivel(role) {
     'calendario-exames',
     'provas-anti-ia',
     'folha-resposta',
-    'estatisticas-aproveitamento'
+    'estatisticas-aproveitamento',
+    'estatistica-inicio-turma',
+    'estatistica-inicio-classe',
+    'estatistica-inicio-escola'
   ];
 
   let html = '';
@@ -2994,6 +3008,21 @@ function renderizarSidebarPorNivel(role) {
             <a class="nav-link py-1 small" href="#/estatisticas-aproveitamento" onclick="navegarPara('estatisticas-aproveitamento'); return false;" id="subnav-estatisticas-aproveitamento">
               <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
             </a>
+            <a class="nav-link py-1 small d-flex align-items-center justify-content-between" href="javascript:void(0)" onclick="toggleSubmenuEstatisticaInicioAno(event)" id="subnav-estatistica-inicio-ano">
+              <span><i class="bi bi-calendar-check-fill text-primary me-1"></i> <span>Estatística início do ano (03/03)</span></span>
+              <i class="bi bi-chevron-down small" id="seta-estatistica-inicio-ano" style="transition: transform 0.2s;"></i>
+            </a>
+            <div id="subnav-grupo-estatistica-inicio-ano" class="ps-3 border-start ms-2" style="display: none;">
+              <a class="nav-link py-1 small" href="#/estatistica-inicio-turma" onclick="navegarPara('estatistica-inicio-turma'); return false;" id="subnav-estatistica-inicio-turma">
+                <i class="bi bi-people-fill text-primary me-1"></i> <span>Estatística da Turma</span>
+              </a>
+              <a class="nav-link py-1 small" href="#/estatistica-inicio-classe" onclick="navegarPara('estatistica-inicio-classe'); return false;" id="subnav-estatistica-inicio-classe">
+                <i class="bi bi-layers-fill text-primary me-1"></i> <span>Estatística da Classe</span>
+              </a>
+              <a class="nav-link py-1 small" href="#/estatistica-inicio-escola" onclick="navegarPara('estatistica-inicio-escola'); return false;" id="subnav-estatistica-inicio-escola">
+                <i class="bi bi-building text-primary me-1"></i> <span>Estatística Geral da Escola</span>
+              </a>
+            </div>
           </div>
         `;
       }
@@ -3332,7 +3361,7 @@ function navegarPara(viewId) {
 
   // Se o painel usar acordeão pedagógico, incluir os subitens
   if (['painel-direcao', 'painel-pedagogico', 'painel-escola'].includes(painel)) {
-    ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'].forEach(id => {
+    ['plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento', 'estatistica-inicio-turma', 'estatistica-inicio-classe', 'estatistica-inicio-escola'].forEach(id => {
       if (!menusPermitidos.includes(id)) menusPermitidos.push(id);
     });
   }
@@ -3392,7 +3421,7 @@ function navegarPara(viewId) {
       // Se for subitem da Área Pedagógica, manter o acordeão aberto
       const subnav = document.getElementById('subnav-area-pedagogica');
       const seta = document.getElementById('seta-area-pedagogica');
-      const ITENS_SUBNAV_PEDAGOGICO = ['atribuicoes-cargos', 'plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento'];
+      const ITENS_SUBNAV_PEDAGOGICO = ['atribuicoes-cargos', 'plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'estatisticas-aproveitamento', 'estatistica-inicio-turma', 'estatistica-inicio-classe', 'estatistica-inicio-escola'];
       if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId) && subnav) {
         subnav.style.display = 'block';
         if (seta) seta.style.transform = 'rotate(180deg)';
@@ -3488,6 +3517,7 @@ async function carregarScriptModulo(painel, viewId) {
   // Disciplinas: a lógica actual (classes, secções/áreas) vive no app.js. O ficheiro modular antigo
   // redefinia carregarDisciplinas() e deixava a página presa em "A carregar...", por isso não é carregado.
   if (viewId === 'disciplinas') return;
+  if (viewId.startsWith('estatistica-inicio-') || viewId === 'director-classe') return;  // codigo partilhado em js/estatistica-inicio-ano.js
   const buildParam = (typeof sigeCurrentBuild === 'function' && sigeCurrentBuild()) || Date.now();
 
   const SCRIPTS_PROPRIOS = {
@@ -3689,7 +3719,10 @@ async function navegarPara(viewId) {
     'calendario-exames',
     'provas-anti-ia',
     'folha-resposta',
-    'estatisticas-aproveitamento'
+    'estatisticas-aproveitamento',
+    'estatistica-inicio-turma',
+    'estatistica-inicio-classe',
+    'estatistica-inicio-escola'
   ];
 
   if (ITENS_SUBNAV_PEDAGOGICO.includes(viewId)) {
@@ -3706,6 +3739,7 @@ async function navegarPara(viewId) {
     document.querySelectorAll('#subnav-area-pedagogica .nav-link').forEach(el => el.classList.remove('active'));
     const subLink = document.getElementById(`subnav-${viewId}`);
     if (subLink) subLink.classList.add('active');
+    if (viewId.startsWith('estatistica-inicio-') && typeof window.abrirGrupoEstatisticaInicioAno === 'function') window.abrirGrupoEstatisticaInicioAno(true);
   } else {
     document.querySelectorAll('#subnav-area-pedagogica .nav-link').forEach(el => el.classList.remove('active'));
     const link = document.getElementById(`nav-${viewId}`) || Array.from(document.querySelectorAll('#sidebar .nav-link')).find(a =>
@@ -3775,6 +3809,7 @@ async function navegarPara(viewId) {
   if (viewId === 'atribuicoes-cargos' && typeof carregarAtribuicoesCargos === 'function') carregarAtribuicoesCargos(state.anosPorView[viewId]);
   if (viewId === 'minhas-atividades' && typeof carregarMinhasAtividades === 'function') carregarMinhasAtividades(1);
   if (viewId === 'estatisticas-aproveitamento') carregarEstatisticasAproveitamento(false);
+  if ((window.EIA_VIEWS || []).includes(viewId) && typeof window.eiaIniciarView === 'function') window.eiaIniciarView(viewId, state.anosPorView[viewId]);
   if (viewId === 'material-escolar') carregarPainelMaterialEscolar();
   if (viewId === 'presencas' && typeof carregarPresencasAno === 'function') carregarPresencasAno(state.anosPorView[viewId]);
   if (viewId === 'certificados') carregarCertificados();
@@ -8738,6 +8773,28 @@ window.obterDescricaoAmigavelArea = function(area) {
   return area;
 };
 
+// Campos da ficha de matrícula que alimentam o Mapa Estatístico de Início do Ano (órfãos, necessidades especiais, transporte, tempo e local).
+function camposMatriculaEstatistica(p, a) {
+  a = a || {};
+  const sel = (id, rotulo, opcoes, atual, vazio) => `
+    <div class="col-md-6">
+      <label class="form-label small fw-semibold">${rotulo}</label>
+      <select id="${p}${id}" class="form-select">
+        ${vazio ? `<option value="">${vazio}</option>` : ''}
+        ${opcoes.map(([v, t]) => `<option value="${v}" ${(atual || '') === v ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+    </div>`;
+  return `
+    <div class="col-12"><hr class="my-1"><div class="small fw-bold text-primary"><i class="bi bi-bar-chart-steps me-1"></i>Dados para a Estatística de Início do Ano (03/03)</div></div>
+    ${sel('Orfandade', 'Orfandade', [['NENHUMA', 'Não é órfão'], ['PAI', 'Órfão de pai'], ['MAE', 'Órfão de mãe'], ['AMBOS', 'Órfão de pai e mãe']], a.orfandade || 'NENHUMA')}
+    ${sel('Nee', 'Necessidade educativa especial', [['DV', 'Deficiência visual (DV)'], ['DAU', 'Deficiência auditiva (DAU)'], ['DFM', 'Deficiência física/motora (DFM)'], ['DAP', 'Dificuldades de aprendizagem (DAP)'], ['ALB', 'Albinismo (ALB)'], ['PC', 'Problemas comportamentais (PC)'], ['OUTRA', 'Outra']], a.necessidade_especial, 'Nenhuma')}
+    ${sel('Transporte', 'Meio de transporte para a escola', [['A_PE', 'A pé'], ['BICICLETA', 'Bicicleta'], ['MOTORIZADA', 'Motorizada'], ['TRANSPORTE_PUBLICO', 'Transporte público'], ['CARRO', 'Carro particular'], ['OUTRO', 'Outro']], a.meio_transporte, 'Não indicado')}
+    ${sel('Tempo', 'Tempo gasto de casa à escola', [['ATE_30', 'Até 30 minutos'], ['DE_30_A_60', 'De 30 a 60 minutos'], ['DE_60_A_90', 'De 60 a 90 minutos'], ['MAIS_90', 'Mais de 90 minutos']], a.tempo_casa_escola, 'Não indicado')}
+    <div class="col-md-12">
+      <label class="form-label small fw-semibold">Local de residência (bairro / povoado)</label>
+      <input type="text" id="${p}Local" class="form-control" maxlength="120" value="${String(a.local_residencia || '').replace(/"/g, '&quot;')}" placeholder="Ex.: nome do bairro">
+    </div>`;
+}
 async function modalEditarAluno(id) {
   try {
     const res = await apiFetch(`/api/v1/alunos/${id}`);
@@ -8923,6 +8980,7 @@ async function modalEditarAluno(id) {
             <label class="form-label small fw-semibold">Contacto Encarregado</label>
             <input type="tel" id="meTelResp" class="form-control" value="${a.contato_responsavel || ''}" placeholder="Ex: 841234567 ou +258..." inputmode="tel">
           </div>
+          ${camposMatriculaEstatistica('me', a)}
         </div>
         <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-check2-circle me-1"></i> Guardar Alterações do Aluno</button>
       </form>
@@ -8959,6 +9017,11 @@ async function modalEditarAluno(id) {
           mae: document.getElementById('meMae').value || null,
           nome_responsavel: document.getElementById('meResp').value || null,
           contato_responsavel: document.getElementById('meTelResp').value || null,
+          orfandade: document.getElementById('meOrfandade')?.value || 'NENHUMA',
+          necessidade_especial: document.getElementById('meNee')?.value || '',
+          meio_transporte: document.getElementById('meTransporte')?.value || '',
+          tempo_casa_escola: document.getElementById('meTempo')?.value || '',
+          local_residencia: document.getElementById('meLocal')?.value?.trim() || '',
           status: document.getElementById('meStatus').value
         };
 
@@ -9421,6 +9484,7 @@ async function modalNovoAluno() {
           <label class="form-label small fw-semibold">Telefone de Contacto (+258 Padrão)</label>
           <input type="tel" id="maTel" class="form-control" value="" placeholder="+258 ..." inputmode="tel">
         </div>
+        ${camposMatriculaEstatistica('ma', {})}
       </div>
       <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-person-plus-fill me-1"></i> Confirmar Matrícula Oficial</button>
     </form>
@@ -9455,7 +9519,12 @@ async function modalNovoAluno() {
         pai: document.getElementById('maPai').value || undefined,
         mae: document.getElementById('maMae').value || undefined,
         nome_responsavel: document.getElementById('maResp').value || undefined,
-        contato_responsavel: document.getElementById('maTel').value || undefined
+        contato_responsavel: document.getElementById('maTel').value || undefined,
+        orfandade: document.getElementById('maOrfandade')?.value || 'NENHUMA',
+        necessidade_especial: document.getElementById('maNee')?.value || undefined,
+        meio_transporte: document.getElementById('maTransporte')?.value || undefined,
+        tempo_casa_escola: document.getElementById('maTempo')?.value || undefined,
+        local_residencia: document.getElementById('maLocal')?.value?.trim() || undefined
       };
       const res = await apiFetch('/api/v1/alunos', {
         method: 'POST',
@@ -22367,6 +22436,8 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarAtribuicoesCargos === 'function') await carregarAtribuicoesCargos(ano);
   } else if (viewId === 'minhas-atividades') {
     if (typeof carregarMinhasAtividades === 'function') await carregarMinhasAtividades(1);
+  } else if ((window.EIA_VIEWS || []).includes(viewId)) {
+    if (typeof window.eiaIniciarView === 'function') await window.eiaIniciarView(viewId, ano);
   } else if (viewId === 'estatisticas-aproveitamento') {
     if (typeof carregarEstatisticasAproveitamento === 'function') await carregarEstatisticasAproveitamento(true);
   } else if (viewId === 'presencas') {
@@ -22491,6 +22562,22 @@ window.mudarSubAbaAreaPedagogica = function(abaId, dispararGatilho = true) {
 };
 
 // ==================== CONTROLO DO SUBMENU DA ÁREA PEDAGÓGICA (MENU LATERAL) ====================
+window.abrirGrupoEstatisticaInicioAno = function(abrir) {
+  const grupo = document.getElementById('subnav-grupo-estatistica-inicio-ano');
+  const seta = document.getElementById('seta-estatistica-inicio-ano');
+  if (!grupo) return;
+  grupo.style.display = abrir ? 'block' : 'none';
+  if (seta) {
+    seta.classList.toggle('bi-chevron-up', !!abrir);
+    seta.classList.toggle('bi-chevron-down', !abrir);
+  }
+};
+window.toggleSubmenuEstatisticaInicioAno = function(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const grupo = document.getElementById('subnav-grupo-estatistica-inicio-ano');
+  window.abrirGrupoEstatisticaInicioAno(!!grupo && grupo.style.display === 'none');
+};
+
 window.toggleSubmenuAreaPedagogica = function(e) {
   if (e && e.preventDefault) e.preventDefault();
   const subnav = document.getElementById('subnav-area-pedagogica');

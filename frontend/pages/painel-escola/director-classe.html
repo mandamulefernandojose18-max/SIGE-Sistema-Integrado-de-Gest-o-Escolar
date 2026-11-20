@@ -1,0 +1,34 @@
+<!-- ===================================================================== -->
+<!-- SIGE | Painel Director de Classe -->
+<!-- Lógica partilhada em js/estatistica-inicio-ano.js -->
+<!-- ===================================================================== -->
+<section id="view-director-classe" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="directorClasseAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('director-classe')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="directorClasseConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="card p-4 no-print mb-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h5 class="fw-bold mb-1"><i class="bi bi-person-workspace text-warning me-2"></i>Painel Oficial do Director de Classe</h5>
+          <p class="text-muted small mb-0">Estatística de Início do Ano (03/03) da classe que dirige: soma automática dos mapas das suas turmas.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label small fw-bold mb-0 text-nowrap">Classe:</label>
+          <select id="dcClasseSelect" class="form-select form-select-sm" style="min-width: 200px;"></select>
+        </div>
+      </div>
+    </div>
+    <div class="card p-4 printable-document bg-white" id="dcClasseDoc"></div>
+  </div>
+</section>

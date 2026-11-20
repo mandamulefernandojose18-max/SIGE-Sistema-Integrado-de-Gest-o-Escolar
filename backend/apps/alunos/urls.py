@@ -17,7 +17,19 @@ router.register(r'presencas', PresencaAlunoViewSet, basename='alunos-presencas')
 router.register(r'transferencias', TransferenciaAnulacaoViewSet, basename='alunos-transferencias')
 router.register(r'', AlunoViewSet, basename='alunos')
 
+from .views_estatistica_inicio_ano import (
+    EstatisticaInicioAnoTurmaView, EstatisticaInicioAnoClasseView,
+    EstatisticaInicioAnoEscolaView, EstatisticaInicioAnoMinhasView,
+)
+
 urlpatterns = [
+    path('estatistica-inicio-ano/minhas', EstatisticaInicioAnoMinhasView.as_view(), name='est_inicio_ano_minhas'),
+    path('estatistica-inicio-ano/turma/<uuid:turma_id>', EstatisticaInicioAnoTurmaView.as_view(), name='est_inicio_ano_turma'),
+    path('estatistica-inicio-ano/turma/<uuid:turma_id>/<str:formato>', EstatisticaInicioAnoTurmaView.as_view(), name='est_inicio_ano_turma_fmt'),
+    path('estatistica-inicio-ano/classe', EstatisticaInicioAnoClasseView.as_view(), name='est_inicio_ano_classe'),
+    path('estatistica-inicio-ano/classe/<str:formato>', EstatisticaInicioAnoClasseView.as_view(), name='est_inicio_ano_classe_fmt'),
+    path('estatistica-inicio-ano/escola', EstatisticaInicioAnoEscolaView.as_view(), name='est_inicio_ano_escola'),
+    path('estatistica-inicio-ano/escola/<str:formato>', EstatisticaInicioAnoEscolaView.as_view(), name='est_inicio_ano_escola_fmt'),
     path('transferencias/verificar/<str:codigo>/', VerificarTransferenciaView.as_view(), name='transferencias_verificar'),
     path('transferencias/verificar/<str:codigo>', VerificarTransferenciaView.as_view(), name='transferencias_verificar_no_slash'),
     path('stats', AlunoStatsView.as_view(), name='alunos_stats_no_slash'),

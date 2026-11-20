@@ -1,0 +1,34 @@
+<!-- ===================================================================== -->
+<!-- SIGE | Estatística de Início do Ano (03/03) — da Turma -->
+<!-- Lógica partilhada em js/estatistica-inicio-ano.js -->
+<!-- ===================================================================== -->
+<section id="view-estatistica-inicio-turma" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="eiaTurmaAno" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('estatistica-inicio-turma')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="eiaTurmaConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="card p-4 no-print mb-4">
+      <h5 class="fw-bold mb-1"><i class="bi bi-people-fill text-primary me-2"></i>Estatística de Início do Ano (03/03) — da Turma</h5>
+      <p class="text-muted small mb-3">Idade, necessidades educativas especiais, órfãos, transporte e tempo de casa à escola, preenchidos automaticamente a partir das matrículas. No 2º Ciclo inclui a parte das disciplinas.</p>
+      <div class="row g-2">
+        <div class="col-md-4"><label class="form-label very-small text-muted mb-0">Classe</label>
+          <select id="eiaTurmaClasse" class="form-select form-select-sm"><option value="">-- Classe --</option></select></div>
+        <div class="col-md-4"><label class="form-label very-small text-muted mb-0">Secção / Área</label>
+          <select id="eiaTurmaArea" class="form-select form-select-sm"><option value="">-- Secção / Área --</option></select></div>
+        <div class="col-md-4"><label class="form-label very-small text-muted mb-0">Turma da Secção</label>
+          <select id="eiaTurmaTurma" class="form-select form-select-sm"><option value="">-- Turma --</option></select></div>
+      </div>
+    </div>
+    <div class="card p-4 printable-document bg-white" id="eiaTurmaDoc"></div>
+  </div>
+</section>

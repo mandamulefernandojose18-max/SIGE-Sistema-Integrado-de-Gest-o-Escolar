@@ -954,6 +954,21 @@
         <a class="nav-link py-1 small" href="#/estatisticas-aproveitamento" onclick="navegarPara('estatisticas-aproveitamento'); return false;" id="subnav-estatisticas-aproveitamento">
           <i class="bi bi-bar-chart-line-fill text-success me-1"></i> <span>Estatística de Aproveitamento</span>
         </a>
+        <a class="nav-link py-1 small d-flex align-items-center justify-content-between" href="javascript:void(0)" onclick="toggleSubmenuEstatisticaInicioAno(event)" id="subnav-estatistica-inicio-ano">
+          <span><i class="bi bi-calendar-check-fill text-primary me-1"></i> <span>Estatística início do ano (03/03)</span></span>
+          <i class="bi bi-chevron-down small" id="seta-estatistica-inicio-ano" style="transition: transform 0.2s;"></i>
+        </a>
+        <div id="subnav-grupo-estatistica-inicio-ano" class="ps-3 border-start ms-2" style="display: none;">
+          <a class="nav-link py-1 small" href="#/estatistica-inicio-turma" onclick="navegarPara('estatistica-inicio-turma'); return false;" id="subnav-estatistica-inicio-turma">
+            <i class="bi bi-people-fill text-primary me-1"></i> <span>Estatística da Turma</span>
+          </a>
+          <a class="nav-link py-1 small" href="#/estatistica-inicio-classe" onclick="navegarPara('estatistica-inicio-classe'); return false;" id="subnav-estatistica-inicio-classe">
+            <i class="bi bi-layers-fill text-primary me-1"></i> <span>Estatística da Classe</span>
+          </a>
+          <a class="nav-link py-1 small" href="#/estatistica-inicio-escola" onclick="navegarPara('estatistica-inicio-escola'); return false;" id="subnav-estatistica-inicio-escola">
+            <i class="bi bi-building text-primary me-1"></i> <span>Estatística Geral da Escola</span>
+          </a>
+        </div>
       </div>
       <a class="nav-link ped-only professor-only escola-admin-only" href="#/director-turma" onclick="navegarPara('director-turma'); return false;" id="nav-director-turma">
         <i class="bi bi-person-workspace text-warning"></i> <span>Painel Director de Turma</span>
@@ -1254,6 +1269,7 @@
 <script src="/js/config.js?v=20261025_1835"></script>
 <script src="/js/html2pdf.bundle.min.js"></script>
 <script src="/js/provas-anti-ia.js?v=20261108_1900"></script>
+<script src="/js/estatistica-inicio-ano.js?v=20261120_1000"></script>
 <script src="/js/login-guard.js?v=20261117_1500"></script>
 <script src="/js/login-bg.js?v=20261118_1500" defer></script>
 <script src="/js/login-fx.js?v=20261118_1500" defer></script>

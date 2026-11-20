@@ -1,0 +1,26 @@
+<!-- ===================================================================== -->
+<!-- SIGE | Estatística de Início do Ano (03/03) — Geral da Escola -->
+<!-- Lógica partilhada em js/estatistica-inicio-ano.js -->
+<!-- ===================================================================== -->
+<section id="view-estatistica-inicio-escola" class="modulo-view" style="display: none;">
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="eiaEscolaAno" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('estatistica-inicio-escola')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="eiaEscolaConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="card p-4 no-print mb-4">
+      <h5 class="fw-bold mb-1"><i class="bi bi-building text-primary me-2"></i>Estatística de Início do Ano (03/03) — Geral da Escola</h5>
+      <p class="text-muted small mb-0">Soma automática dos mapas das classes, em três grupos: 1º Ciclo, 2º Ciclo e 1º + 2º Ciclos.</p>
+    </div>
+    <div class="card p-4 printable-document bg-white" id="eiaEscolaDoc"></div>
+  </div>
+</section>
