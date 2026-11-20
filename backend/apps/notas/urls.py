@@ -13,15 +13,19 @@ from .views_exames import (
 )
 
 from .views_correcao import (
-    CorrecaoAlunoView, CorrecaoImagemFicheiroView, CorrecaoImagemUploadView, LancarCorrecoesView,
+    CorrecaoAlunoView, CorrecaoImagemFicheiroView, CorrecaoImagemUploadView, FolhasCorrigidasPdfView, LancarCorrecoesView,
     ProvaFisicaDetalheView, ProvasFisicasView,
 )
 
-from .views_omr import GabaritoImportarView, LeituraOmrView
+from .views_omr import ConfirmarOmrView, GabaritoImportarView, LeituraOmrView
 
 urlpatterns = [
     path('provas-fisicas/gabarito/importar', GabaritoImportarView.as_view(), name='provas_fisicas_gab_no_slash'),
     path('provas-fisicas/gabarito/importar/', GabaritoImportarView.as_view(), name='provas_fisicas_gab'),
+    path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/confirmar-omr', ConfirmarOmrView.as_view(), name='provas_fisicas_confirmar_omr_no_slash'),
+    path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/confirmar-omr/', ConfirmarOmrView.as_view(), name='provas_fisicas_confirmar_omr'),
+    path('provas-fisicas/<uuid:pk>/folhas-corrigidas', FolhasCorrigidasPdfView.as_view(), name='provas_fisicas_pdf_no_slash'),
+    path('provas-fisicas/<uuid:pk>/folhas-corrigidas/', FolhasCorrigidasPdfView.as_view(), name='provas_fisicas_pdf'),
     path('provas-fisicas/<uuid:pk>/leitura-omr', LeituraOmrView.as_view(), name='provas_fisicas_omr_no_slash'),
     path('provas-fisicas/<uuid:pk>/leitura-omr/', LeituraOmrView.as_view(), name='provas_fisicas_omr'),
     path('provas-fisicas', ProvasFisicasView.as_view(), name='provas_fisicas_no_slash'),

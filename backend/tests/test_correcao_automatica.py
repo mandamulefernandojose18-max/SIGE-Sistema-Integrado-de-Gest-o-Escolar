@@ -1,4 +1,4 @@
-"""Correcção automática: importação do gabarito e leitura óptica da folha pela API (fluxo completo, isolamento
+﻿"""Correcção automática: importação do gabarito e leitura óptica da folha pela API (fluxo completo, isolamento
 e permissões). As fotografias são simuladas (ver test_omr_leitura); os registos existem só na base de testes.
 """
 import cv2
@@ -167,6 +167,37 @@ class TestCorreccaoAutomaticaApi:
         g = c.put(f'{BASE}{prova["id"]}/correcoes/{self.aluno.id}/', {'respostas': p['respostas'], 'versao': ''}, format='json')
         assert g.status_code == 200, g.data
         assert g.data['data']['nota'] == 18.0 and g.data['data']['estado'] == 'CORRIGIDA'
+
+    def test_confirmar_corrige_lanca_descarrega_pdf_e_elimina(self):
+        import base64
+
+        from apps.notas.models import Nota
+        prova = self._prova()
+        c = self._como(self.professor)
+        p = c.post(f'{BASE}{prova["id"]}/leitura-omr/', {'ficheiro': self._foto('ABCDAB-DAB')}, format='multipart').data['data']['paginas'][0]
+        url = f'{BASE}{prova["id"]}/correcoes/{self.aluno.id}/'
+        r = c.post(url + 'confirmar-omr/', {'respostas': 'ABCDABNDAB', 'versao': '', 'imagem': p['imagem']}, format='json')
+        assert r.status_code == 200, r.data
+        assert r.data['data']['nota'] == 18.0 and r.data['data']['respostas'] == 'ABCDABNDAB'   # nula vale 0
+        assert r.data['imagem'] and not r.data['aviso_imagem']
+        assert r.data['lancamento'] == {'ok': True} and r.data['data']['estado'] == 'LANCADA'
+        assert Nota.objects.filter(aluno=self.aluno, periodo='1_TRIMESTRE').exists()
+        # PDF das folhas corrigidas (do aluno e da turma)
+        for q in ('?carimbo=nao', f'?aluno_id={self.aluno.id}&carimbo=nao'):
+            pdf = c.get(f'{BASE}{prova["id"]}/folhas-corrigidas/{q}')
+            assert pdf.status_code == 200 and pdf['Content-Type'] == 'application/pdf' and pdf.content[:5] == b'%PDF-'
+        assert self._como(self.director).get(f'{BASE}{prova["id"]}/folhas-corrigidas/?carimbo=nao').status_code == 200   # só consulta
+        assert 'Avaliacao corrigida - Matem' in pdf['Content-Disposition'] or 'Avaliacao%20corrigida' in pdf['Content-Disposition']
+        assert '2026' in pdf['Content-Disposition']
+        # eliminar: só a prova corrigida (PDF); a correcção e a nota na caderneta ficam; o director não pode
+        assert self._como(self.director).delete(url).status_code == 403
+        d = c.delete(url)
+        assert d.status_code == 200
+        dados = c.get(url).data['data']
+        assert dados['imagens'] == [] and dados['estado'] == 'LANCADA' and dados['nota'] == 18.0
+        assert Nota.objects.filter(aluno=self.aluno, periodo='1_TRIMESTRE').exists()
+        assert c.get(f'{BASE}{prova["id"]}/folhas-corrigidas/?carimbo=nao').status_code == 404
+        assert c.delete(url).status_code == 404
 
     def test_leitura_recusa_folha_de_outra_escola_e_de_outra_prova(self):
         prova = self._prova()

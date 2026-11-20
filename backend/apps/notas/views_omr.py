@@ -50,6 +50,85 @@ class GabaritoImportarView(APIView):
         return Response({'success': True, 'data': dados})
 
 
+class ConfirmarOmrView(APIView):
+    """Confirma a leitura de uma folha: grava a correcção, desenha a folha corrigida (modelo do professor) e lança na caderneta.
+
+    POST /api/v1/notas/provas-fisicas/<id>/correcoes/<aluno_id>/confirmar-omr/
+         {respostas, versao, imagem (JPEG data-URL da folha endireitada, opcional), lancar (bool, por omissão true)}
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def post(self, request, pk, aluno_id):
+        import base64
+        import os
+        import uuid
+
+        from django.conf import settings
+
+        from . import correcao_servico as svc
+        from .models import CorrecaoImagem
+        from .views_correcao import _correcao_json
+
+        escola, prova, erro = _prova(request, pk, escrita=True)
+        if erro:
+            return erro
+        if prova.tipo != 'MULTIPLA_ESCOLHA':
+            return _erro('A confirmação automática só serve para provas de escolha múltipla.')
+        aluno = Aluno.objects.filter(id=aluno_id, escola=escola, turma=prova.turma).first()
+        if not aluno:
+            return _erro('Aluno não encontrado nesta turma.', 404)
+        try:
+            corr = svc.gravar_correcao(prova, aluno, None, request.user, respostas=request.data.get('respostas'),
+                                       versao=request.data.get('versao') or '')
+        except svc.ErroCorrecao as e:
+            return _erro(str(e))
+
+        # ---- folha corrigida (vistos, círculos, acertos, nota e nome do professor, a vermelho) ----
+        imagem_json, aviso_imagem = None, ''
+        bruto = request.data.get('imagem') or ''
+        if bruto.startswith('data:image/jpeg;base64,') and corr.respostas:
+            try:
+                cv2, np = omr._cv()
+                dados = base64.b64decode(bruto.split(',', 1)[1], validate=False)
+                if len(dados) > 6 * 1024 * 1024:
+                    raise omr.ErroOMR('Imagem demasiado grande.')
+                img = cv2.imdecode(np.frombuffer(dados, np.uint8), cv2.IMREAD_COLOR)
+                if img is None:
+                    raise omr.ErroOMR('Imagem inválida.')
+                chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
+                n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
+                acertos = sum(1 for a, b in zip(corr.respostas, chave) if a == b)
+                nome_prof = getattr(request.user, 'nome', '') or request.user.get_username()
+                jpg = omr.anotar_folha(img, n_mc, prova.n_alternativas, corr.respostas, chave, acertos, corr.nota, nome_prof)
+                for antiga in list(corr.imagens.all()):     # a folha corrigida substitui a leitura anterior
+                    svc.apagar_imagem(antiga)
+                pasta = svc.raiz_imagens(escola)
+                os.makedirs(pasta, exist_ok=True)
+                nome = f'{uuid.uuid4().hex}.jpg'
+                with open(os.path.join(pasta, nome), 'wb') as f:
+                    f.write(jpg)
+                im = CorrecaoImagem.objects.create(
+                    escola=escola, correcao=corr, caminho=f'{svc._pasta_escola(escola)}/{nome}'.replace('\\', '/'),
+                    tipo='image/jpeg', tamanho=len(jpg), ordem=1)
+                from .views_correcao import _imagem_json
+                imagem_json = _imagem_json(im)
+            except Exception as e:                     # a correcção já está gravada; a imagem é um extra
+                aviso_imagem = f'Não foi possível desenhar a folha corrigida: {e}'
+
+        # ---- lançamento automático na caderneta ----
+        lancamento = None
+        if request.data.get('lancar', True) is not False and corr.estado == 'CORRIGIDA':
+            try:
+                svc.lancar_na_caderneta(request, escola, corr)
+                lancamento = {'ok': True}
+            except svc.ErroCorrecao as e:
+                lancamento = {'ok': False, 'message': str(e)}
+        corr.refresh_from_db()
+        return Response({'success': True, 'data': _correcao_json(corr), 'imagem': imagem_json,
+                         'aviso_imagem': aviso_imagem, 'lancamento': lancamento})
+
+
 class LeituraOmrView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -64,7 +143,7 @@ class LeituraOmrView(APIView):
         if not ficheiro:
             return _erro('Envie a fotografia ou o PDF digitalizado das folhas.')
         if ficheiro.size > omr.MAX_BYTES:
-            return _erro('Ficheiro demasiado grande (máximo 15 MB).')
+            return _erro('Ficheiro demasiado grande (máximo 60 MB).')
         dados = ficheiro.read(omr.MAX_BYTES + 1)
         try:
             ini = max(0, int(request.data.get('pagina_ini') or 0))

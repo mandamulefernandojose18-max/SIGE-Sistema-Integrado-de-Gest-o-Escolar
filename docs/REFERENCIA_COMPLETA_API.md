@@ -1,3 +1,6 @@
+﻿| `POST /provas-fisicas/<id>/correcoes/<aluno_id>/confirmar-omr/` | Confirma a folha lida (JSON `{respostas, versao, imagem, lancar}`): grava a correcção, desenha a folha corrigida a vermelho (vistos, círculos, acertos, nota, nome do professor, «Nula») e lança na caderneta. Devolve `data`, `imagem`, `aviso_imagem`, `lancamento{ok,message}`. Só o professor alocado/SUPERADMIN. |
+| `GET /provas-fisicas/<id>/folhas-corrigidas/[?aluno_id=]` | PDF com as folhas corrigidas (aluno ou turma), «Avaliacao corrigida - Disciplina - Tipo - Ano.pdf»; exige `?carimbo=sim\|nao`. 404 se não houver folhas. |
+| `DELETE /provas-fisicas/<id>/correcoes/<aluno_id>/` | Elimina só a prova corrigida (PDF/folha) do aluno; a correcção e a nota na caderneta não mudam. |
 # 🔌 Catálogo de Endpoints da API RESTful — SIGE (v2.5.0)
 
 > **Especificação RESTful da API Backend**  
@@ -399,4 +402,4 @@ Isolado por escola. Escrita: professor alocado à turma e disciplina (ou SUPERAD
 | `GET\|DELETE /provas-fisicas/imagens/<img_id>/` | Ficheiro autenticado / remoção. |
 | `POST /provas-fisicas/<id>/lancar/` | Lança na caderneta as correcções `CORRIGIDA` (opcional `aluno_ids`); respeita prazos, pauta fechada e auditoria. |
 | `POST /provas-fisicas/gabarito/importar/` | Proposta de chave a partir de `ficheiro` (PDF com texto, DOCX, XLSX, CSV, TXT; 5 MB) ou `texto`. Devolve `{versoes:{"-"\|"A":[letras]}, n_perguntas, n_alternativas, lacunas, avisos}`; nada é gravado. Só professor/SUPERADMIN. |
-| `POST /provas-fisicas/<id>/leitura-omr/` | Leitura óptica da Folha de Resposta (multipart: `ficheiro` JPG/PNG/PDF até 15 MB, `pagina_ini`). Até 2 páginas por pedido; devolve `total_paginas`, `proxima` e, por página, `ok`, `erro`, `aluno` (do QR assinado), `versao`, `respostas` (letras, `-` em branco, `*` dúvida), `duvidas[{n,motivo,candidatas}]`, `avisos`, `previa` e `imagem` (JPEG em data-URL). **Não grava**; só provas de escolha múltipla; mesmas permissões da correcção. |
+| `POST /provas-fisicas/<id>/leitura-omr/` | Leitura óptica da Folha de Resposta (multipart: `ficheiro` JPG/PNG/PDF até 60 MB, `pagina_ini`). Até 2 páginas por pedido; devolve `total_paginas`, `proxima` e, por página, `ok`, `erro`, `aluno` (do QR assinado), `versao`, `respostas` (letras, `-` em branco, `N` nula, `*` dúvida), `duvidas[{n,motivo,candidatas}]`, `avisos`, `previa` e `imagem` (JPEG em data-URL). **Não grava**; só provas de escolha múltipla; mesmas permissões da correcção. |

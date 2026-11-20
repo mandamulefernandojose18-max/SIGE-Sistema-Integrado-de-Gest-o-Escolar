@@ -180,7 +180,7 @@
         <div class="card-header fw-semibold"><i class="bi bi-lightning-charge me-1"></i> Passo 2 · Carregar as provas dos alunos para correcção automática</div>
         <div class="card-body">
           <div class="alert alert-secondary py-2 small mb-2" id="cpAutoAviso"></div>
-          <div class="small text-muted mb-2">As provas têm de ser as <strong>Folhas de Resposta geradas pelo sistema</strong> (modelo oficial com os 4 cantos pretos e o QR). Fotografe (de cima, folha inteira, com os 4 cantos pretos visíveis e boa luz) ou digitalize as folhas, em lote. O sistema lê as bolhas e identifica o aluno pelo QR. Dúvidas (duas marcas, rasuras, marca fraca) ficam para si; <strong>nada é gravado sem a sua confirmação</strong>.</div>
+          <div class="small text-muted mb-2">As provas têm de ser as <strong>Folhas de Resposta geradas pelo sistema</strong> (modelo oficial com os 4 cantos pretos e o QR). Fotografe (de cima, folha inteira, com os 4 cantos pretos visíveis e boa luz) ou digitalize as folhas, em lote. O sistema lê as bolhas e identifica o aluno pelo QR. Só vale a tinta <strong>azul ou preta</strong>. Dúvidas (duas marcas, rasuras, marca fraca, tinta de outra cor) ficam para si. Ao confirmar, o sistema corrige a folha <strong>a vermelho</strong> (visto nas certas, círculo na alternativa certa das erradas, acertos, nota e o seu nome na assinatura) e <strong>lança a nota na caderneta</strong>.</div>
           <div class="row g-2 align-items-end">
             <div class="col-12 col-md">
               <label class="form-label small mb-1" for="cpAutoFicheiros">Folhas (JPG, PNG ou PDF; pode escolher vários)</label>
@@ -256,6 +256,7 @@
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span class="fw-semibold" id="cpCabProva"></span>
           <span class="badge text-bg-secondary" id="cpResumoProva"></span>
+          <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="cpBtnPdfTodas"><i class="bi bi-file-earmark-pdf me-1"></i>Descarregar todas as provas corrigidas (PDF)</button>
         </div>
       </div>
 
@@ -276,6 +277,10 @@
               </div>
             </div>
             <div id="cpImagens" class="border rounded p-2 mb-2 bg-body-tertiary text-center small text-muted" style="min-height:160px;max-height:62vh;overflow:auto;"></div>
+            <div id="cpAcoesFolha" class="d-flex flex-wrap gap-2 mb-2 d-none">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="cpBtnPdfAluno"><i class="bi bi-file-earmark-pdf me-1"></i>Descarregar prova corrigida (PDF)</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="cpBtnElimCorr"><i class="bi bi-trash me-1"></i>Eliminar prova corrigida (PDF)</button>
+            </div>
             <label class="btn btn-sm btn-outline-primary mb-0" for="cpFicheiro"><i class="bi bi-camera me-1"></i>Adicionar página (foto, PNG, JPG ou PDF)</label>
             <input id="cpFicheiro" type="file" class="d-none" accept="image/png,image/jpeg,application/pdf" capture="environment">
             <span class="small text-muted ms-2">Máx. 6 páginas · 8 MB cada</span>

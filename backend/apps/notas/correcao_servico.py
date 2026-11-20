@@ -1,4 +1,4 @@
-"""
+﻿"""
 SIGE — Correcção assistida de provas físicas.
 
 O professor digitaliza/fotografa a prova, atribui pontos por pergunta numa grelha de cotações e o sistema
@@ -119,9 +119,9 @@ def _pontos_escolha_multipla(prova, pontos, respostas, versao):
         return [None if p.get('tipo') == 'MC' else saida[i] for i, p in enumerate(prova.perguntas)], ''
     if len(limpas) != n_mc:
         raise ErroCorrecao(f'Envie as {n_mc} respostas assinaladas (use "-" para em branco).')
-    invalidas = sorted({c for c in limpas if c not in letras and c != '-'})
+    invalidas = sorted({c for c in limpas if c not in letras and c not in '-N'})
     if invalidas:
-        raise ErroCorrecao(f'Respostas inválidas ({", ".join(invalidas)}): use apenas {", ".join(letras)} ou "-".')
+        raise ErroCorrecao(f'Respostas inválidas ({", ".join(invalidas)}): use apenas {", ".join(letras)}, "-" (em branco) ou "N" (nula).')
     for i, p in enumerate(prova.perguntas):
         if p.get('tipo') == 'MC':
             saida[i] = p['cotacao'] if limpas[i] == chave[i] else 0

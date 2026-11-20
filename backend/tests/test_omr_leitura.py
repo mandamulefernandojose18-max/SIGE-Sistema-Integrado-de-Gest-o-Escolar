@@ -150,12 +150,35 @@ def test_em_branco_dupla_e_marca_fraca():
     img = _pintar(_renderizar(_desenhar_folha_pdf(10, 4)), 10, 4, marcas)
     res = _ler(_fotografar(img), n=10)
     assert res['respostas'][0] == 'A'
-    assert res['respostas'][1] == '*'
+    assert res['respostas'][1] == 'N'          # mais de uma alternativa: questão nula, sem dúvida
     assert res['respostas'][2] == '-'
     assert res['respostas'][3] == 'D'
     d = {x['n']: x for x in res['duvidas']}
-    assert d[2]['motivo'] == 'DUPLA' and set(d[2]['candidatas']) == {'B', 'C'}
-    assert 3 not in d and 1 not in d
+    assert 2 not in d and 3 not in d and 1 not in d
+
+
+def test_tinta_vermelha_nao_conta_como_resposta():
+    import numpy as np
+    img = _pintar(_renderizar(_desenhar_folha_pdf(10, 4)), 10, 4, {1: 'B'})
+    cels, _, _, _ = omr.celulas_grelha(10, 4)
+    # pinta a alternativa B da pergunta 1 a vermelho (tinta do professor): não é resposta válida
+    q, i, cx, cy, lw, lh = [c for c in cels if c[0] == 0 and c[1] == 1][0]
+    esc = img.shape[1] / 210.0
+    x0, x1, y0, y1 = int((cx - lw / 2) * esc), int((cx + lw / 2) * esc), int((cy - lh / 2) * esc), int((cy + lh / 2) * esc)
+    img[y0:y1, x0:x1] = (30, 30, 220)
+    res = _ler(_fotografar(img), n=10)
+    assert res['respostas'][0] == '-'
+    assert any(x['motivo'] == 'COR' and x['n'] == 1 for x in res['duvidas'])
+
+
+def test_folha_corrigida_desenha_a_vermelho():
+    import numpy as np
+    img = _renderizar(_desenhar_folha_pdf(10, 4))
+    jpg = omr.anotar_folha(img, 10, 4, 'ABN-CDABCD', 'ABCDABCDAB', 3, 1.5, 'Prof. Teste')
+    out = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR)
+    b, g, r = out[..., 0].astype(int), out[..., 1].astype(int), out[..., 2].astype(int)
+    vermelho = ((r - b) > 90) & ((r - g) > 90)
+    assert vermelho.sum() > 2000                # vistos, círculos, acertos, nota, "Nula" e nome
 
 
 def test_marca_leve_pede_confirmacao():

@@ -106,6 +106,7 @@ def _prova_json(p):
         'id': str(p.id), 'titulo': p.titulo, 'turma_id': str(p.turma_id), 'turma_nome': p.turma.nome,
         'disciplina_id': str(p.disciplina_id), 'disciplina_nome': p.disciplina.nome, 'periodo': p.periodo,
         'instrumento': p.instrumento, 'perguntas': p.perguntas, 'cotacao_total': p.cotacao_total,
+        'instrumento_nome': p.get_instrumento_display(), 'ano_letivo': p.turma.ano_letivo,
         'tipo': p.tipo, 'n_alternativas': p.n_alternativas, 'versoes': [v for v in (p.versoes or []) if v],
         'created_at': p.created_at.isoformat(),  # o gabarito nunca sai da API
     }
@@ -247,6 +248,65 @@ class CorrecaoAlunoView(APIView):
         except svc.ErroCorrecao as e:
             return _erro(str(e))
         return Response({'success': True, 'data': _correcao_json(corr)})
+
+    def delete(self, request, pk, aluno_id):
+        """Elimina a prova corrigida (o PDF/folha corrigida) do aluno. A correcção e a nota na caderneta NÃO se alteram."""
+        escola, prova, erro = _prova(request, pk, escrita=True)
+        if erro:
+            return erro
+        aluno = self._aluno(escola, prova, aluno_id)
+        if not aluno:
+            return _erro('Aluno não encontrado nesta turma.', 404)
+        corr = CorrecaoProva.objects.filter(prova=prova, aluno=aluno).prefetch_related('imagens').first()
+        imagens = list(corr.imagens.all()) if corr else []
+        if not imagens:
+            return _erro('Este aluno não tem prova corrigida para eliminar.', 404)
+        for img in imagens:
+            svc.apagar_imagem(img)
+        return Response({'success': True, 'message': 'Prova corrigida eliminada. A nota e a caderneta não foram alteradas.'})
+
+
+class FolhasCorrigidasPdfView(APIView):
+    """PDF com as folhas corrigidas (uma por página A4): de um aluno (?aluno_id=) ou de toda a turma da prova."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        import re
+
+        import fitz
+        from django.http import HttpResponse
+
+        escola, prova, erro = _prova(request, pk)
+        if erro:
+            return erro
+        qs = CorrecaoProva.objects.filter(prova=prova).select_related('aluno').prefetch_related('imagens')
+        aluno_id = request.query_params.get('aluno_id')
+        if aluno_id:
+            qs = qs.filter(aluno_id=_uuid(aluno_id))
+        qs = qs.order_by('aluno__nome')
+        doc = fitz.open()
+        for corr in qs:
+            for img in corr.imagens.order_by('ordem'):
+                caminho = svc.caminho_seguro(img)
+                if not caminho or img.tipo not in ('image/jpeg', 'image/png'):
+                    continue
+                pagina = doc.new_page(width=595.28, height=841.89)
+                pagina.insert_image(pagina.rect, filename=caminho, keep_proportion=True)
+        if doc.page_count == 0:
+            doc.close()
+            return _erro('Ainda não há folhas corrigidas para descarregar.', 404)
+        dados = doc.tobytes(deflate=True)
+        doc.close()
+        # Nome: Avaliacao corrigida - Disciplina - Tipo de avaliação - Ano
+        nome = f'Avaliacao corrigida - {prova.disciplina.nome} - {prova.get_instrumento_display()} - {prova.turma.ano_letivo}'
+        nome = re.sub(r'[\\/:*?"<>|\r\n]+', ' ', nome).strip()
+        from urllib.parse import quote
+        ascii_ = re.sub(r'[^A-Za-z0-9._ -]+', '', nome.encode('ascii', 'ignore').decode()) or 'Avaliacao corrigida'
+        resp = HttpResponse(dados, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="{ascii_}.pdf"; filename*=UTF-8\'\'{quote(nome)}.pdf\''
+        resp['Cache-Control'] = 'private, no-store'
+        resp['X-Content-Type-Options'] = 'nosniff'
+        return resp
 
 
 class CorrecaoImagemUploadView(APIView):
