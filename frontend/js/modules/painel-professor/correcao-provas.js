@@ -103,7 +103,7 @@
     var av = $('cpAutoAviso');
     if (!av) return;
     var ok = !!(prova && prova.tipo === 'MULTIPLA_ESCOLHA' && prova.alunos && prova.alunos.length);
-    $('cpAutoFicheiros').disabled = !ok; $('cpAutoLer').disabled = !ok;
+    $('cpAutoFicheiros').disabled = false; $('cpAutoLer').disabled = false;
     if (ok) {
       av.className = 'alert alert-success py-2 small mb-2';
       av.innerHTML = '<i class="bi bi-check-circle me-1"></i>As folhas serão corrigidas com o gabarito da prova <strong>' + esc(prova.titulo) + '</strong> (' +
@@ -117,7 +117,7 @@
       av.textContent = 'Esta turma não tem alunos activos.';
     } else {
       av.className = 'alert alert-secondary py-2 small mb-2';
-      av.textContent = 'Escolha a turma, a disciplina, o trimestre e a prova, ou crie a prova no Passo 1 com o gabarito importado, para poder carregar as provas dos alunos.';
+      av.textContent = 'Pode já escolher as folhas dos alunos. Para as ler, escolha a turma, a disciplina, o trimestre e a prova, ou crie a prova no Passo 1 com o gabarito importado.';
     }
   }
 
@@ -562,7 +562,7 @@
   }
   async function lerFolhas() {
     var fich = Array.prototype.slice.call($('cpAutoFicheiros').files || []);
-    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') return;
+    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') { toast('Primeiro escolha ou crie a prova de escolha múltipla (Passo 1) com o gabarito.', 'warning'); return; }
     if (!fich.length) { toast('Escolha as fotografias ou PDFs das folhas.', 'warning'); return; }
     lote = []; loteProva = prova.id; revIdx = -1;
     var prog = $('cpAutoProgresso'); $('cpAutoLer').disabled = true;
