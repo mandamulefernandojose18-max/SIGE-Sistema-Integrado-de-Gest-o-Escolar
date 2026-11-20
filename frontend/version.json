@@ -1,11 +1,8 @@
 ﻿{
-  "version": "2.9.79",
-  "build": "20261120_1200",
+  "version": "2.9.80",
+  "build": "20261120_1800",
   "data": "2026-11-20",
-  "nome": "SIGE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Sistema Integrado de GestÃƒÆ’Ã‚Â£o Escolar",
-  "descricao": "Sistema Integrado de GestÃƒÆ’Ã‚Â£o Escolar (SaaS)",
-  "novidades": "Correccao assistida de provas fisicas: pontos por pergunta ou, na escolha multipla, correccao automatica contra a chave da Folha de Resposta gerada no sistema; paginas digitalizadas com acesso autenticado; lancamento na caderneta so apos confirmacao do professor."
+  "nome": "SIGE — Sistema Integrado de Gestão Escolar",
+  "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
+  "novidades": "Correccao automatica de provas de escolha multipla: importar o gabarito (PDF, Word, Excel, CSV ou texto), ler as Folhas de Resposta por fotografia ou PDF (leitura optica com QR), rever as duvidas e confirmar antes de gravar."
 }
-
-
-

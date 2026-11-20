@@ -194,6 +194,8 @@
     $('cpAreaCorreccao').classList.remove('d-none');
     $('cpBtnEliminar').classList.remove('d-none');
     $('cpCotTotal').textContent = fmt(prova.cotacao_total);
+    $('cpCartaoAuto').classList.toggle('d-none', prova.tipo !== 'MULTIPLA_ESCOLHA');
+    if (loteProva && loteProva !== prova.id) { lote = []; loteProva = ''; revIdx = -1; $('cpAutoProgresso').textContent = ''; painelLote(); }
     if (!prova.alunos.length) { estadoVazio('Esta turma não tem alunos activos.'); return; }
     preencherAlunos();
     mostrarAluno(Math.min(idxAluno, prova.alunos.length - 1));
@@ -410,8 +412,206 @@
     await carregarProvas();
   }
 
+  // ---------- Passo 1b: importar o gabarito (só propõe; o professor revê nas caixas da chave) ----------
+  async function importarGabarito() {
+    var f = $('cpGabFicheiro').files && $('cpGabFicheiro').files[0], texto = $('cpGabTexto').value.trim();
+    var box = $('cpGabAvisos');
+    if (!f && !texto) { toast('Escolha um ficheiro ou cole a chave de correcção.', 'warning'); return; }
+    var res;
+    if (f) { var fd = new FormData(); fd.append('ficheiro', f); res = await chamar(API + 'gabarito/importar/', { method: 'POST', headers: cab(), body: fd }); }
+    else res = await chamar(API + 'gabarito/importar/', json('POST', { texto: texto }));
+    box.classList.remove('d-none');
+    if (!res.ok) { box.className = 'small mt-2 text-danger'; box.textContent = msg(res); return; }
+    var d = res.json.data, chaves = Object.keys(d.versoes);
+    $('cpNPerg').value = d.n_perguntas; $('cpNAlt').value = d.n_alternativas;
+    $('cpVersoes').value = chaves.filter(function (v) { return v !== '-'; }).join(' ');
+    desenharGabaritos();
+    chaves.forEach(function (v) {
+      var el = document.querySelector('#cpGabaritos .cp-gab[data-v="' + (v === '-' ? '' : v) + '"]');
+      if (el) el.value = d.versoes[v].map(function (l) { return l || '?'; }).join('');
+    });
+    box.className = 'small mt-2 text-success';
+    box.innerHTML = '<i class="bi bi-check-circle me-1"></i>Chave lida: ' + d.n_perguntas + ' perguntas, ' + d.n_alternativas + ' alternativas. Confira nas caixas da chave abaixo (corrija o que estiver mal; «?» = sem resposta lida) e depois crie a prova.' +
+      (d.avisos || []).map(function (a) { return '<div class="text-muted">• ' + esc(a) + '</div>'; }).join('');
+  }
+
+  // ---------- Passo 2: correcção automática das folhas (leitura óptica) ----------
+  var lote = [], loteProva = '', revIdx = -1;
+  var LETRAS = 'ABCDEF';
+
+  function precisaRevisao(it) {
+    if (it.estado !== 'pendente') return false;
+    var exigeVersao = prova && (prova.versoes || []).length > 0;
+    return !it.aluno_id || it.respostas.indexOf('*') >= 0 || (it.duvidas || []).length > 0 || (it.avisos || []).length > 0 || (exigeVersao && !it.versao);
+  }
+  function visiveis() {
+    var f = $('cpAutoFiltro').value;
+    return lote.map(function (it, i) { return i; }).filter(function (i) {
+      var it = lote[i];
+      if (f === 'feitas') return it.estado === 'confirmada';
+      if (f === 'todas') return it.estado === 'pendente';
+      return precisaRevisao(it) || it.estado === 'erro';
+    });
+  }
+  function resumoLote() {
+    var n = lote.length, conf = 0, lim = 0, rev = 0, err = 0;
+    lote.forEach(function (it) {
+      if (it.estado === 'confirmada') conf++;
+      else if (it.estado === 'erro') err++;
+      else if (it.estado === 'pendente') { if (precisaRevisao(it)) rev++; else lim++; }
+    });
+    $('cpAutoResumo').innerHTML = '<strong>' + n + '</strong> página(s) lida(s): <span class="text-success">' + lim + ' sem dúvidas</span> · <span class="text-warning-emphasis">' + rev + ' para rever</span> · <span class="text-danger">' + err + ' com erro</span> · ' + conf + ' confirmada(s)';
+    $('cpAutoConfirmarLimpas').disabled = !lim;
+  }
+  function marcarRepetidos() {
+    var vistos = {};
+    lote.forEach(function (it) {
+      if (!it.aluno_id || it.estado === 'erro') return;
+      if (vistos[it.aluno_id]) { var av = 'Aluno já aparece noutra folha deste lote: confirme qual é a certa.'; if (it.avisos.indexOf(av) < 0) it.avisos.push(av); }
+      vistos[it.aluno_id] = true;
+    });
+  }
+  function painelLote() {
+    $('cpAutoPainel').classList.toggle('d-none', !lote.length);
+    resumoLote();
+    var vis = visiveis();
+    if (!vis.length) { revIdx = -1; $('cpAutoRevisao').classList.add('d-none'); $('cpAutoPos').textContent = ''; return; }
+    if (vis.indexOf(revIdx) < 0) revIdx = vis[0];
+    $('cpAutoRevisao').classList.remove('d-none');
+    mostrarRevisao(vis);
+  }
+  function mostrarRevisao(vis) {
+    var it = lote[revIdx];
+    $('cpAutoPos').textContent = (vis.indexOf(revIdx) + 1) + ' de ' + vis.length;
+    if (it.estado === 'erro') {
+      $('cpAutoImg').removeAttribute('src');
+      $('cpAutoAvisos').innerHTML = '<div class="text-danger"><i class="bi bi-x-circle me-1"></i>' + esc(it.origem + ' · pág. ' + it.pagina + ': ' + it.erro) + '</div>';
+      $('cpAutoDuvidas').innerHTML = ''; $('cpAutoLida').textContent = '';
+      $('cpAutoConfirmar').disabled = true;
+      return;
+    }
+    $('cpAutoConfirmar').disabled = it.estado !== 'pendente';
+    $('cpAutoImg').src = it.previa;
+    var alunos = prova.alunos.map(function (a) { return '<option value="' + esc(a.aluno_id) + '">' + esc(a.nome) + ' — ' + rotuloEstado(a.correcao) + '</option>'; }).join('');
+    $('cpAutoAluno').innerHTML = '<option value="">-- Escolha o aluno --</option>' + alunos;
+    $('cpAutoAluno').value = it.aluno_id || '';
+    var vs = prova.versoes || [];
+    $('cpAutoBlocoVersao').classList.toggle('d-none', !vs.length);
+    $('cpAutoVersao').innerHTML = '<option value="">-- Versão --</option>' + vs.map(function (v) { return '<option>' + esc(v) + '</option>'; }).join('');
+    $('cpAutoVersao').value = it.versao || '';
+    $('cpAutoAvisos').innerHTML = (it.avisos || []).map(function (a) { return '<div class="text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>' + esc(a) + '</div>'; }).join('') || '<div class="text-success"><i class="bi bi-check-circle me-1"></i>Sem avisos.</div>';
+    var motivo = { DUPLA: 'duas marcas', RASURA: 'rasura ao lado', FRACA: 'marca fraca' };
+    $('cpAutoDuvidas').innerHTML = (it.duvidas || []).map(function (d) {
+      var ops = '<option value="">-- escolha --</option>' + LETRAS.slice(0, prova.n_alternativas).split('').map(function (l) { return '<option>' + l + '</option>'; }).join('') + '<option value="-">em branco</option>';
+      return '<div class="d-flex align-items-center gap-2 mb-1"><span class="small" style="width:12rem">Pergunta <strong>' + d.n + '</strong> (' + (motivo[d.motivo] || d.motivo) + '; lido: ' + d.candidatas.join('/') + ')</span>' +
+        '<select class="form-select form-select-sm w-auto cp-auto-duv" data-n="' + d.n + '">' + ops + '</select></div>';
+    }).join('');
+    document.querySelectorAll('#cpAutoDuvidas .cp-auto-duv').forEach(function (s) { var n = s.getAttribute('data-n'); if (it.resolvidas && it.resolvidas[n]) s.value = it.resolvidas[n]; });
+    $('cpAutoLida').textContent = it.respostas.join('');
+  }
+  function guardarCamposRevisao() {
+    var it = lote[revIdx]; if (!it || it.estado === 'erro') return;
+    it.aluno_id = $('cpAutoAluno').value; it.versao = $('cpAutoVersao').value || it.versao;
+    it.resolvidas = it.resolvidas || {};
+    document.querySelectorAll('#cpAutoDuvidas .cp-auto-duv').forEach(function (s) { it.resolvidas[s.getAttribute('data-n')] = s.value; });
+  }
+  function respostasFinais(it) {
+    var r = it.respostas.slice(), faltam = 0;
+    (it.duvidas || []).forEach(function (d) { var v = it.resolvidas && it.resolvidas[d.n]; if (v) r[d.n - 1] = v; });
+    r.forEach(function (c) { if (c === '*') faltam++; });
+    return { texto: r.join(''), faltam: faltam };
+  }
+  async function enviarItem(it) {
+    var fin = respostasFinais(it);
+    if (!it.aluno_id) return 'Escolha o aluno.';
+    if (fin.faltam) return 'Resolva as dúvidas assinaladas (' + fin.faltam + ').';
+    if ((prova.versoes || []).length && !it.versao) return 'Escolha a versão da folha.';
+    var res = await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(it.aluno_id) + '/', json('PUT', { respostas: fin.texto, versao: it.versao || '' }));
+    if (!res.ok) return msg(res);
+    try {   // arquiva a página endireitada como prova digitalizada do aluno (acesso autenticado)
+      var blob = await (await fetch(it.imagem)).blob(), fd = new FormData();
+      fd.append('ficheiro', blob, 'folha.jpg');
+      await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(it.aluno_id) + '/imagens/', { method: 'POST', headers: cab(), body: fd });
+    } catch (_) { /* a correcção já ficou gravada; a imagem é um extra */ }
+    it.estado = 'confirmada'; it.nota = res.json.data.nota;
+    return '';
+  }
+  async function lerFolhas() {
+    var fich = Array.prototype.slice.call($('cpAutoFicheiros').files || []);
+    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') return;
+    if (!fich.length) { toast('Escolha as fotografias ou PDFs das folhas.', 'warning'); return; }
+    lote = []; loteProva = prova.id; revIdx = -1;
+    var prog = $('cpAutoProgresso'); $('cpAutoLer').disabled = true;
+    try {
+      for (var k = 0; k < fich.length; k++) {
+        var ini = 0;
+        while (ini !== null) {
+          prog.textContent = 'A ler ' + fich[k].name + ' (' + (k + 1) + '/' + fich.length + ')' + (ini ? ' — a partir da página ' + (ini + 1) : '') + '…';
+          var fd = new FormData(); fd.append('ficheiro', fich[k]); fd.append('pagina_ini', ini);
+          var res = await chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/', { method: 'POST', headers: cab(), body: fd });
+          if (!res.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: ini + 1, erro: msg(res), respostas: [], duvidas: [], avisos: [] }); break; }
+          res.json.data.paginas.forEach(function (p) {
+            if (!p.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: p.pagina, erro: p.erro, respostas: [], duvidas: [], avisos: [] }); return; }
+            lote.push({ estado: 'pendente', origem: fich[k].name, pagina: p.pagina, aluno_id: p.aluno ? p.aluno.id : '', versao: p.versao || '',
+              respostas: p.respostas.split(''), duvidas: p.duvidas || [], avisos: p.avisos || [], previa: p.previa, imagem: p.imagem, resolvidas: {} });
+          });
+          ini = res.json.data.proxima;
+          marcarRepetidos(); painelLote();
+        }
+      }
+    } finally { $('cpAutoLer').disabled = false; }
+    prog.textContent = lote.length ? 'Leitura concluída.' : 'Não foi lida nenhuma folha.';
+    marcarRepetidos(); painelLote();
+  }
+  async function confirmarActual() {
+    guardarCamposRevisao();
+    var it = lote[revIdx]; if (!it || it.estado !== 'pendente') return;
+    var a = prova.alunos.filter(function (x) { return x.aluno_id === it.aluno_id; })[0];
+    if (a && a.correcao && a.correcao.estado !== 'RASCUNHO' && !confirm(a.nome + ' já tem correcção (' + rotuloEstado(a.correcao) + '). Substituir?')) return;
+    var erro = await enviarItem(it);
+    if (erro) { toast(erro, 'warning'); painelLote(); return; }
+    toast('Folha confirmada: ' + fmt(it.nota) + ' valores.', 'success');
+    await recarregarMantendo(); painelLote();
+  }
+  async function confirmarLimpas() {
+    var alvo = lote.filter(function (it) { return it.estado === 'pendente' && !precisaRevisao(it); });
+    if (!alvo.length) return;
+    var subst = alvo.filter(function (it) { var a = prova.alunos.filter(function (x) { return x.aluno_id === it.aluno_id; })[0]; return a && a.correcao && a.correcao.estado !== 'RASCUNHO'; }).length;
+    if (!confirm('Confirmar ' + alvo.length + ' folha(s) sem dúvidas?' + (subst ? '\n' + subst + ' aluno(s) já tinham correcção e serão substituídos.' : '') + '\n\nA nota só vai para a caderneta quando usar «Lançar corrigidas».')) return;
+    var feitas = 0, falhas = [];
+    for (var i = 0; i < alvo.length; i++) {
+      var e = await enviarItem(alvo[i]);
+      if (e) falhas.push(alvo[i].origem + ' pág. ' + alvo[i].pagina + ': ' + e); else feitas++;
+      $('cpAutoProgresso').textContent = 'A confirmar… ' + (i + 1) + '/' + alvo.length;
+    }
+    $('cpAutoProgresso').textContent = '';
+    toast(feitas + ' folha(s) confirmada(s).' + (falhas.length ? ' Falhas: ' + falhas.join(' | ') : ''), falhas.length ? 'warning' : 'success');
+    await recarregarMantendo(); painelLote();
+  }
+  function moverRevisao(d) {
+    guardarCamposRevisao();
+    var vis = visiveis(), p = vis.indexOf(revIdx);
+    if (!vis.length) return;
+    revIdx = vis[(p + d + vis.length) % vis.length]; painelLote();
+  }
+  function descartarActual() {
+    if (revIdx < 0 || !lote[revIdx]) return;
+    lote.splice(revIdx, 1); revIdx = -1; painelLote();
+  }
+
   function ligar() {
     if (ligado) return; ligado = true;
+    $('cpBtnLerGab').addEventListener('click', importarGabarito);
+    $('cpAutoLer').addEventListener('click', lerFolhas);
+    $('cpAutoConfirmar').addEventListener('click', confirmarActual);
+    $('cpAutoConfirmarLimpas').addEventListener('click', confirmarLimpas);
+    $('cpAutoSaltar').addEventListener('click', function () { moverRevisao(1); });
+    $('cpAutoAnt').addEventListener('click', function () { moverRevisao(-1); });
+    $('cpAutoSeg').addEventListener('click', function () { moverRevisao(1); });
+    $('cpAutoDescartar').addEventListener('click', descartarActual);
+    $('cpAutoFiltro').addEventListener('change', function () { guardarCamposRevisao(); revIdx = -1; painelLote(); });
+    $('cpAutoAluno').addEventListener('change', guardarCamposRevisao);
+    $('cpAutoVersao').addEventListener('change', guardarCamposRevisao);
     $('cpClasse').addEventListener('change', aoMudarClasse);
     $('cpArea').addEventListener('change', aoMudarArea);
     $('cpTurma').addEventListener('change', aoMudarTurma);

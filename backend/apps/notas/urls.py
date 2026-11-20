@@ -17,7 +17,13 @@ from .views_correcao import (
     ProvaFisicaDetalheView, ProvasFisicasView,
 )
 
+from .views_omr import GabaritoImportarView, LeituraOmrView
+
 urlpatterns = [
+    path('provas-fisicas/gabarito/importar', GabaritoImportarView.as_view(), name='provas_fisicas_gab_no_slash'),
+    path('provas-fisicas/gabarito/importar/', GabaritoImportarView.as_view(), name='provas_fisicas_gab'),
+    path('provas-fisicas/<uuid:pk>/leitura-omr', LeituraOmrView.as_view(), name='provas_fisicas_omr_no_slash'),
+    path('provas-fisicas/<uuid:pk>/leitura-omr/', LeituraOmrView.as_view(), name='provas_fisicas_omr'),
     path('provas-fisicas', ProvasFisicasView.as_view(), name='provas_fisicas_no_slash'),
     path('provas-fisicas/', ProvasFisicasView.as_view(), name='provas_fisicas'),
     path('provas-fisicas/imagens/<uuid:img_id>', CorrecaoImagemFicheiroView.as_view(), name='provas_fisicas_img_no_slash'),
