@@ -187,6 +187,20 @@ class TestCorreccaoAutomaticaApi:
             pdf = c.get(f'{BASE}{prova["id"]}/folhas-corrigidas/{q}')
             assert pdf.status_code == 200 and pdf['Content-Type'] == 'application/pdf' and pdf.content[:5] == b'%PDF-'
         assert self._como(self.director).get(f'{BASE}{prova["id"]}/folhas-corrigidas/?carimbo=nao').status_code == 200   # só consulta
+        # lista de notas (PDF e Excel) com Nº, código, nome, turma, acertos, nota, resultado e estado
+        lp = c.get(f'{BASE}{prova["id"]}/lista-notas/?formato=pdf&carimbo=nao')
+        assert lp.status_code == 200 and lp.content[:5] == b'%PDF-' and 'Lista%20de%20notas' in lp['Content-Disposition']
+        lx = c.get(f'{BASE}{prova["id"]}/lista-notas/?formato=xlsx&carimbo=nao')
+        assert lx.status_code == 200
+        import io
+
+        from openpyxl import load_workbook
+        ws = load_workbook(io.BytesIO(lx.content)).active
+        textos = [str(c_.value) for linha in ws.iter_rows() for c_ in linha if c_.value is not None]
+        assert any('Disciplina: Matemática' in t for t in textos) and any('Ano lectivo: 2026' in t for t in textos)
+        assert 'Aluno Um' in textos and Aluno.objects.get(pk=self.aluno.pk).matricula in textos   # nome e código do aluno
+        assert '18.0' in textos or 18.0 in [c_.value for linha in ws.iter_rows() for c_ in linha]
+        assert c.get(f'{BASE}{prova["id"]}/lista-notas/?formato=doc').status_code == 400
         assert 'Avaliacao corrigida - Matem' in pdf['Content-Disposition'] or 'Avaliacao%20corrigida' in pdf['Content-Disposition']
         assert '2026' in pdf['Content-Disposition']
         # eliminar: só a prova corrigida (PDF); a correcção e a nota na caderneta ficam; o director não pode

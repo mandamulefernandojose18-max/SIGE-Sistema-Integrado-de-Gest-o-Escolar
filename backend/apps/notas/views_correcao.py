@@ -309,6 +309,35 @@ class FolhasCorrigidasPdfView(APIView):
         return resp
 
 
+class ListaNotasAvaliacaoView(APIView):
+    """Lista de resultados da avaliação corrigida (PDF ou Excel): ?formato=pdf|xlsx (por omissão pdf)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import HttpResponse
+        from urllib.parse import quote
+
+        from . import lista_avaliacao as la
+
+        escola, prova, erro = _prova(request, pk)
+        if erro:
+            return erro
+        formato = (request.query_params.get('formato') or 'pdf').lower()
+        if formato not in ('pdf', 'xlsx'):
+            return _erro('Formato inválido: use pdf ou xlsx.')
+        cab, linhas = la.montar(prova, getattr(request.user, 'nome', '') or request.user.get_username())
+        if formato == 'pdf':
+            dados, tipo = la.pdf_lista(cab, linhas), 'application/pdf'
+        else:
+            dados, tipo = la.xlsx_lista(cab, linhas), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        nome = la.nome_ficheiro(cab, formato)
+        resp = HttpResponse(dados, content_type=tipo)
+        resp['Content-Disposition'] = f'attachment; filename="Lista_de_notas.{formato}"; filename*=UTF-8\'\'{quote(nome)}'
+        resp['Cache-Control'] = 'private, no-store'
+        resp['X-Content-Type-Options'] = 'nosniff'
+        return resp
+
+
 class CorrecaoImagemUploadView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]

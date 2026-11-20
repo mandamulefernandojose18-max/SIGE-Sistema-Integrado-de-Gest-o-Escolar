@@ -13,7 +13,7 @@ from .views_exames import (
 )
 
 from .views_correcao import (
-    CorrecaoAlunoView, CorrecaoImagemFicheiroView, CorrecaoImagemUploadView, FolhasCorrigidasPdfView, LancarCorrecoesView,
+    CorrecaoAlunoView, CorrecaoImagemFicheiroView, CorrecaoImagemUploadView, FolhasCorrigidasPdfView, LancarCorrecoesView, ListaNotasAvaliacaoView,
     ProvaFisicaDetalheView, ProvasFisicasView,
 )
 
@@ -24,6 +24,8 @@ urlpatterns = [
     path('provas-fisicas/gabarito/importar/', GabaritoImportarView.as_view(), name='provas_fisicas_gab'),
     path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/confirmar-omr', ConfirmarOmrView.as_view(), name='provas_fisicas_confirmar_omr_no_slash'),
     path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/confirmar-omr/', ConfirmarOmrView.as_view(), name='provas_fisicas_confirmar_omr'),
+    path('provas-fisicas/<uuid:pk>/lista-notas', ListaNotasAvaliacaoView.as_view(), name='provas_fisicas_lista_no_slash'),
+    path('provas-fisicas/<uuid:pk>/lista-notas/', ListaNotasAvaliacaoView.as_view(), name='provas_fisicas_lista'),
     path('provas-fisicas/<uuid:pk>/folhas-corrigidas', FolhasCorrigidasPdfView.as_view(), name='provas_fisicas_pdf_no_slash'),
     path('provas-fisicas/<uuid:pk>/folhas-corrigidas/', FolhasCorrigidasPdfView.as_view(), name='provas_fisicas_pdf'),
     path('provas-fisicas/<uuid:pk>/leitura-omr', LeituraOmrView.as_view(), name='provas_fisicas_omr_no_slash'),

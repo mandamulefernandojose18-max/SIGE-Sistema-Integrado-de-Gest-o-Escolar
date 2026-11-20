@@ -445,6 +445,24 @@
     await downloadFicheiroBinario(API + encodeURIComponent(prova.id) + '/folhas-corrigidas/' + (alunoId ? '?aluno_id=' + encodeURIComponent(alunoId) : ''), nome);
   }
   // Elimina só a prova corrigida (PDF/folha); a correcção e a nota na caderneta mantêm-se.
+  // Lista de resultados (Nº, código, nome, turma, nota, tipo de avaliação, disciplina, ano…) em PDF ou Excel.
+  async function descarregarLista(formato, carimbo) {
+    if (!prova) return;
+    var ext = formato === 'xlsx' ? 'xlsx' : 'pdf';
+    var nome = ('Lista de notas - ' + prova.disciplina_nome + ' - ' + (prova.instrumento_nome || prova.titulo) + ' - ' + (prova.ano_letivo || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/[\s-]+$/, '') + '.' + ext;
+    await downloadFicheiroBinario(API + encodeURIComponent(prova.id) + '/lista-notas/?formato=' + ext + (carimbo ? '&carimbo=' + carimbo : ''), nome);
+  }
+  // Depois da correcção automática: descarrega as provas corrigidas (PDF) e a lista de notas (PDF e Excel).
+  // Pergunta «com/sem carimbo» uma só vez para os três ficheiros.
+  async function descarregarResultados() {
+    if (!prova) return;
+    var escolha = typeof perguntarCarimboDocumento === 'function' ? await perguntarCarimboDocumento() : 'nao';
+    if (!escolha) return;
+    await downloadFicheiroBinario(API + encodeURIComponent(prova.id) + '/folhas-corrigidas/?carimbo=' + escolha,
+      ('Avaliacao corrigida - ' + prova.disciplina_nome + ' - ' + (prova.instrumento_nome || prova.titulo) + ' - ' + (prova.ano_letivo || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/[\s-]+$/, '') + '.pdf');
+    await descarregarLista('pdf', escolha);
+    await descarregarLista('xlsx', escolha);
+  }
   async function eliminarCorreccao() {
     var a = prova && prova.alunos[idxAluno];
     if (!a || !a.correcao || !(a.correcao.imagens || []).length) return;
@@ -644,6 +662,8 @@
     if (erro) { toast(erro, 'warning'); painelLote(); return; }
     toast('Folha corrigida: ' + fmt(it.nota) + ' valores' + (it.lancada ? ' — lançada na caderneta.' : '.') + (it.msgLancamento ? ' ' + it.msgLancamento : ''), it.msgLancamento ? 'warning' : 'success');
     await recarregarMantendo(); painelLote();
+    // última folha por rever do lote: descarrega logo as provas corrigidas e a lista de notas
+    if (!lote.some(function (x) { return x.estado === 'pendente'; })) await descarregarResultados();
   }
   async function confirmarLimpas() {
     var alvo = lote.filter(function (it) { return it.estado === 'pendente' && !precisaRevisao(it); });
@@ -660,6 +680,8 @@
     $('cpAutoProgresso').textContent = '';
     toast(feitas + ' folha(s) corrigida(s); ' + lancadas + ' nota(s) lançada(s) na caderneta.' + (falhas.length ? ' Falhas: ' + falhas.join(' | ') : ''), falhas.length ? 'warning' : 'success');
     await recarregarMantendo(); painelLote();
+    // sem folhas por rever: descarrega as provas corrigidas (PDF) e a lista de notas (PDF e Excel)
+    if (feitas && !lote.some(function (x) { return x.estado === 'pendente'; })) await descarregarResultados();
   }
   function moverRevisao(d) {
     guardarCamposRevisao();
@@ -708,6 +730,8 @@
     $('cpBtnLancar').addEventListener('click', lancar);
     $('cpBtnPdfAluno').addEventListener('click', function () { var a = prova && prova.alunos[idxAluno]; if (a) descarregarPdf(a.aluno_id); });
     $('cpBtnPdfTodas').addEventListener('click', function () { descarregarPdf(''); });
+    $('cpBtnListaPdf').addEventListener('click', function () { descarregarLista('pdf'); });
+    $('cpBtnListaXlsx').addEventListener('click', function () { descarregarLista('xlsx'); });
     $('cpBtnElimCorr').addEventListener('click', eliminarCorreccao);
     $('cpFicheiro').addEventListener('change', enviarPagina);
   }
