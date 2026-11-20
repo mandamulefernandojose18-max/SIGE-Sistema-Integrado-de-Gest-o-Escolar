@@ -1,8 +1,8 @@
 ﻿{
-  "version": "2.9.82",
-  "build": "20261120_2100",
+  "version": "2.9.83",
+  "build": "20261120_2200",
   "data": "2026-11-20",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Correccao automatica de provas de escolha multipla: importar o gabarito (PDF, Word, Excel, CSV ou texto), ler as Folhas de Resposta por fotografia ou PDF (leitura optica com QR), rever as duvidas e confirmar antes de gravar."
+  "novidades": "Login e paineis em paginas separadas com enderecos limpos por perfil (/login, /professor/dashboard, /admin/dashboard...). Correccao automatica de provas de escolha multipla: importar o gabarito (PDF, Word, Excel, CSV ou texto), ler as Folhas de Resposta por fotografia ou PDF (leitura optica com QR), rever as duvidas e confirmar antes de gravar."
 }

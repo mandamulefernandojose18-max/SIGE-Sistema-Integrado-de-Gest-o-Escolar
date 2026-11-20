@@ -54,11 +54,13 @@ EOF
     log_info "frontend/version.json sincronizado com o commit ${COMMIT_HASH}."
 fi
 
-if [ -f "frontend/index.html" ]; then
-    sed -i "s/<meta name=\"sige-build\" content=\".*\">/<meta name=\"sige-build\" content=\"${COMMIT_HASH}\">/g" frontend/index.html
-    sed -i "s/?v=[0-9a-zA-Z_]*/?v=${COMMIT_HASH}/g" frontend/index.html
-    log_info "frontend/index.html sige-build e scripts sincronizados com o commit ${COMMIT_HASH}."
-fi
+for PAGINA_HTML in index login painel; do
+  if [ -f "frontend/${PAGINA_HTML}.html" ]; then
+    sed -i "s/<meta name=\"sige-build\" content=\".*\">/<meta name=\"sige-build\" content=\"${COMMIT_HASH}\">/g" "frontend/${PAGINA_HTML}.html"
+    sed -i "s/?v=[0-9a-zA-Z_]*/?v=${COMMIT_HASH}/g" "frontend/${PAGINA_HTML}.html"
+    log_info "frontend/${PAGINA_HTML}.html sige-build e scripts sincronizados com o commit ${COMMIT_HASH}."
+  fi
+done
 
 if [ -f "frontend/service-worker.js" ]; then
     sed -i "s/const CACHE_NAME = .*/const CACHE_NAME = 'sige-cache-${COMMIT_HASH}';/g" frontend/service-worker.js

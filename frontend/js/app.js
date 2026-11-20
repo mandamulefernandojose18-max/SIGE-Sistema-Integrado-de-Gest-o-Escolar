@@ -657,6 +657,18 @@ function inicializarDetectorActualizacoes() {
 inicializarDetectorActualizacoes();
 
 
+// Sessão entregue pela página /login (passagem única: lida e apagada de imediato; validade de 60 s).
+// Sem ela não há sessão: o painel nunca abre por si só e envia para /login.
+const _SIGE_SESSAO = (function () {
+  try {
+    const bruto = sessionStorage.getItem('sige_handoff');
+    sessionStorage.removeItem('sige_handoff');
+    const o = bruto ? JSON.parse(bruto) : null;
+    if (o && o.token && o.user && (Date.now() - (o.t || 0)) < 60000) return o;
+  } catch (_) {}
+  window.location.replace('/login');
+  return null;
+})();
 // Garantir que ao abrir ou atualizar a página não haja auto-login nem persistência automática de sessão
 sessionStorage.removeItem('sige_token');
 sessionStorage.removeItem('sige_refresh_token');
@@ -1928,50 +1940,22 @@ document.addEventListener('click', (e) => {
 });
 
 // ==================== INICIALIZAÇÃO DA APLICAÇÃO ====================
+// O painel só abre com a sessão entregue pela página /login (passagem única em sessionStorage).
+// Sem sessão (acesso directo ao URL, F5, sessão terminada) volta-se sempre a /login.
 document.addEventListener('DOMContentLoaded', async () => {
-  // Garantir imediatamente que a tela de login esteja ativa e o painel do sistema totalmente oculto
-  mostrarTelaLogin();
+  if (!_SIGE_SESSAO) return;   // redireccionamento para /login já em curso
+
+  sessionStorage.setItem('sige_token', _SIGE_SESSAO.token);
+  sessionStorage.setItem('sige_refresh_token', _SIGE_SESSAO.refresh || '');
+  state.token = _SIGE_SESSAO.token;
+  state.refreshToken = _SIGE_SESSAO.refresh || null;
+  state.user = _SIGE_SESSAO.user;
+  state.tenant = _SIGE_SESSAO.escola || null;
+
   carregarDadosGeografia();
-
-  // Limpeza de sessão ao inicializar ou atualizar a página: NUNCA efetuar login automático via AJAX!
-  sessionStorage.removeItem('sige_token');
-  sessionStorage.removeItem('sige_refresh_token');
-  state.token = null;
-  state.refreshToken = null;
-  state.user = null;
-  state.tenant = null;
-
-  // Pré-preencher apenas o campo do utilizador memorizado (sem senha e sem efectuar login)
-  const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario') || '';
-  const inpEmail = document.getElementById('loginEmail');
-  const inpSenha = document.getElementById('loginSenha');
-  if (inpEmail && ultimoUsuario) {
-    inpEmail.value = ultimoUsuario;
-  }
-  if (inpSenha) {
-    inpSenha.value = '';
-    setTimeout(() => inpSenha.focus(), 150);
-  }
-
-  // Garantir isolamento visual multi-tenant estrito: tela de login e master SaaS nunca herdam temas de outras instituições
-  try {
-    localStorage.removeItem('sige_tema_ativo');
-    const token = sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token');
-    const tenantSalvoId = localStorage.getItem('sige_selected_tenant');
-    if (token && tenantSalvoId) {
-      const temaTenantSalvo = localStorage.getItem(`sige_tema_escola_${tenantSalvoId}`);
-      if (temaTenantSalvo && typeof aplicarTemaEFundoInstituicao === 'function') {
-        aplicarTemaEFundoInstituicao(JSON.parse(temaTenantSalvo));
-      }
-    } else {
-      if (typeof restaurarPadraoTemaEFundo === 'function') {
-        restaurarPadraoTemaEFundo();
-      }
-    }
-  } catch (_) {}
-
-  document.getElementById('loginForm')?.addEventListener('submit', realizarLogin);
+  try { localStorage.removeItem('sige_tema_ativo'); } catch (_) {}
   aplicarResponsividadeUniversalTabelas();
+  await iniciarApp();
 });
 
 async function carregarDadosGeografia() {
@@ -1986,22 +1970,6 @@ async function carregarDadosGeografia() {
   }
 }
 
-function modalEsqueciSenha() {
-  abrirModal('Recuperação de Acesso', `
-    <div class="text-center p-3">
-      <div class="mb-3 text-warning fs-1"><i class="bi bi-shield-lock"></i></div>
-      <h6 class="fw-bold mb-2">Esqueceu a sua senha?</h6>
-      <p class="text-muted small mb-3">
-        Por razões de segurança e integridade institucional, o pedido de redefinição de credenciais deve ser solicitado diretamente ao Administrador do Sistema ou à Direção Pedagógica da sua instituição.
-      </p>
-      <div class="p-3 bg-light rounded text-start small border mb-3">
-        <div class="mb-1"><i class="bi bi-envelope me-1 text-primary"></i> <strong>Apoio Técnico:</strong> suporte@sige.edu.mz</div>
-        <div><i class="bi bi-shield-check me-1 text-success"></i> <strong>Administrador:</strong> Eng. Fernando Mandamule</div>
-      </div>
-      <button class="btn btn-primary w-100" onclick="fecharModal()">Compreendido</button>
-    </div>
-  `);
-}
 
 function modalRedefinirMinhaSenha() {
   const u = state.user || {};
@@ -2181,155 +2149,9 @@ async function reporDoisFactores(userId) {
   }
 }
 
-function preencherLogin(email, senha) {
-  if (document.getElementById('loginEmail')) document.getElementById('loginEmail').value = email;
-  if (document.getElementById('loginSenha')) document.getElementById('loginSenha').value = senha;
-}
-
-async function realizarLogin(e) {
-  if (e && e.preventDefault) e.preventDefault();
-  const email = (document.getElementById('loginEmail')?.value || '').trim();
-  const senha = document.getElementById('loginSenha')?.value || '';
-  const feedbackEl = document.getElementById('loginFeedback');
-  if (feedbackEl) {
-    feedbackEl.className = 'mb-3 d-none';
-    feedbackEl.innerHTML = '';
-  }
-
-  if (!email || !senha) {
-    const inpEmail = document.getElementById('loginEmail');
-    const inpSenha = document.getElementById('loginSenha');
-    if (inpEmail) inpEmail.value = '';
-    if (inpSenha) inpSenha.value = '';
-    localStorage.removeItem('sige_ultimo_usuario');
-
-    if (feedbackEl) {
-      feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
-      feedbackEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i> Credenciais invalidas.';
-      feedbackEl.classList.remove('d-none');
-    }
-    alert('Credenciais invalidas.');
-
-    if (inpEmail) setTimeout(() => inpEmail.focus(), 80);
-    return;
-  }
-
-  const submitBtn = document.getElementById('btnLoginSubmit') || document.querySelector('#loginForm button[type="submit"]') || document.querySelector('button[onclick*="realizarLogin"]');
-  const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> A autenticar...';
-  }
-
-  try {
-    const apiUrl = formatarUrlApi('/api/v1/auth/login');
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        email,
-        senha,
-        username: email,
-        password: senha,
-        ...(((document.getElementById('loginCodigo2FA')?.value || '').trim()) ? { codigo_2fa: document.getElementById('loginCodigo2FA').value.trim() } : {})
-      })
-    });
-    let json = null;
-    try {
-      json = await res.json();
-    } catch (_) {}
-
-    if (res.ok && json && json.success) {
-      document.getElementById('loginBloco2FA')?.classList.add('d-none');
-      if (document.getElementById('loginCodigo2FA')) document.getElementById('loginCodigo2FA').value = '';
-      localStorage.setItem('sige_ultimo_usuario', email);
-      sessionStorage.setItem('sige_token', json.data.tokens.accessToken);
-      sessionStorage.setItem('sige_refresh_token', json.data.tokens.refreshToken);
-      if (json.data.user.role !== 'SUPERADMIN') {
-        localStorage.removeItem('sige_selected_tenant');
-      }
-      state.token = json.data.tokens.accessToken;
-      state.refreshToken = json.data.tokens.refreshToken;
-      state.user = json.data.user;
-      state.tenant = json.data.escola;
-      await iniciarApp();
-    } else if (json && json.requer_2fa) {
-      // Palavra-passe correcta; falta (ou falhou) o segundo factor. Mantém utilizador e senha preenchidos.
-      const bloco = document.getElementById('loginBloco2FA');
-      const campo = document.getElementById('loginCodigo2FA');
-      const tinhaCodigo = !!(campo && campo.value.trim());
-      if (bloco) bloco.classList.remove('d-none');
-      if (campo) { campo.value = ''; setTimeout(() => campo.focus(), 80); }
-      if (feedbackEl) {
-        feedbackEl.className = (tinhaCodigo ? 'alert alert-danger' : 'alert alert-info') + ' mb-3 py-2 px-3 small';
-        feedbackEl.innerHTML = `<i class="bi bi-shield-lock-fill me-1"></i> ${escapeHtml(json.message || 'Introduza o código de verificação.')}`;
-        feedbackEl.classList.remove('d-none');
-      }
-      return;
-    } else {
-      document.getElementById('loginBloco2FA')?.classList.add('d-none');
-      const rawDetail = (json && (json.message || json.detail)) || '';
-      const isBlocked = rawDetail && (
-        rawDetail.toLowerCase().includes('bloque') ||
-        rawDetail.toLowerCase().includes('inactiv') ||
-        rawDetail.toLowerCase().includes('desactiv') ||
-        rawDetail.toLowerCase().includes('subscri') ||
-        rawDetail.toLowerCase().includes('expir')
-      );
-
-      let msgErro = 'Credenciais invalidas.';
-      if (isBlocked) {
-        msgErro = rawDetail;
-      } else {
-        msgErro = 'Credenciais invalidas.';
-      }
-
-      // Limpar logo/imediatamente o utilizador e a senha em caso de erro
-      const inpEmail = document.getElementById('loginEmail');
-      const inpSenha = document.getElementById('loginSenha');
-      if (inpEmail) inpEmail.value = '';
-      if (inpSenha) {
-        inpSenha.value = '';
-        inpSenha.type = 'password';
-        const ico = document.getElementById('iconToggleLoginSenha');
-        if (ico) ico.className = 'bi bi-eye fs-5';
-      }
-      localStorage.removeItem('sige_ultimo_usuario');
-
-      if (feedbackEl) {
-        feedbackEl.className = 'alert alert-danger mb-3 py-2 px-3 small';
-        feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(msgErro)}`;
-        feedbackEl.classList.remove('d-none');
-      }
-      alert(msgErro);
-
-      if (inpEmail) setTimeout(() => inpEmail.focus(), 80);
-      return;
-    }
-  } catch (err) {
-    console.error('Erro de conexão no login:', err);
-    const msgConexao = 'Erro ao conectar ao servidor do SIGE: ' + (err.message || 'Verifique a sua ligação de rede.');
-    if (feedbackEl) {
-      feedbackEl.className = 'alert alert-warning mb-3 py-2 px-3 small';
-      feedbackEl.innerHTML = `<i class="bi bi-wifi-off me-1"></i> ${escapeHtml(msgConexao)}`;
-      feedbackEl.classList.remove('d-none');
-    } else {
-      alert(msgConexao);
-    }
-  } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      if (originalBtnHtml) submitBtn.innerHTML = originalBtnHtml;
-    }
-  }
-}
 
 function fazerLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
-  limparRota();
   const ultimoUsuario = localStorage.getItem('sige_ultimo_usuario');
 
   // Revoga o refresh token no servidor (blacklist); falha silenciosa: o logout local prossegue sempre.
@@ -2385,32 +2207,15 @@ function fazerLogout(e) {
     restaurarPadraoTemaEFundo();
   }
   
-  mostrarTelaLogin();
-  window.location.reload();
+  window.location.replace('/login');
 }
 
-function mostrarTelaLogin() {
-  document.body.classList.remove('authenticated');
-  document.body.classList.remove('role-superadmin');
-  document.body.classList.remove('inspecionando-escola');
-  document.querySelectorAll('.modulo-view').forEach(el => el.style.display = 'none');
-  const appEl = document.getElementById('appView');
-  if (appEl) appEl.style.display = 'none';
-  const loginEl = document.getElementById('loginView');
-  if (loginEl) loginEl.style.display = 'flex';
-
-  if (typeof restaurarPadraoTemaEFundo === 'function') {
-    restaurarPadraoTemaEFundo();
-  }
-}
 
 async function iniciarApp() {
   if (!state.user) return;
 
-  // Imediatamente exibir a aplicação principal e ocultar a tela de login
+  // Imediatamente exibir a aplicação principal
   document.body.classList.add('authenticated');
-  const loginView = document.getElementById('loginView');
-  if (loginView) loginView.style.display = 'none';
   const appView = document.getElementById('appView');
   if (appView) appView.style.display = 'flex';
 
@@ -2609,18 +2414,8 @@ const INFO_PAINEIS = {
   }
 };
 
-const VIEW_INICIAL_POR_ROLE = {
-  SUPERADMIN: 'saas',
-  ADMIN_ESCOLA: 'dashboard',
-  DIRECTOR_ESCOLA: 'dashboard',
-  DAP: 'estatisticas-aproveitamento',
-  CHEFE_SECRETARIA: 'dashboard',
-  SECRETARIA: 'alunos',
-  PROFESSOR: 'caderneta',
-  ALUNO: 'aluno-perfil',
-  ENCARREGADO: 'aluno-perfil',
-  FINANCEIRO: 'pagamentos'
-};
+// Página inicial por perfil: definida em js/rotas.js (partilhada com o ecrã de login).
+const VIEW_INICIAL_POR_ROLE = window.SIGE_ROTAS.VIEW_INICIAL_POR_ROLE;
 
 const MAPA_PAINEIS = {
   SUPERADMIN: 'painel-superadmin',
@@ -3586,45 +3381,80 @@ function tratarAcessoRestritoOuSuspenso(codigo, mensagem) {
   }
 }
 
-// ===== Router por hash (#/vista) =====
-// O hash contém apenas o identificador da vista (nunca dados, IDs de registos nem tokens).
-// A autorização continua a ser aplicada em navegarPara() e no backend (JWT + tenant + RBAC).
+// ===== Router por caminho limpo (/<perfil>/<página>) =====
+// Ex.: /professor/caderneta, /admin/dashboard, /saas/dashboard. O caminho contém apenas o perfil e o
+// identificador da vista (nunca dados, IDs de registos nem tokens). O servidor (Nginx) devolve painel.html
+// para estes caminhos; a autorização continua em navegarPara() e no backend (JWT + tenant + RBAC).
 function idsDeVistasConhecidas() {
   return new Set(Object.values(MENUS_POR_PAINEL).flatMap(lista => lista.map(m => m.id)));
 }
 
+function painelDoUtilizadorParaRota() {
+  const role = state.user?.role;
+  if (role === 'SUPERADMIN') return localStorage.getItem('sige_selected_tenant') ? 'painel-escola' : 'painel-superadmin';
+  return MAPA_PAINEIS[role] || 'painel-escola';
+}
+
+// "dashboard" é a página inicial de cada painel: se o painel não tem um dashboard próprio, o URL
+// /<perfil>/dashboard abre a sua página inicial (ex.: /professor/dashboard -> caderneta).
+function dashboardEhAliasDaInicial() {
+  return !(MENUS_POR_PAINEL[painelDoUtilizadorParaRota()] || []).some(m => m.id === 'dashboard');
+}
+
+function segmentoDaVista(viewId) {
+  const inicial = window.SIGE_ROTAS.viewInicial(state.user?.role);
+  return (dashboardEhAliasDaInicial() && viewId === inicial) ? 'dashboard' : viewId;
+}
+
+function caminhoDaVista(viewId) {
+  const slug = window.SIGE_ROTAS.slugDoRole(state.user?.role);
+  return slug ? `/${slug}/${segmentoDaVista(viewId)}` : null;
+}
+
 function viewDaRota() {
-  const m = /^#\/([a-z0-9-]{1,50})$/.exec(location.hash || '');
-  return (m && idsDeVistasConhecidas().has(m[1])) ? m[1] : null;
+  const c = window.SIGE_ROTAS.lerCaminho(location.pathname);
+  if (!c || !c.view || c.slug !== window.SIGE_ROTAS.slugDoRole(state.user?.role)) return null;
+  let v = c.view;
+  if (v === 'dashboard' && dashboardEhAliasDaInicial()) v = window.SIGE_ROTAS.viewInicial(state.user?.role);
+  return idsDeVistasConhecidas().has(v) ? v : null;
 }
 
 function sincronizarRota(viewId) {
   if (!idsDeVistasConhecidas().has(viewId)) return;
-  const alvo = `#/${viewId}`;
-  if (location.hash !== alvo) location.hash = alvo; // cria entrada no histórico (botão Voltar)
+  const alvo = caminhoDaVista(viewId);
+  if (!alvo) return;
+  try {
+    if (location.pathname !== alvo) {
+      // A primeira entrada substitui o URL de entrada (não deixa lixo no histórico); as seguintes criam entrada (botão Voltar).
+      if (!state._rotaIniciada) history.replaceState({ view: viewId }, '', alvo);
+      else history.pushState({ view: viewId }, '', alvo);
+    }
+    state._rotaIniciada = true;
+  } catch (_) {}
+  sigeAjustarHrefsMenu();
 }
 
-function limparRota() {
-  try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+// Os links do menu apontam para o caminho real da vista (abrir em novo separador, copiar link).
+function sigeAjustarHrefsMenu() {
+  document.querySelectorAll('#sidebar a[onclick*="navegarPara("]').forEach(a => {
+    const m = /navegarPara\('([a-z0-9-]+)'\)/.exec(a.getAttribute('onclick') || '');
+    const p = m ? caminhoDaVista(m[1]) : null;
+    if (p) a.setAttribute('href', p);
+  });
 }
 
-// Salvaguarda: um <a href="#"> (placeholder) não deve repor o hash vazio e apagar a rota da vista.
+// Salvaguarda: um <a href="#"> (placeholder) não deve alterar o URL da vista.
 document.addEventListener('click', (ev) => {
   const a = ev.target && ev.target.closest ? ev.target.closest('a') : null;
   if (a && a.getAttribute('href') === '#') ev.preventDefault();
 });
 
-window.addEventListener('hashchange', () => {
+// Botão Voltar/Avançar do navegador
+window.addEventListener('popstate', () => {
   if (!state.user || !state.token) return;
   const view = viewDaRota();
-  if (view && view !== state.currentView) {
-    navegarPara(view);
-  } else if (!view && state.currentView && !location.hash) {
-    // Hash apagado por outro código: repõe o da vista actual sem criar nova entrada no histórico.
-    try { history.replaceState(null, '', `${location.pathname}${location.search}#/${state.currentView}`); } catch (_) {}
-  }
+  if (view && view !== state.currentView) navegarPara(view);
 });
-
 async function navegarPara(viewId) {
   if (viewId === 'classes-exames' || viewId === 'disciplinas') viewId = 'plano-curricular';
   // Contexto do Assistente: guarda o último módulo aberto antes de abrir o próprio assistente.

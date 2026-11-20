@@ -1,7 +1,9 @@
 ﻿// SIGE - Service Worker com Estratégia Network-First (Garante Atualizações Imediatas)
-const CACHE_NAME = 'sige-cache-v3.2.24-20261115_1700';
+const CACHE_NAME = 'sige-cache-v3.3.0-20261120_2200';
 const ASSETS_TO_CACHE = [
-  '/',
+  '/login',
+  '/login.html',
+  '/painel.html',
   '/index.html',
   '/manifest.json',
   '/img/logo-sige.png',
@@ -67,7 +69,11 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+            // Offline: /login -> login.html; caminhos de painel (/<perfil>/<página>) -> painel.html
+            const caminho = new URL(event.request.url).pathname;
+            if (caminho === '/login') return caches.match('/login.html');
+            if (/^\/[a-z]{3,20}(\/[a-z0-9-]{1,50})?\/?$/.test(caminho) && caminho !== '/') return caches.match('/painel.html');
+            return caches.match('/login.html');
           }
         });
       })

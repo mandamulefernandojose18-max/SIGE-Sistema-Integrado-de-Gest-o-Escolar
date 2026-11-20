@@ -636,8 +636,12 @@ window.SIGE_CONFIG = {
     return;
   }
 
-  // Normalização de rota SPA
-  if (pathname === '/') {
+  // Rotas limpas: /login -> login.html; /<perfil>/<página> -> painel.html (ver js/rotas.js e nginx.conf)
+  if (pathname === '/login' || pathname === '/login/') {
+    pathname = '/login.html';
+  } else if (/^\/(saas|admin|direcao|pedagogico|secretaria|professor|aluno|encarregado|financeiro)(\/[a-z0-9-]{1,50})?\/?$/.test(pathname)) {
+    pathname = '/painel.html';
+  } else if (pathname === '/') {
     pathname = '/index.html';
   }
 
@@ -656,7 +660,7 @@ window.SIGE_CONFIG = {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         return res.end('Recurso modular não encontrado');
       }
-      // Fallback padrão para SPA (index.html)
+      // Caminho desconhecido: entrada (index.html) que segue para /login
       filePath = path.join(PUBLIC_DIR, 'index.html');
     }
 
