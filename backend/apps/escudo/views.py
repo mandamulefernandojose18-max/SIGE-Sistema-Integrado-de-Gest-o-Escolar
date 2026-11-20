@@ -898,6 +898,29 @@ def captura_leitura(request, pid):
     return HttpResponse(status=204)
 
 
+@csrf_exempt
+@_tratar
+def verificar_foto(request, pid):
+    """POST (multipart, campo «foto»): lê os QR de uma fotografia suspeita e diz de que cópia, página e pergunta veio.
+    Só quem pode ver a prova. A fotografia não fica guardada; fica só o registo do que foi encontrado."""
+    from .models import EventoEscudo, ProvaEscudo
+    from .services import leitor_foto
+    if request.method != 'POST':
+        return _erro('Método não permitido.', 405)
+    user, p, erro = _prova(request, pid)
+    if erro:
+        return erro
+    ficheiro = request.FILES.get('foto')
+    if not ficheiro or ficheiro.size > leitor_foto.MAX_BYTES:
+        return _erro('Envia a fotografia (JPEG ou PNG, até 12 MB).')
+    resultado = leitor_foto.interpretar(leitor_foto.ler_qrs(ficheiro.read()), pid)
+    registo = ProvaEscudo.objects.filter(codigo=pid).first()
+    for c in (resultado['copias'] if registo else []):
+        onde = ', '.join([f'pág. {n}' for n in c['paginas']] + [f'pergunta {n}' for n in c['perguntas']]) or 'folha'
+        EventoEscudo.objects.create(prova=registo, texto=f'Fotografia suspeita verificada: cópia n.º {c["serial"]} ({onde}).'[:300])
+    return _json({'success': True, 'data': resultado})
+
+
 def _imei_da_captura(pid, c):
     from .services import cofre
     try:

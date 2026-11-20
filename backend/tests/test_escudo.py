@@ -1518,3 +1518,57 @@ def test_qr_de_pergunta_e_cinzento_e_leva_so_o_endereco(monkeypatch):
     for u, t in por_pergunta:
         assert 0.3 <= t <= 0.6                                # cinzento: poupa tinta, mas com contraste para a câmara
         assert u.startswith('https://') and u.endswith(('/q1', '/q2'))   # só o endereço: o telemóvel abre-o logo
+
+
+def _foto_simulada_da_folha(pid, serial, largura=3000, graus=4, ruido=4):
+    """Folha selada (QR de pergunta e de página, em cinzento) fotografada: reduzida, torta, com desfoque e ruído, em JPEG."""
+    import cv2
+    import fitz
+    import numpy as np
+    from apps.escudo.services import selos
+    doc = fitz.open()
+    pg = doc.new_page(width=595, height=842)
+    y = 100
+    for n in range(1, 6):
+        pg.insert_text((60, y), f'{n}. Calcule o valor da expressao numero {n} e justifique a resposta com clareza.', fontsize=11)
+        pg.insert_text((80, y + 18), 'a) 12      b) 15      c) 18      d) 21', fontsize=11)
+        y += 140
+    base = doc.tobytes()
+    doc.close()
+    pdf = selos.selar(base, [], url_base='https://sigesaas.duckdns.org/ia', pid=pid, serial=serial, libertacao='20/11/2026 as 08:00',
+                      qr_pergunta=True, qr_pagina=3, ancoras=selos.detectar_perguntas(base), aviso_foto=True)
+    with fitz.open(stream=pdf, filetype='pdf') as d:
+        png = d[0].get_pixmap(dpi=200, alpha=False).tobytes('png')
+    img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_COLOR)
+    k = largura / img.shape[1]
+    img = cv2.resize(img, None, fx=k, fy=k, interpolation=cv2.INTER_AREA)
+    M = cv2.getRotationMatrix2D((img.shape[1] / 2, img.shape[0] / 2), graus, 1.0)
+    img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), borderValue=(190, 190, 190))
+    img = cv2.GaussianBlur(img, (0, 0), 0.8)
+    img = (img.astype(np.float32) * 0.9 + np.random.default_rng(5).normal(0, ruido, img.shape)).clip(0, 255).astype(np.uint8)
+    return cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
+
+
+def test_verificar_foto_suspeita_diz_a_copia_a_pagina_e_as_perguntas(duas_escolas):
+    c = _cliente(duas_escolas)
+    pid = _pid(_criar(c))
+    foto = _foto_simulada_da_folha(pid, 7)
+    r = c.post(API + pid + '/verificar-foto/', {'foto': SimpleUploadedFile('f.jpg', foto)}, format='multipart')
+    assert r.status_code == 200, r.content
+    dados = r.json()['data']
+    assert [x['serial'] for x in dados['copias']] == [7] and dados['copias'][0]['codigo'] == f'{pid}-007'
+    assert len(dados['copias'][0]['perguntas']) >= 1                     # leu pelo menos o QR de uma pergunta
+    from apps.escudo.models import EventoEscudo
+    assert EventoEscudo.objects.filter(prova__codigo=pid, texto__startswith='Fotografia suspeita verificada: cópia n.º 7').exists()
+    # sem QR da prova: nada a identificar, e uma foto de outra prova não é atribuída a esta
+    sem_qr = _foto_simulada_da_folha('ZZZZ9999', 3)
+    o = c.post(API + pid + '/verificar-foto/', {'foto': SimpleUploadedFile('f.jpg', sem_qr)}, format='multipart').json()['data']
+    assert o['copias'] == [] and o['outras'] >= 1
+    # validações e acessos
+    assert c.post(API + pid + '/verificar-foto/', {'foto': SimpleUploadedFile('f.jpg', b'nao-e-imagem')}, format='multipart').status_code == 400
+    assert c.post(API + pid + '/verificar-foto/', {}, format='multipart').status_code == 400
+    assert APIClient().post(API + pid + '/verificar-foto/', {'foto': SimpleUploadedFile('f.jpg', foto)}, format='multipart').status_code == 401
+    from apps.accounts.models import Usuario
+    Usuario.objects.create_user(email='admin.vf@sige.mz', password='PassVf123!', role='ADMIN_ESCOLA', escola=duas_escolas[1])
+    estranho = _cliente_de('admin.vf@sige.mz', 'PassVf123!')
+    assert estranho.post(API + pid + '/verificar-foto/', {'foto': SimpleUploadedFile('f.jpg', foto)}, format='multipart').status_code == 404

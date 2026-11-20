@@ -349,10 +349,44 @@
     c.innerHTML = h;
     $$('[data-pct]', c).forEach(function (el) { requestAnimationFrame(function () { el.style.width = el.dataset.pct + '%'; }); });
     iniciarRelogios();
+    var montarVerificador = function () {
+      var alvo = $('#escudoCapturas', c);
+      if (!alvo || $('#escudoVerificar', c)) return;
+      var cx = document.createElement('div');
+      cx.id = 'escudoVerificar';
+      cx.className = 'cartao';
+      cx.style.marginBottom = '1rem';
+      cx.innerHTML = '<h2>Verificar fotografia suspeita</h2>' +
+        '<p class="sub">Carrega uma fotografia da prova (JPEG ou PNG, at\u00e9 12 MB). O SIGE l\u00ea os QR que aparecem nela e diz de que c\u00f3pia, p\u00e1gina e pergunta veio. A fotografia n\u00e3o fica guardada. Se o n.\u00ba da c\u00f3pia n\u00e3o aparecer, a foto est\u00e1 muito pequena, tapada ou sem QR.</p>' +
+        '<p><input type="file" id="escudoFotoSuspeita" accept="image/jpeg,image/png"> <button class="btn" type="button" id="escudoVerificarBtn">Verificar</button></p>' +
+        '<div id="escudoVerificarRes" aria-live="polite"></div>';
+      alvo.parentNode.insertBefore(cx, alvo);
+      $('#escudoVerificarBtn', cx).addEventListener('click', async function () {
+        var res = $('#escudoVerificarRes', cx), f = $('#escudoFotoSuspeita', cx).files[0], btn = this;
+        if (!f) { res.innerHTML = '<p class="aviso atencao">Escolhe primeiro a fotografia.</p>'; return; }
+        btn.disabled = true;
+        res.innerHTML = '<p class="sub">A ler os QR da fotografia\u2026 pode demorar alguns segundos.</p>';
+        try {
+          var fd = new FormData();
+          fd.append('foto', f, f.name || 'foto.jpg');
+          var d = (await api(pid + '/verificar-foto/', { method: 'POST', body: fd })).data;
+          if (!d.copias.length) {
+            res.innerHTML = '<p class="aviso atencao">N\u00e3o foi poss\u00edvel identificar a c\u00f3pia' + (d.outras ? ' (h\u00e1 QR que n\u00e3o s\u00e3o desta prova).' : ': n\u00e3o se leu nenhum QR desta prova.') + ' Experimenta uma foto maior e mais n\u00edtida.</p>';
+          } else {
+            res.innerHTML = '<div class="tabela-rolar"><table><thead><tr><th>C\u00f3pia</th><th>P\u00e1ginas</th><th>Perguntas</th></tr></thead><tbody>' +
+              d.copias.map(function (x) {
+                return '<tr><td><span class="mono">' + esc(x.codigo) + '</span></td><td>' + esc(x.paginas.join(', ') || '\u2014') + '</td><td>' + esc(x.perguntas.join(', ') || '\u2014') + '</td></tr>';
+              }).join('') + '</tbody></table></div><p class="sub">A c\u00f3pia identificada \u00e9 a que foi fotografada; o n.\u00ba liga-se ao aluno pela lista de distribui\u00e7\u00e3o das c\u00f3pias.</p>';
+          }
+        } catch (err) { res.innerHTML = '<p class="aviso atencao">' + esc(err.message) + '</p>'; }
+        btn.disabled = false;
+      });
+    };
     var capturasCarregadas = false;
     var carregarCapturas = async function () {
       if (capturasCarregadas) return;
       capturasCarregadas = true;
+      montarVerificador();
       var alvo = $('#escudoCapturas', c);
       try {
         var lista = (await api(pid + '/capturas/')).data.capturas;

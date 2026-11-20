@@ -26,6 +26,7 @@ urlpatterns = [
     path('<str:pid>/guiao/gerar/', views.guiao_gerar),
     path('<str:pid>/guiao/corrigir/', views.guiao_corrigir),
     path('<str:pid>/guiao/descarregar/', views.guiao_descarregar),
+    path('<str:pid>/verificar-foto/', views.verificar_foto),
     path('<str:pid>/capturas/', views.capturas_lista),
     path('<str:pid>/capturas/<int:cid>/<str:tipo>.jpg', views.captura_imagem),
 ]
