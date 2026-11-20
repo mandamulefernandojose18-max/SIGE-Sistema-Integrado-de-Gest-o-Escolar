@@ -188,7 +188,6 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
                aviso_pergunta=True, qr_pergunta=True, qr_marca_agua=True, aviso_visivel=True, mensagem_ia=None,
                qr_pagina=True, pdf_layout=None, tamanho_qr_fundo=None, tamanho_qr_pagina=None, armadilha=False, modo_qr_pagina=None, posicao_qr_fundo=None):
     """Devolve o .docx selado da cópia `serial`. `marcas`: lista validada (só «todas» e «primeira» se aplicam ao Word)."""
-    qr_pergunta = False   # nunca um QR por pergunta: só o número de QR por página escolhido (qr_pagina)
     doc = Document(io.BytesIO(dados))
     codigo = selos.codigo_barras(pid, serial)
     mensagem = selos.mensagem_final(mensagem_ia, libertacao)
@@ -275,7 +274,8 @@ def selar_docx(dados, *, pid, serial, libertacao, titulo, url_base, marcas, zona
                              alt=selos.texto_pergunta(n, mensagem))
         if qr_pergunta:
             lado = selos.TAM_QR_PERGUNTA
-            qr = _png(lado, lado, lambda c: selos._desenhar_qr(c, fitz.Rect(0, 0, lado, lado), lado, f"{url_base}/v/{pid}/{serial}/q{n}"))
+            qr = _png(lado, lado, lambda c: selos._desenhar_qr(
+                c, fitz.Rect(0, 0, lado, lado), lado, selos.texto_qr_pergunta(n, f"{url_base}/v/{pid}/{serial}/q{n}"), selos.TOM_QR_PERGUNTA))
             _imagem_ancorada(p, qr, lado, lado, largura - selos.MARGEM_QR_PERGUNTA - lado, 0, rel_h="page", rel_v="paragraph", atras=False,
                              alt=selos.texto_pergunta(n, mensagem))
 
