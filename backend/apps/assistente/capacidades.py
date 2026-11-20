@@ -85,6 +85,7 @@ class Capacidade:
     universal: bool = False         # informação comum a todos os perfis da escola (calendário, comunicados)
     plataforma: bool = False        # dados da plataforma (só SuperAdmin, sem escola)
     exemplos: tuple = ()            # perguntas de exemplo (sugestões e ajuda por perfil)
+    prioritaria: bool = False       # com boa pontuação, não deixa o motor de consulta genérico responder em vez dela
 
 
 # Quem pode ver dados de um aluno, por capacidade
@@ -800,7 +801,7 @@ def sugestoes(role, pagina=None):
     for s in SUGESTOES_PERFIL.get(role, SUGESTOES_BASE):
         if s not in itens:
             itens.append(s)
-    return itens[:6]
+    return itens[:8]
 
 
 # ---------------------------------------------------------------- compreensão (forma canónica)

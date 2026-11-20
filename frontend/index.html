@@ -5,14 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="sige-build" content="20261120_2200">
   <title>SIGE — Sistema Integrado de Gestão Escolar</title>
+  <meta name="description" content="SIGE: plataforma de gestão escolar para Moçambique. Cadernetas, pautas, notas no padrão do MEC, propinas, horários, assistente virtual e estatísticas, para cada perfil da escola.">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="canonical" href="https://sigesaas.duckdns.org/">
   <link rel="icon" type="image/png" href="/img/logo-sige.png">
-  <noscript><meta http-equiv="refresh" content="0; url=/login"></noscript>
-  <script>
-    // Ponto de entrada: não contém nem o login nem o painel. Segue para /login (endereço antigo #/vista incluído).
-    window.location.replace('/login');
-  </script>
+  <link rel="apple-touch-icon" href="/img/logo-sige.png">
+  <link rel="manifest" href="/manifest.json">
+  <link href="/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/site/site.css">
 </head>
-<body>
-  <p style="font-family: sans-serif; text-align: center; margin-top: 3rem;">A abrir o SIGE… <a href="/login">Entrar</a></p>
+<body class="site" data-pagina="inicio">
+  <header id="site-cabecalho"><noscript><p class="p-3"><a href="/">Início</a> · <a href="/contacto.html">Contacto</a> · <a href="/privacidade.html">Privacidade</a> · <a href="/termos.html">Termos</a> · <a href="/login">Entrar</a></p></noscript></header>
+
+  <main id="conteudo">
+    <!-- Carrossel -->
+    <section id="carrossel" class="carousel slide hero-carousel" data-bs-ride="carousel" data-bs-interval="6500" data-bs-pause="hover" aria-label="Destaques do SIGE">
+      <div class="carousel-indicators">
+        <button type="button" data-bs-target="#carrossel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Destaque 1"></button>
+        <button type="button" data-bs-target="#carrossel" data-bs-slide-to="1" aria-label="Destaque 2"></button>
+        <button type="button" data-bs-target="#carrossel" data-bs-slide-to="2" aria-label="Destaque 3"></button>
+        <button type="button" data-bs-target="#carrossel" data-bs-slide-to="3" aria-label="Destaque 4"></button>
+        <button type="button" data-bs-target="#carrossel" data-bs-slide-to="4" aria-label="Destaque 5"></button>
+      </div>
+      <div class="carousel-inner">
+        <div class="carousel-item active slide-1"><div class="container slide-conteudo"><div class="row align-items-center w-100">
+          <div class="col-lg-8"><h1>A gestão da sua escola, no padrão oficial do MEC</h1>
+            <p class="lead mt-3">Notas de 0 a 20, médias trimestrais (MT1, MT2, MT3), MEC e MFD calculadas com as regras de Moçambique, num só sistema para toda a escola.</p>
+            <div class="d-flex flex-wrap gap-2 mt-4"><a class="btn btn-sige btn-lg" href="/login">Entrar no sistema</a><a class="btn btn-sige-contorno btn-lg" href="#funcionalidades">Ver funcionalidades</a></div></div>
+          <div class="col-lg-4 d-none d-lg-block text-center"><i class="bi bi-mortarboard-fill icone-grande" aria-hidden="true"></i></div></div></div></div>
+        <div class="carousel-item slide-2"><div class="container slide-conteudo"><div class="row align-items-center w-100">
+          <div class="col-lg-8"><h2 class="titulo">Cadernetas, pautas e documentos oficiais prontos a imprimir</h2>
+            <p class="lead mt-3">Pautas, actas do conselho, certificados e mapas em PDF, Word e Excel, em Times New Roman e com as negativas a vermelho.</p>
+            <a class="btn btn-sige btn-lg mt-3" href="#funcionalidades">Conhecer os módulos</a></div>
+          <div class="col-lg-4 d-none d-lg-block text-center"><i class="bi bi-file-earmark-text-fill icone-grande" aria-hidden="true"></i></div></div></div></div>
+        <div class="carousel-item slide-3"><div class="container slide-conteudo"><div class="row align-items-center w-100">
+          <div class="col-lg-8"><h2 class="titulo">Assistente virtual e estatísticas por perfil</h2>
+            <p class="lead mt-3">Pergunte pelo calendário académico, alunos (H, M e HM), aprovados, reprovados, faltosos, propinas e aproveitamento pedagógico. O assistente só responde sobre o painel de cada utilizador.</p>
+            <a class="btn btn-sige btn-lg mt-3" href="/login">Experimentar</a></div>
+          <div class="col-lg-4 d-none d-lg-block text-center"><i class="bi bi-bar-chart-line-fill icone-grande" aria-hidden="true"></i></div></div></div></div>
+        <div class="carousel-item slide-4"><div class="container slide-conteudo"><div class="row align-items-center w-100">
+          <div class="col-lg-8"><h2 class="titulo">Uma escola ou muitas: cada uma com os seus dados isolados</h2>
+            <p class="lead mt-3">Plataforma multi-escola (SaaS). Cada instituição vê apenas a sua informação, com perfis e permissões por departamento.</p>
+            <a class="btn btn-sige btn-lg mt-3" href="#seguranca">Ver segurança</a></div>
+          <div class="col-lg-4 d-none d-lg-block text-center"><i class="bi bi-buildings-fill icone-grande" aria-hidden="true"></i></div></div></div></div>
+        <div class="carousel-item slide-5"><div class="container slide-conteudo"><div class="row align-items-center w-100">
+          <div class="col-lg-8"><h2 class="titulo">No telemóvel, no computador, mesmo com internet fraca</h2>
+            <p class="lead mt-3">Aplicação instalável (PWA), pensada para ecrãs pequenos e para continuar a funcionar quando a ligação falha.</p>
+            <a class="btn btn-sige btn-lg mt-3" href="/contacto.html">Falar connosco</a></div>
+          <div class="col-lg-4 d-none d-lg-block text-center"><i class="bi bi-phone-fill icone-grande" aria-hidden="true"></i></div></div></div></div>
+      </div>
+      <button class="carousel-control-prev" type="button" data-bs-target="#carrossel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Anterior</span></button>
+      <button class="carousel-control-next" type="button" data-bs-target="#carrossel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Seguinte</span></button>
+    </section>
+
+    <!-- Funcionalidades -->
+    <section id="funcionalidades" class="secao">
+      <div class="container">
+        <div class="text-center"><h2>Um painel para cada perfil da escola</h2><p class="sub">Cada utilizador entra no seu painel e vê apenas o que lhe compete.</p></div>
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-4"><div class="cartao"><div class="ic"><i class="bi bi-building"></i></div><h3>Direcção</h3><p>Visão geral da escola, assinatura, utilizadores, auditoria, calendário, estatísticas e previsão de alunos para o ano seguinte.</p></div></div>
+          <div class="col-md-6 col-lg-4"><div class="cartao"><div class="ic" style="background:#6d28d9"><i class="bi bi-journal-check"></i></div><h3>Direcção pedagógica</h3><p>Turmas, horários, planos curriculares, pautas, exames, atribuição de docentes e aproveitamento por turma, classe, disciplina e professor.</p></div></div>
+          <div class="col-md-6 col-lg-4"><div class="cartao"><div class="ic" style="background:#0f766e"><i class="bi bi-folder2-open"></i></div><h3>Secretaria</h3><p>Matrículas, transferências, certificados, atendimentos e documentos oficiais.</p></div></div>
+          <div class="col-md-6 col-lg-4"><div class="cartao"><div class="ic" style="background:#b45309"><i class="bi bi-person-workspace"></i></div><h3>Professores</h3><p>Caderneta, presenças, sumários, provas com correcção automática de escolha múltipla e estatística das suas turmas.</p></div></div>
+          <div class="col-md-6 col-lg-4"><div class="cartao"><div class="ic" style="background:#0369a1"><i class="bi bi-cash-coin"></i></div><h3>Financeiro</h3><p>Propinas e mensalidades, recibos, despesas, caixa e previsão de receitas.</p></div></div>
+          <div class="col-md-6 col-lg-4"><div class="cartao"><div class="ic" style="background:#16a34a"><i class="bi bi-people"></i></div><h3>Alunos e encarregados</h3><p>Notas, faltas, horário, calendário académico, comunicados e pagamentos do aluno ou dos educandos.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Como funciona -->
+    <section class="secao cinza">
+      <div class="container">
+        <div class="text-center"><h2>Como funciona</h2><p class="sub">Três passos para a sua escola começar.</p></div>
+        <div class="row g-4">
+          <div class="col-md-4 passo"><div class="n">1</div><h3 class="h5">A escola é registada</h3><p class="text-muted">A plataforma cria a escola e o acesso da Direcção.</p></div>
+          <div class="col-md-4 passo"><div class="n">2</div><h3 class="h5">A equipa é configurada</h3><p class="text-muted">Turmas, docentes, plano curricular e contas por perfil.</p></div>
+          <div class="col-md-4 passo"><div class="n">3</div><h3 class="h5">A gestão passa a ser digital</h3><p class="text-muted">Notas, pautas, presenças e propinas num só lugar, com documentos oficiais.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segurança -->
+    <section id="seguranca" class="secao">
+      <div class="container">
+        <div class="text-center"><h2>Segurança em primeiro lugar</h2><p class="sub">Os dados da escola e dos alunos merecem protecção a sério.</p></div>
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-3"><div class="cartao"><div class="ic"><i class="bi bi-lock-fill"></i></div><h3>HTTPS obrigatório</h3><p>Toda a comunicação é cifrada; o acesso é sempre pelo endereço oficial.</p></div></div>
+          <div class="col-md-6 col-lg-3"><div class="cartao"><div class="ic" style="background:#6d28d9"><i class="bi bi-diagram-3-fill"></i></div><h3>Isolamento por escola</h3><p>Cada escola só acede aos seus próprios registos, também ao nível da base de dados.</p></div></div>
+          <div class="col-md-6 col-lg-3"><div class="cartao"><div class="ic" style="background:#0f766e"><i class="bi bi-shield-lock-fill"></i></div><h3>Acessos controlados</h3><p>Perfis por departamento, autenticação de dois factores e limites contra abuso e tentativas de intrusão.</p></div></div>
+          <div class="col-md-6 col-lg-3"><div class="cartao"><div class="ic" style="background:#b45309"><i class="bi bi-file-earmark-lock2-fill"></i></div><h3>Ficheiros protegidos</h3><p>Ficheiros internos, de configuração e de cópia nunca são servidos ao público.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faixa-cta">
+      <div class="container"><h2 class="fw-bold">Quer levar o SIGE para a sua escola?</h2>
+        <p class="mb-4">Fale connosco ou entre se já tem conta.</p>
+        <a class="btn btn-sige btn-lg me-2" href="/contacto.html">Contactar</a><a class="btn btn-sige-contorno btn-lg" href="/login">Entrar</a></div>
+    </section>
+  </main>
+
+  <div id="site-rodape"></div>
+  <script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script src="/site/site.js" defer></script>
 </body>
 </html>

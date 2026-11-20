@@ -265,3 +265,7 @@ Em estrita conformidade com os princípios de confiabilidade jurídica e auditor
 - `get_tenant_escola` e o equivalente do material escolar deixaram de aceitar `X-Tenant-ID`/`escola_id` de quem não é SUPERADMIN.
 - Parâmetros e permissões de exames: apenas a direcção (`SUPERADMIN`, `ADMIN_ESCOLA`, `DIRECTOR_ESCOLA`, `DAP`) pode alterar, e o utilizador sem role já não conta como gestão.
 - Frontend: o cartão de material escolar em `app.js` escapa os dados da API e usa `data-*` nos botões.
+
+
+## Site público, `.htaccess` e páginas de erro (v2.9.84)
+Ver secção 22 da `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`. Resumo: ficheiros sensíveis trancados no Nginx (produção) e em `.htaccess` (frontend, backend e raiz, para Apache); páginas 400/403/404/429/500/503 do SIGE; a API responde em JSON mesmo com o backend em baixo; formulário de contacto limitado a 5 mensagens por hora por IP, com armadilha anti-robô e sem guardar IP; verificação de cookies com consentimento.

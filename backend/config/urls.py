@@ -38,6 +38,7 @@ api_v1_patterns = [
     re_path(r'^atribuicoes/', include('apps.atribuicoes.urls')),
     re_path(r'^crm/', include('apps.crm.urls')),
     re_path(r'^assistente/', include('apps.assistente.urls')),
+    re_path(r'^site/', include('apps.site_publico.urls')),
     path('', include('apps.tenants.urls')),
 ]
 

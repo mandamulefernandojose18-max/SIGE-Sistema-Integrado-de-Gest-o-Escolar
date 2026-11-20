@@ -52,7 +52,9 @@ function assAdicionar(msg) {
 function assRenderSugestoes(lista) {
   const sug = document.getElementById('assSugestoes');
   if (!sug) return;
-  assState.sugestoes = Array.isArray(lista) ? lista.slice(0, 6) : [];
+  assState.sugestoes = Array.isArray(lista) ? lista.slice(0, 8) : [];   // no máximo 8 (altura constante, independente de n)
+  sug.style.maxHeight = '6.5rem';
+  sug.style.overflowY = 'auto';
   sug.innerHTML = assState.sugestoes.map((s, i) =>
     `<button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="assUsarSugestao(${i})">${escapeHtml(s)}</button>`).join('');
 }

@@ -317,3 +317,7 @@
 
 ## Folha de Resposta Personalizada
 Menu *Área Pedagógica → Folha de Resposta Personalizada*: escolha o Ano Lectivo e **Buscar**; seleccione o âmbito (aluno, turma, classe ou em branco), a avaliação (tipo, disciplina, data, duração), a grelha (nº de perguntas/alternativas, cotação, versões, chave) e exporte em **PDF** ou **Excel**. Use *Pré-visualizar* para ver a primeira folha antes de imprimir. Detalhes técnicos em `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`.
+
+
+### Assistente — calendário e estatísticas (v2.9.84)
+Todos os painéis: "Mostre o calendário académico". Painéis de escola (excepto aluno/encarregado): estatística de pessoal e de alunos (H, M, HM), aprovados/reprovados/repetentes, faltosos, melhores alunos, exames, pagamentos mensais, previsão de alunos e aproveitamento por professor/turma/classe/disciplina e entre anos. Super Admin: escolas por província, maiores escolas, crescimento, limites do plano. Detalhe em `DOCUMENTACAO_COMPLETA_DO_SISTEMA.md` §22.

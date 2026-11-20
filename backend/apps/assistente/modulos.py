@@ -13,11 +13,13 @@ _DIRECCAO = {
     'atribuicoes-cargos', 'plano-curricular', 'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia',
     'folha-resposta', 'estatisticas-aproveitamento', 'material-escolar', 'sumarios', 'alunos', 'presencas', 'transferencias',
     'certificados', 'ocorrencias', 'impressao', 'pagamentos', 'despesas', 'comunicados', 'crm', 'assistente-relatorio',
+    'estatistica-inicio-turma', 'estatistica-inicio-classe', 'estatistica-inicio-escola',
 }
 _PEDAGOGICO = {
     'estatisticas-aproveitamento', 'calendario', 'turmas', 'horarios', 'professores', 'atribuicoes-cargos', 'plano-curricular',
     'desbloqueio', 'caderneta', 'pautas', 'exames', 'calendario-exames', 'provas-anti-ia', 'folha-resposta', 'sumarios', 'alunos',
     'presencas', 'ocorrencias', 'transferencias', 'material-escolar', 'comunicados', 'crm',
+    'estatistica-inicio-turma', 'estatistica-inicio-classe', 'estatistica-inicio-escola',
 }
 _SECRETARIA = {
     'dashboard', 'alunos', 'transferencias', 'presencas', 'turmas', 'pautas', 'certificados', 'impressao', 'calendario', 'horarios',
@@ -26,6 +28,7 @@ _SECRETARIA = {
 _PROFESSOR = {
     'caderneta', 'presencas', 'sumarios', 'ocorrencias', 'horarios', 'pautas', 'exames', 'provas-anti-ia', 'folha-resposta',
     'estatisticas-aproveitamento', 'material-escolar', 'comunicados', 'minhas-atividades', 'professor-perfil',
+    'correcao-provas', 'director-classe', 'director-turma',
 }
 _ALUNO = {
     'aluno-perfil', 'aluno-notas', 'aluno-faltas', 'aluno-calendario', 'horarios', 'aluno-pagamentos', 'material-escolar', 'comunicados',

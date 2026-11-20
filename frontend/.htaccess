@@ -1,0 +1,100 @@
+# ==============================================================================
+# SIGE — .htaccess do FRONTEND (Apache 2.4 + mod_rewrite, mod_headers, mod_authz_core, mod_deflate, mod_expires)
+#
+# Nota: em produção o SIGE corre em Nginx (frontend/nginx.conf), que IGNORA este ficheiro e aplica as mesmas regras
+# ("trancar" ficheiros, cabeçalhos, páginas de erro). Este .htaccess protege o mesmo conteúdo se o frontend for alguma
+# vez servido por Apache (alojamento partilhado, cPanel, etc.).
+# ==============================================================================
+
+# Sem listagem de directorias, sem MultiViews, sem seguir links simbólicos fora da pasta
+Options -Indexes -MultiViews +SymLinksIfOwnerMatch
+ServerSignature Off
+
+# Esta pasta é o conteúdo público do site (repõe o acesso negado pelo .htaccess da raiz). As regras de baixo continuam a trancar o sensível.
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+DirectoryIndex index.html
+AddDefaultCharset UTF-8
+
+# ---------------------------------------------------------------- páginas de erro do SIGE
+ErrorDocument 400 /400.html
+ErrorDocument 401 /403.html
+ErrorDocument 403 /403.html
+ErrorDocument 404 /404.html
+ErrorDocument 405 /400.html
+ErrorDocument 429 /429.html
+ErrorDocument 500 /500.html
+ErrorDocument 502 /503.html
+ErrorDocument 503 /503.html
+ErrorDocument 504 /503.html
+
+# ---------------------------------------------------------------- tranca: ficheiros e pastas sensíveis
+# Ficheiros ocultos (.git, .env, .htpasswd, ...) — excepto /.well-known (Let's Encrypt)
+<FilesMatch "^\.(?!well-known)">
+    Require all denied
+</FilesMatch>
+
+# Código-fonte, configuração, segredos, dumps, cópias e mapas de código
+<FilesMatch "(?i)\.(map|md|py|pyc|pyo|sql|sqlite3?|db|log|bak|old|orig|save|swp|swo|tmp|ini|env|ya?ml|toml|lock|sh|ps1|cmd|bat|pem|key|crt|csr|conf|inc|dist|gz|tgz|zip|tar|rar|7z)$">
+    Require all denied
+</FilesMatch>
+
+# Ficheiros de projecto
+<FilesMatch "^(package(-lock)?\.json|server\.js|Dockerfile|nginx\.conf|vercel\.json|docker-compose\..*|CLAUDE\.md|README\.md)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Pastas internas nunca são públicas
+    RewriteRule ^(node_modules|tests?|scripts|docs|conteudo|supabase|backend|scratch|\.github)(/|$) - [R=404,L]
+
+    # HTTPS obrigatório e domínio oficial (nunca expõe IP nem outros nomes)
+    RewriteCond %{HTTPS} !=on [OR]
+    RewriteCond %{HTTP_HOST} !^sigesaas\.duckdns\.org$ [NC]
+    RewriteRule ^ https://sigesaas.duckdns.org%{REQUEST_URI} [R=301,L]
+
+    # Rotas limpas: /login e /<perfil>/<página> (painel)
+    RewriteRule ^login/?$ /login.html [L]
+    RewriteRule ^(saas|admin|direcao|pedagogico|secretaria|professor|aluno|encarregado|financeiro)(/[a-z0-9-]+)?/?$ /painel.html [L]
+</IfModule>
+
+# Métodos HTTP: só os necessários (bloqueia TRACE/CONNECT/...)
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_METHOD} !^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$
+    RewriteRule ^ - [R=405,L]
+</IfModule>
+
+# ---------------------------------------------------------------- cabeçalhos de segurança
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self), payment=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https://api.qrserver.com https://*.openstreetmap.org; media-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; frame-src 'self' blob: data: https://www.openstreetmap.org https://drive.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+    Header unset X-Powered-By
+    Header unset Server
+    # HTML, JS, CSS e JSON nunca ficam em cache (as actualizações aparecem logo)
+    <FilesMatch "\.(html|js|css|json)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    </FilesMatch>
+</IfModule>
+
+# Cache leve só para imagens e tipos de letra
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/png "access plus 7 days"
+    ExpiresByType image/jpeg "access plus 7 days"
+    ExpiresByType image/svg+xml "access plus 7 days"
+    ExpiresByType font/woff2 "access plus 7 days"
+    ExpiresByType font/woff "access plus 7 days"
+</IfModule>
+
+# Compressão
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css application/json application/javascript text/javascript image/svg+xml
+</IfModule>

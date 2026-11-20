@@ -1799,3 +1799,36 @@ Permite ao professor corrigir com o sistema a prova em papel de cada aluno. **Na
 
 
 **Verificar fotografia suspeita e QR maior (v2.9.79).** Na aba Capturas da prova há o botão «Verificar fotografia suspeita»: o professor carrega a fotografia (JPEG/PNG, até 12 MB) para `POST /api/v1/escudo/<id>/verificar-foto/` (campo `foto`; só quem pode ver a prova; a foto não fica guardada). O servidor lê os QR da imagem inteira e depois por blocos sobrepostos, com realce de contraste (QR cinzentos) e ampliação (OpenCV, `opencv-python-headless` em `requirements.txt`), e devolve a **cópia** (n.º de série), as **páginas** e as **perguntas** lidas; cada identificação fica nos eventos da prova. Os QR de outras provas não são atribuídos a esta (`outras`). O QR por pergunta passou de 13 para 18 mm (mínimo 14 mm) depois de um teste com fotografias simuladas: a 13 mm só se lia em fotos de alta resolução; a 18 mm lê-se em fotos de 12 MP e em fotos reduzidas por aplicações de mensagens (1600 px), mesmo em cinzento até 75%. **Limites:** a cópia liga-se ao aluno pela lista de distribuição das cópias (o SIGE guarda o n.º de série, não o aluno); em fotos com menos de cerca de 1200 px os QR de pergunta quase não se lêem, mas o QR da página costuma bastar para identificar a cópia; o teste usou fotos simuladas, não câmaras reais.
+
+
+## 22. Site público, calendário académico e estatísticas do Assistente (v2.9.84)
+
+### 22.1 Site público (`https://sigesaas.duckdns.org/`)
+- `/` (`frontend/index.html`): página inicial com **carrossel** (5 destaques), barra de navegação, funcionalidades por painel, segurança e chamada para acção. `/login` continua a ser o início de sessão.
+- `/contacto.html`: formulário que grava em `MensagemContacto` (`apps/site_publico`, tabela `sige_site_mensagens_contacto`) via `POST /api/v1/site/contacto/` (público, **5 por hora por IP**, campo-armadilha anti-robô, texto sem HTML). Os contactos mostrados vêm de `GET /api/v1/site/info/`, definidos por variáveis de ambiente `SITE_CONTACTO_EMAIL`, `SITE_CONTACTO_TELEFONE` e `SITE_CONTACTO_ENDERECO` (vazias = "contactos por publicar"; nunca inventados). As mensagens lêem-se no Django admin (Super Admin). Excepção deliberada à regra de `escola_id`: é a caixa de entrada da plataforma.
+- `/privacidade.html` (Política de privacidade + Política de cookies) e `/termos.html` (Termos de uso).
+- **Verificação de cookies** (`frontend/site/site.js`): faixa com *Aceitar tudo*, *Apenas essenciais* e *Personalizar*; a escolha fica em `localStorage` (`sige_cookies`) e no cookie `sige_consent`; "Gerir cookies" no rodapé reabre a janela. Sem cookies de publicidade nem de terceiros.
+- **Erros**: `400.html`, `403.html`, `404.html`, `429.html`, `500.html`, `503.html` (502/503/504). A API responde sempre em JSON (`@api_indisponivel`) mesmo com o backend em baixo.
+
+### 22.2 Segurança de ficheiros (`.htaccess` e Nginx)
+- `frontend/.htaccess`, `backend/.htaccess` e `.htaccess` da raiz tranca: ficheiros ocultos, código (`.py`, `.sql`…), segredos (`.env`, `.pem`, `.key`), cópias (`.bak`, `.zip`, `.gz`), mapas, `package.json`, `Dockerfile`, pastas `node_modules`, `tests`, `scripts`, `docs`, `conteudo`, `supabase`, `backend`. Também: sem listagem de directorias, só métodos HTTP necessários, HTTPS e domínio oficial obrigatórios, cabeçalhos de segurança e `ErrorDocument` do SIGE.
+- **Em produção o servidor é Nginx, que ignora o `.htaccess`**: `frontend/nginx.conf` aplica as mesmas regras (`return 404` para esses ficheiros/pastas, `autoindex off`, métodos limitados, `error_page`). O `.htaccess` protege o mesmo conteúdo se o frontend for alguma vez servido por Apache.
+- O fallback silencioso para `index.html` foi removido: caminhos desconhecidos mostram a página 404 do SIGE.
+
+### 22.3 Assistente: calendário e estatísticas (`apps/assistente/capacidades_estatisticas.py`)
+Só leitura, dados reais, isolados por escola; sem registos devolve-se o estado vazio explicativo. O ano lectivo pode ser escolhido na pergunta ("… em 2025"); por omissão usa-se o activo.
+
+| Capacidade | Painéis | O que responde |
+|---|---|---|
+| `calendario_academico` | **todos** (aluno e encarregado incluídos) | trimestres, próximos eventos aprovados (por mês/tipo: feriados, reuniões, conselhos, avaliações) e exames |
+| `estat_pessoal` | todos excepto aluno/encarregado | docentes (H/M, activos, inactivos/desligados, carreira, sem turma) e não docentes por cargo. O sistema não guarda o género dos não docentes nem regista transferências de funcionários |
+| `estat_alunos` | idem | H, M e HM, situação (activos, transferidos, desistentes), por classe, transferidos em anos anteriores |
+| `estat_resultados` | Direcção, DAP, Professor (só as suas turmas), Secretaria | aprovados/reprovados (H/M, por classe) pelo critério oficial (`avaliar_aprovacao_pauta` sobre a MFD), pendentes e **repetentes** (mesma classe no ano anterior) |
+| `faltosos`, `melhores_alunos` | Direcção, DAP, Professor (só as suas turmas) (+ Secretaria nos faltosos) | listas nominais só para quem já tem o ecrã no painel |
+| `estat_exames` | Direcção, DAP, Professor, Secretaria | inscritos nos júris (H/M) e resultados de exame |
+| `estat_pagamentos` | Direcção, Financeiro, Secretaria | facturado/recebido mês a mês, atrasos e previsão de entrada |
+| `previsao_alunos` | Direcção, DAP, Secretaria | histórico por ano lectivo e estimativa do ano seguinte (continuam + média de ingressos; método indicado na resposta) |
+| `aproveitamento_avancado` | Direcção, DAP, Professor | % de positivas da escola e por classe, turma, disciplina, professor; **comparação entre anos lectivos** |
+| `plat_calendario`, `plat_provincias`, `plat_ranking`, `plat_crescimento`, `plat_limites` | Super Admin | eventos das escolas, escolas/alunos por província, maiores escolas, adesões por mês, escolas acima/perto do limite do plano |
+
+As sugestões por perfil passaram a 8 (`sugestoes()`); o campo `Capacidade.prioritaria` impede o motor de consulta genérico de ultrapassar estas capacidades. Testes: `tests/test_assistente_estatisticas.py` e `tests/test_site_publico.py`.

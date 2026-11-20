@@ -208,7 +208,7 @@ def h_ajuda(ctx):
             regras.append(c.exemplos[0])
     txt = 'Sou o assistente do SIGE e só respondo sobre o que pertence ao seu painel (só leitura). '
     if dados:
-        txt += 'Consultas: ' + '; '.join(dados[:8]) + '. '
+        txt += 'Consultas: ' + '; '.join(dados[:14]) + '. '
     if guias_ex:
         txt += 'Guias passo a passo: ' + '; '.join(guias_ex[:6]) + '. '
     if regras:

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacto — SIGE</title>
+  <meta name="description" content="Contacte a equipa do SIGE para conhecer o sistema de gestão escolar ou pedir apoio.">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="canonical" href="https://sigesaas.duckdns.org/contacto.html">
+  <link rel="icon" type="image/png" href="/img/logo-sige.png">
+  <link href="/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/site/site.css">
+</head>
+<body class="site" data-pagina="contacto">
+  <header id="site-cabecalho"><noscript><p class="p-3"><a href="/">Início</a> · <a href="/privacidade.html">Privacidade</a> · <a href="/termos.html">Termos</a> · <a href="/login">Entrar</a></p></noscript></header>
+  <main id="conteudo">
+    <section class="pagina-topo"><div class="container"><h1>Contacto</h1><p class="mb-0 lead">Tem dúvidas, quer uma demonstração ou precisa de apoio? Escreva-nos.</p></div></section>
+    <section class="secao">
+      <div class="container"><div class="row g-5">
+        <div class="col-lg-5">
+          <h2 class="h4">Como nos encontrar</h2>
+          <ul id="contacto-info" class="list-unstyled mt-3"><li class="text-muted">A carregar contactos…</li></ul>
+          <div class="cartao auto mt-4"><h3 class="h6">Utilizadores do sistema</h3><p class="mb-0">Se já tem conta e perdeu o acesso, peça à Direcção ou à Administração da sua escola para redefinir a senha. Não envie senhas por mensagem.</p></div>
+        </div>
+        <div class="col-lg-7">
+          <form id="form-contacto" class="formulario-contacto" novalidate>
+            <div class="row g-3">
+              <div class="col-md-6"><label for="c-nome" class="form-label">Nome</label><input id="c-nome" name="nome" class="form-control" maxlength="120" required autocomplete="name"><div class="invalid-feedback">Indique o seu nome.</div></div>
+              <div class="col-md-6"><label for="c-email" class="form-label">Email</label><input id="c-email" name="email" type="email" class="form-control" maxlength="254" required autocomplete="email"><div class="invalid-feedback">Indique um email válido.</div></div>
+              <div class="col-12"><label for="c-assunto" class="form-label">Assunto</label><input id="c-assunto" name="assunto" class="form-control" maxlength="160" required><div class="invalid-feedback">Indique o assunto.</div></div>
+              <div class="col-12"><label for="c-msg" class="form-label">Mensagem</label><textarea id="c-msg" name="mensagem" class="form-control" rows="6" minlength="10" maxlength="3000" required></textarea><div class="invalid-feedback">Escreva pelo menos 10 caracteres.</div></div>
+              <div class="armadilha" aria-hidden="true"><label for="c-site">Não preencha este campo</label><input id="c-site" name="site" tabindex="-1" autocomplete="off"></div>
+              <div class="col-12"><p class="small text-muted mb-2">Ao enviar, aceita que usemos estes dados apenas para responder ao seu pedido, conforme a <a href="/privacidade.html">Política de privacidade</a>.</p>
+                <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-send me-1"></i>Enviar mensagem</button></div>
+            </div>
+            <div id="contacto-aviso" role="status" hidden></div>
+          </form>
+        </div>
+      </div></div>
+    </section>
+  </main>
+  <div id="site-rodape"></div>
+  <script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script src="/site/site.js" defer></script>
+</body>
+</html>

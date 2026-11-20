@@ -278,7 +278,7 @@ class TestAssistente:
     # ------------------------------------------------------------ contexto, feedback, auditoria
     def test_sugestoes_por_perfil_e_pagina(self):
         r = self.dir.get('/api/v1/assistente/sugestoes/?pagina=transferencias')
-        assert r.status_code == 200 and r.data['sugestoes'][0] == 'Quantas transferências estão pendentes?' and len(r.data['sugestoes']) <= 6
+        assert r.status_code == 200 and r.data['sugestoes'][0] == 'Quantas transferências estão pendentes?' and len(r.data['sugestoes']) <= 8
         d = self._r(self.dir, 'Como lanço as notas?', pagina='caderneta')
         assert d['sugestoes'][0] == 'Como lanço as notas?'
 

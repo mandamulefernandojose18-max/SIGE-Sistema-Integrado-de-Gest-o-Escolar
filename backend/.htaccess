@@ -1,0 +1,14 @@
+# ==============================================================================
+# SIGE — .htaccess do BACKEND: o código Django NUNCA é público.
+# Em produção o backend corre em contentor Docker (Gunicorn) atrás do Nginx; esta pasta não é servida por nenhum
+# servidor Web. Este ficheiro é a "tranca" extra: se um dia o repositório for apontado a um Apache, nada daqui sai.
+# (Equivalente moderno do Apache 2.4: "Require all denied".)
+# ==============================================================================
+Options -Indexes
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

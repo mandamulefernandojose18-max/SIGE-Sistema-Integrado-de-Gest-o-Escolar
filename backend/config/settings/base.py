@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'apps.atribuicoes',
     'apps.crm',
     'apps.assistente',
+    'apps.site_publico',
 ]
 
 MIDDLEWARE = [
@@ -176,10 +177,18 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'login': os.environ.get('THROTTLE_LOGIN', '10/min'),
         'verificacao': os.environ.get('THROTTLE_VERIFICACAO', '30/min'),
+        'contacto': os.environ.get('THROTTLE_CONTACTO', '5/hour'),
         # Limites gerais anti-abuso (DDoS aplicacional): por IP (anónimos) e por utilizador autenticado.
         'anon': os.environ.get('THROTTLE_ANON', '120/min'),
         'user': os.environ.get('THROTTLE_USER', '1500/min'),
     },
+}
+
+# Contactos oficiais mostrados no site público (página /contacto). Definidos por variáveis de ambiente; vazios = "a configurar".
+SITE_CONTACTO = {
+    'email': os.environ.get('SITE_CONTACTO_EMAIL', ''),
+    'telefone': os.environ.get('SITE_CONTACTO_TELEFONE', ''),
+    'endereco': os.environ.get('SITE_CONTACTO_ENDERECO', ''),
 }
 
 # SimpleJWT Settings

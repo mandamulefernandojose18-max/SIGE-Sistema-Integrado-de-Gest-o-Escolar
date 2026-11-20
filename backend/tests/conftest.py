@@ -10,7 +10,7 @@ def _isolar_limites_de_requisicoes(monkeypatch):
     monkeypatch.setattr(
         ScopedRateThrottle,
         'THROTTLE_RATES',
-        {'login': '10000/min', 'verificacao': '10000/min'},
+        {'login': '10000/min', 'verificacao': '10000/min', 'contacto': '10000/min'},
     )
     yield
     cache.clear()

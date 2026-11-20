@@ -1,0 +1,15 @@
+# ==============================================================================
+# SIGE — .htaccess da RAIZ do repositório (rede de segurança para Apache).
+# Só a pasta frontend/ é conteúdo público. Tudo o resto (backend, scripts, docs, supabase, .env, .git, *.log,
+# *.xlsx de teste, binários) fica trancado. Em produção o Nginx já só serve frontend/ (ver frontend/nginx.conf).
+# ==============================================================================
+Options -Indexes -MultiViews
+ServerSignature Off
+
+<IfModule mod_authz_core.c>
+    # Por omissão tudo é negado ...
+    Require all denied
+</IfModule>
+
+# ... e a pasta frontend/ (com o seu próprio .htaccess) é a única que pode ser servida:
+# o frontend/.htaccess repõe o acesso com "Require all granted" no seu âmbito.

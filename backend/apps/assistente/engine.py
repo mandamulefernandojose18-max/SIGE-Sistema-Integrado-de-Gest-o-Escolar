@@ -9,7 +9,7 @@ recusado sem revelar nada.
 import difflib
 
 from . import capacidades as cap
-from . import capacidades_extra, consulta, plataforma
+from . import capacidades_estatisticas, capacidades_extra, consulta, plataforma
 from .capacidades import ACESSO_ALUNO, GESTAO, PROPRIO, Ctx, normalizar
 from .modulos import modulos_do_perfil
 
@@ -34,6 +34,7 @@ DESCONHECIDA = ('Ainda não sei responder a essa pergunta. Posso ajudar com dado
 def _registar():
     plataforma.registar()
     capacidades_extra.registar()
+    capacidades_estatisticas.registar()
 
 
 _CONHECIDAS = None
@@ -245,7 +246,8 @@ def responder(user, escola, pergunta, aluno_id=None, pagina=None, anterior=None)
                 permitida = (3, c_resumo)
     # Pergunta NOVA que cabe nos dados do painel ("quantas alunas há na 8.ª classe?", "média de Física no 2.º trimestre"):
     # o motor de consulta entende entidade + operação + filtros e responde dentro do âmbito do perfil.
-    if permitida is None or (bloqueada and consulta.tem_cue(ctx.texto)) or (permitida[1].tipo == 'dados' and permitida[0] < 2) or consulta.tem_cue(ctx.texto):
+    prioritaria = permitida is not None and permitida[1].prioritaria and permitida[0] >= 3
+    if not prioritaria and (permitida is None or (bloqueada and consulta.tem_cue(ctx.texto)) or (permitida[1].tipo == 'dados' and permitida[0] < 2) or consulta.tem_cue(ctx.texto)):
         c = consulta.tentar(ctx, modulos, aluno_id, em_plataforma)
         if c is not None:
             if c['tipo'] == 'bloqueado':
