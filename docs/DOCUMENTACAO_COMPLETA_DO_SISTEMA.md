@@ -1757,3 +1757,23 @@ Conteúdo: efectivo H/M/HM, idade (anos completados no ano lectivo), necessidade
 **Ficha de matrícula** (`Aluno`, migração `0014`): `orfandade`, `necessidade_especial`, `meio_transporte`, `tempo_casa_escola`, `local_residencia` — preenchidos na matrícula e na edição do aluno.
 
 **API** (`/api/v1/alunos/estatistica-inicio-ano/`): `turma/<id>[/pdf|/xlsx]`, `classe[/pdf|/xlsx]?classe=&ano=`, `escola[/pdf|/xlsx]?ano=`, `minhas?ano=` (turmas/classes dirigidas pelo professor). Permissões: turma = Director da Turma, Director da Classe ou gestão; classe = Director da Classe ou gestão; escola = gestão (SUPERADMIN, ADMIN_ESCOLA, DIRECTOR_ESCOLA, DAP). Isolamento por escola. A resposta JSON traz `paginas` (as mesmas tabelas do PDF/Excel). Código: `apps/alunos/estatistica_inicio_ano.py`, `apps/documentos/services/estatistica_inicio_ano_docs.py`, `frontend/js/estatistica-inicio-ano.js`. Testes: `backend/tests/test_estatistica_inicio_ano.py`.
+
+---
+
+### Correção Assistida de Provas Físicas (2026-11-20) — `#view-correcao-provas`
+
+Permite ao professor corrigir com o sistema a prova em papel de cada aluno. **Nada chega à caderneta sem o pedido explícito de lançamento do professor.**
+
+**Onde:** Painel do Professor → *Correcção de Provas*. Filtros em cascata (Classe → Secção/Área → Turma → Disciplina → Trimestre → Prova); sem provas, mostra apenas o estado vazio explicativo.
+
+**Dois tipos de prova**
+- **Escolha múltipla (Folha de Resposta do sistema).** A prova é criada com os **mesmos dados da Folha de Resposta gerada** (avaliação 1ª/2ª/3ª ACS ou AT, nº de perguntas, 2–6 alternativas, cotação por pergunta, perguntas abertas, versões e chave de correcção). A validação reutiliza `normalizar_config` da folha, por isso prova impressa e correcção nunca divergem. O professor assinala as respostas do aluno (grelha de bolhas ou texto rápido, «-» = em branco) e o sistema corrige contra o gabarito e calcula a nota 0–20. Com versões (A/B…) escolhe-se a versão da folha do aluno. As perguntas abertas da folha recebem pontos do professor. **O gabarito nunca é devolvido pela API.** O Exame Final não se lança aqui (usa `NotaExame`).
+- **Discursiva.** O professor define a cotação de cada pergunta e atribui pontos por pergunta; a nota é reescalada para 0–20.
+
+**Regras:** só o professor alocado à turma/disciplina (ou SUPERADMIN) corrige; Direcção, Administração e DAP só consultam; as outras escolas e perfis não vêem a prova (404). O lançamento escreve só o instrumento da prova (teste1…teste4, trabalho ou AT) pelo mesmo caminho do lançamento normal (prazos, pauta fechada, cálculo MEC e auditoria antes/depois), preservando os restantes instrumentos. Alterar uma correcção já lançada exige novo lançamento. Prova com notas lançadas não se elimina.
+
+**Páginas digitalizadas:** PNG, JPG ou PDF (tipo validado pelos primeiros bytes), até 8 MB e 6 páginas por aluno, guardadas fora do banco em pasta isolada por escola e servidas só com autenticação (`nosniff`, `no-store`, CSP restritiva; 404 igual para inexistente e alheio).
+
+**Modelo de dados (migração `notas.0010`):** `ProvaFisica`, `CorrecaoProva`, `CorrecaoImagem` (todas com `escola_id`).
+
+**Próximas fases (não incluídas):** leitura óptica (OMR) da fotografia da folha, aproveitando as marcas e o código da folha já impressos; sugestão de nota por IA, opcional e sempre validada pelo professor; exportação PDF/Excel do relatório da correcção.

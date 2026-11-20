@@ -382,3 +382,19 @@ Validações ligadas ao plano nas rotas existentes: `POST/PUT /disciplinas/` (cl
 ## Estatística de Início do Ano (03/03)
 
 GET /api/v1/alunos/estatistica-inicio-ano/turma/{id} (+ /pdf, /xlsx), classe?classe=&ano=, escola?ano=, minhas?ano=. Ver secção 21 da documentação completa para permissões e conteúdo.
+
+
+### Correção Assistida de Provas Físicas — `/api/v1/notas/provas-fisicas/`
+
+Isolado por escola. Escrita: professor alocado à turma e disciplina (ou SUPERADMIN). Leitura: também Direcção, Administração e DAP. Aluno e encarregado: 403.
+
+| Método e rota | Descrição |
+|---|---|
+| `GET /provas-fisicas/?turma_id=&disciplina_id=&periodo=` | Lista provas (o professor vê só as suas). |
+| `POST /provas-fisicas/` | Cria prova. Discursiva: `{tipo:"DISCURSIVA", turma_id, disciplina_id, periodo, instrumento, titulo, perguntas:[{cotacao}]}`. Escolha múltipla: `{tipo:"MULTIPLA_ESCOLHA", turma_id, disciplina_id, periodo, titulo, folha:{tipo_avaliacao, n_perguntas, n_alternativas, cotacao_pergunta\|seccoes, abertas, versoes, gabarito\|gabaritos}}` (mesma configuração da Folha de Resposta). |
+| `GET /provas-fisicas/<id>/` | Detalhe: perguntas, alunos activos da turma e estado de cada correcção (o gabarito nunca é devolvido). |
+| `DELETE /provas-fisicas/<id>/` | Elimina (409 se já houver notas lançadas). |
+| `GET\|PUT /provas-fisicas/<id>/correcoes/<aluno_id>/` | Correcção do aluno. Discursiva: `{pontos:[...]}`. Escolha múltipla: `{respostas:"ABC-D", versao:"A", pontos:[...só abertas]}`. Devolve pontos, total, nota (0–20) e estado (`RASCUNHO`, `CORRIGIDA`, `LANCADA`). |
+| `POST /provas-fisicas/<id>/correcoes/<aluno_id>/imagens/` | Página digitalizada (multipart, campo `ficheiro`: PNG, JPG ou PDF, 8 MB, até 6). |
+| `GET\|DELETE /provas-fisicas/imagens/<img_id>/` | Ficheiro autenticado / remoção. |
+| `POST /provas-fisicas/<id>/lancar/` | Lança na caderneta as correcções `CORRIGIDA` (opcional `aluno_ids`); respeita prazos, pauta fechada e auditoria. |

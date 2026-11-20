@@ -2732,6 +2732,7 @@ const MENUS_POR_PAINEL = {
     { id: 'exames', titulo: 'Consulta de Exames', icone: 'bi-file-earmark-spreadsheet-fill text-warning', categoria: 'Espaço do Docente' },
     { id: 'provas-anti-ia', titulo: 'Blindagem Anti-IA de Provas', icone: 'bi-qr-code-scan text-danger', categoria: 'Espaço do Docente' },
     { id: 'folha-resposta', titulo: 'Folha de Resposta Personalizada', icone: 'bi-ui-radios-grid text-primary', categoria: 'Espaço do Docente' },
+    { id: 'correcao-provas', titulo: 'Correcção de Provas', icone: 'bi-pencil-square text-primary', categoria: 'Espaço do Docente' },
     { id: 'estatisticas-aproveitamento', titulo: 'Estatística das Minhas Turmas', icone: 'bi-bar-chart-line-fill text-success', categoria: 'Espaço do Docente' },
     { id: 'material-escolar', titulo: 'Material Didático & Escolar', icone: 'bi-book-half text-primary', categoria: 'Espaço do Docente' },
     { id: 'comunicados', titulo: 'Comunicados Oficiais', icone: 'bi-megaphone-fill text-primary', categoria: 'Espaço do Docente' },
@@ -3459,7 +3460,7 @@ async function carregarPaginaModulo(painel, viewId) {
   // Resolução inteligente da pasta para evitar erros 404 no console
   const ARQUIVOS_PROPRIOS = {
     'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'aluno-faltas', 'aluno-calendario', 'material-escolar'],
-    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'exames', 'material-escolar', 'pautas', 'professor-perfil', 'provas-anti-ia', 'folha-resposta'],
+    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'exames', 'material-escolar', 'pautas', 'professor-perfil', 'provas-anti-ia', 'folha-resposta', 'correcao-provas'],
     'painel-financeiro': ['dashboard', 'impressao', 'pagamentos', 'prompt-gateway'],
     'painel-superadmin': ['acessos', 'pagamentos-saas', 'prompt-gateway', 'saas', 'usuarios-senhas']
   };
@@ -3522,7 +3523,7 @@ async function carregarScriptModulo(painel, viewId) {
 
   const SCRIPTS_PROPRIOS = {
     'painel-aluno': ['aluno-notas', 'aluno-pagamentos', 'aluno-perfil', 'aluno-faltas', 'aluno-calendario', 'material-escolar'],
-    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'material-escolar', 'pautas', 'provas-anti-ia'],
+    'painel-professor': ['caderneta', 'director-turma', 'estatisticas-aproveitamento', 'material-escolar', 'pautas', 'provas-anti-ia', 'correcao-provas'],
     'painel-financeiro': ['dashboard', 'impressao', 'pagamentos', 'prompt-gateway'],
     'painel-superadmin': ['acessos', 'pagamentos-saas', 'prompt-gateway', 'saas', 'usuarios-senhas']
   };
@@ -22479,6 +22480,8 @@ async function executarGatilhosCarregamentoView(viewId, ano) {
     if (typeof carregarPerfilDocenteIndividual === 'function') await carregarPerfilDocenteIndividual();
   } else if (viewId === 'folha-resposta') {
     if (typeof window.inicializarModulo_folha_resposta === 'function') await window.inicializarModulo_folha_resposta();
+  } else if (viewId === 'correcao-provas') {
+    if (typeof window.inicializarModulo_correcao_provas === 'function') await window.inicializarModulo_correcao_provas();
   } else if (viewId === 'provas-anti-ia') {
     // Escudo Anti-IA: depois de Buscar, desenha o painel (provas, métricas, próxima libertação)
     if (typeof window.inicializarModulo_provas_anti_ia === 'function') await window.inicializarModulo_provas_anti_ia();

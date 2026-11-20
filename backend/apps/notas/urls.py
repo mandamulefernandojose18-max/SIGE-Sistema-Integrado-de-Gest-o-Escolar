@@ -12,7 +12,24 @@ from .views_exames import (
     FormarJurisView, JurisExamePdfView, JurisExameView,
 )
 
+from .views_correcao import (
+    CorrecaoAlunoView, CorrecaoImagemFicheiroView, CorrecaoImagemUploadView, LancarCorrecoesView,
+    ProvaFisicaDetalheView, ProvasFisicasView,
+)
+
 urlpatterns = [
+    path('provas-fisicas', ProvasFisicasView.as_view(), name='provas_fisicas_no_slash'),
+    path('provas-fisicas/', ProvasFisicasView.as_view(), name='provas_fisicas'),
+    path('provas-fisicas/imagens/<uuid:img_id>', CorrecaoImagemFicheiroView.as_view(), name='provas_fisicas_img_no_slash'),
+    path('provas-fisicas/imagens/<uuid:img_id>/', CorrecaoImagemFicheiroView.as_view(), name='provas_fisicas_img'),
+    path('provas-fisicas/<uuid:pk>', ProvaFisicaDetalheView.as_view(), name='provas_fisicas_det_no_slash'),
+    path('provas-fisicas/<uuid:pk>/', ProvaFisicaDetalheView.as_view(), name='provas_fisicas_det'),
+    path('provas-fisicas/<uuid:pk>/lancar', LancarCorrecoesView.as_view(), name='provas_fisicas_lancar_no_slash'),
+    path('provas-fisicas/<uuid:pk>/lancar/', LancarCorrecoesView.as_view(), name='provas_fisicas_lancar'),
+    path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>', CorrecaoAlunoView.as_view(), name='provas_fisicas_corr_no_slash'),
+    path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/', CorrecaoAlunoView.as_view(), name='provas_fisicas_corr'),
+    path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/imagens', CorrecaoImagemUploadView.as_view(), name='provas_fisicas_up_no_slash'),
+    path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/imagens/', CorrecaoImagemUploadView.as_view(), name='provas_fisicas_up'),
     path('calendario-exames', CalendarioExamesView.as_view(), name='calendario_exames_no_slash'),
     path('calendario-exames/', CalendarioExamesView.as_view(), name='calendario_exames'),
     path('calendario-exames/pdf', CalendarioExamesPdfView.as_view(), name='calendario_exames_pdf_no_slash'),

@@ -1,0 +1,444 @@
+// =====================================================================
+// SIGE - CORRECÇÃO ASSISTIDA DE PROVAS FÍSICAS (Painel do Professor)
+// Cascata Classe → Secção/Área → Turma → Disciplina → Trimestre → Prova (altura constante para qualquer n).
+// API: /api/v1/notas/provas-fisicas/  ·  /api/v1/professores/minhas-turmas/
+// A nota só chega à caderneta quando o professor confirma em "Lançar corrigidas na caderneta".
+// =====================================================================
+(function () {
+  'use strict';
+  var API = '/api/v1/notas/provas-fisicas/';
+  var NOTA_MINIMA = 9.5; // abaixo disto a nota é negativa e vai a vermelho
+  var alocs = [];
+  var prova = null;       // detalhe da prova aberta (com alunos)
+  var idxAluno = 0;
+  var urlsImagens = [];   // object URLs a libertar ao mudar de aluno
+  var ligado = false;
+
+  function $(id) { return document.getElementById(id); }
+  function st() { return (typeof state !== 'undefined' && state) || window.state || {}; }
+  function token() { try { return st().token || sessionStorage.getItem('sige_token') || localStorage.getItem('sige_token') || ''; } catch (_) { return ''; } }
+  function tenant() {
+    try {
+      var s = st(), sel = null;
+      try { sel = localStorage.getItem('sige_selected_tenant'); } catch (_) { /* sem storage */ }
+      var superadmin = s.user && s.user.role === 'SUPERADMIN';
+      return (superadmin || !s.user ? sel : null) || (s.tenant && s.tenant.id) || (s.user && s.user.escola_id) || '';
+    } catch (_) { return ''; }
+  }
+  function cab(extra) {
+    var h = Object.assign({}, extra || {});
+    var t = token(); if (t) h['Authorization'] = 'Bearer ' + t;
+    var tn = tenant(); if (tn) h['X-Tenant-ID'] = tn;
+    return h;
+  }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML.replace(/"/g, '&quot;'); }
+  function toast(msg, tipo) { if (typeof window.mostrarToast === 'function') window.mostrarToast(msg, tipo || 'info'); else alert(msg); }
+  function ano() { return (st().anosPorView && st().anosPorView['correcao-provas']) || ($('correcaoProvasAnoSelect') || {}).value || ''; }
+  function fmt(v) { return String(Math.round(v * 100) / 100).replace('.', ','); }
+  function num(v) { if (v === '' || v == null) return null; var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : NaN; }
+
+  async function chamar(url, opcoes) {
+    var r = await fetch(url, Object.assign({ headers: cab() }, opcoes || {}));
+    var j = null; try { j = await r.json(); } catch (_) { /* resposta sem corpo JSON */ }
+    return { ok: r.ok, status: r.status, json: j || {} };
+  }
+  function json(metodo, corpo) { return { method: metodo, headers: cab({ 'Content-Type': 'application/json' }), body: JSON.stringify(corpo) }; }
+  function msg(res, padrao) { return (res.json && (res.json.message || res.json.detail)) || padrao || 'Não foi possível concluir o pedido.'; }
+
+  // ---------- Cascata ----------
+  function grau(a) { return (a.turma && a.turma.grau_ano) || a.turma_grau || ''; }
+  function area(a) { return (a.turma && a.turma.area) || a.turma_area || ''; }
+  function turmaId(a) { return (a.turma && a.turma.id) || a.turma || ''; }
+  function turmaNome(a) { return (a.turma && a.turma.nome) || a.turma_nome || ''; }
+  function discId(a) { return (a.disciplina && a.disciplina.id) || a.disciplina || ''; }
+  function discNome(a) { return a.disciplina_nome || (a.disciplina && a.disciplina.nome) || ''; }
+  function unicos(lista) { var v = []; lista.forEach(function (x) { if (x && v.indexOf(x) < 0) v.push(x); }); return v.sort(); }
+  function opcoes(sel, rotulo, itens) {
+    var ant = sel.value;
+    sel.innerHTML = '<option value="">' + esc(rotulo) + '</option>' + itens.map(function (i) {
+      return '<option value="' + esc(i.v) + '">' + esc(i.t) + '</option>';
+    }).join('');
+    if (ant && itens.some(function (i) { return i.v === ant; })) sel.value = ant;
+  }
+  function daClasse() { var c = $('cpClasse').value; return alocs.filter(function (a) { return !c || grau(a) === c; }); }
+  function daArea() { var ar = $('cpArea').value; return daClasse().filter(function (a) { return !ar || area(a) === ar; }); }
+  function daTurma() { var t = $('cpTurma').value; return daArea().filter(function (a) { return a.turma && turmaId(a) === t || (!a.turma && false); }); }
+
+  function preencherClasses() {
+    opcoes($('cpClasse'), '-- Classe --', unicos(alocs.map(grau)).map(function (g) { return { v: g, t: g }; }));
+    aoMudarClasse();
+  }
+  function aoMudarClasse() {
+    opcoes($('cpArea'), '-- Secção / Área --', unicos(daClasse().map(area)).map(function (g) { return { v: g, t: g }; }));
+    aoMudarArea();
+  }
+  function aoMudarArea() {
+    var vistos = {}, itens = [];
+    daArea().forEach(function (a) {
+      var id = turmaId(a); if (!id || vistos[id]) return; vistos[id] = 1;
+      itens.push({ v: id, t: turmaNome(a) });
+    });
+    opcoes($('cpTurma'), '-- Turma --', itens);
+    aoMudarTurma();
+  }
+  function aoMudarTurma() {
+    var t = $('cpTurma').value, vistos = {}, itens = [];
+    alocs.filter(function (a) { return t && turmaId(a) === t; }).forEach(function (a) {
+      var id = discId(a); if (!id || vistos[id]) return; vistos[id] = 1;
+      itens.push({ v: id, t: discNome(a) });
+    });
+    opcoes($('cpDisciplina'), '-- Disciplina --', itens);
+    carregarProvas();
+  }
+
+  function estadoVazio(texto) {
+    $('cpVazio').classList.remove('d-none');
+    $('cpVazioTexto').textContent = texto;
+    $('cpAreaCorreccao').classList.add('d-none');
+    $('cpBtnEliminar').classList.add('d-none');
+  }
+
+  async function carregarAlocacoes() {
+    try {
+      var res = await chamar('/api/v1/professores/minhas-turmas/?ano=' + encodeURIComponent(ano()));
+      alocs = res.ok && Array.isArray(res.json.data) ? res.json.data : [];
+    } catch (_) { alocs = []; toast('Falha de ligação ao carregar as suas turmas.', 'danger'); }
+    preencherClasses();
+    if (!alocs.length) estadoVazio('Não tem turmas e disciplinas atribuídas neste ano lectivo.');
+  }
+
+  async function carregarProvas(abrirId) {
+    var t = $('cpTurma').value, d = $('cpDisciplina').value, p = $('cpPeriodo').value;
+    prova = null;
+    opcoes($('cpProva'), '-- Prova --', []);
+    if (!t || !d || !p) { estadoVazio('Escolha a turma, a disciplina e o trimestre para ver as provas, ou crie uma nova prova.'); return; }
+    var res = await chamar(API + '?turma_id=' + encodeURIComponent(t) + '&disciplina_id=' + encodeURIComponent(d) + '&periodo=' + encodeURIComponent(p));
+    if (!res.ok) { toast(msg(res), 'danger'); estadoVazio('Não foi possível carregar as provas.'); return; }
+    var lista = res.json.data || [];
+    opcoes($('cpProva'), lista.length ? '-- Prova --' : '-- Sem provas --', lista.map(function (x) { return { v: x.id, t: x.titulo }; }));
+    if (!lista.length) { estadoVazio('Ainda não há provas para esta turma, disciplina e trimestre. Use "Nova prova" para criar a grelha de cotações.'); return; }
+    if (abrirId) $('cpProva').value = abrirId;
+    else if (lista.length === 1) $('cpProva').value = lista[0].id;
+    if ($('cpProva').value) await abrirProva($('cpProva').value);
+    else estadoVazio('Escolha a prova a corrigir.');
+  }
+
+  // ---------- Nova prova ----------
+  function lerCotacoes() {
+    return $('cpCotacoes').value.split(/[\s,;]+/).filter(Boolean).map(num);
+  }
+  function resumoCotacoes() {
+    var c = lerCotacoes(), el = $('cpResumoCotacoes');
+    if (!c.length) { el.textContent = 'Indique as cotações para ver o total.'; return; }
+    if (c.some(function (x) { return !(x > 0 && x <= 20); })) { el.textContent = 'Cada cotação deve estar entre 0 (exclusivo) e 20.'; return; }
+    var tot = c.reduce(function (s, x) { return s + x; }, 0);
+    el.textContent = c.length + ' pergunta(s) · total ' + fmt(tot) + (Math.abs(tot - 20) > 0.001 ? ' (a nota será reescalada para 0–20)' : '');
+  }
+  // Escolha múltipla: os mesmos dados da Folha de Resposta gerada (tipo, perguntas, alternativas, versões, chave)
+  function listaVersoes() {
+    return ($('cpVersoes').value || '').toUpperCase().split(/[\s,;]+/).filter(Boolean).slice(0, 6);
+  }
+  function desenharGabaritos() {
+    var vs = listaVersoes(), box = $('cpGabaritos');
+    var guardados = {};
+    box.querySelectorAll('input[data-v]').forEach(function (i) { guardados[i.getAttribute('data-v')] = i.value; });
+    var alvo = vs.length ? vs : [''];
+    box.innerHTML = '<div class="row g-2">' + alvo.map(function (v) {
+      return '<div class="col-12 col-md-6"><label class="form-label small mb-1">Chave de correcção' + (v ? ' da versão ' + esc(v) : '') + ' (uma letra por pergunta)</label>' +
+        '<input data-v="' + esc(v) + '" class="form-control form-control-sm font-monospace cp-gab" autocomplete="off" spellcheck="false" placeholder="Ex.: ABCDDACB" value="' + esc(guardados[v] || '') + '"></div>';
+    }).join('') + '</div>';
+  }
+  function alternarTipoNova() {
+    var mc = $('cpTipo').value === 'MULTIPLA_ESCOLHA';
+    document.querySelectorAll('#cpCartaoNova .cp-bloco-mc').forEach(function (e) { e.classList.toggle('d-none', !mc); });
+    document.querySelectorAll('#cpCartaoNova .cp-bloco-disc').forEach(function (e) { e.classList.toggle('d-none', mc); });
+    if (mc) desenharGabaritos();
+  }
+  function corpoEscolhaMultipla() {
+    var vs = listaVersoes(), folha = {
+      tipo_avaliacao: $('cpTipoAval').value, n_perguntas: $('cpNPerg').value, n_alternativas: $('cpNAlt').value,
+      cotacao_pergunta: $('cpCotPerg').value.trim().replace(',', '.'), versoes: vs.join(' ')
+    };
+    var gabs = {};
+    document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) { gabs[i.getAttribute('data-v') || '-'] = i.value; });
+    if (vs.length) folha.gabaritos = gabs; else folha.gabarito = gabs['-'] || '';
+    var nAb = parseInt($('cpNAbertas').value, 10) || 0;
+    if (nAb > 0) folha.abertas = [{ rotulo: 'Perguntas abertas', n: nAb, cotacao: $('cpCotAbertas').value.trim().replace(',', '.') }];
+    return folha;
+  }
+  async function criarProva() {
+    var mc = $('cpTipo').value === 'MULTIPLA_ESCOLHA';
+    var corpo = {
+      turma_id: $('cpTurma').value, disciplina_id: $('cpDisciplina').value, periodo: $('cpPeriodo').value,
+      titulo: $('cpTitulo').value.trim(), tipo: $('cpTipo').value
+    };
+    if (mc) corpo.folha = corpoEscolhaMultipla();
+    else { corpo.instrumento = $('cpInstrumento').value; corpo.perguntas = lerCotacoes().map(function (x) { return { cotacao: x }; }); }
+    if (!corpo.turma_id || !corpo.disciplina_id || !corpo.periodo) { toast('Escolha primeiro a turma, a disciplina e o trimestre.', 'warning'); return; }
+    var res = await chamar(API, json('POST', corpo));
+    if (!res.ok) { toast(msg(res), 'danger'); return; }
+    toast('Prova criada.', 'success');
+    $('cpCartaoNova').classList.add('d-none');
+    $('cpTitulo').value = ''; $('cpCotacoes').value = ''; $('cpNPerg').value = ''; $('cpVersoes').value = '';
+    $('cpCotPerg').value = ''; $('cpNAbertas').value = '0'; $('cpCotAbertas').value = '';
+    desenharGabaritos();
+    await carregarProvas(res.json.data.id);
+  }
+
+  // ---------- Correcção ----------
+  async function abrirProva(id) {
+    var res = await chamar(API + encodeURIComponent(id) + '/');
+    if (!res.ok) { toast(msg(res), 'danger'); estadoVazio('Não foi possível abrir a prova.'); return; }
+    prova = res.json.data;
+    $('cpVazio').classList.add('d-none');
+    $('cpAreaCorreccao').classList.remove('d-none');
+    $('cpBtnEliminar').classList.remove('d-none');
+    $('cpCotTotal').textContent = fmt(prova.cotacao_total);
+    if (!prova.alunos.length) { estadoVazio('Esta turma não tem alunos activos.'); return; }
+    preencherAlunos();
+    mostrarAluno(Math.min(idxAluno, prova.alunos.length - 1));
+  }
+  function rotuloEstado(c) {
+    if (!c) return 'por corrigir';
+    return { RASCUNHO: 'rascunho', CORRIGIDA: 'corrigida', LANCADA: 'lançada' }[c.estado] || c.estado;
+  }
+  function preencherAlunos() {
+    $('cpAluno').innerHTML = prova.alunos.map(function (a, i) {
+      return '<option value="' + i + '">' + esc(a.nome) + ' — ' + rotuloEstado(a.correcao) + (a.correcao && a.correcao.estado !== 'RASCUNHO' ? ' (' + fmt(a.correcao.nota) + ')' : '') + '</option>';
+    }).join('');
+    var r = prova.resumo;
+    $('cpCabProva').textContent = prova.titulo + ' · ' + prova.disciplina_nome + ' · ' + prova.turma_nome;
+    $('cpResumoProva').textContent = r.corrigidas + '/' + r.total_alunos + ' corrigidas · ' + r.lancadas + ' lançadas';
+  }
+  function libertarImagens() { urlsImagens.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (_) { /* nada */ } }); urlsImagens = []; }
+
+  function mostrarAluno(i) {
+    idxAluno = i;
+    $('cpAluno').value = String(i);
+    var a = prova.alunos[i], c = a.correcao;
+    var pontos = (c && c.pontos) || [];
+    var mc = prova.tipo === 'MULTIPLA_ESCOLHA';
+    // Perguntas com pontos do professor: todas (discursiva) ou só as abertas (escolha múltipla)
+    $('cpGrelha').innerHTML = prova.perguntas.map(function (p, k) {
+      if (p.tipo === 'MC') return '';
+      var v = pontos[k];
+      return '<div class="col-4 col-md-3 col-xl-3"><label class="form-label small mb-1" for="cpP' + k + '">P' + p.numero + ' <span class="text-muted">/ ' + fmt(p.cotacao) + '</span></label>' +
+        '<input id="cpP' + k + '" data-k="' + k + '" type="text" inputmode="decimal" class="form-control form-control-sm cp-ponto" value="' + (v == null ? '' : esc(fmt(v))) + '" autocomplete="off"></div>';
+    }).join('');
+    $('cpGrelha').querySelectorAll('.cp-ponto').forEach(function (el) { el.addEventListener('input', recalcular); });
+    $('cpBlocoMC').classList.toggle('d-none', !mc);
+    $('cpTituloAbertas').classList.toggle('d-none', !(mc && prova.perguntas.some(function (p) { return p.tipo !== 'MC'; })));
+    if (mc) desenharEscolhaMultipla(c); else recalcular();
+    var badge = $('cpEstadoAluno');
+    badge.textContent = rotuloEstado(c);
+    badge.className = 'badge ' + (!c ? 'text-bg-secondary' : c.estado === 'LANCADA' ? 'text-bg-success' : c.estado === 'CORRIGIDA' ? 'text-bg-primary' : 'text-bg-warning');
+    desenharImagens((c && c.imagens) || []);
+  }
+
+  // Um ponto por pergunta, na ordem da prova; as de escolha múltipla ficam a null (o servidor corrige-as pelo gabarito)
+  function lerPontos() {
+    return prova.perguntas.map(function (p, k) {
+      var el = $('cpP' + k);
+      return el ? num(el.value) : null;
+    });
+  }
+  function mostrarNota(total, nota) {
+    $('cpTotal').textContent = total == null ? '–' : fmt(total);
+    var el = $('cpNota');
+    el.textContent = nota == null ? '–' : fmt(nota);
+    el.style.color = nota != null && nota < NOTA_MINIMA ? '#dc3545' : ''; // notas negativas a vermelho
+  }
+  function recalcular() {
+    var pontos = lerPontos(), total = 0, erro = false;
+    pontos.forEach(function (v, k) {
+      var el = $('cpP' + k); if (!el) return;
+      var mau = v !== null && (isNaN(v) || v < 0 || v > prova.perguntas[k].cotacao);
+      el.classList.toggle('is-invalid', mau);
+      if (mau) erro = true; else if (v !== null) total += v;
+    });
+    if (erro) { mostrarNota(null, null); return; }
+    if (prova.tipo === 'MULTIPLA_ESCOLHA') return; // a nota final vem do servidor ao guardar (chave de correcção)
+    mostrarNota(total, Math.min(20, total / prova.cotacao_total * 20));
+  }
+
+  // ---------- Escolha múltipla (grelha igual à Folha de Resposta impressa) ----------
+  var respAtual = [];   // uma letra por pergunta de escolha múltipla ('' = ainda não assinalada, '-' = em branco)
+  var LETRAS = 'ABCDEF';
+  function perguntasMC() { return prova.perguntas.filter(function (p) { return p.tipo === 'MC'; }); }
+  function desenharEscolhaMultipla(c) {
+    var mc = perguntasMC(), pontos = (c && c.pontos) || [];
+    var guardadas = (c && c.respostas) || '';
+    respAtual = mc.map(function (_, k) { return guardadas.charAt(k) || ''; });
+    var vs = prova.versoes || [];
+    $('cpBlocoVersao').classList.toggle('d-none', !vs.length);
+    $('cpVersao').innerHTML = '<option value="">--</option>' + vs.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
+    $('cpVersao').value = (c && c.versao) || '';
+    var nAlt = prova.n_alternativas || 4;
+    $('cpGrelhaMC').innerHTML = mc.map(function (p, k) {
+      var estado = c && guardadas ? (pontos[p.numero - 1] > 0 ? 'certa' : 'errada') : '';
+      var bolas = '';
+      for (var a = 0; a < nAlt; a++) bolas += '<button type="button" class="btn btn-outline-secondary cp-bolha" data-k="' + k + '" data-l="' + LETRAS[a] + '" aria-label="Pergunta ' + p.numero + ', alternativa ' + LETRAS[a] + '">' + LETRAS[a] + '</button>';
+      bolas += '<button type="button" class="btn btn-outline-secondary cp-bolha" data-k="' + k + '" data-l="-" title="Em branco" aria-label="Pergunta ' + p.numero + ', em branco">–</button>';
+      return '<div class="cp-mc-linha ' + estado + '" id="cpL' + k + '"><span class="num">' + p.numero + '</span><div class="btn-group btn-group-sm">' + bolas + '</div></div>';
+    }).join('');
+    $('cpGrelhaMC').querySelectorAll('.cp-bolha').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = parseInt(b.getAttribute('data-k'), 10), l = b.getAttribute('data-l');
+        respAtual[k] = respAtual[k] === l ? '' : l;
+        pintarBolhas();
+      });
+    });
+    pintarBolhas();
+    var ab = (c && c.estado && c.estado !== 'RASCUNHO') || (c && guardadas);
+    mostrarNota(ab ? c.total : null, ab ? c.nota : null);
+    var acertos = c && guardadas ? mc.filter(function (p) { return pontos[p.numero - 1] > 0; }).length : null;
+    $('cpAcertos').textContent = acertos == null ? 'A nota é calculada pelo sistema contra a chave de correcção ao guardar.' : acertos + ' certa(s) em ' + mc.length + ' · verde = certa, vermelho = errada ou em branco.';
+  }
+  function pintarBolhas() {
+    $('cpGrelhaMC').querySelectorAll('.cp-bolha').forEach(function (b) {
+      var activo = respAtual[parseInt(b.getAttribute('data-k'), 10)] === b.getAttribute('data-l');
+      b.classList.toggle('btn-primary', activo);
+      b.classList.toggle('btn-outline-secondary', !activo);
+    });
+    $('cpRespostas').value = respAtual.map(function (r) { return r || '·'; }).join('');
+  }
+  function aoEscreverRespostas() {
+    var nAlt = prova.n_alternativas || 4, ok = LETRAS.slice(0, nAlt) + '-';
+    var txt = ($('cpRespostas').value || '').toUpperCase().replace(/\s+/g, '');
+    respAtual = respAtual.map(function (_, k) { var ch = txt.charAt(k); return ok.indexOf(ch) >= 0 && ch ? ch : ''; });
+    $('cpGrelhaMC').querySelectorAll('.cp-bolha').forEach(function (b) {
+      var activo = respAtual[parseInt(b.getAttribute('data-k'), 10)] === b.getAttribute('data-l');
+      b.classList.toggle('btn-primary', activo);
+      b.classList.toggle('btn-outline-secondary', !activo);
+    });
+  }
+
+  async function desenharImagens(imagens) {
+    libertarImagens();
+    var box = $('cpImagens');
+    if (!imagens.length) { box.innerHTML = 'Ainda sem páginas digitalizadas para este aluno.'; return; }
+    box.innerHTML = '';
+    for (var k = 0; k < imagens.length; k++) {
+      var im = imagens[k];
+      try {
+        var r = await fetch(API + 'imagens/' + encodeURIComponent(im.id) + '/', { headers: cab() });
+        if (!r.ok) throw new Error('indisponível');
+        var url = URL.createObjectURL(await r.blob());
+        urlsImagens.push(url);
+        var bloco = document.createElement('div');
+        bloco.className = 'position-relative mb-2';
+        var conteudo = im.tipo === 'application/pdf'
+          ? '<iframe class="w-100 border rounded" style="height:60vh" title="Prova (PDF)" src="' + url + '"></iframe>'
+          : '<img class="img-fluid border rounded" alt="Página ' + im.ordem + ' da prova" src="' + url + '">';
+        bloco.innerHTML = conteudo + '<button type="button" class="btn btn-sm btn-light border position-absolute top-0 end-0 m-1 cp-rem" data-id="' + esc(im.id) + '" title="Remover página"><i class="bi bi-x-lg"></i></button>';
+        box.appendChild(bloco);
+      } catch (_) {
+        var aviso = document.createElement('div'); aviso.textContent = 'Página ' + im.ordem + ' indisponível.'; box.appendChild(aviso);
+      }
+    }
+    box.querySelectorAll('.cp-rem').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        if (!confirm('Remover esta página digitalizada?')) return;
+        var res = await chamar(API + 'imagens/' + encodeURIComponent(b.getAttribute('data-id')) + '/', { method: 'DELETE' });
+        if (!res.ok) { toast(msg(res), 'danger'); return; }
+        await recarregarMantendo();
+      });
+    });
+  }
+
+  async function recarregarMantendo() {
+    var i = idxAluno;
+    await abrirProva(prova.id);
+    if (prova && prova.alunos.length) mostrarAluno(Math.min(i, prova.alunos.length - 1));
+  }
+
+  async function guardar(avancar) {
+    var pontos = lerPontos();
+    if (pontos.some(function (v, k) { return v !== null && (isNaN(v) || v < 0 || v > prova.perguntas[k].cotacao); })) {
+      toast('Há pontos inválidos: cada valor deve estar entre 0 e a cotação da pergunta.', 'warning'); return false;
+    }
+    var a = prova.alunos[idxAluno], corpo = { pontos: pontos };
+    if (prova.tipo === 'MULTIPLA_ESCOLHA') {
+      var feitas = respAtual.filter(Boolean).length;
+      if (feitas && feitas < respAtual.length) {
+        toast('Faltam ' + (respAtual.length - feitas) + ' pergunta(s) por assinalar: use «–» para as deixadas em branco pelo aluno.', 'warning'); return false;
+      }
+      corpo.respostas = feitas ? respAtual.join('') : '';
+      corpo.versao = $('cpVersao').value;
+    }
+    var res = await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(a.aluno_id) + '/', json('PUT', corpo));
+    if (!res.ok) { toast(msg(res), 'danger'); return false; }
+    var prox = avancar ? Math.min(idxAluno + 1, prova.alunos.length - 1) : idxAluno;
+    toast('Correcção guardada: ' + fmt(res.json.data.nota) + ' valores' + (res.json.data.estado === 'RASCUNHO' ? ' (rascunho: faltam perguntas)' : '') + '.', 'success');
+    await abrirProva(prova.id);
+    mostrarAluno(prox);
+    return true;
+  }
+
+  async function enviarPagina(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f || !prova) return;
+    var fd = new FormData(); fd.append('ficheiro', f);
+    var a = prova.alunos[idxAluno];
+    var res = await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(a.aluno_id) + '/imagens/', { method: 'POST', headers: cab(), body: fd });
+    if (!res.ok) { toast(msg(res), 'danger'); return; }
+    var guardados = lerPontos(); // não perder o que já foi escrito/assinalado no ecrã
+    var respostas = respAtual.slice(), versao = $('cpVersao').value;
+    await recarregarMantendo();
+    guardados.forEach(function (v, k) { var el = $('cpP' + k); if (el && v !== null && !isNaN(v)) el.value = fmt(v); });
+    if (prova.tipo === 'MULTIPLA_ESCOLHA') { respAtual = respostas; $('cpVersao').value = versao; pintarBolhas(); }
+    recalcular();
+  }
+
+  async function lancar() {
+    if (!prova) return;
+    var r = prova.resumo;
+    if (!confirm('Lançar na caderneta (' + prova.disciplina_nome + ', ' + prova.turma_nome + ') as notas das correcções completas ainda não lançadas?\n\nEsta acção fica registada na auditoria.')) return;
+    var res = await chamar(API + encodeURIComponent(prova.id) + '/lancar/', json('POST', {}));
+    var falhas = (res.json && res.json.falhas) || [];
+    if (!res.ok && !falhas.length) { toast(msg(res), 'warning'); return; }
+    toast(res.json.message + (falhas.length ? ' ' + falhas.map(function (f) { return f.nome + ': ' + f.message; }).join(' | ') : ''), falhas.length ? 'warning' : 'success');
+    await recarregarMantendo();
+  }
+
+  async function eliminar() {
+    if (!prova || !confirm('Eliminar a prova "' + prova.titulo + '" e todas as correcções e páginas digitalizadas?')) return;
+    var res = await chamar(API + encodeURIComponent(prova.id) + '/', { method: 'DELETE' });
+    if (!res.ok) { toast(msg(res), 'danger'); return; }
+    toast('Prova eliminada.', 'success');
+    await carregarProvas();
+  }
+
+  function ligar() {
+    if (ligado) return; ligado = true;
+    $('cpClasse').addEventListener('change', aoMudarClasse);
+    $('cpArea').addEventListener('change', aoMudarArea);
+    $('cpTurma').addEventListener('change', aoMudarTurma);
+    $('cpDisciplina').addEventListener('change', function () { carregarProvas(); });
+    $('cpPeriodo').addEventListener('change', function () { carregarProvas(); });
+    $('cpProva').addEventListener('change', function () { var v = $('cpProva').value; if (v) abrirProva(v); else estadoVazio('Escolha a prova a corrigir.'); });
+    $('cpBtnNova').addEventListener('click', function () { $('cpCartaoNova').classList.toggle('d-none'); });
+    $('cpBtnCancelarNova').addEventListener('click', function () { $('cpCartaoNova').classList.add('d-none'); });
+    $('cpCotacoes').addEventListener('input', resumoCotacoes);
+    $('cpTipo').addEventListener('change', alternarTipoNova);
+    $('cpVersoes').addEventListener('input', desenharGabaritos);
+    $('cpRespostas').addEventListener('input', aoEscreverRespostas);
+    alternarTipoNova();
+    $('cpBtnCriar').addEventListener('click', criarProva);
+    $('cpBtnEliminar').addEventListener('click', eliminar);
+    $('cpAluno').addEventListener('change', function () { mostrarAluno(parseInt($('cpAluno').value, 10) || 0); });
+    $('cpAnt').addEventListener('click', function () { if (prova && idxAluno > 0) mostrarAluno(idxAluno - 1); });
+    $('cpSeg').addEventListener('click', function () { if (prova && idxAluno < prova.alunos.length - 1) mostrarAluno(idxAluno + 1); });
+    $('cpBtnGuardar').addEventListener('click', function () { guardar(false); });
+    $('cpBtnGuardarSeg').addEventListener('click', function () { guardar(true); });
+    $('cpBtnLancar').addEventListener('click', lancar);
+    $('cpFicheiro').addEventListener('change', enviarPagina);
+  }
+
+  window.inicializarModulo_correcao_provas = async function () {
+    ligar();
+    prova = null; idxAluno = 0;
+    await carregarAlocacoes();
+  };
+})();

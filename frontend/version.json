@@ -1,10 +1,10 @@
 {
-  "version": "2.9.75",
-  "build": "20261120_0300",
-  "data": "2026-11-18",
+  "version": "2.9.76",
+  "build": "20261120_1200",
+  "data": "2026-11-20",
   "nome": "SIGE Ã¢â‚¬â€ Sistema Integrado de GestÃƒÂ£o Escolar",
   "descricao": "Sistema Integrado de GestÃƒÂ£o Escolar (SaaS)",
-  "novidades": "Faltas redesenhadas: aula dupla = 2 faltas automaticas, justificacao por quantidade (reduz as faltas), lista geral com disciplinas na horizontal por trimestre, detalhe por datas e exportacao com filtros de periodo."
+  "novidades": "Correccao assistida de provas fisicas: pontos por pergunta ou, na escolha multipla, correccao automatica contra a chave da Folha de Resposta gerada no sistema; paginas digitalizadas com acesso autenticado; lancamento na caderneta so apos confirmacao do professor."
 }
 
 

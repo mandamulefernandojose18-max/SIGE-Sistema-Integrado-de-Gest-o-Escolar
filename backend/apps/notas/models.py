@@ -419,3 +419,87 @@ class JuriExameAluno(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['juri', 'aluno'], name='unique_juri_exame_aluno'),
         ]
+
+
+class ProvaFisica(models.Model):
+    """Prova em papel a corrigir com apoio do sistema (grelha de cotações por pergunta)."""
+    INSTRUMENTOS = [
+        ('teste1', '1º Teste (ACS)'), ('teste2', '2º Teste (ACS)'), ('teste3', '3º Teste (ACS)'),
+        ('teste4', '4º Teste (ACS)'), ('trabalho', 'Trabalho (MAP)'), ('avaliacao_trimestral', 'Avaliação Trimestral (AT)'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='provas_fisicas')
+    turma = models.ForeignKey('turmas.Turma', on_delete=models.CASCADE, related_name='provas_fisicas')
+    disciplina = models.ForeignKey('disciplinas.Disciplina', on_delete=models.CASCADE, related_name='provas_fisicas')
+    periodo = models.CharField(max_length=20)
+    instrumento = models.CharField(max_length=30, choices=INSTRUMENTOS)
+    titulo = models.CharField(max_length=255)
+    TIPOS = [('DISCURSIVA', 'Discursiva (pontos por pergunta)'),
+             ('MULTIPLA_ESCOLHA', 'Escolha múltipla (Folha de Resposta do sistema)')]
+    tipo = models.CharField(max_length=20, choices=TIPOS, default='DISCURSIVA')
+    perguntas = models.JSONField(
+        default=list, help_text='[{"numero": 1, "cotacao": 2.5, "tipo": "MC"|"ABERTA"|"LIVRE"}, ...]')
+    cotacao_total = models.FloatField(validators=[MinValueValidator(0.01)])
+    # Escolha múltipla: mesma configuração da Folha de Resposta gerada (alternativas, versões e chaves de correcção)
+    n_alternativas = models.PositiveSmallIntegerField(default=0)
+    versoes = models.JSONField(default=list, blank=True)
+    gabaritos = models.JSONField(default=dict, blank=True, help_text='{"A": "ABCD...", "-": "..."}; nunca devolvido pela API')
+    criado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='provas_fisicas_criadas')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_provas_fisicas'
+        verbose_name = 'Prova Física'
+        verbose_name_plural = 'Provas Físicas'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['escola', 'turma', 'disciplina', 'periodo'])]
+
+    def __str__(self):
+        return f'{self.titulo} ({self.periodo})'
+
+
+class CorrecaoProva(models.Model):
+    ESTADOS = [('RASCUNHO', 'Rascunho'), ('CORRIGIDA', 'Corrigida'), ('LANCADA', 'Lançada na caderneta')]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='correcoes_prova')
+    prova = models.ForeignKey(ProvaFisica, on_delete=models.CASCADE, related_name='correcoes')
+    aluno = models.ForeignKey('alunos.Aluno', on_delete=models.CASCADE, related_name='correcoes_prova')
+    pontos = models.JSONField(default=list, help_text='Pontos por pergunta (null = ainda por corrigir)')
+    # Escolha múltipla: versão da folha e respostas assinaladas pelo aluno ("-" = em branco)
+    versao = models.CharField(max_length=2, blank=True, default='')
+    respostas = models.CharField(max_length=120, blank=True, default='')
+    total = models.FloatField(default=0)
+    nota = models.FloatField(default=0, validators=[MinValueValidator(0.0), MaxValueValidator(20.0)])
+    estado = models.CharField(max_length=12, choices=ESTADOS, default='RASCUNHO')
+    corrigido_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='correcoes_prova')
+    lancada_em = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_correcoes_prova'
+        verbose_name = 'Correção de Prova'
+        verbose_name_plural = 'Correções de Provas'
+        indexes = [models.Index(fields=['escola', 'prova'])]
+        constraints = [models.UniqueConstraint(fields=['prova', 'aluno'], name='unique_correcao_prova_aluno')]
+
+
+class CorrecaoImagem(models.Model):
+    """Página digitalizada da prova; o ficheiro fica em MEDIA_ROOT/provas_fisicas/<escola>/ e só se serve autenticado."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='correcoes_imagens')
+    correcao = models.ForeignKey(CorrecaoProva, on_delete=models.CASCADE, related_name='imagens')
+    caminho = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=20)
+    tamanho = models.PositiveIntegerField(default=0)
+    ordem = models.PositiveSmallIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_correcoes_imagens'
+        ordering = ['correcao', 'ordem']

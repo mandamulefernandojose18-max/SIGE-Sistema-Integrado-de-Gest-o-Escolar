@@ -1,0 +1,235 @@
+<!-- ===================================================================== -->
+<!-- SIGE - CORRECÇÃO ASSISTIDA DE PROVAS FÍSICAS                          -->
+<!-- Lógica em js/modules/painel-professor/correcao-provas.js              -->
+<!-- API /api/v1/notas/provas-fisicas/                                     -->
+<!-- ===================================================================== -->
+<section id="view-correcao-provas" class="modulo-view" style="display: none;">
+  <style>
+    #view-correcao-provas .cp-mc-grelha { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .25rem .75rem; max-height: 46vh; overflow: auto; }
+    #view-correcao-provas .cp-mc-linha { display: flex; align-items: center; gap: .35rem; font-size: .85rem; }
+    #view-correcao-provas .cp-mc-linha .num { width: 1.9rem; text-align: right; font-weight: 600; }
+    #view-correcao-provas .cp-mc-linha label { margin: 0; }
+    #view-correcao-provas .cp-mc-linha .btn { --bs-btn-padding-y: 0; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .8rem; }
+    #view-correcao-provas .cp-mc-linha.certa .num { color: #198754; }
+    #view-correcao-provas .cp-mc-linha.errada .num { color: #dc3545; }
+  </style>
+  <div class="card p-3 mb-4 no-print border-0 shadow-sm bg-light">
+    <div class="d-flex align-items-center">
+      <div class="sige-seletor-ano-box d-flex align-items-center">
+        <select id="correcaoProvasAnoSelect" class="form-select form-select-sm sige-select-ano-lectivo">
+          <option value="" selected>-- Escolha ano Lectivo --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-sige-buscar-ano" onclick="aoClicarBuscarAnoMestreView('correcao-provas')">
+          Buscar <i class="bi bi-search ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="correcaoProvasConteudoDinamico" class="sige-conteudo-modulo-dinamico d-none">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <h5 class="mb-0"><i class="bi bi-pencil-square text-primary me-2"></i>Correcção Assistida de Provas</h5>
+      <span class="text-muted small">Fotografe ou digitalize a prova, atribua os pontos por pergunta e o sistema calcula a nota (0–20). Só vai para a caderneta quando confirmar.</span>
+    </div>
+
+    <!-- 1. Filtros em cascata (altura constante, qualquer que seja o nº de turmas e provas) -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold"><i class="bi bi-funnel me-1"></i> 1. Qual prova?</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-6 col-md-4 col-xl-2">
+            <label class="form-label small mb-1" for="cpClasse">Classe</label>
+            <select id="cpClasse" class="form-select form-select-sm"><option value="">-- Classe --</option></select>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <label class="form-label small mb-1" for="cpArea">Secção / Área</label>
+            <select id="cpArea" class="form-select form-select-sm"><option value="">-- Secção / Área --</option></select>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <label class="form-label small mb-1" for="cpTurma">Turma</label>
+            <select id="cpTurma" class="form-select form-select-sm"><option value="">-- Turma --</option></select>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <label class="form-label small mb-1" for="cpDisciplina">Disciplina</label>
+            <select id="cpDisciplina" class="form-select form-select-sm"><option value="">-- Disciplina --</option></select>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <label class="form-label small mb-1" for="cpPeriodo">Trimestre</label>
+            <select id="cpPeriodo" class="form-select form-select-sm">
+              <option value="">-- Trimestre --</option>
+              <option value="1_TRIMESTRE">1º Trimestre</option>
+              <option value="2_TRIMESTRE">2º Trimestre</option>
+              <option value="3_TRIMESTRE">3º Trimestre</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <label class="form-label small mb-1" for="cpProva">Prova</label>
+            <select id="cpProva" class="form-select form-select-sm"><option value="">-- Prova --</option></select>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="cpBtnNova"><i class="bi bi-plus-circle me-1"></i>Nova prova</button>
+          <button type="button" class="btn btn-sm btn-outline-danger d-none" id="cpBtnEliminar"><i class="bi bi-trash me-1"></i>Eliminar prova</button>
+          <span class="small text-muted align-self-center" id="cpEstadoFiltros"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nova prova -->
+    <div class="card shadow-sm mb-3 d-none" id="cpCartaoNova">
+      <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i> Nova prova: grelha de cotações</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="cpTitulo">Título</label>
+            <input id="cpTitulo" class="form-control form-control-sm" maxlength="255" placeholder="Ex.: 1º Teste de Matemática">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="cpTipo">Tipo de prova</label>
+            <select id="cpTipo" class="form-select form-select-sm">
+              <option value="MULTIPLA_ESCOLHA">Escolha múltipla (Folha de Resposta do sistema)</option>
+              <option value="DISCURSIVA">Discursiva (pontos por pergunta)</option>
+            </select>
+          </div>
+
+          <!-- Discursiva -->
+          <div class="col-12 col-md-6 cp-bloco-disc d-none">
+            <label class="form-label small mb-1" for="cpInstrumento">Instrumento de avaliação</label>
+            <select id="cpInstrumento" class="form-select form-select-sm">
+              <option value="teste1">1º Teste (ACS)</option>
+              <option value="teste2">2º Teste (ACS)</option>
+              <option value="teste3">3º Teste (ACS)</option>
+              <option value="teste4">4º Teste (ACS)</option>
+              <option value="trabalho">Trabalho (MAP)</option>
+              <option value="avaliacao_trimestral">Avaliação Trimestral (AT)</option>
+            </select>
+          </div>
+          <div class="col-12 cp-bloco-disc d-none">
+            <label class="form-label small mb-1" for="cpCotacoes">Cotação de cada pergunta (separadas por vírgula, espaço ou linha)</label>
+            <textarea id="cpCotacoes" class="form-control form-control-sm" rows="2" placeholder="Ex.: 4, 4, 4, 4, 4"></textarea>
+            <div class="small text-muted mt-1" id="cpResumoCotacoes">Indique as cotações para ver o total.</div>
+          </div>
+
+          <!-- Escolha múltipla: os mesmos dados da Folha de Resposta gerada no sistema -->
+          <div class="col-12 cp-bloco-mc">
+            <div class="alert alert-info py-2 small mb-1"><i class="bi bi-info-circle me-1"></i>Use os <strong>mesmos dados com que gerou a Folha de Resposta</strong> (tipo de avaliação, nº de perguntas, alternativas, versões e chave). O sistema corrige as respostas assinaladas contra a chave.</div>
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpTipoAval">Avaliação da folha</label>
+            <select id="cpTipoAval" class="form-select form-select-sm">
+              <option value="ACS1">1ª ACS</option><option value="ACS2">2ª ACS</option>
+              <option value="ACS3">3ª ACS</option><option value="AT">AT</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpNPerg">Nº de perguntas</label>
+            <input id="cpNPerg" type="number" min="1" max="100" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpNAlt">Nº de alternativas (2–6)</label>
+            <input id="cpNAlt" type="number" min="2" max="6" value="4" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpCotPerg">Cotação por pergunta</label>
+            <input id="cpCotPerg" type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="vazio = 20 ÷ nº">
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpVersoes">Versões (opcional)</label>
+            <input id="cpVersoes" class="form-control form-control-sm" maxlength="20" placeholder="Ex.: A B">
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpNAbertas">Perguntas abertas (nº)</label>
+            <input id="cpNAbertas" type="number" min="0" max="50" value="0" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-3 cp-bloco-mc">
+            <label class="form-label small mb-1" for="cpCotAbertas">Cotação de cada aberta</label>
+            <input id="cpCotAbertas" type="text" inputmode="decimal" class="form-control form-control-sm">
+          </div>
+          <div class="col-12 cp-bloco-mc" id="cpGabaritos"></div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button type="button" class="btn btn-sm btn-primary" id="cpBtnCriar"><i class="bi bi-check2-circle me-1"></i>Criar prova</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="cpBtnCancelarNova">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado vazio real -->
+    <div class="card shadow-sm border-0 bg-light" id="cpVazio">
+      <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        <div id="cpVazioTexto">Escolha a turma, a disciplina e o trimestre para ver as provas, ou crie uma nova prova.</div>
+      </div>
+    </div>
+
+    <!-- 2. Correcção -->
+    <div class="row g-3 d-none" id="cpAreaCorreccao">
+      <div class="col-12">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <span class="fw-semibold" id="cpCabProva"></span>
+          <span class="badge text-bg-secondary" id="cpResumoProva"></span>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-image me-1"></i> 2. Prova do aluno</div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end mb-2">
+              <div class="col-12 col-md">
+                <label class="form-label small mb-1" for="cpAluno">Aluno</label>
+                <select id="cpAluno" class="form-select form-select-sm"></select>
+              </div>
+              <div class="col-auto">
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-secondary" id="cpAnt" title="Aluno anterior"><i class="bi bi-chevron-left"></i></button>
+                  <button type="button" class="btn btn-outline-secondary" id="cpSeg" title="Aluno seguinte"><i class="bi bi-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+            <div id="cpImagens" class="border rounded p-2 mb-2 bg-body-tertiary text-center small text-muted" style="min-height:160px;max-height:62vh;overflow:auto;"></div>
+            <label class="btn btn-sm btn-outline-primary mb-0" for="cpFicheiro"><i class="bi bi-camera me-1"></i>Adicionar página (foto, PNG, JPG ou PDF)</label>
+            <input id="cpFicheiro" type="file" class="d-none" accept="image/png,image/jpeg,application/pdf" capture="environment">
+            <span class="small text-muted ms-2">Máx. 6 páginas · 8 MB cada</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-semibold"><i class="bi bi-ui-checks-grid me-1"></i> 3. Pontos por pergunta</div>
+          <div class="card-body">
+            <!-- Escolha múltipla: respostas assinaladas na Folha de Resposta (como na grelha impressa) -->
+            <div id="cpBlocoMC" class="mb-3 d-none">
+              <div class="row g-2 align-items-end mb-2">
+                <div class="col-6 col-md-3 d-none" id="cpBlocoVersao">
+                  <label class="form-label small mb-1" for="cpVersao">Versão da folha</label>
+                  <select id="cpVersao" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-12 col-md">
+                  <label class="form-label small mb-1" for="cpRespostas">Respostas rápidas (ex.: ABCD-A; «-» = em branco)</label>
+                  <input id="cpRespostas" class="form-control form-control-sm font-monospace" autocomplete="off" spellcheck="false">
+                </div>
+              </div>
+              <div id="cpGrelhaMC" class="cp-mc-grelha"></div>
+              <div class="small mt-1" id="cpAcertos"></div>
+            </div>
+            <div id="cpTituloAbertas" class="small fw-semibold mb-1 d-none">Perguntas abertas / resolução livre (pontos do professor)</div>
+            <div id="cpGrelha" class="row g-2 mb-3"></div>
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+              <div>Total: <strong id="cpTotal">0</strong> / <span id="cpCotTotal">0</span></div>
+              <div>Nota (0–20): <strong id="cpNota" class="fs-5">–</strong></div>
+              <span class="badge" id="cpEstadoAluno"></span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-sm btn-primary" id="cpBtnGuardar"><i class="bi bi-save me-1"></i>Guardar</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="cpBtnGuardarSeg">Guardar e seguinte <i class="bi bi-arrow-right ms-1"></i></button>
+              <button type="button" class="btn btn-sm btn-success ms-auto" id="cpBtnLancar"><i class="bi bi-journal-check me-1"></i>Lançar corrigidas na caderneta</button>
+            </div>
+            <div class="small text-muted mt-2">Deixe a pergunta em branco se ainda não a corrigiu: a correcção fica em rascunho e não é lançada.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
