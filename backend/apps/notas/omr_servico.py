@@ -1,4 +1,4 @@
-"""
+﻿"""
 SIGE — Leitura óptica (OMR) da Folha de Resposta gerada pelo sistema.
 
 A partir de uma fotografia (JPEG/PNG) ou de um PDF digitalizado:
@@ -21,7 +21,7 @@ PPM = 8.0                       # pixéis por mm da página endireitada (A4 ≈ 
 LARGURA_PX = int(round(210.0 * PPM))
 ALTURA_PX = int(round(297.0 * PPM))
 CENTRO_MARCA_MM = 5.5 + 4.5 / 2   # centro das marcas de registo (mm a partir de cada canto)
-MAX_BYTES = 15 * 1024 * 1024
+MAX_BYTES = 60 * 1024 * 1024    # PDF digitalizado com a turma inteira
 MAX_PIXELS = 80_000_000
 LADO_MAX_FOTO = 3200
 MAX_PAGINAS_PDF = 200
@@ -73,7 +73,7 @@ def celulas_grelha(n, n_alt):
 
 def _normalizar_ilumina(cv2, np, cinza):
     """Tinta 0..1 (1 = preto) com a iluminação uniformizada (sombras e papel acinzentado deixam de contar)."""
-    fundo = cv2.morphologyEx(cinza, cv2.MORPH_CLOSE, np.ones((21, 21), np.uint8))
+    fundo = cv2.morphologyEx(cinza, cv2.MORPH_CLOSE, np.ones((45, 45), np.uint8))
     fundo = cv2.GaussianBlur(fundo, (0, 0), 12)
     norm = cv2.divide(cinza, np.maximum(fundo, 1), scale=255)
     return 1.0 - np.clip(norm.astype(np.float32) / 255.0, 0, 1)
@@ -125,7 +125,7 @@ def abrir_pagina(dados: bytes, indice: int = 0):
     """Devolve a página `indice` como imagem BGR (numpy)."""
     cv2, np = _cv()
     if not dados or len(dados) > MAX_BYTES:
-        raise ErroOMR('Ficheiro inválido ou demasiado grande (máximo 15 MB).')
+        raise ErroOMR('Ficheiro inválido ou demasiado grande (máximo 60 MB).')
     if dados[:5] == b'%PDF-':
         import fitz
         try:
@@ -236,11 +236,61 @@ def _validar_proporcao(quatro):
     return 0.65 * esperada <= r <= 1.4 * esperada
 
 
+def _quatro_por_cantos(cv2, np, img):
+    """Procura a marca preta em cada canto da imagem (digitalizações e fotos com a folha a ocupar a imagem toda).
+
+    Usa o maior canal (B,G,R): o preto fica escuro em todos, a tinta azul/colorida do aluno não conta como marca."""
+    h, w = img.shape[:2]
+    maximo = img.max(axis=2)
+    jan = 0.22
+    sw, sh = int(w * jan), int(h * jan)
+    zonas = [(0, 0), (w - sw, 0), (w - sw, h - sh), (0, h - sh)]
+    cantos = [(0, 0), (w, 0), (w, h), (0, h)]
+    lado_min, lado_max = 0.010 * w, 0.045 * w
+    res = []
+    for (x0, y0), (cx, cy) in zip(zonas, cantos):
+        z = cv2.GaussianBlur(maximo[y0:y0 + sh, x0:x0 + sw], (3, 3), 0)
+        melhor = None
+        for lim in (90, 120, 60):
+            bw = (z < lim).astype(np.uint8) * 255
+            # o fecho une a marca quando o scanner a corta com um risco branco fino
+            bw = cv2.morphologyEx(bw, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+            bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+            contornos, _ = cv2.findContours(bw, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for c in contornos:
+                area = cv2.contourArea(c)
+                (px, py), (rw, rh), _a = cv2.minAreaRect(c)
+                if min(rw, rh) < lado_min or max(rw, rh) > lado_max or min(rw, rh) / max(rw, rh) < 0.7:
+                    continue
+                if area / (rw * rh) < 0.75:
+                    continue
+                m = cv2.moments(c)
+                if m['m00'] <= 0:
+                    continue
+                gx, gy = m['m10'] / m['m00'] + x0, m['m01'] / m['m00'] + y0
+                d = (gx - cx) ** 2 + (gy - cy) ** 2
+                if melhor is None or d < melhor[0]:
+                    melhor = (d, gx, gy, (rw + rh) / 2)
+            if melhor:
+                break
+        if not melhor:
+            return None
+        res.append((melhor[1], melhor[2], melhor[3]))
+    lados = [p[2] for p in res]
+    if max(lados) > 1.7 * min(lados):
+        return None
+    return res
+
+
 def endireitar(img):
     """Devolve (bgr_endireitada LARGURA_PX×ALTURA_PX, info). Levanta ErroOMR se não achar as 4 marcas."""
     cv2, np = _cv()
     cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    quatro = _escolher_quatro(_candidatas_marcas(cv2, np, cinza))
+    quatro = _quatro_por_cantos(cv2, np, img)
+    if quatro and not _validar_proporcao(_ordenar_retrato(quatro)):
+        quatro = None
+    if not quatro:
+        quatro = _escolher_quatro(_candidatas_marcas(cv2, np, cinza))
     if not quatro:
         raise ErroOMR('Não foram encontradas as 4 marcas pretas dos cantos da folha. Fotografe a folha inteira, de cima, '
                       'sem cortar os cantos e com boa luz.')

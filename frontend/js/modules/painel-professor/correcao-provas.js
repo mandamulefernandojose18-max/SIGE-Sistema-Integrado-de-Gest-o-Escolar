@@ -115,6 +115,10 @@
     } else if (prova) {
       av.className = 'alert alert-warning py-2 small mb-2';
       av.textContent = 'Esta turma não tem alunos activos.';
+    } else if (gabaritoNoFormulario()) {
+      av.className = 'alert alert-success py-2 small mb-2';
+      av.innerHTML = '<i class="bi bi-check-circle me-1"></i>Gabarito importado no Passo 1 (' + (parseInt($('cpNPerg').value, 10) || 0) +
+        ' perguntas). Escolha as folhas e carregue em «Ler folhas»: a prova é criada com este gabarito (precisa da turma, disciplina e trimestre escolhidos acima).';
     } else {
       av.className = 'alert alert-secondary py-2 small mb-2';
       av.textContent = 'Pode já escolher as folhas dos alunos. Para as ler, escolha a turma, a disciplina, o trimestre e a prova, ou crie a prova no Passo 1 com o gabarito importado.';
@@ -189,24 +193,33 @@
     if (nAb > 0) folha.abertas = [{ rotulo: 'Perguntas abertas', n: nAb, cotacao: $('cpCotAbertas').value.trim().replace(',', '.') }];
     return folha;
   }
-  async function criarProva() {
+  // Há um gabarito (importado ou escrito) no formulário do Passo 1, mesmo sem a prova criada?
+  function gabaritoNoFormulario() {
+    if ($('cpTipo').value !== 'MULTIPLA_ESCOLHA' || !(parseInt($('cpNPerg').value, 10) > 0)) return false;
+    var tem = false;
+    document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) { if (/[A-Fa-f]/.test(i.value)) tem = true; });
+    return tem;
+  }
+  async function criarProva(automatica) {
     var mc = $('cpTipo').value === 'MULTIPLA_ESCOLHA';
     var corpo = {
       turma_id: $('cpTurma').value, disciplina_id: $('cpDisciplina').value, periodo: $('cpPeriodo').value,
       titulo: $('cpTitulo').value.trim(), tipo: $('cpTipo').value
     };
+    if (automatica === true && !corpo.titulo) corpo.titulo = 'Teste ' + new Date().toLocaleDateString('pt-PT');
     if (mc) corpo.folha = corpoEscolhaMultipla();
     else { corpo.instrumento = $('cpInstrumento').value; corpo.perguntas = lerCotacoes().map(function (x) { return { cotacao: x }; }); }
-    if (!corpo.turma_id || !corpo.disciplina_id || !corpo.periodo) { toast('Escolha primeiro a turma, a disciplina e o trimestre.', 'warning'); return; }
+    if (!corpo.turma_id || !corpo.disciplina_id || !corpo.periodo) { toast('Escolha primeiro a turma, a disciplina e o trimestre.', 'warning'); return false; }
     var res = await chamar(API, json('POST', corpo));
-    if (!res.ok) { toast(msg(res), 'danger'); return; }
-    toast('Prova criada com este gabarito. Passo 2: carregue as provas dos alunos.', 'success');
+    if (!res.ok) { toast(msg(res), 'danger'); return false; }
+    toast(automatica === true ? 'Prova criada com o gabarito importado.' : 'Prova criada com este gabarito. Passo 2: carregue as provas dos alunos.', 'success');
     $('cpCartaoNova').classList.add('d-none');
     $('cpTitulo').value = ''; $('cpCotacoes').value = ''; $('cpNPerg').value = ''; $('cpVersoes').value = '';
     $('cpCotPerg').value = ''; $('cpNAbertas').value = '0'; $('cpCotAbertas').value = '';
     desenharGabaritos();
     await carregarProvas(res.json.data.id);
-    if (mc && prova && $('cpCartaoAuto').scrollIntoView) $('cpCartaoAuto').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (automatica !== true && mc && prova && $('cpCartaoAuto').scrollIntoView) $('cpCartaoAuto').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
   }
 
   // ---------- Correcção ----------
@@ -454,6 +467,7 @@
       var el = document.querySelector('#cpGabaritos .cp-gab[data-v="' + (v === '-' ? '' : v) + '"]');
       if (el) el.value = d.versoes[v].map(function (l) { return l || '?'; }).join('');
     });
+    estadoCartaoAuto();
     box.className = 'small mt-2 text-success';
     box.innerHTML = '<i class="bi bi-check-circle me-1"></i>Chave lida: ' + d.n_perguntas + ' perguntas, ' + d.n_alternativas + ' alternativas. Confira nas caixas da chave abaixo (corrija o que estiver mal; «?» = sem resposta lida) e depois crie a prova.' +
       (d.avisos || []).map(function (a) { return '<div class="text-muted">• ' + esc(a) + '</div>'; }).join('');
@@ -562,8 +576,15 @@
   }
   async function lerFolhas() {
     var fich = Array.prototype.slice.call($('cpAutoFicheiros').files || []);
-    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') { toast('Primeiro escolha ou crie a prova de escolha múltipla (Passo 1) com o gabarito.', 'warning'); return; }
     if (!fich.length) { toast('Escolha as fotografias ou PDFs das folhas.', 'warning'); return; }
+    if ((!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') && gabaritoNoFormulario()) {
+      // gabarito já importado no Passo 1: cria a prova com ele (precisa de turma, disciplina e trimestre) e segue
+      $('cpAutoLer').disabled = true;
+      var criada = await criarProva(true);
+      estadoCartaoAuto();
+      if (!criada) return;
+    }
+    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') { toast('Importe ou escreva o gabarito no Passo 1 (ou escolha uma prova já criada) para poder corrigir as folhas.', 'warning'); return; }
     lote = []; loteProva = prova.id; revIdx = -1;
     var prog = $('cpAutoProgresso'); $('cpAutoLer').disabled = true;
     try {

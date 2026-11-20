@@ -269,8 +269,8 @@ async function carregarPautaGeral(turmaId) {
   }
 }
 
-async function carregarActaConselho(turmaId) {
-  const container = document.getElementById('containerActaConselhoCorpo');
+async function carregarActaConselho(turmaId, destino) {
+  const container = destino || document.getElementById('containerActaConselhoCorpo');
   if (!container) return;
   container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A carregar acta do conselho de avaliação...</p></div>';
 

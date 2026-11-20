@@ -13995,8 +13995,8 @@ async function carregarPautaGeral(turmaId) {
   }
 }
 
-async function carregarActaConselho(turmaId) {
-  const container = document.getElementById('containerActaConselhoCorpo');
+async function carregarActaConselho(turmaId, destino) {
+  const container = destino || document.getElementById('containerActaConselhoCorpo');
   if (!container) return;
   container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">A carregar acta do conselho de avaliação...</p></div>';
 
@@ -18405,12 +18405,12 @@ async function carregarDadosTurmaDT() {
             ${gerarTabelaPautaHtml(d)}
           </div>
         `;
+      } else {
+        container.innerHTML = `<div class="alert alert-warning text-center py-3">${(res && res.message) || 'Não foi possível carregar a pauta geral desta turma.'}</div>`;
       }
     } else {
       // Acta do Conselho
-      await carregarActaConselho(dtTurmaAtivaId);
-      const containerActa = document.getElementById('containerActaConselhoCorpo');
-      if (containerActa) {
+      {
         container.innerHTML = `
           <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
             <div>
@@ -18429,10 +18429,10 @@ async function carregarDadosTurmaDT() {
               </button>
             </div>
           </div>
-          <div id="subViewActaConselho">
-            ${containerActa.innerHTML}
-          </div>
+          <div id="subViewActaConselho"></div>
         `;
+        // A acta é desenhada directamente neste contentor (o da página de Pautas não existe aqui)
+        await carregarActaConselho(dtTurmaAtivaId, document.getElementById('subViewActaConselho'));
       }
     }
   } catch (err) {

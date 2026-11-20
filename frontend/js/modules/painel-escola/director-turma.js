@@ -198,12 +198,12 @@ async function carregarDadosTurmaDT() {
             ${gerarTabelaPautaHtml(d)}
           </div>
         `;
+      } else {
+        container.innerHTML = `<div class="alert alert-warning text-center py-3">${(res && res.message) || 'Não foi possível carregar a pauta geral desta turma.'}</div>`;
       }
     } else {
       // Acta do Conselho
-      await carregarActaConselho(dtTurmaAtivaId);
-      const containerActa = document.getElementById('containerActaConselhoCorpo');
-      if (containerActa) {
+      {
         container.innerHTML = `
           <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
             <div>
@@ -222,10 +222,9 @@ async function carregarDadosTurmaDT() {
               </button>
             </div>
           </div>
-          <div id="subViewActaConselho">
-            ${containerActa.innerHTML}
-          </div>
+          <div id="subViewActaConselho"></div>
         `;
+        await carregarActaConselho(dtTurmaAtivaId, document.getElementById('subViewActaConselho'));
       }
     }
   } catch (err) {

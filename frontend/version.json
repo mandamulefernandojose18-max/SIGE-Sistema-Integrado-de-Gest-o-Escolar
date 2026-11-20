@@ -1,9 +1,9 @@
 ﻿{
-  "version": "2.9.86",
-  "build": "20261121_1000",
+  "version": "2.9.87",
+  "build": "20261121_1100",
   "data": "2026-11-20",
   "nome": "SIGE — Sistema Integrado de Gestão Escolar",
   "descricao": "Sistema Integrado de Gestão Escolar (SaaS)",
-  "novidades": "Correccao de provas: o campo para carregar as provas dos alunos (Passo 2) esta sempre visivel junto do gabarito (Passo 1). Site publico (inicio com carrossel, contacto, privacidade, termos, verificacao de cookies) e paginas de erro 400/403/404/429/500/503; assistente com calendario academico para todos os paineis e estatisticas de pessoal, alunos (H/M/HM), aprovados, reprovados, repetentes, faltosos, melhores alunos, exames, propinas, previsao e aproveitamento por professor/turma/classe/disciplina/ano; novas sugestoes do Super Admin; ficheiros sensiveis trancados (.htaccess e Nginx). Antes: Login e paineis em paginas separadas com enderecos limpos por perfil (/login, /professor/dashboard, /admin/dashboard...). Correccao automatica de provas de escolha multipla: importar o gabarito (PDF, Word, Excel, CSV ou texto), ler as Folhas de Resposta por fotografia ou PDF (leitura optica com QR), rever as duvidas e confirmar antes de gravar."
+  "novidades": "Director de Turma: a Acta do Conselho de Avaliacao e a Pauta Geral deixam de ficar a carregar sem fim e passam a abrir (ou mostram uma mensagem clara se falharem). Antes: Correccao de provas: o campo para carregar as provas dos alunos (Passo 2) esta sempre visivel junto do gabarito (Passo 1). Site publico (inicio com carrossel, contacto, privacidade, termos, verificacao de cookies) e paginas de erro 400/403/404/429/500/503; assistente com calendario academico para todos os paineis e estatisticas de pessoal, alunos (H/M/HM), aprovados, reprovados, repetentes, faltosos, melhores alunos, exames, propinas, previsao e aproveitamento por professor/turma/classe/disciplina/ano; novas sugestoes do Super Admin; ficheiros sensiveis trancados (.htaccess e Nginx). Antes: Login e paineis em paginas separadas com enderecos limpos por perfil (/login, /professor/dashboard, /admin/dashboard...). Correccao automatica de provas de escolha multipla: importar o gabarito (PDF, Word, Excel, CSV ou texto), ler as Folhas de Resposta por fotografia ou PDF (leitura optica com QR), rever as duvidas e confirmar antes de gravar."
 }
 

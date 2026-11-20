@@ -574,6 +574,7 @@ Acessível diretamente a partir do ecrã inicial de Login, sem necessidade de au
     - Linhas de assinatura para o Presidente do Conselho, Secretário (Director de Turma) e Homologação do Director da Escola.
 - **Painel Exclusivo do Director de Turma (`#view-director-turma`):**
   - Permite ao Director de Turma configurar e guardar os **Parâmetros da Sessão do Conselho de Avaliação** (Nome do Presidente, Data da Realização, Hora de Início e Hora de Término para o Iº, IIº e IIIº Trimestres), que são imediatamente refletidos na Acta Oficial em ecrã, PDF e Word.
+  - **v2.9.87:** os separadores *Pauta Geral* e *Acta Oficial* já não ficam a "carregar" indefinidamente. A acta é desenhada directamente no contentor do próprio painel (`carregarActaConselho(turmaId, destino)`), e, se a API falhar, mostra-se uma mensagem clara em vez do spinner.
 
 ### Módulo 11.1: Pauta Oficial de Exames Nacionais e de Nível (`#view-exames`)
 - **Quem usa:** `DIRECTOR_ESCOLA`, `DAP`, `CHEFE_SECRETARIA`, `DT` e `PROFESSOR`.
