@@ -96,6 +96,29 @@
     $('cpVazioTexto').textContent = texto;
     $('cpAreaCorreccao').classList.add('d-none');
     $('cpBtnEliminar').classList.add('d-none');
+    estadoCartaoAuto();
+  }
+  // Passo 2 (carregar as provas dos alunos) está sempre visível; só fica activo com uma prova de escolha múltipla aberta.
+  function estadoCartaoAuto() {
+    var av = $('cpAutoAviso');
+    if (!av) return;
+    var ok = !!(prova && prova.tipo === 'MULTIPLA_ESCOLHA' && prova.alunos && prova.alunos.length);
+    $('cpAutoFicheiros').disabled = !ok; $('cpAutoLer').disabled = !ok;
+    if (ok) {
+      av.className = 'alert alert-success py-2 small mb-2';
+      av.innerHTML = '<i class="bi bi-check-circle me-1"></i>As folhas serão corrigidas com o gabarito da prova <strong>' + esc(prova.titulo) + '</strong> (' +
+        prova.perguntas.filter(function (p) { return p.tipo === 'MC'; }).length + ' perguntas, ' + prova.n_alternativas + ' alternativas' +
+        ((prova.versoes || []).length ? ', versões ' + esc(prova.versoes.join('/')) : '') + ') · ' + esc(prova.disciplina_nome) + ', ' + esc(prova.turma_nome) + '.';
+    } else if (prova && prova.tipo !== 'MULTIPLA_ESCOLHA') {
+      av.className = 'alert alert-warning py-2 small mb-2';
+      av.textContent = 'A prova seleccionada é discursiva: a leitura automática só serve para provas de escolha múltipla com Folha de Resposta. Use a correcção manual abaixo.';
+    } else if (prova) {
+      av.className = 'alert alert-warning py-2 small mb-2';
+      av.textContent = 'Esta turma não tem alunos activos.';
+    } else {
+      av.className = 'alert alert-secondary py-2 small mb-2';
+      av.textContent = 'Escolha a turma, a disciplina, o trimestre e a prova, ou crie a prova no Passo 1 com o gabarito importado, para poder carregar as provas dos alunos.';
+    }
   }
 
   async function carregarAlocacoes() {
@@ -177,12 +200,13 @@
     if (!corpo.turma_id || !corpo.disciplina_id || !corpo.periodo) { toast('Escolha primeiro a turma, a disciplina e o trimestre.', 'warning'); return; }
     var res = await chamar(API, json('POST', corpo));
     if (!res.ok) { toast(msg(res), 'danger'); return; }
-    toast('Prova criada.', 'success');
+    toast('Prova criada com este gabarito. Passo 2: carregue as provas dos alunos.', 'success');
     $('cpCartaoNova').classList.add('d-none');
     $('cpTitulo').value = ''; $('cpCotacoes').value = ''; $('cpNPerg').value = ''; $('cpVersoes').value = '';
     $('cpCotPerg').value = ''; $('cpNAbertas').value = '0'; $('cpCotAbertas').value = '';
     desenharGabaritos();
     await carregarProvas(res.json.data.id);
+    if (mc && prova && $('cpCartaoAuto').scrollIntoView) $('cpCartaoAuto').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // ---------- Correcção ----------
@@ -194,8 +218,8 @@
     $('cpAreaCorreccao').classList.remove('d-none');
     $('cpBtnEliminar').classList.remove('d-none');
     $('cpCotTotal').textContent = fmt(prova.cotacao_total);
-    $('cpCartaoAuto').classList.toggle('d-none', prova.tipo !== 'MULTIPLA_ESCOLHA');
     if (loteProva && loteProva !== prova.id) { lote = []; loteProva = ''; revIdx = -1; $('cpAutoProgresso').textContent = ''; painelLote(); }
+    estadoCartaoAuto();
     if (!prova.alunos.length) { estadoVazio('Esta turma não tem alunos activos.'); return; }
     preencherAlunos();
     mostrarAluno(Math.min(idxAluno, prova.alunos.length - 1));
@@ -559,7 +583,7 @@
           marcarRepetidos(); painelLote();
         }
       }
-    } finally { $('cpAutoLer').disabled = false; }
+    } finally { estadoCartaoAuto(); }
     prog.textContent = lote.length ? 'Leitura concluída.' : 'Não foi lida nenhuma folha.';
     marcarRepetidos(); painelLote();
   }
@@ -639,6 +663,7 @@
   window.inicializarModulo_correcao_provas = async function () {
     ligar();
     prova = null; idxAluno = 0;
+    estadoCartaoAuto();
     await carregarAlocacoes();
   };
 })();

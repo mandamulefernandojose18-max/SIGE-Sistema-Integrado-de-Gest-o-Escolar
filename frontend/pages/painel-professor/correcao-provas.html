@@ -77,7 +77,7 @@
 
     <!-- Nova prova -->
     <div class="card shadow-sm mb-3 d-none" id="cpCartaoNova">
-      <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i> Nova prova: grelha de cotações</div>
+      <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i> Passo 1 · Nova prova e gabarito (importe o guião ou escreva a chave)</div>
       <div class="card-body">
         <div class="row g-2">
           <div class="col-12 col-md-6">
@@ -174,6 +174,74 @@
       </div>
     </div>
 
+    <!-- Passo 2: correcção automática das folhas de resposta (só escolha múltipla) -->
+    <div class="mb-3" id="cpCartaoAuto">
+      <div class="card shadow-sm border-primary">
+        <div class="card-header fw-semibold"><i class="bi bi-lightning-charge me-1"></i> Passo 2 · Carregar as provas dos alunos para correcção automática</div>
+        <div class="card-body">
+          <div class="alert alert-secondary py-2 small mb-2" id="cpAutoAviso"></div>
+          <div class="small text-muted mb-2">As provas têm de ser as <strong>Folhas de Resposta geradas pelo sistema</strong> (modelo oficial com os 4 cantos pretos e o QR). Fotografe (de cima, folha inteira, com os 4 cantos pretos visíveis e boa luz) ou digitalize as folhas, em lote. O sistema lê as bolhas e identifica o aluno pelo QR. Dúvidas (duas marcas, rasuras, marca fraca) ficam para si; <strong>nada é gravado sem a sua confirmação</strong>.</div>
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-md">
+              <label class="form-label small mb-1" for="cpAutoFicheiros">Folhas (JPG, PNG ou PDF; pode escolher vários)</label>
+              <input id="cpAutoFicheiros" type="file" class="form-control form-control-sm" multiple accept="image/png,image/jpeg,application/pdf">
+            </div>
+            <div class="col-12 col-md-auto">
+              <button type="button" class="btn btn-sm btn-primary" id="cpAutoLer"><i class="bi bi-eye me-1"></i>Ler folhas</button>
+            </div>
+          </div>
+          <div class="small mt-2" id="cpAutoProgresso"></div>
+          <div id="cpAutoPainel" class="d-none mt-3">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <span class="small" id="cpAutoResumo"></span>
+              <button type="button" class="btn btn-sm btn-success ms-auto" id="cpAutoConfirmarLimpas"><i class="bi bi-check2-all me-1"></i>Confirmar as folhas sem dúvidas</button>
+            </div>
+            <div class="row g-3 d-none" id="cpAutoRevisao">
+              <div class="col-12 col-lg-6">
+                <div class="border rounded bg-body-tertiary text-center" style="max-height:62vh;overflow:auto;">
+                  <img id="cpAutoImg" alt="Folha lida pelo sistema" class="img-fluid">
+                </div>
+                <div class="small text-muted mt-1">Verde = resposta lida · laranja = dúvida.</div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary" id="cpAutoAnt" title="Folha anterior"><i class="bi bi-chevron-left"></i></button>
+                    <button type="button" class="btn btn-outline-secondary" id="cpAutoSeg" title="Folha seguinte"><i class="bi bi-chevron-right"></i></button>
+                  </div>
+                  <select id="cpAutoFiltro" class="form-select form-select-sm w-auto">
+                    <option value="atencao">Precisam de revisão</option>
+                    <option value="todas">Todas as pendentes</option>
+                    <option value="feitas">Já confirmadas</option>
+                  </select>
+                  <span class="small text-muted" id="cpAutoPos"></span>
+                </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-12 col-md-7">
+                    <label class="form-label small mb-1" for="cpAutoAluno">Aluno</label>
+                    <select id="cpAutoAluno" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-12 col-md-5 d-none" id="cpAutoBlocoVersao">
+                    <label class="form-label small mb-1" for="cpAutoVersao">Versão da folha</label>
+                    <select id="cpAutoVersao" class="form-select form-select-sm"></select>
+                  </div>
+                </div>
+                <div id="cpAutoAvisos" class="small mb-2"></div>
+                <div id="cpAutoDuvidas" class="mb-2" style="max-height:32vh;overflow:auto;"></div>
+                <div class="small font-monospace text-break mb-2" id="cpAutoLida"></div>
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="button" class="btn btn-sm btn-primary" id="cpAutoConfirmar"><i class="bi bi-check2 me-1"></i>Confirmar esta folha</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="cpAutoSaltar">Saltar</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" id="cpAutoDescartar">Descartar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
     <!-- Estado vazio real -->
     <div class="card shadow-sm border-0 bg-light" id="cpVazio">
       <div class="card-body text-center text-muted py-5">
@@ -188,72 +256,6 @@
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span class="fw-semibold" id="cpCabProva"></span>
           <span class="badge text-bg-secondary" id="cpResumoProva"></span>
-        </div>
-      </div>
-
-      <!-- Passo 2: correcção automática das folhas de resposta (só escolha múltipla) -->
-      <div class="col-12 d-none" id="cpCartaoAuto">
-        <div class="card shadow-sm border-primary">
-          <div class="card-header fw-semibold"><i class="bi bi-lightning-charge me-1"></i> Correcção automática das Folhas de Resposta</div>
-          <div class="card-body">
-            <div class="small text-muted mb-2">Fotografe (de cima, folha inteira, com os 4 cantos pretos visíveis e boa luz) ou digitalize as folhas, em lote. O sistema lê as bolhas e identifica o aluno pelo QR. Dúvidas (duas marcas, rasuras, marca fraca) ficam para si; <strong>nada é gravado sem a sua confirmação</strong>.</div>
-            <div class="row g-2 align-items-end">
-              <div class="col-12 col-md">
-                <label class="form-label small mb-1" for="cpAutoFicheiros">Folhas (JPG, PNG ou PDF; pode escolher vários)</label>
-                <input id="cpAutoFicheiros" type="file" class="form-control form-control-sm" multiple accept="image/png,image/jpeg,application/pdf">
-              </div>
-              <div class="col-12 col-md-auto">
-                <button type="button" class="btn btn-sm btn-primary" id="cpAutoLer"><i class="bi bi-eye me-1"></i>Ler folhas</button>
-              </div>
-            </div>
-            <div class="small mt-2" id="cpAutoProgresso"></div>
-            <div id="cpAutoPainel" class="d-none mt-3">
-              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <span class="small" id="cpAutoResumo"></span>
-                <button type="button" class="btn btn-sm btn-success ms-auto" id="cpAutoConfirmarLimpas"><i class="bi bi-check2-all me-1"></i>Confirmar as folhas sem dúvidas</button>
-              </div>
-              <div class="row g-3 d-none" id="cpAutoRevisao">
-                <div class="col-12 col-lg-6">
-                  <div class="border rounded bg-body-tertiary text-center" style="max-height:62vh;overflow:auto;">
-                    <img id="cpAutoImg" alt="Folha lida pelo sistema" class="img-fluid">
-                  </div>
-                  <div class="small text-muted mt-1">Verde = resposta lida · laranja = dúvida.</div>
-                </div>
-                <div class="col-12 col-lg-6">
-                  <div class="d-flex align-items-center gap-2 mb-2">
-                    <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" id="cpAutoAnt" title="Folha anterior"><i class="bi bi-chevron-left"></i></button>
-                      <button type="button" class="btn btn-outline-secondary" id="cpAutoSeg" title="Folha seguinte"><i class="bi bi-chevron-right"></i></button>
-                    </div>
-                    <select id="cpAutoFiltro" class="form-select form-select-sm w-auto">
-                      <option value="atencao">Precisam de revisão</option>
-                      <option value="todas">Todas as pendentes</option>
-                      <option value="feitas">Já confirmadas</option>
-                    </select>
-                    <span class="small text-muted" id="cpAutoPos"></span>
-                  </div>
-                  <div class="row g-2 mb-2">
-                    <div class="col-12 col-md-7">
-                      <label class="form-label small mb-1" for="cpAutoAluno">Aluno</label>
-                      <select id="cpAutoAluno" class="form-select form-select-sm"></select>
-                    </div>
-                    <div class="col-12 col-md-5 d-none" id="cpAutoBlocoVersao">
-                      <label class="form-label small mb-1" for="cpAutoVersao">Versão da folha</label>
-                      <select id="cpAutoVersao" class="form-select form-select-sm"></select>
-                    </div>
-                  </div>
-                  <div id="cpAutoAvisos" class="small mb-2"></div>
-                  <div id="cpAutoDuvidas" class="mb-2" style="max-height:32vh;overflow:auto;"></div>
-                  <div class="small font-monospace text-break mb-2" id="cpAutoLida"></div>
-                  <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-sm btn-primary" id="cpAutoConfirmar"><i class="bi bi-check2 me-1"></i>Confirmar esta folha</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="cpAutoSaltar">Saltar</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" id="cpAutoDescartar">Descartar</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
