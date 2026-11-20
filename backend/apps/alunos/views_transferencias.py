@@ -343,8 +343,14 @@ class TransferenciaAnulacaoViewSet(mixins.CreateModelMixin, mixins.ListModelMixi
             raise ValidationError({'ficheiro': 'Ficheiro acima de 5 MB.'})
         if t.anexos.count() >= MAX_ANEXOS:
             raise ValidationError({'ficheiro': f'Máximo de {MAX_ANEXOS} anexos por processo.'})
-        a = AnexoTransferencia.objects.create(transferencia=t, ficheiro=f, nome_original=os.path.basename(f.name)[:255],
-                                              content_type=EXT_ANEXO[ext], tamanho=f.size, carregado_por=request.user)
+        from common.utils.uploads import FicheiroInvalido, nome_seguro, tipo_seguro_por_conteudo
+        try:
+            mime_seguro = tipo_seguro_por_conteudo(f.read(65536), ext)  # confere os primeiros bytes com a extensão
+        except FicheiroInvalido:
+            raise ValidationError({'ficheiro': 'O conteúdo do ficheiro não corresponde a um PDF, JPG ou PNG válido.'})
+        f.seek(0)
+        a = AnexoTransferencia.objects.create(transferencia=t, ficheiro=f, nome_original=nome_seguro(os.path.basename(f.name), 'anexo' + ext)[:255],
+                                              content_type=mime_seguro, tamanho=f.size, carregado_por=request.user)
         registrar_auditoria(request.user, t.escola, 'TRANSFERENCIA', 'ANEXO', t.id, f'Anexo adicionado: {a.nome_original}')
         t = self._base_qs().get(id=t.id)
         return Response({'success': True, 'data': self.get_serializer(t).data['anexos']}, status=http.HTTP_201_CREATED)
@@ -361,8 +367,12 @@ class TransferenciaAnulacaoViewSet(mixins.CreateModelMixin, mixins.ListModelMixi
             a.ficheiro.delete(save=False)
             a.delete()
             return Response({'success': True})
-        resp = FileResponse(a.ficheiro.open('rb'), content_type=a.content_type or 'application/octet-stream')
-        resp['Content-Disposition'] = f'attachment; filename="{a.nome_original}"'
+        from common.utils.uploads import TIPOS_PERMITIDOS, nome_seguro
+        mime = a.content_type if a.content_type in TIPOS_PERMITIDOS.values() else 'application/octet-stream'
+        resp = FileResponse(a.ficheiro.open('rb'), content_type=mime)
+        resp['Content-Disposition'] = f'attachment; filename="{nome_seguro(a.nome_original, "anexo")}"'
+        resp['X-Content-Type-Options'] = 'nosniff'
+        resp['Content-Security-Policy'] = "default-src 'none'; sandbox"
         return resp
 
     # ---------- documento oficial ----------

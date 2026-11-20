@@ -1121,6 +1121,13 @@ Todas as respostas seguem o envelope JSON padronizado por `common/responses/api_
 
 ## 10. Segurança, Defesa em Profundidade e Auditoria
 
+### 10.0 Endurecimento contra XSS, SQL Injection, DDoS, Redirect e Uploads (v2.9.81)
+- **SQL Injection:** toda a persistência usa o ORM do Django ou `cursor.execute(sql, [params])` com marcadores `%s` (instruções parametrizadas, equivalente ao PREPARE/PDO: dados e SQL seguem separados e nunca são concatenados). O teste `test_sem_sql_por_concatenacao_nas_apps` falha se surgir `.execute/.raw/.extra` com f-string, `%` ou `.format`. Nota: `prepare_threshold=None` apenas desliga o *server-side prepare* por causa do pooler do Supabase; a ligação de parâmetros continua a ser feita pelo driver.
+- **XSS:** (1) `escapeHtml()` nos templates; (2) filtro global `frontend/js/seguranca-xss.js` que higieniza todo o HTML atribuído a `innerHTML/outerHTML/insertAdjacentHTML` (remove `<script>`, `srcdoc`, `onerror/onload/...` e URLs `javascript:`); (3) `SanitizarEntradaMiddleware` neutraliza etiquetas HTML em corpos JSON da API; (4) CSP e `nosniff` no Nginx.
+- **Uploads:** `common/utils/uploads.py` decide o tipo pelo **conteúdo** (magic bytes) contra lista fechada (PDF, PNG, JPG, GIF, Word, Excel, PowerPoint, CSV, TXT); HTML/SVG/JS são rejeitados. A descarga é sempre `attachment`, `nosniff`, CSP `sandbox` e o MIME nunca vem do cliente.
+- **DDoS / abuso:** Nginx com `limit_req` (geral 30 r/s, API 20 r/s, login 10/min por IP), `limit_conn` 60, timeouts anti-slowloris e cabeçalhos limitados; DRF com `AnonRateThrottle` (120/min) e `UserRateThrottle` (1500/min).
+- **Redirecionamento:** o redirect HTTP→HTTPS aponta sempre para `https://sigesaas.duckdns.org` (nunca `$host`), eliminando Host-header/open redirect.
+
 O SIGE implementa **6 Pilares de Integridade** (`backend/docs/REGRAS_DE_INTEGRIDADE.md`):
 1. **Isolamento Multi-Tenant:** `TenantIsolationMiddleware`, `TenantQuerySetMixin`, validação cruzada `validar_integridade_tenant()` e políticas RLS no PostgreSQL.
 2. **Domínio Pedagógico MEC:** Validação estrita da escala `0.0` a `20.0`, arredondamentos regulamentares, proibição de faltas negativas e filtro rigoroso de disciplinas por secção/área na 11ª e 12ª Classe.

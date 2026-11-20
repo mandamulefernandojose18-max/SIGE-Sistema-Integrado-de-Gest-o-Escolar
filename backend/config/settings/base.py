@@ -85,6 +85,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'common.middleware.sanitizar_entrada.SanitizarEntradaMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'common.middleware.tenant.TenantMiddleware',
@@ -166,6 +167,8 @@ REST_FRAMEWORK = {
     # Limites por escopo; só se aplicam às views que declaram `throttle_scope`.
     'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.ScopedRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
     ),
     # Atrás do Nginx (1 proxy): o IP do cliente é o último valor de X-Forwarded-For, que o Nginx
     # sobrescreve com $remote_addr. Sem isto, os limites de login/verificação seriam contornáveis.
@@ -173,6 +176,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'login': os.environ.get('THROTTLE_LOGIN', '10/min'),
         'verificacao': os.environ.get('THROTTLE_VERIFICACAO', '30/min'),
+        # Limites gerais anti-abuso (DDoS aplicacional): por IP (anónimos) e por utilizador autenticado.
+        'anon': os.environ.get('THROTTLE_ANON', '120/min'),
+        'user': os.environ.get('THROTTLE_USER', '1500/min'),
     },
 }
 
@@ -233,6 +239,14 @@ MIN_SENHA_UTILIZADOR = 8
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+
+# Endurecimento de cookies e cabeçalhos (XSS / CSRF / fuga de referer)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # E-mail (avisos do Escudo Anti-IA): so liga se EMAIL_HOST estiver definido no servidor (scripts/definir-email.ps1)
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '').strip()

@@ -231,12 +231,20 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
         if ficheiro:
             # Upload multipart: o browser envia o binário e o servidor trata do armazenamento.
             data = {k: v for k, v in request.data.items() if k != 'ficheiro'}
-            nome = ficheiro.name or 'material'
-            data['nome_arquivo'] = nome
-            data['extensao'] = nome.rsplit('.', 1)[-1][:20] if '.' in nome else 'bin'
-            data['tamanho_bytes'] = ficheiro.size
-            data['tipo_mime'] = ficheiro.content_type or 'application/octet-stream'
-            data['conteudo_base64'] = base64.b64encode(ficheiro.read()).decode('ascii')
+            from common.utils.uploads import FicheiroInvalido, extensao_de, nome_seguro, tipo_seguro_por_conteudo
+            bruto = ficheiro.read()
+            ext = extensao_de(ficheiro.name)
+            try:
+                mime_seguro = tipo_seguro_por_conteudo(bruto, ext)
+            except FicheiroInvalido as err:
+                return Response({'success': False, 'message': f'{err} Use PDF, Word, Excel, PowerPoint, CSV ou imagem.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            data = {k: v for k, v in data.items()}
+            data['nome_arquivo'] = nome_seguro(ficheiro.name, 'material.' + ext)
+            data['extensao'] = ext
+            data['tamanho_bytes'] = len(bruto)
+            data['tipo_mime'] = mime_seguro
+            data['conteudo_base64'] = base64.b64encode(bruto).decode('ascii')
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -283,9 +291,8 @@ class MaterialEscolarViewSet(viewsets.ModelViewSet):
             try:
                 file_bytes = base64.b64decode(b64_str)
                 fname = _safe_ascii_filename(material.nome_arquivo or 'material.pdf')
-                response = HttpResponse(file_bytes, content_type=material.tipo_mime or 'application/octet-stream')
-                response['Content-Disposition'] = f'attachment; filename="{fname}"'
-                return response
+                from common.utils.uploads import resposta_ficheiro_segura
+                return resposta_ficheiro_segura(file_bytes, fname, material.tipo_mime)
             except Exception:
                 pass
 

@@ -1547,25 +1547,27 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
         tipo_mime = request.data.get('tipo_mime') or 'application/pdf'
         tamanho_bytes = int(request.data.get('tamanho_bytes') or 0)
 
+        from common.utils.uploads import FicheiroInvalido, extensao_de, nome_seguro, tipo_seguro_por_conteudo
         if arquivo:
-            nome_arquivo = arquivo.name
-            extensao = nome_arquivo.split('.')[-1].lower() if '.' in nome_arquivo else 'pdf'
-            tamanho_bytes = arquivo.size
-            tipo_mime = getattr(arquivo, 'content_type', 'application/pdf') or 'application/pdf'
             raw_data = arquivo.read()
-            conteudo_base64 = base64.b64encode(raw_data).decode('utf-8')
         elif conteudo_base64:
-            if ',' in conteudo_base64:
-                prefix, b64_clean = conteudo_base64.split(',', 1)
-                conteudo_base64 = b64_clean
-                if 'application/pdf' in prefix:
-                    tipo_mime = 'application/pdf'
-                elif 'vnd.openxmlformats' in prefix or 'spreadsheet' in prefix:
-                    tipo_mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            if not tamanho_bytes:
-                tamanho_bytes = len(conteudo_base64) * 3 // 4
+            b64_clean = conteudo_base64.split(',', 1)[1] if ',' in conteudo_base64[:128] else conteudo_base64
+            try:
+                raw_data = base64.b64decode(b64_clean, validate=False)
+            except Exception:
+                return Response({'success': False, 'message': 'Conteúdo do ficheiro inválido.'}, status=400)
         else:
             return Response({'success': False, 'message': 'Nenhum ficheiro fornecido. Seleccione um ficheiro para carregar.'}, status=400)
+
+        # O tipo e a extensão declarados pelo cliente não são confiáveis: decide o conteúdo.
+        extensao = extensao_de(nome_arquivo) or str(extensao).lower().lstrip('.')
+        try:
+            tipo_mime = tipo_seguro_por_conteudo(raw_data, extensao)
+        except FicheiroInvalido as err:
+            return Response({'success': False, 'message': f'{err} Use PDF, Word, Excel, CSV ou imagem PNG/JPG.'}, status=400)
+        nome_arquivo = nome_seguro(nome_arquivo, 'calendario_escolar.' + extensao)
+        tamanho_bytes = len(raw_data)
+        conteudo_base64 = base64.b64encode(raw_data).decode('ascii')
 
         doc = DocumentoCalendarioOficial.objects.create(
             escola=escola,
@@ -1607,10 +1609,8 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'success': False, 'message': f'Erro ao descodificar ficheiro: {str(e)}'}, status=500)
 
-        resp = HttpResponse(raw_bytes, content_type=doc.tipo_mime or 'application/octet-stream')
-        nome_limpo = _sanitizar_para_nome_arquivo(doc.nome_arquivo) or 'calendario_escolar.pdf'
-        resp['Content-Disposition'] = f'attachment; filename="{nome_limpo}"'
-        return resp
+        from common.utils.uploads import resposta_ficheiro_segura
+        return resposta_ficheiro_segura(raw_bytes, _sanitizar_para_nome_arquivo(doc.nome_arquivo) or 'calendario_escolar.pdf', doc.tipo_mime)
 
     @action(detail=False, methods=['delete', 'post'], url_path='remover_documento_oficial')
     def remover_documento_oficial(self, request):
@@ -1821,9 +1821,8 @@ class CalendarioEscolarViewSet(viewsets.ModelViewSet):
             return Response({'success': False, 'message': f'Erro ao ler anexo: {str(e)}'}, status=500)
 
         nome = obj.nome_documento or f"anexo_{obj.id}.pdf"
-        resp = HttpResponse(raw_bytes, content_type=obj.documento_tipo or 'application/octet-stream')
-        resp['Content-Disposition'] = f'attachment; filename="{_sanitizar_para_nome_arquivo(nome)}"'
-        return resp
+        from common.utils.uploads import resposta_ficheiro_segura
+        return resposta_ficheiro_segura(raw_bytes, _sanitizar_para_nome_arquivo(nome) or 'anexo.pdf', obj.documento_tipo)
 
 class ComunicadoEscolarViewSet(viewsets.ModelViewSet):
     queryset = ComunicadoEscolar.objects.all()
