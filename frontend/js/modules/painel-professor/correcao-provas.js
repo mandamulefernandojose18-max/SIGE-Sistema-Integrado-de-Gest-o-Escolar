@@ -195,10 +195,16 @@
   }
   // Há um gabarito (importado ou escrito) no formulário do Passo 1, mesmo sem a prova criada?
   function gabaritoNoFormulario() {
-    if ($('cpTipo').value !== 'MULTIPLA_ESCOLHA' || !(parseInt($('cpNPerg').value, 10) > 0)) return false;
-    var tem = false;
-    document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) { if (/[A-Fa-f]/.test(i.value)) tem = true; });
-    return tem;
+    var maior = 0;
+    document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) {
+      var v = (i.value || '').replace(/\s+/g, '');
+      if (/[A-Fa-f]/.test(v) && v.length > maior) maior = v.length;
+    });
+    if (!maior) return false;
+    // chave escrita à mão sem indicar o nº de perguntas: o nº é o tamanho da chave
+    if (!(parseInt($('cpNPerg').value, 10) > 0)) $('cpNPerg').value = maior;
+    if ($('cpTipo').value !== 'MULTIPLA_ESCOLHA') { $('cpTipo').value = 'MULTIPLA_ESCOLHA'; alternarTipoNova(); }
+    return true;
   }
   async function criarProva(automatica) {
     var mc = $('cpTipo').value === 'MULTIPLA_ESCOLHA';
@@ -622,6 +628,11 @@
   async function lerFolhas() {
     var fich = Array.prototype.slice.call($('cpAutoFicheiros').files || []);
     if (!fich.length) { toast('Escolha as fotografias ou PDFs das folhas.', 'warning'); return; }
+    // Gabarito escolhido/colado no Passo 1 mas ainda sem «Ler gabarito»: lê-o agora, sem pedir de novo
+    if ((!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') && !gabaritoNoFormulario() &&
+        (($('cpGabFicheiro').files && $('cpGabFicheiro').files.length) || ($('cpGabTexto').value || '').trim())) {
+      await importarGabarito();
+    }
     if ((!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') && gabaritoNoFormulario()) {
       // gabarito já importado no Passo 1: cria a prova com ele (precisa de turma, disciplina e trimestre) e segue
       $('cpAutoLer').disabled = true;
