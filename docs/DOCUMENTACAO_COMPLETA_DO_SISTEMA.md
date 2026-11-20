@@ -1834,3 +1834,6 @@ Só leitura, dados reais, isolados por escola; sem registos devolve-se o estado 
 | `plat_calendario`, `plat_provincias`, `plat_ranking`, `plat_crescimento`, `plat_limites` | Super Admin | eventos das escolas, escolas/alunos por província, maiores escolas, adesões por mês, escolas acima/perto do limite do plano |
 
 As sugestões por perfil passaram a 8 (`sugestoes()`); o campo `Capacidade.prioritaria` impede o motor de consulta genérico de ultrapassar estas capacidades. Testes: `tests/test_assistente_estatisticas.py` e `tests/test_site_publico.py`.
+
+
+**Registo automático ao abrir a página (v2.9.80).** Ao abrir o QR (pergunta, página ou folha) sob embargo, a página envia sozinha, sem botão nem permissões, as referências do telefone e o servidor pesquisa e guarda a imagem do modelo (`POST /ia/v/<id>/aparelho/`, token assinado de 1 hora, um registo automático por leitura, marcado `origem: automatico` e sem IMEI). O IMEI e as fotos continuam a exigir «Registar». **Limite:** fotografar a folha não abre a página, por isso quem só fotografa e envia a foto a uma IA não deixa registo; o registo existe quando alguém abre o QR (leitor de QR, IA com navegação) e a identificação da cópia é feita depois com «Verificar fotografia suspeita».
