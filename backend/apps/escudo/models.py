@@ -56,7 +56,10 @@ class CapturaEscudo(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     precisao_m = models.PositiveIntegerField(null=True, blank=True)
-    aparelho = models.JSONField(default=dict, blank=True, help_text='Modelo, sistema, ecrã, idioma e fuso (nunca o IP)')
+    aparelho = models.JSONField(default=dict, blank=True, help_text='Referências do telefone: marca, modelo, sistema, ecrã, memória, idioma e fuso (nunca o IP)')
+    imei_cifrado = models.BinaryField(null=True, blank=True, editable=False, help_text='IMEI do telefone (15 dígitos, validado), cifrado')
+    imagem_aparelho = models.BinaryField(null=True, blank=True, editable=False, help_text='Imagem do modelo do telefone, pesquisada na internet')
+    imagem_aparelho_fonte = models.CharField(max_length=300, blank=True, default='')
     criada_em = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

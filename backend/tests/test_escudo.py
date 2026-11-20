@@ -865,6 +865,23 @@ def test_leitura_no_embargo_pede_local_guarda_so_com_token_e_avisa_o_dono_por_em
     assert d['leituras_lista'][-1]['latitude'] is not None
 
 
+IMEI_OK = '490154203237518'   # IMEI de exemplo com dígito de controlo certo (não é de nenhum aparelho real)
+
+
+@pytest.fixture(autouse=True)
+def _sem_internet_para_imagem_do_aparelho(monkeypatch):
+    from apps.escudo.services import aparelho
+    monkeypatch.setattr(aparelho, 'pesquisar_imagem',
+                        lambda consulta: (b'\xff\xd8\xff\xe0' + b'0' * 100, 'https://commons.wikimedia.org/wiki/File:x.jpg'))
+
+
+def test_imei_valida_luhn_e_formatos():
+    from apps.escudo.services.aparelho import imei_valido, marca_do_modelo, consulta_modelo
+    assert imei_valido(IMEI_OK) and imei_valido('49-015420-323751-8')
+    assert not imei_valido('490154203237519') and not imei_valido('1234') and not imei_valido('111111111111111')
+    assert marca_do_modelo('SM-A546B') == 'Samsung' and consulta_modelo({'modelo': 'SM-A546B'}) == 'Samsung SM-A546B'
+
+
 def test_captura_com_consentimento_guarda_fotos_cifradas_local_e_aparelho_so_para_o_dono(duas_escolas, monkeypatch):
     import re
     from django.core.files.uploadedfile import SimpleUploadedFile
@@ -880,7 +897,7 @@ def test_captura_com_consentimento_guarda_fotos_cifradas_local_e_aparelho_so_par
     url = f'/ia/v/{pid}/captura/'
 
     def enviar(**extra):
-        dados = {'t': token, 'aparelho': '{"modelo":"SM-A546B","ip":"nao-guardar"}', **extra}
+        dados = {'t': token, 'imei': IMEI_OK, 'aparelho': '{"modelo":"SM-A546B","ip":"nao-guardar"}', **extra}
         return APIClient().post(url, dados, format='multipart')
     assert enviar(t='falso').status_code == 400
     assert enviar(foto_leitor=SimpleUploadedFile('l.jpg', b'nao-e-imagem')).status_code == 400   # não é JPEG
@@ -928,9 +945,9 @@ def test_valores_ocultos_saem_da_folha_e_so_chegam_apos_registo_completo(duas_es
     token = re.search(r"fd.append\('t','([^']+)'", html).group(1)
     jpg = b'\xff\xd8\xff\xe0' + b'0' * 100
     url = f'/ia/v/{pid}/captura/'
-    assert APIClient().post(url, {'t': token, 'lat': '-25.9', 'lon': '32.5', 'acc': '10'}, format='multipart').status_code == 204
-    assert APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg)}, format='multipart').status_code == 204
-    ok = APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg), 'lat': '-25.9', 'lon': '32.5', 'acc': '10'},
+    assert APIClient().post(url, {'t': token, 'imei': IMEI_OK, 'lat': '-25.9', 'lon': '32.5', 'acc': '10'}, format='multipart').status_code == 204
+    assert APIClient().post(url, {'t': token, 'imei': IMEI_OK, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg)}, format='multipart').status_code == 204
+    ok = APIClient().post(url, {'t': token, 'imei': IMEI_OK, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg), 'lat': '-25.9', 'lon': '32.5', 'acc': '10'},
                           format='multipart')
     assert ok.status_code == 200
     assert ok.json()['ocultos'] == [{'rotulo': 'V1', 'valor': '0,4 kg'}, {'rotulo': 'V2', 'valor': '10 m/s'}]
@@ -1052,10 +1069,10 @@ def test_dados_da_sala_so_aparecem_na_janela_cifrados_e_com_leitura_registada(du
     token = re.search(r"fd.append\('t','([^']+)'", dentro).group(1)
     jpg = b'\xff\xd8\xff\xe0' + b'0' * 100
     url = f'/ia/v/{pid}/captura/'
-    so_local = APIClient().post(url, {'t': token, 'lat': '-25.9', 'lon': '32.5', 'acc': '10'}, format='multipart')
-    so_foto = APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg)}, format='multipart')
+    so_local = APIClient().post(url, {'t': token, 'imei': IMEI_OK, 'lat': '-25.9', 'lon': '32.5', 'acc': '10'}, format='multipart')
+    so_foto = APIClient().post(url, {'t': token, 'imei': IMEI_OK, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg)}, format='multipart')
     assert so_local.status_code == 204 and so_foto.status_code == 204
-    completo = APIClient().post(url, {'t': token, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg), 'lat': '-25.9', 'lon': '32.5', 'acc': '10'},
+    completo = APIClient().post(url, {'t': token, 'imei': IMEI_OK, 'foto_leitor': SimpleUploadedFile('l.jpg', jpg), 'lat': '-25.9', 'lon': '32.5', 'acc': '10'},
                                 format='multipart')
     assert completo.status_code == 200 and 'Use g = 9,8' in completo.json()['sala']
     cfg['sala_janela'] = {'inicio': tempo.para_iso(agora - timedelta(hours=3)), 'fim': tempo.para_iso(agora - timedelta(hours=1))}

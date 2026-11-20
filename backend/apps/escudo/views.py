@@ -758,8 +758,10 @@ def _aviso_local(pid, p):
 _BLOCO_CAPTURA = (
     '<div class="ia" id="cap" style="background:#eef2ff"><strong>Registar esta leitura</strong>'
     '<p>Ao carregar em «Registar», autorizas o SIGE a guardar, para o professor responsável: uma foto tua (câmara frontal), '
-    'a fotografia da prova (opcional), a localização e o tipo de aparelho. Se recusares no navegador, nada é guardado.</p>'
+    'a fotografia da prova (opcional), a localização e as referências, a imagem e o IMEI do teu telefone. Se recusares no navegador, nada é guardado.</p>'
     '<p><label>Foto da prova (opcional): <input type="file" id="cap-prova" accept="image/*" capture="environment"></label></p>'
+    '<p><label>IMEI do telefone (obrigatório): <input type="text" id="cap-imei" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="15 dígitos"></label>'
+    '<br><small>O navegador não deixa o SIGE ler o IMEI sozinho. Marca *#06# no teclado do telefone e escreve os 15 dígitos.</small></p>'
     '<button class="btn" id="cap-btn" type="button" style="border:0;cursor:pointer">Registar</button> <small id="cap-msg"></small></div>'
     "<script>(function(){var b=document.getElementById('cap-btn'),m=document.getElementById('cap-msg');if(!b)return;"
     "function jpg(c){return new Promise(function(r){c.toBlob(r,'image/jpeg',0.8);});}"
@@ -775,12 +777,21 @@ _BLOCO_CAPTURA = (
     "i.onload=function(){var k=Math.min(1,1600/Math.max(i.width,i.height)),c=document.createElement('canvas');"
     "c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);"
     "URL.revokeObjectURL(u);jpg(c).then(r);};i.onerror=function(){r(null);};i.src=u;});}"
-    "b.onclick=function(){b.disabled=true;m.textContent='A registar…';var pf=document.getElementById('cap-prova').files[0];"
-    "Promise.all([selfie(),local(),reduzir(pf)]).then(function(x){var fd=new FormData(),u=navigator.userAgent||'';"
+    "function luhn(s){if(!/^\\d{15}$/.test(s)||/^(\\d)\\1+$/.test(s)||s.slice(0,8)==='00000000')return false;var t=0;"
+    "for(var i=0;i<15;i++){var n=+s[14-i];if(i%%2){n*=2;if(n>9)n-=9;}t+=n;}return t%%10===0;}"
+    "function refs(){var d=navigator.userAgentData;if(!d||!d.getHighEntropyValues)return Promise.resolve({});"
+    "return d.getHighEntropyValues(['model','platformVersion','fullVersionList']).catch(function(){return {};});}"
+    "b.onclick=function(){var im=(document.getElementById('cap-imei').value||'').replace(/[\\s\\-\\/.]/g,'');"
+    "if(!luhn(im)){m.textContent='Escreve o IMEI certo (15 dígitos; marca *#06# no telefone).';return;}"
+    "b.disabled=true;m.textContent='A registar…';var pf=document.getElementById('cap-prova').files[0];"
+    "Promise.all([selfie(),local(),reduzir(pf),refs()]).then(function(x){var fd=new FormData(),u=navigator.userAgent||'',h=x[3]||{};fd.append('imei',im);"
     "fd.append('t','%(token)s');if(x[0])fd.append('foto_leitor',x[0],'l.jpg');if(x[2])fd.append('foto_prova',x[2],'p.jpg');"
     "if(x[1]){fd.append('lat',x[1].latitude);fd.append('lon',x[1].longitude);fd.append('acc',x[1].accuracy);}"
     "var md=(navigator.userAgentData&&navigator.userAgentData.mobile)?'telemóvel':'';"
-    "fd.append('aparelho',JSON.stringify({modelo:((u.match(/;\\s*([^;)]+)\\s+Build/)||[])[1]||md),sistema:navigator.platform||'',"
+    "var fl=(h.fullVersionList||[]).filter(function(v){return !/not.?a.?brand/i.test(v.brand);})[0]||{};"
+    "fd.append('aparelho',JSON.stringify({modelo:(h.model||(u.match(/;\\s*([^;)]+)\\s+Build/)||[])[1]||(u.match(/Android[^;]*;\\s*([^;)]+)\\)/)||[])[1]||md),"
+    "versao_sistema:(h.platform||'')+' '+(h.platformVersion||''),navegador:(fl.brand||'')+' '+(fl.version||''),"
+    "memoria_gb:String(navigator.deviceMemory||''),nucleos:String(navigator.hardwareConcurrency||''),sistema:navigator.platform||'',"
     "ecra:screen.width+'x'+screen.height+'@'+(window.devicePixelRatio||1),idioma:navigator.language||'',"
     "fuso:(Intl.DateTimeFormat().resolvedOptions().timeZone)||'',toque:String(navigator.maxTouchPoints||0)}));"
     "if(!x[0]&&!x[1]&&!x[2]){m.textContent='Nada foi autorizado, por isso nada foi guardado.';b.disabled=false;return;}"
@@ -813,7 +824,8 @@ def local_leitura(request, pid):
 
 MAX_FOTO_BYTES = 3 * 1024 * 1024
 MAX_CAPTURAS_POR_LEITURA = 3
-_CAMPOS_APARELHO = ('modelo', 'sistema', 'navegador', 'ecra', 'idioma', 'fuso', 'toque')
+_CAMPOS_APARELHO = ('fabricante', 'modelo', 'sistema', 'versao_sistema', 'navegador', 'ecra', 'memoria_gb', 'nucleos',
+                    'idioma', 'fuso', 'toque')
 
 
 def _jpeg_valido(ficheiro):
@@ -830,7 +842,7 @@ def captura_leitura(request, pid):
     deixou usar a câmara e a localização. Token assinado (1 hora, uma leitura, no máximo 3 capturas)."""
     from django.core.signing import BadSignature, loads
     from .models import CapturaEscudo, LeituraEscudo
-    from .services import cofre
+    from .services import aparelho as aparelho_svc, cofre
     if request.method != 'POST' or not re.fullmatch(r'[A-Z0-9]{8}', pid):
         return HttpResponse(status=405)
     try:
@@ -854,9 +866,17 @@ def captura_leitura(request, pid):
         return HttpResponse(status=400)
     if not (leitor or prova or lat is not None):
         return HttpResponse(status=400)
+    imei = aparelho_svc.limpar_imei(request.POST.get('imei'))
+    if not aparelho_svc.imei_valido(imei):   # obrigatório: 15 dígitos com dígito de controlo certo
+        return _json({'success': False, 'code': 'imei_invalido',
+                      'message': 'IMEI obrigatório e válido: marca *#06# no teclado do telefone e escreve os 15 dígitos.'}, 400)
     info = {k: str(info.get(k, ''))[:80] for k in _CAMPOS_APARELHO} if isinstance(info, dict) else {}
+    info['fabricante'] = info.get('fabricante') or aparelho_svc.marca_do_modelo(info.get('modelo', ''))
+    imagem, fonte = aparelho_svc.pesquisar_imagem(aparelho_svc.consulta_modelo(info))
     CapturaEscudo.objects.create(
         leitura=leitura, prova=leitura.prova,
+        imei_cifrado=cofre.cifrar(pid, 'captura-imei', imei.encode()),
+        imagem_aparelho=cofre.cifrar(pid, 'captura-aparelho', imagem) if imagem else None, imagem_aparelho_fonte=fonte,
         foto_leitor_cifrada=cofre.cifrar(pid, 'captura-leitor', leitor) if leitor else None,
         foto_prova_cifrada=cofre.cifrar(pid, 'captura-prova', prova) if prova else None,
         latitude=None if lat is None else round(lat, 5), longitude=None if lon is None else round(lon, 5),
@@ -878,6 +898,14 @@ def captura_leitura(request, pid):
     return HttpResponse(status=204)
 
 
+def _imei_da_captura(pid, c):
+    from .services import cofre
+    try:
+        return cofre.decifrar(pid, 'captura-imei', c.imei_cifrado).decode() if c.imei_cifrado else ''
+    except Exception:
+        return ''
+
+
 @csrf_exempt
 @_tratar
 def capturas_lista(request, pid):
@@ -890,6 +918,8 @@ def capturas_lista(request, pid):
         'id': c.id, 'quando_texto': tempo.formatar(c.criada_em), 'serial': c.leitura.serial,
         'latitude': c.latitude, 'longitude': c.longitude, 'precisao_m': c.precisao_m, 'aparelho': c.aparelho,
         'foto_leitor': bool(c.foto_leitor_cifrada), 'foto_prova': bool(c.foto_prova_cifrada),
+        'imei': _imei_da_captura(pid, c), 'imagem_aparelho': bool(c.imagem_aparelho),
+        'imagem_aparelho_fonte': c.imagem_aparelho_fonte,
     } for c in CapturaEscudo.objects.filter(prova__codigo=pid).select_related('leitura')[:100]]
     return _json({'success': True, 'data': {'capturas': itens}})
 
@@ -902,13 +932,14 @@ def captura_imagem(request, pid, cid, tipo):
         return erro
     from .models import CapturaEscudo
     from .services import cofre
-    if tipo not in ('leitor', 'prova'):
+    if tipo not in ('leitor', 'prova', 'aparelho'):
         return _erro('Imagem não encontrada.', 404)
     c = CapturaEscudo.objects.filter(pk=cid, prova__codigo=pid).first()
-    bruto = c and (c.foto_leitor_cifrada if tipo == 'leitor' else c.foto_prova_cifrada)
+    bruto = c and {'leitor': c.foto_leitor_cifrada, 'prova': c.foto_prova_cifrada, 'aparelho': c.imagem_aparelho}[tipo]
     if not bruto:
         return _erro('Imagem não encontrada.', 404)
-    r = HttpResponse(cofre.decifrar(pid, f'captura-{tipo}', bruto), content_type='image/jpeg')
+    dados = cofre.decifrar(pid, f'captura-{tipo}', bruto)
+    r = HttpResponse(dados, content_type='image/png' if dados[:4] == b'\x89PNG' else 'image/jpeg')
     r['Cache-Control'] = 'no-store'
     r['X-Content-Type-Options'] = 'nosniff'
     return r
