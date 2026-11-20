@@ -37,12 +37,26 @@
     }
   }
 
+  // Setter ORIGINAL de innerHTML, guardado antes de embrulhar: o parser inerte usa-o para nunca voltar ao setter filtrado
+  // (senão haveria recursão infinita).
+  var setterOriginal = (Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML') || {}).set;
+
+  var emCurso = false; // trava de reentrada: o filtro nunca se chama a si próprio
+
   function higienizar(html) {
-    if (html == null || typeof html !== 'string' || html.indexOf('<') === -1) return html;
-    var t = document.createElement('template');
-    t.innerHTML = html;
-    limparArvore(t.content);
-    return t.innerHTML;
+    if (emCurso || html == null || typeof html !== 'string' || html.indexOf('<') === -1 || !setterOriginal) return html;
+    emCurso = true;
+    try {
+      var t = document.createElement('template');
+      setterOriginal.call(t, html);
+      limparArvore(t.content);
+      return t.innerHTML;
+    } catch (e) {
+      // Falha do filtro nunca pode impedir a aplicação de funcionar (login, painéis): devolve o HTML tal como veio.
+      return html;
+    } finally {
+      emCurso = false;
+    }
   }
   window.sigeHigienizarHtml = higienizar;
 
