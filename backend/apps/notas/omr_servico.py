@@ -757,8 +757,9 @@ def ler_pagina(img, n_perguntas, n_alternativas):
     # O QR da folha diz quantas perguntas tem: é o critério seguro. Sem QR, a grelha tem de coincidir bem com o modelo
     # (digitalizações reais certas dão 0.5–0.6: a tinta do aluno baixa a correlação; simulações de outra prova ≤ 0.47).
     if (n_qr and n_qr != n_perguntas) or corr < (0.30 if n_qr == n_perguntas else 0.50):
-        raise ErroOMR('A grelha de respostas não coincide com a folha desta prova (número de perguntas/alternativas diferente '
-                      'ou folha de outra prova). Confirme se é a Folha de Resposta gerada para esta prova.')
+        raise ErroOMR(f'A grelha desta folha não coincide com a prova seleccionada, que tem {n_perguntas} perguntas e '
+                      f'{n_alternativas} alternativas (a folha tem outro número de perguntas/alternativas, ou é de outra prova). '
+                      'Corrija o nº de perguntas/alternativas da prova na «Folha de resposta» do Passo 1 e crie a prova de novo.')
     deslocamentos = [(dx, dy) for dx, dy, _c in desl]
     scores = _pontuar(tinta, modelo, n_perguntas, n_alternativas, deslocamentos)
     respostas, duvidas = decidir(scores, letras)

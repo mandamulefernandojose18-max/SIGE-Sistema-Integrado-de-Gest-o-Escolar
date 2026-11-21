@@ -166,6 +166,29 @@
             </div>
           </div>
           <div class="col-12 cp-bloco-mc" id="cpGabaritos"></div>
+          <!-- Passo 1c: a Folha de Resposta do sistema, para indicar a alternativa certa de cada pergunta (alternativa ao ficheiro) -->
+          <div class="col-12 cp-bloco-mc">
+            <style>
+              .cp-fv { display: grid; gap: .5rem 1.5rem; }
+              .cp-fv-col { min-width: 0; }
+              .cp-fv-lin { display: flex; align-items: center; gap: .35rem; margin-bottom: .22rem; }
+              .cp-fv-lin.cp-fv-g { margin-bottom: .7rem; }
+              .cp-fv-num { min-width: 2rem; text-align: center; border: 1px solid #1e293b; border-radius: .4rem; font: 600 .8rem 'Times New Roman', serif; padding: .1rem .2rem; background: #fff; color: #111; }
+              .cp-fv-bolha { width: 2.6rem; height: 1.45rem; border: 1px solid #1e293b; border-radius: 2px; background: #fff; color: #111; font: 600 .8rem 'Times New Roman', serif; line-height: 1; padding: 0; cursor: pointer; }
+              .cp-fv-bolha:hover { background: #e2e8f0; }
+              .cp-fv-bolha.cp-fv-certa { background: #198754; color: #fff; border-color: #0f5132; }
+              .cp-fv-cab { display: flex; gap: .35rem; font: 700 .75rem 'Times New Roman', serif; margin-bottom: .2rem; }
+            </style>
+            <div class="border rounded p-2 bg-white">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="small fw-semibold"><i class="bi bi-grid-3x3-gap me-1"></i>Folha de resposta do sistema: indique o nº de perguntas acima e clique na alternativa <u>certa</u> de cada pergunta</span>
+                <select id="cpFolhaVersao" class="form-select form-select-sm w-auto d-none" aria-label="Versão da folha"></select>
+                <span class="small ms-auto" id="cpFolhaContagem" aria-live="polite"></span>
+              </div>
+              <div id="cpFolhaVisual" class="cp-fv"></div>
+              <div class="small text-muted mt-1">Verde = alternativa certa. A chave escrita acima e esta folha ficam sempre iguais; as folhas dos alunos têm de ter o mesmo nº de perguntas e de alternativas.</div>
+            </div>
+          </div>
         </div>
         <div class="d-flex gap-2 mt-3">
           <button type="button" class="btn btn-sm btn-primary" id="cpBtnCriar"><i class="bi bi-check2-circle me-1"></i>Criar prova</button>

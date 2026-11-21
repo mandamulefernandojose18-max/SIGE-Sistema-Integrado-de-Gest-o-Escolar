@@ -174,6 +174,51 @@
       return '<div class="col-12 col-md-6"><label class="form-label small mb-1">Chave de correcção' + (v ? ' da versão ' + esc(v) : '') + ' (uma letra por pergunta)</label>' +
         '<input data-v="' + esc(v) + '" class="form-control form-control-sm font-monospace cp-gab" autocomplete="off" spellcheck="false" placeholder="Ex.: ABCDDACB" value="' + esc(guardados[v] || '') + '"></div>';
     }).join('') + '</div>';
+    desenharFolhaVisual();
+  }
+  // Folha de Resposta do sistema (visual): clicar na alternativa certa de cada pergunta preenche a chave de correcção
+  function chaveDaFolha(v) {
+    var inp = document.querySelector('#cpGabaritos .cp-gab[data-v="' + v + '"]');
+    return { inp: inp, texto: ((inp && inp.value) || '').replace(/\s+/g, '').toUpperCase() };
+  }
+  function desenharFolhaVisual() {
+    var box = $('cpFolhaVisual'); if (!box) return;
+    var n = parseInt($('cpNPerg').value, 10), nAlt = Math.max(2, Math.min(6, parseInt($('cpNAlt').value, 10) || 4));
+    var cont = $('cpFolhaContagem'), sel = $('cpFolhaVersao');
+    if (!(n > 0 && n <= 100)) { box.innerHTML = '<div class="small text-muted">Indique o nº de perguntas (1–100) para aparecer a folha de resposta.</div>'; cont.textContent = ''; sel.classList.add('d-none'); return; }
+    var vs = listaVersoes(), v = '';
+    if (vs.length) {
+      var antes = sel.value;
+      sel.innerHTML = vs.map(function (x) { return '<option value="' + esc(x) + '">Versão ' + esc(x) + '</option>'; }).join('');
+      sel.value = vs.indexOf(antes) >= 0 ? antes : vs[0]; v = sel.value; sel.classList.remove('d-none');
+    } else sel.classList.add('d-none');
+    var ch = chaveDaFolha(v).texto, letras = 'ABCDEF'.slice(0, nAlt);
+    var cols = n <= 20 ? 1 : n <= 60 ? 2 : 3, por = Math.ceil(n / cols), marcadas = 0, html = '';
+    box.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    for (var c = 0; c < cols; c++) {
+      html += '<div class="cp-fv-col"><div class="cp-fv-cab"><span style="min-width:2rem"></span>' + letras.split('').map(function (l) { return '<span style="width:2.6rem;text-align:center">' + l + '</span>'; }).join('') + '</div>';
+      for (var k = c * por; k < Math.min(n, (c + 1) * por); k++) {
+        var cert = ch.charAt(k);
+        if (letras.indexOf(cert) >= 0) marcadas++;
+        html += '<div class="cp-fv-lin' + ((k + 1) % 5 === 0 ? ' cp-fv-g' : '') + '"><span class="cp-fv-num">' + (k + 1) + '</span>' +
+          letras.split('').map(function (l) { return '<button type="button" class="cp-fv-bolha' + (cert === l ? ' cp-fv-certa' : '') + '" data-k="' + k + '" data-l="' + l + '" aria-label="Pergunta ' + (k + 1) + ', alternativa ' + l + '" aria-pressed="' + (cert === l) + '">' + l + '</button>'; }).join('') + '</div>';
+      }
+      html += '</div>';
+    }
+    box.innerHTML = html;
+    cont.className = 'small ms-auto ' + (marcadas === n ? 'text-success fw-semibold' : 'text-muted');
+    cont.textContent = marcadas + ' de ' + n + ' respostas certas indicadas';
+  }
+  function aoClicarFolhaVisual(ev) {
+    var b = ev.target.closest && ev.target.closest('.cp-fv-bolha'); if (!b) return;
+    var n = parseInt($('cpNPerg').value, 10); if (!(n > 0)) return;
+    var vs = listaVersoes(), v = vs.length ? ($('cpFolhaVersao').value || vs[0]) : '';
+    var o = chaveDaFolha(v); if (!o.inp) { desenharGabaritos(); o = chaveDaFolha(v); if (!o.inp) return; }
+    var k = parseInt(b.getAttribute('data-k'), 10), l = b.getAttribute('data-l');
+    var arr = []; for (var i = 0; i < n; i++) arr.push(o.texto.charAt(i) || '?');
+    arr[k] = arr[k] === l ? '?' : l;
+    o.inp.value = arr.join('');
+    desenharFolhaVisual(); estadoCartaoAuto();
   }
   function alternarTipoNova() {
     var mc = $('cpTipo').value === 'MULTIPLA_ESCOLHA';
@@ -216,6 +261,15 @@
     if (mc) corpo.folha = corpoEscolhaMultipla();
     else { corpo.instrumento = $('cpInstrumento').value; corpo.perguntas = lerCotacoes().map(function (x) { return { cotacao: x }; }); }
     if (!corpo.turma_id || !corpo.disciplina_id || !corpo.periodo) { toast('Escolha primeiro a turma, a disciplina e o trimestre.', 'warning'); return false; }
+    if (mc) {   // a chave tem de ter a alternativa certa de todas as perguntas (use a folha de resposta acima)
+      var faltam = 0, nTot = parseInt($('cpNPerg').value, 10) || 0;
+      document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) {
+        var t = (i.value || '').replace(/\s+/g, ''); var f = 0;
+        for (var q = 0; q < nTot; q++) if (!/[A-Fa-f]/.test(t.charAt(q))) f++;
+        faltam = Math.max(faltam, f);
+      });
+      if (faltam) { toast('Faltam ' + faltam + ' resposta(s) certa(s): clique na alternativa certa de cada pergunta na folha de resposta, ou importe o gabarito.', 'warning'); return false; }
+    }
     var res = await chamar(API, json('POST', corpo));
     if (!res.ok) { toast(msg(res), 'danger'); return false; }
     toast(automatica === true ? 'Prova criada com o gabarito importado.' : 'Prova criada com este gabarito. Passo 2: carregue as provas dos alunos.', 'success');
@@ -516,7 +570,7 @@
       var el = document.querySelector('#cpGabaritos .cp-gab[data-v="' + (v === '-' ? '' : v) + '"]');
       if (el) el.value = d.versoes[v].map(function (l) { return l || '?'; }).join('');
     });
-    estadoCartaoAuto();
+    desenharFolhaVisual(); estadoCartaoAuto();
     box.className = 'small mt-2 text-success';
     box.innerHTML = '<i class="bi bi-check-circle me-1"></i>Chave lida: ' + d.n_perguntas + ' perguntas, ' + d.n_alternativas + ' alternativas. Confira nas caixas da chave abaixo (corrija o que estiver mal; «?» = sem resposta lida) e depois crie a prova.' +
       (d.avisos || []).map(function (a) { return '<div class="text-muted">• ' + esc(a) + '</div>'; }).join('');
@@ -794,6 +848,11 @@
     $('cpCotacoes').addEventListener('input', resumoCotacoes);
     $('cpTipo').addEventListener('change', alternarTipoNova);
     $('cpVersoes').addEventListener('input', desenharGabaritos);
+    $('cpNPerg').addEventListener('input', function () { desenharFolhaVisual(); estadoCartaoAuto(); });
+    $('cpNAlt').addEventListener('input', desenharFolhaVisual);
+    $('cpFolhaVersao').addEventListener('change', desenharFolhaVisual);
+    $('cpFolhaVisual').addEventListener('click', aoClicarFolhaVisual);
+    $('cpGabaritos').addEventListener('input', function () { desenharFolhaVisual(); estadoCartaoAuto(); });
     $('cpRespostas').addEventListener('input', aoEscreverRespostas);
     alternarTipoNova();
     $('cpBtnCriar').addEventListener('click', criarProva);
