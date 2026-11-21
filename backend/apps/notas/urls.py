@@ -17,13 +17,18 @@ from .views_correcao import (
     ProvaFisicaDetalheView, ProvasFisicasView,
 )
 
-from .views_omr import ConfirmarOmrView, GabaritoImportarView, GabaritosGuardadosView, LeituraOmrView
+from .views_omr import (
+    ConfirmarOmrView, FolhasPendentesView, GabaritoImportarView, GabaritosGuardadosView, LeituraOmrView,
+)
 
 urlpatterns = [
     path('provas-fisicas/gabarito/importar', GabaritoImportarView.as_view(), name='provas_fisicas_gab_no_slash'),
     path('provas-fisicas/gabarito/importar/', GabaritoImportarView.as_view(), name='provas_fisicas_gab'),
     path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/confirmar-omr', ConfirmarOmrView.as_view(), name='provas_fisicas_confirmar_omr_no_slash'),
     path('provas-fisicas/<uuid:pk>/correcoes/<uuid:aluno_id>/confirmar-omr/', ConfirmarOmrView.as_view(), name='provas_fisicas_confirmar_omr'),
+    path('provas-fisicas/<uuid:pk>/folhas-pendentes/', FolhasPendentesView.as_view(), name='folhas_pendentes'),
+    path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/', FolhasPendentesView.as_view(), name='folhas_pendentes_detalhe'),
+    path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/imagem/', FolhasPendentesView.as_view(), name='folhas_pendentes_imagem'),
     path('provas-fisicas/gabaritos-guardados', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_no_slash'),
     path('provas-fisicas/gabaritos-guardados/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados'),
     path('provas-fisicas/gabaritos-guardados/<uuid:pk>/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_detalhe'),

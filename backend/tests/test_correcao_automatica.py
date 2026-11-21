@@ -245,6 +245,33 @@ class TestCorreccaoAutomaticaApi:
         assert c.get(f'{BASE}{prova["id"]}/folhas-corrigidas/?carimbo=nao').status_code == 404
         assert c.delete(url).status_code == 404
 
+    def test_folha_sem_aluno_fica_guardada_atribui_se_e_elimina_se_quiser(self):
+        prova = self._prova()
+        c = self._como(self.professor)
+        base = f'{BASE}{prova["id"]}/'
+        r = c.post(base + 'leitura-omr/', {'ficheiro': self._foto('ABCDABCDAB', codigo='NAO_EXISTE')}, format='multipart')
+        p = r.data['data']['paginas'][0]
+        assert p['ok'] and p['aluno'] is None and p['pendente_id']          # guardada no sistema
+        # lê-se outra vez o mesmo ficheiro: não duplica
+        c.post(base + 'leitura-omr/', {'ficheiro': self._foto('ABCDABCDAB', codigo='NAO_EXISTE')}, format='multipart')
+        lista = c.get(base + 'folhas-pendentes/').data['data']
+        assert len(lista) == 1 and lista[0]['id'] == p['pendente_id'] and lista[0]['respostas'] == 'ABCDABCDAB'
+        img = c.get(f'{base}folhas-pendentes/{p["pendente_id"]}/imagem/')
+        assert img.status_code == 200 and img.content[:3] == b'\xff\xd8\xff'
+        # alheios e direcção não acedem a escrever
+        assert self._como(self.director).delete(f'{base}folhas-pendentes/{p["pendente_id"]}/').status_code == 403
+        # atribuir a um aluno SEM reenviar a imagem (página recarregada) corrige, guarda a folha corrigida e retira a pendente
+        r2 = c.post(f'{base}correcoes/{self.aluno.id}/confirmar-omr/',
+                    {'respostas': 'ABCDABCDAB', 'versao': '', 'pendente_id': p['pendente_id'], 'lancar': False}, format='json')
+        assert r2.status_code == 200 and r2.data['imagem'] and r2.data['data']['nota'] == 20.0
+        assert c.get(base + 'folhas-pendentes/').data['data'] == []
+        # outra pendente: o professor elimina quando quiser
+        p2 = c.post(base + 'leitura-omr/', {'ficheiro': self._foto('ABCDABCDAB', codigo='NAO_EXISTE')},
+                    format='multipart').data['data']['paginas'][0]
+        assert c.delete(f'{base}folhas-pendentes/{p2["pendente_id"]}/').status_code == 200
+        assert c.get(base + 'folhas-pendentes/').data['data'] == []
+        assert c.delete(f'{base}folhas-pendentes/{p2["pendente_id"]}/').status_code == 404
+
     def test_leitura_recusa_folha_de_outra_escola_e_de_outra_prova(self):
         prova = self._prova()
         c = self._como(self.professor)

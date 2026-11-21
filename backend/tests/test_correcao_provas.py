@@ -138,12 +138,16 @@ class TestCorrecaoProvas:
         assert c.put(url, {'pontos': [5, 5, 5]}, format='json').data['data']['estado'] == 'CORRIGIDA'
         assert Nota.objects.get().teste1 == 14
 
-    def test_prova_com_notas_lancadas_nao_se_elimina(self):
+    def test_prova_com_notas_lancadas_elimina_se_o_professor_quiser_e_mantem_a_caderneta(self):
         prova = self._criar_prova().data['data']
         c = self._como(self.professor)
         c.put(f'{BASE}{prova["id"]}/correcoes/{self.aluno.id}/', {'pontos': [5, 5, 4]}, format='json')
         c.post(f'{BASE}{prova["id"]}/lancar/', {}, format='json')
-        assert c.delete(f'{BASE}{prova["id"]}/').status_code == 409
+        d = c.delete(f'{BASE}{prova["id"]}/')
+        assert d.status_code == 200 and d.data['lancadas_mantidas'] == 1
+        assert Nota.objects.get().teste1 == 14               # a caderneta não muda
+        assert c.get(f'{BASE}{prova["id"]}/').status_code == 404
+        assert self._como(self.director).delete(f'{BASE}{prova["id"]}/').status_code in (403, 404)
 
     def test_direccao_consulta_mas_nao_corrige_nem_lanca(self):
         prova = self._criar_prova().data['data']

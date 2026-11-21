@@ -22,6 +22,116 @@ from .views_correcao import ROLES_LEITURA, _e_super, _erro, _escola, _prova
 PAGINAS_POR_PEDIDO = 2   # ~2–3 s por página: um pedido nunca passa do tempo limite do servidor
 
 
+def anotar_resolvendo_duvidas(prova, jpeg_limpo, respostas, duvidas, versao, professor, largura=1240):
+    """Corrige a folha (imagem limpa em JPEG) contra o gabarito da prova: dúvidas resolvidas pela leitura
+    (marca fraca/rasura = letra mais provável; o resto em branco). Devolve {acertos, nota, jpg}; levanta se faltar a versão."""
+    from . import correcao_servico as svc
+    cv2, np = omr._cv()
+    sugestoes = {d['n']: d.get('sugerida') or '-' for d in duvidas}
+    resp = ''.join(sugestoes.get(i + 1, '-') if c == '*' else c for i, c in enumerate(respostas))
+    _, _total, nota, _completa, limpas = svc.calcular(prova, None, resp, versao)
+    chave = prova.gabaritos.get(versao or '-') or next(iter(prova.gabaritos.values()))
+    acertos = sum(1 for a, b in zip(limpas, chave) if a == b)
+    img = cv2.imdecode(np.frombuffer(jpeg_limpo, np.uint8), cv2.IMREAD_COLOR)
+    n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
+    jpg = omr.anotar_folha(img, n_mc, prova.n_alternativas, limpas, chave, acertos, nota, professor, largura=largura)
+    return {'acertos': acertos, 'nota': nota, 'jpg': jpg}
+
+
+def guardar_pendente(escola, prova, utilizador, origem, out):
+    """Guarda (ou actualiza) a folha lida sem aluno atribuído. Devolve o id."""
+    import base64
+    import os
+    import uuid
+
+    from . import correcao_servico as svc
+    from .models import FolhaPendente
+    bruto = base64.b64decode(out['imagem'].split(',', 1)[1])
+    pasta = svc.raiz_imagens(escola)
+    os.makedirs(pasta, exist_ok=True)
+    nome = f'pend_{uuid.uuid4().hex}.jpg'
+    with open(os.path.join(pasta, nome), 'wb') as f:
+        f.write(bruto)
+    caminho = f'{svc._pasta_escola(escola)}/{nome}'.replace('\\', '/')
+    anterior = FolhaPendente.objects.filter(prova=prova, origem=origem, pagina=out['pagina']).first()
+    if anterior:
+        _apagar_ficheiro_pendente(anterior)
+    f, _ = FolhaPendente.objects.update_or_create(
+        prova=prova, origem=origem, pagina=out['pagina'],
+        defaults={'escola': escola, 'criado_por': utilizador if getattr(utilizador, 'pk', None) else None,
+                  'respostas': out['respostas'], 'versao': out.get('versao') or '', 'duvidas': out.get('duvidas') or [],
+                  'avisos': out.get('avisos') or [], 'acertos': out.get('acertos'), 'nota': out.get('nota'),
+                  'caminho': caminho})
+    return str(f.id)
+
+
+def _apagar_ficheiro_pendente(f):
+    import os
+
+    from . import correcao_servico as svc
+    caminho = svc.caminho_seguro(f)
+    if caminho:
+        try:
+            os.remove(caminho)
+        except OSError:
+            pass
+
+
+def _pendente_json(f):
+    return {'id': str(f.id), 'origem': f.origem, 'pagina': f.pagina, 'respostas': f.respostas, 'versao': f.versao,
+            'duvidas': f.duvidas, 'avisos': f.avisos, 'acertos': f.acertos, 'nota': f.nota}
+
+
+class FolhasPendentesView(APIView):
+    """Folhas lidas e corrigidas pelo sistema que ainda não têm aluno atribuído (guardadas até o professor as atribuir
+    ou eliminar).
+
+      GET    /api/v1/notas/provas-fisicas/<id>/folhas-pendentes/                 lista
+      GET    /api/v1/notas/provas-fisicas/<id>/folhas-pendentes/<fid>/imagem/    a folha corrigida a vermelho (JPEG)
+      DELETE /api/v1/notas/provas-fisicas/<id>/folhas-pendentes/<fid>/           elimina a folha (e o ficheiro)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, fid=None):
+        from django.http import HttpResponse
+
+        from . import correcao_servico as svc
+        from .models import FolhaPendente
+        escola, prova, erro = _prova(request, pk)
+        if erro:
+            return erro
+        if fid is None:
+            qs = FolhaPendente.objects.filter(prova=prova)
+            return Response({'success': True, 'data': [_pendente_json(f) for f in qs]})
+        f = FolhaPendente.objects.filter(pk=fid, prova=prova).first()
+        caminho = svc.caminho_seguro(f) if f else None
+        if not caminho:
+            return _erro('Folha não encontrada.', 404)
+        with open(caminho, 'rb') as fh:
+            limpo = fh.read()
+        try:
+            dados = anotar_resolvendo_duvidas(prova, limpo, f.respostas, f.duvidas, f.versao,
+                                              getattr(request.user, 'nome', '') or request.user.get_username())['jpg']
+        except Exception:
+            dados = limpo
+        resp = HttpResponse(dados, content_type='image/jpeg')
+        resp['Cache-Control'] = 'private, no-store'
+        resp['X-Content-Type-Options'] = 'nosniff'
+        return resp
+
+    def delete(self, request, pk, fid):
+        from .models import FolhaPendente
+        escola, prova, erro = _prova(request, pk, escrita=True)
+        if erro:
+            return erro
+        f = FolhaPendente.objects.filter(pk=fid, prova=prova).first()
+        if not f:
+            return _erro('Folha não encontrada.', 404)
+        _apagar_ficheiro_pendente(f)
+        f.delete()
+        return Response({'success': True, 'message': 'Folha eliminada.'})
+
+
 class GabaritoImportarView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -164,6 +274,18 @@ class ConfirmarOmrView(APIView):
         # ---- folha corrigida (vistos, círculos, acertos, nota e nome do professor, a vermelho) ----
         imagem_json, aviso_imagem, jpg = None, '', b''
         bruto = request.data.get('imagem') or ''
+        pend = None
+        if request.data.get('pendente_id'):
+            from .models import FolhaPendente
+            try:
+                pend = FolhaPendente.objects.filter(pk=request.data.get('pendente_id'), prova=prova).first()
+            except Exception:
+                pend = None
+            if pend and not bruto.startswith('data:image/jpeg;base64,'):   # página recarregada: usa a folha guardada
+                caminho = svc.caminho_seguro(pend)
+                if caminho:
+                    with open(caminho, 'rb') as fh:
+                        bruto = 'data:image/jpeg;base64,' + base64.b64encode(fh.read()).decode('ascii')
         if bruto.startswith('data:image/jpeg;base64,') and corr.respostas:
             try:
                 cv2, np = omr._cv()
@@ -202,6 +324,9 @@ class ConfirmarOmrView(APIView):
             except svc.ErroCorrecao as e:
                 lancamento = {'ok': False, 'message': str(e)}
         corr.refresh_from_db()
+        if pend:                       # a folha ficou atribuída a um aluno: já não está pendente
+            _apagar_ficheiro_pendente(pend)
+            pend.delete()
         folha = ''
         if imagem_json and jpg:
             folha = 'data:image/jpeg;base64,' + base64.b64encode(jpg).decode('ascii')
@@ -240,13 +365,14 @@ class LeituraOmrView(APIView):
         fim = min(total, ini + PAGINAS_POR_PEDIDO)
         for idx in range(ini, fim):
             paginas.append(self._pagina(escola, prova, dados, idx, n_mc, n_alt, versoes,
-                                        getattr(request.user, 'nome', '') or request.user.get_username()))
+                                        getattr(request.user, 'nome', '') or request.user.get_username(),
+                                        request.user, (ficheiro.name or 'folhas')[:255]))
         return Response({'success': True, 'data': {
             'total_paginas': total, 'paginas': paginas, 'proxima': fim if fim < total else None,
             'n_perguntas_mc': n_mc, 'n_alternativas': n_alt, 'versoes': versoes}})
 
     @staticmethod
-    def _pagina(escola, prova, dados, idx, n_mc, n_alt, versoes, professor=''):
+    def _pagina(escola, prova, dados, idx, n_mc, n_alt, versoes, professor='', utilizador=None, origem=''):
         """Lê a página e já a corrige: junta `acertos`, `nota` e `corrigida` (folha corrigida a vermelho, JPEG em data-URL).
 
         A folha corrige-se mesmo sem aluno identificado (precisa só da versão, se a prova tiver várias)."""
@@ -254,22 +380,21 @@ class LeituraOmrView(APIView):
         out = LeituraOmrView._ler(escola, prova, dados, idx, n_mc, n_alt, versoes)
         if not out.get('ok'):
             return out
-        out.update({'acertos': None, 'nota': None, 'corrigida': None})
+        out.update({'acertos': None, 'nota': None, 'corrigida': None, 'pendente_id': None})
         try:
-            sugestoes = {d['n']: d.get('sugerida') or '-' for d in out['duvidas']}
-            resp = ''.join(sugestoes.get(i + 1, '-') if c == '*' else c for i, c in enumerate(out['respostas']))
-            from . import correcao_servico as svc
-            _, _total, nota, _completa, limpas = svc.calcular(prova, None, resp, out['versao'])
-            chave = prova.gabaritos.get(out['versao'] or '-') or next(iter(prova.gabaritos.values()))
-            acertos = sum(1 for a, b in zip(limpas, chave) if a == b)
-            cv2, np = omr._cv()
             bruto = base64.b64decode(out['imagem'].split(',', 1)[1])
-            img = cv2.imdecode(np.frombuffer(bruto, np.uint8), cv2.IMREAD_COLOR)
-            jpg = omr.anotar_folha(img, n_mc, n_alt, limpas, chave, acertos, nota, professor, largura=1240)
-            out.update({'acertos': acertos, 'nota': nota,
-                        'corrigida': 'data:image/jpeg;base64,' + base64.b64encode(jpg).decode('ascii')})
+            r = anotar_resolvendo_duvidas(prova, bruto, out['respostas'], out['duvidas'], out['versao'], professor)
+            out.update({'acertos': r['acertos'], 'nota': r['nota'],
+                        'corrigida': 'data:image/jpeg;base64,' + base64.b64encode(r['jpg']).decode('ascii')})
         except Exception:
             pass     # sem versão (ou chave) a folha fica só lida; o professor escolhe a versão e corrige
+        if not out.get('aluno'):
+            # sem aluno identificado: guarda a folha no sistema (para não se perder ao recarregar); o professor
+            # atribui o aluno quando quiser, ou elimina-a
+            try:
+                out['pendente_id'] = guardar_pendente(escola, prova, utilizador, origem, out)
+            except Exception:
+                out['pendente_id'] = None
         return out
 
     @staticmethod

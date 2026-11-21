@@ -528,3 +528,29 @@ class GabaritoGuardado(models.Model):
 
     def __str__(self):
         return f'{self.nome} ({self.n_perguntas})'
+
+
+class FolhaPendente(models.Model):
+    """Folha lida e corrigida pelo sistema mas ainda sem aluno atribuído (guardada para não se perder ao recarregar)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='folhas_pendentes')
+    prova = models.ForeignKey(ProvaFisica, on_delete=models.CASCADE, related_name='folhas_pendentes')
+    criado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='folhas_pendentes')
+    origem = models.CharField(max_length=255, help_text='Nome do ficheiro carregado')
+    pagina = models.PositiveSmallIntegerField(default=1)
+    respostas = models.CharField(max_length=120, blank=True, default='')
+    versao = models.CharField(max_length=2, blank=True, default='')
+    duvidas = models.JSONField(default=list, blank=True)
+    avisos = models.JSONField(default=list, blank=True)
+    acertos = models.PositiveSmallIntegerField(null=True, blank=True)
+    nota = models.FloatField(null=True, blank=True)
+    caminho = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=20, default='image/jpeg')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_folhas_pendentes'
+        ordering = ['origem', 'pagina']
+        constraints = [models.UniqueConstraint(fields=['prova', 'origem', 'pagina'], name='uniq_folha_pendente_pagina')]
+        indexes = [models.Index(fields=['escola', 'prova'])]

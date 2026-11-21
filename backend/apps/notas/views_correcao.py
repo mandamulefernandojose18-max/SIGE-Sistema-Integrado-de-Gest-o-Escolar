@@ -209,14 +209,19 @@ class ProvaFisicaDetalheView(APIView):
         escola, prova, erro = _prova(request, pk, escrita=True)
         if erro:
             return erro
-        if prova.correcoes.filter(estado='LANCADA').exists():
-            return _erro('Esta prova já tem notas lançadas na caderneta e não pode ser eliminada.', 409)
+        # O professor pode eliminar a prova quando quiser. As notas já lançadas ficam na caderneta (não dependem da prova).
+        lancadas = prova.correcoes.filter(estado='LANCADA').count()
         for img in CorrecaoImagem.objects.filter(correcao__prova=prova):
             svc.apagar_imagem(img)
+        from .views_omr import _apagar_ficheiro_pendente
+        for pend in prova.folhas_pendentes.all():
+            _apagar_ficheiro_pendente(pend)
         registrar_auditoria(request.user, escola, 'PROVA_FISICA', 'ELIMINACAO', prova.id,
-                            f'Prova física "{prova.titulo}" eliminada', ip=_ip_do_pedido(request))
+                            f'Prova física "{prova.titulo}" eliminada' + (f' ({lancadas} nota(s) já lançada(s) mantida(s) na caderneta)' if lancadas else ''),
+                            ip=_ip_do_pedido(request))
         prova.delete()
-        return Response({'success': True, 'message': 'Prova eliminada.'})
+        return Response({'success': True, 'lancadas_mantidas': lancadas,
+                         'message': 'Prova eliminada.' + (f' As {lancadas} nota(s) já lançada(s) mantêm-se na caderneta.' if lancadas else '')})
 
 
 class CorrecaoAlunoView(APIView):

@@ -1,4 +1,4 @@
-// =====================================================================
+﻿// =====================================================================
 // SIGE - CORRECÇÃO ASSISTIDA DE PROVAS FÍSICAS (Painel do Professor)
 // Cascata Classe → Secção/Área → Turma → Disciplina → Trimestre → Prova (altura constante para qualquer n).
 // API: /api/v1/notas/provas-fisicas/  ·  /api/v1/professores/minhas-turmas/
@@ -350,10 +350,34 @@
     $('cpBtnEliminar').classList.remove('d-none');
     $('cpCotTotal').textContent = fmt(prova.cotacao_total);
     if (loteProva && loteProva !== prova.id) { lote = []; loteProva = ''; revIdx = -1; $('cpAutoProgresso').textContent = ''; painelLote(); }
+    await restaurarPendentes();
     estadoCartaoAuto();
     if (!prova.alunos.length) { estadoVazio('Esta turma não tem alunos activos.'); return; }
     preencherAlunos();
     mostrarAluno(Math.min(idxAluno, prova.alunos.length - 1));
+    mostrarConcluido();
+  }
+  // Tudo fica guardado no sistema: ao abrir a prova voltam as folhas lidas que ainda não têm aluno atribuído
+  async function restaurarPendentes() {
+    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') return;
+    var res = await chamar(API + encodeURIComponent(prova.id) + '/folhas-pendentes/');
+    if (!res.ok || !res.json) return;
+    loteProva = prova.id;
+    (res.json.data || []).forEach(function (f) {
+      if (lote.some(function (x) { return x.pendente_id === f.id; })) return;
+      lote.push({ estado: 'pendente', origem: f.origem, pagina: f.pagina, aluno_id: '', versao: f.versao || '', pendente_id: f.id,
+        respostas: (f.respostas || '').split(''), duvidas: f.duvidas || [], avisos: f.avisos || [], previa: '', imagem: '', resolvidas: {},
+        corrigida: '', notaPrev: f.nota, acertos: f.acertos });
+      f.duvidas.forEach(function (d) { lote[lote.length - 1].resolvidas[d.n] = d.sugerida || '-'; });
+    });
+    lote.filter(function (x) { return x.estado === 'pendente' && x.pendente_id; }).forEach(function (x) { x.avisos = (x.avisos || []); });
+    painelLote();
+  }
+  // imagem guardada no servidor (pedido autenticado → endereço temporário do navegador)
+  async function imagemGuardada(caminho) {
+    var r = await fetch(API + caminho, { headers: cab() });
+    if (!r.ok) throw new Error('indisponível');
+    var u = URL.createObjectURL(await r.blob()); urlsImagens.push(u); return u;
   }
   function rotuloEstado(c) {
     if (!c) return 'por corrigir';
@@ -603,10 +627,12 @@
   }
 
   async function eliminar() {
-    if (!prova || !confirm('Eliminar a prova "' + prova.titulo + '" e todas as correcções e páginas digitalizadas?')) return;
+    var lanc = prova && prova.resumo ? prova.resumo.lancadas : 0;
+    if (!prova || !confirm('Eliminar a prova "' + prova.titulo + '", todas as correcções, as provas corrigidas e as folhas guardadas?' +
+        (lanc ? '\n\nAs ' + lanc + ' nota(s) já lançada(s) na caderneta NÃO são alteradas.' : '') + '\n\nNão pode ser desfeito.')) return;
     var res = await chamar(API + encodeURIComponent(prova.id) + '/', { method: 'DELETE' });
     if (!res.ok) { toast(msg(res), 'danger'); return; }
-    toast('Prova eliminada.', 'success');
+    toast(res.json.message || 'Prova eliminada.', 'success');
     await carregarProvas();
   }
 
@@ -690,7 +716,13 @@
       return;
     }
     $('cpAutoConfirmar').disabled = it.estado !== 'pendente';
-    $('cpAutoImg').src = it.previa;
+    if (it.previa) $('cpAutoImg').src = it.previa;
+    else if (it.pendente_id) {      // folha guardada no sistema: carrega a correcção a vermelho
+      $('cpAutoImg').removeAttribute('src');
+      imagemGuardada(encodeURIComponent(prova.id) + '/folhas-pendentes/' + encodeURIComponent(it.pendente_id) + '/imagem/').then(function (u) {
+        it.previa = u; it.corrigida = u; if (lote[revIdx] === it) $('cpAutoImg').src = u;
+      }).catch(function () { /* sem imagem */ });
+    }
     var alunos = prova.alunos.map(function (a) { return '<option value="' + esc(a.aluno_id) + '">' + esc(a.nome) + ' — ' + rotuloEstado(a.correcao) + '</option>'; }).join('');
     $('cpAutoAluno').innerHTML = '<option value="">-- Escolha o aluno --</option>' + alunos;
     $('cpAutoAluno').value = it.aluno_id || '';
@@ -728,9 +760,9 @@
     // grava a correcção e desenha a folha corrigida (vistos, círculos, acertos, nota e nome do professor, a vermelho).
     // NÃO lança na caderneta: o lançamento é o passo seguinte («Iniciar lançamento automático»).
     var res = await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(it.aluno_id) + '/confirmar-omr/',
-      json('POST', { respostas: fin.texto, versao: it.versao || '', imagem: it.imagem, lancar: false }));
+      json('POST', { respostas: fin.texto, versao: it.versao || '', imagem: it.imagem || undefined, pendente_id: it.pendente_id || undefined, lancar: false }));
     if (!res.ok) return msg(res);
-    it.estado = 'confirmada'; it.nota = res.json.data.nota;
+    it.estado = 'confirmada'; it.nota = res.json.data.nota; it.pendente_id = '';
     it.imagemId = res.json.imagem ? res.json.imagem.id : '';
     if (res.json.folha) it.corrigida = res.json.folha;
     it.msgLancamento = res.json.aviso_imagem || '';
@@ -743,32 +775,79 @@
     var a = prova && prova.alunos ? prova.alunos.filter(function (x) { return x.aluno_id === id; })[0] : null;
     return a ? a.nome : '';
   }
+  // Tudo o que o sistema corrigiu fica guardado: este painel mostra o que está guardado (também depois de recarregar a página)
+  function guardadasDaProva() {
+    return (prova && prova.alunos ? prova.alunos : []).filter(function (a) { return a.correcao && (a.correcao.imagens || []).length; });
+  }
   function mostrarConcluido() {
-    var box = $('cpAutoConcluido');
-    var feitas = lote.filter(function (x) { return x.estado === 'confirmada'; }).length;
+    var box = $('cpAutoConcluido'); if (!box || !prova) return;
+    var guardadas = guardadasDaProva().length;
     var semAluno = lote.filter(function (x) { return x.estado === 'pendente'; }).length;
     var erros = lote.filter(function (x) { return x.estado === 'erro'; }).length;
-    box.classList.toggle('d-none', !lote.length);
-    $('cpAutoConcluidoTexto').innerHTML = '<strong>' + lote.length + '</strong> folha(s) lida(s): <span class="text-success"><strong>' + feitas + '</strong> corrigida(s) e guardada(s)</span>' +
-      (semAluno ? ' · <span class="text-warning-emphasis"><strong>' + semAluno + '</strong> corrigida(s) mas sem aluno identificado (escolha o aluno na lista abaixo para as guardar)</span>' : '') +
+    var porLancar = (prova.alunos || []).filter(function (a) { return a.correcao && a.correcao.estado === 'CORRIGIDA'; }).length;
+    var lancadas = (prova.resumo && prova.resumo.lancadas) || 0;
+    box.classList.toggle('d-none', !(guardadas || semAluno || erros));
+    $('cpAutoConcluidoTexto').innerHTML = '<span class="text-success"><strong>' + guardadas + '</strong> prova(s) corrigida(s) guardada(s) no sistema</span>' +
+      (semAluno ? ' · <span class="text-warning-emphasis"><strong>' + semAluno + '</strong> corrigida(s) sem aluno identificado, também guardada(s) (escolha o aluno na lista abaixo)</span>' : '') +
       (erros ? ' · <span class="text-danger"><strong>' + erros + '</strong> com erro</span>' : '') +
-      '. As notas <strong>ainda não foram lançadas</strong> nas cadernetas.';
-    $('cpAutoVer').disabled = !lote.some(function (x) { return x.corrigida; });
-    ['cpAutoPdf', 'cpAutoListaPdf', 'cpAutoListaXlsx', 'cpAutoLancar'].forEach(function (id) { $(id).disabled = !feitas; });
+      '. Notas por lançar: <strong>' + porLancar + '</strong> · já lançadas: <strong>' + lancadas + '</strong>. Tudo fica guardado até o eliminar.';
+    $('cpAutoVer').disabled = !(guardadas || lote.some(function (x) { return x.corrigida || x.pendente_id; }));
+    ['cpAutoPdf', 'cpAutoListaPdf', 'cpAutoListaXlsx'].forEach(function (id) { $(id).disabled = !guardadas; });
+    $('cpAutoLancar').disabled = !porLancar;
   }
-  function mostrarVisor(i) {
-    var lista = lote.map(function (x, k) { return { x: x, k: k }; }).filter(function (o) { return o.x.corrigida; });
+  // Lista do visor: folhas deste lote (corrigidas ou guardadas sem aluno) + provas corrigidas já guardadas no sistema
+  function listaVisor() {
+    var l = [];
+    lote.forEach(function (x, k) { if (x.estado !== 'erro' && (x.corrigida || x.pendente_id)) l.push({ tipo: 'lote', x: x, k: k }); });
+    guardadasDaProva().forEach(function (a) {
+      if (l.some(function (o) { return o.tipo === 'lote' && o.x.aluno_id === a.aluno_id && o.x.estado === 'confirmada' && o.x.corrigida; })) return;
+      l.push({ tipo: 'guardada', aluno: a });
+    });
+    return l;
+  }
+  async function mostrarVisor(i) {
+    var lista = listaVisor();
     if (!lista.length) { toast('Ainda não há provas corrigidas para ver.', 'warning'); return; }
     visorIdx = (i + lista.length) % lista.length;
-    var it = lista[visorIdx].x;
+    var o = lista[visorIdx], img = $('cpAutoVerImg'), legenda = $('cpAutoVerLegenda');
     $('cpAutoVisor').classList.remove('d-none');
-    $('cpAutoVerImg').src = it.corrigida;
-    var nome = nomeAluno(it.aluno_id);
-    $('cpAutoVerLegenda').textContent = (visorIdx + 1) + '/' + lista.length + ' · ' + (nome || 'aluno por identificar') +
-      (it.nota != null ? ' · nota ' + fmt(it.nota) : it.notaPrev != null ? ' · nota ' + fmt(it.notaPrev) : '') +
-      (it.estado === 'confirmada' ? ' · guardada' : ' · por guardar');
+    var nome, nota, estado, url = '';
+    if (o.tipo === 'lote') {
+      var it = o.x; nome = nomeAluno(it.aluno_id); nota = it.nota != null ? it.nota : it.notaPrev;
+      estado = it.estado === 'confirmada' ? 'guardada' : 'guardada, sem aluno';
+      url = it.corrigida || '';
+      if (!url && it.pendente_id) { try { url = it.corrigida = it.previa = await imagemGuardada(encodeURIComponent(prova.id) + '/folhas-pendentes/' + encodeURIComponent(it.pendente_id) + '/imagem/'); } catch (_) { url = ''; } }
+    } else {
+      var c = o.aluno.correcao; nome = o.aluno.nome; nota = c.nota; estado = c.estado === 'LANCADA' ? 'guardada · nota lançada' : 'guardada · nota por lançar';
+      try { url = await imagemGuardada('imagens/' + encodeURIComponent(c.imagens[0].id) + '/'); } catch (_) { url = ''; }
+    }
+    if (visorIdx !== ((i + lista.length) % lista.length)) return;   // o utilizador já mudou de folha
+    if (url) img.src = url; else img.removeAttribute('src');
+    legenda.textContent = (visorIdx + 1) + '/' + lista.length + ' · ' + (nome || 'aluno por identificar') +
+      (nota != null ? ' · nota ' + fmt(nota) : '') + ' · ' + estado;
   }
-  async function lancarAutomatico() {
+  // O professor elimina quando quiser: só esta prova corrigida (a nota na caderneta não muda) ou a folha guardada sem aluno
+  async function eliminarDoVisor() {
+    var lista = listaVisor(); var o = lista[visorIdx]; if (!o) return;
+    if (o.tipo === 'lote' && o.x.pendente_id) {
+      if (!confirm('Eliminar esta folha guardada (sem aluno)? Não pode ser desfeito.')) return;
+      var r = await chamar(API + encodeURIComponent(prova.id) + '/folhas-pendentes/' + encodeURIComponent(o.x.pendente_id) + '/', { method: 'DELETE' });
+      if (!r.ok) { toast(msg(r), 'danger'); return; }
+      lote.splice(o.k, 1); painelLote(); mostrarConcluido();
+      toast('Folha eliminada.', 'success');
+    } else {
+      var aluno = o.tipo === 'guardada' ? o.aluno : prova.alunos.filter(function (a) { return a.aluno_id === o.x.aluno_id; })[0];
+      if (!aluno) return;
+      if (!confirm('Eliminar a prova corrigida de ' + aluno.nome + '?\n\nSó o PDF/folha corrigida é eliminado: a nota e a caderneta não mudam. Não pode ser desfeito.')) return;
+      var r2 = await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(aluno.aluno_id) + '/', { method: 'DELETE' });
+      if (!r2.ok) { toast(msg(r2), 'danger'); return; }
+      if (o.tipo === 'lote') o.x.corrigida = '';
+      toast(r2.json.message || 'Prova corrigida eliminada.', 'success');
+      await recarregarMantendo();
+    }
+    var restantes = listaVisor();
+    if (restantes.length) mostrarVisor(Math.min(visorIdx, restantes.length - 1)); else $('cpAutoVisor').classList.add('d-none');
+  }  async function lancarAutomatico() {
     if (!prova) return;
     var out = $('cpAutoLancarResultado'), btn = $('cpAutoLancar');
     btn.disabled = true; out.className = 'small text-muted'; out.textContent = 'A lançar as notas nas cadernetas…';
@@ -820,7 +899,7 @@
             if (!p.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: p.pagina, erro: p.erro, respostas: [], duvidas: [], avisos: [] }); continue; }
             var it = { estado: 'pendente', origem: fich[k].name, pagina: p.pagina, aluno_id: p.aluno ? p.aluno.id : '', versao: p.versao || '',
               respostas: p.respostas.split(''), duvidas: p.duvidas || [], avisos: p.avisos || [], previa: p.previa, imagem: p.imagem, resolvidas: {},
-              corrigida: p.corrigida || '', notaPrev: p.nota, acertos: p.acertos };
+              corrigida: p.corrigida || '', notaPrev: p.nota, acertos: p.acertos, pendente_id: p.pendente_id || '' };
             lote.push(it);
             // Dúvidas resolvidas pela leitura (marca fraca/rasura → a letra mais provável; o resto em branco; duas marcas = nula)
             // e, com o aluno identificado (QR ou código de barras), grava a correcção e a folha corrigida. Não lança.
@@ -879,9 +958,14 @@
     if (!vis.length) return;
     revIdx = vis[(p + d + vis.length) % vis.length]; painelLote();
   }
-  function descartarActual() {
+  async function descartarActual() {
     if (revIdx < 0 || !lote[revIdx]) return;
-    lote.splice(revIdx, 1); revIdx = -1; painelLote();
+    var it = lote[revIdx];
+    if (it.pendente_id) {          // guardada no sistema: elimina-a também no servidor
+      var r = await chamar(API + encodeURIComponent(prova.id) + '/folhas-pendentes/' + encodeURIComponent(it.pendente_id) + '/', { method: 'DELETE' });
+      if (!r.ok) { toast(msg(r), 'danger'); return; }
+    }
+    lote.splice(revIdx, 1); revIdx = -1; painelLote(); mostrarConcluido();
   }
 
   function ligar() {
@@ -932,6 +1016,7 @@
     $('cpAutoVer').addEventListener('click', function () { mostrarVisor(0); $('cpAutoVisor').scrollIntoView && $('cpAutoVisor').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     $('cpAutoVerAnt').addEventListener('click', function () { mostrarVisor(visorIdx - 1); });
     $('cpAutoVerSeg').addEventListener('click', function () { mostrarVisor(visorIdx + 1); });
+    $('cpAutoVerEliminar').addEventListener('click', eliminarDoVisor);
     $('cpAutoPdf').addEventListener('click', function () { descarregarPdf(''); });
     $('cpAutoListaPdf').addEventListener('click', function () { descarregarLista('pdf'); });
     $('cpAutoListaXlsx').addEventListener('click', function () { descarregarLista('xlsx'); });
