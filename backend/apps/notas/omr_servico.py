@@ -107,6 +107,68 @@ def _modelo(n, n_alt):
 # ---------------------------------------------------------------------------
 # Carregar páginas (foto ou PDF)
 # ---------------------------------------------------------------------------
+def imagem_original_pdf(dados: bytes, indice: int):
+    """PDF digitalizado (uma imagem por página): devolve essa imagem original (ex.: 300 dpi), onde o QR ainda se lê;
+    None se a página não for uma digitalização simples."""
+    if dados[:5] != b'%PDF-':
+        return None
+    cv2, np = _cv()
+    import fitz
+    try:
+        doc = fitz.open(stream=dados, filetype='pdf')
+    except Exception:
+        return None
+    try:
+        if indice < 0 or indice >= doc.page_count:
+            return None
+        imgs = doc[indice].get_images(full=True)
+        if len(imgs) != 1:
+            return None
+        x = doc.extract_image(imgs[0][0])
+        nat = cv2.imdecode(np.frombuffer(x['image'], np.uint8), cv2.IMREAD_COLOR)
+        if nat is None or max(nat.shape[:2]) > 5000:
+            return None
+        return nat
+    except Exception:
+        return None
+    finally:
+        doc.close()
+
+
+def ler_qr_original(img):
+    """Lê o QR no canto superior direito da imagem original (digitalização): recortes ampliados 2–4× com várias
+    binarizações e os dois detectores do OpenCV. Devolve o texto ou ''."""
+    import time
+    cv2, np = _cv()
+    h, w = img.shape[:2]
+    limite = time.time() + 8
+    for fy, fx in ((0.15, 0.34), (0.19, 0.42), (0.12, 0.28)):
+        recorte = img[0:int(h * fy), int(w * (1 - fx)):w]
+        g = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
+        for k in (3, 2, 4):
+            big = cv2.resize(g, None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
+            suave = cv2.GaussianBlur(big, (0, 0), 1.5)
+            variantes = [
+                big, suave,
+                cv2.adaptiveThreshold(big, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 51, 10),
+                cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 71, 8),
+                cv2.threshold(cv2.GaussianBlur(big, (0, 0), 2), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
+            ]
+            for v in variantes:
+                for det in (cv2.QRCodeDetector, getattr(cv2, 'QRCodeDetectorAruco', None)):
+                    if det is None:
+                        continue
+                    try:
+                        t, _, _ = det().detectAndDecode(v)
+                    except Exception:
+                        continue
+                    if t and 'verificar' in t:
+                        return t
+                if time.time() > limite:
+                    return ''
+    return ''
+
+
 def contar_paginas(dados: bytes) -> int:
     if dados[:5] == b'%PDF-':
         import fitz

@@ -651,18 +651,34 @@
           var fd = new FormData(); fd.append('ficheiro', fich[k]); fd.append('pagina_ini', ini);
           var res = await chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/', { method: 'POST', headers: cab(), body: fd });
           if (!res.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: ini + 1, erro: msg(res), respostas: [], duvidas: [], avisos: [] }); break; }
-          res.json.data.paginas.forEach(function (p) {
-            if (!p.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: p.pagina, erro: p.erro, respostas: [], duvidas: [], avisos: [] }); return; }
-            lote.push({ estado: 'pendente', origem: fich[k].name, pagina: p.pagina, aluno_id: p.aluno ? p.aluno.id : '', versao: p.versao || '',
-              respostas: p.respostas.split(''), duvidas: p.duvidas || [], avisos: p.avisos || [], previa: p.previa, imagem: p.imagem, resolvidas: {} });
-          });
+          var paginas = res.json.data.paginas;
+          for (var pi = 0; pi < paginas.length; pi++) {
+            var p = paginas[pi];
+            if (!p.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: p.pagina, erro: p.erro, respostas: [], duvidas: [], avisos: [] }); continue; }
+            var it = { estado: 'pendente', origem: fich[k].name, pagina: p.pagina, aluno_id: p.aluno ? p.aluno.id : '', versao: p.versao || '',
+              respostas: p.respostas.split(''), duvidas: p.duvidas || [], avisos: p.avisos || [], previa: p.previa, imagem: p.imagem, resolvidas: {} };
+            lote.push(it);
+            // Correcção imediata: dúvidas resolvidas pela leitura (marca fraca/rasura → a letra mais provável; o resto em branco)
+            // e, com o aluno identificado pelo QR, grava, corrige a folha e lança na caderneta sem mais passos.
+            it.duvidas.forEach(function (d) { it.resolvidas[d.n] = d.sugerida || '-'; });
+            var repetido = lote.some(function (o) { return o !== it && o.aluno_id && o.aluno_id === it.aluno_id && o.estado === 'confirmada'; });
+            if (it.aluno_id && !repetido && (!(prova.versoes || []).length || it.versao)) {
+              prog.textContent = 'A corrigir ' + fich[k].name + ' (página ' + p.pagina + ')…';
+              var e = await enviarItem(it);
+              if (e) it.erroAuto = e;
+            }
+          }
           ini = res.json.data.proxima;
           marcarRepetidos(); painelLote();
         }
       }
     } finally { estadoCartaoAuto(); }
-    prog.textContent = lote.length ? 'Leitura concluída.' : 'Não foi lida nenhuma folha.';
+    var feitas = lote.filter(function (x) { return x.estado === 'confirmada'; }).length;
+    var porIdentificar = lote.filter(function (x) { return x.estado === 'pendente'; }).length;
+    prog.textContent = !lote.length ? 'Não foi lida nenhuma folha.'
+      : feitas + ' folha(s) corrigida(s) e lançada(s) na caderneta' + (porIdentificar ? '; ' + porIdentificar + ' sem aluno identificado (escolha o aluno abaixo).' : '.');
     marcarRepetidos(); painelLote();
+    if (feitas) { await recarregarMantendo(); painelLote(); await descarregarResultados(); }
   }
   async function confirmarActual() {
     guardarCamposRevisao();

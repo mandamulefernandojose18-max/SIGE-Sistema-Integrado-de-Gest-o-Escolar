@@ -174,6 +174,12 @@ class LeituraOmrView(APIView):
             return {**base, 'erro': str(e)}
         avisos = list(res['avisos'])
         qr = res['qr']
+        if not qr:   # digitalização em PDF: o QR lê-se melhor na imagem original (300 dpi)
+            try:
+                orig = omr.imagem_original_pdf(dados, idx)
+                qr = omr.identificar(omr.ler_qr_original(orig)) if orig is not None else None
+            except Exception:
+                qr = None
         aluno_json, versao = None, ''
         if not qr:
             avisos.append('O QR da folha não foi lido: escolha o aluno manualmente.')
