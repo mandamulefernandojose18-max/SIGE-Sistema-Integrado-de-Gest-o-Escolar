@@ -274,6 +274,34 @@
     aviso(msg, falhou.length ? 'warning' : 'success');
   }
 
+  // Procura na página o botão que abre o formulário de novo registo e abre-o.
+  async function abrirFormularioDaPagina(vista) {
+    var ver = vista && vista.classList && vista.classList.contains('modal') ? null : vista;
+    if (!ver) return null;
+    var RE_SIM = /(^|\s)(\+\s*)?(novo|nova|novos|adicionar|matricular|inscrever|cadastrar|registar|criar|lan[cç]ar|atribuir)\b/i;
+    var RE_ONC = /modal(novo|nova)|novo|nova|adicionar|criar|matricular|cadastrar|registar|abrirmodal/i;
+    var RE_NAO = /eliminar|apagar|excluir|remover|exportar|descarregar|imprimir|pdf|excel|word|docx|filtr|pesquis|importar/i;
+    var cand = Array.prototype.filter.call(ver.querySelectorAll('button, a.btn'), function (b) {
+      if (!visivel(b) || b.disabled || b.closest('tr, .sige-imp-barra, #sige-imp-painel, .modal')) return false;
+      var txt = (b.textContent || '').trim(), onc = b.getAttribute('onclick') || '';
+      if (RE_NAO.test(txt) || RE_NAO.test(onc)) return false;
+      return RE_SIM.test(txt) || RE_ONC.test(onc);
+    });
+    cand.sort(function (x, y) {
+      function pts(b) { return (/btn-(primary|success)/.test(b.className) ? 2 : 0) + (/modal/i.test(b.getAttribute('onclick') || '') ? 1 : 0); }
+      return pts(y) - pts(x);
+    });
+    for (var i = 0; i < cand.length && i < 3; i++) {
+      cand[i].click();
+      for (var t = 0; t < 16; t++) {
+        await esperar(250);
+        var m = alvoActual(null);
+        if (m && m.classList.contains('modal') && camposDe(m).length) return { modal: m, botao: cand[i] };
+      }
+    }
+    return null;
+  }
+
   // ---------- modelo ----------
   async function descarregarModelo(alvo) {
     var campos = camposDe(alvo);
@@ -346,7 +374,14 @@
     caixa.appendChild(est);
     var ui = { btnPreencher: btnPreencher, btnTodas: btnTodas, estado: est };
 
-    btnModelo.onclick = function () { descarregarModelo(alvoActual(estado.alvo)); };
+    btnModelo.onclick = async function () {
+      var a = alvoActual(estado.alvo);
+      if (!camposDe(a).length) {
+        var ab = await abrirFormularioDaPagina(a);
+        if (ab) { a = ab.modal; estado.alvo = a; estado.abridor = ab.botao; }
+      }
+      descarregarModelo(a);
+    };
 
     ficheiro.onchange = async function () {
       var f = ficheiro.files && ficheiro.files[0];
@@ -361,6 +396,12 @@
       est.className = 'small mt-2';
       var a = alvoActual(estado.alvo); estado.alvo = a;
       var campos = camposDe(a);
+      if (!campos.length) {
+        // Nenhum formulário aberto: abre sozinho o formulário de "Novo/Adicionar/Matricular" da página.
+        info.textContent = 'A abrir o formulário da página…';
+        var aberto = await abrirFormularioDaPagina(a);
+        if (aberto) { a = aberto.modal; estado.alvo = a; estado.abridor = aberto.botao; campos = camposDe(a); }
+      }
       estado.mapa = associar(estado.dados.cabecalhos, campos);
       var n = estado.dados.linhas.length;
       if (!campos.length) {
