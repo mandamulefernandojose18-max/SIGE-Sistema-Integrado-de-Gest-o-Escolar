@@ -146,6 +146,36 @@ class TestCorreccaoAutomaticaApi:
         assert c.post(BASE + 'gabarito/importar/', {}, format='json').status_code == 400
         assert c.post(BASE + 'gabarito/importar/', {'texto': 'sem chave nenhuma'}, format='json').status_code == 400
 
+    def test_gabaritos_guardados_guardar_listar_substituir_eliminar(self):
+        c, url = self._como(self.professor), BASE + 'gabaritos-guardados/'
+        corpo = {'nome': 'Física 11ª · AT', 'n_perguntas': 5, 'n_alternativas': 4, 'versoes': [],
+                 'gabaritos': {'-': 'abcda'}}
+        r = c.post(url, corpo, format='json')
+        assert r.status_code == 201 and r.data['data']['gabaritos'] == {'-': 'ABCDA'}
+        # mesmo nome substitui (não duplica)
+        corpo['gabaritos'] = {'-': 'DDDDD'}
+        r2 = c.post(url, corpo, format='json')
+        assert r2.status_code == 200
+        lista = c.get(url).data['data']
+        assert len(lista) == 1 and lista[0]['gabaritos'] == {'-': 'DDDDD'} and lista[0]['n_perguntas'] == 5
+        # chave incompleta / letra inválida / sem nome são recusadas com mensagem clara
+        assert 'falta' in c.post(url, {**corpo, 'nome': 'x', 'gabaritos': {'-': 'ABC'}}, format='json').data['message']
+        assert c.post(url, {**corpo, 'nome': 'x', 'gabaritos': {'-': 'ABCDZ'}}, format='json').status_code == 400
+        assert c.post(url, {**corpo, 'nome': ''}, format='json').status_code == 400
+        # com versões
+        rv = c.post(url, {'nome': 'Duas versões', 'n_perguntas': 3, 'n_alternativas': 3, 'versoes': ['A', 'B'],
+                          'gabaritos': {'A': 'ABC', 'B': 'CBA'}}, format='json')
+        assert rv.status_code == 201 and rv.data['data']['versoes'] == ['A', 'B']
+        # só o próprio professor, só da sua escola; a direcção não guarda
+        assert self._como(self.director).get(url).status_code == 403
+        assert self._como(self.director).post(url, corpo, format='json').status_code == 403
+        outro = Usuario.objects.create_user(email='prof2@alheia.mz', password='PassP123!', role='PROFESSOR', escola=self.outra)
+        assert self._como(outro).get(url).data['data'] == []
+        gid = lista[0]['id']
+        assert self._como(outro).delete(f'{url}{gid}/').status_code == 404
+        assert c.delete(f'{url}{gid}/').status_code == 200
+        assert [g['nome'] for g in c.get(url).data['data']] == ['Duas versões']
+
     def test_importar_gabarito_so_professor(self):
         assert self._como(self.director).post(BASE + 'gabarito/importar/', {'texto': '1-A 2-B'}, format='json').status_code == 403
 

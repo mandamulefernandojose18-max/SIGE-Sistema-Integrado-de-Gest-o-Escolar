@@ -1,5 +1,6 @@
 ﻿| `POST /provas-fisicas/<id>/correcoes/<aluno_id>/confirmar-omr/` | Confirma a folha lida (JSON `{respostas, versao, imagem, lancar}`): grava a correcção, desenha a folha corrigida a vermelho (vistos, círculos, acertos, nota, nome do professor, «Nula») e lança na caderneta. Devolve `data`, `imagem`, `aviso_imagem`, `lancamento{ok,message}`. Só o professor alocado/SUPERADMIN. |
 | `GET /provas-fisicas/<id>/lista-notas/?formato=pdf\|xlsx` | Lista de resultados da avaliação (Nº, código, nome, turma, acertos, nota, resultado, estado + disciplina, tipo, trimestre, ano, professor). Nome «Lista de notas - Disciplina - Tipo - Ano». Exige `?carimbo=sim\|nao`. |
+| `GET/POST /provas-fisicas/gabaritos-guardados/`, `DELETE /provas-fisicas/gabaritos-guardados/<id>/` | Gabaritos guardados do professor ({nome, n_perguntas, n_alternativas, versoes, gabaritos}); POST com o mesmo nome substitui; só o próprio professor, na sua escola. |
 | `GET /provas-fisicas/<id>/folhas-corrigidas/[?aluno_id=]` | PDF com as folhas corrigidas (aluno ou turma), «Avaliacao corrigida - Disciplina - Tipo - Ano.pdf»; exige `?carimbo=sim\|nao`. 404 se não houver folhas. |
 | `DELETE /provas-fisicas/<id>/correcoes/<aluno_id>/` | Elimina só a prova corrigida (PDF/folha) do aluno; a correcção e a nota na caderneta não mudam. |
 # 🔌 Catálogo de Endpoints da API RESTful — SIGE (v2.5.0)

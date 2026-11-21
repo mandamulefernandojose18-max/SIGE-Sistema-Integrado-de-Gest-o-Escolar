@@ -50,6 +50,83 @@ class GabaritoImportarView(APIView):
         return Response({'success': True, 'data': dados})
 
 
+class GabaritosGuardadosView(APIView):
+    """Gabaritos / guiões guardados pelo professor, para reutilizar sem recomeçar.
+
+      GET    /api/v1/notas/provas-fisicas/gabaritos-guardados/        os do utilizador na escola
+      POST   /api/v1/notas/provas-fisicas/gabaritos-guardados/        {nome, n_perguntas, n_alternativas, versoes, gabaritos}
+                                                                      (guarda ou substitui o do mesmo nome)
+      DELETE /api/v1/notas/provas-fisicas/gabaritos-guardados/<id>/   elimina
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    @staticmethod
+    def _json(g):
+        return {'id': str(g.id), 'nome': g.nome, 'n_perguntas': g.n_perguntas, 'n_alternativas': g.n_alternativas,
+                'versoes': g.versoes, 'gabaritos': g.gabaritos, 'atualizado_em': g.updated_at.isoformat()}
+
+    def _contexto(self, request):
+        escola = _escola(request)
+        if not escola:
+            return None, _erro('Instituição não identificada.')
+        role = getattr(request.user, 'role', '')
+        if not (_e_super(request.user) or role == 'PROFESSOR'):
+            return None, _erro('Só o professor pode guardar gabaritos.', 403)
+        return escola, None
+
+    def get(self, request):
+        from .models import GabaritoGuardado
+        escola, erro = self._contexto(request)
+        if erro:
+            return erro
+        qs = GabaritoGuardado.objects.filter(escola=escola, criado_por=request.user)
+        return Response({'success': True, 'data': [self._json(g) for g in qs]})
+
+    def post(self, request):
+        from .models import GabaritoGuardado
+        escola, erro = self._contexto(request)
+        if erro:
+            return erro
+        d = request.data
+        nome = str(d.get('nome') or '').strip()[:120]
+        try:
+            n, n_alt = int(d.get('n_perguntas')), int(d.get('n_alternativas') or 4)
+        except (TypeError, ValueError):
+            return _erro('Indique o nº de perguntas e de alternativas.')
+        if not nome:
+            return _erro('Dê um nome ao gabarito (ex.: «Física 11ª · AT 1.º trimestre»).')
+        if not (1 <= n <= 100 and 2 <= n_alt <= 6):
+            return _erro('O nº de perguntas deve estar entre 1 e 100 e o de alternativas entre 2 e 6.')
+        versoes = [str(v).upper()[:2] for v in (d.get('versoes') or []) if str(v).strip()][:6]
+        brutos = d.get('gabaritos') if isinstance(d.get('gabaritos'), dict) else {}
+        letras = 'ABCDEF'[:n_alt]
+        gabaritos = {}
+        for chave in (versoes or ['-']):
+            texto = ''.join(str(brutos.get(chave) or '').upper().split())
+            if len(texto) != n or any(c not in letras for c in texto):
+                return _erro(f'A chave{" da versão " + chave if chave != "-" else ""} tem de ter exactamente {n} respostas '
+                             f'certas ({", ".join(letras)}): falta indicar alguma pergunta.')
+            gabaritos[chave] = texto
+        g, criado = GabaritoGuardado.objects.update_or_create(
+            escola=escola, criado_por=request.user, nome=nome,
+            defaults={'n_perguntas': n, 'n_alternativas': n_alt, 'versoes': versoes, 'gabaritos': gabaritos})
+        return Response({'success': True, 'data': self._json(g),
+                         'message': 'Gabarito guardado.' if criado else 'Gabarito actualizado.'},
+                        status=201 if criado else 200)
+
+    def delete(self, request, pk):
+        from .models import GabaritoGuardado
+        escola, erro = self._contexto(request)
+        if erro:
+            return erro
+        g = GabaritoGuardado.objects.filter(pk=pk, escola=escola, criado_por=request.user).first()
+        if not g:
+            return _erro('Gabarito não encontrado.', 404)
+        g.delete()
+        return Response({'success': True, 'message': 'Gabarito eliminado.'})
+
+
 class ConfirmarOmrView(APIView):
     """Confirma a leitura de uma folha: grava a correcção, desenha a folha corrigida (modelo do professor) e lança na caderneta.
 

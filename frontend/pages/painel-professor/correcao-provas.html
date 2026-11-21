@@ -166,6 +166,30 @@
             </div>
           </div>
           <div class="col-12 cp-bloco-mc" id="cpGabaritos"></div>
+          <!-- Gabaritos guardados: reutilizar sem recomeçar do zero -->
+          <div class="col-12 cp-bloco-mc">
+            <div class="border rounded p-2 bg-body-tertiary">
+              <div class="small fw-semibold mb-1"><i class="bi bi-bookmark-star me-1"></i>Gabaritos guardados (reutilize sem recomeçar)</div>
+              <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small mb-1" for="cpGabGuardados">Usar um gabarito guardado</label>
+                  <select id="cpGabGuardados" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-12 col-md-auto d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary" id="cpGabUsar"><i class="bi bi-box-arrow-in-down me-1"></i>Usar</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" id="cpGabEliminar" title="Eliminar o gabarito guardado"><i class="bi bi-trash"></i></button>
+                </div>
+                <div class="col-12 col-md">
+                  <label class="form-label small mb-1" for="cpGabNome">Guardar o gabarito actual com o nome</label>
+                  <input id="cpGabNome" class="form-control form-control-sm" maxlength="120" placeholder="Ex.: Física 11ª · AT 1.º trimestre" autocomplete="off">
+                </div>
+                <div class="col-12 col-md-auto">
+                  <button type="button" class="btn btn-sm btn-outline-success" id="cpGabGuardar"><i class="bi bi-bookmark-plus me-1"></i>Guardar gabarito</button>
+                </div>
+              </div>
+              <div id="cpGabGuardadoMsg" class="small mt-1" aria-live="polite"></div>
+            </div>
+          </div>
           <!-- Passo 1c: a Folha de Resposta do sistema, para indicar a alternativa certa de cada pergunta (alternativa ao ficheiro) -->
           <div class="col-12 cp-bloco-mc">
             <style>

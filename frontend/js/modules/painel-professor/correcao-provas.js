@@ -227,6 +227,54 @@
     o.inp.value = arr.join('');
     desenharFolhaVisual(); estadoCartaoAuto();
   }
+  // ---------- Gabaritos guardados (reutilizar sem recomeçar) ----------
+  var guardados = [];
+  async function carregarGuardados(seleccionar) {
+    var sel = $('cpGabGuardados'); if (!sel) return;
+    var res = await chamar(API + 'gabaritos-guardados/');
+    guardados = (res.ok && res.json && res.json.data) || [];
+    sel.innerHTML = '<option value="">' + (guardados.length ? '-- escolha --' : 'Ainda não guardou nenhum') + '</option>' +
+      guardados.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.nome) + ' · ' + g.n_perguntas + ' perguntas</option>'; }).join('');
+    if (seleccionar) sel.value = seleccionar;
+  }
+  function usarGuardado() {
+    var id = $('cpGabGuardados').value, g = guardados.filter(function (x) { return x.id === id; })[0];
+    var msg_ = $('cpGabGuardadoMsg');
+    if (!g) { msg_.className = 'small mt-1 text-warning-emphasis'; msg_.textContent = 'Escolha um gabarito guardado.'; return; }
+    $('cpTipo').value = 'MULTIPLA_ESCOLHA'; alternarTipoNova();
+    $('cpNPerg').value = g.n_perguntas; $('cpNAlt').value = g.n_alternativas;
+    $('cpVersoes').value = (g.versoes || []).join(' ');
+    desenharGabaritos();
+    Object.keys(g.gabaritos || {}).forEach(function (v) {
+      var el = document.querySelector('#cpGabaritos .cp-gab[data-v="' + (v === '-' ? '' : v) + '"]');
+      if (el) el.value = g.gabaritos[v];
+    });
+    $('cpGabNome').value = g.nome;
+    desenharFolhaVisual(); estadoCartaoAuto();
+    msg_.className = 'small mt-1 text-success';
+    msg_.textContent = 'Gabarito «' + g.nome + '» carregado (' + g.n_perguntas + ' perguntas). Escolha a turma, a disciplina e o trimestre e crie a prova, ou carregue as folhas e inicie a correcção.';
+  }
+  async function guardarGabarito() {
+    var msg_ = $('cpGabGuardadoMsg'), nome = ($('cpGabNome').value || '').trim();
+    if (!nome) { msg_.className = 'small mt-1 text-warning-emphasis'; msg_.textContent = 'Dê um nome ao gabarito para o guardar.'; return; }
+    var vs = listaVersoes(), gabs = {};
+    document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) { gabs[i.getAttribute('data-v') || '-'] = i.value; });
+    var res = await chamar(API + 'gabaritos-guardados/', json('POST', {
+      nome: nome, n_perguntas: $('cpNPerg').value, n_alternativas: $('cpNAlt').value, versoes: vs, gabaritos: gabs }));
+    if (!res.ok) { msg_.className = 'small mt-1 text-danger'; msg_.textContent = msg(res); return; }
+    msg_.className = 'small mt-1 text-success'; msg_.textContent = (res.json.message || 'Gabarito guardado.') + ' Fica disponível para reutilizar.';
+    await carregarGuardados(res.json.data.id);
+  }
+  async function eliminarGuardado() {
+    var id = $('cpGabGuardados').value, g = guardados.filter(function (x) { return x.id === id; })[0];
+    if (!g) return;
+    if (!confirm('Eliminar o gabarito guardado «' + g.nome + '»? (as provas já criadas não mudam)')) return;
+    var res = await chamar(API + 'gabaritos-guardados/' + encodeURIComponent(id) + '/', { method: 'DELETE' });
+    var msg_ = $('cpGabGuardadoMsg');
+    msg_.className = 'small mt-1 ' + (res.ok ? 'text-success' : 'text-danger');
+    msg_.textContent = res.ok ? 'Gabarito eliminado.' : msg(res);
+    await carregarGuardados();
+  }
   function alternarTipoNova() {
     var mc = $('cpTipo').value === 'MULTIPLA_ESCOLHA';
     document.querySelectorAll('#cpCartaoNova .cp-bloco-mc').forEach(function (e) { e.classList.toggle('d-none', !mc); });
@@ -863,6 +911,10 @@
     $('cpNPerg').addEventListener('input', function () { desenharFolhaVisual(); estadoCartaoAuto(); });
     $('cpNAlt').addEventListener('input', desenharFolhaVisual);
     $('cpFolhaVersao').addEventListener('change', desenharFolhaVisual);
+    $('cpGabUsar').addEventListener('click', usarGuardado);
+    $('cpGabGuardar').addEventListener('click', guardarGabarito);
+    $('cpGabEliminar').addEventListener('click', eliminarGuardado);
+    carregarGuardados();
     $('cpFolhaVisual').addEventListener('click', aoClicarFolhaVisual);
     $('cpGabaritos').addEventListener('input', function () { desenharFolhaVisual(); estadoCartaoAuto(); });
     $('cpRespostas').addEventListener('input', aoEscreverRespostas);

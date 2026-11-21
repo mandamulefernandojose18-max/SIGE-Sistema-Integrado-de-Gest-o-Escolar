@@ -503,3 +503,28 @@ class CorrecaoImagem(models.Model):
     class Meta:
         db_table = 'sige_correcoes_imagens'
         ordering = ['correcao', 'ordem']
+
+
+class GabaritoGuardado(models.Model):
+    """Gabarito / guião de correcção guardado pelo professor para reutilizar noutras provas (não precisa de recomeçar)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='gabaritos_guardados')
+    criado_por = models.ForeignKey('accounts.Usuario', on_delete=models.CASCADE, related_name='gabaritos_guardados')
+    nome = models.CharField(max_length=120)
+    n_perguntas = models.PositiveSmallIntegerField()
+    n_alternativas = models.PositiveSmallIntegerField(default=4)
+    versoes = models.JSONField(default=list, blank=True)
+    gabaritos = models.JSONField(default=dict, help_text='{"A": "ABCD...", "-": "ABCD..."}')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sige_gabaritos_guardados'
+        verbose_name = 'Gabarito guardado'
+        verbose_name_plural = 'Gabaritos guardados'
+        ordering = ['nome']
+        constraints = [models.UniqueConstraint(fields=['escola', 'criado_por', 'nome'], name='uniq_gabarito_guardado_nome')]
+        indexes = [models.Index(fields=['escola', 'criado_por'])]
+
+    def __str__(self):
+        return f'{self.nome} ({self.n_perguntas})'
