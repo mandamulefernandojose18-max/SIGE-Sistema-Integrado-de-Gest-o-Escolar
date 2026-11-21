@@ -1872,8 +1872,8 @@ As sugestões por perfil passaram a 8 (`sugestoes()`); o campo `Capacidade.prior
 **Modelo obrigatório.** A prova corrigida segue sempre o modelo do professor (`docs/modelos/Modelo_de_correccao_da_prova.pdf`; skill do projecto `.claude/skills/modelo-correccao-prova`, que obriga a consultá-lo antes de mexer nesta funcionalidade): traço fino de caneta vermelha; **visto** pequeno à direita da alternativa certa assinalada; **«Acertos (n.º)»** e **«Correcção normal (valores)»** a vermelho (nota com uma casa decimal e vírgula); «Ass. do Professor» com o **nome** do professor por extenso (não rubrica). Só vale a tinta azul ou preta.
 
 **Regras de correcção (obrigatórias):**
-1. **Mais de uma alternativa assinalada na mesma pergunta = «Questão nula».** É automático (sem pedir revisão): a questão vale 0, o sistema escreve **«Questão nula» a vermelho por cima da pergunta** (logo acima da linha das alternativas) e circunda a alternativa certa.
-2. **Em todas as questões que o aluno errou** (resposta errada, em branco ou nula) **circunda-se a alternativa CERTA** com um círculo fino à volta da letra; nunca se marca a alternativa errada do aluno.
+1. **«Questão nula» = mais de uma alternativa assinalada na mesma pergunta OU pergunta sem nenhuma sinalização do aluno.** É automático (sem pedir revisão): a questão vale 0, o sistema escreve **«Questão nula» a vermelho por cima da pergunta** (logo acima da linha das alternativas) e circunda a alternativa certa.
+2. **Em todas as questões que o aluno errou** (resposta errada ou questão nula) **circunda-se a alternativa CERTA** com um círculo fino à volta da letra; nunca se marca a alternativa errada do aluno.
 3. Nas certas, visto à direita da alternativa assinalada.
 
 **Qualidade de impressão.** Como pode ser impressa e devolvida ao aluno como comprovativo, a prova corrigida é endireitada **em alta resolução (≈ 250 dpi, 2100 × 2970 px) a partir da imagem ORIGINAL** (nunca da versão reduzida de leitura), com o pequeno desvio da grelha corrigido, e nada é deformado, recortado nem desfocado; JPEG com qualidade 92. A folha do aluno por baixo fica intacta.

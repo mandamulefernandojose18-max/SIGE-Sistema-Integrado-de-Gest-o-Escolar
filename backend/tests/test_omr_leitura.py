@@ -190,6 +190,34 @@ def test_tinta_vermelha_nao_conta_como_resposta():
     assert any(x['motivo'] == 'COR' and x['n'] == 1 for x in res['duvidas'])
 
 
+def test_questao_nula_e_circulo_na_certa_so_onde_o_aluno_nao_acertou():
+    import numpy as np
+    img = _renderizar(_desenhar_folha_pdf(10, 4))
+    chave = 'ABCDABCDAB'
+
+    def vermelho_por_pergunta(respostas):
+        out = cv2.imdecode(np.frombuffer(omr.anotar_folha(img, 10, 4, respostas, chave, 0, 0.0, ''), np.uint8), cv2.IMREAD_COLOR)
+        b, g, r = out[..., 0].astype(int), out[..., 1].astype(int), out[..., 2].astype(int)
+        v = ((r - b) > 90) & ((r - g) > 90)
+        cels, _, _, _ = omr.celulas_grelha(10, 4)
+        ppm = out.shape[1] / 210.0
+        res = {}
+        for q, i, cx, cy, lw, lh in cels:
+            if i == 0:
+                faixa = v[int((cy - 4.5) * ppm):int((cy + 4.5) * ppm), int((cx - lw) * ppm):int((cx + 3 * lw) * ppm)]
+                res[q] = int(faixa.sum())
+        return res
+
+    certas = vermelho_por_pergunta(chave)                    # só vistos
+    nula2 = vermelho_por_pergunta('NBCDABCDAB')               # pergunta 1: duas marcas
+    nenhuma = vermelho_por_pergunta('-BCDABCDAB')             # pergunta 1: sem sinalização
+    errada = vermelho_por_pergunta('BBCDABCDAB')              # pergunta 1: errada
+    # a pergunta nula (duas marcas ou nenhuma) leva «Questão nula» + círculo: bastante mais tinta vermelha do que a errada (só círculo)
+    assert nula2[0] > errada[0] > certas[0] and nenhuma[0] > errada[0]
+    assert abs(nula2[0] - nenhuma[0]) < 0.2 * nula2[0]        # duas marcas e nenhuma marca saem iguais
+    assert nula2[6] == certas[6] and nenhuma[8] == certas[8]  # as perguntas afastadas não mudam
+
+
 def test_folha_corrigida_desenha_a_vermelho():
     import numpy as np
     img = _renderizar(_desenhar_folha_pdf(10, 4))

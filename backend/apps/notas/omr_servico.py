@@ -844,7 +844,7 @@ def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acer
             _visto_a_mao(cv2, np, page, (cx + lw / 2 + 0.6) * ppm, cy * ppm, ppm, q + 1, esp)
         else:
             _circulo_a_mao(cv2, np, page, cx * ppm, cy * ppm, 3.9 * ppm, 3.5 * ppm, q + 1, esp)
-            if dada == 'N':      # mais de uma alternativa assinalada: «Questão nula» por cima da pergunta
+            if dada not in letras:   # mais de uma alternativa assinalada ('N') OU nenhuma ('-'): «Questão nula» por cima da pergunta
                 ax, ay, alw, alh = pos[(q, 0)]
                 textos.append(('Questão nula', ax - alw / 2, ay - alh / 2 - 1.1, 30, 2.9,
                                ['timesbi.ttf', 'LiberationSerif-BoldItalic.ttf', 'DejaVuSerif-BoldItalic.ttf',

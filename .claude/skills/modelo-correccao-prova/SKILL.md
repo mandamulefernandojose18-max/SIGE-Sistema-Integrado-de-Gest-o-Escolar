@@ -31,11 +31,12 @@ Ampliar a grelha (dpi 200, recorte) e o quadro «IV Classificação» para compa
    traço longo a subir para a direita (~9 mm).
 3. **Resposta errada, em branco ou nula** → um **círculo fino à volta da letra da alternativa CERTA** (≈ 7 mm de diâmetro,
    laçada que não fecha exactamente). Não se desenha nada na alternativa errada do aluno.
-4. **Mais de uma alternativa assinalada** → **«Questão nula»** (vale 0), **automaticamente e sem pedir revisão**: escrever
-   **«Questão nula»** a vermelho **por cima da pergunta** (logo acima da linha das alternativas, alinhado à primeira
-   alternativa) e **circular a alternativa certa**, como em qualquer pergunta não acertada. Código interno da resposta: `N`.
-   **Não acertou** (errada, em branco ou nula) → **circundar a alternativa certa** (círculo fino à volta da letra), nunca
-   marcar a errada do aluno.
+4. **«Questão nula»** (vale 0), **automaticamente e sem pedir revisão**, quando o aluno assinalou **mais de uma alternativa**
+   **ou não assinalou nenhuma** (pergunta sem sinalização): escrever **«Questão nula»** a vermelho **por cima da pergunta**
+   (logo acima da linha das alternativas, alinhado à primeira alternativa) e **circular a alternativa certa**. Códigos
+   internos da resposta: `N` (mais de uma) e `-` (nenhuma); ambos saem como «Questão nula».
+   **Não acertou** (errada ou nula) → **circundar a alternativa certa** (círculo fino à volta da letra), nunca marcar a
+   errada do aluno.
 5. **«Acertos (n.º)»** e **«Correcção normal (valores)»** escritos a vermelho, letra grande de caneta; a **nota** com uma casa
    decimal e vírgula (ex.: `14,0`).
 6. **«Ass. do Professor»**: o **NOME do professor por extenso** (não rubrica), a vermelho, em itálico fino, acima da linha.
