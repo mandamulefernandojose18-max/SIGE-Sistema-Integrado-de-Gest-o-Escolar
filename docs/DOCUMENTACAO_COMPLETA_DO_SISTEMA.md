@@ -1886,3 +1886,15 @@ As sugestões por perfil passaram a 8 (`sugestoes()`); o campo `Capacidade.prior
 **Atribuir o aluno no visor.** No visor «Ver provas corrigidas», uma folha sem aluno mostra «Esta folha é de que aluno?» (e a versão, se a prova tiver várias) e o botão «Atribuir ao aluno e guardar»: grava a correcção, passa a prova corrigida a ser desse aluno e a nota fica pronta para o «Iniciar lançamento automático». Se o aluno não aparece na lista, a prova foi criada para outra turma.
 
 **PDF do gabarito.** O gabarito (guião de correcção) também se exporta em PDF: botão «Descarregar gabarito (PDF)» no Passo 1 — guarda o gabarito do formulário no sistema (com o nome indicado ou um automático) e descarrega-o; com o formulário vazio descarrega o gabarito escolhido na lista. `GET /api/v1/notas/provas-fisicas/gabaritos-guardados/<id>/pdf/` (só o dono, PROFESSOR/SUPERADMIN): cabeçalho da escola, dados do gabarito e, por versão, a tabela «Pergunta | Resposta certa» e a chave em sequência (Times New Roman, tabelas conforme `docs/REGRAS_EXCEL_E_PDF.md`). Ao criar uma prova de escolha múltipla, o gabarito é também guardado automaticamente na lista de gabaritos.
+
+## 23. Importar de ficheiro (v2.9.101)
+
+Alternativa ao preenchimento manual, disponível em **todas as páginas e sub-menus** do painel (`frontend/js/importar-ficheiro.js`).
+
+- **Onde aparece:** botão "Importar de ficheiro" na barra no topo de cada página e no cabeçalho de cada janela/formulário aberto.
+- **Ficheiros:** `.xlsx` ou `.csv` (`;`, `,`, tabulação). A 1.ª linha são os nomes das colunas; as seguintes são os registos.
+- **Associação:** cada coluna liga ao campo com o mesmo nome (rótulo, nome, id ou texto de ajuda; sem acentos nem maiúsculas). Filtros em cascata e seletores de ano lectivo nunca são preenchidos.
+- **Preencher campos:** coloca a linha escolhida (um único seletor, altura constante para qualquer n) nos campos, para rever e guardar.
+- **Registar todas:** preenche e carrega no botão de guardar do próprio formulário, linha a linha; por isso aplicam-se as mesmas validações, RBAC e isolamento por escola da API. No fim indica as linhas com problema.
+- **Descarregar modelo:** Excel só com os títulos das colunas do formulário aberto (sem dados fictícios).
+- O ficheiro é lido no navegador; nada é enviado antes de guardar. Testes: `frontend/tests/importar-ficheiro.test.js`.
