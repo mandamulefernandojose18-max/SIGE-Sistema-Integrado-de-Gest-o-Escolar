@@ -99,6 +99,26 @@ class LoginSerializer(serializers.Serializer):
             if u and _validar_senha_ou_codigo_inicial(u, pwd):
                 user = u
 
+        # O código PR... pertence a um Professor: o perfil/painel segue SEMPRE o cadastro
+        # (Professor -> PROFESSOR), nunca a conta de outro perfil (ex.: Superadmin).
+        if not user and login_id.upper().startswith('PR'):
+            try:
+                from apps.professores.models import Professor
+                prof_obj = Professor.objects.select_related('escola').filter(codigo__iexact=login_id).first()
+                if prof_obj:
+                    u_prof = Usuario.objects.filter(professor_id=prof_obj.id, role='PROFESSOR').first()
+                    if not u_prof:
+                        # Autocura: se o código ficou preso a uma conta de outro perfil, solta-o
+                        # e deixa o cadastro do professor criar/ligar a conta PROFESSOR correcta.
+                        for errada in Usuario.objects.filter(codigo_acesso__iexact=prof_obj.codigo).exclude(role='PROFESSOR'):
+                            Usuario.objects.filter(pk=errada.pk).update(codigo_acesso=None, professor_id=None)
+                        prof_obj.save()
+                        u_prof = Usuario.objects.filter(professor_id=prof_obj.id, role='PROFESSOR').first()
+                    if u_prof and _validar_senha_ou_codigo_inicial(u_prof, pwd, codigo_extra=prof_obj.codigo):
+                        user = u_prof
+            except Exception:
+                pass
+
         # Busca por Código de Acesso Oficial (GD..., DP..., SECR..., PR..., código do aluno, etc.)
         if not user:
             candidatos_cod = Usuario.objects.filter(codigo_acesso__iexact=login_id)
@@ -128,7 +148,7 @@ class LoginSerializer(serializers.Serializer):
                 from apps.professores.models import Professor
                 prof_obj = Professor.objects.select_related('escola').filter(codigo__iexact=login_id).first()
                 if prof_obj:
-                    u_prof = Usuario.objects.filter(professor_id=prof_obj.id).first() or Usuario.objects.filter(email__iexact=prof_obj.email).first()
+                    u_prof = Usuario.objects.filter(professor_id=prof_obj.id, role='PROFESSOR').first()
                     if not u_prof:
                         prof_obj.save()
                         u_prof = Usuario.objects.filter(professor_id=prof_obj.id).first()
@@ -153,7 +173,7 @@ class LoginSerializer(serializers.Serializer):
                         else turma_dir.director_classe
                     )
                     if prof_alvo:
-                        u_prof = Usuario.objects.filter(professor_id=prof_alvo.id).first() or Usuario.objects.filter(email__iexact=prof_alvo.email).first()
+                        u_prof = Usuario.objects.filter(professor_id=prof_alvo.id, role='PROFESSOR').first()
                         if u_prof and _validar_senha_ou_codigo_inicial(u_prof, pwd, codigo_extra=login_id):
                             user = u_prof
             except Exception:

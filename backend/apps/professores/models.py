@@ -56,10 +56,14 @@ class Professor(models.Model):
         try:
             from apps.accounts.models import Usuario
             nome_completo = f"{self.nome} {self.apelido or ''}".strip()
-            u = (
-                Usuario.objects.filter(professor_id=self.id).first()
-                or (Usuario.objects.filter(email__iexact=self.email).first() if self.email else None)
-            )
+            # Só reaproveita contas já ligadas a este professor, ou contas do MESMO
+            # perfil (PROFESSOR) com o mesmo e-mail. Nunca "sequestra" a conta de um
+            # Superadmin/Director/etc. que partilhe o e-mail: nesse caso cria conta própria.
+            u = Usuario.objects.filter(professor_id=self.id, role='PROFESSOR').first()
+            if not u and self.email:
+                u = Usuario.objects.filter(
+                    email__iexact=self.email, role='PROFESSOR', escola_id=self.escola_id,
+                ).first()
             if not u:
                 email_cand = (self.email or '').strip().lower()
                 if not email_cand or Usuario.objects.filter(email__iexact=email_cand).exists():
