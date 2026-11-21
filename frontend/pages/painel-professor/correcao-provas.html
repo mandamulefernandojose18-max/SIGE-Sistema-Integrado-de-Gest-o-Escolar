@@ -180,21 +180,49 @@
         <div class="card-header fw-semibold"><i class="bi bi-lightning-charge me-1"></i> Passo 2 · Carregar as provas dos alunos para correcção automática</div>
         <div class="card-body">
           <div class="alert alert-secondary py-2 small mb-2" id="cpAutoAviso"></div>
-          <div class="small text-muted mb-2">As provas têm de ser as <strong>Folhas de Resposta geradas pelo sistema</strong> (modelo oficial com os 4 cantos pretos e o QR). Fotografe (de cima, folha inteira, com os 4 cantos pretos visíveis e boa luz) ou digitalize as folhas, em lote. O sistema lê as bolhas e identifica o aluno pelo QR. Só vale a tinta <strong>azul ou preta</strong>. Dúvidas (duas marcas, rasuras, marca fraca, tinta de outra cor) ficam para si. Ao confirmar, o sistema corrige a folha <strong>a vermelho</strong> (visto nas certas, círculo na alternativa certa das erradas, acertos, nota e o seu nome na assinatura) e <strong>lança a nota na caderneta</strong>.</div>
+          <div class="small text-muted mb-2">As provas têm de ser as <strong>Folhas de Resposta geradas pelo sistema</strong> (modelo oficial com os 4 cantos pretos e o QR). Fotografe (de cima, folha inteira, com os 4 cantos pretos visíveis e boa luz) ou digitalize as folhas, em lote. O sistema lê as bolhas e identifica o aluno pelo QR. Só vale a tinta <strong>azul ou preta</strong>. Só vale a tinta <strong>azul ou preta</strong>. <strong>Passos:</strong> (1) carregue as folhas e carregue em «Iniciar correcção automática»; (2) quando terminar, veja e descarregue as provas corrigidas (a vermelho, como no modelo do professor) e a lista de notas; (3) carregue em «Iniciar lançamento automático» para lançar as notas nas cadernetas.</div>
           <div class="row g-2 align-items-end">
             <div class="col-12 col-md">
               <label class="form-label small mb-1" for="cpAutoFicheiros">Folhas (JPG, PNG ou PDF; pode escolher vários)</label>
               <input id="cpAutoFicheiros" type="file" class="form-control form-control-sm" multiple accept="image/png,image/jpeg,application/pdf">
             </div>
             <div class="col-12 col-md-auto">
-              <button type="button" class="btn btn-sm btn-primary" id="cpAutoLer"><i class="bi bi-eye me-1"></i>Ler folhas</button>
+              <button type="button" class="btn btn-primary" id="cpAutoLer"><i class="bi bi-play-circle me-1"></i>Iniciar correcção automática</button>
             </div>
           </div>
-          <div class="small mt-2" id="cpAutoProgresso"></div>
+          <div class="progress mt-2 d-none" id="cpAutoBarra" style="height:.9rem"><div class="progress-bar progress-bar-striped progress-bar-animated" id="cpAutoBarraI" style="width:0%"></div></div>
+          <div class="small mt-2" id="cpAutoProgresso" aria-live="polite"></div>
+
+          <!-- Passo 2b/3: correcção terminada → ver, descarregar e iniciar o lançamento -->
+          <div id="cpAutoConcluido" class="d-none mt-3 border rounded p-3 bg-body-tertiary">
+            <div class="fw-semibold text-success mb-1"><i class="bi bi-check-circle-fill me-1"></i>Correcção automática terminada</div>
+            <div class="small mb-2" id="cpAutoConcluidoTexto"></div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="cpAutoVer"><i class="bi bi-eye me-1"></i>Ver provas corrigidas</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="cpAutoPdf"><i class="bi bi-file-earmark-pdf me-1"></i>Descarregar provas corrigidas (PDF)</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="cpAutoListaPdf"><i class="bi bi-file-earmark-pdf me-1"></i>Lista de notas (PDF)</button>
+              <button type="button" class="btn btn-sm btn-outline-success" id="cpAutoListaXlsx"><i class="bi bi-file-earmark-excel me-1"></i>Lista de notas (Excel)</button>
+              <button type="button" class="btn btn-success ms-auto" id="cpAutoLancar"><i class="bi bi-journal-check me-1"></i>Iniciar lançamento automático</button>
+            </div>
+            <div class="small" id="cpAutoLancarResultado" aria-live="polite"></div>
+            <div id="cpAutoVisor" class="d-none mt-2">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-secondary" id="cpAutoVerAnt" title="Anterior"><i class="bi bi-chevron-left"></i></button>
+                  <button type="button" class="btn btn-outline-secondary" id="cpAutoVerSeg" title="Seguinte"><i class="bi bi-chevron-right"></i></button>
+                </div>
+                <span class="small" id="cpAutoVerLegenda"></span>
+              </div>
+              <div class="border rounded bg-white text-center" style="max-height:75vh;overflow:auto;">
+                <img id="cpAutoVerImg" alt="Prova corrigida" class="img-fluid">
+              </div>
+            </div>
+          </div>
+
           <div id="cpAutoPainel" class="d-none mt-3">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
               <span class="small" id="cpAutoResumo"></span>
-              <button type="button" class="btn btn-sm btn-success ms-auto" id="cpAutoConfirmarLimpas"><i class="bi bi-check2-all me-1"></i>Confirmar as folhas sem dúvidas</button>
+              <button type="button" class="btn btn-sm btn-success ms-auto d-none" id="cpAutoConfirmarLimpas"><i class="bi bi-check2-all me-1"></i>Confirmar as folhas sem dúvidas</button>
             </div>
             <div class="row g-3 d-none" id="cpAutoRevisao">
               <div class="col-12 col-lg-6">
@@ -230,7 +258,7 @@
                 <div id="cpAutoDuvidas" class="mb-2" style="max-height:32vh;overflow:auto;"></div>
                 <div class="small font-monospace text-break mb-2" id="cpAutoLida"></div>
                 <div class="d-flex flex-wrap gap-2">
-                  <button type="button" class="btn btn-sm btn-primary" id="cpAutoConfirmar"><i class="bi bi-check2 me-1"></i>Confirmar esta folha</button>
+                  <button type="button" class="btn btn-sm btn-primary" id="cpAutoConfirmar"><i class="bi bi-check2 me-1"></i>Corrigir e guardar esta folha</button>
                   <button type="button" class="btn btn-sm btn-outline-secondary" id="cpAutoSaltar">Saltar</button>
                   <button type="button" class="btn btn-sm btn-outline-danger" id="cpAutoDescartar">Descartar</button>
                 </div>

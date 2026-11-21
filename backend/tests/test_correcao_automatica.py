@@ -161,6 +161,8 @@ class TestCorreccaoAutomaticaApi:
         assert p['aluno']['id'] == str(self.aluno.id)
         assert p['respostas'] == resp and p['duvidas'] == []
         assert p['imagem'].startswith('data:image/jpeg;base64,') and p['previa'].startswith('data:image/jpeg')
+        # a leitura já devolve a prova corrigida (a vermelho) com acertos e nota, sem gravar nada
+        assert p['acertos'] == 9 and p['nota'] == 18.0 and p['corrigida'].startswith('data:image/jpeg;base64,')
         # nada foi gravado pela leitura
         assert c.get(f'{BASE}{prova["id"]}/correcoes/{self.aluno.id}/').data['data'] is None
         # o professor confirma → grava e corrige contra o gabarito (9 certas em 10, cotação 2)

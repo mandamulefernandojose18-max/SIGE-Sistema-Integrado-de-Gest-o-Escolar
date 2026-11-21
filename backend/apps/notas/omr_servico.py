@@ -695,7 +695,7 @@ def _valor_pt(v):
     return f'{float(v):.1f}'.replace('.', ',')
 
 
-def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acertos, nota, nome_professor):
+def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acertos, nota, nome_professor, largura=None):
     """Desenha a correcção a vermelho na folha já endireitada e devolve JPEG (bytes).
 
     respostas: 'AB-C…' (uma por pergunta); chave: letras certas (mesma versão da folha)."""
@@ -732,6 +732,8 @@ def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acer
     page = _texto_pil(cv2, np, page, _valor_pt(nota), xii + 9, yiii + 20.5, 22, 4.6, estilo_b)
     if nome_professor:   # assinatura por extenso (nome), não rubrica
         page = _texto_pil(cv2, np, page, str(nome_professor)[:60], xii + 3.5, yiii + 28.1, 33, 4.0, estilo_i)
+    if largura and largura < page.shape[1]:
+        page = cv2.resize(page, (largura, int(page.shape[0] * largura / page.shape[1])), interpolation=cv2.INTER_AREA)
     ok, buf = cv2.imencode('.jpg', page, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
     return buf.tobytes()
 

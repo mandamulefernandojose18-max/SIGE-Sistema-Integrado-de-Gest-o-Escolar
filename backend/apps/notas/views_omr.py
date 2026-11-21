@@ -85,7 +85,7 @@ class ConfirmarOmrView(APIView):
             return _erro(str(e))
 
         # ---- folha corrigida (vistos, círculos, acertos, nota e nome do professor, a vermelho) ----
-        imagem_json, aviso_imagem = None, ''
+        imagem_json, aviso_imagem, jpg = None, '', b''
         bruto = request.data.get('imagem') or ''
         if bruto.startswith('data:image/jpeg;base64,') and corr.respostas:
             try:
@@ -125,8 +125,11 @@ class ConfirmarOmrView(APIView):
             except svc.ErroCorrecao as e:
                 lancamento = {'ok': False, 'message': str(e)}
         corr.refresh_from_db()
+        folha = ''
+        if imagem_json and jpg:
+            folha = 'data:image/jpeg;base64,' + base64.b64encode(jpg).decode('ascii')
         return Response({'success': True, 'data': _correcao_json(corr), 'imagem': imagem_json,
-                         'aviso_imagem': aviso_imagem, 'lancamento': lancamento})
+                         'aviso_imagem': aviso_imagem, 'lancamento': lancamento, 'folha': folha})
 
 
 class LeituraOmrView(APIView):
@@ -159,13 +162,41 @@ class LeituraOmrView(APIView):
         paginas = []
         fim = min(total, ini + PAGINAS_POR_PEDIDO)
         for idx in range(ini, fim):
-            paginas.append(self._pagina(escola, prova, dados, idx, n_mc, n_alt, versoes))
+            paginas.append(self._pagina(escola, prova, dados, idx, n_mc, n_alt, versoes,
+                                        getattr(request.user, 'nome', '') or request.user.get_username()))
         return Response({'success': True, 'data': {
             'total_paginas': total, 'paginas': paginas, 'proxima': fim if fim < total else None,
             'n_perguntas_mc': n_mc, 'n_alternativas': n_alt, 'versoes': versoes}})
 
     @staticmethod
-    def _pagina(escola, prova, dados, idx, n_mc, n_alt, versoes):
+    def _pagina(escola, prova, dados, idx, n_mc, n_alt, versoes, professor=''):
+        """Lê a página e já a corrige: junta `acertos`, `nota` e `corrigida` (folha corrigida a vermelho, JPEG em data-URL).
+
+        A folha corrige-se mesmo sem aluno identificado (precisa só da versão, se a prova tiver várias)."""
+        import base64
+        out = LeituraOmrView._ler(escola, prova, dados, idx, n_mc, n_alt, versoes)
+        if not out.get('ok'):
+            return out
+        out.update({'acertos': None, 'nota': None, 'corrigida': None})
+        try:
+            sugestoes = {d['n']: d.get('sugerida') or '-' for d in out['duvidas']}
+            resp = ''.join(sugestoes.get(i + 1, '-') if c == '*' else c for i, c in enumerate(out['respostas']))
+            from . import correcao_servico as svc
+            _, _total, nota, _completa, limpas = svc.calcular(prova, None, resp, out['versao'])
+            chave = prova.gabaritos.get(out['versao'] or '-') or next(iter(prova.gabaritos.values()))
+            acertos = sum(1 for a, b in zip(limpas, chave) if a == b)
+            cv2, np = omr._cv()
+            bruto = base64.b64decode(out['imagem'].split(',', 1)[1])
+            img = cv2.imdecode(np.frombuffer(bruto, np.uint8), cv2.IMREAD_COLOR)
+            jpg = omr.anotar_folha(img, n_mc, n_alt, limpas, chave, acertos, nota, professor, largura=1240)
+            out.update({'acertos': acertos, 'nota': nota,
+                        'corrigida': 'data:image/jpeg;base64,' + base64.b64encode(jpg).decode('ascii')})
+        except Exception:
+            pass     # sem versão (ou chave) a folha fica só lida; o professor escolhe a versão e corrige
+        return out
+
+    @staticmethod
+    def _ler(escola, prova, dados, idx, n_mc, n_alt, versoes):
         base = {'pagina': idx + 1, 'ok': False}
         try:
             img = omr.abrir_pagina(dados, idx)
