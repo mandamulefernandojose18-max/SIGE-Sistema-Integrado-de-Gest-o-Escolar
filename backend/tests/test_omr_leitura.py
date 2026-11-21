@@ -157,6 +157,25 @@ def test_em_branco_dupla_e_marca_fraca():
     assert 2 not in d and 3 not in d and 1 not in d
 
 
+def test_folha_personalizada_identifica_o_aluno_pelo_codigo_de_barras():
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas as rl_canvas
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=(fr.PAG_L * mm, fr.PAG_A * mm))
+    fr._desenhar_marcas_omr(c)
+    c.setFont('Times-Bold', 16)
+    c.drawString(20 * mm, (fr.PAG_A - 20) * mm, 'FOLHA DE RESPOSTAS  ·  TESTE')
+    fr._desenhar_codigo_barras(c, '0101S0001.12.01.2026.cg', 15, 80, 72, 4.6)     # como a folha personalizada
+    _, cols, linhas, y_ini = omr.celulas_grelha(10, 4)
+    fr._desenhar_grelha(c, {'n_alternativas': 4}, 0, 10, cols, linhas, y_ini)
+    c.showPage()
+    c.save()
+    img = _pintar(_renderizar(buf.getvalue()), 10, 4, {1: 'A'})
+    res = _ler(_fotografar(img), n=10)
+    assert res['qr'] is None
+    assert res['codigo_barras'] == '0101S0001.12.01.2026.cg'
+
+
 def test_tinta_vermelha_nao_conta_como_resposta():
     import numpy as np
     img = _pintar(_renderizar(_desenhar_folha_pdf(10, 4)), 10, 4, {1: 'B'})

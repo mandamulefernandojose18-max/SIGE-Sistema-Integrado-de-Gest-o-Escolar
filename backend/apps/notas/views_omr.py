@@ -181,6 +181,19 @@ class LeituraOmrView(APIView):
             except Exception:
                 qr = None
         aluno_json, versao = None, ''
+        codigo = res.get('codigo_barras') or ''
+        if not qr and codigo:
+            # folha personalizada: o código de barras traz o código do aluno
+            aluno = Aluno.objects.filter(escola=escola, turma=prova.turma, matricula=codigo).first()
+            if aluno:
+                corr = CorrecaoProva.objects.filter(prova=prova, aluno=aluno).first()
+                aluno_json = {'id': str(aluno.id), 'nome': aluno.nome, 'matricula': aluno.matricula,
+                              'estado_actual': corr.estado if corr else None}
+                if versoes:
+                    avisos.append('Escolha a versão da folha deste aluno.')
+                return {**base, 'ok': True, 'aluno': aluno_json, 'versao': '', 'respostas': res['respostas'],
+                        'duvidas': res['duvidas'], 'avisos': avisos, 'alinhamento': res['alinhamento'],
+                        'previa': res['previa'], 'imagem': res['pagina']}
         if not qr:
             avisos.append('O QR da folha não foi lido: escolha o aluno manualmente.')
         elif str(qr.get('e')) != str(escola.id):

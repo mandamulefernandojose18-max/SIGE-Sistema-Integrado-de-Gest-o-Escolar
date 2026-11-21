@@ -539,6 +539,97 @@ def identificar(texto_qr):
         return None
 
 
+def _padroes_code128():
+    """Tabela do Code 128: valor → 6 larguras (7 no stop), a partir da do ReportLab (maiúscula = barra, minúscula = espaço;
+    a/A = 1, b/B = 2, c/C = 3, d/D = 4 módulos)."""
+    from reportlab.graphics.barcode import code128
+    larg = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+    return {v: tuple(larg[ch.lower()] for ch in p) for v, p in code128._patterns.items()}
+
+
+def _decodificar_code128(corridas):
+    """Descodifica uma sequência de corridas (largura em pixéis, a começar por uma barra). Devolve texto ou ''."""
+    pad = _padroes_code128()
+    por_padrao = {p: v for v, p in pad.items() if len(p) == 6}
+    n = len(corridas)
+
+    def valor(grupo):
+        soma = sum(grupo)
+        mod = soma / 11.0
+        if mod < 1.0:
+            return None
+        larg = tuple(max(1, min(4, int(round(g / mod)))) for g in grupo)
+        if sum(larg) != 11:
+            return None
+        return por_padrao.get(larg)
+
+    for i in range(0, max(0, n - 6)):
+        v0 = valor(corridas[i:i + 6])
+        if v0 not in (103, 104, 105):
+            continue
+        valores, j, ok = [v0], i + 6, True
+        while j + 6 <= n:
+            g = corridas[j:j + 6]
+            v = valor(g)
+            if v is None:
+                # o stop (106) tem 7 elementos: 2331112
+                ok = j + 7 <= n and abs(sum(corridas[j:j + 7]) / 13.0 - sum(corridas[i:i + 6]) / 11.0) < 0.6 * (sum(corridas[i:i + 6]) / 11.0)
+                break
+            valores.append(v)
+            j += 6
+        if not ok or len(valores) < 4:
+            continue
+        *dados, chk = valores[1:]
+        soma = valores[0] + sum((k + 1) * v for k, v in enumerate(dados))
+        if soma % 103 != chk:
+            continue
+        conj, saida = {103: 'A', 104: 'B', 105: 'C'}[valores[0]], []
+        for v in dados:
+            if v in (99, 100, 101):
+                conj = {99: 'C', 100: 'B', 101: 'A'}[v]
+            elif v >= 96 and conj != 'C':
+                continue
+            elif conj == 'C':
+                saida.append(f'{v:02d}')
+            elif conj == 'B':
+                saida.append(chr(v + 32))
+            else:
+                saida.append(chr(v + 32) if v < 64 else chr(v - 64))
+        return ''.join(saida)
+    return ''
+
+
+def ler_codigo_barras(page):
+    """Código de barras (Code 128) do aluno impresso na secção «Dados do aluno» das folhas personalizadas.
+
+    `page` é a folha já endireitada (8 px/mm). Devolve o texto (o código/matrícula do aluno) ou ''.
+    (O detector de barras do OpenCV só lê EAN/UPC, por isso o Code 128 é descodificado aqui.)"""
+    cv2, np = _cv()
+    cinza = cv2.cvtColor(page, cv2.COLOR_BGR2GRAY)
+    recorte = cinza[int(40 * PPM):int(118 * PPM), int(8 * PPM):int(112 * PPM)]
+    k = 3
+    grande = cv2.resize(recorte, None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
+    limiar = cv2.threshold(cv2.GaussianBlur(grande, (0, 0), 1.2), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
+    h, w = grande.shape
+    for y in range(0, h, 4):
+        linha = grande[y] < limiar
+        # só linhas com muitas transições podem ser de um código de barras
+        if np.count_nonzero(linha[1:] != linha[:-1]) < 80:
+            continue
+        mudancas = np.flatnonzero(linha[1:] != linha[:-1]) + 1
+        if not len(mudancas):
+            continue
+        corridas = np.diff(np.concatenate(([0], mudancas, [w]))).tolist()
+        if linha[0]:
+            pass
+        else:
+            corridas = corridas[1:]          # a primeira corrida tem de ser uma barra
+        texto = _decodificar_code128(corridas)
+        if len(texto) >= 4:
+            return texto
+    return ''
+
+
 # ---------------------------------------------------------------------------
 # Pré-visualização
 # ---------------------------------------------------------------------------
@@ -683,11 +774,13 @@ def ler_pagina(img, n_perguntas, n_alternativas):
         avisos.append('Fotografia desfocada: confirme as respostas com atenção ou volte a fotografar.')
     if corr < 0.45:
         avisos.append('Alinhamento da grelha pouco fiável: confirme as respostas.')
+    codigo = '' if qr else ler_codigo_barras(page)     # folha personalizada sem QR legível: código de barras do aluno
     return {
         'respostas': ''.join(respostas),
         'duvidas': duvidas,
         'avisos': avisos,
         'qr': qr,
+        'codigo_barras': codigo,
         'alinhamento': round(corr, 3),
         'nitidez': round(nitidez, 1),
         'pagina': _jpeg_b64(cv2, page, 1240, 74),
