@@ -272,6 +272,45 @@ class TestCorreccaoAutomaticaApi:
         assert c.get(base + 'folhas-pendentes/').data['data'] == []
         assert c.delete(f'{base}folhas-pendentes/{p2["pendente_id"]}/').status_code == 404
 
+    def test_guardar_na_leitura_corrige_e_guarda_em_alta_resolucao_sem_lancar(self):
+        from apps.notas.models import Nota
+        prova = self._prova()
+        c = self._como(self.professor)
+        base = f'{BASE}{prova["id"]}/'
+        r = c.post(base + 'leitura-omr/', {'ficheiro': self._foto('ABCDABCDAB'), 'guardar': '1'}, format='multipart')
+        p = r.data['data']['paginas'][0]
+        assert p['ok'] and p['guardada'] and p['nota'] == 20.0 and p['acertos'] == 10
+        assert not p['imagem'] and not p['previa'] and not p['corrigida']          # nada de imagens pelo navegador
+        corr = c.get(f'{base}correcoes/{self.aluno.id}/').data['data']
+        assert corr['estado'] == 'CORRIGIDA' and corr['respostas'] == 'ABCDABCDAB' and len(corr['imagens']) == 1
+        assert not Nota.objects.filter(aluno=self.aluno).exists()                     # só lança no passo seguinte
+        # a prova corrigida sai nítida e direita: A4 a ≈ 250 dpi (2100 × 2970), não uma miniatura ampliada
+        import numpy as np
+        img = c.get(f'{BASE}imagens/{corr["imagens"][0]["id"]}/')
+        im = cv2.imdecode(np.frombuffer(b''.join(img.streaming_content), np.uint8), cv2.IMREAD_COLOR)
+        assert im.shape[1] >= 2000 and im.shape[0] >= 2800
+        # ler outra vez substitui, não duplica
+        c.post(base + 'leitura-omr/', {'ficheiro': self._foto('ABCDABCDAB'), 'guardar': '1'}, format='multipart')
+        assert len(c.get(f'{base}correcoes/{self.aluno.id}/').data['data']['imagens']) == 1
+
+    def test_ficheiro_envia_se_uma_vez_e_le_se_por_referencia(self):
+        prova = self._prova()
+        c = self._como(self.professor)
+        base = f'{BASE}{prova["id"]}/leitura-omr/'
+        up = c.post(base + 'upload/', {'ficheiro': self._foto('ABCDABCDAB')}, format='multipart')
+        assert up.status_code == 200 and up.data['data']['total_paginas'] == 1
+        uid = up.data['data']['upload_id']
+        r = c.post(base, {'upload_id': uid, 'nome': 'folhas.jpg', 'pagina_ini': 0}, format='multipart')
+        p = r.data['data']['paginas'][0]
+        assert r.status_code == 200 and p['ok'] and p['aluno'] and p['respostas'] == 'ABCDABCDAB'
+        # outro utilizador/escola não usa o envio; identificador inventado ou apagado dá 410
+        intruso = Usuario.objects.create_user(email='adm2@alheia.mz', password='PassA123!', role='ADMIN_ESCOLA', escola=self.outra)
+        assert self._como(intruso).post(base, {'upload_id': uid}, format='multipart').status_code == 404
+        assert c.delete(f'{base}upload/{uid}/').status_code == 200
+        assert c.post(base, {'upload_id': uid, 'pagina_ini': 0}, format='multipart').status_code == 410
+        assert c.post(base, {'upload_id': 'nao-e-um-uuid'}, format='multipart').status_code == 410
+        assert self._como(self.director).post(base + 'upload/', {'ficheiro': self._foto('ABCDABCDAB')}, format='multipart').status_code == 403
+
     def test_leitura_recusa_folha_de_outra_escola_e_de_outra_prova(self):
         prova = self._prova()
         c = self._como(self.professor)

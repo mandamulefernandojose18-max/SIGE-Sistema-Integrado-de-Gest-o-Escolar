@@ -1,4 +1,4 @@
-﻿// =====================================================================
+// =====================================================================
 // SIGE - CORRECÇÃO ASSISTIDA DE PROVAS FÍSICAS (Painel do Professor)
 // Cascata Classe → Secção/Área → Turma → Disciplina → Trimestre → Prova (altura constante para qualquer n).
 // API: /api/v1/notas/provas-fisicas/  ·  /api/v1/professores/minhas-turmas/
@@ -760,7 +760,7 @@
     // grava a correcção e desenha a folha corrigida (vistos, círculos, acertos, nota e nome do professor, a vermelho).
     // NÃO lança na caderneta: o lançamento é o passo seguinte («Iniciar lançamento automático»).
     var res = await chamar(API + encodeURIComponent(prova.id) + '/correcoes/' + encodeURIComponent(it.aluno_id) + '/confirmar-omr/',
-      json('POST', { respostas: fin.texto, versao: it.versao || '', imagem: it.imagem || undefined, pendente_id: it.pendente_id || undefined, lancar: false }));
+      json('POST', { respostas: fin.texto, versao: it.versao || '', imagem: it.pendente_id ? undefined : (it.imagem || undefined), pendente_id: it.pendente_id || undefined, lancar: false }));
     if (!res.ok) return msg(res);
     it.estado = 'confirmada'; it.nota = res.json.data.nota; it.pendente_id = '';
     it.imagemId = res.json.imagem ? res.json.imagem.id : '';
@@ -885,45 +885,79 @@
     var barra = $('cpAutoBarra'), barraI = $('cpAutoBarraI');
     barra.classList.remove('d-none'); barraI.style.width = '3%';
     prog.className = 'small mt-2 text-primary'; prog.textContent = 'Correcção automática iniciada…';
+    var feitoTotal = 0, totalGeral = 0;
+    // Uma folha lida: regista-a e, com o aluno identificado (QR ou código de barras), grava a correcção e a folha corrigida
+    // (não lança na caderneta). Dúvidas resolvidas pela leitura: marca fraca/rasura = letra mais provável; o resto em branco;
+    // duas marcas = nula.
+    function tratarPagina(nomeFicheiro, p) {
+      if (!p.ok) { lote.push({ estado: 'erro', origem: nomeFicheiro, pagina: p.pagina, erro: p.erro, respostas: [], duvidas: [], avisos: [] }); return null; }
+      var it = { estado: 'pendente', origem: nomeFicheiro, pagina: p.pagina, aluno_id: p.aluno ? p.aluno.id : '', versao: p.versao || '',
+        respostas: p.respostas.split(''), duvidas: p.duvidas || [], avisos: p.avisos || [], previa: p.previa, imagem: p.imagem, resolvidas: {},
+        corrigida: p.corrigida || '', notaPrev: p.nota, acertos: p.acertos, pendente_id: p.pendente_id || '' };
+      lote.push(it);
+      if (p.guardada) {        // corrigida e guardada pelo servidor, sem passar imagens pelo navegador
+        it.estado = 'confirmada'; it.nota = p.nota; it.imagem = ''; it.previa = ''; it.corrigida = '';
+        return null;
+      }
+      it.duvidas.forEach(function (d) { it.resolvidas[d.n] = d.sugerida || '-'; });
+      var repetido = lote.some(function (o) { return o !== it && o.aluno_id && o.aluno_id === it.aluno_id && o.estado !== 'erro'; });
+      if (it.aluno_id && !repetido && (!(prova.versoes || []).length || it.versao)) {
+        return enviarItem(it).then(function (e) {
+          if (e) it.erroAuto = e;
+          else { it.imagem = ''; it.previa = ''; it.corrigida = ''; }      // já está guardada no servidor: poupa memória
+        });
+      }
+      return null;
+    }
+    // O ficheiro envia-se UMA vez; os pedidos de leitura só referem o envio (não reenviam o PDF inteiro cada vez)
+    async function pedir(envio, ini) {
+      var fd = new FormData(); fd.append('upload_id', envio.id); fd.append('nome', envio.nome); fd.append('pagina_ini', ini);
+      fd.append('guardar', '1');      // o servidor corrige e guarda logo as folhas com aluno identificado
+      return chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/', { method: 'POST', headers: cab(), body: fd });
+    }
+    function progresso(nome) {
+      prog.textContent = 'A corrigir ' + nome + ' — ' + feitoTotal + (totalGeral ? '/' + totalGeral : '') + ' folha(s) corrigida(s)…';
+      barraI.style.width = Math.max(3, Math.min(97, Math.round(100 * feitoTotal / Math.max(1, totalGeral || feitoTotal + 4)))) + '%';
+    }
     try {
       for (var k = 0; k < fich.length; k++) {
-        var ini = 0;
-        while (ini !== null) {
-          prog.textContent = 'A corrigir ' + fich[k].name + ' (ficheiro ' + (k + 1) + '/' + fich.length + ')' + (ini ? ' — a partir da página ' + (ini + 1) : '') + '…';
-          var fd = new FormData(); fd.append('ficheiro', fich[k]); fd.append('pagina_ini', ini);
-          var res = await chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/', { method: 'POST', headers: cab(), body: fd });
-          if (!res.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: ini + 1, erro: msg(res), respostas: [], duvidas: [], avisos: [] }); break; }
-          var paginas = res.json.data.paginas;
-          for (var pi = 0; pi < paginas.length; pi++) {
-            var p = paginas[pi];
-            if (!p.ok) { lote.push({ estado: 'erro', origem: fich[k].name, pagina: p.pagina, erro: p.erro, respostas: [], duvidas: [], avisos: [] }); continue; }
-            var it = { estado: 'pendente', origem: fich[k].name, pagina: p.pagina, aluno_id: p.aluno ? p.aluno.id : '', versao: p.versao || '',
-              respostas: p.respostas.split(''), duvidas: p.duvidas || [], avisos: p.avisos || [], previa: p.previa, imagem: p.imagem, resolvidas: {},
-              corrigida: p.corrigida || '', notaPrev: p.nota, acertos: p.acertos, pendente_id: p.pendente_id || '' };
-            lote.push(it);
-            // Dúvidas resolvidas pela leitura (marca fraca/rasura → a letra mais provável; o resto em branco; duas marcas = nula)
-            // e, com o aluno identificado (QR ou código de barras), grava a correcção e a folha corrigida. Não lança.
-            it.duvidas.forEach(function (d) { it.resolvidas[d.n] = d.sugerida || '-'; });
-            var repetido = lote.some(function (o) { return o !== it && o.aluno_id && o.aluno_id === it.aluno_id && o.estado === 'confirmada'; });
-            if (it.aluno_id && !repetido && (!(prova.versoes || []).length || it.versao)) {
-              var e = await enviarItem(it);
-              if (e) it.erroAuto = e;
-            }
+        var nomeF = fich[k].name;
+        prog.textContent = 'A enviar ' + nomeF + '…';
+        var fdUp = new FormData(); fdUp.append('ficheiro', fich[k]);
+        var up = await chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/upload/', { method: 'POST', headers: cab(), body: fdUp });
+        if (!up.ok) { lote.push({ estado: 'erro', origem: nomeF, pagina: 1, erro: msg(up), respostas: [], duvidas: [], avisos: [] }); continue; }
+        var ficheiro = { id: up.json.data.upload_id, nome: nomeF };
+        var primeira = await pedir(ficheiro, 0);
+        if (!primeira.ok) { lote.push({ estado: 'erro', origem: nomeF, pagina: 1, erro: msg(primeira), respostas: [], duvidas: [], avisos: [] }); continue; }
+        var dadosP = primeira.json.data, passo = Math.max(1, dadosP.paginas.length);
+        totalGeral += dadosP.total_paginas;
+        var gs = dadosP.paginas.map(function (p) { return tratarPagina(nomeF, p); }).filter(Boolean);
+        await Promise.all(gs); feitoTotal += dadosP.paginas.length; progresso(nomeF);
+        // as restantes páginas pedem-se em paralelo (3 pedidos de cada vez): quanto mais folhas, mais se nota a diferença
+        var inicios = []; for (var s = passo; s < dadosP.total_paginas; s += passo) inicios.push(s);
+        var proximo = 0;
+        var trabalhador = async function () {
+          while (proximo < inicios.length) {
+            var ini = inicios[proximo++];
+            var r = await pedir(ficheiro, ini);
+            if (!r.ok) { lote.push({ estado: 'erro', origem: nomeF, pagina: ini + 1, erro: msg(r), respostas: [], duvidas: [], avisos: [] }); continue; }
+            var gg = r.json.data.paginas.map(function (p) { return tratarPagina(nomeF, p); }).filter(Boolean);
+            await Promise.all(gg); feitoTotal += r.json.data.paginas.length; progresso(nomeF);
           }
-          var feitoPag = (ini || 0) + paginas.length, totalPag = res.json.data.total_paginas || feitoPag;
-          barraI.style.width = Math.max(3, Math.round(((k + feitoPag / totalPag) / fich.length) * 100)) + '%';
-          ini = res.json.data.proxima;
-          marcarRepetidos(); painelLote();
-        }
-      }
-    } finally { estadoCartaoAuto(); barra.classList.add('d-none'); }
+        };
+        await Promise.all([trabalhador(), trabalhador(), trabalhador()]);
+        chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/upload/' + encodeURIComponent(ficheiro.id) + '/', { method: 'DELETE' });   // apaga o temporário
+        chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/upload/' + encodeURIComponent(ficheiro.id) + '/', { method: 'DELETE' });   // apaga o temporário
+        lote.sort(function (a, b) { return a.origem === b.origem ? a.pagina - b.pagina : (a.origem < b.origem ? -1 : 1); });
+        marcarRepetidos(); painelLote();
+      }    } finally { estadoCartaoAuto(); barra.classList.add('d-none'); }
     var feitas = lote.filter(function (x) { return x.estado === 'confirmada'; }).length;
     prog.className = 'small mt-2 ' + (feitas ? 'text-success fw-semibold' : 'text-danger');
     prog.textContent = !lote.length ? 'Não foi lida nenhuma folha.' : 'Correcção automática terminada.';
     marcarRepetidos(); painelLote();
     if (feitas) { await recarregarMantendo(); painelLote(); }
     mostrarConcluido();
-    if (lote.some(function (x) { return x.corrigida; })) mostrarVisor(0);
+    if (listaVisor().length) mostrarVisor(0);
   }
   async function confirmarActual() {
     guardarCamposRevisao();

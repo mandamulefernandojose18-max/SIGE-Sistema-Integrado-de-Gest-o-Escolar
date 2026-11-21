@@ -7,6 +7,8 @@ SIGE — API da Correcção Automática (gabarito importado + leitura óptica da
 A leitura só PROPÕE: o professor revê as dúvidas e confirma; só então se grava a correcção (PUT da correcção do
 aluno) e, mais tarde, se lança na caderneta. Isolamento por escola e permissões iguais às da correcção manual.
 """
+import os
+
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -19,7 +21,22 @@ from . import omr_servico as omr
 from .models import CorrecaoProva
 from .views_correcao import ROLES_LEITURA, _e_super, _erro, _escola, _prova
 
-PAGINAS_POR_PEDIDO = 2   # ~2–3 s por página: um pedido nunca passa do tempo limite do servidor
+PAGINAS_POR_PEDIDO = 4   # lidas em paralelo (~1–2 s por página): um pedido leva poucos segundos
+
+
+def _ler_cpu(img, orig, n_mc, n_alt, guardar=False):
+    """Parte pesada da leitura de uma página (só OpenCV/numpy, sem base de dados): corre em paralelo."""
+    try:
+        res = omr.ler_pagina(img, n_mc, n_alt, procurar_qr=orig is None, fonte=orig, com_imagens=not guardar)
+    except omr.ErroOMR as e:
+        return {'erro': str(e)}
+    qr = res['qr']
+    if not qr and orig is not None:   # digitalização em PDF: o QR lê-se melhor na imagem original (300 dpi)
+        try:
+            qr = omr.identificar(omr.ler_qr_original(orig))
+        except Exception:
+            qr = None
+    return {'res': res, 'qr': qr}
 
 
 def anotar_resolvendo_duvidas(prova, jpeg_limpo, respostas, duvidas, versao, professor, largura=1240):
@@ -27,8 +44,7 @@ def anotar_resolvendo_duvidas(prova, jpeg_limpo, respostas, duvidas, versao, pro
     (marca fraca/rasura = letra mais provável; o resto em branco). Devolve {acertos, nota, jpg}; levanta se faltar a versão."""
     from . import correcao_servico as svc
     cv2, np = omr._cv()
-    sugestoes = {d['n']: d.get('sugerida') or '-' for d in duvidas}
-    resp = ''.join(sugestoes.get(i + 1, '-') if c == '*' else c for i, c in enumerate(respostas))
+    resp = resolver_respostas(respostas, duvidas)
     _, _total, nota, _completa, limpas = svc.calcular(prova, None, resp, versao)
     chave = prova.gabaritos.get(versao or '-') or next(iter(prova.gabaritos.values()))
     acertos = sum(1 for a, b in zip(limpas, chave) if a == b)
@@ -38,15 +54,14 @@ def anotar_resolvendo_duvidas(prova, jpeg_limpo, respostas, duvidas, versao, pro
     return {'acertos': acertos, 'nota': nota, 'jpg': jpg}
 
 
-def guardar_pendente(escola, prova, utilizador, origem, out):
+def guardar_pendente(escola, prova, utilizador, origem, out, alta):
     """Guarda (ou actualiza) a folha lida sem aluno atribuído. Devolve o id."""
-    import base64
     import os
     import uuid
 
     from . import correcao_servico as svc
     from .models import FolhaPendente
-    bruto = base64.b64decode(out['imagem'].split(',', 1)[1])
+    bruto = alta
     pasta = svc.raiz_imagens(escola)
     os.makedirs(pasta, exist_ok=True)
     nome = f'pend_{uuid.uuid4().hex}.jpg'
@@ -237,6 +252,42 @@ class GabaritosGuardadosView(APIView):
         return Response({'success': True, 'message': 'Gabarito eliminado.'})
 
 
+def gravar_folha_corrigida(escola, prova, corr, jpeg_limpo, nome_professor):
+    """Desenha a folha corrigida (modelo do professor) a partir da imagem limpa e ALTA resolução (JPEG), guarda-a como
+    imagem da correcção (substitui a anterior) e devolve (imagem_json, jpg). A folha sai nítida e direita (pode imprimir-se
+    e devolver-se ao aluno)."""
+    import uuid
+
+    from . import correcao_servico as svc
+    from .models import CorrecaoImagem
+    from .views_correcao import _imagem_json
+    cv2, np = omr._cv()
+    img = cv2.imdecode(np.frombuffer(jpeg_limpo, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise omr.ErroOMR('Imagem inválida.')
+    chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
+    n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
+    acertos = sum(1 for a, b in zip(corr.respostas, chave) if a == b)
+    jpg = omr.anotar_folha(img, n_mc, prova.n_alternativas, corr.respostas, chave, acertos, corr.nota, nome_professor)
+    for antiga in list(corr.imagens.all()):          # a folha corrigida substitui a leitura anterior
+        svc.apagar_imagem(antiga)
+    pasta = svc.raiz_imagens(escola)
+    os.makedirs(pasta, exist_ok=True)
+    nome = f'{uuid.uuid4().hex}.jpg'
+    with open(os.path.join(pasta, nome), 'wb') as f:
+        f.write(jpg)
+    im = CorrecaoImagem.objects.create(
+        escola=escola, correcao=corr, caminho=f'{svc._pasta_escola(escola)}/{nome}'.replace('\\', '/'),
+        tipo='image/jpeg', tamanho=len(jpg), ordem=1)
+    return _imagem_json(im), jpg
+
+
+def resolver_respostas(respostas, duvidas):
+    """'ABC*-' → dúvidas resolvidas pela leitura (marca fraca/rasura = letra mais provável; o resto em branco)."""
+    sugestoes = {d['n']: d.get('sugerida') or '-' for d in duvidas}
+    return ''.join(sugestoes.get(i + 1, '-') if c == '*' else c for i, c in enumerate(respostas))
+
+
 class ConfirmarOmrView(APIView):
     """Confirma a leitura de uma folha: grava a correcção, desenha a folha corrigida (modelo do professor) e lança na caderneta.
 
@@ -281,40 +332,20 @@ class ConfirmarOmrView(APIView):
                 pend = FolhaPendente.objects.filter(pk=request.data.get('pendente_id'), prova=prova).first()
             except Exception:
                 pend = None
-            if pend and not bruto.startswith('data:image/jpeg;base64,'):   # página recarregada: usa a folha guardada
+            if pend:   # a folha guardada no servidor (alta resolução) tem prioridade sobre qualquer imagem reduzida
                 caminho = svc.caminho_seguro(pend)
                 if caminho:
                     with open(caminho, 'rb') as fh:
                         bruto = 'data:image/jpeg;base64,' + base64.b64encode(fh.read()).decode('ascii')
         if bruto.startswith('data:image/jpeg;base64,') and corr.respostas:
             try:
-                cv2, np = omr._cv()
                 dados = base64.b64decode(bruto.split(',', 1)[1], validate=False)
                 if len(dados) > 6 * 1024 * 1024:
                     raise omr.ErroOMR('Imagem demasiado grande.')
-                img = cv2.imdecode(np.frombuffer(dados, np.uint8), cv2.IMREAD_COLOR)
-                if img is None:
-                    raise omr.ErroOMR('Imagem inválida.')
-                chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
-                n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
-                acertos = sum(1 for a, b in zip(corr.respostas, chave) if a == b)
-                nome_prof = getattr(request.user, 'nome', '') or request.user.get_username()
-                jpg = omr.anotar_folha(img, n_mc, prova.n_alternativas, corr.respostas, chave, acertos, corr.nota, nome_prof)
-                for antiga in list(corr.imagens.all()):     # a folha corrigida substitui a leitura anterior
-                    svc.apagar_imagem(antiga)
-                pasta = svc.raiz_imagens(escola)
-                os.makedirs(pasta, exist_ok=True)
-                nome = f'{uuid.uuid4().hex}.jpg'
-                with open(os.path.join(pasta, nome), 'wb') as f:
-                    f.write(jpg)
-                im = CorrecaoImagem.objects.create(
-                    escola=escola, correcao=corr, caminho=f'{svc._pasta_escola(escola)}/{nome}'.replace('\\', '/'),
-                    tipo='image/jpeg', tamanho=len(jpg), ordem=1)
-                from .views_correcao import _imagem_json
-                imagem_json = _imagem_json(im)
+                imagem_json, jpg = gravar_folha_corrigida(
+                    escola, prova, corr, dados, getattr(request.user, 'nome', '') or request.user.get_username())
             except Exception as e:                     # a correcção já está gravada; a imagem é um extra
                 aviso_imagem = f'Não foi possível desenhar a folha corrigida: {e}'
-
         # ---- lançamento automático na caderneta ----
         lancamento = None
         if request.data.get('lancar', True) is not False and corr.estado == 'CORRIGIDA':
@@ -334,6 +365,72 @@ class ConfirmarOmrView(APIView):
                          'aviso_imagem': aviso_imagem, 'lancamento': lancamento, 'folha': folha})
 
 
+def _pasta_temporaria(escola):
+    from django.conf import settings
+    return os.path.join(settings.MEDIA_ROOT, 'tmp_omr', str(escola.id))
+
+
+def _caminho_upload(escola, uid):
+    import uuid
+    try:
+        u = uuid.UUID(str(uid))
+    except (ValueError, TypeError):
+        return None
+    pasta = os.path.realpath(_pasta_temporaria(escola))
+    caminho = os.path.realpath(os.path.join(pasta, f'{u.hex}.bin'))
+    return caminho if caminho.startswith(pasta + os.sep) and os.path.isfile(caminho) else None
+
+
+class LeituraUploadView(APIView):
+    """O ficheiro das folhas envia-se UMA vez (e não em cada pedido de leitura): fica numa pasta temporária da escola
+    até a leitura acabar (ou 6 horas). POST devolve {upload_id, total_paginas}; DELETE apaga-o."""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        import time
+        import uuid
+        escola, prova, erro = _prova(request, pk, escrita=True)
+        if erro:
+            return erro
+        ficheiro = request.FILES.get('ficheiro')
+        if not ficheiro:
+            return _erro('Envie a fotografia ou o PDF digitalizado das folhas.')
+        if ficheiro.size > omr.MAX_BYTES:
+            return _erro('Ficheiro demasiado grande (máximo 60 MB).')
+        dados = ficheiro.read(omr.MAX_BYTES + 1)
+        try:
+            total = omr.contar_paginas(dados)
+        except omr.ErroOMR as e:
+            return _erro(str(e))
+        pasta = _pasta_temporaria(escola)
+        os.makedirs(pasta, exist_ok=True)
+        agora = time.time()
+        for nome in os.listdir(pasta):                       # limpeza dos temporários com mais de 6 h
+            p = os.path.join(pasta, nome)
+            try:
+                if agora - os.path.getmtime(p) > 6 * 3600:
+                    os.remove(p)
+            except OSError:
+                pass
+        uid = uuid.uuid4()
+        with open(os.path.join(pasta, f'{uid.hex}.bin'), 'wb') as f:
+            f.write(dados)
+        return Response({'success': True, 'data': {'upload_id': str(uid), 'total_paginas': total}})
+
+    def delete(self, request, pk, uid):
+        escola, prova, erro = _prova(request, pk, escrita=True)
+        if erro:
+            return erro
+        caminho = _caminho_upload(escola, uid)
+        if caminho:
+            try:
+                os.remove(caminho)
+            except OSError:
+                pass
+        return Response({'success': True})
+
+
 class LeituraOmrView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -345,11 +442,19 @@ class LeituraOmrView(APIView):
         if prova.tipo != 'MULTIPLA_ESCOLHA':
             return _erro('A leitura automática só serve para provas de escolha múltipla com Folha de Resposta.')
         ficheiro = request.FILES.get('ficheiro')
-        if not ficheiro:
-            return _erro('Envie a fotografia ou o PDF digitalizado das folhas.')
-        if ficheiro.size > omr.MAX_BYTES:
-            return _erro('Ficheiro demasiado grande (máximo 60 MB).')
-        dados = ficheiro.read(omr.MAX_BYTES + 1)
+        nome_origem = (ficheiro.name if ficheiro else str(request.data.get('nome') or 'folhas'))[:255]
+        if request.data.get('upload_id'):          # ficheiro já enviado uma vez (ver LeituraUploadView)
+            caminho = _caminho_upload(escola, request.data.get('upload_id'))
+            if not caminho:
+                return _erro('O ficheiro enviado já não está disponível: volte a carregá-lo.', 410)
+            with open(caminho, 'rb') as f:
+                dados = f.read()
+        else:
+            if not ficheiro:
+                return _erro('Envie a fotografia ou o PDF digitalizado das folhas.')
+            if ficheiro.size > omr.MAX_BYTES:
+                return _erro('Ficheiro demasiado grande (máximo 60 MB).')
+            dados = ficheiro.read(omr.MAX_BYTES + 1)
         try:
             ini = max(0, int(request.data.get('pagina_ini') or 0))
         except (TypeError, ValueError):
@@ -361,58 +466,83 @@ class LeituraOmrView(APIView):
         n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
         n_alt = prova.n_alternativas
         versoes = [v for v in (prova.versoes or []) if v]
+        guardar = str(request.data.get('guardar') or '').lower() in ('1', 'true', 'sim')
         paginas = []
         fim = min(total, ini + PAGINAS_POR_PEDIDO)
-        for idx in range(ini, fim):
-            paginas.append(self._pagina(escola, prova, dados, idx, n_mc, n_alt, versoes,
+        # Rápido: abrir as páginas é sequencial (PyMuPDF não é seguro em threads); a leitura (OpenCV, que larga o GIL)
+        # faz-se em paralelo pelas páginas do pedido; depois, sequencialmente, a base de dados e a folha corrigida.
+        from concurrent.futures import ThreadPoolExecutor
+        abertas = [(idx, img, orig, erro) for idx, (img, orig, erro)
+                   in zip(range(ini, fim), omr.abrir_lote(dados, list(range(ini, fim))))]
+        with ThreadPoolExecutor(max_workers=max(1, min(len(abertas) or 1, os.cpu_count() or 2))) as ex:
+            futuros = [ex.submit(_ler_cpu, img, orig, n_mc, n_alt, guardar) if img is not None else None for _i, img, orig, _e in abertas]
+        for (idx, _img, _orig, erro_abrir), fut in zip(abertas, futuros):
+            cpu = fut.result() if fut is not None else {'erro': erro_abrir}
+            paginas.append(self._pagina(escola, prova, cpu, idx, n_mc, n_alt, versoes,
                                         getattr(request.user, 'nome', '') or request.user.get_username(),
-                                        request.user, (ficheiro.name or 'folhas')[:255]))
+                                        request.user, nome_origem, guardar))
         return Response({'success': True, 'data': {
             'total_paginas': total, 'paginas': paginas, 'proxima': fim if fim < total else None,
             'n_perguntas_mc': n_mc, 'n_alternativas': n_alt, 'versoes': versoes}})
 
     @staticmethod
-    def _pagina(escola, prova, dados, idx, n_mc, n_alt, versoes, professor='', utilizador=None, origem=''):
-        """Lê a página e já a corrige: junta `acertos`, `nota` e `corrigida` (folha corrigida a vermelho, JPEG em data-URL).
-
-        A folha corrige-se mesmo sem aluno identificado (precisa só da versão, se a prova tiver várias)."""
+    def _pagina(escola, prova, cpu, idx, n_mc, n_alt, versoes, professor='', utilizador=None, origem='', guardar=False):
+        """Lê a página e já a corrige. Com `guardar` e o aluno identificado, grava logo a correcção e a prova corrigida
+        (sem devolver imagens ao navegador). Sem aluno, guarda a folha como pendente (não se perde)."""
         import base64
-        out = LeituraOmrView._ler(escola, prova, dados, idx, n_mc, n_alt, versoes)
+
+        from . import correcao_servico as svc
+        out = LeituraOmrView._ler(escola, prova, cpu, idx, n_mc, n_alt, versoes)
         if not out.get('ok'):
             return out
-        out.update({'acertos': None, 'nota': None, 'corrigida': None, 'pendente_id': None})
+        alta = out.pop('alta', b'')
+        out.update({'acertos': None, 'nota': None, 'corrigida': None, 'pendente_id': None, 'guardada': False})
+        versao_ok = (not versoes) or bool(out['versao'])
+        if out.get('aluno') and guardar and versao_ok and alta:
+            try:
+                from apps.alunos.models import Aluno as _Aluno
+                aluno = _Aluno.objects.get(id=out['aluno']['id'])
+                corr = svc.gravar_correcao(prova, aluno, None, utilizador, respostas=resolver_respostas(out['respostas'], out['duvidas']),
+                                           versao=out['versao'])
+                gravar_folha_corrigida(escola, prova, corr, alta, professor)
+                chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
+                out.update({'guardada': True, 'nota': corr.nota, 'acertos': sum(1 for a, b in zip(corr.respostas, chave) if a == b),
+                            'imagem': '', 'previa': ''})
+                if out['aluno'].get('estado_actual'):
+                    out['avisos'].append('Este aluno já tinha correcção; foi substituída.')
+                return out
+            except Exception as e:     # não conseguiu guardar: segue o caminho normal (o professor revê)
+                out['avisos'].append(f'Não foi possível guardar automaticamente: {e}')
         try:
-            bruto = base64.b64decode(out['imagem'].split(',', 1)[1])
-            r = anotar_resolvendo_duvidas(prova, bruto, out['respostas'], out['duvidas'], out['versao'], professor)
-            out.update({'acertos': r['acertos'], 'nota': r['nota'],
-                        'corrigida': 'data:image/jpeg;base64,' + base64.b64encode(r['jpg']).decode('ascii')})
+            if guardar:      # o navegador vai buscar a folha ao servidor quando a quiser ver: só se calcula a nota
+                _, _t, nota, _c, limpas = svc.calcular(prova, None, resolver_respostas(out['respostas'], out['duvidas']), out['versao'])
+                chave = prova.gabaritos.get(out['versao'] or '-') or next(iter(prova.gabaritos.values()))
+                out.update({'acertos': sum(1 for a, b in zip(limpas, chave) if a == b), 'nota': nota})
+            else:
+                r = anotar_resolvendo_duvidas(prova, alta, out['respostas'], out['duvidas'], out['versao'], professor)
+                out.update({'acertos': r['acertos'], 'nota': r['nota'],
+                            'corrigida': 'data:image/jpeg;base64,' + base64.b64encode(r['jpg']).decode('ascii')})
         except Exception:
             pass     # sem versão (ou chave) a folha fica só lida; o professor escolhe a versão e corrige
-        if not out.get('aluno'):
+        if not out.get('aluno') and alta:
             # sem aluno identificado: guarda a folha no sistema (para não se perder ao recarregar); o professor
             # atribui o aluno quando quiser, ou elimina-a
             try:
-                out['pendente_id'] = guardar_pendente(escola, prova, utilizador, origem, out)
+                out['pendente_id'] = guardar_pendente(escola, prova, utilizador, origem, out, alta)
+                if guardar:
+                    out['imagem'] = out['previa'] = out['corrigida'] = ''
             except Exception:
                 out['pendente_id'] = None
         return out
 
     @staticmethod
-    def _ler(escola, prova, dados, idx, n_mc, n_alt, versoes):
+    def _ler(escola, prova, cpu, idx, n_mc, n_alt, versoes):
         base = {'pagina': idx + 1, 'ok': False}
-        try:
-            img = omr.abrir_pagina(dados, idx)
-            res = omr.ler_pagina(img, n_mc, n_alt)
-        except omr.ErroOMR as e:
-            return {**base, 'erro': str(e)}
+        if cpu.get('erro'):
+            return {**base, 'erro': cpu['erro']}
+        res = cpu['res']
         avisos = list(res['avisos'])
-        qr = res['qr']
-        if not qr:   # digitalização em PDF: o QR lê-se melhor na imagem original (300 dpi)
-            try:
-                orig = omr.imagem_original_pdf(dados, idx)
-                qr = omr.identificar(omr.ler_qr_original(orig)) if orig is not None else None
-            except Exception:
-                qr = None
+        qr = cpu['qr']
         aluno_json, versao = None, ''
         codigo = res.get('codigo_barras') or ''
         if not qr and codigo:
@@ -426,7 +556,7 @@ class LeituraOmrView(APIView):
                     avisos.append('Escolha a versão da folha deste aluno.')
                 return {**base, 'ok': True, 'aluno': aluno_json, 'versao': '', 'respostas': res['respostas'],
                         'duvidas': res['duvidas'], 'avisos': avisos, 'alinhamento': res['alinhamento'],
-                        'previa': res['previa'], 'imagem': res['pagina']}
+                        'previa': res['previa'], 'imagem': res['pagina'], 'alta': res.get('alta', b'')}
         if not qr:
             avisos.append('O QR da folha não foi lido: escolha o aluno manualmente.')
         elif str(qr.get('e')) != str(escola.id):
@@ -452,4 +582,4 @@ class LeituraOmrView(APIView):
             avisos.append('Escolha a versão da folha deste aluno.')
         return {**base, 'ok': True, 'aluno': aluno_json, 'versao': versao, 'respostas': res['respostas'],
                 'duvidas': res['duvidas'], 'avisos': avisos, 'alinhamento': res['alinhamento'],
-                'previa': res['previa'], 'imagem': res['pagina']}
+                'previa': res['previa'], 'imagem': res['pagina'], 'alta': res.get('alta', b'')}

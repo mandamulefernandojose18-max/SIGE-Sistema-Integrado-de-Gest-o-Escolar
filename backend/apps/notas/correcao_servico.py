@@ -1,4 +1,4 @@
-﻿"""
+"""
 SIGE — Correcção assistida de provas físicas.
 
 O professor digitaliza/fotografa a prova, atribui pontos por pergunta numa grelha de cotações e o sistema

@@ -1,4 +1,4 @@
-﻿"""
+"""
 SIGE — Leitura óptica (OMR) da Folha de Resposta gerada pelo sistema.
 
 A partir de uma fotografia (JPEG/PNG) ou de um PDF digitalizado:
@@ -107,6 +107,61 @@ def _modelo(n, n_alt):
 # ---------------------------------------------------------------------------
 # Carregar páginas (foto ou PDF)
 # ---------------------------------------------------------------------------
+def abrir_lote(dados: bytes, indices):
+    """Abre as páginas `indices` de uma só vez (o PDF abre-se UMA vez, não uma por página).
+
+    Devolve [(img, original, erro)]: `img` é a página a ~200 dpi para ler a grelha; `original` é a imagem digitalizada
+    completa (para o QR) ou None. Em digitalizações (uma imagem por página) usa-se a própria imagem, reduzida —
+    muito mais rápido do que desenhar a página do PDF outra vez."""
+    cv2, np = _cv()
+    if dados[:5] != b'%PDF-':
+        out = []
+        for i in indices:
+            try:
+                out.append((abrir_pagina(dados, i), None, None))
+            except ErroOMR as e:
+                out.append((None, None, str(e)))
+        return out
+    import fitz
+    try:
+        doc = fitz.open(stream=dados, filetype='pdf')
+    except Exception:
+        return [(None, None, 'Não foi possível abrir o PDF.') for _ in indices]
+    out = []
+    try:
+        for i in indices:
+            try:
+                if i < 0 or i >= min(doc.page_count, MAX_PAGINAS_PDF):
+                    raise ErroOMR('Página inexistente no PDF.')
+                pg = doc[i]
+                imgs = pg.get_images(full=True)
+                nat = None
+                if len(imgs) == 1:
+                    try:
+                        x = doc.extract_image(imgs[0][0])
+                        nat = cv2.imdecode(np.frombuffer(x['image'], np.uint8), cv2.IMREAD_COLOR)
+                        if nat is not None and max(nat.shape[:2]) > 5000:
+                            nat = None
+                    except Exception:
+                        nat = None
+                if nat is not None:
+                    k = min(1.0, 1654.0 / nat.shape[1])
+                    img = cv2.resize(nat, None, fx=k, fy=k, interpolation=cv2.INTER_AREA) if k < 1.0 else nat
+                    out.append((img, nat, None))
+                    continue
+                esc = min(200 / 72, 3400 / max(pg.rect.width, pg.rect.height))
+                pix = pg.get_pixmap(matrix=fitz.Matrix(esc, esc), colorspace=fitz.csRGB, alpha=False)
+                arr = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, 3)
+                out.append((cv2.cvtColor(arr, cv2.COLOR_RGB2BGR), None, None))
+            except ErroOMR as e:
+                out.append((None, None, str(e)))
+            except Exception:
+                out.append((None, None, 'Não foi possível ler esta página do PDF.'))
+    finally:
+        doc.close()
+    return out
+
+
 def imagem_original_pdf(dados: bytes, indice: int):
     """PDF digitalizado (uma imagem por página): devolve essa imagem original (ex.: 300 dpi), onde o QR ainda se lê;
     None se a página não for uma digitalização simples."""
@@ -141,7 +196,7 @@ def ler_qr_original(img):
     import time
     cv2, np = _cv()
     h, w = img.shape[:2]
-    limite = time.time() + 8
+    limite = time.time() + 0.8
     for fy, fx in ((0.15, 0.34), (0.19, 0.42), (0.12, 0.28)):
         recorte = img[0:int(h * fy), int(w * (1 - fx)):w]
         g = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
@@ -344,9 +399,24 @@ def _quatro_por_cantos(cv2, np, img):
                     melhor = (d, gx, gy, lado)
             if melhor:
                 break
-        if not melhor:
-            return None
-        res.append((melhor[1], melhor[2], melhor[3]))
+        res.append((melhor[1], melhor[2], melhor[3]) if melhor else None)
+    em_falta = [i for i, p in enumerate(res) if p is None]
+    if len(em_falta) > 1:
+        return None
+    if em_falta:
+        # um canto apagado/coberto: deduz-se dos outros três (paralelogramo: tl + br = tr + bl)
+        k = em_falta[0]
+        tl, tr, br, bl = res
+        if k == 0:
+            xy = (tr[0] + bl[0] - br[0], tr[1] + bl[1] - br[1])
+        elif k == 1:
+            xy = (tl[0] + br[0] - bl[0], tl[1] + br[1] - bl[1])
+        elif k == 2:
+            xy = (tr[0] + bl[0] - tl[0], tr[1] + bl[1] - tl[1])
+        else:
+            xy = (tl[0] + br[0] - tr[0], tl[1] + br[1] - tr[1])
+        vizinho = next(p for p in res if p is not None)
+        res[k] = (xy[0], xy[1], vizinho[2])
     lados = [p[2] for p in res]
     if max(lados) > 1.7 * min(lados):
         return None
@@ -429,14 +499,25 @@ def _cinzas_por_cor(cv2, np, page):
     return valida, so_invalida
 
 
+def _orientar_completo(cv2, np, page, n, n_alt, modelo):
+    """Testa 0° (e só se a grelha não coincidir bem, também 180°). Devolve (page, tinta, rodada, cinza_tinta_invalida).
+
+    Cada passo caro (separar as cores, normalizar a luz) faz-se uma só vez por orientação."""
+    valida, inv = _cinzas_por_cor(cv2, np, page)
+    t0 = _normalizar_ilumina(cv2, np, valida)
+    c0, _ = _correlacao_grelha(cv2, np, t0, modelo, n, n_alt)
+    if c0 >= 0.45:                      # folha na posição certa: não vale a pena testar de cabeça para baixo
+        return page, t0, False, inv
+    rot = cv2.rotate(page, cv2.ROTATE_180)
+    valida1, inv1 = _cinzas_por_cor(cv2, np, rot)
+    t1 = _normalizar_ilumina(cv2, np, valida1)
+    c1, _ = _correlacao_grelha(cv2, np, t1, modelo, n, n_alt)
+    return (page, t0, False, inv) if c0 >= c1 else (rot, t1, True, inv1)
+
+
 def _orientar(cv2, np, page, n, n_alt, modelo):
     """Testa 0° e 180°: fica a orientação cuja grelha coincide melhor com o modelo."""
-    t0 = _normalizar_ilumina(cv2, np, _cinzas_por_cor(cv2, np, page)[0])
-    c0, _ = _correlacao_grelha(cv2, np, t0, modelo, n, n_alt)
-    rot = cv2.rotate(page, cv2.ROTATE_180)
-    t1 = _normalizar_ilumina(cv2, np, _cinzas_por_cor(cv2, np, rot)[0])
-    c1, _ = _correlacao_grelha(cv2, np, t1, modelo, n, n_alt)
-    return (page, t0, False) if c0 >= c1 else (rot, t1, True)
+    return _orientar_completo(cv2, np, page, n, n_alt, modelo)[:3]
 
 
 # ---------------------------------------------------------------------------
@@ -504,7 +585,7 @@ def _ler_qr(cv2, np, page, original, M, rodada):
     detectores = [cv2.QRCodeDetector()]
     if hasattr(cv2, 'QRCodeDetectorAruco'):
         detectores.append(cv2.QRCodeDetectorAruco())
-    fim = time.monotonic() + 6
+    fim = time.monotonic() + 0.7
     candidatos = list(_recortes_qr(cv2, np, original, M, rodada))[::-1]       # 3× primeiro: nas simulações é o mais fiável
     candidatos.append(page[int(4 * PPM):int(40 * PPM), int(110 * PPM):LARGURA_PX])
     for reg in candidatos:
@@ -695,53 +776,115 @@ def _valor_pt(v):
     return f'{float(v):.1f}'.replace('.', ',')
 
 
-def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acertos, nota, nome_professor, largura=None):
-    """Desenha a correcção a vermelho na folha já endireitada e devolve JPEG (bytes).
+def _circulo_a_mao(cv2, np, img, cx, cy, rx, ry, semente, esp):
+    """Círculo de caneta à volta da letra (laçada que não fecha exactamente, como no modelo do professor)."""
+    rng = np.random.RandomState(semente)
+    n = 56
+    t = np.linspace(0, 2 * np.pi * 1.1, n) + rng.uniform(0, 6.28)
+    r = 1.0 + 0.05 * np.sin(t * 2 + rng.uniform(0, 6)) + np.linspace(0.05, -0.06, n)
+    pts = np.stack([cx + rx * r * np.cos(t), cy + ry * r * np.sin(t)], axis=1).astype(np.int32)
+    cv2.polylines(img, [pts], False, VERMELHO, esp, cv2.LINE_AA)
 
+
+def _visto_a_mao(cv2, np, img, x, y, ppm, semente, esp):
+    """Visto de caneta, pequeno traço para baixo e traço longo a subir para a direita (como no modelo)."""
+    rng = np.random.RandomState(semente)
+    dy = rng.uniform(-0.4, 0.4)
+    mm = [(0.0, -0.8 + dy), (0.9, 0.4 + dy), (1.9, 1.7 + dy), (4.4, -0.6 + dy), (7.2, -2.8 + dy), (9.4, -3.9 + dy)]
+    pts = np.array([[x + a * ppm, y + b * ppm] for a, b in mm], np.int32)
+    cv2.polylines(img, [pts], False, VERMELHO, esp, cv2.LINE_AA)
+
+
+def _textos_pil(cv2, np, img, itens, ppm=None):
+    """Escreve vários textos (com acentos) numa só conversão da imagem. itens: (texto, x_mm, y_base_mm, larg_max_mm, altura_mm, estilos)."""
+    from PIL import Image, ImageDraw, ImageFont
+    im = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(im)
+    cor = (VERMELHO[2], VERMELHO[1], VERMELHO[0])
+    ppm = ppm or PPM
+    for texto, x_mm, y_mm, larg_mm, alt_mm, estilos in itens:
+        caminho = _fonte_ttf(estilos)
+        tam = max(8, int(round(alt_mm * ppm)))
+        while True:
+            fonte = ImageFont.truetype(caminho, tam) if caminho else ImageFont.load_default()
+            larg = fonte.getlength(texto) if hasattr(fonte, 'getlength') else len(texto) * tam * 0.5
+            if larg <= larg_mm * ppm or tam <= 10:
+                break
+            tam -= 2
+        d.text((int(x_mm * ppm), int(y_mm * ppm)), texto, font=fonte, fill=cor, anchor='ls')
+    return cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR)
+
+
+def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acertos, nota, nome_professor, largura=None):
+    """Desenha a correcção a vermelho, como no modelo do professor, na folha já endireitada; devolve JPEG (bytes).
+
+    Modelo (docs/modelos/Modelo de correccao da prova.pdf; skill «modelo-correccao-prova»):
+      * resposta certa  → visto fino de caneta à direita da alternativa assinalada;
+      * resposta errada, em branco ou nula → círculo fino à volta da alternativa CERTA (nula: escreve também «Nula»);
+      * «Acertos (n.º)» e «Correcção normal (valores)» escritos a vermelho (nota com uma casa decimal, ex.: 14,0);
+      * «Ass. do Professor» com o NOME do professor (não rubrica).
     respostas: 'AB-C…' (uma por pergunta); chave: letras certas (mesma versão da folha)."""
     cv2, np = _cv()
-    page = cv2.resize(imagem_bgr, (LARGURA_PX, ALTURA_PX), interpolation=cv2.INTER_CUBIC)
+    # Trabalha na resolução da própria imagem (folha endireitada em alta resolução, ~250 dpi): nada é reduzido nem deformado.
+    page = imagem_bgr if imagem_bgr.shape[1] >= 1500 else cv2.resize(imagem_bgr, (LARGURA_PX, ALTURA_PX), interpolation=cv2.INTER_CUBIC)
+    page = page.copy()
+    ppm = page.shape[1] / 210.0
     letras = 'ABCDEF'[:n_alternativas]
     cels, _, _, _ = celulas_grelha(n_perguntas, n_alternativas)
     pos = {(q, i): (cx, cy, lw, lh) for q, i, cx, cy, lw, lh in cels}
-    esp = max(3, int(0.45 * PPM))
+    esp = max(2, int(round(0.24 * ppm)))      # traço fino de caneta (≈ 0,25 mm), como no modelo
+    textos = []
     for q in range(n_perguntas):
         certa = chave[q] if q < len(chave) else ''
         dada = respostas[q] if q < len(respostas) else '-'
         if certa not in letras:
             continue
+        cx, cy, lw, lh = pos[(q, letras.index(certa))]
         if dada == certa:
-            cx, cy, lw, lh = pos[(q, letras.index(certa))]
-            x = (cx + lw / 2 + 1.0) * PPM
-            y = cy * PPM
-            pts = np.array([[x, y + 0.2 * PPM], [x + 1.4 * PPM, y + 2.0 * PPM], [x + 5.2 * PPM, y - 2.6 * PPM]], np.int32)
-            cv2.polylines(page, [pts], False, VERMELHO, esp, cv2.LINE_AA)
+            _visto_a_mao(cv2, np, page, (cx + lw / 2 + 0.6) * ppm, cy * ppm, ppm, q + 1, esp)
         else:
-            cx, cy, lw, lh = pos[(q, letras.index(certa))]
-            if dada == 'N':   # mais de uma alternativa assinalada
-                ux, uy, ulw, _ulh = pos[(q, n_alternativas - 1)]
-                page = _texto_pil(cv2, np, page, 'Nula', ux + ulw / 2 + 1.5, uy + 1.3, 12, 3.4,
-                                  ['timesbd.ttf', 'LiberationSerif-Bold.ttf', 'DejaVuSerif-Bold.ttf'])
-            cv2.ellipse(page, (int(cx * PPM), int(cy * PPM)), (int((lw / 2 + 1.6) * PPM), int((lh / 2 + 1.5) * PPM)),
-                        0, 0, 360, VERMELHO, esp, cv2.LINE_AA)
+            _circulo_a_mao(cv2, np, page, cx * ppm, cy * ppm, 3.9 * ppm, 3.5 * ppm, q + 1, esp)
+            if dada == 'N':      # mais de uma alternativa assinalada: «Questão nula» por cima da pergunta
+                ax, ay, alw, alh = pos[(q, 0)]
+                textos.append(('Questão nula', ax - alw / 2, ay - alh / 2 - 1.1, 30, 2.9,
+                               ['timesbi.ttf', 'LiberationSerif-BoldItalic.ttf', 'DejaVuSerif-BoldItalic.ttf',
+                                'timesi.ttf', 'LiberationSerif-Italic.ttf', 'DejaVuSerif-Italic.ttf']))
     from apps.documentos.services import folha_resposta_service as fr
     xii, yiii = fr.MARGEM + 109, 88.5
-    estilo_b = ['timesbd.ttf', 'LiberationSerif-Bold.ttf', 'DejaVuSerif-Bold.ttf']
     estilo_i = ['timesi.ttf', 'LiberationSerif-Italic.ttf', 'DejaVuSerif-Italic.ttf']
-    page = _texto_pil(cv2, np, page, str(int(acertos)), xii + 9, yiii + 12.9, 22, 4.6, estilo_b)
-    page = _texto_pil(cv2, np, page, _valor_pt(nota), xii + 9, yiii + 20.5, 22, 4.6, estilo_b)
-    if nome_professor:   # assinatura por extenso (nome), não rubrica
-        page = _texto_pil(cv2, np, page, str(nome_professor)[:60], xii + 3.5, yiii + 28.1, 33, 4.0, estilo_i)
+    textos.append((str(int(acertos)), xii + 9, yiii + 12.6, 22, 6.2, estilo_i))
+    textos.append((_valor_pt(nota), xii + 9, yiii + 20.3, 22, 7.4, estilo_i))
+    if nome_professor:           # assinatura por extenso (nome), não rubrica
+        textos.append((str(nome_professor)[:60], xii + 3.5, yiii + 27.2, 33, 4.2, estilo_i))
+    page = _textos_pil(cv2, np, page, textos, ppm)
     if largura and largura < page.shape[1]:
         page = cv2.resize(page, (largura, int(page.shape[0] * largura / page.shape[1])), interpolation=cv2.INTER_AREA)
-    ok, buf = cv2.imencode('.jpg', page, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
+    ok, buf = cv2.imencode('.jpg', page, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
     return buf.tobytes()
-
 
 # ---------------------------------------------------------------------------
 # API do módulo
 # ---------------------------------------------------------------------------
-def ler_pagina(img, n_perguntas, n_alternativas):
+def pagina_limpa_alta(fonte, M, rodada, k, ppm=10.0, qualidade=90, desloc=(0.0, 0.0)):
+    """A folha ENDIREITADA em alta resolução (≈ 250 dpi) a partir da imagem ORIGINAL (sem passar pela versão reduzida),
+    sem tocar na marcação do aluno: é a base limpa da prova corrigida (que pode ser impressa e entregue ao aluno).
+
+    `M` leva a imagem reduzida de leitura ao espaço da página (PPM px/mm); `k` = largura reduzida / largura da fonte."""
+    cv2, np = _cv()
+    Mn = M.astype(np.float64) @ np.diag([k, k, 1.0])
+    if rodada:
+        Mn = np.array([[-1, 0, LARGURA_PX], [0, -1, ALTURA_PX], [0, 0, 1]], np.float64) @ Mn
+    # `desloc` = desvio médio (px do espaço da página) medido entre a grelha impressa e o modelo: corrige-se aqui para que
+    # os vistos e círculos caiam exactamente sobre as alternativas (marcas de canto cortadas deslocam a folha ~1 mm)
+    Mn = np.array([[1, 0, -float(desloc[0])], [0, 1, -float(desloc[1])], [0, 0, 1]], np.float64) @ Mn
+    H = np.diag([ppm / PPM, ppm / PPM, 1.0]) @ Mn
+    page = cv2.warpPerspective(fonte, H, (int(round(210 * ppm)), int(round(297 * ppm))),
+                               flags=cv2.INTER_CUBIC, borderValue=(255, 255, 255))
+    ok, buf = cv2.imencode('.jpg', page, [int(cv2.IMWRITE_JPEG_QUALITY), qualidade])
+    return buf.tobytes()
+
+
+def ler_pagina(img, n_perguntas, n_alternativas, procurar_qr=True, fonte=None, com_imagens=True):
     """Lê uma página já carregada. Devolve dict com respostas ('ABC-*'), dúvidas, avisos, QR e imagens."""
     cv2, np = _cv()
     if not (2 <= n_alternativas <= 6) or not (1 <= n_perguntas <= 100):
@@ -750,9 +893,10 @@ def ler_pagina(img, n_perguntas, n_alternativas):
     nitidez = float(cv2.Laplacian(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var())
     page, M = endireitar(img)
     modelo = _modelo(n_perguntas, n_alternativas)
-    page, tinta, rodada = _orientar(cv2, np, page, n_perguntas, n_alternativas, modelo)
+    page, tinta, rodada, cinza_inv = _orientar_completo(cv2, np, page, n_perguntas, n_alternativas, modelo)
     corr, desl = _correlacao_grelha(cv2, np, tinta, modelo, n_perguntas, n_alternativas)
-    qr = identificar(_ler_qr(cv2, np, page, img, M, rodada))
+    # (em PDF digitalizado o QR lê-se na imagem original, fora daqui: evita procurá-lo duas vezes)
+    qr = identificar(_ler_qr(cv2, np, page, img, M, rodada)) if procurar_qr else None
     n_qr = int((qr or {}).get('n') or 0)
     # O QR da folha diz quantas perguntas tem: é o critério seguro. Sem QR, a grelha tem de coincidir bem com o modelo
     # (digitalizações reais certas dão 0.5–0.6: a tinta do aluno baixa a correlação; simulações de outra prova ≤ 0.47).
@@ -766,13 +910,14 @@ def ler_pagina(img, n_perguntas, n_alternativas):
     avisos = []
     # Tinta que não é azul nem preta não conta como resposta: se numa pergunta sem marca válida houver tinta de
     # outra cor na alternativa, avisa o professor (não é lida como resposta).
-    tinta_inv = _normalizar_ilumina(cv2, np, _cinzas_por_cor(cv2, np, page)[1])
-    sc_inv = _pontuar(tinta_inv, modelo, n_perguntas, n_alternativas, deslocamentos)
-    for q, linha in enumerate(sc_inv):
-        if respostas[q] == '-' and max(linha) >= 0.25:
-            duvidas.append({'n': q + 1, 'motivo': 'COR', 'candidatas': [letras[linha.index(max(linha))]]})
-            if 'Tinta que não é azul nem preta' not in ' '.join(avisos):
-                avisos.append('Tinta que não é azul nem preta não conta como resposta (perguntas assinaladas na revisão).')
+    if int(np.count_nonzero(cinza_inv < 200)) > 400:       # só se houver tinta de outra cor na folha (senão, poupa-se o passo)
+        tinta_inv = _normalizar_ilumina(cv2, np, cinza_inv)
+        sc_inv = _pontuar(tinta_inv, modelo, n_perguntas, n_alternativas, deslocamentos)
+        for q, linha in enumerate(sc_inv):
+            if respostas[q] == '-' and max(linha) >= 0.25:
+                duvidas.append({'n': q + 1, 'motivo': 'COR', 'candidatas': [letras[linha.index(max(linha))]]})
+                if 'Tinta que não é azul nem preta' not in ' '.join(avisos):
+                    avisos.append('Tinta que não é azul nem preta não conta como resposta (perguntas assinaladas na revisão).')
     if nitidez < LAPLACE_MIN:
         avisos.append('Fotografia desfocada: confirme as respostas com atenção ou volte a fotografar.')
     if corr < 0.45:
@@ -786,6 +931,11 @@ def ler_pagina(img, n_perguntas, n_alternativas):
         'codigo_barras': codigo,
         'alinhamento': round(corr, 3),
         'nitidez': round(nitidez, 1),
-        'pagina': _jpeg_b64(cv2, page, 1240, 74),
-        'previa': _jpeg_b64(cv2, _sobrepor(cv2, page, n_perguntas, n_alternativas, respostas, duvidas, letras), 900, 70),
+        # (miniaturas só quando o navegador as vai usar; com guardar=1 o servidor guarda tudo e não as devolve)
+        'pagina': _jpeg_b64(cv2, page, 1240, 74) if com_imagens else '',
+        'previa': _jpeg_b64(cv2, _sobrepor(cv2, page, n_perguntas, n_alternativas, respostas, duvidas, letras), 900, 70) if com_imagens else '',
+        # base limpa em alta resolução (a partir da imagem ORIGINAL), para a prova corrigida que se imprime
+        'alta': pagina_limpa_alta(fonte if fonte is not None else img, M, rodada,
+                                  img.shape[1] / float(fonte.shape[1]) if fonte is not None else 1.0,
+                                  desloc=(sum(d[0] for d in desl) / len(desl), sum(d[1] for d in desl) / len(desl)) if desl else (0.0, 0.0)),
     }
