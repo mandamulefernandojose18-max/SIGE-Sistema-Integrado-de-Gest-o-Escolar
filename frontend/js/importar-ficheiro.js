@@ -278,8 +278,9 @@
   async function abrirFormularioDaPagina(vista) {
     var ver = vista && vista.classList && vista.classList.contains('modal') ? null : vista;
     if (!ver) return null;
-    var RE_SIM = /(^|\s)(\+\s*)?(novo|nova|novos|adicionar|matricular|inscrever|cadastrar|registar|criar|lan[cç]ar|atribuir)\b/i;
-    var RE_ONC = /modal(novo|nova)|novo|nova|adicionar|criar|matricular|cadastrar|registar|abrirmodal/i;
+    // Só botões inequívocos de "novo registo". Nunca gerar/lançar/atribuir/bloquear/aprovar, etc.
+    var RE_SIM = /(^|\s)(\+\s*)?(novo|nova|adicionar|matricular|cadastrar)\b/i;
+    var RE_ONC = /^\s*modal(novo|nova|adicionar)\w*\(/i;
     var RE_NAO = /eliminar|apagar|excluir|remover|exportar|descarregar|imprimir|pdf|excel|word|docx|filtr|pesquis|importar/i;
     var cand = Array.prototype.filter.call(ver.querySelectorAll('button, a.btn'), function (b) {
       if (!visivel(b) || b.disabled || b.closest('tr, .sige-imp-barra, #sige-imp-painel, .modal')) return false;
@@ -428,7 +429,12 @@
       est.textContent = f.length ? 'Preenchido. Valores sem correspondência: ' + f.join('; ') : 'Campos preenchidos. Reveja e guarde.';
       aviso('Campos preenchidos a partir do ficheiro.', 'success');
     };
-    btnTodas.onclick = function () { registarTodas(ui); };
+    btnTodas.onclick = function () {
+      if (!estado.dados) return;
+      var n = estado.dados.linhas.length;
+      if (!window.confirm('Vai registar ' + n + ' linha(s) do ficheiro, uma a uma, neste formulário. Continuar?')) return;
+      registarTodas(ui);
+    };
 
     document.body.appendChild(fundo);
     painelEl = fundo;
@@ -457,7 +463,12 @@
       if (!m._sigeAbridor && ultimoAbridor) m._sigeAbridor = ultimoAbridor;
       var cab = m.querySelector('.modal-header');
       if (!cab || cab.querySelector('.sige-imp-btn')) return;
-      if (!camposDe(m).length) return;
+      // Só em formulários de registo (com texto livre/data); não em assistentes, geradores ou confirmações.
+      var registo = camposDe(m).filter(function (f) {
+        var t = (f.campo.type || '').toLowerCase();
+        return f.campo.tagName === 'TEXTAREA' || ['text', 'email', 'tel', 'date'].indexOf(t) >= 0;
+      });
+      if (!registo.length) return;
       var b = botao(true);
       b.onclick = function () { abrir(m); };
       var fechaBtn = cab.querySelector('.btn-close,[data-bs-dismiss="modal"]');
@@ -474,11 +485,13 @@
   var agendado = false;
   function agendar() {
     if (agendado) return; agendado = true;
-    setTimeout(function () { agendado = false; try { garantirPontosEntrada(); } catch (_) {} }, 200);
+    setTimeout(function () { agendado = false; try { garantirPontosEntrada(); } catch (_) {} }, 600);
   }
   function iniciar() {
-    var obs = new MutationObserver(agendar);
-    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    // Leve: só reage a novos blocos no #conteudo-modulo e à abertura de janelas (nunca a mudanças de classe).
+    var raiz = document.getElementById('conteudo-modulo') || document.querySelector('main.content-area');
+    if (raiz) new MutationObserver(agendar).observe(raiz, { childList: true });
+    document.addEventListener('shown.bs.modal', agendar);
     agendar();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();

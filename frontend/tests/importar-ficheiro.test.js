@@ -9,7 +9,7 @@ const codigo = fs.readFileSync(path.join(__dirname, '..', 'js', 'importar-fichei
 const janela = {};
 const contexto = {
   window: janela,
-  document: { readyState: 'complete', addEventListener() {}, body: { appendChild() {} }, querySelectorAll: () => [] },
+  document: { readyState: 'complete', addEventListener() {}, body: { appendChild() {} }, querySelectorAll: () => [], getElementById: () => null, querySelector: () => null },
   MutationObserver: class { observe() {} },
   setTimeout, Set, Event: class {},
   HTMLInputElement: { prototype: {} }, HTMLTextAreaElement: { prototype: {} },
