@@ -252,23 +252,26 @@ class GabaritosGuardadosView(APIView):
         return Response({'success': True, 'message': 'Gabarito eliminado.'})
 
 
-def gravar_folha_corrigida(escola, prova, corr, jpeg_limpo, nome_professor):
+def gravar_folha_corrigida(escola, prova, corr, jpeg_limpo, nome_professor, jpg_pronto=None):
     """Desenha a folha corrigida (modelo do professor) a partir da imagem limpa e ALTA resolução (JPEG), guarda-a como
     imagem da correcção (substitui a anterior) e devolve (imagem_json, jpg). A folha sai nítida e direita (pode imprimir-se
-    e devolver-se ao aluno)."""
+    e devolver-se ao aluno). `jpg_pronto`: folha já desenhada por um processo do lote (poupa o desenho aqui)."""
     import uuid
 
     from . import correcao_servico as svc
     from .models import CorrecaoImagem
     from .views_correcao import _imagem_json
-    cv2, np = omr._cv()
-    img = cv2.imdecode(np.frombuffer(jpeg_limpo, np.uint8), cv2.IMREAD_COLOR)
-    if img is None:
-        raise omr.ErroOMR('Imagem inválida.')
-    chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
-    n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
-    acertos = sum(1 for a, b in zip(corr.respostas, chave) if a == b)
-    jpg = omr.anotar_folha(img, n_mc, prova.n_alternativas, corr.respostas, chave, acertos, corr.nota, nome_professor)
+    if jpg_pronto:
+        jpg = jpg_pronto
+    else:
+        cv2, np = omr._cv()
+        img = cv2.imdecode(np.frombuffer(jpeg_limpo, np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            raise omr.ErroOMR('Imagem inválida.')
+        chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
+        n_mc = sum(1 for p in prova.perguntas if p.get('tipo') == 'MC')
+        acertos = sum(1 for a, b in zip(corr.respostas, chave) if a == b)
+        jpg = omr.anotar_folha(img, n_mc, prova.n_alternativas, corr.respostas, chave, acertos, corr.nota, nome_professor)
     for antiga in list(corr.imagens.all()):          # a folha corrigida substitui a leitura anterior
         svc.apagar_imagem(antiga)
     pasta = svc.raiz_imagens(escola)
@@ -421,9 +424,11 @@ class LeituraUploadView(APIView):
     def post(self, request, pk):
         import time
         import uuid
+        from . import lote_servico
         escola, prova, erro = _prova(request, pk, escrita=True)
         if erro:
             return erro
+        lote_servico.aquecer()            # os processos de correcção arrancam já (não esperam pelo fim do envio)
         ficheiro = request.FILES.get('ficheiro')
         if not ficheiro:
             return _erro('Envie a fotografia ou o PDF digitalizado das folhas.')
@@ -460,6 +465,45 @@ class LeituraUploadView(APIView):
             except OSError:
                 pass
         return Response({'success': True})
+
+
+class CorrigirLoteView(APIView):
+    """Correcção automática em LOTE (≤ 60 s para qualquer nº de folhas): processa todas as páginas do ficheiro enviado
+    em paralelo, num só trabalho no servidor.
+
+      POST /api/v1/notas/provas-fisicas/<id>/corrigir-lote/            {upload_id, nome} → {job_id, total_paginas}
+      GET  /api/v1/notas/provas-fisicas/<id>/corrigir-lote/<job_id>/   estado e progresso (feitas/total, segundos)
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        from . import lote_servico
+        escola, prova, erro = _prova(request, pk, escrita=True)
+        if erro:
+            return erro
+        if prova.tipo != 'MULTIPLA_ESCOLHA':
+            return _erro('A correcção automática só serve para provas de escolha múltipla com Folha de Resposta.')
+        caminho = _caminho_upload(escola, request.data.get('upload_id'))
+        if not caminho:
+            return _erro('O ficheiro enviado já não está disponível: volte a carregá-lo.', 410)
+        try:
+            job_id, total = lote_servico.iniciar(
+                escola, prova, request.user, caminho, str(request.data.get('nome') or 'folhas')[:255],
+                getattr(request.user, 'nome', '') or request.user.get_username())
+        except omr.ErroOMR as e:
+            return _erro(str(e))
+        return Response({'success': True, 'data': {'job_id': job_id, 'total_paginas': total}}, status=202)
+
+    def get(self, request, pk, job_id):
+        from . import lote_servico
+        escola, prova, erro = _prova(request, pk)
+        if erro:
+            return erro
+        estado = lote_servico.ler_estado(escola, job_id)
+        if not estado:
+            return _erro('Trabalho não encontrado.', 404)
+        return Response({'success': True, 'data': estado})
 
 
 class LeituraOmrView(APIView):
@@ -517,7 +561,7 @@ class LeituraOmrView(APIView):
             'n_perguntas_mc': n_mc, 'n_alternativas': n_alt, 'versoes': versoes}})
 
     @staticmethod
-    def _pagina(escola, prova, cpu, idx, n_mc, n_alt, versoes, professor='', utilizador=None, origem='', guardar=False):
+    def _pagina(escola, prova, cpu, idx, n_mc, n_alt, versoes, professor='', utilizador=None, origem='', guardar=False, pre=None):
         """Lê a página e já a corrige. Com `guardar` e o aluno identificado, grava logo a correcção e a prova corrigida
         (sem devolver imagens ao navegador). Sem aluno, guarda a folha como pendente (não se perde)."""
         import base64
@@ -535,7 +579,8 @@ class LeituraOmrView(APIView):
                 aluno = _Aluno.objects.get(id=out['aluno']['id'])
                 corr = svc.gravar_correcao(prova, aluno, None, utilizador, respostas=resolver_respostas(out['respostas'], out['duvidas']),
                                            versao=out['versao'])
-                gravar_folha_corrigida(escola, prova, corr, alta, professor)
+                gravar_folha_corrigida(escola, prova, corr, alta, professor,
+                                       jpg_pronto=(pre or {}).get('jpg') if (pre or {}).get('versao', out['versao']) == out['versao'] else None)
                 chave = prova.gabaritos.get(corr.versao or '-') or next(iter(prova.gabaritos.values()))
                 out.update({'guardada': True, 'nota': corr.nota, 'acertos': sum(1 for a, b in zip(corr.respostas, chave) if a == b),
                             'imagem': '', 'previa': ''})

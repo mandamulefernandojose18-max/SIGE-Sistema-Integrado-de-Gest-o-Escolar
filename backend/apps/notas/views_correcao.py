@@ -334,7 +334,7 @@ class FolhasCorrigidasPdfView(APIView):
         from urllib.parse import quote
         ascii_ = re.sub(r'[^A-Za-z0-9._ -]+', '', nome.encode('ascii', 'ignore').decode()) or 'Avaliacao corrigida'
         resp = HttpResponse(dados, content_type='application/pdf')
-        resp['Content-Disposition'] = f'attachment; filename="{ascii_}.pdf"; filename*=UTF-8\'\'{quote(nome)}.pdf\''
+        resp['Content-Disposition'] = f'attachment; filename="{ascii_}.pdf"; filename*=UTF-8\'\'{quote(nome)}.pdf'
         resp['Cache-Control'] = 'private, no-store'
         resp['X-Content-Type-Options'] = 'nosniff'
         return resp

@@ -196,11 +196,22 @@ def ler_qr_original(img):
     import time
     cv2, np = _cv()
     h, w = img.shape[:2]
-    limite = time.time() + 1.0
-    for fy, fx in ((0.15, 0.34), (0.19, 0.42), (0.12, 0.28)):
+    limite = time.time() + 0.6          # orçamento curto: uma folha sem QR legível não pode atrasar o lote
+    # passagem rápida (≈ 0,2 s): o detector Aruco a 1,5× lê quase todos os QR bons logo à primeira
+    g0 = cv2.cvtColor(img[0:int(h * 0.15), int(w * 0.66):w], cv2.COLOR_BGR2GRAY)
+    det_a = getattr(cv2, 'QRCodeDetectorAruco', None)
+    if det_a is not None:
+        for k in (1.5, 2):
+            try:
+                t, _, _ = det_a().detectAndDecode(cv2.resize(g0, None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC))
+            except Exception:
+                continue
+            if t and 'verificar' in t:
+                return t
+    for fy, fx in ((0.19, 0.42),):
         recorte = img[0:int(h * fy), int(w * (1 - fx)):w]
         g = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
-        for k in (3, 2, 4):
+        for k in (2, 3):
             big = cv2.resize(g, None, fx=k, fy=k, interpolation=cv2.INTER_CUBIC)
             suave = cv2.GaussianBlur(big, (0, 0), 1.5)
             variantes = [
@@ -777,23 +788,42 @@ def _valor_pt(v):
 
 
 def _circulo_a_mao(cv2, np, img, cx, cy, rx, ry, semente, esp):
-    """Círculo de caneta à volta da letra (laçada que não fecha exactamente, como no modelo do professor)."""
-    rng = np.random.RandomState(semente)
-    n = 56
-    t = np.linspace(0, 2 * np.pi * 1.1, n) + rng.uniform(0, 6.28)
-    r = 1.0 + 0.05 * np.sin(t * 2 + rng.uniform(0, 6)) + np.linspace(0.05, -0.06, n)
-    pts = np.stack([cx + rx * r * np.cos(t), cy + ry * r * np.sin(t)], axis=1).astype(np.int32)
-    cv2.polylines(img, [pts], False, VERMELHO, esp, cv2.LINE_AA)
+    """Círculo CLÁSSICO e nítido (elipse perfeita, traço firme e contínuo) à volta da alternativa certa: vê-se logo que
+    foi o sistema que corrigiu."""
+    esp = max(3, int(round(esp * 1.6)))
+    cv2.ellipse(img, (int(round(cx * 16)), int(round(cy * 16))), (int(round(rx * 16)), int(round(ry * 16))),
+                0, 0, 360, VERMELHO, esp, cv2.LINE_AA, 4)
+
+def _afinar_centro(cv2, np, cinza, cx, cy, lw, lh, ppm, folga_mm=1.8, minimo=0.30):
+    """Corrige o centro (mm) da alternativa para o quadrinho realmente impresso nesta folha: procura, numa janela de
+    ±1,8 mm, o contorno oco do quadrinho (correlação normalizada; a tinta do aluno dentro do quadrinho não atrapalha).
+    Se a certeza for baixa mantém a posição do modelo."""
+    try:
+        w, h = max(6, int(round(lw * ppm))), max(4, int(round(lh * ppm)))
+        esp = max(2, int(round(0.35 * ppm)))
+        tpl = np.zeros((h, w), np.float32)
+        cv2.rectangle(tpl, (0, 0), (w - 1, h - 1), 1.0, esp)
+        pad = int(round(folga_mm * ppm))
+        x0, y0 = int(round(cx * ppm - w / 2)) - pad, int(round(cy * ppm - h / 2)) - pad
+        x1, y1 = x0 + w + 2 * pad, y0 + h + 2 * pad
+        if x0 < 0 or y0 < 0 or y1 > cinza.shape[0] or x1 > cinza.shape[1]:
+            return cx, cy
+        escuro = (cinza[y0:y1, x0:x1] < 150).astype(np.float32)
+        res = cv2.matchTemplate(escuro, tpl, cv2.TM_CCORR_NORMED)
+        _mn, mx, _l, loc = cv2.minMaxLoc(res)
+        if mx < minimo:
+            return cx, cy
+        return (x0 + loc[0] + w / 2) / ppm, (y0 + loc[1] + h / 2) / ppm
+    except Exception:
+        return cx, cy
 
 
 def _visto_a_mao(cv2, np, img, x, y, ppm, semente, esp):
-    """Visto de caneta, pequeno traço para baixo e traço longo a subir para a direita (como no modelo)."""
-    rng = np.random.RandomState(semente)
-    dy = rng.uniform(-0.4, 0.4)
-    mm = [(0.0, -0.8 + dy), (0.9, 0.4 + dy), (1.9, 1.7 + dy), (4.4, -0.6 + dy), (7.2, -2.8 + dy), (9.4, -3.9 + dy)]
-    pts = np.array([[x + a * ppm, y + b * ppm] for a, b in mm], np.int32)
-    cv2.polylines(img, [pts], False, VERMELHO, esp, cv2.LINE_AA)
-
+    """Certo CLÁSSICO (✓): traço curto para baixo e traço longo a subir à direita, firme e bem visível."""
+    esp = max(3, int(round(esp * 1.7)))
+    mm = [(0.0, -0.2), (1.6, 1.6), (6.4, -3.6)]
+    pts = np.array([[(x + a * ppm) * 16, (y + b * ppm) * 16] for a, b in mm], np.int32)
+    cv2.polylines(img, [pts], False, VERMELHO, esp, cv2.LINE_AA, 4)
 
 def _textos_pil(cv2, np, img, itens, ppm=None):
     """Escreve vários textos (com acentos) numa só conversão da imagem. itens: (texto, x_mm, y_base_mm, larg_max_mm, altura_mm, estilos)."""
@@ -832,6 +862,7 @@ def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acer
     letras = 'ABCDEF'[:n_alternativas]
     cels, _, _, _ = celulas_grelha(n_perguntas, n_alternativas)
     pos = {(q, i): (cx, cy, lw, lh) for q, i, cx, cy, lw, lh in cels}
+    cinza = cv2.cvtColor(page, cv2.COLOR_BGR2GRAY)
     esp = max(2, int(round(0.24 * ppm)))      # traço fino de caneta (≈ 0,25 mm), como no modelo
     textos = []
     for q in range(n_perguntas):
@@ -840,6 +871,7 @@ def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acer
         if certa not in letras:
             continue
         cx, cy, lw, lh = pos[(q, letras.index(certa))]
+        cx, cy = _afinar_centro(cv2, np, cinza, cx, cy, lw, lh, ppm)      # encaixa no quadrinho IMPRESSO desta folha
         if dada == certa:
             _visto_a_mao(cv2, np, page, (cx + lw / 2 + 0.6) * ppm, cy * ppm, ppm, q + 1, esp)
         else:
@@ -879,7 +911,7 @@ def pagina_limpa_alta(fonte, M, rodada, k, ppm=10.0, qualidade=90, desloc=(0.0, 
     Mn = np.array([[1, 0, -float(desloc[0])], [0, 1, -float(desloc[1])], [0, 0, 1]], np.float64) @ Mn
     H = np.diag([ppm / PPM, ppm / PPM, 1.0]) @ Mn
     page = cv2.warpPerspective(fonte, H, (int(round(210 * ppm)), int(round(297 * ppm))),
-                               flags=cv2.INTER_CUBIC, borderValue=(255, 255, 255))
+                               flags=cv2.INTER_LINEAR, borderValue=(255, 255, 255))   # linear: ~2× mais rápido, igual a 250 dpi
     ok, buf = cv2.imencode('.jpg', page, [int(cv2.IMWRITE_JPEG_QUALITY), qualidade])
     return buf.tobytes()
 

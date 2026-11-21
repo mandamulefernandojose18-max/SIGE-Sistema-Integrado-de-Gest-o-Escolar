@@ -1898,3 +1898,8 @@ Alternativa ao preenchimento manual, disponível em **todas as páginas e sub-me
 - **Registar todas:** preenche e carrega no botão de guardar do próprio formulário, linha a linha; por isso aplicam-se as mesmas validações, RBAC e isolamento por escola da API. No fim indica as linhas com problema.
 - **Descarregar modelo:** Excel só com os títulos das colunas do formulário aberto (sem dados fictícios).
 - O ficheiro é lido no navegador; nada é enviado antes de guardar. Testes: `frontend/tests/importar-ficheiro.test.js`.
+
+### Correcção automática em lote (v2.9.102)
+
+Novo endpoint `POST /api/v1/notas/provas-fisicas/<id>/corrigir-lote/` (`{upload_id, nome}` → `job_id`) e `GET .../corrigir-lote/<job_id>/` (progresso: feitas/total/segundos). O servidor lê, corrige e desenha todas as folhas em paralelo (processos); ao terminar o navegador lança as notas nas cadernetas e descarrega o PDF das provas corrigidas. Marcas clássicas: círculo (elipse) à volta da alternativa certa e visto ✓ à direita da resposta certa, ajustados ao quadrinho impresso.
+

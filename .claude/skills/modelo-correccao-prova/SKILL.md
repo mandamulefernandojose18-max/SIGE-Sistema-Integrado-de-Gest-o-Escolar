@@ -26,9 +26,9 @@ Ampliar a grelha (dpi 200, recorte) e o quadro «IV Classificação» para compa
 
 ## Regras do modelo (todas obrigatórias)
 
-1. **Traço fino de caneta vermelha** (≈ 0,25 mm; 2 px a 8 px/mm). Nunca traços grossos, elipses grandes nem cores berrantes.
-2. **Resposta certa** → um **visto pequeno** à **direita** da alternativa assinalada pelo aluno: pequeno traço para baixo e
-   traço longo a subir para a direita (~9 mm).
+1. **Marcas CLÁSSICAS e nítidas a vermelho** (decisão do professor, 21/11/2026): **círculo** = elipse perfeita e fechada; **certo** = visto ✓ clássico; traço firme mas fino (≈ 0,4 mm), para se ver logo que foi o sistema que corrigiu. Nada de traços tremidos, grossos nem cores berrantes. Os centros ajustam-se ao quadrinho impresso (_afinar_centro).
+2. **Resposta certa** → um **visto pequeno** à **direita** da alternativa assinalada pelo aluno: traço curto para baixo e
+   traço longo a subir para a direita (~7 mm).
 3. **Resposta errada, em branco ou nula** → um **círculo fino à volta da letra da alternativa CERTA** (≈ 7 mm de diâmetro,
    laçada que não fecha exactamente). Não se desenha nada na alternativa errada do aluno.
 4. **«Questão nula»** (vale 0), **automaticamente e sem pedir revisão**, quando o aluno assinalou **mais de uma alternativa**
@@ -59,13 +59,22 @@ A prova corrigida pode ser **impressa e devolvida ao aluno como comprovativo**. 
 - Antes de entregar: abrir a folha corrigida **ampliada** (recorte a 100 %) e confirmar que os vistos, círculos e texto
   estão nítidos e que a folha do aluno por baixo está intacta.
 
-## Rapidez (obrigatória)
+## Rapidez (obrigatória): lote ≤ 60 segundos, qualquer que seja o nº «n» de folhas
 
-A correcção tem de levar **poucos segundos**. Orçamento: ≈ 1–2 s por folha numa máquina de 4 núcleos, páginas lidas
-**em paralelo** (4 por pedido), QR com limite de tempo curto (≤ 1,5 s por folha), guardar as folhas em paralelo no
-navegador. Não acrescentar passos caros por folha (várias normalizações, várias rotações, pesquisas de QR sem limite).
-Antes de entregar, **medir** com a folha digitalizada de teste e registar o tempo médio por folha.
+A correcção em lote **nunca** pode levar mais de **1 minuto** e **nunca** pode parecer manual. Arquitectura obrigatória
+(`backend/apps/notas/lote_servico.py`, `POST /provas-fisicas/<id>/corrigir-lote/` + `GET .../<job_id>/`):
 
+1. O ficheiro envia-se **uma só vez**; o servidor trata **todas** as páginas num só trabalho (nada de vaivém página a página).
+2. Leitura + QR + desenho da folha corrigida em **processos paralelos** (`ProcessPoolExecutor`, um por núcleo,
+   `cv2.setNumThreads(1)`), com o pool **aquecido** durante o envio (`aquecer()`); o processo principal só grava BD/disco.
+3. QR com orçamento ≤ 0,6 s por folha (detector Aruco 1,5×/2× primeiro); sem passos caros por folha.
+4. Terminado o trabalho o navegador faz, **sem cliques**: lançar nas cadernetas (`/lancar/`) → descarregar o **PDF das
+   provas corrigidas** (`/folhas-corrigidas/`); a lista de notas (PDF/Excel) fica nos botões.
+5. A UI mostra `feitas/total` e os segundos decorridos; o estado do trabalho guarda `segundos` e `dentro_orcamento`.
+6. **Medir antes de entregar** com a folha de teste (16 folhas) e registar s/folha e folhas/minuto; se
+   (n × s/folha ÷ núcleos) > 60 s, optimizar o custo por folha (não esconder com mensagens).
+   Medido a 21/11/2026 (4 núcleos, Windows, arranque a frio): 16 folhas ≈ 40 s com ≈ 18 s de arranque dos processos;
+   em regime ≈ 1,2 s/folha (≈ 50 folhas/min). Meta contínua: ≤ 1 s/folha.
 ## Lista de verificação antes de entregar qualquer alteração a esta funcionalidade
 
 - [ ] Abri o modelo (PNG) e comparei lado a lado com uma folha corrigida pelo sistema (`anotar_folha`).
