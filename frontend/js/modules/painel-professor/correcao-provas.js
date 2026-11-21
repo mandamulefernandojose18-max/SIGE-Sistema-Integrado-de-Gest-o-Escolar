@@ -104,7 +104,14 @@
     if (!av) return;
     var ok = !!(prova && prova.tipo === 'MULTIPLA_ESCOLHA' && prova.alunos && prova.alunos.length);
     $('cpAutoFicheiros').disabled = false; $('cpAutoLer').disabled = false;
-    if (ok) {
+    var formAberto = !$('cpCartaoNova').classList.contains('d-none');
+    if (formAberto && gabaritoNoFormulario()) {
+      var nf = parseInt($('cpNPerg').value, 10) || 0;
+      av.className = 'alert alert-success py-2 small mb-2';
+      av.innerHTML = '<i class="bi bi-check-circle me-1"></i>As folhas serão corrigidas com o <strong>gabarito do Passo 1</strong> (' + nf + ' perguntas, ' +
+        (parseInt($('cpNAlt').value, 10) || 4) + ' alternativas): a prova é criada ao iniciar (com a turma, disciplina e trimestre escolhidos acima)' +
+        (prova ? '; a prova «' + esc(prova.titulo) + '» que está aberta não é usada' : '') + '.';
+    } else if (ok) {
       av.className = 'alert alert-success py-2 small mb-2';
       av.innerHTML = '<i class="bi bi-check-circle me-1"></i>As folhas serão corrigidas com o gabarito da prova <strong>' + esc(prova.titulo) + '</strong> (' +
         prova.perguntas.filter(function (p) { return p.tipo === 'MC'; }).length + ' perguntas, ' + prova.n_alternativas + ' alternativas' +
@@ -262,13 +269,16 @@
     else { corpo.instrumento = $('cpInstrumento').value; corpo.perguntas = lerCotacoes().map(function (x) { return { cotacao: x }; }); }
     if (!corpo.turma_id || !corpo.disciplina_id || !corpo.periodo) { toast('Escolha primeiro a turma, a disciplina e o trimestre.', 'warning'); return false; }
     if (mc) {   // a chave tem de ter a alternativa certa de todas as perguntas (use a folha de resposta acima)
-      var faltam = 0, nTot = parseInt($('cpNPerg').value, 10) || 0;
+      var nTot = parseInt($('cpNPerg').value, 10) || 0, semResp = [];
       document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) {
-        var t = (i.value || '').replace(/\s+/g, ''); var f = 0;
-        for (var q = 0; q < nTot; q++) if (!/[A-Fa-f]/.test(t.charAt(q))) f++;
-        faltam = Math.max(faltam, f);
+        var t = (i.value || '').replace(/\s+/g, ''), f = [];
+        for (var q = 0; q < nTot; q++) if (!/[A-Fa-f]/.test(t.charAt(q))) f.push(q + 1);
+        if (f.length > semResp.length) semResp = f;
       });
-      if (faltam) { toast('Faltam ' + faltam + ' resposta(s) certa(s): clique na alternativa certa de cada pergunta na folha de resposta, ou importe o gabarito.', 'warning'); return false; }
+      if (semResp.length) {
+        toast('Falta a resposta certa da(s) pergunta(s) ' + semResp.slice(0, 12).join(', ') + (semResp.length > 12 ? '…' : '') +
+          ': clique na alternativa certa na folha de resposta do Passo 1.', 'warning'); return false;
+      }
     }
     var res = await chamar(API, json('POST', corpo));
     if (!res.ok) { toast(msg(res), 'danger'); return false; }
@@ -727,13 +737,15 @@
   async function lerFolhas() {
     var fich = Array.prototype.slice.call($('cpAutoFicheiros').files || []);
     if (!fich.length) { toast('Escolha as fotografias ou PDFs das folhas.', 'warning'); return; }
-    // Gabarito escolhido/colado no Passo 1 mas ainda sem «Ler gabarito»: lê-o agora, sem pedir de novo
-    if ((!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') && !gabaritoNoFormulario() &&
+    // O gabarito do Passo 1 (folha de resposta clicada, chave escrita, ficheiro importado ou colado) tem PRIORIDADE sobre
+    // uma prova antiga que tenha ficado aberta: era isso que fazia comparar as folhas com a prova errada.
+    var formAberto = !$('cpCartaoNova').classList.contains('d-none');
+    if (formAberto && !gabaritoNoFormulario() &&
         (($('cpGabFicheiro').files && $('cpGabFicheiro').files.length) || ($('cpGabTexto').value || '').trim())) {
-      await importarGabarito();
+      await importarGabarito();      // ficheiro escolhido/colado mas ainda sem «Ler gabarito»: lê-o agora
     }
-    if ((!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') && gabaritoNoFormulario()) {
-      // gabarito já importado no Passo 1: cria a prova com ele (precisa de turma, disciplina e trimestre) e segue
+    if (formAberto && gabaritoNoFormulario()) {
+      // cria a prova com este gabarito (precisa de turma, disciplina e trimestre escolhidos) e usa-a nesta correcção
       $('cpAutoLer').disabled = true;
       var criada = await criarProva(true);
       estadoCartaoAuto();
