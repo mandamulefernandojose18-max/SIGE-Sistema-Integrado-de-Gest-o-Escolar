@@ -18,7 +18,8 @@ from .views_correcao import (
 )
 
 from .views_omr import (
-    ConfirmarOmrView, FolhasPendentesView, GabaritoImportarView, GabaritosGuardadosView, LeituraOmrView, LeituraUploadView,
+    ConfirmarOmrView, FolhasPendentesView, GabaritoGuardadoPdfView, GabaritoImportarView, GabaritosGuardadosView,
+    LeituraOmrView, LeituraUploadView,
 )
 
 urlpatterns = [
@@ -34,6 +35,7 @@ urlpatterns = [
     path('provas-fisicas/gabaritos-guardados', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_no_slash'),
     path('provas-fisicas/gabaritos-guardados/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados'),
     path('provas-fisicas/gabaritos-guardados/<uuid:pk>/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_detalhe'),
+    path('provas-fisicas/gabaritos-guardados/<uuid:pk>/pdf/', GabaritoGuardadoPdfView.as_view(), name='gabaritos_guardados_pdf'),
     path('provas-fisicas/<uuid:pk>/lista-notas', ListaNotasAvaliacaoView.as_view(), name='provas_fisicas_lista_no_slash'),
     path('provas-fisicas/<uuid:pk>/lista-notas/', ListaNotasAvaliacaoView.as_view(), name='provas_fisicas_lista'),
     path('provas-fisicas/<uuid:pk>/folhas-corrigidas', FolhasCorrigidasPdfView.as_view(), name='provas_fisicas_pdf_no_slash'),

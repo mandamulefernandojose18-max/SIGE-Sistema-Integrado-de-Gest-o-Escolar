@@ -166,6 +166,15 @@ class TestCorreccaoAutomaticaApi:
         rv = c.post(url, {'nome': 'Duas versões', 'n_perguntas': 3, 'n_alternativas': 3, 'versoes': ['A', 'B'],
                           'gabaritos': {'A': 'ABC', 'B': 'CBA'}}, format='json')
         assert rv.status_code == 201 and rv.data['data']['versoes'] == ['A', 'B']
+        # exportar o gabarito em PDF (uma tabela por versão)
+        import fitz
+        pdf = c.get(f'{url}{rv.data["data"]["id"]}/pdf/?carimbo=nao')
+        assert pdf.status_code == 200 and pdf.content[:5] == b'%PDF-' and 'Gabarito' in pdf['Content-Disposition']
+        texto = ''.join(p.get_text() for p in fitz.open(stream=pdf.content, filetype='pdf'))
+        assert 'GUIÃO DE CORRECÇÃO' in texto and 'Versão A' in texto and 'Versão B' in texto and 'CBA' in texto
+        outro_p = Usuario.objects.create_user(email='prof3@omr.mz', password='PassP123!', role='PROFESSOR', escola=self.escola)
+        assert self._como(outro_p).get(f'{url}{rv.data["data"]["id"]}/pdf/?carimbo=nao').status_code == 404   # só o dono
+        assert self._como(self.director).get(f'{url}{rv.data["data"]["id"]}/pdf/?carimbo=nao').status_code == 403
         # só o próprio professor, só da sua escola; a direcção não guarda
         assert self._como(self.director).get(url).status_code == 403
         assert self._como(self.director).post(url, corpo, format='json').status_code == 403
@@ -258,6 +267,17 @@ class TestCorreccaoAutomaticaApi:
         assert len(lista) == 1 and lista[0]['id'] == p['pendente_id'] and lista[0]['respostas'] == 'ABCDABCDAB'
         img = c.get(f'{base}folhas-pendentes/{p["pendente_id"]}/imagem/')
         assert img.status_code == 200 and img.content[:3] == b'\xff\xd8\xff'
+        # sem nenhum aluno atribuído, o PDF das provas corrigidas e a lista de notas JÁ funcionam (incluem a folha pendente)
+        pdf = c.get(base + 'folhas-corrigidas/?carimbo=nao')
+        assert pdf.status_code == 200 and pdf.content[:5] == b'%PDF-'
+        import io
+
+        import fitz
+        assert fitz.open(stream=pdf.content, filetype='pdf').page_count == 1
+        from openpyxl import load_workbook
+        ws = load_workbook(io.BytesIO(c.get(base + 'lista-notas/?formato=xlsx&carimbo=nao').content)).active
+        assert any('Por identificar' in str(x.value) for linha in ws.iter_rows() for x in linha if x.value)
+        assert c.get(base + 'lista-notas/?formato=pdf&carimbo=nao').content[:5] == b'%PDF-'
         # alheios e direcção não acedem a escrever
         assert self._como(self.director).delete(f'{base}folhas-pendentes/{p["pendente_id"]}/').status_code == 403
         # atribuir a um aluno SEM reenviar a imagem (página recarregada) corrige, guarda a folha corrigida e retira a pendente

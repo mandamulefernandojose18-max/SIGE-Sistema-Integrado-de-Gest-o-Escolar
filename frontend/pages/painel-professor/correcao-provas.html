@@ -185,6 +185,7 @@
                 </div>
                 <div class="col-12 col-md-auto">
                   <button type="button" class="btn btn-sm btn-outline-success" id="cpGabGuardar"><i class="bi bi-bookmark-plus me-1"></i>Guardar gabarito</button>
+                  <button type="button" class="btn btn-sm btn-outline-primary" id="cpGabPdf" title="Guarda o gabarito no sistema e descarrega o guião de correcção em PDF"><i class="bi bi-file-earmark-pdf me-1"></i>Descarregar gabarito (PDF)</button>
                 </div>
               </div>
               <div id="cpGabGuardadoMsg" class="small mt-1" aria-live="polite"></div>
@@ -260,6 +261,21 @@
                 </div>
                 <span class="small" id="cpAutoVerLegenda"></span>
                 <button type="button" class="btn btn-sm btn-outline-danger ms-auto" id="cpAutoVerEliminar" title="Elimina só esta prova corrigida; a nota na caderneta não muda"><i class="bi bi-trash me-1"></i>Eliminar esta</button>
+              </div>
+              <!-- Folha corrigida ainda sem aluno: escolha o aluno (o nome vem escrito na folha) e guarde -->
+              <div id="cpAutoVerAtribuir" class="row g-2 align-items-end mb-2 d-none">
+                <div class="col-12 col-md-5">
+                  <label class="form-label small mb-1" for="cpAutoVerAluno">Esta folha é de que aluno?</label>
+                  <select id="cpAutoVerAluno" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-6 col-md-2 d-none" id="cpAutoVerBlocoVersao">
+                  <label class="form-label small mb-1" for="cpAutoVerVersao">Versão</label>
+                  <select id="cpAutoVerVersao" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-12 col-md-auto">
+                  <button type="button" class="btn btn-sm btn-primary" id="cpAutoVerGuardar"><i class="bi bi-person-check me-1"></i>Atribuir ao aluno e guardar</button>
+                </div>
+                <div class="col-12 small text-muted">Se o aluno não está na lista, a prova foi criada para outra turma: escolha a turma certa.</div>
               </div>
               <div class="border rounded bg-white text-center" style="max-height:75vh;overflow:auto;">
                 <img id="cpAutoVerImg" alt="Prova corrigida" class="img-fluid">

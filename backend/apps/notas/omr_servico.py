@@ -196,7 +196,7 @@ def ler_qr_original(img):
     import time
     cv2, np = _cv()
     h, w = img.shape[:2]
-    limite = time.time() + 0.8
+    limite = time.time() + 1.0
     for fy, fx in ((0.15, 0.34), (0.19, 0.42), (0.12, 0.28)):
         recorte = img[0:int(h * fy), int(w * (1 - fx)):w]
         g = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
@@ -585,7 +585,7 @@ def _ler_qr(cv2, np, page, original, M, rodada):
     detectores = [cv2.QRCodeDetector()]
     if hasattr(cv2, 'QRCodeDetectorAruco'):
         detectores.append(cv2.QRCodeDetectorAruco())
-    fim = time.monotonic() + 0.7
+    fim = time.monotonic() + 1.5
     candidatos = list(_recortes_qr(cv2, np, original, M, rodada))[::-1]       # 3× primeiro: nas simulações é o mais fiável
     candidatos.append(page[int(4 * PPM):int(40 * PPM), int(110 * PPM):LARGURA_PX])
     for reg in candidatos:

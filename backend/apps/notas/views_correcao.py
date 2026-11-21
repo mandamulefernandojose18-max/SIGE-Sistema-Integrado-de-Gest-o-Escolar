@@ -16,6 +16,7 @@ o sistema corrige contra o gabarito. Perguntas abertas da folha recebem pontos d
 Tudo isolado por escola. Corrige quem é o professor alocado à turma e disciplina (ou SUPERADMIN);
 Direcção, Administração e DAP só consultam. Nada chega à caderneta sem o pedido explícito de lançamento.
 """
+import os
 import uuid
 
 from django.db.models import Exists, OuterRef
@@ -297,6 +298,31 @@ class FolhasCorrigidasPdfView(APIView):
                     continue
                 pagina = doc.new_page(width=595.28, height=841.89)
                 pagina.insert_image(pagina.rect, filename=caminho, keep_proportion=True)
+        if not aluno_id:
+            # folhas já corrigidas mas ainda sem aluno atribuído também entram no PDF (no fim, por ficheiro e página)
+            from concurrent.futures import ThreadPoolExecutor
+
+            from .models import FolhaPendente
+            from .views_omr import anotar_resolvendo_duvidas
+            nome_prof = getattr(request.user, 'nome', '') or request.user.get_username()
+            pend = []
+            for f in FolhaPendente.objects.filter(prova=prova).order_by('origem', 'pagina'):
+                caminho = svc.caminho_seguro(f)
+                if caminho:
+                    with open(caminho, 'rb') as fh:
+                        pend.append((f.respostas, f.duvidas, f.versao, fh.read()))
+
+            def _corrigir(item):
+                respostas, duvidas, versao, limpo = item
+                try:
+                    return anotar_resolvendo_duvidas(prova, limpo, respostas, duvidas, versao, nome_prof, largura=None)['jpg']
+                except Exception:
+                    return limpo               # sem versão/chave: a folha segue como foi lida
+            if pend:
+                with ThreadPoolExecutor(max_workers=max(1, min(4, os.cpu_count() or 2))) as ex:
+                    for jpg in ex.map(_corrigir, pend):
+                        pagina = doc.new_page(width=595.28, height=841.89)
+                        pagina.insert_image(pagina.rect, stream=jpg, keep_proportion=True)
         if doc.page_count == 0:
             doc.close()
             return _erro('Ainda não há folhas corrigidas para descarregar.', 404)

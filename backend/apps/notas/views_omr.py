@@ -288,6 +288,37 @@ def resolver_respostas(respostas, duvidas):
     return ''.join(sugestoes.get(i + 1, '-') if c == '*' else c for i, c in enumerate(respostas))
 
 
+class GabaritoGuardadoPdfView(APIView):
+    """PDF do gabarito / guião de correcção guardado: GET /api/v1/notas/provas-fisicas/gabaritos-guardados/<id>/pdf/"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        import re
+        from urllib.parse import quote
+
+        from django.http import HttpResponse
+
+        from . import gabarito_pdf
+        from .models import GabaritoGuardado
+        escola = _escola(request)
+        if not escola:
+            return _erro('Instituição não identificada.')
+        role = getattr(request.user, 'role', '')
+        if not (_e_super(request.user) or role == 'PROFESSOR'):
+            return _erro('Só o professor pode exportar os seus gabaritos.', 403)
+        g = GabaritoGuardado.objects.filter(pk=pk, escola=escola, criado_por=request.user).first()
+        if not g:
+            return _erro('Gabarito não encontrado.', 404)
+        dados = gabarito_pdf.pdf_gabarito(escola, g, getattr(request.user, 'nome', '') or request.user.get_username())
+        nome = gabarito_pdf.nome_ficheiro(g)
+        ascii_ = re.sub(r'[^A-Za-z0-9._ -]+', '', nome.encode('ascii', 'ignore').decode()) or 'Gabarito.pdf'
+        resp = HttpResponse(dados, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="{ascii_}"; filename*=UTF-8\'\'{quote(nome)}'
+        resp['Cache-Control'] = 'private, no-store'
+        resp['X-Content-Type-Options'] = 'nosniff'
+        return resp
+
+
 class ConfirmarOmrView(APIView):
     """Confirma a leitura de uma folha: grava a correcção, desenha a folha corrigida (modelo do professor) e lança na caderneta.
 

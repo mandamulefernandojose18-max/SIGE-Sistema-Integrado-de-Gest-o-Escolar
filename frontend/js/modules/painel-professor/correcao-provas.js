@@ -265,6 +265,34 @@
     msg_.className = 'small mt-1 text-success'; msg_.textContent = (res.json.message || 'Gabarito guardado.') + ' Fica disponível para reutilizar.';
     await carregarGuardados(res.json.data.id);
   }
+  // Descarrega o gabarito em PDF: o do formulário (guarda-o primeiro no sistema, com o nome indicado ou um automático)
+  // ou, se o formulário estiver vazio, o gabarito guardado que está escolhido na lista.
+  async function descarregarGabaritoPdf() {
+    var msg_ = $('cpGabGuardadoMsg'), id = '';
+    var temChave = false;
+    document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) { if (/[A-Fa-f]/.test(i.value || '')) temChave = true; });
+    if (temChave) {
+      var nome = ($('cpGabNome').value || '').trim();
+      if (!nome) {
+        nome = 'Gabarito ' + (parseInt($('cpNPerg').value, 10) || 0) + ' perguntas · ' + new Date().toLocaleDateString('pt-PT');
+        $('cpGabNome').value = nome;
+      }
+      var vs = listaVersoes(), gabs = {};
+      document.querySelectorAll('#cpGabaritos .cp-gab').forEach(function (i) { gabs[i.getAttribute('data-v') || '-'] = i.value; });
+      var res = await chamar(API + 'gabaritos-guardados/', json('POST', {
+        nome: nome, n_perguntas: $('cpNPerg').value, n_alternativas: $('cpNAlt').value, versoes: vs, gabaritos: gabs }));
+      if (!res.ok) { msg_.className = 'small mt-1 text-danger'; msg_.textContent = msg(res); return; }
+      id = res.json.data.id;
+      await carregarGuardados(id);
+    } else {
+      id = $('cpGabGuardados').value;
+    }
+    if (!id) { msg_.className = 'small mt-1 text-warning-emphasis'; msg_.textContent = 'Indique o gabarito (folha de resposta, chave ou ficheiro) ou escolha um gabarito guardado.'; return; }
+    var g = guardados.filter(function (x) { return x.id === id; })[0];
+    msg_.className = 'small mt-1 text-success'; msg_.textContent = 'Gabarito guardado no sistema. A descarregar o PDF…';
+    await downloadFicheiroBinario(API + 'gabaritos-guardados/' + encodeURIComponent(id) + '/pdf/',
+      ('Gabarito - ' + (g ? g.nome : 'guiao de correccao')).replace(/[\\/:*?"<>|]+/g, ' ') + '.pdf');
+  }
   async function eliminarGuardado() {
     var id = $('cpGabGuardados').value, g = guardados.filter(function (x) { return x.id === id; })[0];
     if (!g) return;
@@ -331,6 +359,16 @@
     var res = await chamar(API, json('POST', corpo));
     if (!res.ok) { toast(msg(res), 'danger'); return false; }
     toast(automatica === true ? 'Prova criada com o gabarito importado.' : 'Prova criada com este gabarito. Passo 2: carregue as provas dos alunos.', 'success');
+    if (mc) {   // tudo fica guardado: o gabarito desta prova guarda-se também na lista de gabaritos (para reutilizar/exportar)
+      try {
+        var fo = corpo.folha, gb = fo.gabaritos || { '-': fo.gabarito };
+        await chamar(API + 'gabaritos-guardados/', json('POST', {
+          nome: ((corpo.titulo || 'Gabarito') + ' · ' + new Date().toLocaleDateString('pt-PT')).slice(0, 120),
+          n_perguntas: fo.n_perguntas, n_alternativas: fo.n_alternativas,
+          versoes: String(fo.versoes || '').split(/\s+/).filter(Boolean), gabaritos: gb }));
+        await carregarGuardados();
+      } catch (_) { /* o gabarito da prova já está guardado na própria prova */ }
+    }
     $('cpCartaoNova').classList.add('d-none');
     $('cpTitulo').value = ''; $('cpCotacoes').value = ''; $('cpNPerg').value = ''; $('cpVersoes').value = '';
     $('cpCotPerg').value = ''; $('cpNAbertas').value = '0'; $('cpCotAbertas').value = '';
@@ -791,9 +829,10 @@
       (semAluno ? ' · <span class="text-warning-emphasis"><strong>' + semAluno + '</strong> corrigida(s) sem aluno identificado, também guardada(s) (escolha o aluno na lista abaixo)</span>' : '') +
       (erros ? ' · <span class="text-danger"><strong>' + erros + '</strong> com erro</span>' : '') +
       '. Notas por lançar: <strong>' + porLancar + '</strong> · já lançadas: <strong>' + lancadas + '</strong>. Tudo fica guardado até o eliminar.';
-    $('cpAutoVer').disabled = !(guardadas || lote.some(function (x) { return x.corrigida || x.pendente_id; }));
-    ['cpAutoPdf', 'cpAutoListaPdf', 'cpAutoListaXlsx'].forEach(function (id) { $(id).disabled = !guardadas; });
-    $('cpAutoLancar').disabled = !porLancar;
+    // Os botões ficam SEMPRE activos: ao carregar explicam o que falta (nunca ficam «mortos»). As folhas corrigidas sem aluno
+    // também entram no PDF e na lista.
+    ['cpAutoVer', 'cpAutoPdf', 'cpAutoListaPdf', 'cpAutoListaXlsx', 'cpAutoLancar'].forEach(function (id) { $(id).disabled = false; });
+    $('cpAutoLancar').title = porLancar ? '' : 'Ainda não há notas por lançar: atribua os alunos às folhas corrigidas';
   }
   // Lista do visor: folhas deste lote (corrigidas ou guardadas sem aluno) + provas corrigidas já guardadas no sistema
   function listaVisor() {
@@ -811,6 +850,18 @@
     visorIdx = (i + lista.length) % lista.length;
     var o = lista[visorIdx], img = $('cpAutoVerImg'), legenda = $('cpAutoVerLegenda');
     $('cpAutoVisor').classList.remove('d-none');
+    // folha ainda sem aluno: mostra a escolha do aluno (e da versão) por baixo
+    var pendente = o.tipo === 'lote' && o.x.estado === 'pendente';
+    $('cpAutoVerAtribuir').classList.toggle('d-none', !pendente);
+    if (pendente) {
+      $('cpAutoVerAluno').innerHTML = '<option value="">-- escolha o aluno --</option>' +
+        (prova.alunos || []).map(function (a) { return '<option value="' + esc(a.aluno_id) + '">' + esc(a.nome) + ' — ' + rotuloEstado(a.correcao) + '</option>'; }).join('');
+      $('cpAutoVerAluno').value = o.x.aluno_id || '';
+      var vsv = prova.versoes || [];
+      $('cpAutoVerBlocoVersao').classList.toggle('d-none', !vsv.length);
+      $('cpAutoVerVersao').innerHTML = '<option value="">--</option>' + vsv.map(function (v) { return '<option>' + esc(v) + '</option>'; }).join('');
+      $('cpAutoVerVersao').value = o.x.versao || '';
+    }
     var nome, nota, estado, url = '';
     if (o.tipo === 'lote') {
       var it = o.x; nome = nomeAluno(it.aluno_id); nota = it.nota != null ? it.nota : it.notaPrev;
@@ -825,6 +876,23 @@
     if (url) img.src = url; else img.removeAttribute('src');
     legenda.textContent = (visorIdx + 1) + '/' + lista.length + ' · ' + (nome || 'aluno por identificar') +
       (nota != null ? ' · nota ' + fmt(nota) : '') + ' · ' + estado;
+  }
+  // Atribui a folha corrigida (sem aluno) ao aluno escolhido: grava a correcção e a prova corrigida desse aluno
+  async function atribuirDoVisor() {
+    var lista = listaVisor(), o = lista[visorIdx];
+    if (!o || o.tipo !== 'lote' || o.x.estado !== 'pendente') return;
+    var id = $('cpAutoVerAluno').value;
+    if (!id) { toast('Escolha o aluno a quem pertence esta folha.', 'warning'); return; }
+    var it = o.x; it.aluno_id = id; it.versao = $('cpAutoVerVersao').value || it.versao;
+    $('cpAutoVerGuardar').disabled = true;
+    try {
+      var e = await enviarItem(it);
+      if (e) { toast(e, 'warning'); return; }
+      toast('Prova corrigida guardada para ' + nomeAluno(id) + ': ' + fmt(it.nota) + ' valores.', 'success');
+      await recarregarMantendo(); painelLote(); mostrarConcluido();
+      var resto = listaVisor();
+      if (resto.length) mostrarVisor(Math.min(visorIdx, resto.length - 1)); else $('cpAutoVisor').classList.add('d-none');
+    } finally { $('cpAutoVerGuardar').disabled = false; }
   }
   // O professor elimina quando quiser: só esta prova corrigida (a nota na caderneta não muda) ou a folha guardada sem aluno
   async function eliminarDoVisor() {
@@ -850,6 +918,12 @@
   }  async function lancarAutomatico() {
     if (!prova) return;
     var out = $('cpAutoLancarResultado'), btn = $('cpAutoLancar');
+    var porLancarN = (prova.alunos || []).filter(function (a) { return a.correcao && a.correcao.estado === 'CORRIGIDA'; }).length;
+    if (!porLancarN) {
+      out.className = 'small text-warning-emphasis';
+      out.innerHTML = '<i class="bi bi-info-circle me-1"></i>Ainda não há notas por lançar: as folhas corrigidas ainda não têm aluno. Carregue em «Ver provas corrigidas», escolha o aluno de cada folha e «Atribuir ao aluno e guardar»; depois volte a carregar aqui.';
+      return;
+    }
     btn.disabled = true; out.className = 'small text-muted'; out.textContent = 'A lançar as notas nas cadernetas…';
     var res = await chamar(API + encodeURIComponent(prova.id) + '/lancar/', json('POST', {}));
     var j = res.json || {};
@@ -1031,6 +1105,9 @@
     $('cpFolhaVersao').addEventListener('change', desenharFolhaVisual);
     $('cpGabUsar').addEventListener('click', usarGuardado);
     $('cpGabGuardar').addEventListener('click', guardarGabarito);
+    $('cpGabPdf').addEventListener('click', function () {
+      Promise.resolve().then(descarregarGabaritoPdf).catch(function (e) { toast((e && e.message) || 'Não foi possível descarregar o gabarito.', 'danger'); });
+    });
     $('cpGabEliminar').addEventListener('click', eliminarGuardado);
     carregarGuardados();
     $('cpFolhaVisual').addEventListener('click', aoClicarFolhaVisual);
@@ -1051,9 +1128,16 @@
     $('cpAutoVerAnt').addEventListener('click', function () { mostrarVisor(visorIdx - 1); });
     $('cpAutoVerSeg').addEventListener('click', function () { mostrarVisor(visorIdx + 1); });
     $('cpAutoVerEliminar').addEventListener('click', eliminarDoVisor);
-    $('cpAutoPdf').addEventListener('click', function () { descarregarPdf(''); });
-    $('cpAutoListaPdf').addEventListener('click', function () { descarregarLista('pdf'); });
-    $('cpAutoListaXlsx').addEventListener('click', function () { descarregarLista('xlsx'); });
+    $('cpAutoVerGuardar').addEventListener('click', atribuirDoVisor);
+    // Descarregar: nunca falha em silêncio (qualquer erro aparece como aviso)
+    function seguro(fn) {
+      return function () {
+        Promise.resolve().then(fn).catch(function (e) { toast((e && e.message) || 'Não foi possível descarregar o ficheiro.', 'danger'); });
+      };
+    }
+    $('cpAutoPdf').addEventListener('click', seguro(function () { return descarregarPdf(''); }));
+    $('cpAutoListaPdf').addEventListener('click', seguro(function () { return descarregarLista('pdf'); }));
+    $('cpAutoListaXlsx').addEventListener('click', seguro(function () { return descarregarLista('xlsx'); }));
     $('cpAutoLancar').addEventListener('click', lancarAutomatico);
     $('cpBtnListaPdf').addEventListener('click', function () { descarregarLista('pdf'); });
     $('cpBtnListaXlsx').addEventListener('click', function () { descarregarLista('xlsx'); });

@@ -18,7 +18,7 @@ from apps.documentos.services.pdf_service import (
     Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, gerar_cabecalho_mec, getSampleStyleSheet,
 )
 
-from .models import CorrecaoProva
+from .models import CorrecaoProva, FolhaPendente
 
 AZUL = colors.HexColor('#1E3A8A')
 ZEBRA = colors.HexColor('#F1F5F9')
@@ -50,11 +50,22 @@ def montar(prova, professor_nome=''):
             linhas.append([i, a.matricula or '', a.nome, prova.turma.nome, '—', None, '—',
                            ESTADOS.get(c.estado, 'Sem correcção') if c else 'Sem correcção'])
     notas = [l[5] for l in linhas if l[5] is not None]
+    # Folhas já corrigidas e guardadas mas ainda sem aluno atribuído: constam da lista (com a nota), à espera de aluno
+    sem_aluno = 0
+    for f in FolhaPendente.objects.filter(prova=prova).order_by('origem', 'pagina'):
+        sem_aluno += 1
+        chave = prova.gabaritos.get(f.versao or '-') or (next(iter(prova.gabaritos.values()), '') if prova.gabaritos else '')
+        resp = f.respostas
+        acertos = f.acertos if f.acertos is not None else (sum(1 for x, y in zip(resp, chave) if x == y) if resp else None)
+        linhas.append(['—', '—', f'Por identificar · {f.origem} (pág. {f.pagina})', prova.turma.nome,
+                       '—' if acertos is None else f'{acertos}/{n_mc}', None if f.nota is None else float(f.nota),
+                       '—' if f.nota is None else ('Positiva' if f.nota >= 10 else 'Negativa'), 'Corrigida, sem aluno atribuído'])
+    notas = [l[5] for l in linhas if l[5] is not None]
     cab = {
         'escola': prova.escola, 'disciplina': prova.disciplina.nome, 'tipo': prova.get_instrumento_display(),
         'titulo': prova.titulo, 'periodo': PERIODOS.get(prova.periodo, prova.periodo), 'ano': prova.turma.ano_letivo,
         'turma': prova.turma.nome, 'classe': getattr(prova.turma, 'grau_ano', '') or '', 'professor': professor_nome,
-        'emitido': date.today().strftime('%d/%m/%Y'), 'corrigidas': len(notas), 'total': len(linhas),
+        'emitido': date.today().strftime('%d/%m/%Y'), 'corrigidas': len(notas), 'total': len(linhas), 'sem_aluno': sem_aluno,
         'positivas': sum(1 for n in notas if n >= 10), 'negativas': sum(1 for n in notas if n < 10),
         'media': (sum(notas) / len(notas)) if notas else None,
     }
@@ -117,7 +128,8 @@ def pdf_lista(cab, linhas):
     el += [t, Spacer(1, 0.3 * cm)]
     media = '—' if cab['media'] is None else _fmt(cab['media'])
     el.append(Paragraph(f'Corrigidas: <b>{cab["corrigidas"]}</b> de {cab["total"]} · Positivas: <b>{cab["positivas"]}</b> · '
-                        f'Negativas: <b>{cab["negativas"]}</b> · Média: <b>{media}</b>', sr))
+                        f'Negativas: <b>{cab["negativas"]}</b> · Média: <b>{media}</b>' +
+                        (f' · Sem aluno atribuído: <b>{cab["sem_aluno"]}</b>' if cab.get('sem_aluno') else ''), sr))
     SimpleDocTemplate(buf, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.0 * cm,
                       bottomMargin=1.2 * cm).build(el)
     return buf.getvalue()
@@ -155,5 +167,6 @@ def xlsx_lista(cab, linhas):
     ws.append([])
     media = '—' if cab['media'] is None else _fmt(cab['media'])
     ws.append([f'Corrigidas: {cab["corrigidas"]} de {cab["total"]} · Positivas: {cab["positivas"]} · '
-               f'Negativas: {cab["negativas"]} · Média: {media}'])
+               f'Negativas: {cab["negativas"]} · Média: {media}' +
+               (f' · Sem aluno atribuído: {cab["sem_aluno"]}' if cab.get('sem_aluno') else '')])
     return guardar_xlsx_seguro(wb)
