@@ -369,7 +369,6 @@ def _quatro_por_cantos(cv2, np, img):
 
     Usa o maior canal (B,G,R): o preto fica escuro em todos, a tinta azul/colorida do aluno não conta como marca."""
     h, w = img.shape[:2]
-    maximo = img.max(axis=2)
     jan = 0.22
     sw, sh = int(w * jan), int(h * jan)
     zonas = [(0, 0), (w - sw, 0), (w - sw, h - sh), (0, h - sh)]
@@ -377,7 +376,7 @@ def _quatro_por_cantos(cv2, np, img):
     lado_min, lado_max = 0.010 * w, 0.045 * w
     res = []
     for (x0, y0), (cx, cy) in zip(zonas, cantos):
-        z = cv2.GaussianBlur(maximo[y0:y0 + sh, x0:x0 + sw], (3, 3), 0)
+        z = cv2.GaussianBlur(img[y0:y0 + sh, x0:x0 + sw].max(axis=2), (3, 3), 0)     # só nas 4 janelas dos cantos (não na imagem toda)
         melhor = None
         for lim in (90, 120, 60):
             bw = (z < lim).astype(np.uint8) * 255
@@ -454,7 +453,7 @@ def endireitar(img):
     dst = np.float32([[cm, cm], [LARGURA_PX - cm, cm], [LARGURA_PX - cm, ALTURA_PX - cm], [cm, ALTURA_PX - cm]])
     src = np.float32([p[:2] for p in quatro])
     M = cv2.getPerspectiveTransform(src, dst)
-    page = cv2.warpPerspective(img, M, (LARGURA_PX, ALTURA_PX), flags=cv2.INTER_CUBIC, borderValue=(255, 255, 255))
+    page = cv2.warpPerspective(img, M, (LARGURA_PX, ALTURA_PX), flags=cv2.INTER_LINEAR, borderValue=(255, 255, 255))
     return page, M
 
 

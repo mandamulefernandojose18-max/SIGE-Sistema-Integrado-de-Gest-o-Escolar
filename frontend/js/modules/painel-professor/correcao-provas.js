@@ -1002,8 +1002,13 @@
       for (var k = 0; k < fich.length; k++) {
         var nomeF = fich[k].name;
         prog.textContent = 'A enviar ' + nomeF + '…';
-        var fdUp = new FormData(); fdUp.append('ficheiro', fich[k]);
-        var up = await chamar(API + encodeURIComponent(prova.id) + '/leitura-omr/upload/', { method: 'POST', headers: cab(), body: fdUp });
+        var envio = await prepararFicheiro(fich[k], function (s) { prog.textContent = s; });
+        var fdUp = new FormData(); fdUp.append('ficheiro', envio, nomeF);
+        var up = await enviarComProgresso(API + encodeURIComponent(prova.id) + '/leitura-omr/upload/', fdUp, function (a, b, s) {
+          var mb = function (v) { return (v / 1048576).toFixed(1).replace('.', ','); }, vel = a / Math.max(0.3, s);
+          prog.textContent = 'A enviar ' + nomeF + ' — ' + Math.round(100 * a / b) + '% (' + mb(a) + ' de ' + mb(b) + ' MB) · ' + mb(vel) + ' MB/s · faltam ~' + Math.max(1, Math.round((b - a) / Math.max(1, vel))) + ' s';
+          barraI.style.width = Math.max(3, Math.round(40 * a / b)) + '%';
+        });
         if (!up.ok) { lote.push({ estado: 'erro', origem: nomeF, pagina: 1, erro: msg(up), respostas: [], duvidas: [], avisos: [] }); continue; }
         var ini = await chamar(API + encodeURIComponent(prova.id) + '/corrigir-lote/', json('POST', { upload_id: up.json.data.upload_id, nome: nomeF }));
         if (!ini.ok) { lote.push({ estado: 'erro', origem: nomeF, pagina: 1, erro: msg(ini), respostas: [], duvidas: [], avisos: [] }); continue; }
@@ -1120,6 +1125,74 @@
     else await downloadFicheiroBinario(u + '/lista-notas/?formato=' + t + '&carimbo=' + escolha, nomeBase(x, 'Lista de notas') + '.' + t);
   }
 
+  // ---------- Envio rápido: comprime a digitalização no navegador (200 dpi bastam) e mostra o progresso real ----------
+  var MAX_LADO = 2339;      // A4 a 200 dpi
+  function lerLatin1(buf) { var u = new Uint8Array(buf), s = '', k = 0x8000; for (var i = 0; i < u.length; i += k) s += String.fromCharCode.apply(null, u.subarray(i, i + k)); return s; }
+  async function jpegReduzido(bytes, qualidade) {
+    var bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+    var s = Math.min(1, MAX_LADO / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * s), h = Math.round(bmp.height * s);
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(bmp, 0, 0, w, h); if (bmp.close) bmp.close();
+    var blob = await new Promise(function (r) { c.toBlob(r, 'image/jpeg', qualidade); });
+    return { w: w, h: h, bytes: new Uint8Array(await blob.arrayBuffer()) };
+  }
+  function montarPdf(paginas) {
+    var enc = new TextEncoder(), partes = [], pos = 0, offs = {};
+    function esc(x) { var b = typeof x === 'string' ? enc.encode(x) : x; partes.push(b); pos += b.length; }
+    function obj(id, corpo) { offs[id] = pos; esc(id + ' 0 obj\n' + corpo + '\nendobj\n'); }
+    esc('%PDF-1.4\n');
+    var n = paginas.length, kids = paginas.map(function (_, i) { return (3 + 3 * i) + ' 0 R'; }).join(' ');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>'); obj(2, '<< /Type /Pages /Kids [' + kids + '] /Count ' + n + ' >>');
+    paginas.forEach(function (p, i) {
+      var idp = 3 + 3 * i, idi = idp + 1, idc = idp + 2;
+      obj(idp, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ' + idi + ' 0 R >> >> /Contents ' + idc + ' 0 R >>');
+      offs[idi] = pos; esc(idi + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + p.w + ' /Height ' + p.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.bytes.length + ' >>\nstream\n'); esc(p.bytes); esc('\nendstream\nendobj\n');
+      var cont = 'q 595.28 0 0 841.89 0 0 cm /Im0 Do Q'; obj(idc, '<< /Length ' + cont.length + ' >>\nstream\n' + cont + '\nendstream');
+    });
+    var xref = pos, tot = 3 + 3 * n, linhas = 'xref\n0 ' + tot + '\n0000000000 65535 f \n';
+    for (var id = 1; id < tot; id++) linhas += String(offs[id]).padStart(10, '0') + ' 00000 n \n';
+    esc(linhas + 'trailer\n<< /Size ' + tot + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+    return new Blob(partes, { type: 'application/pdf' });
+  }
+  // devolve um File mais pequeno (PDF de digitalização com uma imagem JPEG por página, ou fotografia); em caso de dúvida, o original
+  async function prepararFicheiro(f, mostrar) {
+    try {
+      if (f.size < 2 * 1024 * 1024 || typeof createImageBitmap !== 'function') return f;
+      if (/^image\/jpeg$/.test(f.type)) {
+        mostrar('A preparar ' + f.name + '…');
+        var r1 = await jpegReduzido(new Uint8Array(await f.arrayBuffer()), 0.72);
+        return r1.bytes.length < f.size ? new File([r1.bytes], f.name, { type: 'image/jpeg' }) : f;
+      }
+      if (f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name)) return f;
+      mostrar('A preparar ' + f.name + ' para envio rápido…');
+      var txt = lerLatin1(await f.arrayBuffer()), buf = null, imgs = [], re = /(\d+) 0 obj\s*<<([^>]*?\/Subtype\s*\/Image[^>]*?)>>\s*stream\r?\n/g, m;
+      buf = new Uint8Array(await f.arrayBuffer());
+      while ((m = re.exec(txt))) {
+        if (!/\/DCTDecode/.test(m[2])) return f;
+        var len = /\/Length\s+(\d+)(?!\s+\d+\s+R)/.exec(m[2]); if (!len) return f;
+        var ini = m.index + m[0].length, fim = ini + parseInt(len[1], 10);
+        if (buf[ini] !== 0xFF || buf[ini + 1] !== 0xD8) return f;
+        imgs.push(buf.subarray(ini, fim));
+      }
+      var nPag = (txt.match(/\/Type\s*\/Page(?![s\w])/g) || []).length;
+      if (!imgs.length || imgs.length !== nPag) return f;
+      var out = [];
+      for (var i = 0; i < imgs.length; i++) { out.push(await jpegReduzido(imgs[i], 0.68)); mostrar('A preparar ' + f.name + ' para envio rápido… ' + (i + 1) + '/' + imgs.length); }
+      var pdf = montarPdf(out);
+      return pdf.size < f.size * 0.85 ? new File([pdf], f.name, { type: 'application/pdf' }) : f;
+    } catch (_) { return f; }
+  }
+  // envio com progresso real (MB, %, velocidade e tempo que falta)
+  function enviarComProgresso(url, fd, aoProgresso) {
+    return new Promise(function (resolve) {
+      var x = new XMLHttpRequest(), t0 = Date.now();
+      x.open('POST', url); var h = cab(); Object.keys(h).forEach(function (k) { x.setRequestHeader(k, h[k]); });
+      x.upload.onprogress = function (e) { if (e.lengthComputable) aoProgresso(e.loaded, e.total, (Date.now() - t0) / 1000); };
+      x.onload = function () { var j = {}; try { j = JSON.parse(x.responseText); } catch (_) {} resolve({ ok: x.status >= 200 && x.status < 300, status: x.status, json: j }); };
+      x.onerror = x.ontimeout = function () { resolve({ ok: false, status: 0, json: { message: 'Falhou o envio (ligação interrompida). Tente de novo.' } }); };
+      x.send(fd);
+    });
+  }
   // ---------- Digitalizar com o scanner deste computador (assistente local sige-scanner) ----------
   var AGENTE = 'http://127.0.0.1:47811';
   async function digitalizarComScanner() {
