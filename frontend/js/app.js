@@ -4633,9 +4633,9 @@ async function carregarEscolaETurmas() {
       const temaCod = e.tema_codigo || 'padrao_azul';
       const inputTema = document.getElementById('confEscolaTemaCodigo');
       if (inputTema) inputTema.value = temaCod;
-      const corPrim = e.tema_cor_primaria || '#1e3a8a';
-      const corHov = e.tema_cor_hover || '#172554';
-      const corSide = e.tema_cor_sidebar || '#0f172a';
+      const corPrim = e.tema_cor_primaria || '#0f766e';
+      const corHov = e.tema_cor_hover || '#115e59';
+      const corSide = e.tema_cor_sidebar || '#0b2a27';
       const corSideAtiva = e.tema_cor_sidebar_ativa || '#38bdf8';
       const setInpVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
       setInpVal('confEscolaCorPrimaria', corPrim);
@@ -5596,11 +5596,11 @@ function atualizarDistritosEscola(provincia, distritoSelecionado = '') {
 window.SIGE_TEMAS = {
   padrao_azul: {
     codigo: 'padrao_azul',
-    nome: 'Azul SIGE (Institucional)',
-    primaria: '#1e3a8a',
-    hover: '#172554',
-    sidebar: '#0f172a',
-    sidebarAtiva: '#38bdf8',
+    nome: 'Verde SIGE (Institucional)',
+    primaria: '#0f766e',
+    hover: '#115e59',
+    sidebar: '#0b2a27',
+    sidebarAtiva: '#2dd4bf',
     acento: '#f59e0b',
     descricao: 'Clássico profissional padrão do SIGE'
   },
@@ -5650,7 +5650,7 @@ window.SIGE_TEMAS = {
     primaria: '#0284c7',
     hover: '#0369a1',
     sidebar: '#0b1120',
-    sidebarAtiva: '#38bdf8',
+    sidebarAtiva: '#2dd4bf',
     acento: '#38bdf8',
     descricao: 'Contraste escuro moderno e dinâmico'
   },
@@ -5687,10 +5687,10 @@ window.SIGE_TEMAS = {
   personalizado: {
     codigo: 'personalizado',
     nome: 'Personalizado (Cores Próprias)',
-    primaria: '#1e3a8a',
-    hover: '#172554',
-    sidebar: '#0f172a',
-    sidebarAtiva: '#38bdf8',
+    primaria: '#0f766e',
+    hover: '#115e59',
+    sidebar: '#0b2a27',
+    sidebarAtiva: '#2dd4bf',
     acento: '#f59e0b',
     descricao: 'Defina manualmente as cores da instituição'
   }
@@ -5704,10 +5704,13 @@ function aplicarTemaEFundoInstituicao(escola, opcoes = {}) {
   const temaCodigo = escola.tema_codigo || 'padrao_azul';
   const temaConfig = window.SIGE_TEMAS[temaCodigo] || window.SIGE_TEMAS.padrao_azul;
 
-  const primaria = escola.tema_cor_primaria || temaConfig.primaria;
-  const hover = escola.tema_cor_hover || temaConfig.hover;
-  const sidebar = escola.tema_cor_sidebar || temaConfig.sidebar;
-  const sidebarAtiva = escola.tema_cor_sidebar_ativa || temaConfig.sidebarAtiva;
+  // Cores azuis antigas (padrão anterior) guardadas na escola passam para a nova paleta verde.
+  const _antigas = ['#1e3a8a', '#172554', '#0f172a', '#38bdf8'];
+  const _cor = (guardada, nova) => (!guardada || (temaCodigo === 'padrao_azul' && _antigas.includes(String(guardada).toLowerCase()))) ? nova : guardada;
+  const primaria = _cor(escola.tema_cor_primaria, temaConfig.primaria);
+  const hover = _cor(escola.tema_cor_hover, temaConfig.hover);
+  const sidebar = _cor(escola.tema_cor_sidebar, temaConfig.sidebar);
+  const sidebarAtiva = _cor(escola.tema_cor_sidebar_ativa, temaConfig.sidebarAtiva);
 
   const root = document.documentElement;
   root.style.setProperty('--primary-color', primaria);
@@ -5758,13 +5761,6 @@ function aplicarTemaEFundoInstituicao(escola, opcoes = {}) {
     }
     #sidebar {
       background: ${sidebar} !important;
-    }
-    #sidebar .nav-link.active {
-      background: ${primaria} !important;
-      color: #ffffff !important;
-    }
-    #sidebar .nav-link:hover {
-      background: rgba(255, 255, 255, 0.08) !important;
     }
     .nav-tabs .nav-link.active {
       border-bottom-color: ${primaria} !important;
@@ -5872,7 +5868,7 @@ window.aplicarTemaEFundoInstituicao = aplicarTemaEFundoInstituicao;
 
 // Utilitários de Conversão Cromática e Geração de Paleta Harmónica
 function hexParaRgb(hex) {
-  hex = (hex || '#1e3a8a').replace('#', '').trim();
+  hex = (hex || '#0f766e').replace('#', '').trim();
   if (hex.length === 3) {
     hex = hex.split('').map(c => c + c).join('');
   }
@@ -5954,9 +5950,9 @@ function gerarPaletaHarmonica(hexPrimaria) {
   } catch (_) {
     return {
       primaria: hexPrimaria,
-      hover: '#172554',
-      sidebar: '#0f172a',
-      sidebarAtiva: '#38bdf8'
+      hover: '#115e59',
+      sidebar: '#0b2a27',
+      sidebarAtiva: '#2dd4bf'
     };
   }
 }
@@ -6061,8 +6057,8 @@ function renderizarSeletorTemas(atualizarIndicadores = true) {
   if (!container) return;
 
   const codigoAtual = document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul';
-  const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a';
-  const corSidebar = document.getElementById('confEscolaCorSidebar')?.value || '#0f172a';
+  const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#0f766e';
+  const corSidebar = document.getElementById('confEscolaCorSidebar')?.value || '#0b2a27';
 
   const painelCustom = document.getElementById('painelCoresPersonalizadas');
   if (painelCustom) {
@@ -6184,7 +6180,7 @@ function aoMudarCorCustomizada() {
   const inputTema = document.getElementById('confEscolaTemaCodigo');
   if (inputTema) inputTema.value = 'personalizado';
 
-  const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a';
+  const corPrimaria = document.getElementById('confEscolaCorPrimaria')?.value || '#0f766e';
   const pickerManual = document.getElementById('pickerEspectroManual');
   if (pickerManual) pickerManual.value = corPrimaria;
 
@@ -6583,10 +6579,10 @@ window.aplicarTemaEFundoAoVivo = aplicarTemaEFundoAoVivo;
 function restaurarPadraoTemaEFundo() {
   const root = document.documentElement;
   const t = window.SIGE_TEMAS?.padrao_azul || {
-    primaria: '#1e3a8a',
-    hover: '#172554',
-    sidebar: '#0f172a',
-    sidebarAtiva: '#38bdf8'
+    primaria: '#0f766e',
+    hover: '#115e59',
+    sidebar: '#0b2a27',
+    sidebarAtiva: '#2dd4bf'
   };
 
   root.style.setProperty('--primary-color', t.primaria);
@@ -6667,9 +6663,9 @@ document.getElementById('formEscolaInfo')?.addEventListener('submit', async (e) 
         ? obterGaleriaLogosEscola().filter(g => g && g.tipo === 'UPLOAD') 
         : [],
       tema_codigo: document.getElementById('confEscolaTemaCodigo')?.value || 'padrao_azul',
-      tema_cor_primaria: document.getElementById('confEscolaCorPrimaria')?.value || '#1e3a8a',
-      tema_cor_hover: document.getElementById('confEscolaCorHover')?.value || '#172554',
-      tema_cor_sidebar: document.getElementById('confEscolaCorSidebar')?.value || '#0f172a',
+      tema_cor_primaria: document.getElementById('confEscolaCorPrimaria')?.value || '#0f766e',
+      tema_cor_hover: document.getElementById('confEscolaCorHover')?.value || '#115e59',
+      tema_cor_sidebar: document.getElementById('confEscolaCorSidebar')?.value || '#0b2a27',
       tema_cor_sidebar_ativa: document.getElementById('confEscolaCorSidebarAtiva')?.value || '#38bdf8',
       imagem_fundo_url: document.getElementById('confEscolaFundoFinalValue')?.value || '',
       imagem_fundo_modo: document.getElementById('confEscolaFundoModo')?.value || 'marca_dagua',

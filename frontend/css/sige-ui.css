@@ -7,7 +7,7 @@
    ============================================================================ */
 
 :root {
-  --ui-primary: #0f766e;
+  --ui-primary: var(--primary-color, #0f766e);
   --ui-primary-600: #0d6b64;
   --ui-primary-700: #115e59;
   --ui-primary-50: #effaf8;
@@ -69,57 +69,57 @@ a { text-underline-offset: 3px; }
 *::-webkit-scrollbar-thumb { background: #c5d2cd; border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
 *::-webkit-scrollbar-thumb:hover { background: #9fb2ab; background-clip: content-box; border: 2px solid transparent; }
 
-/* ------------------------------------------------------------------ barra lateral (clara) */
+/* ------------------------------------------------------------------ barra lateral (cores vêm do tema da escola) */
 #sidebar {
-  background: #ffffff;
-  color: #475a55;
-  border-right: 1px solid var(--ui-line);
-  box-shadow: 6px 0 24px rgba(18, 32, 30, .04);
-  scrollbar-color: #cfd9d5 transparent;
+  background: var(--sidebar-bg, #0b2a27);
+  color: #b9cbc6;
+  border-right: 1px solid rgba(255, 255, 255, .06);
+  box-shadow: 6px 0 28px rgba(18, 32, 30, .12);
+  scrollbar-color: rgba(255, 255, 255, .22) transparent;
 }
-#sidebar::-webkit-scrollbar-thumb { background: #cfd9d5; background-clip: content-box; }
+#sidebar::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(110% 40% at 0% 0%, rgba(255, 255, 255, .09), transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .18)); }
+#sidebar > * { position: relative; z-index: 1; }
+#sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .2); background-clip: content-box; }
 #sidebar .brand {
-  padding: 18px 18px 14px; border-bottom: 1px solid var(--ui-line);
-  position: sticky; top: 0; z-index: 2; background: linear-gradient(180deg, #fff 75%, rgba(255, 255, 255, 0));
+  padding: 18px 18px 14px; border-bottom: 1px solid rgba(255, 255, 255, .09);
+  position: sticky; top: 0; z-index: 3; background: var(--sidebar-bg, #0b2a27);
 }
-#sidebar .brand .text-white { color: var(--ui-ink) !important; }
-#sidebar .brand .text-white-50 { color: var(--ui-muted) !important; }
-#sidebar .brand img { background: #fff; padding: 2px; border-radius: 10px !important; box-shadow: var(--ui-shadow-sm); border: 1px solid var(--ui-line); }
-#sidebar .btn-outline-light { color: #475a55; border-color: transparent; }
+#sidebar .brand img { background: #fff; padding: 2px; border-radius: 10px !important; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
 #sidebarTenantCard {
-  background: linear-gradient(135deg, #effaf8, #f7fbfa) !important;
-  border: 1px solid #cfeae5 !important; border-radius: 12px !important; padding: 10px 12px !important;
+  background: rgba(255, 255, 255, .07) !important;
+  border: 1px solid rgba(255, 255, 255, .12) !important; border-radius: 12px !important; padding: 10px 12px !important;
 }
-#sidebarTenantCard .text-white, #sidebarTenantCard strong { color: var(--ui-ink) !important; }
-#sidebarTenantCard .text-white-50 { color: var(--ui-muted) !important; }
-#sidebarTenantCard .bi { color: var(--ui-primary) !important; }
-#sidebar .nav-category {
-  font-size: .66rem; letter-spacing: .12em; color: #8a9a95; padding: 18px 20px 6px; font-weight: 700;
-}
+#sidebarTenantCard .bi { color: var(--ui-gold) !important; }
+#sidebar .nav-category { font-size: .66rem; letter-spacing: .13em; color: rgba(255, 255, 255, .45); padding: 18px 20px 6px; font-weight: 700; }
 #sidebar .nav-link {
-  position: relative; color: #475a55; margin: 2px 10px; padding: 9px 12px; border-radius: 10px;
+  position: relative; color: #c5d5d0; margin: 2px 10px; padding: 9px 12px; border-radius: 10px;
   font-size: .86rem; font-weight: 500; gap: 11px;
   transition: background .18s var(--ui-ease), color .18s var(--ui-ease);
 }
 #sidebar .nav-link > i[class*="bi-"],
-#sidebar .nav-link span > i[class*="bi-"] { color: #7d8f89 !important; font-size: 1.05rem; width: 1.25rem; text-align: center; flex: 0 0 auto; transition: color .18s; }
-#sidebar .nav-link:hover { background: #f0f5f3; color: var(--ui-ink); }
+#sidebar .nav-link span > i[class*="bi-"] { color: rgba(255, 255, 255, .55) !important; font-size: 1.05rem; width: 1.25rem; text-align: center; flex: 0 0 auto; transition: color .18s; }
+#sidebar .nav-link:hover { background: rgba(255, 255, 255, .09); color: #fff; }
 #sidebar .nav-link:hover > i[class*="bi-"],
-#sidebar .nav-link:hover span > i[class*="bi-"] { color: var(--ui-primary) !important; }
-#sidebar .nav-link.active { background: var(--ui-primary-100); color: var(--ui-primary-700); font-weight: 650; box-shadow: none; }
+#sidebar .nav-link:hover span > i[class*="bi-"] { color: var(--sidebar-active, #2dd4bf) !important; }
+#sidebar .nav-link.active {
+  background: color-mix(in srgb, var(--sidebar-active, #2dd4bf) 24%, transparent);
+  color: #fff; font-weight: 650;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sidebar-active, #2dd4bf) 40%, transparent);
+}
 #sidebar .nav-link.active::before {
-  content: ""; position: absolute; left: -10px; top: 18%; bottom: 18%; width: 4px; border-radius: 0 4px 4px 0; background: var(--ui-primary);
+  content: ""; position: absolute; left: -10px; top: 18%; bottom: 18%; width: 4px; border-radius: 0 4px 4px 0; background: var(--sidebar-active, #2dd4bf);
 }
 #sidebar .nav-link.active > i[class*="bi-"],
-#sidebar .nav-link.active span > i[class*="bi-"] { color: var(--ui-primary) !important; }
+#sidebar .nav-link.active span > i[class*="bi-"] { color: var(--sidebar-active, #2dd4bf) !important; }
 #sidebar .nav-link span { overflow: hidden; text-overflow: ellipsis; }
-#sidebar #subnav-area-pedagogica, #sidebar [id^="subnav-grupo"] { border-left: 1px solid var(--ui-line-strong) !important; }
+#sidebar #subnav-area-pedagogica, #sidebar [id^="subnav-grupo"] { border-left: 1px solid rgba(255, 255, 255, .14) !important; }
 #sidebar .nav-link.small { font-size: .8rem; padding: 7px 10px; }
-#sidebar .border-top { border-color: var(--ui-line) !important; }
-#sidebar .nav-link.text-danger { color: #be123c !important; }
-#sidebar .nav-link.text-danger:hover { background: #fff1f3; }
-#sidebar .nav-link.text-danger > i { color: #e11d48 !important; }
-#sidebar .nav-link.text-light { color: #25332f !important; }
+#sidebar .border-top { border-color: rgba(255, 255, 255, .1) !important; }
+#sidebar .nav-link.text-danger { color: #fda4af !important; }
+#sidebar .nav-link.text-danger:hover { background: rgba(244, 63, 94, .16); }
+#sidebar .nav-link.text-danger > i { color: #fb7185 !important; }
+#sidebar .nav-link.text-light { color: #e6f0ed !important; }
 /* ------------------------------------------------------------------ topo */
 .topbar {
   background: rgba(255, 255, 255, .86);

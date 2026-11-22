@@ -1938,3 +1938,7 @@ Novo sistema de design em `frontend/css/sige-ui.css` (painel: barra lateral com 
 ### Nova paleta de cores (v2.9.109)
 
 A paleta azul/roxa foi substituída por verde-azulado (#0f766e) com dourado, inspirada nas cores de Moçambique: barra lateral clara com item activo em verde suave, fundo neutro esverdeado, login em verde profundo e hero do site em gradientes verdes. Cache do service worker v3.5.1.
+
+### Barra lateral guiada pelo tema da escola (v2.9.110)
+
+A barra lateral do painel volta a ser escura e obedece ao tema da escola (variáveis `--sidebar-bg` e `--sidebar-active`), com item activo em tom do tema. O tema padrão passou a *Verde SIGE (Institucional)* (#0f766e / #0b2a27 / #2dd4bf); escolas com as cores azuis antigas guardadas no tema padrão migram automaticamente para a nova paleta (`aplicarTemaEFundoInstituicao`). Removidas do tema dinâmico as regras `!important` do item activo e do hover da barra lateral.
