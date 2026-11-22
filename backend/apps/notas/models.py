@@ -530,6 +530,26 @@ class GabaritoGuardado(models.Model):
         return f'{self.nome} ({self.n_perguntas})'
 
 
+class CorrecaoRegisto(models.Model):
+    """Registo de uma correcção automática concluída: data, duração e as listas de notas (PDF e Excel) guardadas
+    tal como estavam no fim da correcção. Eliminar o registo não altera notas, correcções nem cadernetas."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escola = models.ForeignKey('tenants.Escola', on_delete=models.CASCADE, related_name='correcoes_registos')
+    prova = models.ForeignKey(ProvaFisica, on_delete=models.CASCADE, related_name='registos')
+    criado_por = models.ForeignKey('accounts.Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='correcoes_registos')
+    duracao_seg = models.PositiveIntegerField(default=0)
+    n_folhas = models.PositiveIntegerField(default=0)
+    caminho_pdf = models.CharField(max_length=255, blank=True, default='')
+    caminho_xlsx = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sige_correcoes_registos'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['escola', 'prova'])]
+
+
 class FolhaPendente(models.Model):
     """Folha lida e corrigida pelo sistema mas ainda sem aluno atribuído (guardada para não se perder ao recarregar)."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

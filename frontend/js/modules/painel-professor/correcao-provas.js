@@ -1045,6 +1045,15 @@
       var seg = Math.round((Date.now() - t0) / 1000);
       lote.sort(function (a, b) { return a.origem === b.origem ? a.pagina - b.pagina : (a.origem < b.origem ? -1 : 1); });
       prog.dataset.seg = String(seg);
+      // guarda o registo em «Provas corrigidas» (data, duração e listas PDF/Excel)
+      var corrigidasN = (prova.alunos || []).filter(function (a) { return a.correcao && a.correcao.estado !== 'RASCUNHO'; }).length + (lote.filter(function (x) { return x.estado === 'pendente'; }).length);
+      if (totalGeral) {
+        try {
+          var rg = await chamar(API + encodeURIComponent(prova.id) + '/registos/', json('POST', { duracao_seg: seg, n_folhas: feitoTotal || corrigidasN }));
+          if (!rg.ok) toast(msg(rg, 'Não foi possível guardar o registo da correcção.'), 'warning');
+          else if ($('cpPainelCorrigidas') && !$('cpPainelCorrigidas').classList.contains('d-none')) carregarCorrigidas();
+        } catch (_) { /* o registo é secundário: a correcção já está feita */ }
+      }
     } finally { estadoCartaoAuto(); barra.classList.add('d-none'); }
     var feitas = lote.filter(function (x) { return x.estado === 'confirmada'; }).length;
     prog.className = 'small mt-2 ' + (feitas ? 'text-success fw-semibold' : 'text-danger');
@@ -1102,27 +1111,52 @@
   function nomeBase(x, pref) {
     return (pref + ' - ' + x.disciplina_nome + ' - ' + (x.instrumento_nome || x.titulo) + ' - ' + (x.ano_letivo || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/[\s-]+$/, '');
   }
+  function fmtDuracao(s) { s = Number(s) || 0; return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min ' + (s % 60 ? (s % 60) + ' s' : ''); }
+  function fmtData(iso) {
+    var d = new Date(iso); if (isNaN(d)) return '';
+    var z = function (n) { return (n < 10 ? '0' : '') + n; };
+    return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
+  }
+  async function carregarCorrigidas() {
+    var t = $('cpTurma').value, d = $('cpDisciplina').value, p = $('cpPeriodo').value;
+    listaProvas = [];
+    if (t && d && p) {
+      var res = await chamar(API + 'registos/?turma_id=' + encodeURIComponent(t) + '&disciplina_id=' + encodeURIComponent(d) + '&periodo=' + encodeURIComponent(p));
+      if (res.ok) listaProvas = res.json.data || [];
+    }
+    painelCorrigidas();
+  }
   function painelCorrigidas() {
     var corpo = $('cpCorrigidasCorpo'); if (!corpo) return;
     var por = 6, tot = listaProvas.length, pags = Math.max(1, Math.ceil(tot / por));
     pagCorr = Math.max(0, Math.min(pagCorr, pags - 1));
     var fatia = listaProvas.slice(pagCorr * por, pagCorr * por + por);
+    var sub = $('cpCorrigidasSub'), tx = $('cpTurma'), dx = $('cpDisciplina'), px = $('cpPeriodo');
+    if (sub) sub.textContent = (tx.value && dx.value && px.value) ? [tx.options[tx.selectedIndex].text, dx.options[dx.selectedIndex].text, px.options[px.selectedIndex].text].join(' · ') : 'turma, disciplina e trimestre escolhidos';
     corpo.innerHTML = fatia.length ? fatia.map(function (x) {
+      var id = esc(x.id);
+      function b(cls, t, ic, txt) { return '<button type="button" class="btn btn-sm ' + cls + ' me-1 mb-1 cp-cor-b" data-id="' + id + '" data-t="' + t + '"><i class="bi ' + ic + '"></i> ' + txt + '</button>'; }
       return '<tr><td class="small"><strong>' + esc(x.titulo) + '</strong><div class="text-muted">' + esc(x.disciplina_nome) + ' · ' + esc(x.turma_nome) + ' · ' + esc(x.periodo) + '</div></td>' +
-        '<td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-danger me-1 cp-cor-b" data-id="' + esc(x.id) + '" data-t="folhas"><i class="bi bi-file-earmark-pdf"></i> Provas</button>' +
-        '<button type="button" class="btn btn-sm btn-outline-primary me-1 cp-cor-b" data-id="' + esc(x.id) + '" data-t="pdf"><i class="bi bi-file-earmark-pdf"></i> Lista</button>' +
-        '<button type="button" class="btn btn-sm btn-outline-success cp-cor-b" data-id="' + esc(x.id) + '" data-t="xlsx"><i class="bi bi-file-earmark-excel"></i> Excel</button></td></tr>';
-    }).join('') : '<tr><td colspan="2" class="text-muted small">' + (($('cpTurma').value && $('cpDisciplina').value && $('cpPeriodo').value) ? 'Ainda não há provas para esta turma, disciplina e trimestre.' : 'Escolha a turma, a disciplina e o trimestre.') + '</td></tr>';
-    $('cpCorrigidasPos').textContent = tot ? ('Página ' + (pagCorr + 1) + ' de ' + pags + ' · ' + tot + ' prova(s)') : '';
+        '<td class="small text-nowrap">' + esc(fmtData(x.created_at)) + '<div class="text-muted">Corrigida em ' + esc(fmtDuracao(x.duracao_seg)) + ' · ' + esc(x.n_folhas) + ' folha(s)</div></td>' +
+        '<td class="text-end text-nowrap">' + b('btn-outline-danger', 'folhas', 'bi-file-earmark-pdf', 'Provas') +
+        (x.tem_listas ? b('btn-outline-primary', 'pdf', 'bi-file-earmark-pdf', 'Lista') + b('btn-outline-success', 'xlsx', 'bi-file-earmark-excel', 'Excel') : '') +
+        b('btn-outline-secondary', 'zip', 'bi-box-arrow-up', 'Exportar') + b('btn-outline-danger', 'eliminar', 'bi-trash', 'Eliminar') + '</td></tr>';
+    }).join('') : '<tr><td colspan="3" class="text-muted small">' + (($('cpTurma').value && $('cpDisciplina').value && $('cpPeriodo').value) ? 'Ainda não há correcções guardadas para esta turma, disciplina e trimestre. Ficam aqui quando terminar uma correcção automática.' : 'Escolha a turma, a disciplina e o trimestre.') + '</td></tr>';
+    $('cpCorrigidasPos').textContent = tot ? ('Página ' + (pagCorr + 1) + ' de ' + pags + ' · ' + tot + ' correcção(ões)') : '';
     $('cpCorrigidasAnt').disabled = pagCorr <= 0; $('cpCorrigidasSeg').disabled = pagCorr >= pags - 1;
   }
   async function baixarDaLista(id, t) {
     var x = listaProvas.filter(function (p) { return p.id === id; })[0]; if (!x) return;
+    if (t === 'eliminar') {
+      if (!confirm('Eliminar este registo de correcção (' + fmtData(x.created_at) + ')?\nAs notas e as cadernetas não serão alteradas.')) return;
+      var r = await chamar(API + 'registos/' + encodeURIComponent(id) + '/', { method: 'DELETE' });
+      if (!r.ok) { toast(msg(r), 'danger'); return; }
+      toast('Registo eliminado.', 'success'); await carregarCorrigidas(); return;
+    }
     var escolha = typeof perguntarCarimboDocumento === 'function' ? await perguntarCarimboDocumento() : 'nao';
     if (!escolha) return;
-    var u = API + encodeURIComponent(id);
-    if (t === 'folhas') await downloadFicheiroBinario(u + '/folhas-corrigidas/?carimbo=' + escolha, nomeBase(x, 'Avaliacao corrigida') + '.pdf');
-    else await downloadFicheiroBinario(u + '/lista-notas/?formato=' + t + '&carimbo=' + escolha, nomeBase(x, 'Lista de notas') + '.' + t);
+    var nomes = { folhas: nomeBase(x, 'Avaliacao corrigida') + '.pdf', pdf: nomeBase(x, 'Lista de notas') + '.pdf', xlsx: nomeBase(x, 'Lista de notas') + '.xlsx', zip: nomeBase(x, 'Correccao') + '.zip' };
+    await downloadFicheiroBinario(API + 'registos/' + encodeURIComponent(id) + '/ficheiro/?t=' + t + '&carimbo=' + escolha, nomes[t]);
   }
 
   // ---------- Envio rápido: comprime a digitalização no navegador (200 dpi bastam) e mostra o progresso real ----------
@@ -1230,7 +1264,7 @@
     if (ligado) return; ligado = true;
     $('cpBtnLerGab').addEventListener('click', importarGabarito);
     $('cpAutoLer').addEventListener('click', lerFolhas);
-    $('cpBtnCorrigidas').addEventListener('click', function () { var p = $('cpPainelCorrigidas'); p.classList.toggle('d-none'); $('cpBtnCorrigidas').setAttribute('aria-expanded', String(!p.classList.contains('d-none'))); painelCorrigidas(); });
+    $('cpBtnCorrigidas').addEventListener('click', function () { var p = $('cpPainelCorrigidas'); p.classList.toggle('d-none'); $('cpBtnCorrigidas').setAttribute('aria-expanded', String(!p.classList.contains('d-none'))); carregarCorrigidas(); });
     $('cpCorrigidasAnt').addEventListener('click', function () { pagCorr--; painelCorrigidas(); });
     $('cpCorrigidasSeg').addEventListener('click', function () { pagCorr++; painelCorrigidas(); });
     $('cpCorrigidasCorpo').addEventListener('click', function (ev) { var b = ev.target.closest('.cp-cor-b'); if (b) baixarDaLista(b.getAttribute('data-id'), b.getAttribute('data-t')).catch(function (e) { toast((e && e.message) || 'Não foi possível descarregar.', 'danger'); }); });
@@ -1246,9 +1280,9 @@
     $('cpAutoVersao').addEventListener('change', guardarCamposRevisao);
     $('cpClasse').addEventListener('change', aoMudarClasse);
     $('cpArea').addEventListener('change', aoMudarArea);
-    $('cpTurma').addEventListener('change', aoMudarTurma);
-    $('cpDisciplina').addEventListener('change', function () { carregarProvas(); });
-    $('cpPeriodo').addEventListener('change', function () { carregarProvas(); });
+    $('cpTurma').addEventListener('change', function () { aoMudarTurma.apply(this, arguments); carregarCorrigidas(); });
+    $('cpDisciplina').addEventListener('change', function () { carregarProvas(); carregarCorrigidas(); });
+    $('cpPeriodo').addEventListener('change', function () { carregarProvas(); carregarCorrigidas(); });
     $('cpProva').addEventListener('change', function () { var v = $('cpProva').value; if (v) abrirProva(v); else estadoVazio('Escolha a prova a corrigir.'); });
     $('cpBtnNova').addEventListener('click', function () { $('cpCartaoNova').classList.toggle('d-none'); });
     $('cpBtnCancelarNova').addEventListener('click', function () { $('cpCartaoNova').classList.add('d-none'); });

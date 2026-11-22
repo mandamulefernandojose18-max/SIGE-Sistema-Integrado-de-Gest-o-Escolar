@@ -12,6 +12,7 @@ from .views_exames import (
     FormarJurisView, JurisExamePdfView, JurisExameView,
 )
 
+from .views_registos import RegistosListaView, RegistoCriarView, RegistoDetalheView
 from .views_correcao import (
     CorrecaoAlunoView, CorrecaoImagemFicheiroView, CorrecaoImagemUploadView, FolhasCorrigidasPdfView, LancarCorrecoesView, ListaNotasAvaliacaoView,
     ProvaFisicaDetalheView, ProvasFisicasView,
@@ -35,7 +36,11 @@ urlpatterns = [
     path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/', FolhasPendentesView.as_view(), name='folhas_pendentes_detalhe'),
     path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/dados/', FolhasPendentesView.as_view(), name='folhas_pendentes_dados'),
     path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/imagem/', FolhasPendentesView.as_view(), name='folhas_pendentes_imagem'),
-    path('provas-fisicas/gabaritos-guardados', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_no_slash'),
+    path('provas-fisicas/registos/', RegistosListaView.as_view(), name='correcao_registos'),
+    path('provas-fisicas/registos/<uuid:rid>/', RegistoDetalheView.as_view(), name='correcao_registo_detalhe'),
+    path('provas-fisicas/registos/<uuid:rid>/ficheiro/', RegistoDetalheView.as_view(), name='correcao_registo_ficheiro'),
+    path('provas-fisicas/<uuid:pk>/registos/', RegistoCriarView.as_view(), name='correcao_registo_criar'),
+    path('provas-fisicas/gabaritos-guardados',GabaritosGuardadosView.as_view(), name='gabaritos_guardados_no_slash'),
     path('provas-fisicas/gabaritos-guardados/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados'),
     path('provas-fisicas/gabaritos-guardados/<uuid:pk>/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_detalhe'),
     path('provas-fisicas/gabaritos-guardados/<uuid:pk>/pdf/', GabaritoGuardadoPdfView.as_view(), name='gabaritos_guardados_pdf'),
