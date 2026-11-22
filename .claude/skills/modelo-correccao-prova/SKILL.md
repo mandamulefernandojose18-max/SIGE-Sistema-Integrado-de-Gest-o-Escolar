@@ -85,3 +85,20 @@ A correcção em lote **nunca** pode levar mais de **1 minuto** e **nunca** pode
 - [ ] Excel/PDF das listas seguem `docs/REGRAS_EXCEL_E_PDF.md`.
 - [ ] Documentação (`docs/DOCUMENTACAO_COMPLETA_DO_SISTEMA.md`, `docs/REFERENCIA_COMPLETA_API.md`), commit semântico e deploy
   (`.\scripts\sige-git-deploy.ps1 -Message "..."`), conforme o `CLAUDE.md`.
+
+## Regras acrescentadas em 22/11/2026 (obrigatórias)
+
+- **«Questão nula» SÓ** quando o aluno marcou **mais de uma** alternativa (duas marcas fortes) **ou nenhuma** (tudo em branco).
+  Uma só marca, mesmo fraca (caneta clara), é a resposta do aluno (`decidir` → letra + dúvida `FRACA`), **nunca** nula.
+  O texto «Questão nula» escreve-se **na mesma linha da pergunta, à direita da última alternativa** (não por cima: lia-se como
+  sendo da pergunta de cima).
+- **Círculo 100 % à volta da alternativa**: elipse que contém os 4 cantos do quadrinho + a letra (rx = 1,33 × meia-largura,
+  ry = 3,4 mm), sem tocar nas alternativas vizinhas; o centro ajusta-se ao quadrinho impresso (`_afinar_centro`).
+  Teste: `test_circulo_envolve_100_por_cento_a_alternativa`. Espessura: traço firme mas fino (1,6× / 1,7× o traço base).
+- **Sub-menu «Provas corrigidas»** na página: provas guardadas da turma/disciplina/trimestre (6 por página, altura constante)
+  com PDF das provas, lista de notas em PDF e em Excel.
+- **Digitalizar com o scanner** (`frontend/downloads/sige-scanner.ps1`, WIA, alimentador automático, 200 dpi cor): o botão
+  liga ao assistente local (127.0.0.1:47811), digitaliza TODAS as folhas, devolve um PDF e inicia a correcção em lote,
+  o lançamento e o PDF. A UI mostra os segundos da digitalização e da correcção.
+- **Folha não personalizada** (dados escritos à mão): sem QR a folha fica guardada «sem aluno» e a vista mostra o recorte
+  «I Dados do aluno» (`/folhas-pendentes/<id>/dados/`) para identificar o aluno num clique. (Não há OCR de letra manuscrita.)

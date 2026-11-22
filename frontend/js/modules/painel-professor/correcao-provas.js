@@ -857,6 +857,8 @@
       $('cpAutoVerAluno').innerHTML = '<option value="">-- escolha o aluno --</option>' +
         (prova.alunos || []).map(function (a) { return '<option value="' + esc(a.aluno_id) + '">' + esc(a.nome) + ' — ' + rotuloEstado(a.correcao) + '</option>'; }).join('');
       $('cpAutoVerAluno').value = o.x.aluno_id || '';
+      $('cpAutoVerDados').removeAttribute('src');
+      if (o.x.pendente_id) imagemGuardada(encodeURIComponent(prova.id) + '/folhas-pendentes/' + encodeURIComponent(o.x.pendente_id) + '/dados/').then(function (u) { if (lote[visorIdx] || true) $('cpAutoVerDados').src = u; }).catch(function () {});
       var vsv = prova.versoes || [];
       $('cpAutoVerBlocoVersao').classList.toggle('d-none', !vsv.length);
       $('cpAutoVerVersao').innerHTML = '<option value="">--</option>' + vsv.map(function (v) { return '<option>' + esc(v) + '</option>'; }).join('');
@@ -1090,10 +1092,76 @@
     lote.splice(revIdx, 1); revIdx = -1; painelLote(); mostrarConcluido();
   }
 
+  // ---------- Sub-menu «Provas corrigidas»: provas da turma/disciplina/trimestre escolhidos, 6 por página (altura constante) ----------
+  var listaProvas = [], pagCorr = 0;
+  function nomeBase(x, pref) {
+    return (pref + ' - ' + x.disciplina_nome + ' - ' + (x.instrumento_nome || x.titulo) + ' - ' + (x.ano_letivo || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/[\s-]+$/, '');
+  }
+  function painelCorrigidas() {
+    var corpo = $('cpCorrigidasCorpo'); if (!corpo) return;
+    var por = 6, tot = listaProvas.length, pags = Math.max(1, Math.ceil(tot / por));
+    pagCorr = Math.max(0, Math.min(pagCorr, pags - 1));
+    var fatia = listaProvas.slice(pagCorr * por, pagCorr * por + por);
+    corpo.innerHTML = fatia.length ? fatia.map(function (x) {
+      return '<tr><td class="small"><strong>' + esc(x.titulo) + '</strong><div class="text-muted">' + esc(x.disciplina_nome) + ' · ' + esc(x.turma_nome) + ' · ' + esc(x.periodo) + '</div></td>' +
+        '<td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-danger me-1 cp-cor-b" data-id="' + esc(x.id) + '" data-t="folhas"><i class="bi bi-file-earmark-pdf"></i> Provas</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-primary me-1 cp-cor-b" data-id="' + esc(x.id) + '" data-t="pdf"><i class="bi bi-file-earmark-pdf"></i> Lista</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-success cp-cor-b" data-id="' + esc(x.id) + '" data-t="xlsx"><i class="bi bi-file-earmark-excel"></i> Excel</button></td></tr>';
+    }).join('') : '<tr><td colspan="2" class="text-muted small">' + (($('cpTurma').value && $('cpDisciplina').value && $('cpPeriodo').value) ? 'Ainda não há provas para esta turma, disciplina e trimestre.' : 'Escolha a turma, a disciplina e o trimestre.') + '</td></tr>';
+    $('cpCorrigidasPos').textContent = tot ? ('Página ' + (pagCorr + 1) + ' de ' + pags + ' · ' + tot + ' prova(s)') : '';
+    $('cpCorrigidasAnt').disabled = pagCorr <= 0; $('cpCorrigidasSeg').disabled = pagCorr >= pags - 1;
+  }
+  async function baixarDaLista(id, t) {
+    var x = listaProvas.filter(function (p) { return p.id === id; })[0]; if (!x) return;
+    var escolha = typeof perguntarCarimboDocumento === 'function' ? await perguntarCarimboDocumento() : 'nao';
+    if (!escolha) return;
+    var u = API + encodeURIComponent(id);
+    if (t === 'folhas') await downloadFicheiroBinario(u + '/folhas-corrigidas/?carimbo=' + escolha, nomeBase(x, 'Avaliacao corrigida') + '.pdf');
+    else await downloadFicheiroBinario(u + '/lista-notas/?formato=' + t + '&carimbo=' + escolha, nomeBase(x, 'Lista de notas') + '.' + t);
+  }
+
+  // ---------- Digitalizar com o scanner deste computador (assistente local sige-scanner) ----------
+  var AGENTE = 'http://127.0.0.1:47811';
+  async function digitalizarComScanner() {
+    var prog = $('cpAutoProgresso');
+    if (!prova || prova.tipo !== 'MULTIPLA_ESCOLHA') { toast('Escolha (ou crie) a prova de escolha múltipla antes de digitalizar.', 'warning'); return; }
+    prog.className = 'small mt-2 text-primary';
+    try { var e = await fetch(AGENTE + '/estado', { cache: 'no-store' }); if (!e.ok) throw new Error('x'); }
+    catch (_) {
+      prog.className = 'small mt-2 text-warning-emphasis';
+      prog.innerHTML = '<i class="bi bi-printer me-1"></i>Falta ligar o scanner a este computador: <a href="/downloads/sige-scanner.ps1" download>descarregue o assistente de scanner</a>, execute-o (botão direito → «Executar com o PowerShell»), deixe a janela aberta e carregue de novo em «Digitalizar com o scanner».';
+      return;
+    }
+    var t0 = Date.now(), btn = $('cpAutoScanner'); btn.disabled = true;
+    var tick = setInterval(function () { prog.textContent = 'A digitalizar todas as folhas no scanner… ' + Math.round((Date.now() - t0) / 1000) + ' s'; }, 500);
+    prog.textContent = 'A digitalizar todas as folhas no scanner… 0 s';
+    var ficheiro = null;
+    try {
+      var r = await fetch(AGENTE + '/digitalizar?dpi=200', { cache: 'no-store' });
+      if (!r.ok) { var j = {}; try { j = await r.json(); } catch (_) {} throw new Error(j.erro || 'O scanner não respondeu.'); }
+      var blob = await r.blob();
+      ficheiro = new File([blob], 'Digitalizacao ' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.pdf', { type: 'application/pdf' });
+    } catch (err) {
+      clearInterval(tick); btn.disabled = false;
+      prog.className = 'small mt-2 text-danger'; prog.textContent = 'Digitalização falhou: ' + ((err && err.message) || 'erro desconhecido');
+      return;
+    }
+    clearInterval(tick); btn.disabled = false;
+    var segScan = Math.round((Date.now() - t0) / 1000);
+    var dt = new DataTransfer(); dt.items.add(ficheiro); $('cpAutoFicheiros').files = dt.files;
+    toast('Digitalização terminada em ' + segScan + ' s. A corrigir…', 'success');
+    await lerFolhas();
+    prog.textContent += ' (digitalização: ' + segScan + ' s)';
+  }
   function ligar() {
     if (ligado) return; ligado = true;
     $('cpBtnLerGab').addEventListener('click', importarGabarito);
     $('cpAutoLer').addEventListener('click', lerFolhas);
+    $('cpBtnCorrigidas').addEventListener('click', function () { var p = $('cpPainelCorrigidas'); p.classList.toggle('d-none'); $('cpBtnCorrigidas').setAttribute('aria-expanded', String(!p.classList.contains('d-none'))); painelCorrigidas(); });
+    $('cpCorrigidasAnt').addEventListener('click', function () { pagCorr--; painelCorrigidas(); });
+    $('cpCorrigidasSeg').addEventListener('click', function () { pagCorr++; painelCorrigidas(); });
+    $('cpCorrigidasCorpo').addEventListener('click', function (ev) { var b = ev.target.closest('.cp-cor-b'); if (b) baixarDaLista(b.getAttribute('data-id'), b.getAttribute('data-t')).catch(function (e) { toast((e && e.message) || 'Não foi possível descarregar.', 'danger'); }); });
+    $('cpAutoScanner').addEventListener('click', digitalizarComScanner);
     $('cpAutoConfirmar').addEventListener('click', confirmarActual);
     $('cpAutoConfirmarLimpas').addEventListener('click', confirmarLimpas);
     $('cpAutoSaltar').addEventListener('click', function () { moverRevisao(1); });

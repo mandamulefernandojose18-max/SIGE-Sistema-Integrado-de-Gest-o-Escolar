@@ -222,6 +222,23 @@
       </div>
     </div>
 
+    <!-- Sub-menu «Provas corrigidas»: guardadas no sistema, com PDF das provas e lista de notas (altura constante: 6 por página) -->
+    <div class="mb-3" id="cpCartaoCorrigidas">
+      <button type="button" class="btn btn-outline-primary btn-sm" id="cpBtnCorrigidas" aria-expanded="false"><i class="bi bi-folder2-open me-1"></i>Provas corrigidas</button>
+      <div class="card shadow-sm mt-2 d-none" id="cpPainelCorrigidas">
+        <div class="card-header fw-semibold small"><i class="bi bi-folder2-open me-1"></i> Provas corrigidas guardadas · {turma, disciplina e trimestre escolhidos}</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Prova</th><th class="text-end">Descarregar</th></tr></thead>
+            <tbody id="cpCorrigidasCorpo"><tr><td colspan="2" class="text-muted small">Escolha a turma, a disciplina e o trimestre.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center p-2 small">
+          <span id="cpCorrigidasPos" class="text-muted"></span>
+          <div class="btn-group btn-group-sm"><button type="button" class="btn btn-outline-secondary" id="cpCorrigidasAnt"><i class="bi bi-chevron-left"></i></button><button type="button" class="btn btn-outline-secondary" id="cpCorrigidasSeg"><i class="bi bi-chevron-right"></i></button></div>
+        </div>
+      </div>
+    </div>
     <!-- Passo 2: correcção automática das folhas de resposta (só escolha múltipla) -->
     <div class="mb-3" id="cpCartaoAuto">
       <div class="card shadow-sm border-primary">
@@ -235,6 +252,8 @@
               <input id="cpAutoFicheiros" type="file" class="form-control form-control-sm" multiple accept="image/png,image/jpeg,application/pdf">
             </div>
             <div class="col-12 col-md-auto">
+              <button type="button" class="btn btn-outline-primary" id="cpAutoScanner" title="Liga ao scanner deste computador, digitaliza todas as folhas e corrige logo"><i class="bi bi-printer me-1"></i>Digitalizar com o scanner</button>
+            </div>            <div class="col-12 col-md-auto">
               <button type="button" class="btn btn-primary" id="cpAutoLer"><i class="bi bi-play-circle me-1"></i>Iniciar correcção automática</button>
             </div>
           </div>
@@ -264,6 +283,7 @@
               </div>
               <!-- Folha corrigida ainda sem aluno: escolha o aluno (o nome vem escrito na folha) e guarde -->
               <div id="cpAutoVerAtribuir" class="row g-2 align-items-end mb-2 d-none">
+                <div class="small text-muted mb-1">Dados escritos pelo aluno (identifique-o abaixo):</div><img id="cpAutoVerDados" class="img-fluid border rounded mb-2" alt="Dados do aluno escritos na folha" style="max-height:9rem">
                 <div class="col-12 col-md-5">
                   <label class="form-label small mb-1" for="cpAutoVerAluno">Esta folha é de que aluno?</label>
                   <select id="cpAutoVerAluno" class="form-select form-select-sm"></select>

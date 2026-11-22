@@ -204,7 +204,7 @@ def test_questao_nula_e_circulo_na_certa_so_onde_o_aluno_nao_acertou():
         res = {}
         for q, i, cx, cy, lw, lh in cels:
             if i == 0:
-                faixa = v[int((cy - 4.5) * ppm):int((cy + 4.5) * ppm), int((cx - lw) * ppm):int((cx + 3 * lw) * ppm)]
+                faixa = v[int((cy - 4.5) * ppm):int((cy + 4.5) * ppm), int((cx - lw) * ppm):int((cx + 5 * lw) * ppm)]       # inclui «Questão nula», na mesma linha à direita
                 res[q] = int(faixa.sum())
         return res
 
@@ -273,3 +273,23 @@ def test_pdf_com_varias_paginas_e_formato_invalido():
         omr.abrir_pagina(b'GIF89a-not-supported', 0)
     with pytest.raises(omr.ErroOMR):
         omr.abrir_pagina(b'', 0)
+
+def test_marca_fraca_unica_conta_como_resposta_e_nula_so_com_duas_marcas_ou_nenhuma():
+    # uma só marca fraca (caneta clara) → resposta, nunca «Questão nula»; duas marcas fortes → N; nada → '-'
+    resp, duv = omr.decidir([[0.0, 0.0, 0.0, 0.11]], 'ABCD')
+    assert resp == ['D'] and duv and duv[0]['motivo'] == 'FRACA'
+    assert omr.decidir([[0.5, 0.0, 0.0, 0.46]], 'ABCD')[0] == ['N']
+    assert omr.decidir([[0.0, 0.0, 0.0, 0.0]], 'ABCD')[0] == ['-']
+    assert omr.decidir([[0.07, 0.06, 0.05, 0.04]], 'ABCD')[0] == ['-']
+    assert omr.decidir([[0.0, 0.62, 0.0, 0.0]], 'ABCD')[0] == ['B']
+
+
+def test_circulo_envolve_100_por_cento_a_alternativa():
+    # o círculo (elipse) tem de conter os 4 cantos do quadrinho + letra, sem tocar nas alternativas vizinhas
+    import math
+    cels, _, _, _ = omr.celulas_grelha(40, 4)
+    _q, _i, _cx, _cy, lw, lh = cels[0]
+    rx, ry = (lw / 2) * 1.33, 3.4
+    for dx, dy in ((lw / 2, 2.0), (-lw / 2, 2.0), (lw / 2, -2.0), (-lw / 2, -2.0)):
+        assert (dx / rx) ** 2 + (dy / ry) ** 2 < 0.95
+    assert rx < 13.0 - lw / 2 and ry < 3.0 + 0.6      # não invade o quadrinho vizinho (passo 13 mm) nem a linha seguinte

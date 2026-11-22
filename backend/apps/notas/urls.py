@@ -33,6 +33,7 @@ urlpatterns = [
     path('provas-fisicas/<uuid:pk>/corrigir-lote/<uuid:job_id>/', CorrigirLoteView.as_view(), name='corrigir_lote_estado'),
     path('provas-fisicas/<uuid:pk>/folhas-pendentes/', FolhasPendentesView.as_view(), name='folhas_pendentes'),
     path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/', FolhasPendentesView.as_view(), name='folhas_pendentes_detalhe'),
+    path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/dados/', FolhasPendentesView.as_view(), name='folhas_pendentes_dados'),
     path('provas-fisicas/<uuid:pk>/folhas-pendentes/<uuid:fid>/imagem/', FolhasPendentesView.as_view(), name='folhas_pendentes_imagem'),
     path('provas-fisicas/gabaritos-guardados', GabaritosGuardadosView.as_view(), name='gabaritos_guardados_no_slash'),
     path('provas-fisicas/gabaritos-guardados/', GabaritosGuardadosView.as_view(), name='gabaritos_guardados'),

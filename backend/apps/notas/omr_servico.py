@@ -561,7 +561,10 @@ def decidir(scores, letras):
     for q, linha in enumerate(scores, start=1):
         ordem = sorted(range(len(linha)), key=lambda i: linha[i], reverse=True)
         a, b = linha[ordem[0]], linha[ordem[1]] if len(ordem) > 1 else 0.0
-        if a < LIMIAR_FRACA:
+        if a < LIMIAR_FRACA and a >= 0.09 and a >= 2.5 * b:   # uma só marca, mas fraca (caneta clara): conta como resposta, nunca como nula
+            resp.append(letras[ordem[0]])
+            duvidas.append({'n': q, 'motivo': 'FRACA', 'candidatas': [letras[ordem[0]]], 'sugerida': letras[ordem[0]]})
+        elif a < LIMIAR_FRACA:
             resp.append('-')
         elif (a >= LIMIAR_MARCA and b < LIMIAR_FRACA) or b < 0.07:   # única alternativa com tinta, mesmo fraca
             resp.append(letras[ordem[0]])
@@ -821,7 +824,7 @@ def _afinar_centro(cv2, np, cinza, cx, cy, lw, lh, ppm, folga_mm=1.8, minimo=0.3
 def _visto_a_mao(cv2, np, img, x, y, ppm, semente, esp):
     """Certo CLÁSSICO (✓): traço curto para baixo e traço longo a subir à direita, firme e bem visível."""
     esp = max(3, int(round(esp * 1.7)))
-    mm = [(0.0, -0.2), (1.6, 1.6), (6.4, -3.6)]
+    mm = [(0.0, -0.1), (1.1, 1.3), (4.7, -2.9)]       # compacto: cabe no espaço entre alternativas e na altura da linha
     pts = np.array([[(x + a * ppm) * 16, (y + b * ppm) * 16] for a, b in mm], np.int32)
     cv2.polylines(img, [pts], False, VERMELHO, esp, cv2.LINE_AA, 4)
 
@@ -875,10 +878,10 @@ def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acer
         if dada == certa:
             _visto_a_mao(cv2, np, page, (cx + lw / 2 + 0.6) * ppm, cy * ppm, ppm, q + 1, esp)
         else:
-            _circulo_a_mao(cv2, np, page, cx * ppm, cy * ppm, 3.9 * ppm, 3.5 * ppm, q + 1, esp)
+            _circulo_a_mao(cv2, np, page, cx * ppm, cy * ppm, (lw / 2) * 1.33 * ppm, 3.4 * ppm, q + 1, esp)   # a alternativa fica 100 % dentro do círculo
             if dada not in letras:   # mais de uma alternativa assinalada ('N') OU nenhuma ('-'): «Questão nula» por cima da pergunta
-                ax, ay, alw, alh = pos[(q, 0)]
-                textos.append(('Questão nula', ax - alw / 2, ay - alh / 2 - 1.1, 30, 2.9,
+                ux, uy, ulw, ulh = pos[(q, len(letras) - 1)]      # na MESMA linha, à direita da última alternativa (sem ambiguidade)
+                textos.append(('Questão nula', ux + ulw / 2 + 1.6, uy + 1.2, 24, 3.0,
                                ['timesbi.ttf', 'LiberationSerif-BoldItalic.ttf', 'DejaVuSerif-BoldItalic.ttf',
                                 'timesi.ttf', 'LiberationSerif-Italic.ttf', 'DejaVuSerif-Italic.ttf']))
     from apps.documentos.services import folha_resposta_service as fr

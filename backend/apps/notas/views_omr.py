@@ -124,6 +124,15 @@ class FolhasPendentesView(APIView):
             return _erro('Folha não encontrada.', 404)
         with open(caminho, 'rb') as fh:
             limpo = fh.read()
+        if request.path.rstrip('/').endswith('/dados'):       # recorte «I Dados do aluno» (letra à mão) para identificar a folha
+            cv2, np = omr._cv()
+            im = cv2.imdecode(np.frombuffer(limpo, np.uint8), cv2.IMREAD_COLOR)
+            ppm = im.shape[1] / 210.0
+            rec = im[int(44 * ppm):int(90 * ppm), int(18 * ppm):int(122 * ppm)]
+            ok, buf = cv2.imencode('.jpg', rec, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+            resp = HttpResponse(buf.tobytes(), content_type='image/jpeg')
+            resp['Cache-Control'] = 'private, no-store'
+            return resp
         try:
             dados = anotar_resolvendo_duvidas(prova, limpo, f.respostas, f.duvidas, f.versao,
                                               getattr(request.user, 'nome', '') or request.user.get_username())['jpg']

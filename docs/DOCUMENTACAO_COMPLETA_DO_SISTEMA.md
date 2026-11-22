@@ -1903,3 +1903,12 @@ Alternativa ao preenchimento manual, disponível em **todas as páginas e sub-me
 
 Novo endpoint `POST /api/v1/notas/provas-fisicas/<id>/corrigir-lote/` (`{upload_id, nome}` → `job_id`) e `GET .../corrigir-lote/<job_id>/` (progresso: feitas/total/segundos). O servidor lê, corrige e desenha todas as folhas em paralelo (processos); ao terminar o navegador lança as notas nas cadernetas e descarrega o PDF das provas corrigidas. Marcas clássicas: círculo (elipse) à volta da alternativa certa e visto ✓ à direita da resposta certa, ajustados ao quadrinho impresso.
 
+
+### Correcção: nula, círculo, Provas corrigidas e scanner (v2.9.103)
+
+- «Questão nula» só com duas marcas ou nenhuma; marca fraca única conta como resposta; o texto fica na mesma linha, à direita.
+- Círculo envolve 100 % da alternativa. Visto ✓ compacto.
+- Sub-menu «Provas corrigidas» (PDF das provas, lista PDF/Excel).
+- Botão «Digitalizar com o scanner» + assistente local `frontend/downloads/sige-scanner.ps1` (WIA, 127.0.0.1:47811, CSP `connect-src` autorizado).
+- `GET /api/v1/notas/provas-fisicas/<id>/folhas-pendentes/<fid>/dados/`: recorte dos dados manuscritos do aluno.
+
