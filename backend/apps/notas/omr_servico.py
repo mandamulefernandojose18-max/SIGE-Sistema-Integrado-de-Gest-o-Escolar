@@ -533,12 +533,42 @@ def _orientar(cv2, np, page, n, n_alt, modelo):
 # ---------------------------------------------------------------------------
 # Decisão das respostas
 # ---------------------------------------------------------------------------
+def _desloc_linha(cv2, np, tinta, modelo, linha, dx0, dy0, folga=20, minimo=0.22):
+    """Alinha CADA linha (pergunta) pelo seu próprio desenho impresso (caixas + letras), numa janela de ±2,5 mm à volta do
+    deslocamento da coluna. Corrige a deriva vertical/horizontal das digitalizações esticadas ou inclinadas, que fazia a
+    tinta das últimas linhas (ex.: perguntas 19, 20, 39, 40) cair fora da janela e ler-se como «em branco»."""
+    try:
+        _q, _i, cx0, cy, lw, lh = linha[0]
+        cx1 = linha[-1][2]
+        x0, x1 = int(round((cx0 - lw / 2 - 0.8) * PPM)), int(round((cx1 + lw / 2 + 0.8) * PPM))
+        y0, y1 = int(round((cy - lh / 2 - 1.6) * PPM)), int(round((cy + lh / 2 + 1.6) * PPM))
+        mod = modelo[y0:y1, x0:x1]
+        xa, ya = x0 + dx0 - folga, y0 + dy0 - folga
+        xb, yb = x1 + dx0 + folga, y1 + dy0 + folga
+        if mod.size == 0 or xa < 0 or ya < 0 or xb > tinta.shape[1] or yb > tinta.shape[0]:
+            return dx0, dy0
+        r = cv2.matchTemplate(tinta[ya:yb, xa:xb], mod, cv2.TM_CCOEFF_NORMED)
+        _mn, mx, _l, loc = cv2.minMaxLoc(r)
+        if mx < minimo:
+            return dx0, dy0
+        return dx0 - folga + loc[0], dy0 - folga + loc[1]
+    except Exception:
+        return dx0, dy0
+
 def _pontuar(tinta, modelo, n, n_alt, deslocamentos):
     """Pontuação 0..1 por pergunta e alternativa (tinta nova / tinta que faltava)."""
     cels, cols, linhas, _ = celulas_grelha(n, n_alt)
     scores = [[0.0] * n_alt for _ in range(n)]
+    cv2, np = _cv()
+    por_linha = {}
+    for c in cels:
+        por_linha.setdefault(c[0], []).append(c)
+    desl_linha = {}
+    for q, lin in por_linha.items():
+        bx, by = deslocamentos[min(q // linhas, len(deslocamentos) - 1)] if deslocamentos else (0, 0)
+        desl_linha[q] = _desloc_linha(cv2, np, tinta, modelo, lin, bx, by)
     for q, i, cx, cy, lw, lh in cels:
-        dx, dy = deslocamentos[min(q // linhas, len(deslocamentos) - 1)] if deslocamentos else (0, 0)
+        dx, dy = desl_linha[q]
         x0 = int(round((cx - lw / 2 + 0.25) * PPM)) + dx
         x1 = int(round((cx + lw / 2 - 0.25) * PPM)) + dx
         y0 = int(round((cy - lh / 2 - 0.15) * PPM)) + dy
@@ -867,22 +897,39 @@ def anotar_folha(imagem_bgr, n_perguntas, n_alternativas, respostas, chave, acer
     cinza = cv2.cvtColor(page, cv2.COLOR_BGR2GRAY)
     esp = max(2, int(round(0.24 * ppm)))      # traço fino de caneta (≈ 0,25 mm), como no modelo
     textos = []
+    # passo entre linhas (mm) e tamanho do círculo: NUNCA se cruzam círculos de linhas seguidas (folga ≥ 0,6 mm entre eles)
+    passo_lin = min([pos[(q + 1, 0)][1] - pos[(q, 0)][1] for q in range(n_perguntas - 1) if (q + 1, 0) in pos and pos[(q + 1, 0)][1] > pos[(q, 0)][1]] or [6.0])
+    traco_mm = max(3, int(round(esp * 1.6))) / ppm
+    ry_mm = min(2.4, passo_lin / 2 - traco_mm / 2 - 0.3)
+    rx_mm = None
+    marcas = {}          # q -> [cx, cy, cx_modelo, cy_modelo, lw, lh, tipo]
     for q in range(n_perguntas):
         certa = chave[q] if q < len(chave) else ''
         dada = respostas[q] if q < len(respostas) else '-'
         if certa not in letras:
             continue
-        cx, cy, lw, lh = pos[(q, letras.index(certa))]
-        cx, cy = _afinar_centro(cv2, np, cinza, cx, cy, lw, lh, ppm)      # encaixa no quadrinho IMPRESSO desta folha
-        if dada == certa:
+        cx0, cy0, lw, lh = pos[(q, letras.index(certa))]
+        cx, cy = _afinar_centro(cv2, np, cinza, cx0, cy0, lw, lh, ppm)      # encaixa no quadrinho IMPRESSO desta folha
+        if abs(cy - cy0) > 0.8:
+            cy = cy0 + (0.8 if cy > cy0 else -0.8)                          # o ajuste é fino: nunca empurra a marca para a linha vizinha
+        marcas[q] = [cx, cy, cx0, cy0, lw, lh, 'visto' if dada == certa else 'circulo', dada]
+    # círculos em linhas consecutivas da mesma coluna: se ficarem a menos de 2·ry + 0,9 mm, voltam à posição do modelo
+    for q, m in marcas.items():
+        v = marcas.get(q + 1)
+        if m[6] == 'circulo' and v and v[6] == 'circulo' and abs(v[0] - m[0]) < 12.0 and abs(v[1] - m[1]) < 2 * ry_mm + traco_mm + 0.9:
+            m[0], m[1], v[0], v[1] = m[2], m[3], v[2], v[3]
+    for q, (cx, cy, cx0, cy0, lw, lh, tipo, dada) in marcas.items():
+        if tipo == 'visto':
             _visto_a_mao(cv2, np, page, (cx + lw / 2 + 0.6) * ppm, cy * ppm, ppm, q + 1, esp)
-        else:
-            _circulo_a_mao(cv2, np, page, cx * ppm, cy * ppm, (lw / 2) * 1.33 * ppm, 3.4 * ppm, q + 1, esp)   # a alternativa fica 100 % dentro do círculo
-            if dada not in letras:   # mais de uma alternativa assinalada ('N') OU nenhuma ('-'): «Questão nula» por cima da pergunta
-                ux, uy, ulw, ulh = pos[(q, len(letras) - 1)]      # na MESMA linha, à direita da última alternativa (sem ambiguidade)
-                textos.append(('Questão nula', ux + ulw / 2 + 1.6, uy + 1.2, 24, 3.0,
-                               ['timesbi.ttf', 'LiberationSerif-BoldItalic.ttf', 'DejaVuSerif-BoldItalic.ttf',
-                                'timesi.ttf', 'LiberationSerif-Italic.ttf', 'DejaVuSerif-Italic.ttf']))
+            continue
+        # elipse que contém os 4 cantos do quadrinho e a letra, sem tocar nas linhas vizinhas nem nas alternativas ao lado
+        rx_mm = (lw / 2) * 1.23
+        _circulo_a_mao(cv2, np, page, cx * ppm, cy * ppm, rx_mm * ppm, ry_mm * ppm, q + 1, esp)
+        if dada not in letras:   # mais de uma alternativa assinalada ('N') OU nenhuma ('-'): «Questão nula» na MESMA linha, à direita
+            ux, uy, ulw, ulh = pos[(q, len(letras) - 1)]
+            textos.append(('Questão nula', ux + ulw / 2 + 1.6, uy + 1.2, 24, 3.0,
+                           ['timesbi.ttf', 'LiberationSerif-BoldItalic.ttf', 'DejaVuSerif-BoldItalic.ttf',
+                            'timesi.ttf', 'LiberationSerif-Italic.ttf', 'DejaVuSerif-Italic.ttf']))
     from apps.documentos.services import folha_resposta_service as fr
     xii, yiii = fr.MARGEM + 109, 88.5
     estilo_i = ['timesi.ttf', 'LiberationSerif-Italic.ttf', 'DejaVuSerif-Italic.ttf']

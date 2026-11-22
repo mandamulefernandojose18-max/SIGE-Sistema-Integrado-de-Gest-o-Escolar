@@ -1912,3 +1912,10 @@ Novo endpoint `POST /api/v1/notas/provas-fisicas/<id>/corrigir-lote/` (`{upload_
 - Botão «Digitalizar com o scanner» + assistente local `frontend/downloads/sige-scanner.ps1` (WIA, 127.0.0.1:47811, CSP `connect-src` autorizado).
 - `GET /api/v1/notas/provas-fisicas/<id>/folhas-pendentes/<fid>/dados/`: recorte dos dados manuscritos do aluno.
 
+
+### Controlo da «Questão nula» e círculos sem cruzamento (v2.9.105)
+
+- Alinhamento por linha (`_desloc_linha`): perguntas 19, 20, 39 e 40 de digitalizações esticadas já não se leem como em branco/nulas. «Questão nula» só com duas marcas ou nenhuma.
+- Círculos mais baixos (ry ≤ 2,4 mm) e com verificação anti-cruzamento entre linhas seguidas.
+- Skill `controlo-questao-nula` e auditoria `backend/scripts/auditar_questao_nula.py`.
+

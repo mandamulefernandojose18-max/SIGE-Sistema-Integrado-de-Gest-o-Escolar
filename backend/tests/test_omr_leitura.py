@@ -284,12 +284,33 @@ def test_marca_fraca_unica_conta_como_resposta_e_nula_so_com_duas_marcas_ou_nenh
     assert omr.decidir([[0.0, 0.62, 0.0, 0.0]], 'ABCD')[0] == ['B']
 
 
-def test_circulo_envolve_100_por_cento_a_alternativa():
-    # o círculo (elipse) tem de conter os 4 cantos do quadrinho + letra, sem tocar nas alternativas vizinhas
-    import math
+def test_circulo_envolve_100_por_cento_a_alternativa_sem_cruzar_linhas():
+    # a elipse contém os 4 cantos do quadrinho (1,9 mm de altura) e a letra (≈ 3,4 mm), sem tocar nas alternativas vizinhas
+    # (passo 13 mm) e SEM cruzar o círculo da linha seguinte (passo entre linhas ≈ 6 mm, folga ≥ 0,6 mm)
     cels, _, _, _ = omr.celulas_grelha(40, 4)
     _q, _i, _cx, _cy, lw, lh = cels[0]
-    rx, ry = (lw / 2) * 1.33, 3.4
-    for dx, dy in ((lw / 2, 2.0), (-lw / 2, 2.0), (lw / 2, -2.0), (-lw / 2, -2.0)):
-        assert (dx / rx) ** 2 + (dy / ry) ** 2 < 0.95
-    assert rx < 13.0 - lw / 2 and ry < 3.0 + 0.6      # não invade o quadrinho vizinho (passo 13 mm) nem a linha seguinte
+    passo_lin = cels[4][3] - cels[0][3]
+    rx, ry = (lw / 2) * 1.23, min(2.4, passo_lin / 2 - 0.45)
+    for dx, dy in ((lw / 2, lh / 2), (-lw / 2, lh / 2), (lw / 2, -lh / 2), (-lw / 2, -lh / 2)):
+        assert (dx / rx) ** 2 + (dy / ry) ** 2 < 0.97
+    assert 1.7 < ry                                   # a letra (meia-altura ≈ 1,7 mm) fica dentro
+    assert rx + 0.3 < 13.0 - lw / 2                   # não toca no quadrinho vizinho
+    assert 2 * (ry + 0.3) < passo_lin - 0.5           # círculos de linhas seguidas não se cruzam
+
+def test_deriva_vertical_nao_gera_questao_nula_nas_ultimas_linhas():
+    # digitalização ligeiramente esticada na vertical (deriva até ~2 mm em baixo): uma só marca por pergunta NUNCA pode
+    # ser lida como em branco ou nula (era o erro das perguntas 19, 20, 39 e 40)
+    n, n_alt = 40, 4
+    base = _renderizar(_desenhar_folha_pdf(n, n_alt, com_qr=False))
+    marcas = {q: 'BCDA'[q % 4] for q in range(1, n + 1)}
+    img = _pintar(base, n, n_alt, marcas)
+    h, w = img.shape[:2]
+    for esticar in (1.0, 1.006, 1.012):
+        h2 = int(h * esticar)
+        grande = cv2.resize(img, (w, h2), interpolation=cv2.INTER_LINEAR)
+        folha = grande[:h] if h2 >= h else grande
+        res = omr.ler_pagina(folha, n, n_alt, procurar_qr=False)
+        lidas = res['respostas']
+        for q in (19, 20, 39, 40):
+            assert lidas[q - 1] not in 'N-', f'pergunta {q} lida como {lidas[q - 1]!r} com esticão {esticar}'
+        assert 'N' not in lidas
