@@ -1934,3 +1934,7 @@ PDF em A4 horizontal (cabeçalho oficial com logótipo, quadro de dados, quadro-
 ### Redesenho visual do site e do painel (v2.9.108)
 
 Novo sistema de design em `frontend/css/sige-ui.css` (painel: barra lateral com ícones uniformes e item activo destacado, topo translúcido, cartões e cartões de números com elevação, botões, formulários, tabelas, abas, avisos, janelas, menus, animação de entrada das páginas, marca de água discreta, telemóvel e `prefers-reduced-motion`), `frontend/css/sige-login.css` (ecrã de entrada com classes em vez de estilos inline e ligação «Voltar ao início») e refinamento de `frontend/site/site.css` (hero com brilho e grelha, cartões, secções, rodapé, cookies). Os documentos oficiais (pautas, actas, boletins) não foram alterados: continuam em Times New Roman, com negativas a vermelho e regras de impressão próprias. Service worker: cache `v3.5.0`.
+
+### Nova paleta de cores (v2.9.109)
+
+A paleta azul/roxa foi substituída por verde-azulado (#0f766e) com dourado, inspirada nas cores de Moçambique: barra lateral clara com item activo em verde suave, fundo neutro esverdeado, login em verde profundo e hero do site em gradientes verdes. Cache do service worker v3.5.1.
