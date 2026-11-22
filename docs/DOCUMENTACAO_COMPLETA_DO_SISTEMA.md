@@ -1929,16 +1929,3 @@ Folhas sem QR: o sistema lê com OCR (rapidocr-onnxruntime) o Nº escrito à mã
 
 PDF em A4 horizontal (cabeçalho oficial com logótipo, quadro de dados, quadro-resumo com corrigidas/positivas/negativas/média/maior/menor/aproveitamento, tabela com Nº, código, nome, turma, **classe**, acertos, nota, resultado e estado, folhas sem aluno a amarelo, assinaturas e rodapé «Página x de y»). Excel com cabeçalho fundido, logótipo, blocos de dados, resumo, moldura profissional (grossa/dupla dourada/pontilhada), cabeçalho repetido na impressão, painel fixo e assinaturas; gravado por `guardar_xlsx_seguro`. Testes: `tests/test_lista_avaliacao.py`.
 
-
-
-### Redesenho visual do site e do painel (v2.9.108)
-
-Novo sistema de design em `frontend/css/sige-ui.css` (painel: barra lateral com ícones uniformes e item activo destacado, topo translúcido, cartões e cartões de números com elevação, botões, formulários, tabelas, abas, avisos, janelas, menus, animação de entrada das páginas, marca de água discreta, telemóvel e `prefers-reduced-motion`), `frontend/css/sige-login.css` (ecrã de entrada com classes em vez de estilos inline e ligação «Voltar ao início») e refinamento de `frontend/site/site.css` (hero com brilho e grelha, cartões, secções, rodapé, cookies). Os documentos oficiais (pautas, actas, boletins) não foram alterados: continuam em Times New Roman, com negativas a vermelho e regras de impressão próprias. Service worker: cache `v3.5.0`.
-
-### Nova paleta de cores (v2.9.109)
-
-A paleta azul/roxa foi substituída por verde-azulado (#0f766e) com dourado, inspirada nas cores de Moçambique: barra lateral clara com item activo em verde suave, fundo neutro esverdeado, login em verde profundo e hero do site em gradientes verdes. Cache do service worker v3.5.1.
-
-### Barra lateral guiada pelo tema da escola (v2.9.110)
-
-A barra lateral do painel volta a ser escura e obedece ao tema da escola (variáveis `--sidebar-bg` e `--sidebar-active`), com item activo em tom do tema. O tema padrão passou a *Verde SIGE (Institucional)* (#0f766e / #0b2a27 / #2dd4bf); escolas com as cores azuis antigas guardadas no tema padrão migram automaticamente para a nova paleta (`aplicarTemaEFundoInstituicao`). Removidas do tema dinâmico as regras `!important` do item activo e do hover da barra lateral.
