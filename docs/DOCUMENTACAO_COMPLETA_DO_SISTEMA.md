@@ -1924,3 +1924,8 @@ Novo endpoint `POST /api/v1/notas/provas-fisicas/<id>/corrigir-lote/` (`{upload_
 
 Folhas sem QR: o sistema lê com OCR (rapidocr-onnxruntime) o Nº escrito à mão e identifica o aluno da turma cujo código oficial termina nesse Nº (…ano.area.NN), só com certeza ≥ 90 % e aluno único; fica um aviso para confirmar. O nome em cursivo não se lê com fiabilidade e não é usado. O OCR só corre se houver ≥ 450 MB de memória livre (`SIGE_OCR_NUMERO=0` desliga). Quem não for identificado fica «sem aluno» na lista e na vista, com o recorte dos dados escritos.
 
+
+### Lista de notas da avaliação redesenhada (v2.9.107)
+
+PDF em A4 horizontal (cabeçalho oficial com logótipo, quadro de dados, quadro-resumo com corrigidas/positivas/negativas/média/maior/menor/aproveitamento, tabela com Nº, código, nome, turma, **classe**, acertos, nota, resultado e estado, folhas sem aluno a amarelo, assinaturas e rodapé «Página x de y»). Excel com cabeçalho fundido, logótipo, blocos de dados, resumo, moldura profissional (grossa/dupla dourada/pontilhada), cabeçalho repetido na impressão, painel fixo e assinaturas; gravado por `guardar_xlsx_seguro`. Testes: `tests/test_lista_avaliacao.py`.
+
