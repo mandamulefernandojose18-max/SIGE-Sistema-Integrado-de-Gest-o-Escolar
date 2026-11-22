@@ -651,6 +651,52 @@ def _ler_qr(cv2, np, page, original, M, rodada):
     return ''
 
 
+# ---------------------------------------------------------------------------
+# Identificação do aluno pelo Nº escrito à mão (folha não personalizada, sem QR)
+# O nome em letra cursiva não se lê com fiabilidade; o Nº (dígitos) lê-se bem e coincide com o último segmento do código
+# oficial do aluno (0101S0001.12.01.2026.cg.NN): é a chave usada para identificar o aluno dentro da turma da prova.
+# ---------------------------------------------------------------------------
+@functools.lru_cache(maxsize=1)
+def _motor_ocr():
+    from rapidocr_onnxruntime import RapidOCR
+    return RapidOCR()
+
+
+def _memoria_livre_mb():
+    try:
+        with open('/proc/meminfo') as f:
+            for linha in f:
+                if linha.startswith('MemAvailable:'):
+                    return int(linha.split()[1]) // 1024
+    except OSError:
+        pass
+    return 10 ** 6          # sem /proc (Windows/desenvolvimento): sem limite
+
+
+def ler_numero_manuscrito(jpeg_alta):
+    """Lê o «Nº» escrito à mão no campo TURMA/Nº da folha endireitada. Devolve (numero, confianca) ou None.
+    Só dígitos com confiança ≥ 0,9; o último número do campo é o Nº (o anterior é a turma)."""
+    try:
+        import re
+        if _memoria_livre_mb() < 450:          # servidor pequeno: o OCR (~200 MB) só corre com memória sobrando (nunca derruba o site)
+            return None
+        cv2, np = _cv()
+        im = cv2.imdecode(np.frombuffer(jpeg_alta, np.uint8), cv2.IMREAD_COLOR)
+        ppm = im.shape[1] / 210.0
+        rec = im[int(63 * ppm):int(77 * ppm), int(72 * ppm):int(104 * ppm)]
+        res, _t = _motor_ocr()(rec)
+        nums = [(int(r[1]), float(r[2])) for r in (res or []) if re.fullmatch(r'\d{1,3}', str(r[1]).strip()) and float(r[2]) >= 0.9]
+        return nums[-1] if nums else None
+    except Exception:
+        return None
+
+
+def numero_do_aluno(matricula):
+    """Nº do aluno na turma = último segmento numérico do código oficial (…ano.area.NN)."""
+    import re
+    m = re.search(r'\.(\d{1,3})$', str(matricula or '').strip())
+    return int(m.group(1)) if m else None
+
 def identificar(texto_qr):
     """Dados assinados da folha ({'e','a','t','d','y','v','n'}) ou None se ilegível/falsificado."""
     from apps.documentos.services import folha_resposta_service as fr

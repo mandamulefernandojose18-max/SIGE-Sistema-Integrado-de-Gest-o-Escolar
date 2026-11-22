@@ -579,6 +579,14 @@ class LeituraOmrView(APIView):
         out = LeituraOmrView._ler(escola, prova, cpu, idx, n_mc, n_alt, versoes)
         if not out.get('ok'):
             return out
+        if not out.get('aluno') and cpu.get('ocr_num'):      # sem QR: Nº escrito à mão → aluno com esse Nº na turma da prova (só se for único)
+            numero, conf = cpu['ocr_num']
+            cand = [a for a in Aluno.objects.filter(escola=escola, turma=prova.turma, status='ATIVO') if omr.numero_do_aluno(a.matricula) == numero]
+            if len(cand) == 1:
+                al = cand[0]
+                corr0 = CorrecaoProva.objects.filter(prova=prova, aluno=al).first()
+                out['aluno'] = {'id': str(al.id), 'nome': al.nome, 'matricula': al.matricula, 'estado_actual': corr0.estado if corr0 else None}
+                out['avisos'].append(f'Aluno identificado pelo Nº {numero} escrito à mão (certeza {int(conf * 100)} %): confirme o nome.')
         alta = out.pop('alta', b'')
         out.update({'acertos': None, 'nota': None, 'corrigida': None, 'pendente_id': None, 'guardada': False})
         versao_ok = (not versoes) or bool(out['versao'])

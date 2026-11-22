@@ -314,3 +314,10 @@ def test_deriva_vertical_nao_gera_questao_nula_nas_ultimas_linhas():
         for q in (19, 20, 39, 40):
             assert lidas[q - 1] not in 'N-', f'pergunta {q} lida como {lidas[q - 1]!r} com esticão {esticar}'
         assert 'N' not in lidas
+
+
+def test_numero_do_aluno_e_ocr_so_com_memoria():
+    assert omr.numero_do_aluno('0101S0001.12.01.2026.cg.35') == 35
+    assert omr.numero_do_aluno('0101S0001.12.01.2026.cg') is None
+    assert omr.numero_do_aluno('') is None
+    assert omr.ler_numero_manuscrito(b'nao e imagem') is None      # nunca rebenta: devolve None

@@ -54,7 +54,7 @@ def aquecer():
         pass
 
 
-def trabalhar_pagina(caminho, idx, prova, n_mc, n_alt, versoes, professor):
+def trabalhar_pagina(caminho, idx, prova, n_mc, n_alt, versoes, professor, ler_numero=None):
     """Corre num processo à parte: lê a página, identifica o QR e já desenha a folha corrigida (sem base de dados)."""
     import warnings
     warnings.filterwarnings('ignore')
@@ -66,8 +66,12 @@ def trabalhar_pagina(caminho, idx, prova, n_mc, n_alt, versoes, professor):
     if img is None:
         return {'idx': idx, 'cpu': {'erro': erro}, 'pre': None}
     cpu = _ler_cpu(img, orig, n_mc, n_alt, True)
+    if ler_numero is None:
+        ler_numero = os.environ.get('SIGE_OCR_NUMERO', '1') == '1'
     pre = None
     res = cpu.get('res')
+    if res and res.get('alta') and ler_numero and not cpu.get('qr') and not res.get('codigo_barras'):
+        cpu['ocr_num'] = omr.ler_numero_manuscrito(res['alta'])      # folha sem QR: lê o Nº escrito à mão
     if res and res.get('alta'):
         qr = cpu.get('qr') or {}
         versao = (qr.get('v') or '').upper()

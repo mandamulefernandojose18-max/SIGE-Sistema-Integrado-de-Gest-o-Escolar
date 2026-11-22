@@ -21,3 +21,10 @@ numpy>=1.26
 opencv-python-headless>=4.10,<5
 cryptography>=42
 anthropic>=1.0
+# OCR do Nº escrito à mão (rapidocr-onnxruntime instala-se SEM dependências no Dockerfile: puxaria opencv-python e partiria o cv2)
+onnxruntime>=1.17,<1.21
+pyclipper
+shapely
+pyyaml
+six
+tqdm

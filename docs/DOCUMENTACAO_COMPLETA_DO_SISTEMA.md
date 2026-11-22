@@ -1919,3 +1919,8 @@ Novo endpoint `POST /api/v1/notas/provas-fisicas/<id>/corrigir-lote/` (`{upload_
 - Círculos mais baixos (ry ≤ 2,4 mm) e com verificação anti-cruzamento entre linhas seguidas.
 - Skill `controlo-questao-nula` e auditoria `backend/scripts/auditar_questao_nula.py`.
 
+
+### Identificação do aluno pelo Nº escrito à mão (v2.9.106)
+
+Folhas sem QR: o sistema lê com OCR (rapidocr-onnxruntime) o Nº escrito à mão e identifica o aluno da turma cujo código oficial termina nesse Nº (…ano.area.NN), só com certeza ≥ 90 % e aluno único; fica um aviso para confirmar. O nome em cursivo não se lê com fiabilidade e não é usado. O OCR só corre se houver ≥ 450 MB de memória livre (`SIGE_OCR_NUMERO=0` desliga). Quem não for identificado fica «sem aluno» na lista e na vista, com o recorte dos dados escritos.
+
