@@ -1929,3 +1929,5 @@ Folhas sem QR: o sistema lê com OCR (rapidocr-onnxruntime) o Nº escrito à mã
 
 PDF em A4 horizontal (cabeçalho oficial com logótipo, quadro de dados, quadro-resumo com corrigidas/positivas/negativas/média/maior/menor/aproveitamento, tabela com Nº, código, nome, turma, **classe**, acertos, nota, resultado e estado, folhas sem aluno a amarelo, assinaturas e rodapé «Página x de y»). Excel com cabeçalho fundido, logótipo, blocos de dados, resumo, moldura profissional (grossa/dupla dourada/pontilhada), cabeçalho repetido na impressão, painel fixo e assinaturas; gravado por `guardar_xlsx_seguro`. Testes: `tests/test_lista_avaliacao.py`.
 
+
+Nota (v2.9.111): o redesenho visual ficou apenas nas páginas públicas (início, contacto, privacidade, termos e login: `site/site.css` e `css/sige-login.css`). O painel após o login voltou ao aspecto original.
