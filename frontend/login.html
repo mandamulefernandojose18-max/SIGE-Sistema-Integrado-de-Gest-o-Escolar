@@ -19,100 +19,63 @@
   <link href="/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.min.css">
   <script src="/js/seguranca-xss.js?v=20261120_2100"></script>
-  <style>
-    body {
-      margin: 0;
-      background-color: #06041a;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: #1e293b;
-    }
-    #loginSenha::-ms-reveal,
-    #loginSenha::-ms-clear {
-      display: none;
-    }
-  </style>
+  <link rel="stylesheet" href="/css/sige-login.css?v=20261122_1">
 </head>
 <body>
 
 <!-- TELA DE LOGIN: esta página contém apenas o início de sessão (nada do painel) -->
-<div id="loginView" style="display: flex; min-height: 100vh; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 25%, #18114f 0%, #0c092e 60%, #06041a 100%);" class="align-items-center justify-content-center p-3 p-md-4">
-  <!-- Marca de água sutil de fundo no login -->
-  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 560px; height: 560px; background: url('/img/logo-sige.png') no-repeat center center; background-size: contain; opacity: 0.03; pointer-events: none; z-index: 0;"></div>
-
-  <div class="card shadow-2xl p-4 p-sm-5 position-relative" style="max-width: 440px; width: 100%; border-radius: 28px; background: rgba(14, 10, 54, 0.8); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); border: 1.5px solid rgba(167, 139, 250, 0.4); box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 80px rgba(139, 92, 246, 0.25); z-index: 1;">
-    <div class="text-center mb-3">
-      <div class="d-inline-flex align-items-center justify-content-center p-2 mb-3 shadow" style="width: 120px; height: 120px; background: #c6cbe6; border-radius: 24px;">
-        <img src="/img/logo-sige.png" alt="Logótipo SIGE" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;">
-      </div>
-
-      <div class="text-uppercase fw-bold" style="font-size: 0.78rem; letter-spacing: 3px; color: #a5b4fc; margin-bottom: 4px;">
-        SIGE
-      </div>
-      <h3 class="fw-bold text-white mb-1" style="font-size: 1.42rem; letter-spacing: -0.3px;">
-        Sistema Integrado de Gestão Escolar
-      </h3>
-      <p style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 0;">
-        Introduza as suas credenciais para aceder
-      </p>
+<div id="loginView" class="lg-pagina">
+  <main class="lg-cartao">
+    <a class="lg-voltar" href="/"><i class="bi bi-arrow-left"></i> Voltar ao início</a>
+    <div class="text-center">
+      <div class="lg-logo"><img src="/img/logo-sige.png" alt="Logótipo SIGE"></div>
+      <div class="lg-sigla">SIGE</div>
+      <h1 class="lg-titulo">Sistema Integrado de Gestão Escolar</h1>
+      <p class="lg-sub">Introduza as suas credenciais para aceder</p>
     </div>
 
-    <div style="border-top: 1px solid rgba(255, 255, 255, 0.12); margin: 20px 0 24px 0;"></div>
+    <hr class="lg-sep">
 
     <form id="loginForm">
-      <div class="mb-3">
-        <label class="form-label text-uppercase fw-bold text-start d-block" for="loginEmail" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
-          CÓDIGO DO UTILIZADOR
-        </label>
-        <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden; transition: all 0.2s;" onfocusin="this.style.borderColor='#df8704'; this.style.boxShadow='0 0 0 3px rgba(223, 135, 4, 0.25)'" onfocusout="this.style.borderColor='transparent'; this.style.boxShadow='none'">
-          <span class="input-group-text bg-transparent border-0 pe-1 text-warning">
-            <i class="bi bi-person fs-5"></i>
-          </span>
-          <input type="text" id="loginEmail" class="form-control bg-transparent border-0 shadow-none ps-2" required placeholder="Código do utilizador" autocomplete="username" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 10px;">
+      <div class="lg-grupo">
+        <label class="lg-rotulo" for="loginEmail">Código do utilizador</label>
+        <div class="lg-campo">
+          <span class="lg-ico"><i class="bi bi-person"></i></span>
+          <input type="text" id="loginEmail" required placeholder="Código do utilizador" autocomplete="username">
         </div>
       </div>
 
-      <div class="mb-4">
-        <label class="form-label text-uppercase fw-bold text-start d-block" for="loginSenha" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
-          SENHA
-        </label>
-        <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden; transition: all 0.2s;" onfocusin="this.style.borderColor='#df8704'; this.style.boxShadow='0 0 0 3px rgba(223, 135, 4, 0.25)'" onfocusout="this.style.borderColor='transparent'; this.style.boxShadow='none'">
-          <input type="password" id="loginSenha" class="form-control bg-transparent border-0 shadow-none ps-3 pe-1" required placeholder="••••••••" autocomplete="current-password" style="font-size: 0.95rem; font-weight: 500; color: #0f172a; padding: 12px 14px;">
-          <button type="button" id="btnToggleLoginSenha" class="input-group-text bg-transparent border-0 shadow-none px-3" title="Mostrar / ocultar senha" aria-label="Mostrar ou ocultar senha" style="cursor: pointer; color: #64748b;">
+      <div class="lg-grupo">
+        <label class="lg-rotulo" for="loginSenha">Senha</label>
+        <div class="lg-campo">
+          <span class="lg-ico"><i class="bi bi-lock"></i></span>
+          <input type="password" id="loginSenha" required placeholder="••••••••" autocomplete="current-password">
+          <button type="button" id="btnToggleLoginSenha" class="lg-olho" title="Mostrar / ocultar senha" aria-label="Mostrar ou ocultar senha">
             <i id="iconToggleLoginSenha" class="bi bi-eye fs-5"></i>
           </button>
         </div>
       </div>
 
-      <div id="loginBloco2FA" class="mb-4 d-none">
-        <label class="form-label text-uppercase fw-bold text-start d-block" for="loginCodigo2FA" style="font-size: 0.72rem; letter-spacing: 1.5px; color: #cbd5e1; margin-bottom: 6px;">
-          CÓDIGO DE VERIFICAÇÃO (2FA)
-        </label>
-        <div class="input-group" style="background: #eef2ff; border-radius: 10px; border: 2px solid transparent; overflow: hidden;">
-          <span class="input-group-text bg-transparent border-0 pe-1 text-warning"><i class="bi bi-shield-lock fs-5"></i></span>
-          <input type="text" id="loginCodigo2FA" class="form-control bg-transparent border-0 shadow-none ps-2" inputmode="text" autocomplete="one-time-code" maxlength="12" placeholder="6 dígitos ou código de recuperação" style="font-size: 0.95rem; font-weight: 600; letter-spacing: 1px; color: #0f172a; padding: 12px 10px;">
+      <div id="loginBloco2FA" class="lg-grupo d-none">
+        <label class="lg-rotulo" for="loginCodigo2FA">Código de verificação (2FA)</label>
+        <div class="lg-campo">
+          <span class="lg-ico"><i class="bi bi-shield-lock"></i></span>
+          <input type="text" id="loginCodigo2FA" inputmode="text" autocomplete="one-time-code" maxlength="12" placeholder="6 dígitos ou código de recuperação" style="font-weight:600;letter-spacing:1px">
         </div>
-        <div class="small mt-1 text-start" style="color: #94a3b8;">Abra a aplicação autenticadora no telemóvel. Sem telemóvel? Use um código de recuperação.</div>
+        <div class="lg-ajuda">Abra a aplicação autenticadora no telemóvel. Sem telemóvel? Use um código de recuperação.</div>
       </div>
 
-      <div id="loginFeedback" class="mb-3 d-none" style="border-radius: 10px; font-size: 0.86rem; padding: 10px 14px; text-align: left;"></div>
+      <div id="loginFeedback" class="mb-3 d-none"></div>
 
-      <button type="submit" id="btnLoginSubmit" class="btn w-100 fw-bold shadow-sm" style="background: #df8704; color: #ffffff; padding: 12px; border-radius: 10px; border: none; font-size: 0.98rem; letter-spacing: 0.3px; transition: background 0.2s;" onmouseover="this.style.background='#c97702'" onmouseout="this.style.background='#df8704'">
-        Autenticar
-      </button>
+      <button type="submit" id="btnLoginSubmit" class="lg-botao">Autenticar</button>
 
-      <div class="text-center mt-3">
-        <a href="javascript:void(0)" id="linkEsqueciSenha" class="small text-decoration-none fw-semibold" style="color: #38bdf8;">
-          Esqueci a senha
-        </a>
+      <div class="text-center">
+        <a href="javascript:void(0)" id="linkEsqueciSenha" class="lg-link">Esqueci a senha</a>
       </div>
 
-      <div class="text-center mt-4 pt-2">
-        <small style="color: #64748b; font-size: 0.76rem;">
-          &copy; 2026 SIGE &bull; Sistema Integrado de Gest&atilde;o Escolar
-        </small>
-      </div>
+      <p class="lg-rodape">&copy; 2026 SIGE &bull; Sistema Integrado de Gest&atilde;o Escolar</p>
     </form>
-  </div>
+  </main>
 </div>
 
 <!-- Recuperação de acesso -->

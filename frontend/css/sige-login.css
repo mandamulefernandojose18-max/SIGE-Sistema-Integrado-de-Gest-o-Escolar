@@ -1,0 +1,62 @@
+/* SIGE — ecrã de entrada (v3). A animação de fundo vem de login-bg.js / login-fx.js. */
+:root { --lg-gold: #f59e0b; --lg-gold-d: #d97706; --lg-accent: #38bdf8; }
+body { margin: 0; background: #06041a; font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+#loginSenha::-ms-reveal, #loginSenha::-ms-clear { display: none; }
+
+.lg-pagina {
+  display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 1rem; position: relative; overflow: hidden;
+  background: radial-gradient(circle at 50% 22%, #1b1458 0%, #0c092e 60%, #06041a 100%);
+}
+.lg-cartao {
+  position: relative; z-index: 1; width: 100%; max-width: 440px; padding: 2.4rem 2.1rem 1.8rem; border-radius: 28px;
+  background: linear-gradient(180deg, rgba(24, 18, 76, .78), rgba(12, 9, 46, .86));
+  -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(167, 139, 250, .34);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .04) inset, 0 0 90px rgba(99, 102, 241, .22);
+  animation: lg-entra .6s cubic-bezier(.2, .7, .2, 1) both;
+}
+.lg-cartao::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; border-radius: 28px 28px 0 0;
+  background: linear-gradient(90deg, transparent, var(--lg-accent), var(--lg-gold), transparent);
+}
+@keyframes lg-entra { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: none; } }
+
+.lg-logo { width: 108px; height: 108px; margin: 0 auto 1.1rem; padding: 8px; border-radius: 26px; background: linear-gradient(145deg, #e2e6f8, #bcc4e6); box-shadow: 0 14px 34px rgba(0, 0, 0, .45), 0 0 0 4px rgba(255, 255, 255, .06); display: grid; place-items: center; }
+.lg-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 18px; }
+.lg-sigla { font-size: .74rem; font-weight: 800; letter-spacing: .34em; color: #a5b4fc; text-align: center; text-transform: uppercase; }
+.lg-titulo { margin: .25rem 0 .35rem; text-align: center; color: #fff; font-weight: 800; font-size: 1.4rem; line-height: 1.25; letter-spacing: -.02em; }
+.lg-sub { margin: 0; text-align: center; color: #9aa8c7; font-size: .88rem; }
+.lg-sep { border: 0; border-top: 1px solid rgba(255, 255, 255, .11); margin: 1.4rem 0 1.5rem; }
+
+.lg-rotulo { display: block; margin-bottom: .4rem; font-size: .7rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #c3cde6; }
+.lg-campo {
+  display: flex; align-items: center; background: #eef2ff; border: 2px solid transparent; border-radius: 12px; overflow: hidden;
+  transition: border-color .18s, box-shadow .18s, background-color .18s;
+}
+.lg-campo:focus-within { border-color: var(--lg-gold); box-shadow: 0 0 0 4px rgba(245, 158, 11, .24); background: #fff; }
+.lg-campo .lg-ico { padding: 0 .3rem 0 .95rem; color: var(--lg-gold-d); font-size: 1.15rem; display: flex; }
+.lg-campo input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: .8rem .9rem; font-size: .96rem; font-weight: 500; color: #0f172a; }
+.lg-campo input::placeholder { color: #94a0bb; }
+.lg-campo .lg-olho { border: 0; background: transparent; padding: 0 .95rem; color: #64748b; cursor: pointer; display: flex; font-size: 1.15rem; transition: color .15s; }
+.lg-campo .lg-olho:hover { color: #1e3a8a; }
+.lg-grupo { margin-bottom: 1.1rem; }
+.lg-ajuda { margin-top: .35rem; font-size: .78rem; color: #94a3b8; }
+
+.lg-botao {
+  width: 100%; border: 0; border-radius: 12px; padding: .9rem 1rem; font-size: 1rem; font-weight: 750; letter-spacing: .01em; color: #fff; cursor: pointer;
+  background: linear-gradient(180deg, #fbab1c, var(--lg-gold-d)); box-shadow: 0 10px 24px rgba(217, 119, 6, .38), 0 1px 0 rgba(255, 255, 255, .25) inset;
+  transition: transform .15s, box-shadow .15s, filter .15s;
+}
+.lg-botao:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); box-shadow: 0 14px 30px rgba(217, 119, 6, .46); }
+.lg-botao:active:not(:disabled) { transform: translateY(1px); }
+.lg-botao:disabled { opacity: .7; cursor: progress; }
+.lg-botao:focus-visible, .lg-link:focus-visible, .lg-olho:focus-visible { outline: 3px solid rgba(56, 189, 248, .7); outline-offset: 2px; }
+.lg-link { display: inline-block; margin-top: 1rem; color: var(--lg-accent); font-size: .88rem; font-weight: 600; text-decoration: none; }
+.lg-link:hover { color: #7dd3fc; text-decoration: underline; text-underline-offset: 3px; }
+.lg-rodape { margin: 1.5rem 0 0; text-align: center; color: #6b7aa6; font-size: .76rem; }
+.lg-voltar { display: inline-flex; align-items: center; gap: .35rem; color: #b6c2e2; font-size: .82rem; text-decoration: none; margin-bottom: 1.1rem; }
+.lg-voltar:hover { color: #fff; }
+#loginFeedback.alert { border-radius: 12px; text-align: left; }
+
+@media (max-width: 420px) { .lg-cartao { padding: 1.8rem 1.25rem 1.4rem; border-radius: 22px; } .lg-titulo { font-size: 1.25rem; } }
+@media (prefers-reduced-motion: reduce) { .lg-cartao { animation: none; } }

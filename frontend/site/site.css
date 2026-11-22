@@ -95,3 +95,61 @@ body.site { font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetic
 .pagina-erro { min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 2rem 1rem; background: linear-gradient(135deg, #0f172a, #1e3a8a); color: #fff; }
 .pagina-erro .codigo { font-size: clamp(5rem, 22vw, 10rem); font-weight: 900; line-height: 1; color: var(--sg-ciano); text-shadow: 0 6px 30px rgba(56,189,248,.35); }
 .pagina-erro p { color: #cbd5e1; max-width: 30rem; margin-inline: auto; }
+
+/* ===================== v3 — refinamento visual do site público ===================== */
+body.site { font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; -webkit-font-smoothing: antialiased; line-height: 1.6; }
+.site h1, .site h2, .site h3 { letter-spacing: -.02em; }
+.site-nav { background: rgba(11, 18, 48, .82); backdrop-filter: saturate(170%) blur(14px); -webkit-backdrop-filter: saturate(170%) blur(14px); border-bottom: 1px solid rgba(255,255,255,.07); box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+.site-nav .nav-link { transition: background .18s, color .18s; }
+.site-nav .nav-link.active { background: rgba(56,189,248,.18); color: #7dd3fc; }
+.btn-sige { background: linear-gradient(180deg, #5cc8fb, #2fb0ee); box-shadow: 0 8px 22px rgba(56,189,248,.35), 0 1px 0 rgba(255,255,255,.35) inset; transition: transform .15s, box-shadow .15s, filter .15s; }
+.btn-sige:hover { background: linear-gradient(180deg, #7dd3fc, #38bdf8); transform: translateY(-2px); box-shadow: 0 12px 28px rgba(56,189,248,.45); }
+.btn-sige-contorno { border: 1.5px solid rgba(255,255,255,.55); backdrop-filter: blur(4px); background: rgba(255,255,255,.06); transition: background .18s, color .18s, transform .15s; }
+.btn-sige-contorno:hover { transform: translateY(-2px); }
+
+/* hero: brilho, grelha subtil e ícone em «vidro» */
+.hero-carousel .carousel-item::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(60% 80% at 85% 10%, rgba(56,189,248,.28), transparent 60%), radial-gradient(50% 70% at 5% 100%, rgba(255,255,255,.08), transparent 60%); }
+.hero-carousel .carousel-item::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(70% 90% at 70% 40%, #000, transparent); mask-image: radial-gradient(70% 90% at 70% 40%, #000, transparent); }
+.hero-carousel .slide-conteudo { position: relative; z-index: 1; }
+.hero-carousel h1, .hero-carousel h2.titulo { text-shadow: 0 2px 24px rgba(0,0,0,.25); }
+.hero-carousel .icone-grande { color: rgba(255,255,255,.9); background: linear-gradient(145deg, rgba(255,255,255,.2), rgba(255,255,255,.04)); border: 1px solid rgba(255,255,255,.25); border-radius: 40px; padding: 2rem; display: inline-block; box-shadow: 0 30px 70px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.3) inset; backdrop-filter: blur(6px); font-size: clamp(5rem, 14vw, 9rem); animation: sg-flutua 6s ease-in-out infinite; }
+@keyframes sg-flutua { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-14px) rotate(2deg); } }
+.hero-carousel .carousel-indicators [data-bs-target] { width: 10px; height: 10px; margin: 0 5px; border: 0; transition: width .3s, background .3s; }
+.hero-carousel .carousel-indicators .active { width: 30px; border-radius: 6px; }
+
+/* secções */
+.secao { padding: 5rem 0; }
+.secao h2 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); }
+.secao .sub { font-size: 1.05rem; }
+.secao > .container > .text-center > h2::before { content: ""; display: block; width: 48px; height: 5px; border-radius: 4px; margin: 0 auto 1rem; background: linear-gradient(90deg, var(--sg-ciano), var(--sg-azul)); }
+.secao.cinza { background: linear-gradient(180deg, #f4f7fd, #eef2fb); }
+.cartao { border-radius: 20px; padding: 1.75rem; box-shadow: 0 1px 2px rgba(15,23,42,.04); position: relative; overflow: hidden; }
+.cartao::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--sg-ciano), var(--sg-azul)); opacity: 0; transition: opacity .2s; }
+.cartao:hover { transform: translateY(-6px); box-shadow: 0 22px 44px rgba(15,23,42,.12); border-color: #cfd9ee; }
+.cartao:hover::before { opacity: 1; }
+.cartao .ic { width: 56px; height: 56px; border-radius: 16px; box-shadow: 0 10px 20px rgba(15,23,42,.18); }
+.cartao h3 { font-size: 1.15rem; }
+.passo .n { width: 60px; height: 60px; font-size: 1.4rem; background: linear-gradient(145deg, #2a4fd6, #172554); box-shadow: 0 12px 26px rgba(30,58,138,.35); }
+.faixa-cta { position: relative; overflow: hidden; padding: 5rem 0; background: radial-gradient(60% 120% at 80% 0%, rgba(56,189,248,.28), transparent 60%), linear-gradient(135deg, #1e3a8a, #0b1230); }
+.faixa-cta h2 { font-size: clamp(1.6rem, 3.6vw, 2.4rem); }
+
+/* páginas internas do site */
+.pagina-topo { background: radial-gradient(60% 140% at 85% 0%, rgba(56,189,248,.25), transparent 60%), linear-gradient(135deg, #1e3a8a, #0b1230); padding: 4rem 0 3rem; }
+.texto-legal h2 { padding-bottom: .4rem; border-bottom: 1px solid var(--sg-borda); }
+.form-control, .form-select { border-radius: 12px; border-color: #d3dae8; padding: .7rem .9rem; }
+.form-control:focus, .form-select:focus { border-color: #2447c4; box-shadow: 0 0 0 .22rem rgba(36,71,196,.2); }
+
+/* rodapé e cookies */
+.site-rodape { background: linear-gradient(180deg, #0b1230, #070b20); padding: 3.5rem 0 1.5rem; }
+.cookie-faixa { border-top: 0; border-radius: 20px 20px 0 0; box-shadow: 0 -12px 40px rgba(15,23,42,.22); }
+@media (min-width: 992px) { .cookie-faixa { left: 24px; right: 24px; bottom: 16px; border-radius: 18px; border: 1px solid var(--sg-borda); } }
+.cookie-modal { border-radius: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.4); }
+
+/* erros */
+.pagina-erro { background: radial-gradient(60% 80% at 50% 0%, rgba(56,189,248,.22), transparent 60%), linear-gradient(135deg, #0b1230, #1e3a8a); }
+
+@media (max-width: 575.98px) { .secao { padding: 3.2rem 0; } .hero-carousel .carousel-item, .hero-carousel .slide-conteudo { min-height: 480px; } }
+@media (prefers-reduced-motion: reduce) { .hero-carousel .icone-grande { animation: none; } .cartao, .btn-sige { transition: none; } }

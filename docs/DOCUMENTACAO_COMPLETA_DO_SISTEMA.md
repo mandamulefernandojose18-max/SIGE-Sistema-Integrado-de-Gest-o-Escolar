@@ -1929,3 +1929,8 @@ Folhas sem QR: o sistema lê com OCR (rapidocr-onnxruntime) o Nº escrito à mã
 
 PDF em A4 horizontal (cabeçalho oficial com logótipo, quadro de dados, quadro-resumo com corrigidas/positivas/negativas/média/maior/menor/aproveitamento, tabela com Nº, código, nome, turma, **classe**, acertos, nota, resultado e estado, folhas sem aluno a amarelo, assinaturas e rodapé «Página x de y»). Excel com cabeçalho fundido, logótipo, blocos de dados, resumo, moldura profissional (grossa/dupla dourada/pontilhada), cabeçalho repetido na impressão, painel fixo e assinaturas; gravado por `guardar_xlsx_seguro`. Testes: `tests/test_lista_avaliacao.py`.
 
+
+
+### Redesenho visual do site e do painel (v2.9.108)
+
+Novo sistema de design em `frontend/css/sige-ui.css` (painel: barra lateral com ícones uniformes e item activo destacado, topo translúcido, cartões e cartões de números com elevação, botões, formulários, tabelas, abas, avisos, janelas, menus, animação de entrada das páginas, marca de água discreta, telemóvel e `prefers-reduced-motion`), `frontend/css/sige-login.css` (ecrã de entrada com classes em vez de estilos inline e ligação «Voltar ao início») e refinamento de `frontend/site/site.css` (hero com brilho e grelha, cartões, secções, rodapé, cookies). Os documentos oficiais (pautas, actas, boletins) não foram alterados: continuam em Times New Roman, com negativas a vermelho e regras de impressão próprias. Service worker: cache `v3.5.0`.
